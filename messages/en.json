@@ -1,0 +1,77 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "name": "English",
+  "greeting": "Find arcades near you.",
+  "discover": "Discover now",
+  "github": "View on GitHub",
+  "discover_from": "Discover from",
+  "my_location": "my location",
+  "a_university": "a university",
+  "a_place_on_map": "a place on map",
+  "getting_location": "Getting location...",
+  "get_my_location": "Get My Location",
+  "location_not_supported": "Geolocation is not supported by this browser.",
+  "location_permission_denied": "Location access denied by user.",
+  "location_unavailable": "Location information is unavailable.",
+  "location_timeout": "Location request timed out.",
+  "location_unknown_error": "An unknown error occurred while retrieving location.",
+  "select_on_map": "Select a location on the map",
+  "go": "Go",
+  "nearby_arcades": "Nearby Arcades",
+  "found_shops_near": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Found {count} shop near ({lat}, {lng})",
+        "countPlural=other": "Found {count} shops near ({lat}, {lng})"
+      }
+    }
+  ],
+  "no_shops_found": "No shops found in this area. Try searching in a different location.",
+  "shop": "Shop",
+  "distance": "Distance",
+  "actions": "Actions",
+  "details": "Details",
+  "unknown": "Unknown",
+  "total_shops": "Total Shops",
+  "in_this_area": "in this area",
+  "total_machines": "Total Machines",
+  "arcade_machines": "arcade machines",
+  "area_density": "Area Density",
+  "machines_per_km2": "machines per km²",
+  "search_radius": "Search Radius",
+  "search_university": "Search university name...",
+  "campus_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} campus",
+        "countPlural=other": "{count} campuses"
+      }
+    }
+  ],
+  "main_campus": "Main Campus",
+  "maimai_dx": "maimai DX",
+  "chunithm": "CHUNITHM",
+  "taiko_no_tatsujin": "Taiko no Tatsujin",
+  "sound_voltex": "SOUND VOLTEX",
+  "wacca": "WACCA",
+  "origin": "Origin",
+  "university": "University",
+  "error_500_title": "Server Error",
+  "error_500_description": "Our servers are having trouble processing your request. Please try again later.",
+  "error_404_title": "Page Not Found",
+  "error_404_description": "The page you're looking for doesn't exist or has been moved.",
+  "error_400_title": "Bad Request",
+  "error_400_description": "There was an issue with your request. Please check and try again.",
+  "error_unknown_title": "Unknown Error",
+  "error_unknown_description": "An unexpected error occurred. Please try again.",
+  "go_home": "Go Home",
+  "try_again": "Try Again",
+  "report_issue": "Report Issue",
+  "map_failure": "Failed to load map: {error}",
+  "loading": "Loading...",
+  "university_warning": "Some university information may be incomplete or inaccurate. If you're struggling, please select on map instead. We are working to improve data quality."
+}

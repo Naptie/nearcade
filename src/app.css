@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora&family=Noto+Sans+SC&display=swap');
+@import 'tailwindcss';
+
+@plugin 'daisyui' {
+  themes:
+    emerald --default,
+    forest --prefersdark;
+}
+
+body {
+  font-family: 'Sora', 'Noto Sans SC', sans-serif;
+}
