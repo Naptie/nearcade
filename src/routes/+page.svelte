@@ -5,6 +5,7 @@
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import { m } from '$lib/paraglide/messages';
+    import type { AMapContext } from '$lib/types';
   import { getContext, untrack, onMount } from 'svelte';
 
   // Types for university data
@@ -64,7 +65,7 @@
   let isLoading = $state(false);
   let locationError = $state('');
   let mapIframe = $state<HTMLIFrameElement>();
-  let amap: any = (getContext('amap') as any)?.amap;
+  let amap = (getContext('amap') as AMapContext)?.amap;
 
   // University search state
   let universityQuery = $state('');
@@ -242,7 +243,7 @@
   const go = (convert: boolean = true) => {
     isLoading = true;
     if (amap && convert)
-      amap.convertFrom([location.longitude, location.latitude], (status: string, result: any) => {
+      amap.convertFrom([location.longitude, location.latitude], 'gps', (status: string, result: any) => {
         if (status === 'complete' && result.info === 'ok') {
           location.latitude = result.locations[0].lat;
           location.longitude = result.locations[0].lng;

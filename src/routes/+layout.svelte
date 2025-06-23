@@ -6,7 +6,7 @@
   import { page } from '$app/state';
   import { PUBLIC_AMAP_KEY } from '$env/static/public';
   import type { AMapContext } from '$lib/types';
-  import "@amap/amap-jsapi-types";
+  import '@amap/amap-jsapi-types';
 
   let { children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -14,9 +14,15 @@
   let amapError = $state<string | null>(null);
 
   const amapContext: AMapContext = {
-    get amap() { return amap; },
-    get ready() { return amapReady; },
-    get error() { return amapError; }
+    get amap() {
+      return amap;
+    },
+    get ready() {
+      return amapReady;
+    },
+    get error() {
+      return amapError;
+    }
   };
 
   setContext('amap', amapContext);

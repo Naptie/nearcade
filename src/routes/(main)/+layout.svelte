@@ -24,7 +24,7 @@
 </script>
 
 <nav
-  class="navbar fixed top-0 z-[999] px-6 w-full backdrop-blur-xl transition-all duration-200 {isAtTop
+  class="navbar fixed top-0 z-[999] w-full px-6 backdrop-blur-xl transition-all duration-200 {isAtTop
     ? 'bg-transparent'
     : 'bg-base-100/50 shadow lg:shadow-md'}"
 >

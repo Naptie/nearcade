@@ -36,7 +36,8 @@ export interface University {
   isDoubleFirstClass: boolean;
   province: string;
   city: string;
-  affiliation: string;  campuses: Campus[];
+  affiliation: string;
+  campuses: Campus[];
 }
 
 export interface AMapContext {
