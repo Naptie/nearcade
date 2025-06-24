@@ -305,7 +305,7 @@
             </div>
             <div class="hidden sm:block">
               <span class="label w-full">{m.discover_from()}</span>
-              <div class="tabs tabs-border my-1 w-full">
+              <div class="tabs tabs-border mb-1 w-full">
                 <button
                   class="tab flex-1 flex-nowrap whitespace-nowrap transition"
                   class:tab-active={mode === 0}
@@ -507,5 +507,10 @@
   .tabs-border .tab:before {
     width: 100%;
     left: 0;
+  }
+  .collapse-transition {
+    transition-property: grid-template-rows, height, opacity, border-color, shadow, margin-top;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms, 300ms, 300ms, 150ms, 150ms, 300ms;
   }
 </style>
