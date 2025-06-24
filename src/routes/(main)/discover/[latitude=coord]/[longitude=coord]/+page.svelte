@@ -232,7 +232,7 @@
                 </td>
               {/each}
               <td class="text-right">
-                <div class="flex justify-end space-x-2">
+                <div class="flex justify-center space-x-2">
                   <a
                     class="btn btn-ghost btn-sm"
                     href={`https://map.bemanicn.com/shop/${shop.id}`}
