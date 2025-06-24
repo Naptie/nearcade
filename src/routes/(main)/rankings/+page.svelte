@@ -287,7 +287,7 @@
 
                 {#each visibleRadiusOptions as option}
                   {@const metrics = getMetricsForRadius(ranking, option)}
-                  <td class="relative text-center">
+                  <td class="relative w-28 text-center md:w-32 lg:w-44 xl:w-48 2xl:w-60">
                     {#if metrics}
                       <div
                         class="flex flex-col items-center transition-opacity duration-200 {hoveredRowId ===
@@ -314,12 +314,12 @@
 
                       {#if showHoverDetails === index}
                         <div
-                          class="absolute inset-0 flex flex-col items-center justify-center overflow-hidden px-2 text-xs transition-opacity duration-200 {hoveredRowId ===
+                          class="absolute inset-0 flex flex-col items-center justify-center overflow-hidden px-2 text-xs transition-opacity duration-200 lg:px-4 {hoveredRowId ===
                           index
                             ? 'opacity-100'
                             : 'opacity-0'}"
                         >
-                          <div class="grid grid-cols-1 gap-0.5 text-center">
+                          <div class="grid w-full grid-cols-1 gap-0.5 text-center">
                             <div>{m.shops({ count: formatNumber(metrics.shopCount) })}</div>
                             <div>{m.machines({ count: formatNumber(metrics.totalMachines) })}</div>
                             <div>
@@ -358,7 +358,7 @@
                       target="_blank"
                     >
                       <i class="fas fa-map-marker-alt"></i>
-                      {m.view_location()}
+                      <span class="not-md:hidden">{m.view_location()}</span>
                     </a>
                   </div>
                 </td>
