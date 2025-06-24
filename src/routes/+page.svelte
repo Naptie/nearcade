@@ -9,11 +9,6 @@
   import type { AMapContext, Campus, University } from '$lib/types';
   import { getContext, untrack, onMount } from 'svelte';
 
-  interface SelectedUniversity {
-    university: University;
-    campus: Campus;
-  }
-
   let showCollapse = $state(false);
   let mode = $state(0);
   let radius = $state(10);
@@ -44,12 +39,11 @@
   let isLoading = $state(false);
   let locationError = $state('');
   let mapIframe = $state<HTMLIFrameElement>();
-  let amap = (getContext('amap') as AMapContext)?.amap;
+  let amap = getContext<AMapContext>('amap')?.amap;
 
   let universityQuery = $state('');
   let universities = $state<University[]>([]);
   let isSearchingUniversities = $state(false);
-  let selectedUniversity = $state<SelectedUniversity | null>(null);
   let searchTimeout: number;
 
   const getMyLocation = () => {
@@ -137,7 +131,6 @@
   };
 
   const selectUniversity = (university: University, campus: Campus) => {
-    selectedUniversity = { university, campus };
     location.name = `${university.name}${campus.name ? ` (${campus.name})` : ''}`;
     location.latitude = campus.latitude;
     location.longitude = campus.longitude;
@@ -160,7 +153,6 @@
       location.longitude = undefined;
       universityQuery = '';
       universities = [];
-      selectedUniversity = null;
     } else if (mode === 2) {
       // Reset for map mode
       location.name = '';
@@ -226,19 +218,24 @@
 
   const go = (convert: boolean = true) => {
     isLoading = true;
-    if (amap && convert)
-      amap.convertFrom(
-        [location.longitude, location.latitude],
-        'gps',
-        (status: string, result: { info: string; locations: { lat: number; lng: number }[] }) => {
-          if (status === 'complete' && result.info === 'ok') {
-            location.latitude = result.locations[0].lat;
-            location.longitude = result.locations[0].lng;
-          } else {
-            console.error('AMap conversion failed:', status, result);
+    if (convert) {
+      if (amap) {
+        amap.convertFrom(
+          [location.longitude, location.latitude],
+          'gps',
+          (status: string, result: { info: string; locations: { lat: number; lng: number }[] }) => {
+            if (status === 'complete' && result.info === 'ok') {
+              location.latitude = result.locations[0].lat;
+              location.longitude = result.locations[0].lng;
+            } else {
+              console.error('AMap conversion failed:', status, result);
+            }
           }
-        }
-      );
+        );
+      } else {
+        console.warn('AMap not available, skipping conversion');
+      }
+    }
     goto(
       `/discover/${location.latitude}/${location.longitude}?radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
     );
@@ -252,13 +249,21 @@
 <div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">
   <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
     <LocaleSwitch />
+    <FancyButton
+      callback={() => {
+        window.dispatchEvent(new CustomEvent('nearcade-donate'));
+      }}
+      class="fa-solid fa-heart fa-lg"
+      btnCls="not-sm:hidden"
+      text={m.donate()}
+    />
     <FancyButton href="/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
   </div>
 
   <div class="hero-content my-10 text-center">
     <div class="flex max-w-fit flex-col gap-6">
-      <SiteTitle class="text-6xl md:text-8xl" />
-      <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed md:text-2xl">
+      <SiteTitle class="text-6xl sm:text-8xl xl:text-9xl" />
+      <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
         {m.greeting()}
       </p>
 

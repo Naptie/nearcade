@@ -1,15 +1,18 @@
 <script lang="ts">
+  import { preloadCode, preloadData } from '$app/navigation';
   import { onMount } from 'svelte';
 
   interface Props {
-    href: string;
     text: string;
     class: string;
+    btnCls?: string;
+    href?: string;
+    callback?: () => void;
   }
 
-  let { href, text, class: klass }: Props = $props();
+  let { text, class: klass, btnCls, href, callback }: Props = $props();
 
-  let buttonElement: HTMLAnchorElement;
+  let buttonElement: HTMLElement;
   let collapsedWidth = $state('3rem');
   let expandedWidth = $state('auto');
 
@@ -25,6 +28,10 @@
   };
 
   const handleMouseEnter = () => {
+    if (href) {
+      preloadCode(href);
+      preloadData(href);
+    }
     if (buttonElement && window.matchMedia('(hover: hover)').matches) {
       buttonElement.style.width = expandedWidth;
     }
@@ -47,9 +54,14 @@
 <a
   bind:this={buttonElement}
   {href}
-  class="btn btn-ghost btn-sm adaptive group items-center justify-start gap-2 overflow-hidden whitespace-nowrap"
+  class="btn btn-ghost btn-sm adaptive group items-center justify-start gap-2 overflow-hidden whitespace-nowrap {btnCls}"
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
+  onclick={() => {
+    if (callback) {
+      callback();
+    }
+  }}
   style="--collapsed-width: {collapsedWidth};"
 >
   <i class={klass}></i>

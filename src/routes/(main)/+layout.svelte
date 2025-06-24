@@ -5,6 +5,7 @@
   import FancyButton from '$lib/components/FancyButton.svelte';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy } from 'svelte';
+  import DonationModal from '$lib/components/DonationModal.svelte';
 
   let { children } = $props();
   let scrollY = $state(0);
@@ -37,6 +38,14 @@
   <div class="flex-none">
     <div class="flex items-center gap-2">
       <LocaleSwitch />
+      <FancyButton
+        callback={() => {
+          window.dispatchEvent(new CustomEvent('nearcade-donate'));
+        }}
+        class="fa-solid fa-heart fa-lg"
+        btnCls="not-sm:hidden"
+        text={m.donate()}
+      />
       <FancyButton href="/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
       <FancyButton href="/" class="fa-solid fa-home fa-lg" text={m.home()} />
     </div>

@@ -7,6 +7,7 @@
   import { PUBLIC_AMAP_KEY } from '$env/static/public';
   import type { AMapContext } from '$lib/types';
   import '@amap/amap-jsapi-types';
+  import NavigationTracker from '$lib/components/NavigationTracker.svelte';
 
   let { children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -40,7 +41,6 @@
             version: '2.0'
           })
           .then((a: typeof AMap) => {
-            console.log('AMap loaded successfully:', a);
             amap = a;
             amapReady = true;
           });
@@ -53,3 +53,5 @@
 </script>
 
 {@render children()}
+
+<NavigationTracker />

@@ -99,5 +99,17 @@
   "rankings_being_updated": "Rankings are being updated in the background. Please wait.",
   "expanded_metrics": "All Metrics",
   "affiliation": "Affiliation",
-  "school_type": "School Type"
+  "school_type": "School Type",
+  "donate": "Donate",
+  "donate_description": "You've navigated through this site for {count} times. If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality.",
+  "dismiss_in": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Dismiss in the next {count} day",
+        "countPlural=other": "Dismiss in the next {count} days"
+      }
+    }
+  ]
 }

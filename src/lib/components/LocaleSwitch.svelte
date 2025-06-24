@@ -6,7 +6,7 @@
 <div class="dropdown dropdown-end">
   <div tabindex="0" role="button" class="btn btn-ghost btn-sm items-center gap-2">
     <i class="fa-solid fa-language fa-lg"></i>
-    {m.name()}
+    <span class="not-lg:hidden">{m.name()}</span>
     <i class="fa-solid fa-chevron-down fa-xs"></i>
   </div>
   <ul

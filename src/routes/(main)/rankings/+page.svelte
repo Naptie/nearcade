@@ -6,7 +6,7 @@
   import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   let { data } = $props();
-  import { getLocale } from '$lib/paraglide/runtime.js';
+  import { getLocale } from '$lib/paraglide/runtime';
 
   let sortBy: SortCriteria = $state(data.sortBy);
   let radiusFilter: RadiusFilter = $state(data.radius);
@@ -232,7 +232,7 @@
                   class="cursor-pointer text-center transition {radiusFilter == option
                     ? 'text-accent'
                     : 'hover:text-base-content'}"
-                  onclick={() => (radiusFilter = option)}>{'<'} {option} km</th
+                  onclick={() => (radiusFilter = option)}>&lt; {option} km</th
                 >
               {/each}
               <th class="text-center">{m.actions()}</th>
