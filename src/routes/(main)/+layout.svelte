@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Footer from '$lib/components/Footer.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import { onMount, onDestroy } from 'svelte';
@@ -40,4 +41,7 @@
     </div>
   </div>
 </nav>
+
 {@render children()}
+
+<Footer />

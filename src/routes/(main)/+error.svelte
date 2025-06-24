@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { GITHUB_LINK } from '$lib';
+  import Footer from '$lib/components/Footer.svelte';
   import { m } from '$lib/paraglide/messages';
 
   let status = $derived(page.status);
@@ -110,6 +111,7 @@
         </div>
       </div>
     </div>
+    <Footer />
   </div>
 </div>
 

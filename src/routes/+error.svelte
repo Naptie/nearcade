@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { GITHUB_LINK } from '$lib';
+  import Footer from '$lib/components/Footer.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import { m } from '$lib/paraglide/messages';
 
@@ -118,6 +119,7 @@
         </div>
       </div>
     </div>
+    <Footer />
   </div>
 </div>
 
