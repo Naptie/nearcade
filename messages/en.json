@@ -6,7 +6,7 @@
   "github": "View on GitHub",
   "discover_from": "Discover from",
   "my_location": "my location",
-  "a_university": "a university",
+  "a_university": "a university/college",
   "a_place_on_map": "a place on map",
   "getting_location": "Getting location...",
   "get_my_location": "Get My Location",
@@ -41,7 +41,7 @@
   "area_density": "Area Density",
   "machines_per_km2": "machines per km²",
   "search_radius": "Search Radius",
-  "search_university": "Search university name...",
+  "search_university": "Search university/college name...",
   "campus_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -59,7 +59,7 @@
   "sound_voltex": "SOUND VOLTEX",
   "wacca": "WACCA",
   "origin": "Origin",
-  "university": "University",
+  "university": "University/College",
   "error_500_title": "Server Error",
   "error_500_description": "Our servers are having trouble processing your request. Please try again later.",
   "error_404_title": "Page Not Found",
@@ -73,5 +73,5 @@
   "report_issue": "Report Issue",
   "map_failure": "Failed to load map: {error}",
   "loading": "Loading...",
-  "university_warning": "Some university information may be incomplete or inaccurate. If you're struggling, please select on map instead. We are working to improve data quality."
+  "university_warning": "Some university/college information may be incomplete or inaccurate. If you're struggling, please select on map instead. We are working to improve data quality."
 }
