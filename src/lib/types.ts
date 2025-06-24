@@ -45,3 +45,49 @@ export interface AMapContext {
   ready: boolean;
   error: string | null;
 }
+
+export interface UniversityRankingData {
+  universityId: string;
+  universityName: string;
+  campusName: string | null;
+  fullName: string;
+  province: string;
+  city: string;
+  affiliation: string;
+  schoolType: string;
+  is985: boolean;
+  is211: boolean;
+  isDoubleFirstClass: boolean;
+  longitude: number;
+  latitude: number;
+  rankings: RankingMetrics[];
+}
+
+export interface RankingMetrics {
+  radius: number; // in kilometers
+  shopCount: number;
+  totalMachines: number;
+  areaDensity: number; // machines per km²
+  gameSpecificMachines: {
+    name: string;
+    quantity: number;
+  }[];
+}
+
+export interface UniversityRankingCache {
+  createdAt: Date;
+  expiresAt: Date;
+  data: UniversityRankingData[];
+}
+
+export type SortCriteria =
+  | 'shops'
+  | 'machines'
+  | 'density'
+  | 'maimai_dx'
+  | 'chunithm'
+  | 'taiko_no_tatsujin'
+  | 'sound_voltex'
+  | 'wacca';
+
+export type RadiusFilter = 5 | 10 | 20 | 30;

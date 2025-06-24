@@ -1,0 +1,362 @@
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { m } from '$lib/paraglide/messages';
+  import { parseRelativeTime } from '$lib/utils';
+  import { onMount, onDestroy } from 'svelte';
+  import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
+  import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
+  let { data } = $props();
+  import { getLocale } from '$lib/paraglide/runtime.js';
+
+  let sortBy: SortCriteria = $state(data.sortBy);
+  let radiusFilter: RadiusFilter = $state(data.radius);
+  let displayedRankings: UniversityRankingData[] = $state(data.rankings);
+  let currentPage = $state(data.currentPage);
+  let hasMore = $state(data.hasMore);
+  let isLoadingMore = $state(false);
+  let hoveredRowId: number | null = $state(null);
+
+  // Reset displayed rankings when data changes (due to sort/radius change)
+  $effect(() => {
+    displayedRankings = data.rankings;
+    currentPage = data.currentPage;
+    hasMore = data.hasMore;
+  });
+
+  // Update URL when sort criteria or radius changes (without page parameter)
+  $effect(() => {
+    if (typeof window !== 'undefined' && (sortBy !== data.sortBy || radiusFilter !== data.radius)) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('sortBy', sortBy);
+      url.searchParams.set('radius', radiusFilter.toString());
+      url.searchParams.delete('page'); // Remove page parameter for infinite scroll
+      goto(url.toString(), { invalidateAll: true });
+    }
+  });
+  const handleLoadMore = async () => {
+    if (!isLoadingMore && hasMore) {
+      isLoadingMore = true;
+      try {
+        // Fetch next page via API
+        const apiUrl = new URL('/api/rankings', window.location.origin);
+        apiUrl.searchParams.set('sortBy', sortBy);
+        apiUrl.searchParams.set('radius', radiusFilter.toString());
+        apiUrl.searchParams.set('page', (currentPage + 1).toString());
+        apiUrl.searchParams.set('pageSize', PAGINATION.PAGE_SIZE.toString());
+
+        const response = await fetch(apiUrl.toString());
+
+        if (!response.ok) {
+          throw new Error(`Failed to load more results: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        // Append new results to existing ones
+        displayedRankings = [...displayedRankings, ...result.data];
+        currentPage = result.currentPage;
+        hasMore = result.hasMore;
+      } catch (error) {
+        console.error('Error loading more results:', error);
+      } finally {
+        isLoadingMore = false;
+      }
+    }
+  };
+  const handleScroll = () => {
+    if (typeof window === 'undefined') return;
+
+    const scrollHeight = document.documentElement.scrollHeight;
+    const scrollTop = window.scrollY;
+    const clientHeight = window.innerHeight;
+
+    if (scrollHeight - scrollTop - clientHeight < PAGINATION.SCROLL_THRESHOLD) {
+      handleLoadMore();
+    }
+  };
+
+  onMount(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+  });
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', handleScroll);
+    }
+  });
+
+  const formatNumber = (num: number): string => {
+    if (num === 0) return '0';
+    return num.toLocaleString();
+  };
+
+  const formatDensity = (density: number): string => {
+    if (density === 0) return '0.000';
+    return density.toFixed(3);
+  };
+  const getMetricsForRadius = (ranking: UniversityRankingData, radius: number) => {
+    return ranking.rankings.find((r) => r.radius === radius);
+  };
+
+  const getGameName = (gameKey: string): string => {
+    const game = GAMES.find((g) => g.key === gameKey);
+    return game ? m[game.key]() : gameKey;
+  };
+
+  const getSortLabel = (sortKey: string): string => {
+    const criteria = SORT_CRITERIA.find((s) => s.key === sortKey);
+    // @ts-expect-error custom index
+    const f = m[`sort_by_${criteria.key}`];
+    // @ts-expect-error custom index
+    return typeof f === 'function' ? f() : m.sort_by_game_machines({ game: m[criteria.key]() });
+  };
+</script>
+
+<svelte:head>
+  <title>{m.campus_rankings()} - nearcade</title>
+</svelte:head>
+
+<div class="container mx-auto px-4 pt-20">
+  <div class="mb-6 flex flex-col items-center justify-between gap-4 md:flex-row">
+    <div class="grow">
+      <div class="mb-2 flex items-center gap-4">
+        <h1 class="text-3xl font-bold">{m.campus_rankings()}</h1>
+        <div class="hidden items-center gap-2 md:flex">
+          {#if data.stale}
+            <div class="badge badge-warning badge-sm">
+              <i class="fas fa-clock"></i>
+              {m.updated({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
+            </div>
+          {:else if data.cached}
+            <div class="badge badge-success badge-sm">
+              <i class="fas fa-check"></i>
+              {m.updated({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
+            </div>
+          {/if}
+        </div>
+      </div>
+      <p class="text-base-content/70">
+        {m.campus_rankings_description()}
+      </p>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="label" for="sort-select">
+        <span class="label-text">{m.sort_by()}</span>
+      </label>
+      <select id="sort-select" class="select select-bordered w-full" bind:value={sortBy}>
+        {#each SORT_CRITERIA as criteria}
+          <option value={criteria.key}>{getSortLabel(criteria.key)}</option>
+        {/each}
+      </select>
+    </div>
+  </div>
+
+  {#if data.error}
+    <div class="alert alert-error mb-4">
+      <i class="fa-solid fa-circle-xmark fa-lg"></i>
+      <span>{data.error}</span>
+    </div>
+  {:else}
+    <!-- Results Table -->
+    {#if displayedRankings && displayedRankings.length > 0}
+      <div class="overflow-x-auto">
+        <table class="bg-base-200/30 dark:bg-base-200 table w-full">
+          <thead>
+            <tr>
+              <th class="text-center">{m.ranking()}</th>
+              <th class="text-left">{m.university()}</th>
+              {#each RADIUS_OPTIONS as option}
+                <th
+                  class="cursor-pointer text-center transition {radiusFilter == option
+                    ? 'text-accent'
+                    : 'hover:text-base-content'}"
+                  onclick={() => (radiusFilter = option)}>{'<'} {option} km</th
+                >
+              {/each}
+              <th class="text-center">{m.actions()}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each displayedRankings as ranking, index ((ranking.universityId, ranking.fullName))}
+              <tr
+                class="h-16 transition-all duration-200 hover:h-52 {hoveredRowId === index
+                  ? 'bg-base'
+                  : ''}"
+                onmouseenter={() => (hoveredRowId = index)}
+                onmouseleave={() => (hoveredRowId = null)}
+              >
+                <td class="text-center font-bold">
+                  <div class="flex items-center justify-center">
+                    <span class="text-lg">{index + 1}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-2">
+                      <div class="font-semibold">{ranking.universityName}</div>
+                      <div class="font-light text-current/70">{ranking.campusName}</div>
+                    </div>
+                    <div class="flex gap-2">
+                      <div class="text-sm opacity-70">
+                        {#if ranking.city.slice(0, ranking.city.length - 1) == ranking.province}
+                          {ranking.city}
+                        {:else}
+                          {ranking.province} · {ranking.city}
+                        {/if}
+                      </div>
+                      <div class="flex flex-wrap gap-1">
+                        {#if ranking.is985}
+                          <div class="badge badge-soft badge-primary badge-xs">{m.badge_985()}</div>
+                        {/if}
+                        {#if ranking.is211}
+                          <div class="badge badge-soft badge-secondary badge-xs">
+                            {m.badge_211()}
+                          </div>
+                        {/if}
+                        {#if ranking.isDoubleFirstClass}
+                          <div class="badge badge-soft badge-accent badge-xs">
+                            {m.badge_double_first_class()}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <!-- Expanded Details on Hover -->
+                    <!-- {#if hoveredRowId === ranking.universityId}
+                      <div class="bg-base-300 mt-2 rounded-lg p-3 text-xs">
+                        <div class="mb-2 font-semibold">{m.expanded_metrics()}</div>
+                        <div class="grid grid-cols-2 gap-2">
+                          <div><strong>{m.affiliation()}:</strong> {ranking.affiliation}</div>
+                          <div><strong>{m.school_type()}:</strong> {ranking.schoolType}</div>
+                        </div>
+                        <div class="mt-2">
+                          <div class="mb-1 font-semibold">Radius {radiusFilter}km:</div>
+                          {#each GAMES as game}
+                            {@const metrics = getMetricsForRadius(ranking, radiusFilter)}
+                            {#if metrics}
+                              <div class="flex justify-between">
+                                <span>{getGameName(game.key)}:</span>
+                                <span
+                                  >{formatNumber(
+                                    metrics.gameSpecificMachines.find((e) => e.name == game.key)!
+                                      .quantity
+                                  )}</span
+                                >
+                              </div>
+                            {/if}
+                          {/each}
+                        </div>
+                      </div>
+                    {/if} -->
+                  </div>
+                </td>
+
+                {#each RADIUS_OPTIONS as option}
+                  {@const metrics = getMetricsForRadius(ranking, option)}
+                  <td class="relative text-center">
+                    {#if metrics}
+                      <div
+                        class="flex flex-col items-center transition-all {hoveredRowId === index
+                          ? 'opacity-0'
+                          : 'opacity-100'}"
+                      >
+                        <div class="text-sm font-semibold">
+                          {sortBy === 'shops'
+                            ? formatNumber(metrics.shopCount)
+                            : sortBy === 'machines'
+                              ? formatNumber(metrics.totalMachines)
+                              : sortBy === 'density'
+                                ? formatDensity(metrics.areaDensity)
+                                : formatNumber(
+                                    metrics.gameSpecificMachines.find((e) => e.name == sortBy)!
+                                      .quantity || 0
+                                  )}
+                        </div>
+                        <div class="text-xs opacity-50">
+                          {formatNumber(metrics.shopCount)} / {formatNumber(metrics.totalMachines)}
+                        </div>
+                      </div>
+
+                      <div
+                        class="absolute inset-0 flex flex-col items-center justify-center overflow-hidden px-2 text-xs transition-all {hoveredRowId ===
+                        index
+                          ? 'opacity-100'
+                          : 'opacity-0'}"
+                      >
+                        <!-- <div class="mb-1 font-semibold">{'<'} {option.value}km</div> -->
+                        <div class="grid grid-cols-1 gap-0.5 text-center">
+                          <div>{m.shops({ count: formatNumber(metrics.shopCount) })}</div>
+                          <div>{m.machines({ count: formatNumber(metrics.totalMachines) })}</div>
+                          <div>
+                            {m.count_machines_per_km2({
+                              count: formatDensity(metrics.areaDensity)
+                            })}
+                          </div>
+                          <div class="divider my-0.5"></div>
+                          {#each GAMES as game (game.id)}
+                            {@const gameMetrics = metrics.gameSpecificMachines.find(
+                              (e) => e.name == game.key
+                            )}
+                            {#if gameMetrics && gameMetrics.quantity > 0}
+                              <div class="flex justify-between gap-1">
+                                <span class="truncate">{getGameName(game.key)}:</span>
+                                <span>{formatNumber(gameMetrics.quantity)}</span>
+                              </div>
+                            {/if}
+                          {/each}
+                        </div>
+                      </div>
+                    {:else}
+                      <span class="text-base-content/40">—</span>
+                    {/if}
+                  </td>
+                {/each}
+
+                <td class="text-center">
+                  <div class="flex justify-center">
+                    <a
+                      class="btn btn-ghost btn-sm"
+                      href="/discover/{ranking.latitude}/{ranking.longitude}?radius={radiusFilter}name={encodeURIComponent(
+                        ranking.fullName
+                      )}"
+                      target="_blank"
+                    >
+                      <i class="fas fa-map-marker-alt"></i>
+                      {m.view_location()}
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      {#if hasMore}
+        {#if isLoadingMore}
+          <div class="mt-6 flex justify-center">
+            <span class="loading loading-spinner loading-sm"></span>
+          </div>
+        {/if}
+      {:else if displayedRankings.length > 0}
+        <div class="mt-6 flex justify-center">
+          <div class="text-base-content/50 text-sm">{m.all_results_loaded()}</div>
+        </div>
+      {/if}
+    {:else}
+      <div class="alert alert-info">
+        <i class="fa-solid fa-circle-info fa-lg"></i>
+        <span>{m.no_data()}</span>
+      </div>
+    {/if}
+  {/if}
+</div>
+
+<style lang="postcss">
+  @reference "tailwindcss";
+
+  .table th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+</style>

@@ -1,16 +1,11 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { getLocale, locales, setLocale } from '$lib/paraglide/runtime';
-
-  const languageNames: Record<string, string> = {
-    en: 'English',
-    zh: '中文'
-  };
 </script>
 
 <div class="dropdown dropdown-end">
   <div tabindex="0" role="button" class="btn btn-ghost btn-sm items-center gap-2">
-    <i class="fa-solid fa-globe fa-lg"></i>
+    <i class="fa-solid fa-language fa-lg"></i>
     {m.name()}
     <i class="fa-solid fa-chevron-down fa-xs"></i>
   </div>
@@ -24,7 +19,7 @@
           class:active={getLocale() === lang}
           onclick={() => setLocale(lang)}
         >
-          {languageNames[lang]}
+          {m.name(undefined, { locale: lang })}
           {#if getLocale() === lang}
             <i class="fa-solid fa-check text-primary"></i>
           {/if}

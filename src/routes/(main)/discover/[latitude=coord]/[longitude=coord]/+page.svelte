@@ -159,19 +159,7 @@
   {:else}
     {#if amapError}
       <div class="alert alert-error mb-4">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-6 w-6 shrink-0 stroke-current"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
+        <i class="fa-solid fa-circle-xmark fa-lg"></i>
         <span>
           {m.map_failure({
             error: amapError
@@ -290,7 +278,7 @@
         <div class="stat-value text-accent">
           {(machineCount / (Math.PI * Math.pow(data.radius, 2))).toFixed(3)}
         </div>
-        <div class="stat-desc">{m.machines_per_km2()}</div>
+        <div class="stat-desc">{m.machines_per_km2({ count: 1 })}</div>
       </div>
     </div>
   {/if}

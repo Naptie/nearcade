@@ -2,6 +2,8 @@
   import Footer from '$lib/components/Footer.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
+  import FancyButton from '$lib/components/FancyButton.svelte';
+  import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy } from 'svelte';
 
   let { children } = $props();
@@ -33,11 +35,10 @@
     <SiteTitle class="text-3xl md:text-4xl" />
   </div>
   <div class="flex-none">
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-2">
       <LocaleSwitch />
-      <a class="btn btn-square btn-ghost" href="/" aria-label="Home">
-        <i class="fa-solid fa-home"></i>
-      </a>
+      <FancyButton href="/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
+      <FancyButton href="/" class="fa-solid fa-home fa-lg" text={m.home()} />
     </div>
   </div>
 </nav>

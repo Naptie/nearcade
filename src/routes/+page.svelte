@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
+  import FancyButton from '$lib/components/FancyButton.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import { m } from '$lib/paraglide/messages';
@@ -249,8 +250,9 @@
 </svelte:head>
 
 <div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">
-  <div class="absolute top-4 right-4 z-10">
+  <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
     <LocaleSwitch />
+    <FancyButton href="/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
   </div>
 
   <div class="hero-content my-10 text-center">
