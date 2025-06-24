@@ -7,8 +7,6 @@
   import { PUBLIC_AMAP_KEY } from '$env/static/public';
   import type { AMapContext } from '$lib/types';
   import '@amap/amap-jsapi-types';
-  import SiteTitle from '$lib/components/SiteTitle.svelte';
-  import { GITHUB_LINK } from '$lib';
 
   let { children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
