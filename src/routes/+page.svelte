@@ -5,7 +5,7 @@
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import { m } from '$lib/paraglide/messages';
-    import type { AMapContext } from '$lib/types';
+  import type { AMapContext } from '$lib/types';
   import { getContext, untrack, onMount } from 'svelte';
 
   // Types for university data
@@ -243,14 +243,18 @@
   const go = (convert: boolean = true) => {
     isLoading = true;
     if (amap && convert)
-      amap.convertFrom([location.longitude, location.latitude], 'gps', (status: string, result: any) => {
-        if (status === 'complete' && result.info === 'ok') {
-          location.latitude = result.locations[0].lat;
-          location.longitude = result.locations[0].lng;
-        } else {
-          console.error('AMap conversion failed:', status, result);
+      amap.convertFrom(
+        [location.longitude, location.latitude],
+        'gps',
+        (status: string, result: any) => {
+          if (status === 'complete' && result.info === 'ok') {
+            location.latitude = result.locations[0].lat;
+            location.longitude = result.locations[0].lng;
+          } else {
+            console.error('AMap conversion failed:', status, result);
+          }
         }
-      });
+      );
     goto(`/discover/${location.latitude}/${location.longitude}?radius=${radius}`);
   };
 </script>
@@ -306,18 +310,83 @@
           class:pt-4={showCollapse}
         >
           <fieldset class="fieldset rounded-box w-full p-4 pt-2">
-            <span class="label w-full">{m.discover_from()}</span>
-            <select class="select w-full" bind:value={mode}>
-              <option value={0}>{m.my_location()}</option>
-              <option value={1}>{m.a_university()}</option>
-              <option value={2}>{m.a_place_on_map()}</option>
-            </select>
-            <span class="label mt-1 w-full">{m.search_radius()}</span>
-            <select class="select w-full" bind:value={radius}>
-              {#each RADIUS_OPTIONS as r}
-                <option value={r}>{r} km</option>
-              {/each}
-            </select>
+            <div class="flex flex-col gap-1 sm:hidden">
+              <span class="label w-full">{m.discover_from()}</span>
+              <select class="select w-full" bind:value={mode}>
+                <option value={0}>{m.my_location()}</option>
+                <option value={1}>{m.a_university()}</option>
+                <option value={2}>{m.a_place_on_map()}</option>
+              </select>
+            </div>
+            <div class="hidden sm:block">
+              <span class="label w-full">{m.discover_from()}</span>
+              <div class="tabs tabs-border my-1 w-full">
+                <button
+                  class="tab flex-1 flex-nowrap whitespace-nowrap transition"
+                  class:tab-active={mode === 0}
+                  onclick={() => (mode = 0)}
+                >
+                  <i class="fa-solid fa-location-dot mr-2"></i>
+                  {m.my_location()}
+                </button>
+                <button
+                  class="tab flex-1 flex-nowrap whitespace-nowrap transition"
+                  class:tab-active={mode === 1}
+                  onclick={() => (mode = 1)}
+                >
+                  <i class="fa-solid fa-graduation-cap mr-2"></i>
+                  {m.a_university()}
+                </button>
+                <button
+                  class="tab flex-1 flex-nowrap whitespace-nowrap transition"
+                  class:tab-active={mode === 2}
+                  onclick={() => (mode = 2)}
+                >
+                  <i class="fa-solid fa-map-location-dot mr-2"></i>
+                  {m.a_place_on_map()}
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1 sm:hidden">
+              <span class="label mt-1 w-full">{m.search_radius()}</span>
+              <select class="select w-full" bind:value={radius}>
+                {#each RADIUS_OPTIONS as r}
+                  <option value={r}>{r} km</option>
+                {/each}
+              </select>
+            </div>
+            <div class="hidden sm:block">
+              <span class="label my-1 flex w-full items-center justify-between">
+                <span>{m.search_radius()}</span>
+                <span class="text-sm font-medium">{radius} km</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={RADIUS_OPTIONS.length - 1}
+                step="1"
+                class="range range-sm range-nuetral w-full"
+                value={RADIUS_OPTIONS.indexOf(radius)}
+                oninput={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  if (target) {
+                    radius = RADIUS_OPTIONS[parseInt(target.value)];
+                  }
+                }}
+              />
+              <div
+                class="mt-1 flex w-full justify-between text-xs leading-tight font-light opacity-50 md:leading-snug lg:leading-normal"
+              >
+                {#each RADIUS_OPTIONS as r, i}
+                  <span
+                    class:opacity-100={i === 0 ||
+                      i === RADIUS_OPTIONS.length - 1 ||
+                      i === Math.floor(RADIUS_OPTIONS.length / 2)}>{r} km</span
+                  >
+                {/each}
+              </div>
+            </div>
 
             {#if mode === 0}
               {#if locationError}
@@ -343,14 +412,16 @@
                 {/if}
               </button>
             {:else if mode === 1}
-              <span class="label mt-1 w-full">{m.university()}</span>
-              <input
-                type="text"
-                placeholder={m.search_university()}
-                class="input w-full pr-10"
-                bind:value={universityQuery}
-                oninput={handleUniversityQueryChange}
-              />
+              <div class="flex flex-col gap-1">
+                <span class="label mt-1 w-full">{m.university()}</span>
+                <input
+                  type="text"
+                  placeholder={m.search_university()}
+                  class="input w-full pr-10"
+                  bind:value={universityQuery}
+                  oninput={handleUniversityQueryChange}
+                />
+              </div>
               <div
                 class="mt-3 w-[65vw] max-w-md min-w-full space-y-3 sm:w-[60vw] md:w-[55vw] lg:w-[50vw]"
               >
@@ -446,8 +517,9 @@
   </div>
 </div>
 
-<!-- <style>
-  iframe {
-    width: max(100%, 50vw);
+<style>
+  .tabs-border .tab:before {
+    width: 100%;
+    left: 0;
   }
-</style> -->
+</style>
