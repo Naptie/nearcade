@@ -17,6 +17,7 @@
   let mode = $state(0);
   let radius = $state(10);
   let location = $state({
+    name: '',
     latitude: undefined as number | undefined,
     longitude: undefined as number | undefined
   });
@@ -62,6 +63,7 @@
     navigator.geolocation.getCurrentPosition(
       // Success callback
       (position) => {
+        location.name = m.my_location();
         location.latitude = position.coords.latitude;
         location.longitude = position.coords.longitude;
         isLoadingLocation = false;
@@ -135,9 +137,10 @@
 
   const selectUniversity = (university: University, campus: Campus) => {
     selectedUniversity = { university, campus };
+    location.name = `${university.name}${campus.name ? ` (${campus.name})` : ''}`;
     location.latitude = campus.latitude;
     location.longitude = campus.longitude;
-    universityQuery = `${university.name}${campus.name ? ` - ${campus.name}` : ''}`;
+    universityQuery = location.name;
     universities = [];
   };
 
@@ -145,11 +148,13 @@
   $effect(() => {
     if (mode === 0) {
       // Reset location for "My Location" mode
+      location.name = m.my_location();
       location.latitude = undefined;
       location.longitude = undefined;
       locationError = '';
     } else if (mode === 1) {
       // Reset for university mode
+      location.name = '';
       location.latitude = undefined;
       location.longitude = undefined;
       universityQuery = '';
@@ -157,6 +162,7 @@
       selectedUniversity = null;
     } else if (mode === 2) {
       // Reset for map mode
+      location.name = '';
       location.latitude = undefined;
       location.longitude = undefined;
     }
@@ -169,6 +175,7 @@
           var loc = event.data;
           if (loc && loc.module == 'locationPicker') {
             console.log('Received location from map iframe:', loc);
+            location.name = loc.poiname;
             location.latitude = loc.latlng.lat;
             location.longitude = loc.latlng.lng;
 
@@ -231,7 +238,9 @@
           }
         }
       );
-    goto(`/discover/${location.latitude}/${location.longitude}?radius=${radius}`);
+    goto(
+      `/discover/${location.latitude}/${location.longitude}?radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
+    );
   };
 </script>
 

@@ -18,13 +18,14 @@
   "select_on_map": "Select a location on the map",
   "go": "Go",
   "nearby_arcades": "Nearby Arcades",
+  "arcades_near": "Arcades near {name}",
   "found_shops_near": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
       "match": {
-        "countPlural=one": "Found {count} shop near ({lat}, {lng})",
-        "countPlural=other": "Found {count} shops near ({lat}, {lng})"
+        "countPlural=one": "Found {count} shop near {location}",
+        "countPlural=other": "Found {count} shops near {location}"
       }
     }
   ],

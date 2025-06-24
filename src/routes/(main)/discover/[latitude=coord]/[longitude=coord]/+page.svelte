@@ -72,13 +72,13 @@
     untrack(() => {
       map = new amap.Map(amapContainer!.id, {
         zoom: 10,
-        center: [data.coordinates.longitude, data.coordinates.latitude],
+        center: [data.location.longitude, data.location.latitude],
         mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/whitesmoke',
         viewMode: '2D'
       });
 
       const origin = new amap.Marker({
-        position: [data.coordinates.longitude, data.coordinates.latitude],
+        position: [data.location.longitude, data.location.latitude],
         title: m.origin(),
         content: '<i class="text-success fa-solid fa-location-crosshairs fa-lg"></i>',
         offset: new amap.Pixel(-9.375, -10),
@@ -128,7 +128,13 @@
 </script>
 
 <svelte:head>
-  <title>{m.nearby_arcades()} - nearcade</title>
+  <title
+    >{data.location.name
+      ? m.arcades_near({
+          name: data.location.name
+        })
+      : m.nearby_arcades()} - nearcade</title
+  >
 </svelte:head>
 
 <div class="container mx-auto px-4 pt-20">
@@ -137,8 +143,7 @@
     <p class="text-base-content/70">
       {m.found_shops_near({
         count: data.shops.length,
-        lat: data.coordinates.latitude.toFixed(4),
-        lng: data.coordinates.longitude.toFixed(4)
+        location: data.location.name ?? `(${data.location.longitude}, ${data.location.latitude})`
       })}
     </p>
   </div>

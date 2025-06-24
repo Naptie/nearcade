@@ -63,7 +63,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
     shopsWithDistance.sort((a, b) => a.distance - b.distance);
     return {
       shops: shopsWithDistance,
-      coordinates: {
+      location: {
+        name: url.searchParams.get('name'),
         latitude,
         longitude
       },
