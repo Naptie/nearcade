@@ -2,6 +2,8 @@
   import type { Game, AMapContext } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy, getContext, untrack } from 'svelte';
+  import { isDarkMode } from '$lib/utils';
+  import { browser } from '$app/environment';
 
   let { data } = $props();
 
@@ -22,7 +24,7 @@
   let map: AMap.Map | undefined = $state(undefined);
   let highlightedShopId: number | null = $state(null);
   let highlightedShopIdTimeout: number | null = $state(null);
-  let isDarkMode = $state(false);
+  let darkMode = $derived(browser ? isDarkMode() : undefined);
 
   const formatDistance = (distance: number): string => {
     if (distance === Infinity) return m.unknown();
@@ -49,37 +51,29 @@
     if (screenWidth < 1280) return allGames.slice(0, 4); // lg: 4 games
     return allGames; // xl: all 5 games
   });
+
   const handleResize = () => {
     screenWidth = window.innerWidth;
   };
 
-  const updateTheme = () => {
-    isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  };
   onMount(() => {
     screenWidth = window.innerWidth;
-    updateTheme();
     window.addEventListener('resize', handleResize);
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', updateTheme);
-
-    return () => {
-      mediaQuery.removeEventListener('change', updateTheme);
-    };
   });
+
   onDestroy(() => {
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', handleResize);
     }
   });
+
   $effect(() => {
-    if (!amap || !amapReady || !data || !amapContainer) return;
+    if (!amap || !amapReady || !data || !amapContainer || darkMode === undefined) return;
     untrack(() => {
       map = new amap.Map(amapContainer!.id, {
         zoom: 10,
         center: [data.coordinates.longitude, data.coordinates.latitude],
-        mapStyle: isDarkMode ? 'amap://styles/dark' : 'amap://styles/whitesmoke',
+        mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/whitesmoke',
         viewMode: '2D'
       });
 
@@ -129,7 +123,7 @@
 
   $effect(() => {
     if (!map) return;
-    map.setMapStyle(isDarkMode ? 'amap://styles/dark' : 'amap://styles/fresh');
+    map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/fresh');
   });
 </script>
 

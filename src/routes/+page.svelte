@@ -15,7 +15,7 @@
 
   let showCollapse = $state(false);
   let mode = $state(0);
-  let radius = $state(10); // Default 10km radius
+  let radius = $state(10);
   let location = $state({
     latitude: undefined as number | undefined,
     longitude: undefined as number | undefined
@@ -23,7 +23,6 @@
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
 
-  // Load radius from localStorage on mount
   onMount(() => {
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
@@ -34,7 +33,6 @@
     }
   });
 
-  // Save radius to localStorage whenever it changes
   $effect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('nearcade-radius', radius.toString());
@@ -46,7 +44,6 @@
   let mapIframe = $state<HTMLIFrameElement>();
   let amap = (getContext('amap') as AMapContext)?.amap;
 
-  // University search state
   let universityQuery = $state('');
   let universities = $state<University[]>([]);
   let isSearchingUniversities = $state(false);
