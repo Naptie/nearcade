@@ -352,7 +352,6 @@
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
-                      data-sveltekit-preload-data="hover"
                       href="/discover/{ranking.latitude}/{ranking.longitude}?radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"
