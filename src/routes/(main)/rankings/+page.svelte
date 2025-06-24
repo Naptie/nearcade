@@ -287,7 +287,7 @@
 
                 {#each visibleRadiusOptions as option}
                   {@const metrics = getMetricsForRadius(ranking, option)}
-                  <td class="relative w-28 text-center md:w-32 lg:w-44 xl:w-48 2xl:w-60">
+                  <td class="relative w-28 text-center md:w-32 lg:w-44 xl:w-48 2xl:w-52">
                     {#if metrics}
                       <div
                         class="flex flex-col items-center transition-opacity duration-200 {hoveredRowId ===
