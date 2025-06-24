@@ -20,15 +20,11 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 
     targetUrl.searchParams.set('jscode', AMAP_SECRET);
 
-    console.log('Proxied Amap request:', targetUrl.toString());
-
     // Make the proxied request
     const response = await fetch(targetUrl.toString(), {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Nearcade-Proxy/1.0)',
-        Accept: 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9,zh;q=0.8',
+        Accept: 'application/json',
         Referer: 'https://restapi.amap.com/'
       }
     });
