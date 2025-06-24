@@ -30,4 +30,4 @@ export const areCoordinatesApproxEqual = (
 export const isDarkMode = (): boolean => {
   const darkModeMediaQuery = window?.matchMedia('(prefers-color-scheme: dark)');
   return darkModeMediaQuery?.matches;
-}
+};

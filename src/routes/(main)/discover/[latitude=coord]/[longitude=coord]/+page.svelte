@@ -131,7 +131,7 @@
   <title>{m.nearby_arcades()} - nearcade</title>
 </svelte:head>
 
-<div class="container mx-auto p-4 py-20">
+<div class="container mx-auto p-4 pt-20">
   <div class="mb-6">
     <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>
     <p class="text-base-content/70">

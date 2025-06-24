@@ -2,7 +2,6 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { GITHUB_LINK } from '$lib';
-  import SiteTitle from '$lib/components/SiteTitle.svelte';
   import { m } from '$lib/paraglide/messages';
 
   let status = $derived(page.status);
@@ -109,21 +108,6 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="mt-6 text-center">
-      <div class="text-base-content/40 flex items-center justify-center gap-2">
-        <SiteTitle class="text-sm opacity-40" />
-        <span class="text-xs">•</span>
-        <a
-          href={GITHUB_LINK}
-          target="_blank"
-          class="hover:text-base-content/60 text-xs transition-colors"
-        >
-          <i class="fab fa-github"></i>
-          GitHub
-        </a>
       </div>
     </div>
   </div>
