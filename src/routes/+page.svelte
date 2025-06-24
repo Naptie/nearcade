@@ -247,7 +247,7 @@
     <LocaleSwitch />
   </div>
 
-  <div class="hero-content text-center">
+  <div class="hero-content my-10 text-center">
     <div class="flex max-w-fit flex-col gap-6">
       <SiteTitle class="text-6xl md:text-8xl" />
       <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed md:text-2xl">
