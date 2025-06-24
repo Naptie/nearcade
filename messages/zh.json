@@ -82,7 +82,7 @@
   "expanded_metrics": "全部指标",
   "affiliation": "隶属关系",
   "school_type": "学校类型",
-  "donate": "捐赠",
-  "donate_description": "您已在本站浏览 {count} 次页面了。如果您觉得本站对您有帮助，欢迎捐赠支持我们继续改进和维护。您的支持是我们前进的动力！",
+  "donate": "赞助",
+  "donate_description": "您已在本站浏览 {count} 次页面了。如果您觉得本站对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！",
   "dismiss_in": "{count} 天内不再显示"
 }
