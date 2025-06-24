@@ -7,7 +7,6 @@ import type {
   University,
   Shop,
   UniversityRankingData,
-  UniversityRankingCache,
   RankingMetrics,
   SortCriteria,
   RadiusFilter
@@ -23,8 +22,23 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-// Cache duration: 1 day (adjustable)
+// Cache duration: 1 day
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
+
+interface CacheMetadata {
+  _id: string;
+  createdAt: Date;
+  expiresAt: Date;
+  totalCount: number;
+  lastCalculated: Date;
+  isCalculating?: boolean;
+  calculationStarted?: Date;
+}
+
+interface CachedRanking extends UniversityRankingData {
+  _id: string;
+  rankOrder: { [key: string]: number }; // sortBy_radius -> rank
+}
 
 const getShopsWithinRadius = async (
   shops: Shop[],
@@ -64,112 +78,232 @@ const calculateMetricsForRadius = (shops: Shop[], radiusKm: number): RankingMetr
   };
 };
 
-const calculateUniversityRankings = async (): Promise<UniversityRankingData[]> => {
+const calculateAndCacheUniversityRankings = async (): Promise<void> => {
   const mongoClient = await clientPromise;
   const db = mongoClient.db();
+  const cacheCollection = db.collection('rankings');
 
-  const universitiesCollection = db.collection('universities');
-  const universities = (await universitiesCollection.find({}).toArray()) as unknown as University[];
+  // Check if calculation is already in progress
+  const existingMetadata = (await cacheCollection.findOne({
+    _id: 'metadata'
+  } as never)) as CacheMetadata | null;
 
-  const shopsCollection = db.collection('shops');
-  const shops = (await shopsCollection.find({}).toArray()) as unknown as Shop[];
+  if (existingMetadata?.isCalculating) {
+    // Check if calculation has been running for too long (more than 30 minutes)
+    const calculationTimeout = 30 * 60 * 1000; // 30 minutes
+    const now = new Date();
+    const calculationStarted = existingMetadata.calculationStarted || existingMetadata.createdAt;
 
-  const rankings: UniversityRankingData[] = [];
-  let processedCampuses = 0;
-  let totalCampuses = 0;
-
-  for (const university of universities) {
-    if (university.campuses && university.campuses.length > 0) {
-      totalCampuses += university.campuses.length;
-    }
-  }
-  console.log(`Calculating rankings for ${totalCampuses} campuses...`);
-
-  for (const university of universities) {
-    if (!university.campuses || university.campuses.length === 0) continue;
-
-    for (const campus of university.campuses) {
-      processedCampuses++;
-
-      // Log progress every 100 campuses or for the last campus
-      if (processedCampuses % 100 === 0 || processedCampuses === totalCampuses) {
-        console.log(
-          `Progress: ${processedCampuses}/${totalCampuses} campuses (${((processedCampuses / totalCampuses) * 100).toFixed(1)}%)`
-        );
-      }
-
-      const fullCampusName = campus.name ? `${university.name} (${campus.name})` : university.name;
-
-      rankings.push({
-        universityId: university._id?.toString() || '',
-        universityName: university.name,
-        campusName: campus.name,
-        fullName: fullCampusName,
-        province: university.province,
-        city: university.city,
-        affiliation: university.affiliation,
-        schoolType: university.schoolType,
-        is985: university.is985,
-        is211: university.is211,
-        isDoubleFirstClass: university.isDoubleFirstClass,
-        latitude: campus.latitude,
-        longitude: campus.longitude,
-        rankings: await Promise.all(
-          RADIUS_OPTIONS.map((r) =>
-            (async () =>
-              calculateMetricsForRadius(
-                await getShopsWithinRadius(shops, campus.latitude, campus.longitude, r),
-                r
-              ))()
-          )
-        )
-      });
+    if (now.getTime() - calculationStarted.getTime() < calculationTimeout) {
+      console.log('Calculation already in progress, skipping...');
+      return;
+    } else {
+      console.log('Previous calculation appears stuck, proceeding with new calculation...');
     }
   }
 
-  console.log(`Finished rankings calculation for ${rankings.length} campuses`);
-  return rankings;
-};
-
-const sortAndPaginateRankings = (
-  rankings: UniversityRankingData[],
-  sortBy: SortCriteria,
-  radiusFilter: RadiusFilter,
-  page: number,
-  pageSize: number
-) => {
-  const sortedRankings = rankings.sort((a, b) => {
-    const aMetrics = a.rankings.find((r) => r.radius === radiusFilter);
-    const bMetrics = b.rankings.find((r) => r.radius === radiusFilter);
-
-    if (!aMetrics || !bMetrics) return 0;
-
-    switch (sortBy) {
-      case 'shops':
-        return bMetrics.shopCount - aMetrics.shopCount;
-      case 'machines':
-        return bMetrics.totalMachines - aMetrics.totalMachines;
-      case 'density':
-        return bMetrics.areaDensity - aMetrics.areaDensity;
-      default: {
-        const aEntry = aMetrics.gameSpecificMachines.find((e) => e.name == sortBy);
-        const bEntry = bMetrics.gameSpecificMachines.find((e) => e.name == sortBy);
-        if (!aEntry || !bEntry) return 0;
-        return bEntry.quantity - aEntry.quantity;
-      }
-    }
-  });
-
-  const startIndex = page * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedData = sortedRankings.slice(startIndex, endIndex);
-
-  return {
-    data: paginatedData,
-    totalCount: sortedRankings.length,
-    hasMore: endIndex < sortedRankings.length,
-    currentPage: page
+  // Set calculation lock
+  const calculationLock: CacheMetadata = {
+    _id: 'metadata',
+    createdAt: existingMetadata?.createdAt || new Date(),
+    expiresAt: existingMetadata?.expiresAt || new Date(Date.now() - 1), // Expired during calculation
+    totalCount: existingMetadata?.totalCount || 0,
+    lastCalculated: existingMetadata?.lastCalculated || new Date(),
+    isCalculating: true,
+    calculationStarted: new Date()
   };
+
+  try {
+    // Upsert the calculation lock
+    await cacheCollection.replaceOne({ _id: 'metadata' } as never, calculationLock as never, {
+      upsert: true
+    });
+
+    // Clear existing cache (except metadata)
+    await cacheCollection.deleteMany({ _id: { $ne: 'metadata' } } as never);
+
+    const universitiesCollection = db.collection('universities');
+    const universities = (await universitiesCollection
+      .find({})
+      .toArray()) as unknown as University[];
+
+    const shopsCollection = db.collection('shops');
+    const shops = (await shopsCollection.find({}).toArray()) as unknown as Shop[];
+
+    const rankings: UniversityRankingData[] = [];
+    let processedCampuses = 0;
+    let totalCampuses = 0;
+
+    for (const university of universities) {
+      if (university.campuses && university.campuses.length > 0) {
+        totalCampuses += university.campuses.length;
+      }
+    }
+    console.log(`Calculating rankings for ${totalCampuses} campuses...`);
+
+    for (const university of universities) {
+      if (!university.campuses || university.campuses.length === 0) continue;
+
+      for (const campus of university.campuses) {
+        processedCampuses++;
+
+        if (processedCampuses % 100 === 0 || processedCampuses === totalCampuses) {
+          console.log(
+            `Progress: ${processedCampuses}/${totalCampuses} campuses (${((processedCampuses / totalCampuses) * 100).toFixed(1)}%)`
+          );
+        }
+
+        const fullCampusName = campus.name
+          ? `${university.name} (${campus.name})`
+          : university.name;
+
+        rankings.push({
+          universityId: university._id?.toString() || '',
+          universityName: university.name,
+          campusName: campus.name,
+          fullName: fullCampusName,
+          province: university.province,
+          city: university.city,
+          affiliation: university.affiliation,
+          schoolType: university.schoolType,
+          is985: university.is985,
+          is211: university.is211,
+          isDoubleFirstClass: university.isDoubleFirstClass,
+          latitude: campus.latitude,
+          longitude: campus.longitude,
+          rankings: await Promise.all(
+            RADIUS_OPTIONS.map((r) =>
+              (async () =>
+                calculateMetricsForRadius(
+                  await getShopsWithinRadius(shops, campus.latitude, campus.longitude, r),
+                  r
+                ))()
+            )
+          )
+        });
+      }
+    }
+
+    console.log(`Finished calculating rankings for ${rankings.length} campuses`);
+
+    // Calculate rank orders for all sort criteria and radius combinations
+    const sortCriteria: SortCriteria[] = [
+      'shops',
+      'machines',
+      'density',
+      'maimai_dx',
+      'chunithm',
+      'taiko_no_tatsujin',
+      'sound_voltex',
+      'wacca'
+    ];
+
+    const cachedRankings: CachedRanking[] = rankings.map((ranking) => {
+      const rankOrder: { [key: string]: number } = {};
+
+      // We'll calculate ranks after sorting
+      return {
+        ...ranking,
+        _id: `${ranking.universityId}_${ranking.latitude}_${ranking.longitude}`,
+        rankOrder
+      };
+    });
+
+    // if there are duplicates in _id, log warning
+    const idCounts: Record<string, number> = {};
+    cachedRankings.forEach((ranking) => {
+      const id = ranking._id;
+      idCounts[id] = (idCounts[id] || 0) + 1;
+    });
+    for (const [id, count] of Object.entries(idCounts)) {
+      if (count > 1) {
+        console.warn(`Duplicate ranking ID found: ${id} (${count} occurrences)`);
+      }
+    }
+
+    // Calculate ranks for each sort criteria and radius combination
+    for (const sortBy of sortCriteria) {
+      for (const radius of RADIUS_OPTIONS) {
+        const sortKey = `${sortBy}_${radius}`;
+
+        // Sort rankings for this criteria
+        const sorted = [...cachedRankings].sort((a, b) => {
+          const aMetrics = a.rankings.find((r) => r.radius === radius);
+          const bMetrics = b.rankings.find((r) => r.radius === radius);
+
+          if (!aMetrics || !bMetrics) return 0;
+
+          switch (sortBy) {
+            case 'shops':
+              return bMetrics.shopCount - aMetrics.shopCount;
+            case 'machines':
+              return bMetrics.totalMachines - aMetrics.totalMachines;
+            case 'density':
+              return bMetrics.areaDensity - aMetrics.areaDensity;
+            default: {
+              const aEntry = aMetrics.gameSpecificMachines.find((e) => e.name == sortBy);
+              const bEntry = bMetrics.gameSpecificMachines.find((e) => e.name == sortBy);
+              if (!aEntry || !bEntry) return 0;
+              return bEntry.quantity - aEntry.quantity;
+            }
+          }
+        });
+
+        // Assign ranks
+        sorted.forEach((ranking, index) => {
+          const cachedRanking = cachedRankings.find((r) => r._id === ranking._id);
+          if (cachedRanking) {
+            cachedRanking.rankOrder[sortKey] = index + 1;
+          }
+        });
+      }
+    }
+
+    // Insert cached rankings into database
+    if (cachedRankings.length > 0) {
+      await cacheCollection.insertMany(cachedRankings as never[]);
+    }
+
+    // Update metadata document with final results and remove calculation lock
+    const finalMetadata: CacheMetadata = {
+      _id: 'metadata',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + CACHE_DURATION_MS),
+      totalCount: cachedRankings.length,
+      lastCalculated: new Date(),
+      isCalculating: false,
+      calculationStarted: undefined
+    };
+
+    await cacheCollection.replaceOne({ _id: 'metadata' } as never, finalMetadata as never, {
+      upsert: true
+    });
+
+    console.log(`Cache updated with ${cachedRankings.length} campus rankings`);
+  } catch (error) {
+    console.error('Error during calculation:', error);
+
+    // Remove calculation lock on error
+    try {
+      const errorMetadata: CacheMetadata = {
+        _id: 'metadata',
+        createdAt: existingMetadata?.createdAt || new Date(),
+        expiresAt: existingMetadata?.expiresAt || new Date(Date.now() - 1),
+        totalCount: existingMetadata?.totalCount || 0,
+        lastCalculated: existingMetadata?.lastCalculated || new Date(),
+        isCalculating: false,
+        calculationStarted: undefined
+      };
+
+      await cacheCollection.replaceOne({ _id: 'metadata' } as never, errorMetadata as never, {
+        upsert: true
+      });
+    } catch (cleanupError) {
+      console.error('Error cleaning up calculation lock:', cleanupError);
+    }
+
+    throw error;
+  }
 };
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -178,82 +312,186 @@ export const GET: RequestHandler = async ({ url }) => {
     const db = mongoClient.db();
     const cacheCollection = db.collection('rankings');
 
-    // Ensure the collection is capped (max 5 documents, 5MB)
-    try {
-      await db.createCollection('rankings', {
-        capped: true,
-        size: 5 * 1024 * 1024,
-        max: 5
-      });
-    } catch (err) {
-      if ((err as { code: number }).code !== 48) {
-        console.log('Collection already exists:', err);
-      }
-    }
-
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
     const radiusFilter = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
+
+    // Support both old page-based and new cursor-based pagination
     const page = parseInt(url.searchParams.get('page') || '0');
     const pageSize = parseInt(url.searchParams.get('pageSize') || PAGINATION.PAGE_SIZE.toString());
+    const limit = parseInt(url.searchParams.get('limit') || pageSize.toString());
+    const after = url.searchParams.get('after') || null;
 
+    // Check cache metadata
+    const metadata = (await cacheCollection.findOne({
+      _id: 'metadata'
+    } as never)) as CacheMetadata | null;
     const now = new Date();
-    const validCache = (await cacheCollection.findOne({
-      expiresAt: { $gt: now }
-    })) as unknown as UniversityRankingCache | null;
-    if (validCache) {
-      const result = sortAndPaginateRankings(validCache.data, sortBy, radiusFilter, page, pageSize);
+
+    // If cache is expired, trigger background refresh
+    if (metadata && metadata.expiresAt < now) {
+      // Only start calculation if not already in progress
+      if (!metadata?.isCalculating) {
+        console.log('Cache expired or missing, triggering background refresh...');
+        // Start background refresh but don't wait for it
+        calculateAndCacheUniversityRankings().catch((err) =>
+          console.error('Background cache refresh failed:', err)
+        );
+      } else {
+        console.log('Cache refresh already in progress...');
+      }
+    }
+
+    // Try to serve from cache if it exists and has data
+    if (metadata && metadata.totalCount > 0 && !metadata.isCalculating) {
+      const sortKey = `${sortBy}_${radiusFilter}`;
+
+      // Build query for cursor-based pagination
+      const query: Record<string, unknown> = { _id: { $ne: 'metadata' } };
+
+      if (after) {
+        // Parse the after cursor (it contains the rank)
+        const afterRank = parseInt(after);
+        query[`rankOrder.${sortKey}`] = { $gt: afterRank };
+      } else if (page > 0) {
+        // Legacy page-based pagination support
+        const skip = page * pageSize;
+        query[`rankOrder.${sortKey}`] = { $gt: skip };
+      }
+
+      // Get rankings sorted by the rank order we pre-calculated
+      const rankings = (await cacheCollection
+        .find(query)
+        .sort({ [`rankOrder.${sortKey}`]: 1 })
+        .limit(limit + 1) // Get one extra to check if there are more
+        .toArray()) as unknown as CachedRanking[];
+
+      // Check if there are more results
+      const hasMore = rankings.length > limit;
+      if (hasMore) {
+        rankings.pop(); // Remove the extra item
+      }
+
+      // Get the next cursor
+      const nextCursor =
+        hasMore && rankings.length > 0
+          ? rankings[rankings.length - 1].rankOrder[sortKey]?.toString()
+          : null;
+
+      // Convert to response format
+      const responseData = rankings.map((ranking) => ({
+        universityId: ranking.universityId,
+        universityName: ranking.universityName,
+        campusName: ranking.campusName,
+        fullName: ranking.fullName,
+        province: ranking.province,
+        city: ranking.city,
+        affiliation: ranking.affiliation,
+        schoolType: ranking.schoolType,
+        is985: ranking.is985,
+        is211: ranking.is211,
+        isDoubleFirstClass: ranking.isDoubleFirstClass,
+        latitude: ranking.latitude,
+        longitude: ranking.longitude,
+        rankings: ranking.rankings
+      }));
+
       return json({
-        ...result,
+        data: responseData,
+        totalCount: metadata.totalCount,
+        hasMore,
+        nextCursor,
+        // Legacy page-based response fields
+        currentPage: page,
         cached: true,
-        cacheTime: validCache.createdAt
+        cacheTime: metadata.createdAt,
+        stale: metadata.expiresAt < now
       });
     }
 
-    const staleCache = (await cacheCollection.findOne(
-      {},
-      { sort: { createdAt: -1 } }
-    )) as unknown as UniversityRankingCache | null;
+    // No cache available or calculation in progress
+    if (!metadata) {
+      console.log('No cache available, calculating fresh data...');
+      await calculateAndCacheUniversityRankings();
 
-    const computeNewData = async () => {
-      try {
-        const newData = await calculateUniversityRankings();
-        const newCacheEntry = {
-          createdAt: new Date(),
-          expiresAt: new Date(Date.now() + CACHE_DURATION_MS),
-          data: newData
-        };
-
-        await cacheCollection.deleteMany({});
-        await cacheCollection.insertOne(newCacheEntry);
-      } catch (computeError) {
-        console.error('Error computing rankings:', computeError);
-      }
-    };
-
-    computeNewData();
-    if (staleCache) {
-      const result = sortAndPaginateRankings(staleCache.data, sortBy, radiusFilter, page, pageSize);
+      // Retry the request now that cache is populated
+      return GET({ url } as Parameters<typeof GET>[0]);
+    } else if (metadata.isCalculating) {
+      // Return empty results while calculation is in progress
       return json({
-        ...result,
-        cached: true,
-        cacheTime: staleCache.createdAt,
-        stale: true
+        data: [],
+        totalCount: 0,
+        hasMore: false,
+        nextCursor: null,
+        currentPage: 0,
+        cached: false,
+        cacheTime: metadata.createdAt,
+        stale: true,
+        calculating: true
       });
     } else {
-      const newData = await calculateUniversityRankings();
-      const newCacheEntry = {
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + CACHE_DURATION_MS),
-        data: newData
-      };
+      // Serve stale data if available
+      const sortKey = `${sortBy}_${radiusFilter}`;
 
-      await cacheCollection.insertOne(newCacheEntry);
+      // Build query for cursor-based pagination
+      const query: Record<string, unknown> = { _id: { $ne: 'metadata' } };
 
-      const result = sortAndPaginateRankings(newData, sortBy, radiusFilter, page, pageSize);
+      if (after) {
+        // Parse the after cursor (it contains the rank)
+        const afterRank = parseInt(after);
+        query[`rankOrder.${sortKey}`] = { $gt: afterRank };
+      } else if (page > 0) {
+        // Legacy page-based pagination support
+        const skip = page * pageSize;
+        query[`rankOrder.${sortKey}`] = { $gt: skip };
+      }
+
+      // Get rankings sorted by the rank order we pre-calculated
+      const rankings = (await cacheCollection
+        .find(query)
+        .sort({ [`rankOrder.${sortKey}`]: 1 })
+        .limit(limit + 1) // Get one extra to check if there are more
+        .toArray()) as unknown as CachedRanking[];
+
+      // Check if there are more results
+      const hasMore = rankings.length > limit;
+      if (hasMore) {
+        rankings.pop(); // Remove the extra item
+      }
+
+      // Get the next cursor
+      const nextCursor =
+        hasMore && rankings.length > 0
+          ? rankings[rankings.length - 1].rankOrder[sortKey]?.toString()
+          : null;
+
+      // Convert to response format
+      const responseData = rankings.map((ranking) => ({
+        universityId: ranking.universityId,
+        universityName: ranking.universityName,
+        campusName: ranking.campusName,
+        fullName: ranking.fullName,
+        province: ranking.province,
+        city: ranking.city,
+        affiliation: ranking.affiliation,
+        schoolType: ranking.schoolType,
+        is985: ranking.is985,
+        is211: ranking.is211,
+        isDoubleFirstClass: ranking.isDoubleFirstClass,
+        latitude: ranking.latitude,
+        longitude: ranking.longitude,
+        rankings: ranking.rankings
+      }));
+
       return json({
-        ...result,
-        cached: false,
-        cacheTime: newCacheEntry.createdAt
+        data: responseData,
+        totalCount: metadata.totalCount,
+        hasMore,
+        nextCursor,
+        // Legacy page-based response fields
+        currentPage: page,
+        cached: true,
+        cacheTime: metadata.createdAt,
+        stale: metadata.expiresAt < now
       });
     }
   } catch (err) {

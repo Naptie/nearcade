@@ -77,6 +77,8 @@
   "badge_211": "211工程",
   "badge_double_first_class": "双一流",
   "all_results_loaded": "所有结果已加载",
+  "calculating_rankings": "正在计算排名...",
+  "rankings_being_updated": "排名正在后台更新中，请稍候。",
   "expanded_metrics": "全部指标",
   "affiliation": "隶属关系",
   "school_type": "学校类型"

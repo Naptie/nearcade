@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import { parseRelativeTime } from '$lib/utils';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   let { data } = $props();
@@ -11,16 +11,39 @@
   let sortBy: SortCriteria = $state(data.sortBy);
   let radiusFilter: RadiusFilter = $state(data.radius);
   let displayedRankings: UniversityRankingData[] = $state(data.rankings);
-  let currentPage = $state(data.currentPage);
   let hasMore = $state(data.hasMore);
+  let nextCursor = $state(data.nextCursor);
   let isLoadingMore = $state(false);
   let hoveredRowId: number | null = $state(null);
+  let showHoverDetails: number | null = $state(null);
+  let hoverTimeout: number | null = null;
+  let screenWidth = $state(0);
+
+  // Define responsive radius visibility
+  const visibleRadiusOptions = $derived.by(() => {
+    if (screenWidth < 640) return [RADIUS_OPTIONS[1]];
+    if (screenWidth < 768) return RADIUS_OPTIONS.slice(1, 3);
+    if (screenWidth < 1024) return RADIUS_OPTIONS.slice(0, 3);
+    return RADIUS_OPTIONS;
+  });
+
+  // Ensure radiusFilter is always visible
+  $effect(() => {
+    if (screenWidth > 0 && !visibleRadiusOptions.includes(radiusFilter)) {
+      // If current radius is not visible, use the largest visible radius
+      radiusFilter = visibleRadiusOptions[visibleRadiusOptions.length - 1];
+    }
+  });
+
+  const handleResize = () => {
+    screenWidth = window.innerWidth;
+  };
 
   // Reset displayed rankings when data changes (due to sort/radius change)
   $effect(() => {
     displayedRankings = data.rankings;
-    currentPage = data.currentPage;
     hasMore = data.hasMore;
+    nextCursor = data.nextCursor;
   });
 
   // Update URL when sort criteria or radius changes (without page parameter)
@@ -34,15 +57,15 @@
     }
   });
   const handleLoadMore = async () => {
-    if (!isLoadingMore && hasMore) {
+    if (!isLoadingMore && hasMore && nextCursor) {
       isLoadingMore = true;
       try {
-        // Fetch next page via API
+        // Fetch next page via API using cursor-based pagination
         const apiUrl = new URL('/api/rankings', window.location.origin);
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('radius', radiusFilter.toString());
-        apiUrl.searchParams.set('page', (currentPage + 1).toString());
-        apiUrl.searchParams.set('pageSize', PAGINATION.PAGE_SIZE.toString());
+        apiUrl.searchParams.set('after', nextCursor);
+        apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());
 
         const response = await fetch(apiUrl.toString());
 
@@ -54,8 +77,8 @@
 
         // Append new results to existing ones
         displayedRankings = [...displayedRankings, ...result.data];
-        currentPage = result.currentPage;
         hasMore = result.hasMore;
+        nextCursor = result.nextCursor;
       } catch (error) {
         console.error('Error loading more results:', error);
       } finally {
@@ -77,11 +100,45 @@
 
   onMount(() => {
     window.addEventListener('scroll', handleScroll, { passive: true });
+    screenWidth = window.innerWidth;
+    window.addEventListener('resize', handleResize);
   });
+
+  const handleMouseEnter = async (index: number) => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+    showHoverDetails = index;
+    await tick();
+    hoverTimeout = setTimeout(() => {
+      hoveredRowId = index;
+    }, 10);
+    // Small delay before showing details to prevent flicker on quick mouse movements
+    // hoverTimeout = setTimeout(() => {
+    //   showHoverDetails = index;
+    // }, 50);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+    hoveredRowId = null;
+    // Keep details visible for fade-out animation
+    hoverTimeout = setTimeout(() => {
+      showHoverDetails = null;
+    }, 200); // Match CSS transition duration
+  };
 
   onDestroy(() => {
     if (typeof window !== 'undefined') {
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    }
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
     }
   });
 
@@ -156,6 +213,11 @@
       <i class="fa-solid fa-circle-xmark fa-lg"></i>
       <span>{data.error}</span>
     </div>
+  {:else if data.calculating}
+    <div class="alert alert-info mb-4">
+      <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
+      <span>{m.rankings_being_updated()}</span>
+    </div>
   {:else}
     <!-- Results Table -->
     {#if displayedRankings && displayedRankings.length > 0}
@@ -165,7 +227,7 @@
             <tr>
               <th class="text-center">{m.ranking()}</th>
               <th class="text-left">{m.university()}</th>
-              {#each RADIUS_OPTIONS as option}
+              {#each visibleRadiusOptions as option}
                 <th
                   class="cursor-pointer text-center transition {radiusFilter == option
                     ? 'text-accent'
@@ -182,8 +244,8 @@
                 class="h-16 transition-all duration-200 hover:h-52 {hoveredRowId === index
                   ? 'bg-base'
                   : ''}"
-                onmouseenter={() => (hoveredRowId = index)}
-                onmouseleave={() => (hoveredRowId = null)}
+                onmouseenter={() => handleMouseEnter(index)}
+                onmouseleave={handleMouseLeave}
               >
                 <td class="text-center font-bold">
                   <div class="flex items-center justify-center">
@@ -192,9 +254,9 @@
                 </td>
                 <td>
                   <div class="flex flex-col gap-1">
-                    <div class="flex items-center gap-2">
-                      <div class="font-semibold">{ranking.universityName}</div>
-                      <div class="font-light text-current/70">{ranking.campusName}</div>
+                    <div>
+                      <span class="pr-1 font-semibold">{ranking.universityName}</span>
+                      <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
                     <div class="flex gap-2">
                       <div class="text-sm opacity-70">
@@ -220,43 +282,16 @@
                         {/if}
                       </div>
                     </div>
-
-                    <!-- Expanded Details on Hover -->
-                    <!-- {#if hoveredRowId === ranking.universityId}
-                      <div class="bg-base-300 mt-2 rounded-lg p-3 text-xs">
-                        <div class="mb-2 font-semibold">{m.expanded_metrics()}</div>
-                        <div class="grid grid-cols-2 gap-2">
-                          <div><strong>{m.affiliation()}:</strong> {ranking.affiliation}</div>
-                          <div><strong>{m.school_type()}:</strong> {ranking.schoolType}</div>
-                        </div>
-                        <div class="mt-2">
-                          <div class="mb-1 font-semibold">Radius {radiusFilter}km:</div>
-                          {#each GAMES as game}
-                            {@const metrics = getMetricsForRadius(ranking, radiusFilter)}
-                            {#if metrics}
-                              <div class="flex justify-between">
-                                <span>{getGameName(game.key)}:</span>
-                                <span
-                                  >{formatNumber(
-                                    metrics.gameSpecificMachines.find((e) => e.name == game.key)!
-                                      .quantity
-                                  )}</span
-                                >
-                              </div>
-                            {/if}
-                          {/each}
-                        </div>
-                      </div>
-                    {/if} -->
                   </div>
                 </td>
 
-                {#each RADIUS_OPTIONS as option}
+                {#each visibleRadiusOptions as option}
                   {@const metrics = getMetricsForRadius(ranking, option)}
                   <td class="relative text-center">
                     {#if metrics}
                       <div
-                        class="flex flex-col items-center transition-all {hoveredRowId === index
+                        class="flex flex-col items-center transition-opacity duration-200 {hoveredRowId ===
+                        index
                           ? 'opacity-0'
                           : 'opacity-100'}"
                       >
@@ -277,35 +312,36 @@
                         </div>
                       </div>
 
-                      <div
-                        class="absolute inset-0 flex flex-col items-center justify-center overflow-hidden px-2 text-xs transition-all {hoveredRowId ===
-                        index
-                          ? 'opacity-100'
-                          : 'opacity-0'}"
-                      >
-                        <!-- <div class="mb-1 font-semibold">{'<'} {option.value}km</div> -->
-                        <div class="grid grid-cols-1 gap-0.5 text-center">
-                          <div>{m.shops({ count: formatNumber(metrics.shopCount) })}</div>
-                          <div>{m.machines({ count: formatNumber(metrics.totalMachines) })}</div>
-                          <div>
-                            {m.count_machines_per_km2({
-                              count: formatDensity(metrics.areaDensity)
-                            })}
+                      {#if showHoverDetails === index}
+                        <div
+                          class="absolute inset-0 flex flex-col items-center justify-center overflow-hidden px-2 text-xs transition-opacity duration-200 {hoveredRowId ===
+                          index
+                            ? 'opacity-100'
+                            : 'opacity-0'}"
+                        >
+                          <div class="grid grid-cols-1 gap-0.5 text-center">
+                            <div>{m.shops({ count: formatNumber(metrics.shopCount) })}</div>
+                            <div>{m.machines({ count: formatNumber(metrics.totalMachines) })}</div>
+                            <div>
+                              {m.count_machines_per_km2({
+                                count: formatDensity(metrics.areaDensity)
+                              })}
+                            </div>
+                            <div class="divider my-0.5"></div>
+                            {#each GAMES as game (game.id)}
+                              {@const gameMetrics = metrics.gameSpecificMachines.find(
+                                (e) => e.name == game.key
+                              )}
+                              {#if gameMetrics && gameMetrics.quantity > 0}
+                                <div class="flex justify-between gap-1">
+                                  <span class="truncate">{getGameName(game.key)}:</span>
+                                  <span>{formatNumber(gameMetrics.quantity)}</span>
+                                </div>
+                              {/if}
+                            {/each}
                           </div>
-                          <div class="divider my-0.5"></div>
-                          {#each GAMES as game (game.id)}
-                            {@const gameMetrics = metrics.gameSpecificMachines.find(
-                              (e) => e.name == game.key
-                            )}
-                            {#if gameMetrics && gameMetrics.quantity > 0}
-                              <div class="flex justify-between gap-1">
-                                <span class="truncate">{getGameName(game.key)}:</span>
-                                <span>{formatNumber(gameMetrics.quantity)}</span>
-                              </div>
-                            {/if}
-                          {/each}
                         </div>
-                      </div>
+                      {/if}
                     {:else}
                       <span class="text-base-content/40">—</span>
                     {/if}
@@ -316,6 +352,7 @@
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
+                      data-sveltekit-preload-data="hover"
                       href="/discover/{ranking.latitude}/{ranking.longitude}?radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"

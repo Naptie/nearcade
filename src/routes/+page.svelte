@@ -198,12 +198,12 @@
 
                 if (response.ok) {
                   const result = await response.json();
-                  console.log('University coordinate update result:', result);
+                  console.log('University update result:', result);
                 } else {
-                  console.warn('Failed to update university coordinates:', response.statusText);
+                  console.warn('Failed to update university:', response.statusText);
                 }
               } catch (error) {
-                console.error('Error updating university coordinates:', error);
+                console.error('Error updating university:', error);
               }
             }
           }

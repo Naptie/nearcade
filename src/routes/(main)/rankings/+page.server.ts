@@ -9,12 +9,11 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
     const radius = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
     const refresh = url.searchParams.get('refresh') === 'true';
 
-    // Always start with page 0 for initial load
+    // Always start with no cursor for initial load (cursor-based pagination)
     const apiUrl = new URL('/api/rankings', url.origin);
     apiUrl.searchParams.set('sortBy', sortBy);
     apiUrl.searchParams.set('radius', radius.toString());
-    apiUrl.searchParams.set('page', '0');
-    apiUrl.searchParams.set('pageSize', PAGINATION.PAGE_SIZE.toString());
+    apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());
     if (refresh) {
       apiUrl.searchParams.set('refresh', 'true');
     }
@@ -31,10 +30,11 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
       rankings: result.data,
       totalCount: result.totalCount,
       hasMore: result.hasMore,
-      currentPage: result.currentPage,
+      nextCursor: result.nextCursor || null,
       cached: result.cached,
       cacheTime: new Date(result.cacheTime),
       stale: result.stale || false,
+      calculating: result.calculating || false,
       sortBy,
       radius
     };
@@ -44,14 +44,14 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
       rankings: [],
       totalCount: 0,
       hasMore: false,
-      currentPage: 0,
+      nextCursor: null,
       cached: false,
       cacheTime: new Date(),
       stale: false,
+      calculating: false,
       error: 'Failed to load rankings',
       sortBy: 'shops' as SortCriteria,
-      radius: 10 as RadiusFilter,
-      page: 0
+      radius: 10 as RadiusFilter
     };
   }
 };

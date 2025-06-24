@@ -95,6 +95,8 @@
   "badge_211": "211 Project",
   "badge_double_first_class": "Double First-Class",
   "all_results_loaded": "All results loaded",
+  "calculating_rankings": "Calculating rankings in progress...",
+  "rankings_being_updated": "Rankings are being updated in the background. Please wait.",
   "expanded_metrics": "All Metrics",
   "affiliation": "Affiliation",
   "school_type": "School Type"
