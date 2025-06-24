@@ -183,7 +183,7 @@
             {#each visibleGames as game (game.id)}
               <th id="game-{game.id}" class="text-center">{game.name}</th>
             {/each}
-            <th class="text-right">{m.actions()}</th>
+            <th class="text-center">{m.actions()}</th>
           </tr>
         </thead>
         <tbody>
