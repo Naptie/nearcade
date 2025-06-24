@@ -316,7 +316,7 @@
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
-                      href="/discover/{ranking.latitude}/{ranking.longitude}?radius={radiusFilter}name={encodeURIComponent(
+                      href="/discover/{ranking.latitude}/{ranking.longitude}?radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"
                       target="_blank"
