@@ -29,7 +29,7 @@
 
   onMount(async () => {
     if (browser) {
-      (window as any)._AMapSecurityConfig = {
+      (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
         serviceHost: `${page.url.origin}/_AMapService`
       };
       try {

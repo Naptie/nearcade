@@ -5,29 +5,8 @@
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import { m } from '$lib/paraglide/messages';
-  import type { AMapContext } from '$lib/types';
+  import type { AMapContext, Campus, University } from '$lib/types';
   import { getContext, untrack, onMount } from 'svelte';
-
-  // Types for university data
-  interface Campus {
-    name: string | null;
-    longitude: number;
-    latitude: number;
-  }
-
-  interface University {
-    name: string;
-    majorCategory: string;
-    natureOfRunning: string;
-    schoolType: string;
-    is985: boolean;
-    is211: boolean;
-    isDoubleFirstClass: boolean;
-    province: string;
-    city: string;
-    affiliation: string;
-    campuses: Campus[];
-  }
 
   interface SelectedUniversity {
     university: University;
@@ -246,7 +225,7 @@
       amap.convertFrom(
         [location.longitude, location.latitude],
         'gps',
-        (status: string, result: any) => {
+        (status: string, result: { info: string; locations: { lat: number; lng: number }[] }) => {
           if (status === 'complete' && result.info === 'ok') {
             location.latitude = result.locations[0].lat;
             location.longitude = result.locations[0].lng;
@@ -432,8 +411,8 @@
                   <div
                     class="bg-base-100 h-[40vh] w-full overflow-y-auto rounded-lg border transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
                   >
-                    {#each universities as university}
-                      <div class="border-base-200 border-b last:border-b-0">
+                    {#each universities as university (university.name)}
+                      <div id={university.name} class="border-base-200 border-b last:border-b-0">
                         {#if university.campuses.length === 1}
                           <button
                             class="hover:bg-base-200 flex w-full items-center justify-between p-3 text-left transition-colors"
@@ -459,8 +438,9 @@
                               </div>
                             </div>
                             <div class="mt-2 space-y-1">
-                              {#each university.campuses as campus}
+                              {#each university.campuses as campus (campus.name)}
                                 <button
+                                  id="{university.name}-{campus.name}"
                                   class="hover:bg-base-200 flex w-full items-center justify-between rounded-lg px-4 py-2 text-left transition-colors"
                                   onclick={() => selectUniversity(university, campus)}
                                 >

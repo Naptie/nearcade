@@ -24,5 +24,6 @@ vite.config.ts.timestamp-*
 
 # Paraglide
 src/lib/paraglide
+src/paraglide
 
 .vercel

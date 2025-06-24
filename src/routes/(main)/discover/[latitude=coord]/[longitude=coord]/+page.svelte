@@ -19,7 +19,7 @@
   let amapReady = $derived(amapContext?.ready ?? false);
   let amapError = $derived(amapContext?.error ?? null);
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
-  let map: any = $state(undefined);
+  let map: AMap.Map | undefined = $state(undefined);
   let highlightedShopId: number | null = $state(null);
   let highlightedShopIdTimeout: number | null = $state(null);
   let isDarkMode = $state(false);
@@ -193,14 +193,14 @@
           <tr>
             <th class="text-left">{m.shop()}</th>
             <th class="text-center">{m.distance()}</th>
-            {#each visibleGames as game}
-              <th class="text-center">{game.name}</th>
+            {#each visibleGames as game (game.id)}
+              <th id="game-{game.id}" class="text-center">{game.name}</th>
             {/each}
             <th class="text-right">{m.actions()}</th>
           </tr>
         </thead>
         <tbody>
-          {#each data.shops as shop}
+          {#each data.shops as shop (shop.id)}
             <tr
               id="shop-{shop.id}"
               class="transition-all {highlightedShopId === shop.id ? 'bg-accent/12' : ''}"
@@ -225,7 +225,7 @@
                   {formatDistance(shop.distance)}
                 </div>
               </td>
-              {#each visibleGames as gameInfo}
+              {#each visibleGames as gameInfo (gameInfo.id)}
                 {@const game = findGame(shop.games, gameInfo.id)}
                 <td class="text-center">
                   {#if game}
