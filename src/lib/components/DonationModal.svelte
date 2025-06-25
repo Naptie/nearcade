@@ -39,7 +39,7 @@
   onclick={handleDialogClick}
   onkeydown={handleKeydown}
 >
-  <div class="modal-box relative max-w-xl">
+  <div class="modal-box relative max-h-[90vh] max-w-xl">
     <!-- Close button -->
     <button
       class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
@@ -62,7 +62,7 @@
         <img
           src="/donate-wechat.png"
           alt="WeChat Donation QR Code"
-          class="w-full rounded-lg shadow-lg"
+          class="max-h-[50vh] w-fit rounded-lg object-contain shadow-lg"
         />
       </div>
 
