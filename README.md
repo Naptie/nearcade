@@ -1,38 +1,188 @@
-# sv
+# nearcade 🕹️
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A modern web application that helps gamers discover arcade gaming venues. Find the best spots to play popular rhythm games like maimai DX, CHUNITHM, SOUND VOLTEX, and more!
 
-## Creating a project
+## ✨ Features
 
-If you're seeing this, you've probably already done this step. Congrats!
+### 🎯 Location-Based Discovery
 
-```bash
-# create a new project in the current directory
-npx sv create
+- **My Location**: Use GPS to find arcades near your current position
+- **University Search**: Search for arcades near specific universities and campuses
+- **Map Selection**: Pick any location on an interactive map
+- **Customizable Radius**: Search within 1-30km radius
 
-# create a new project in my-app
-npx sv create my-app
+### 🏆 University Rankings
+
+- Compare universities by arcade density and machine availability
+- Metrics include shop count, total machines, and area density (machines per km²)
+- Game-specific rankings for popular titles
+- Real-time data with automatic cache refresh
+
+### 🎮 Game Support
+
+- **maimai DX**: SEGA's popular touch-screen rhythm game
+- **CHUNITHM**: Air-based rhythm game experience
+- **Taiko no Tatsujin**: Traditional Japanese drum rhythm game
+- **SOUND VOLTEX**: Electronic music rhythm game with analog controls
+- **WACCA**: 360-degree touch panel rhythm game
+
+### 🌐 Internationalization
+
+- Full bilingual support (English/Chinese)
+- Localized content and interface
+- Built with Paraglide.js for type-safe translations
+
+### 📱 Modern UI/UX
+
+- Responsive design for all devices
+- Dark/light mode support
+- Interactive maps with AMap integration
+- Smooth animations and transitions
+- Tailwind CSS with daisyUI components
+
+## 🛠️ Technical Stack
+
+### Frontend Framework
+
+- **SvelteKit**: Full-stack framework with SSR/SPA capabilities
+- **Svelte 5**: Latest version with enhanced reactivity system
+- **TypeScript**: Type-safe development throughout
+
+### Styling & UI
+
+- **Tailwind CSS 4.0**: Utility-first CSS framework
+- **daisyUI**: Semantic component classes for Tailwind
+- **Font Awesome**: Comprehensive icon library
+
+### Backend & Database
+
+- **MongoDB**: Document database for storing arcade and university data
+- **Server-side API**: RESTful endpoints built with SvelteKit
+
+### Maps & Location Services
+
+- **高德地图 (AMap) & 腾讯地图 (Tencent Maps)**: Mapping service integration
+- **Geolocation API**: Browser-based location detection
+
+### Internationalization
+
+- **Paraglide.js**: Type-safe i18n solution
+- **Message-based Translation**: Structured translation system
+- **Runtime Language Switching**: Dynamic locale changes
+
+### Development Tools
+
+- **Vite**: Fast build tool and development server
+- **ESLint**: Code linting with Svelte-specific rules
+- **Prettier**: Code formatting with plugin support
+- **PNPM**: Fast, disk space efficient package manager
+
+## 🏗️ Project Structure
+
+```
+nearcade/
+├── src/
+│   ├── lib/
+│   │   ├── components/          # Reusable Svelte components
+│   │   │   ├── DonationModal.svelte
+│   │   │   ├── FancyButton.svelte
+│   │   │   ├── Footer.svelte
+│   │   │   ├── LocaleSwitch.svelte
+│   │   │   └── ...
+│   │   ├── paraglide/          # Generated i18n files
+│   │   ├── constants.ts        # App constants (games, radius options)
+│   │   ├── types.ts           # TypeScript type definitions
+│   │   └── utils.ts           # Utility functions
+│   ├── routes/
+│   │   ├── (main)/            # Main application pages
+│   │   │   ├── discover/      # Location-based discovery
+│   │   │   └── rankings/      # University rankings
+│   │   ├── api/               # Server-side API endpoints
+│   │   │   ├── shops/         # Arcade shop data
+│   │   │   ├── universities/  # University data
+│   │   │   └── rankings/      # Ranking calculations
+│   │   └── +page.svelte       # Homepage
+│   ├── params/                # Route parameter matchers
+│   └── app.html              # Main HTML template
+├── messages/                  # Translation files
+│   ├── en.json               # English translations
+│   └── zh.json               # Chinese translations
+├── static/                   # Static assets
+└── project.inlang/          # i18n project configuration
 ```
 
-## Developing
+## 🚀 Getting Started
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+### Prerequisites
+
+- Node.js 18+
+- PNPM (recommended) or npm
+- MongoDB instance
+- AMap API key & Tencent Maps API key
+
+### Installation
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/yourusername/nearcade.git
+   cd nearcade
+   ```
+
+2. **Install dependencies:**
+
+   ```bash
+   pnpm install
+   ```
+
+3. **Set up environment variables:**
+   Create a `.env` file in the root directory:
+
+   ```env
+   PUBLIC_AMAP_KEY = "your_key"
+   PUBLIC_QQMAP_KEY = "your_key"
+   AMAP_SECRET = "your_secret"
+   QQMAP_SECRET = "your_secret"
+   MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
+   ```
+
+4. **Start development server:**
+
+   ```bash
+   pnpm dev
+   ```
+
+5. **Open your browser:**
+   Navigate to `http://localhost:5173`
+
+### Building for Production
 
 ```bash
-npm run dev
+# Build the application
+pnpm build
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+# Preview the production build
+pnpm preview
 ```
 
-## Building
+## 🤝 Contributing
 
-To create a production version of your app:
+We welcome contributions! Please feel free to submit issues and pull requests.
 
-```bash
-npm run build
-```
+### Development Guidelines
 
-You can preview the production build with `npm run preview`.
+- Follow TypeScript best practices
+- Use Prettier for code formatting
+- Write meaningful commit messages
+- Test your changes thoroughly
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## 📄 License
+
+This project is open source and available under the [Mozilla Public License 2.0](LICENSE).
+
+## 🙏 Acknowledgments
+
+- Arcade data providers and communities
+- University databases and educational institutions
+- Open source contributors and maintainers
+- The rhythm game community
