@@ -201,7 +201,7 @@
         <span class="label-text">{m.sort_by()}</span>
       </label>
       <select id="sort-select" class="select select-bordered w-full" bind:value={sortBy}>
-        {#each SORT_CRITERIA as criteria}
+        {#each SORT_CRITERIA as criteria (criteria.key)}
           <option value={criteria.key}>{getSortLabel(criteria.key)}</option>
         {/each}
       </select>
@@ -227,7 +227,7 @@
             <tr>
               <th class="text-center">{m.ranking()}</th>
               <th class="text-left">{m.university()}</th>
-              {#each visibleRadiusOptions as option}
+              {#each visibleRadiusOptions as option (option)}
                 <th
                   class="cursor-pointer text-center transition {radiusFilter == option
                     ? 'text-accent'
@@ -285,7 +285,7 @@
                   </div>
                 </td>
 
-                {#each visibleRadiusOptions as option}
+                {#each visibleRadiusOptions as option (option)}
                   {@const metrics = getMetricsForRadius(ranking, option)}
                   <td class="relative w-28 text-center md:w-32 lg:w-44 xl:w-48 2xl:w-52">
                     {#if metrics}

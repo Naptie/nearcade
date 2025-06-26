@@ -12,15 +12,15 @@
   <ul
     class="dropdown-content menu bg-base-200/50 dark:bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg"
   >
-    {#each locales as lang}
+    {#each locales as locale (locale)}
       <li>
         <button
           class="justify-between"
-          class:active={getLocale() === lang}
-          onclick={() => setLocale(lang)}
+          class:active={getLocale() === locale}
+          onclick={() => setLocale(locale)}
         >
-          {m.name(undefined, { locale: lang })}
-          {#if getLocale() === lang}
+          {m.name(undefined, { locale })}
+          {#if getLocale() === locale}
             <i class="fa-solid fa-check text-primary"></i>
           {/if}
         </button>

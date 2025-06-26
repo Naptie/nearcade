@@ -343,7 +343,7 @@
             <div class="flex flex-col gap-1 sm:hidden">
               <span class="label mt-1 w-full">{m.search_radius()}</span>
               <select class="select w-full" bind:value={radius}>
-                {#each RADIUS_OPTIONS as r}
+                {#each RADIUS_OPTIONS as r (r)}
                   <option value={r}>{r} km</option>
                 {/each}
               </select>
@@ -370,7 +370,7 @@
               <div
                 class="mt-1 flex w-full justify-between text-xs leading-tight font-light opacity-50 md:leading-snug lg:leading-normal"
               >
-                {#each RADIUS_OPTIONS as r, i}
+                {#each RADIUS_OPTIONS as r, i (r)}
                   <span
                     class:opacity-100={i === 0 ||
                       i === RADIUS_OPTIONS.length - 1 ||
