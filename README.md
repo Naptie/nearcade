@@ -176,13 +176,14 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 - Write meaningful commit messages
 - Test your changes thoroughly
 
+## ⭐ Stargazers Over Time
+
+[![Stargazers over time](https://starchart.cc/Naptie/nearcade.svg?variant=adaptive)](https://starchart.cc/Naptie/nearcade)
+
 ## 📄 License
 
 This project is open source and available under the [Mozilla Public License 2.0](LICENSE).
 
 ## 🙏 Acknowledgments
 
-- Arcade data providers and communities
-- University databases and educational institutions
-- Open source contributors and maintainers
-- The rhythm game community
+- BEMANICN
