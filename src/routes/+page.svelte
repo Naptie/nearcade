@@ -247,7 +247,7 @@
 </svelte:head>
 
 <div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">
-  <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
+  <div class="absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
     <LocaleSwitch />
     <FancyButton
       callback={() => {

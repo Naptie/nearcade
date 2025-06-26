@@ -5,7 +5,6 @@
   import FancyButton from '$lib/components/FancyButton.svelte';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy } from 'svelte';
-  import DonationModal from '$lib/components/DonationModal.svelte';
 
   let { children } = $props();
   let scrollY = $state(0);
@@ -36,7 +35,7 @@
     <SiteTitle class="text-3xl md:text-4xl" />
   </div>
   <div class="flex-none">
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
       <LocaleSwitch />
       <FancyButton
         callback={() => {

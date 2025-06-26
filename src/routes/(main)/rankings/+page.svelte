@@ -178,7 +178,7 @@
     <div class="grow">
       <div class="mb-2 flex items-center gap-4">
         <h1 class="text-3xl font-bold">{m.campus_rankings()}</h1>
-        <div class="hidden items-center gap-2 md:flex">
+        <div class="hidden items-center gap-2 whitespace-nowrap md:flex">
           {#if data.stale}
             <div class="badge badge-warning badge-sm">
               <i class="fas fa-clock"></i>
