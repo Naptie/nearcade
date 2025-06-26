@@ -4,7 +4,7 @@ import { error } from '@sveltejs/kit';
 import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import type { University, Campus } from '$lib/types';
-import { areCoordinatesApproxEqual } from '$lib/utils';
+import { areCoordinatesApproxEqual, calculateDistance } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -89,28 +89,49 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ success: false, message: 'University not found', universityName, campusName });
     }
 
-    // Check if campus exists (exact name match or approximate coordinate match)
-    const existingCampusIndex = university.campuses.findIndex(
-      (campus) =>
-        campus.name === campusName ||
-        areCoordinatesApproxEqual(
+    // Check if campus exists (exact name match first, then closest coordinate match)
+    let existingCampusIndex = -1;
+    let wasApproxMatch = false;
+
+    // First, check for exact name match
+    if (campusName) {
+      existingCampusIndex = university.campuses.findIndex(
+        (campus) => campus.name === campusName
+      );
+    }
+
+    // If no exact name match, find the closest campus by distance and check if it's within tolerance
+    if (existingCampusIndex === -1) {
+      const campusesWithDistance = university.campuses.map((campus, index) => ({
+        ...campus,
+        index,
+        distance: calculateDistance(
           campus.latitude,
           campus.longitude,
           location.latitude,
           location.longitude
         )
-    );
+      }));
 
-    if (existingCampusIndex !== -1) {
-      const existingCampus = university.campuses[existingCampusIndex];
-      const wasApproxMatch =
-        existingCampus.name !== campusName &&
+      // Sort by distance (closest first)
+      campusesWithDistance.sort((a, b) => a.distance - b.distance);
+
+      // Check if the closest campus is within tolerance
+      if (
+        campusesWithDistance.length > 0 &&
         areCoordinatesApproxEqual(
-          existingCampus.latitude,
-          existingCampus.longitude,
+          campusesWithDistance[0].latitude,
+          campusesWithDistance[0].longitude,
           location.latitude,
           location.longitude
-        );
+        )
+      ) {
+        existingCampusIndex = campusesWithDistance[0].index;
+        wasApproxMatch = true;
+      }
+    }
+
+    if (existingCampusIndex !== -1) {
       // Update existing campus coordinates and name if it was an approximate match
       const updateFields: Record<string, number | string> = {
         [`campuses.${existingCampusIndex}.latitude`]: location.latitude,
