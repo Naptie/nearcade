@@ -125,7 +125,7 @@ nearcade/
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/nearcade.git
+   git clone https://github.com/Naptie/nearcade.git
    cd nearcade
    ```
 
@@ -142,7 +142,6 @@ nearcade/
    PUBLIC_AMAP_KEY = "your_key"
    PUBLIC_QQMAP_KEY = "your_key"
    AMAP_SECRET = "your_secret"
-   QQMAP_SECRET = "your_secret"
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```
 
