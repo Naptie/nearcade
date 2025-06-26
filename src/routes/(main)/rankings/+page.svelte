@@ -258,7 +258,7 @@
                       <span class="pr-1 font-semibold">{ranking.universityName}</span>
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                       <div class="text-sm opacity-70">
                         {#if ranking.city.slice(0, ranking.city.length - 1) == ranking.province}
                           {ranking.city}
@@ -266,21 +266,19 @@
                           {ranking.province} · {ranking.city}
                         {/if}
                       </div>
-                      <div class="flex flex-wrap gap-1">
-                        {#if ranking.is985}
-                          <div class="badge badge-soft badge-primary badge-xs">{m.badge_985()}</div>
-                        {/if}
-                        {#if ranking.is211}
-                          <div class="badge badge-soft badge-secondary badge-xs">
-                            {m.badge_211()}
-                          </div>
-                        {/if}
-                        {#if ranking.isDoubleFirstClass}
-                          <div class="badge badge-soft badge-accent badge-xs">
-                            {m.badge_double_first_class()}
-                          </div>
-                        {/if}
-                      </div>
+                      {#if ranking.is985}
+                        <div class="badge badge-soft badge-primary badge-xs">{m.badge_985()}</div>
+                      {/if}
+                      {#if ranking.is211}
+                        <div class="badge badge-soft badge-secondary badge-xs">
+                          {m.badge_211()}
+                        </div>
+                      {/if}
+                      {#if ranking.isDoubleFirstClass}
+                        <div class="badge badge-soft badge-accent badge-xs">
+                          {m.badge_double_first_class()}
+                        </div>
+                      {/if}
                     </div>
                   </div>
                 </td>
