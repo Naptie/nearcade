@@ -95,9 +95,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     // First, check for exact name match
     if (campusName) {
-      existingCampusIndex = university.campuses.findIndex(
-        (campus) => campus.name === campusName
-      );
+      existingCampusIndex = university.campuses.findIndex((campus) => campus.name === campusName);
     }
 
     // If no exact name match, find the closest campus by distance and check if it's within tolerance
