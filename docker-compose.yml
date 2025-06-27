@@ -1,0 +1,19 @@
+services:
+  nearcade:
+    build: .
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo
+    restart: always
+    container_name: mongo
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
