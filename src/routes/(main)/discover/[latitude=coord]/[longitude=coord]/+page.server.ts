@@ -41,10 +41,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
       .toArray()) as unknown as Shop[];
 
     const shopsWithDistance = shops.map((shop) => {
-      const shopLat = shop.location?.latitude;
-      const shopLng = shop.location?.longitude;
+      const coordinates = shop.location?.coordinates;
 
-      if (typeof shopLat === 'number' && typeof shopLng === 'number') {
+      if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+        const [shopLng, shopLat] = coordinates; // GeoJSON format is [longitude, latitude]
         const distance = calculateDistance(latitude, longitude, shopLat, shopLng);
 
         return {
@@ -60,6 +60,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
         distance: Infinity
       };
     });
+
     shopsWithDistance.sort((a, b) => a.distance - b.distance);
     return {
       shops: shopsWithDistance,

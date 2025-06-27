@@ -92,7 +92,7 @@
 
       data.shops.forEach((shop) => {
         const marker = new amap.Marker({
-          position: [shop.location.longitude, shop.location.latitude],
+          position: shop.location.coordinates,
           title: shop.name,
           content: '<i class="text-success fa-solid fa-location-dot fa-lg"></i>',
           offset: new amap.Pixel(-7.03, -20),
@@ -223,7 +223,7 @@
                       </div>
                       <div class="text-warning flex items-center gap-1 text-sm">
                         <i class="fa-solid fa-coins"></i>
-                        {game.coin}
+                        {game.cost}
                       </div>
                     </div>
                   {:else}

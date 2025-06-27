@@ -49,8 +49,8 @@ const getShopsWithinRadius = async (
     const distance = calculateDistance(
       centerLat,
       centerLng,
-      shop.location.latitude,
-      shop.location.longitude
+      shop.location.coordinates[1], // latitude
+      shop.location.coordinates[0] // longitude
     );
     return distance <= radiusKm;
   });

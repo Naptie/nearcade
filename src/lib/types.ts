@@ -1,15 +1,17 @@
 import type { RADIUS_OPTIONS } from './constants';
 
+interface Location {
+  type: 'Point';
+  coordinates: [number, number]; // [longitude, latitude]
+};
+
 export interface Shop {
   _id: string;
   id: number;
   name: string;
   province_code: string;
   city_code: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
+  location: Location;
   games: Game[];
 }
 
@@ -18,7 +20,7 @@ export interface Game {
   name: string;
   version: string;
   quantity: number;
-  coin: number;
+  cost: number;
 }
 
 export interface Campus {
