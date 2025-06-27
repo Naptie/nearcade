@@ -8,7 +8,7 @@ export const GAMES = [
 ] as const;
 
 // Radius constants for search distances
-export const RADIUS_OPTIONS = [5, 10, 20, 30] as const;
+export const RADIUS_OPTIONS = [1, 2, 5, 10] as const;
 
 // Pagination constants
 export const PAGINATION = {
