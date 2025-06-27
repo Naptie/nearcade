@@ -452,7 +452,7 @@
                               </div>
                             </div>
                             <div class="mt-2 space-y-1">
-                              {#each university.campuses as campus (campus.name)}
+                              {#each university.campuses as campus ((campus.latitude, campus.longitude))}
                                 <button
                                   id="{university.name}-{campus.name}"
                                   class="hover:bg-base-200 flex w-full items-center justify-between rounded-lg px-4 py-2 text-left transition-colors"
