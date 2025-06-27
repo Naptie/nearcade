@@ -326,8 +326,6 @@ export const GET: RequestHandler = async ({ url }) => {
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
     const radiusFilter = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
 
-    // Support both old page-based and new cursor-based pagination
-    const page = parseInt(url.searchParams.get('page') || '0');
     const pageSize = parseInt(url.searchParams.get('pageSize') || PAGINATION.PAGE_SIZE.toString());
     const limit = parseInt(url.searchParams.get('limit') || pageSize.toString());
     const after = url.searchParams.get('after') || null;
@@ -357,10 +355,6 @@ export const GET: RequestHandler = async ({ url }) => {
         // Parse the after cursor (it contains the rank)
         const afterRank = parseInt(after);
         query[`rankOrder.${sortKey}`] = { $gt: afterRank };
-      } else if (page > 0) {
-        // Legacy page-based pagination support
-        const skip = page * pageSize;
-        query[`rankOrder.${sortKey}`] = { $gt: skip };
       }
 
       // Get rankings sorted by the rank order we pre-calculated
@@ -405,8 +399,6 @@ export const GET: RequestHandler = async ({ url }) => {
         totalCount: metadata.totalCount,
         hasMore,
         nextCursor,
-        // Legacy page-based response fields
-        currentPage: page,
         cached: true,
         cacheTime: metadata.createdAt,
         stale: metadata.expiresAt < now
@@ -427,7 +419,6 @@ export const GET: RequestHandler = async ({ url }) => {
         totalCount: 0,
         hasMore: false,
         nextCursor: null,
-        currentPage: 0,
         cached: false,
         cacheTime: metadata.createdAt,
         stale: true,
@@ -444,10 +435,6 @@ export const GET: RequestHandler = async ({ url }) => {
         // Parse the after cursor (it contains the rank)
         const afterRank = parseInt(after);
         query[`rankOrder.${sortKey}`] = { $gt: afterRank };
-      } else if (page > 0) {
-        // Legacy page-based pagination support
-        const skip = page * pageSize;
-        query[`rankOrder.${sortKey}`] = { $gt: skip };
       }
 
       // Get rankings sorted by the rank order we pre-calculated
@@ -492,8 +479,6 @@ export const GET: RequestHandler = async ({ url }) => {
         totalCount: metadata.totalCount,
         hasMore,
         nextCursor,
-        // Legacy page-based response fields
-        currentPage: page,
         cached: true,
         cacheTime: metadata.createdAt,
         stale: metadata.expiresAt < now
