@@ -169,6 +169,12 @@ pnpm build
 pnpm preview
 ```
 
+### Deploy to Cloudflare Workers
+
+```bash
+ADAPTER=cloudflare pnpm cf-deploy
+```
+
 ## 🚢 Running with Docker
 
 ### Prerequisites
@@ -249,4 +255,4 @@ This project is open source and available under the [Mozilla Public License 2.0]
 
 ## 🙏 Acknowledgments
 
-- BEMANICN
+- [BEMANICN](https://map.bemanicn.com/)
