@@ -30,7 +30,6 @@ interface CacheMetadata {
   createdAt: Date;
   expiresAt: Date;
   totalCount: number;
-  lastCalculated: Date;
   isCalculating?: boolean;
   calculationStarted?: Date;
 }
@@ -89,8 +88,8 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
   } as never)) as CacheMetadata | null;
 
   if (existingMetadata?.isCalculating) {
-    // Check if calculation has been running for too long (more than 30 minutes)
-    const calculationTimeout = 30 * 60 * 1000; // 30 minutes
+    // Check if calculation has been running for too long (more than 5 minutes)
+    const calculationTimeout = 5 * 60 * 1000; // 5 minutes
     const now = new Date();
     const calculationStarted = existingMetadata.calculationStarted || existingMetadata.createdAt;
 
@@ -108,7 +107,6 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
     createdAt: existingMetadata?.createdAt || new Date(),
     expiresAt: existingMetadata?.expiresAt || new Date(Date.now() - 1), // Expired during calculation
     totalCount: existingMetadata?.totalCount || 0,
-    lastCalculated: existingMetadata?.lastCalculated || new Date(),
     isCalculating: true,
     calculationStarted: new Date()
   };
@@ -270,7 +268,6 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + CACHE_DURATION_MS),
       totalCount: cachedRankings.length,
-      lastCalculated: new Date(),
       isCalculating: false,
       calculationStarted: undefined
     };
@@ -290,7 +287,6 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
         createdAt: existingMetadata?.createdAt || new Date(),
         expiresAt: existingMetadata?.expiresAt || new Date(Date.now() - 1),
         totalCount: existingMetadata?.totalCount || 0,
-        lastCalculated: existingMetadata?.lastCalculated || new Date(),
         isCalculating: false,
         calculationStarted: undefined
       };
@@ -329,16 +325,10 @@ export const GET: RequestHandler = async ({ url }) => {
 
     // If cache is expired, trigger background refresh
     if (metadata && metadata.expiresAt < now) {
-      // Only start calculation if not already in progress
-      if (!metadata?.isCalculating) {
-        console.log('Cache expired or missing, triggering background refresh...');
-        // Start background refresh but don't wait for it
-        calculateAndCacheUniversityRankings().catch((err) =>
-          console.error('Background cache refresh failed:', err)
-        );
-      } else {
-        console.log('Cache refresh already in progress...');
-      }
+      console.log('Triggering background refresh...');
+      calculateAndCacheUniversityRankings().catch((err) =>
+        console.error('Background cache refresh failed:', err)
+      );
     }
 
     // Try to serve from cache if it exists and has data
