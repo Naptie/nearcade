@@ -13,7 +13,7 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "fl": "prettier --write . && eslint . --fix",
-    "cf-deploy": "ADAPTER=cloudflare pnpm run build && wrangler deploy",
+    "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
   "devDependencies": {
