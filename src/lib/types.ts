@@ -3,7 +3,7 @@ import type { RADIUS_OPTIONS } from './constants';
 interface Location {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
-};
+}
 
 export interface Shop {
   _id: string;
