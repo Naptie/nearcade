@@ -16,15 +16,15 @@ jobs:
           token: ${{ secrets.BS_PAT }}
           fetch-depth: 1 # Fetch only the latest commit, not the full history
 
+      - name: Install pnpm
+        run: npm install -g pnpm
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
           cache-dependency-path: scraper/pnpm-lock.yaml
-
-      - name: Install pnpm
-        run: npm install -g pnpm
 
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
