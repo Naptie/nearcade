@@ -27,10 +27,32 @@ export const GET: RequestHandler = async ({ url }) => {
     const universitiesCollection = db.collection('universities');
 
     const universities = (await universitiesCollection
-      .find({
-        name: { $regex: query, $options: 'i' }
-      })
-      .limit(20)
+      .aggregate([
+        {
+          $search: {
+            index: 'default',
+            compound: {
+              should: [
+                {
+                  text: {
+                    query: query,
+                    path: 'name'
+                  }
+                },
+                {
+                  text: {
+                    query: query,
+                    path: 'campuses.name'
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          $limit: 10
+        }
+      ])
       .toArray()) as unknown as University[];
 
     return json({ universities });
