@@ -88,8 +88,8 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
   } as never)) as CacheMetadata | null;
 
   if (existingMetadata?.isCalculating) {
-    // Check if calculation has been running for too long (more than 5 minutes)
-    const calculationTimeout = 5 * 60 * 1000; // 5 minutes
+    // Check if calculation has been running for too long (more than 2 minutes)
+    const calculationTimeout = 2 * 60 * 1000; // 2 minutes
     const now = new Date();
     const calculationStarted = existingMetadata.calculationStarted || existingMetadata.createdAt;
 
@@ -207,16 +207,31 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
       };
     });
 
-    // if there are duplicates in _id, log warning
-    const idCounts: Record<string, number> = {};
-    cachedRankings.forEach((ranking) => {
+    // Remove duplicates and log warnings
+    const seenIds = new Set<string>();
+    const uniqueRankings: CachedRanking[] = [];
+
+    for (const ranking of cachedRankings) {
       const id = ranking._id;
-      idCounts[id] = (idCounts[id] || 0) + 1;
-    });
-    for (const [id, count] of Object.entries(idCounts)) {
-      if (count > 1) {
-        console.warn(`Duplicate ranking ID found: ${id} (${count} occurrences)`);
+      if (seenIds.has(id)) {
+        console.warn(`Removing duplicate ranking ID: ${id}`);
+      } else {
+        seenIds.add(id);
+        uniqueRankings.push(ranking);
       }
+    }
+
+    // Update the cachedRankings array to only contain unique entries
+    cachedRankings.length = 0;
+    cachedRankings.push(...uniqueRankings);
+
+    if (
+      uniqueRankings.length !==
+      cachedRankings.length + (cachedRankings.length - uniqueRankings.length)
+    ) {
+      console.log(
+        `Removed ${cachedRankings.length + (cachedRankings.length - uniqueRankings.length) - uniqueRankings.length} duplicate rankings`
+      );
     }
 
     // Calculate ranks for each sort criteria and radius combination
