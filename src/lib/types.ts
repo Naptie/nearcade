@@ -1,3 +1,5 @@
+import type { RADIUS_OPTIONS } from './constants';
+
 export interface Shop {
   _id: string;
   id: number;
@@ -95,4 +97,4 @@ export type SortCriteria =
   | 'sound_voltex'
   | 'wacca';
 
-export type RadiusFilter = 5 | 10 | 20 | 30;
+export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
