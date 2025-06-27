@@ -248,4 +248,4 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 This project is open source and available under the [Mozilla Public License 2.0](LICENSE).
 
 ## 🙏 Acknowledgments
-
+- BEMANICN
