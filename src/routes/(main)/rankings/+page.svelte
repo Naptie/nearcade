@@ -325,18 +325,20 @@
                                 count: formatDensity(metrics.areaDensity)
                               })}
                             </div>
-                            <div class="divider my-0.5"></div>
-                            {#each GAMES as game (game.id)}
-                              {@const gameMetrics = metrics.gameSpecificMachines.find(
-                                (e) => e.name == game.key
-                              )}
-                              {#if gameMetrics && gameMetrics.quantity > 0}
-                                <div class="flex justify-between gap-1">
-                                  <span class="truncate">{getGameName(game.key)}:</span>
-                                  <span>{formatNumber(gameMetrics.quantity)}</span>
-                                </div>
-                              {/if}
-                            {/each}
+                            {#if metrics.gameSpecificMachines.some((game) => game.quantity > 0)}
+                              <div class="divider my-0.5"></div>
+                              {#each GAMES as game (game.id)}
+                                {@const gameMetrics = metrics.gameSpecificMachines.find(
+                                  (e) => e.name == game.key
+                                )}
+                                {#if gameMetrics && gameMetrics.quantity > 0}
+                                  <div class="flex justify-between gap-1">
+                                    <span class="truncate">{getGameName(game.key)}:</span>
+                                    <span>{formatNumber(gameMetrics.quantity)}</span>
+                                  </div>
+                                {/if}
+                              {/each}
+                            {/if}
                           </div>
                         </div>
                       {/if}
