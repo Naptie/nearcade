@@ -173,8 +173,8 @@ pnpm preview
 
 ### Prerequisites
 
-* **Docker** installed on your machine (follow the [installation guide](https://docs.docker.com/get-docker/)).
-* **Docker Compose** (for multi-container setups, if needed).
+- **Docker** installed on your machine (follow the [installation guide](https://docs.docker.com/get-docker/)).
+- **Docker Compose** (for multi-container setups, if needed).
 
 ### Step-by-Step Guide
 
@@ -248,4 +248,5 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 This project is open source and available under the [Mozilla Public License 2.0](LICENSE).
 
 ## 🙏 Acknowledgments
+
 - BEMANICN
