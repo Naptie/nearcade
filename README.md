@@ -140,6 +140,7 @@ nearcade/
    ```
 
 3. **Set up environment variables:**
+
    Create a `.env` file in the root directory:
 
    ```env
@@ -168,6 +169,65 @@ pnpm build
 pnpm preview
 ```
 
+## 🚢 Running with Docker
+
+### Prerequisites
+
+* **Docker** installed on your machine (follow the [installation guide](https://docs.docker.com/get-docker/)).
+* **Docker Compose** (for multi-container setups, if needed).
+
+### Step-by-Step Guide
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/Naptie/nearcade.git
+   cd nearcade
+   ```
+
+2. **Build the Docker images:**
+
+   Make sure that both `Dockerfile` and `docker-compose.yml` are in the root directory of your project.
+
+   ```bash
+   docker-compose build
+   ```
+
+3. **Set up environment variables:**
+
+   Ensure that you have the required environment variables set. You can create a `.env` file in the root of your project directory with the following content:
+
+   ```env
+   PUBLIC_AMAP_KEY = "your_key"
+   PUBLIC_QQMAP_KEY = "your_key"
+   AMAP_SECRET = "your_secret"
+   MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
+   ```
+
+   **Note:** If you're using Docker Compose to run the app and MongoDB together, you may need to modify `MONGODB_URI` to point to the MongoDB container instead of `localhost`.
+
+4. **Start the application using Docker Compose:**
+
+   ```bash
+   docker-compose up
+   ```
+
+   This will start both the application and any dependencies, like MongoDB, that you have defined in your `docker-compose.yml` file.
+
+5. **Access the application:**
+
+   Once the containers are up and running, navigate to `http://localhost:5173` in your browser to view the application.
+
+### Stopping the Docker Containers
+
+To stop the Docker containers, run:
+
+```bash
+docker-compose down
+```
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Please feel free to submit issues and pull requests.
@@ -189,4 +249,3 @@ This project is open source and available under the [Mozilla Public License 2.0]
 
 ## 🙏 Acknowledgments
 
-- BEMANICN
