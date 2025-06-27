@@ -36,7 +36,8 @@ export const GET: RequestHandler = async ({ url }) => {
                 {
                   text: {
                     query: query,
-                    path: 'name'
+                    path: 'name',
+                    score: { boost: { value: 2 } }
                   }
                 },
                 {
