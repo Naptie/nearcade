@@ -2,12 +2,12 @@ import adapter from '@sveltejs/adapter-auto';
 import cfAdapter from '@sveltejs/adapter-cloudflare';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-console.log('Adapter:', process.env.ADAPTER);
 const isCloudflare = process.env.ADAPTER === 'cloudflare';
+console.log('Adapter:', process.env.ADAPTER, isCloudflare);
 
 const config = {
   preprocess: vitePreprocess(),
-  kit: { adapter: isCloudflare ? cfAdapter() : adapter() }
+  kit: { adapter: isCloudflare ? cfAdapter() : cfAdapter() }
 };
 
 export default config;
