@@ -215,7 +215,7 @@
     </div>
   {:else if data.calculating}
     <div class="alert alert-info mb-4">
-      <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
+      <span class="loading loading-spinner loading-lg"></span>
       <span>{m.rankings_being_updated()}</span>
     </div>
   {:else}
