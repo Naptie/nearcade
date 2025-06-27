@@ -1,4 +1,4 @@
-FROM node:18-alpine AS runner
+FROM node:lts-alpine3.21
 
 WORKDIR /app
 
