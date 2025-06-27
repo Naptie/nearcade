@@ -40,16 +40,14 @@
   onkeydown={handleKeydown}
 >
   <div class="modal-box relative max-h-[90vh] max-w-xl">
-    <!-- Close button -->
     <button
       class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
       onclick={onClose}
       aria-label="Close modal"
     >
-      <i class="fa-solid fa-xmark"></i>
+      <i class="fa-solid fa-xmark fa-lg"></i>
     </button>
 
-    <!-- Modal content -->
     <div class="text-center">
       <h3 class="mb-4 text-lg font-bold">{m.donate()}</h3>
 
@@ -57,12 +55,11 @@
         {m.donate_description({ count: visitCount })}
       </p>
 
-      <!-- WeChat donation QR code -->
       <div class="mb-6 flex justify-center">
         <img
           src="/donate-wechat.png"
           alt="WeChat Donation QR Code"
-          class="max-h-[50vh] w-fit rounded-lg object-contain shadow-lg"
+          class="max-h-[50vh] w-fit rounded-xl object-contain shadow-lg"
         />
       </div>
 

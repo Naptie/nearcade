@@ -84,5 +84,6 @@
   "school_type": "学校类型",
   "donate": "赞助",
   "donate_description": "您已在本站浏览 {count} 次页面了。如果您觉得本站对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！",
-  "dismiss_in": "{count} 天内不再显示"
+  "dismiss_in": "{count} 天内不再显示",
+  "qq_description": "有关本网站的问题答疑、数据纠正、功能建议等请在以下 QQ 群中讨论交流！"
 }

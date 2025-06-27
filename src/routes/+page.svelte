@@ -5,6 +5,7 @@
   import FancyButton from '$lib/components/FancyButton.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
+  import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
   import { getContext, untrack, onMount } from 'svelte';
@@ -507,6 +508,14 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+    <SocialMediaModal
+      name="QQ"
+      class="fa-brands fa-qq fa-lg"
+      description={m.qq_description()}
+      image="/group-chat-qq.jpg"
+    />
   </div>
 </div>
 
