@@ -11,7 +11,9 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "format": "prettier --write .",
-    "lint": "prettier --check . && eslint ."
+    "lint": "prettier --check . && eslint .",
+    "cf-deploy": "pnpm run build && wrangler deploy",
+    "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
   "devDependencies": {
     "@eslint/compat": "^1.2.5",
@@ -34,7 +36,8 @@
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.20.0",
     "vite": "^6.2.6",
-    "vite-plugin-devtools-json": "^0.2.0"
+    "vite-plugin-devtools-json": "^0.2.0",
+    "wrangler": "^4.22.0"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
