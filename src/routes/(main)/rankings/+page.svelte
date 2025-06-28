@@ -114,10 +114,6 @@
     hoverTimeout = setTimeout(() => {
       hoveredRowId = index;
     }, 10);
-    // Small delay before showing details to prevent flicker on quick mouse movements
-    // hoverTimeout = setTimeout(() => {
-    //   showHoverDetails = index;
-    // }, 50);
   };
 
   const handleMouseLeave = () => {
@@ -221,7 +217,7 @@
   {:else}
     <!-- Results Table -->
     {#if displayedRankings && displayedRankings.length > 0}
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto overflow-y-hidden">
         <table class="bg-base-200/30 dark:bg-base-200 table w-full">
           <thead>
             <tr>
