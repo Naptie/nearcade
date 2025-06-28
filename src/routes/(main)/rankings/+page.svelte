@@ -425,7 +425,7 @@
   }
 
   .xs\:w-28 {
-    @media (width >= 25rem) {
+    @media (width >= 25rem && width < 40rem) {
       width: calc(var(--spacing) * 28);
     }
   }
