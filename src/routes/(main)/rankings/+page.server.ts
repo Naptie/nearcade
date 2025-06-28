@@ -7,16 +7,12 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
     // Get query parameters - only sortBy and radius matter for initial load
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
     const radius = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
-    const refresh = url.searchParams.get('refresh') === 'true';
 
     // Always start with no cursor for initial load (cursor-based pagination)
     const apiUrl = new URL('/api/rankings', url.origin);
     apiUrl.searchParams.set('sortBy', sortBy);
     apiUrl.searchParams.set('radius', radius.toString());
     apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());
-    if (refresh) {
-      apiUrl.searchParams.set('refresh', 'true');
-    }
 
     const response = await fetch(apiUrl.toString());
 
