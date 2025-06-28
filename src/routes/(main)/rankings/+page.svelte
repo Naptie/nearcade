@@ -333,7 +333,7 @@
                                 )}
                                 {#if gameMetrics && gameMetrics.quantity > 0}
                                   <div class="flex justify-between gap-1">
-                                    <span class="truncate">{getGameName(game.key)}:</span>
+                                    <span class="truncate">{getGameName(game.key)}</span>
                                     <span>{formatNumber(gameMetrics.quantity)}</span>
                                   </div>
                                 {/if}
