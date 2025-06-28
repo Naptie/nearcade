@@ -119,7 +119,6 @@
     if (schoolHoverDetails) {
       const height = schoolHoverDetails.scrollHeight;
       schoolHoverDetailsHeights[index] = height;
-      console.log(`Hover details height for row ${index}: ${height}px`);
     }
 
     hoverTimeout = setTimeout(() => {
@@ -248,10 +247,9 @@
           <tbody>
             {#each displayedRankings as ranking, index ((ranking.universityId, ranking.fullName))}
               <tr
-                class="h-16 overflow-y-hidden transition-all duration-200 hover:h-52 {hoveredRowId ===
-                index
-                  ? 'bg-base'
-                  : ''}"
+                class="overflow-y-hidden transition-all duration-200 {hoveredRowId === index
+                  ? 'bg-base h-52'
+                  : 'h-16'}"
                 onmouseenter={() => handleMouseEnter(index)}
                 onmouseleave={handleMouseLeave}
               >
