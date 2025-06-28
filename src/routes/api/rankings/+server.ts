@@ -345,144 +345,83 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     // Try to serve from cache if it exists and has data
-    if (metadata && metadata.totalCount > 0 && !metadata.isCalculating) {
-      const sortKey = `${sortBy}_${radiusFilter}`;
+    if (metadata) {
+      if (metadata.totalCount > 0) {
+        const sortKey = `${sortBy}_${radiusFilter}`;
 
-      // Build query for cursor-based pagination
-      const query: Record<string, unknown> = { _id: { $ne: 'metadata' } };
+        // Build query for cursor-based pagination
+        const query: Record<string, unknown> = { _id: { $ne: 'metadata' } };
 
-      if (after) {
-        // Parse the after cursor (it contains the rank)
-        const afterRank = parseInt(after);
-        query[`rankOrder.${sortKey}`] = { $gt: afterRank };
+        if (after) {
+          // Parse the after cursor (it contains the rank)
+          const afterRank = parseInt(after);
+          query[`rankOrder.${sortKey}`] = { $gt: afterRank };
+        }
+
+        // Get rankings sorted by the rank order we pre-calculated
+        const rankings = (await cacheCollection
+          .find(query)
+          .sort({ [`rankOrder.${sortKey}`]: 1 })
+          .limit(limit + 1) // Get one extra to check if there are more
+          .toArray()) as unknown as CachedRanking[];
+
+        // Check if there are more results
+        const hasMore = rankings.length > limit;
+        if (hasMore) {
+          rankings.pop(); // Remove the extra item
+        }
+
+        // Get the next cursor
+        const nextCursor =
+          hasMore && rankings.length > 0
+            ? rankings[rankings.length - 1].rankOrder[sortKey]?.toString()
+            : null;
+
+        // Convert to response format
+        const responseData = rankings.map((ranking) => ({
+          universityId: ranking.universityId,
+          universityName: ranking.universityName,
+          campusName: ranking.campusName,
+          fullName: ranking.fullName,
+          province: ranking.province,
+          city: ranking.city,
+          affiliation: ranking.affiliation,
+          schoolType: ranking.schoolType,
+          is985: ranking.is985,
+          is211: ranking.is211,
+          isDoubleFirstClass: ranking.isDoubleFirstClass,
+          latitude: ranking.latitude,
+          longitude: ranking.longitude,
+          rankings: ranking.rankings
+        }));
+
+        return json({
+          data: responseData,
+          totalCount: metadata.totalCount,
+          hasMore,
+          nextCursor,
+          cached: true,
+          cacheTime: metadata.createdAt,
+          stale: metadata.expiresAt < now
+        });
+      } else {
+        return json({
+          data: [],
+          totalCount: 0,
+          hasMore: false,
+          nextCursor: null,
+          cached: false,
+          cacheTime: metadata.createdAt,
+          stale: metadata.expiresAt < now,
+          calculating: metadata.isCalculating
+        });
       }
-
-      // Get rankings sorted by the rank order we pre-calculated
-      const rankings = (await cacheCollection
-        .find(query)
-        .sort({ [`rankOrder.${sortKey}`]: 1 })
-        .limit(limit + 1) // Get one extra to check if there are more
-        .toArray()) as unknown as CachedRanking[];
-
-      // Check if there are more results
-      const hasMore = rankings.length > limit;
-      if (hasMore) {
-        rankings.pop(); // Remove the extra item
-      }
-
-      // Get the next cursor
-      const nextCursor =
-        hasMore && rankings.length > 0
-          ? rankings[rankings.length - 1].rankOrder[sortKey]?.toString()
-          : null;
-
-      // Convert to response format
-      const responseData = rankings.map((ranking) => ({
-        universityId: ranking.universityId,
-        universityName: ranking.universityName,
-        campusName: ranking.campusName,
-        fullName: ranking.fullName,
-        province: ranking.province,
-        city: ranking.city,
-        affiliation: ranking.affiliation,
-        schoolType: ranking.schoolType,
-        is985: ranking.is985,
-        is211: ranking.is211,
-        isDoubleFirstClass: ranking.isDoubleFirstClass,
-        latitude: ranking.latitude,
-        longitude: ranking.longitude,
-        rankings: ranking.rankings
-      }));
-
-      return json({
-        data: responseData,
-        totalCount: metadata.totalCount,
-        hasMore,
-        nextCursor,
-        cached: true,
-        cacheTime: metadata.createdAt,
-        stale: metadata.expiresAt < now
-      });
-    }
-
-    // No cache available or calculation in progress
-    if (!metadata) {
-      console.log('No cache available, calculating fresh data...');
+    } else {
+      console.log('No cache metadata found, calculating fresh data...');
       await calculateAndCacheUniversityRankings();
 
       // Retry the request now that cache is populated
       return GET({ url } as Parameters<typeof GET>[0]);
-    } else if (metadata.isCalculating) {
-      // Return empty results while calculation is in progress
-      return json({
-        data: [],
-        totalCount: 0,
-        hasMore: false,
-        nextCursor: null,
-        cached: false,
-        cacheTime: metadata.createdAt,
-        stale: true,
-        calculating: true
-      });
-    } else {
-      // Serve stale data if available
-      const sortKey = `${sortBy}_${radiusFilter}`;
-
-      // Build query for cursor-based pagination
-      const query: Record<string, unknown> = { _id: { $ne: 'metadata' } };
-
-      if (after) {
-        // Parse the after cursor (it contains the rank)
-        const afterRank = parseInt(after);
-        query[`rankOrder.${sortKey}`] = { $gt: afterRank };
-      }
-
-      // Get rankings sorted by the rank order we pre-calculated
-      const rankings = (await cacheCollection
-        .find(query)
-        .sort({ [`rankOrder.${sortKey}`]: 1 })
-        .limit(limit + 1) // Get one extra to check if there are more
-        .toArray()) as unknown as CachedRanking[];
-
-      // Check if there are more results
-      const hasMore = rankings.length > limit;
-      if (hasMore) {
-        rankings.pop(); // Remove the extra item
-      }
-
-      // Get the next cursor
-      const nextCursor =
-        hasMore && rankings.length > 0
-          ? rankings[rankings.length - 1].rankOrder[sortKey]?.toString()
-          : null;
-
-      // Convert to response format
-      const responseData = rankings.map((ranking) => ({
-        universityId: ranking.universityId,
-        universityName: ranking.universityName,
-        campusName: ranking.campusName,
-        fullName: ranking.fullName,
-        province: ranking.province,
-        city: ranking.city,
-        affiliation: ranking.affiliation,
-        schoolType: ranking.schoolType,
-        is985: ranking.is985,
-        is211: ranking.is211,
-        isDoubleFirstClass: ranking.isDoubleFirstClass,
-        latitude: ranking.latitude,
-        longitude: ranking.longitude,
-        rankings: ranking.rankings
-      }));
-
-      return json({
-        data: responseData,
-        totalCount: metadata.totalCount,
-        hasMore,
-        nextCursor,
-        cached: true,
-        cacheTime: metadata.createdAt,
-        stale: metadata.expiresAt < now
-      });
     }
   } catch (err) {
     console.error('Error getting rankings:', err);
