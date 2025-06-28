@@ -32,18 +32,6 @@ jobs:
         run: pnpm i --frozen-lockfile
         working-directory: scraper
 
-      - name: Cache Puppeteer browsers
-        uses: actions/cache@v4
-        with:
-          path: ~\.cache\puppeteer
-          key: ${{ runner.os }}-puppeteer-${{ hashFiles('scraper/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-puppeteer-
-
-      - name: Install Chrome for Puppeteer
-        run: pnpm dlx @puppeteer/browsers install chrome@stable
-        working-directory: scraper
-
       - name: Build and run the scraper
         run: |
           pnpm build
