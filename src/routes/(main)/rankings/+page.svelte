@@ -258,8 +258,8 @@
                       <span class="pr-1 font-semibold">{ranking.universityName}</span>
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <div class="text-sm opacity-70">
+                    <div class="flex flex-wrap items-center">
+                      <div class="mr-2 text-sm opacity-70">
                         {#if ranking.city.slice(0, ranking.city.length - 1) == ranking.province}
                           {ranking.city}
                         {:else}
@@ -267,10 +267,12 @@
                         {/if}
                       </div>
                       {#if ranking.is985}
-                        <div class="badge badge-soft badge-primary badge-xs">{m.badge_985()}</div>
+                        <div class="badge badge-soft badge-primary badge-xs mr-2">
+                          {m.badge_985()}
+                        </div>
                       {/if}
                       {#if ranking.is211}
-                        <div class="badge badge-soft badge-secondary badge-xs">
+                        <div class="badge badge-soft badge-secondary badge-xs mr-2">
                           {m.badge_211()}
                         </div>
                       {/if}
@@ -279,6 +281,18 @@
                           {m.badge_double_first_class()}
                         </div>
                       {/if}
+                    </div>
+                    <div
+                      class="{hoveredRowId === index
+                        ? 'h-4 opacity-100'
+                        : 'h-0 opacity-0'} transition-all duration-200"
+                    >
+                      <div class="text-sm opacity-70">
+                        {ranking.schoolType} ·
+                        <div class="tooltip tooltip-bottom" data-tip={m.affiliation()}>
+                          {ranking.affiliation}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </td>
