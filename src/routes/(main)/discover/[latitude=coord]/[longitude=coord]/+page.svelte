@@ -80,17 +80,27 @@
       const origin = new amap.Marker({
         position: [data.location.longitude, data.location.latitude],
         title: m.origin(),
-        content: '<i class="text-success fa-solid fa-location-crosshairs fa-lg"></i>',
+        content: '<i class="fa-solid fa-location-crosshairs fa-lg"></i>',
         offset: new amap.Pixel(-9.375, -10),
         label: {
           content: m.origin(),
           offset: new amap.Pixel(2, -5),
           direction: 'right'
-        }
+        },
+        zIndex: 1000
       });
       origin.setMap(map);
 
       data.shops.forEach((shop) => {
+        const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
+        const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
+        const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
+        const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+
+        const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
+        const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
+        const zIndex = Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300);
+
         const marker = new amap.Marker({
           position: shop.location.coordinates,
           title: shop.name,
@@ -100,7 +110,8 @@
             content: shop.name,
             offset: new amap.Pixel(2, -5),
             direction: 'right'
-          }
+          },
+          zIndex: zIndex
         });
         marker.on('click', () => {
           highlightedShopId = shop.id;
