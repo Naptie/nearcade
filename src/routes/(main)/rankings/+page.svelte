@@ -18,6 +18,7 @@
   let showHoverDetails: number | null = $state(null);
   let hoverTimeout: number | null = null;
   let screenWidth = $state(0);
+  let schoolHoverDetailsHeights: { [key: number]: number } = $state({});
 
   // Define responsive radius visibility
   const visibleRadiusOptions = $derived.by(() => {
@@ -26,6 +27,8 @@
     if (screenWidth < 1024) return RADIUS_OPTIONS.slice(0, 3);
     return RADIUS_OPTIONS;
   });
+
+  const divider = ' · ';
 
   // Ensure radiusFilter is always visible
   $effect(() => {
@@ -111,6 +114,14 @@
     }
     showHoverDetails = index;
     await tick();
+
+    const schoolHoverDetails = document.getElementById(`school-hover-details-${index}`);
+    if (schoolHoverDetails) {
+      const height = schoolHoverDetails.scrollHeight;
+      schoolHoverDetailsHeights[index] = height;
+      console.log(`Hover details height for row ${index}: ${height}px`);
+    }
+
     hoverTimeout = setTimeout(() => {
       hoveredRowId = index;
     }, 10);
@@ -169,10 +180,10 @@
   <title>{m.campus_rankings()} - nearcade</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 pt-20">
+<div class="container mx-auto pt-20 sm:px-4">
   <div class="mb-6 flex flex-col items-center justify-between gap-4 md:flex-row">
     <div class="grow">
-      <div class="mb-2 flex items-center gap-4">
+      <div class="mb-2 flex items-center gap-4 not-md:justify-center">
         <h1 class="text-3xl font-bold">{m.campus_rankings()}</h1>
         <div class="hidden items-center gap-2 whitespace-nowrap md:flex">
           {#if data.stale}
@@ -193,7 +204,7 @@
       </p>
     </div>
     <div class="flex flex-col gap-1">
-      <label class="label" for="sort-select">
+      <label class="label not-md:mx-auto" for="sort-select">
         <span class="label-text">{m.sort_by()}</span>
       </label>
       <select id="sort-select" class="select select-bordered w-full" bind:value={sortBy}>
@@ -237,7 +248,8 @@
           <tbody>
             {#each displayedRankings as ranking, index ((ranking.universityId, ranking.fullName))}
               <tr
-                class="h-16 transition-all duration-200 hover:h-52 {hoveredRowId === index
+                class="h-16 overflow-y-hidden transition-all duration-200 hover:h-52 {hoveredRowId ===
+                index
                   ? 'bg-base'
                   : ''}"
                 onmouseenter={() => handleMouseEnter(index)}
@@ -255,11 +267,11 @@
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
                     <div class="flex flex-wrap items-center">
-                      <div class="mr-2 text-sm opacity-70">
+                      <div class="mr-2 text-xs opacity-70 sm:text-sm">
                         {#if ranking.city.slice(0, ranking.city.length - 1) == ranking.province}
                           {ranking.city}
                         {:else}
-                          {ranking.province} · {ranking.city}
+                          {ranking.province}{divider}{ranking.city}
                         {/if}
                       </div>
                       {#if ranking.is985}
@@ -279,12 +291,16 @@
                       {/if}
                     </div>
                     <div
-                      class="{hoveredRowId === index
-                        ? 'h-4 opacity-100'
-                        : 'h-0 opacity-0'} transition-all duration-200"
+                      class="transition-all duration-200 {hoveredRowId === index
+                        ? 'opacity-100'
+                        : 'opacity-0'}"
+                      style="height: {hoveredRowId === index && schoolHoverDetailsHeights[index]
+                        ? `${schoolHoverDetailsHeights[index]}px`
+                        : '0px'}"
                     >
-                      <div class="text-sm opacity-70">
-                        {ranking.schoolType} ·
+                      <div class="flex flex-wrap text-xs opacity-70 sm:text-sm">
+                        <div id="school-hover-details-{index}">{ranking.schoolType}</div>
+                        <div class="whitespace-pre">{divider}</div>
                         <div class="tooltip tooltip-bottom" data-tip={m.affiliation()}>
                           {ranking.affiliation}
                         </div>
@@ -295,7 +311,9 @@
 
                 {#each visibleRadiusOptions as option (option)}
                   {@const metrics = getMetricsForRadius(ranking, option)}
-                  <td class="relative w-28 text-center md:w-32 lg:w-44 xl:w-48 2xl:w-52">
+                  <td
+                    class="xs:w-28 relative w-20 text-center sm:w-24 md:w-32 lg:w-44 xl:w-48 2xl:w-52"
+                  >
                     {#if metrics}
                       <div
                         class="flex flex-col items-center transition-opacity duration-200 {hoveredRowId ===
@@ -404,5 +422,11 @@
     position: sticky;
     top: 0;
     z-index: 10;
+  }
+
+  .xs\:w-28 {
+    @media (width >= 25rem) {
+      width: calc(var(--spacing) * 28);
+    }
   }
 </style>

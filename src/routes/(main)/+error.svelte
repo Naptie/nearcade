@@ -61,7 +61,7 @@
   <title>{errorContent.title} - nearcade</title>
 </svelte:head>
 
-<div class="container mx-auto flex min-h-screen items-center justify-center p-4 py-20">
+<div class="container mx-auto flex min-h-screen items-center justify-center py-20 sm:px-4">
   <div class="w-full max-w-md">
     <!-- Error Card -->
     <div class="card bg-base-100 border-base-300 border shadow-sm transition hover:shadow-xl">

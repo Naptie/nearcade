@@ -148,15 +148,17 @@
   >
 </svelte:head>
 
-<div class="container mx-auto px-4 pt-20">
-  <div class="mb-6">
-    <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>
-    <p class="text-base-content/70">
-      {m.found_shops_near({
-        count: data.shops.length,
-        location: data.location.name ?? `(${data.location.longitude}, ${data.location.latitude})`
-      })}
-    </p>
+<div class="container mx-auto pt-20 sm:px-4">
+  <div class="flex flex-col items-center sm:flex-row">
+    <div class="mb-6 not-sm:text-center">
+      <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>
+      <p class="text-base-content/70">
+        {m.found_shops_near({
+          count: data.shops.length,
+          location: data.location.name ?? `(${data.location.longitude}, ${data.location.latitude})`
+        })}
+      </p>
+    </div>
   </div>
   {#if data.shops.length === 0}
     <div class="alert alert-soft alert-info not-dark:hidden">
