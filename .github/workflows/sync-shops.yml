@@ -18,8 +18,8 @@ jobs:
           token: ${{ secrets.BS_PAT }}
           fetch-depth: 1 # Fetch only the latest commit, not the full history
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -32,12 +32,18 @@ jobs:
         run: pnpm i --frozen-lockfile
         working-directory: scraper
 
+      - name: Get pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
+        working-directory: scraper
+
       - name: Build and run the scraper
         run: |
           pnpm build
           pnpm start
         working-directory: scraper
         env:
+          PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
