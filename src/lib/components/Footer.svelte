@@ -5,7 +5,7 @@
   let { class: klass = 'my-6' } = $props();
 </script>
 
-<div class="text-center {klass}">
+<div class="text-center select-none {klass}">
   <div class="text-base-content/40 flex items-center justify-center gap-2">
     <SiteTitle class="text-sm opacity-40 transition hover:opacity-75" />
     <span class="text-xs">•</span>
