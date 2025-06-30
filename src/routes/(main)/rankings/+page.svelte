@@ -206,7 +206,7 @@
       <label class="label not-md:mx-auto" for="sort-select">
         <span class="label-text">{m.sort_by()}</span>
       </label>
-      <select id="sort-select" class="select select-bordered w-full" bind:value={sortBy}>
+      <select id="sort-select" class="select select-bordered w-full pe-8" bind:value={sortBy}>
         {#each SORT_CRITERIA as criteria (criteria.key)}
           <option value={criteria.key}>{getSortLabel(criteria.key)}</option>
         {/each}
