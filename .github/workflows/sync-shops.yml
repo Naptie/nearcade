@@ -45,9 +45,10 @@ jobs:
       - name: Build and run the scraper
         run: |
           pnpm build
-          $env:PNPM_STORE="${{ steps.pnpm-store.outputs.path }}"; pnpm start
+          pnpm start
         working-directory: scraper
         env:
+          PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
