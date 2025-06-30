@@ -31,16 +31,18 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: scraper/pnpm-lock.yaml
 
-      - name: Install dependencies
-        run: pnpm i --frozen-lockfile
-        working-directory: scraper
-
       - name: Get pnpm store path
         id: pnpm-store
         run: |
           pnpm store path
           echo "path=$(pnpm store path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         working-directory: scraper
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+        working-directory: scraper
+        env:
+          PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
 
       - name: Build and run the scraper
         run: |
