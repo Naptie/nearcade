@@ -26,35 +26,59 @@ export const GET: RequestHandler = async ({ url }) => {
     const db = mongoClient.db();
     const universitiesCollection = db.collection('universities');
 
-    const universities = (await universitiesCollection
-      .aggregate([
-        {
-          $search: {
-            index: 'default',
-            compound: {
-              should: [
-                {
-                  text: {
-                    query: query,
-                    path: 'name',
-                    score: { boost: { value: 2 } }
+    let universities: University[];
+
+    try {
+      // Try Atlas Search first
+      universities = (await universitiesCollection
+        .aggregate([
+          {
+            $search: {
+              index: 'default',
+              compound: {
+                should: [
+                  {
+                    text: {
+                      query: query,
+                      path: 'name',
+                      score: { boost: { value: 2 } }
+                    }
+                  },
+                  {
+                    text: {
+                      query: query,
+                      path: 'campuses.name'
+                    }
                   }
-                },
-                {
-                  text: {
-                    query: query,
-                    path: 'campuses.name'
-                  }
-                }
-              ]
+                ]
+              }
             }
+          },
+          {
+            $limit: 10
           }
-        },
-        {
-          $limit: 10
-        }
-      ])
-      .toArray()) as unknown as University[];
+        ])
+        .toArray()) as unknown as University[];
+    } catch (err) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code !== 31082 /* SearchNotEnabled */
+      ) {
+        // If the error is not related to the index not existing, rethrow it
+        throw err;
+      }
+      universities = (await universitiesCollection
+        .find({
+          $or: [
+            { name: { $regex: query, $options: 'i' } },
+            { 'campuses.name': { $regex: query, $options: 'i' } }
+          ]
+        })
+        .limit(10)
+        .toArray()) as unknown as University[];
+    }
 
     return json({ universities });
   } catch (err) {
