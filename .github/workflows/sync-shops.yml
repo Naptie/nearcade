@@ -37,13 +37,15 @@ jobs:
 
       - name: Get pnpm store path
         id: pnpm-store
-        run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: |
+          pnpm store path
+          echo "path=$(pnpm store path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         working-directory: scraper
 
       - name: Build and run the scraper
         run: |
           pnpm build
-          $env:PNPM_STORE="${{ steps.pnpm-store.outputs.path }}"; pnpm start
+          $env:PNPM_STORE="${{ steps.pnpm-store.outputs }}"; pnpm start
         working-directory: scraper
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
