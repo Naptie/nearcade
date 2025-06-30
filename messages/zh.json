@@ -24,6 +24,23 @@
   "no_shops_found": "在该区域未找到机厅。请尝试在其他位置搜索。",
   "shop": "店铺",
   "distance": "直线距离",
+  "km": "{km} 公里",
+  "travel_time": "通行时间",
+  "transport_method": "交通方式",
+  "public_transport": "公共交通",
+  "walking": "步行",
+  "riding": "骑行",
+  "driving": "驾车",
+  "not_specified": "未指定",
+  "time_length": [
+    {
+      "selectors": ["hours"],
+      "match": {
+        "hours=0": "{minutes} 分钟",
+        "hours>0": "{hours} 时 {minutes} 分"
+      }
+    }
+  ],
   "actions": "操作",
   "details": "详情",
   "unknown": "未知",

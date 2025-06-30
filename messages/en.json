@@ -33,6 +33,23 @@
   "no_shops_found": "No shops found in this area. Try searching in a different location.",
   "shop": "Shop",
   "distance": "Distance",
+  "km": "{km} km",
+  "travel_time": "Travel Time",
+  "transport_method": "Transport Method",
+  "public_transport": "Public Transport",
+  "walking": "Walking",
+  "riding": "Riding",
+  "driving": "Driving",
+  "not_specified": "Not Specified",
+  "time_length": [
+    {
+      "selectors": ["hours"],
+      "match": {
+        "hours=0": "{minutes}min",
+        "hours=other": "{hours}h {minutes}m"
+      }
+    }
+  ],
   "actions": "Actions",
   "details": "Details",
   "unknown": "Unknown",

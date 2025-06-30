@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Game, AMapContext } from '$lib/types';
+  import type { Game, AMapContext, Shop } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy, getContext, untrack } from 'svelte';
   import { isDarkMode } from '$lib/utils';
@@ -7,14 +7,13 @@
 
   let { data } = $props();
 
+  const ORIGIN_INDEX = 1000;
+  const SHOP_INDEX = 500;
+  const SELECTED_ROUTE_INDEX = 300;
+  const HOVERED_ROUTE_INDEX = 200;
+  const ROUTE_INDEX = 100;
+
   let screenWidth = $state(0);
-  let machineCount = $derived.by(() => {
-    return data.shops.reduce(
-      (total, shop) =>
-        total + shop.games.reduce((total: number, game: Game) => total + game.quantity, 0),
-      0
-    );
-  });
 
   const amapContext = getContext<AMapContext>('amap');
   let amap = $derived(amapContext?.amap);
@@ -22,13 +21,216 @@
   let amapError = $derived(amapContext?.error ?? null);
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
   let map: AMap.Map | undefined = $state(undefined);
+
+  let hoveredShopId: number | null = $state(null);
+  let selectedShopId: number | null = $state(null);
   let highlightedShopId: number | null = $state(null);
   let highlightedShopIdTimeout: number | null = $state(null);
   let darkMode = $derived(browser ? isDarkMode() : undefined);
+  let transportMethod = $state(undefined); // 'transfer', 'walking', 'riding', 'driving'
+  let travelData = $state<
+    Record<
+      number,
+      {
+        time: number;
+        distance: number;
+        path: { latitude: number; longitude: number }[];
+        route: AMap.Polyline;
+      } | null
+    >
+  >({}); // shopId -> travel data
+
+  let maxTravelTime = $derived.by(() => {
+    if (!transportMethod) return Infinity;
+    const times = Object.values(travelData)
+      .filter((data) => data !== null)
+      .map((data) => data!.time);
+    return Math.max(...times) || Infinity;
+  });
+
+  let maxTravelDistance = $derived.by(() => {
+    if (!transportMethod) return data.radius;
+    const distances = Object.values(travelData)
+      .filter((data) => data !== null)
+      .map((data) => data!.distance);
+    return Math.max(...distances) || Infinity;
+  });
+
+  let sortedShops = $derived.by(() => {
+    if (!transportMethod) {
+      return data.shops;
+    }
+
+    return [...data.shops].sort((a, b) => {
+      const dataA = travelData[a.id];
+      const dataB = travelData[b.id];
+
+      if (dataA && dataB) {
+        if (dataA.time !== dataB.time) return dataA.time - dataB.time;
+        if (dataA.distance !== dataB.distance) return dataA.distance - dataB.distance;
+        return a.distance - b.distance;
+      }
+
+      if (dataA) return -1;
+      if (dataB) return 1;
+      return a.distance - b.distance;
+    });
+  });
+
+  let machineCount = $derived.by(() => {
+    return sortedShops.reduce(
+      (total, shop) =>
+        total + shop.games.reduce((total: number, game: Game) => total + game.quantity, 0),
+      0
+    );
+  });
 
   const formatDistance = (distance: number): string => {
     if (distance === Infinity) return m.unknown();
-    return `${distance.toFixed(2)} km`;
+    return m.km({
+      km: distance.toFixed(2)
+    });
+  };
+
+  const formatTime = (seconds: number | null | undefined): string => {
+    if (seconds === null || seconds === undefined) return m.unknown();
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds / 60) % 60;
+    return m.time_length({
+      hours: hours.toString(),
+      minutes: minutes.toString()
+    });
+  };
+
+  let plugins: Record<string, any> = $state({});
+
+  const calculateTravelData = async (method: string) => {
+    if (!amap || !amapReady || !data || data.shops.length === 0) return;
+    travelData = {};
+
+    const pluginName =
+      method === 'transfer'
+        ? 'AMap.Transfer'
+        : method === 'walking'
+          ? 'AMap.Walking'
+          : method === 'riding'
+            ? 'AMap.Riding'
+            : 'AMap.Driving';
+
+    if (!(method in plugins)) {
+      await new Promise<void>((resolve) => {
+        amap.plugin([pluginName], () => {
+          if (method === 'transfer') {
+            plugins[method] = new (amap as any).Transfer({ city: ' ' });
+          } else if (method === 'walking') {
+            plugins[method] = new (amap as any).Walking();
+          } else if (method === 'riding') {
+            plugins[method] = new (amap as any).Riding();
+          } else {
+            plugins[method] = new (amap as any).Driving();
+          }
+          resolve();
+        });
+      });
+    }
+
+    const plugin = plugins[method];
+
+    const processShop = async (shop: Shop, retryCount = 0): Promise<void> => {
+      return new Promise((resolve) => {
+        const origin = new amap.LngLat(data.location.longitude, data.location.latitude);
+        const destination = new amap.LngLat(
+          shop.location.coordinates[0],
+          shop.location.coordinates[1]
+        );
+
+        try {
+          plugin.search(origin, destination, (status: string, result: any) => {
+            console.log(result);
+            if (
+              status === 'complete' &&
+              typeof result === 'object' &&
+              ((result.plans && result.plans.length > 0) ||
+                (result.routes && result.routes.length > 0))
+            ) {
+              const plans = result.plans ?? result.routes;
+              const minTimeIndex = plans.reduce((minIndex: number, plan: any, index: number) => {
+                return (plan.time || Infinity) < (plans[minIndex].time || Infinity)
+                  ? index
+                  : minIndex;
+              }, 0);
+
+              const bestPlan = plans[minTimeIndex];
+              const path: { latitude: number; longitude: number }[] = bestPlan.path
+                ? bestPlan.path.map((point: { lat: number; lng: number }) => ({
+                    latitude: point.lat,
+                    longitude: point.lng
+                  }))
+                : bestPlan.steps || bestPlan.rides
+                  ? (bestPlan.steps ?? bestPlan.rides)
+                      .map((step: { path: { lat: number; lng: number }[] }) =>
+                        step.path.map((point: { lat: number; lng: number }) => ({
+                          latitude: point.lat,
+                          longitude: point.lng
+                        }))
+                      )
+                      .flat()
+                  : [];
+              const route = new amap.Polyline({
+                path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
+                strokeColor: 'cyan',
+                strokeWeight: 3,
+                strokeOpacity: 0.4,
+                lineJoin: 'round',
+                zIndex: ROUTE_INDEX
+              });
+              route.on('mouseover', () => {
+                hoveredShopId = shop.id;
+              });
+              route.on('mouseout', () => {
+                if (hoveredShopId === shop.id) {
+                  hoveredShopId = null;
+                }
+              });
+              route.on('click', () => {
+                selectedShopId = shop.id;
+              });
+              map?.add(route);
+              travelData[shop.id] = {
+                time: bestPlan.time ?? 0,
+                distance: bestPlan.distance ? bestPlan.distance / 1000 : 0,
+                path,
+                route
+              };
+              resolve();
+            } else if (
+              ['CUQPS_HAS_EXCEEDED_THE_LIMIT', 'Request Error', undefined].includes(result) &&
+              retryCount < 10
+            ) {
+              // Rate limit exceeded, add to end of queue for retry
+              setTimeout(() => {
+                processShop(shop, retryCount + 1).then(resolve);
+              }, 1000); // Wait 1 second before retry
+            } else {
+              console.error(result);
+              travelData[shop.id] = null;
+              resolve();
+            }
+          });
+        } catch (error) {
+          console.error(`Error calculating travel data for shop ${shop.id}:`, error);
+          travelData[shop.id] = null;
+          resolve();
+        }
+      });
+    };
+
+    // Process shops sequentially to avoid rate limiting
+    for (const shop of data.shops) {
+      await processShop(shop);
+    }
+
+    map?.setFitView();
   };
 
   const findGame = (games: Game[], gameId: number): Game | null => {
@@ -87,7 +289,7 @@
           offset: new amap.Pixel(2, -5),
           direction: 'right'
         },
-        zIndex: 1000
+        zIndex: ORIGIN_INDEX
       });
       origin.setMap(map);
 
@@ -99,7 +301,8 @@
 
         const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
         const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
-        const zIndex = Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300);
+        const zIndex =
+          Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
 
         const marker = new amap.Marker({
           position: shop.location.coordinates,
@@ -111,9 +314,11 @@
             offset: new amap.Pixel(2, -5),
             direction: 'right'
           },
-          zIndex: zIndex
+          zIndex
         });
+
         marker.on('click', () => {
+          if (transportMethod) selectedShopId = shop.id;
           highlightedShopId = shop.id;
           if (highlightedShopIdTimeout) {
             clearTimeout(highlightedShopIdTimeout);
@@ -128,6 +333,7 @@
         });
         marker.setMap(map);
       });
+
       map.setFitView();
     });
   });
@@ -135,6 +341,58 @@
   $effect(() => {
     if (!map) return;
     map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/fresh');
+  });
+
+  $effect(() => {
+    if (!amap || !amapReady || !data) return;
+    if (transportMethod) {
+      untrack(async () => {
+        await calculateTravelData(transportMethod!);
+      });
+      return () => {
+        Object.keys(travelData).forEach((shopId) => {
+          const route = travelData[Number(shopId)]?.route;
+          if (route) {
+            map?.remove(route);
+          }
+        });
+      };
+    } else {
+      travelData = {};
+    }
+  });
+
+  $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    selectedShopId;
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    hoveredShopId;
+    untrack(() => {
+      Object.keys(travelData).forEach((shopId) => {
+        const id = Number(shopId);
+        const data = travelData[id];
+        if (!data) return;
+        const isSelected = selectedShopId === id;
+        const isHovered = hoveredShopId === id;
+        data.route.setOptions({
+          strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
+          strokeWeight: isSelected ? 4.8 : isHovered ? 4 : 3,
+          strokeOpacity: isSelected || isHovered ? 1 : 0.4,
+          lineJoin: 'round',
+          zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
+        });
+      });
+    });
+  });
+
+  $effect(() => {
+    if (selectedShopId) {
+      untrack(() => {
+        const data = travelData[selectedShopId!];
+        if (!data) return;
+        map?.setFitView([data.route]);
+      });
+    }
   });
 </script>
 
@@ -149,8 +407,8 @@
 </svelte:head>
 
 <div class="container mx-auto pt-20 sm:px-4">
-  <div class="flex flex-col items-center sm:flex-row">
-    <div class="mb-6 not-sm:text-center">
+  <div class="mb-6 flex flex-col items-center justify-between gap-2 sm:flex-row">
+    <div class="not-sm:text-center">
       <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>
       <p class="text-base-content/70">
         {m.found_shops_near({
@@ -158,6 +416,22 @@
           location: data.location.name ?? `(${data.location.longitude}, ${data.location.latitude})`
         })}
       </p>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="label not-md:mx-auto" for="transport-select">
+        <span class="label-text">{m.transport_method()}</span>
+      </label>
+      <select
+        id="transport-select"
+        class="select select-bordered w-full pe-8"
+        bind:value={transportMethod}
+      >
+        <option value={undefined}>{m.not_specified()}</option>
+        <option value="transfer">{m.public_transport()}</option>
+        <option value="walking">{m.walking()}</option>
+        <option value="riding">{m.riding()}</option>
+        <option value="driving">{m.driving()}</option>
+      </select>
     </div>
   </div>
   {#if data.shops.length === 0}
@@ -192,7 +466,13 @@
         <thead>
           <tr>
             <th class="text-left">{m.shop()}</th>
-            <th class="text-center">{m.distance()}</th>
+            <th class="text-center">
+              {#if transportMethod}
+                {m.travel_time()}
+              {:else}
+                {m.distance()}
+              {/if}
+            </th>
             {#each visibleGames as game (game.id)}
               <th id="game-{game.id}" class="text-center">{game.name}</th>
             {/each}
@@ -200,30 +480,87 @@
           </tr>
         </thead>
         <tbody>
-          {#each data.shops as shop (shop.id)}
+          {#each sortedShops as shop (shop.id)}
             <tr
               id="shop-{shop.id}"
-              class="transition-all {highlightedShopId === shop.id ? 'bg-accent/12' : ''}"
+              class="transition-all {highlightedShopId === shop.id
+                ? 'bg-accent/12'
+                : hoveredShopId === shop.id
+                  ? 'bg-base-300'
+                  : ''}"
+              onmouseenter={() => {
+                if (transportMethod) hoveredShopId = shop.id;
+              }}
+              onmouseleave={() => {
+                if (hoveredShopId === shop.id) {
+                  hoveredShopId = null;
+                }
+              }}
+              onclick={() => {
+                if (transportMethod) {
+                  selectedShopId = shop.id;
+                  amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
             >
               <td>
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
-                    <div class="hidden text-sm opacity-50 sm:block">ID: {shop.id}</div>
+                    <div class="hidden text-sm opacity-50 sm:block">
+                      {#if transportMethod}
+                        {@const hasTravelData = travelData[shop.id] !== undefined}
+                        {@const distance = travelData[shop.id]?.distance ?? shop.distance}
+                        <span>ID: {shop.id} · </span>
+                        <span
+                          class="whitespace-nowrap {!hasTravelData
+                            ? ''
+                            : distance < maxTravelDistance / 3
+                              ? 'text-success'
+                              : distance < (maxTravelDistance * 2) / 3
+                                ? 'text-warning'
+                                : 'text-error'}"
+                        >
+                          {formatDistance(distance)}
+                        </span>
+                      {:else}
+                        ID: {shop.id}
+                      {/if}
+                    </div>
                   </div>
                 </div>
               </td>
               <td class="text-center">
-                <div
-                  class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap {shop.distance <
-                  data.radius / 3
-                    ? 'badge-success'
-                    : shop.distance < (data.radius * 2) / 3
-                      ? 'badge-warning'
-                      : 'badge-error'}"
-                >
-                  {formatDistance(shop.distance)}
-                </div>
+                {#if transportMethod}
+                  {#if travelData[shop.id] === undefined}
+                    <span class="loading loading-spinner loading-sm"></span>
+                  {:else}
+                    <div
+                      class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap {travelData[
+                        shop.id
+                      ] === null
+                        ? 'badge-neutral'
+                        : travelData[shop.id]!.time < maxTravelTime / 3
+                          ? 'badge-success'
+                          : travelData[shop.id]!.time < (maxTravelTime * 2) / 3
+                            ? 'badge-warning'
+                            : 'badge-error'}"
+                    >
+                      {formatTime(travelData[shop.id]?.time)}
+                    </div>
+                  {/if}
+                {:else}
+                  <div
+                    class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap {shop.distance <
+                    data.radius / 3
+                      ? 'badge-success'
+                      : shop.distance < (data.radius * 2) / 3
+                        ? 'badge-warning'
+                        : 'badge-error'}"
+                  >
+                    {formatDistance(shop.distance)}
+                  </div>
+                {/if}
               </td>
               {#each visibleGames as gameInfo (gameInfo.id)}
                 {@const game = findGame(shop.games, gameInfo.id)}
