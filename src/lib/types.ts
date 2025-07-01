@@ -99,4 +99,6 @@ export type SortCriteria =
   | 'sound_voltex'
   | 'wacca';
 
+export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
+
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];

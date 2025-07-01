@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Game, AMapContext, Shop } from '$lib/types';
+  import type { Game, AMapContext, Shop, TransportMethod } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy, getContext, untrack } from 'svelte';
   import { isDarkMode } from '$lib/utils';
@@ -7,11 +7,13 @@
 
   let { data } = $props();
 
-  const ORIGIN_INDEX = 1000;
-  const SHOP_INDEX = 500;
-  const SELECTED_ROUTE_INDEX = 300;
-  const HOVERED_ROUTE_INDEX = 200;
-  const ROUTE_INDEX = 100;
+  const HOVERED_SHOP_INDEX = 3002;
+  const SELECTED_SHOP_INDEX = 3001;
+  const ORIGIN_INDEX = 3000;
+  const SHOP_INDEX = 2000;
+  const SELECTED_ROUTE_INDEX = 1999;
+  const HOVERED_ROUTE_INDEX = 1998;
+  const ROUTE_INDEX = 1000;
 
   let screenWidth = $state(0);
 
@@ -21,13 +23,14 @@
   let amapError = $derived(amapContext?.error ?? null);
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
   let map: AMap.Map | undefined = $state(undefined);
+  let markers: Record<number, { marker: AMap.Marker; zIndex: number }> = $state({});
 
   let hoveredShopId: number | null = $state(null);
   let selectedShopId: number | null = $state(null);
   let highlightedShopId: number | null = $state(null);
   let highlightedShopIdTimeout: number | null = $state(null);
   let darkMode = $derived(browser ? isDarkMode() : undefined);
-  let transportMethod = $state(undefined); // 'transfer', 'walking', 'riding', 'driving'
+  let transportMethod = $state<TransportMethod>(undefined); // 'transit', 'walking', 'riding', 'driving'
   let travelData = $state<
     Record<
       number,
@@ -39,6 +42,7 @@
       } | null
     >
   >({}); // shopId -> travel data
+  let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
 
   let maxTravelTime = $derived.by(() => {
     if (!transportMethod) return Infinity;
@@ -102,14 +106,26 @@
     });
   };
 
+  const getRouteOptions = (id: number): Partial<AMap.PolylineOptions> => {
+    const isSelected = selectedShopId === id;
+    const isHovered = hoveredShopId === id;
+    return {
+      strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
+      strokeWeight: isSelected ? 3.8 : isHovered ? 4.2 : 3,
+      strokeOpacity: isSelected || isHovered ? 1 : 0.4,
+      lineJoin: 'round',
+      zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
+    };
+  };
+
   let plugins: Record<string, any> = $state({});
 
-  const calculateTravelData = async (method: string) => {
+  const calculateTravelData = async (method: NonNullable<TransportMethod>) => {
     if (!amap || !amapReady || !data || data.shops.length === 0) return;
     travelData = {};
 
     const pluginName =
-      method === 'transfer'
+      method === 'transit'
         ? 'AMap.Transfer'
         : method === 'walking'
           ? 'AMap.Walking'
@@ -120,7 +136,7 @@
     if (!(method in plugins)) {
       await new Promise<void>((resolve) => {
         amap.plugin([pluginName], () => {
-          if (method === 'transfer') {
+          if (method === 'transit') {
             plugins[method] = new (amap as any).Transfer({ city: ' ' });
           } else if (method === 'walking') {
             plugins[method] = new (amap as any).Walking();
@@ -146,7 +162,7 @@
 
         try {
           plugin.search(origin, destination, (status: string, result: any) => {
-            console.log(result);
+            console.debug(result);
             if (
               status === 'complete' &&
               typeof result === 'object' &&
@@ -178,11 +194,7 @@
                   : [];
               const route = new amap.Polyline({
                 path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
-                strokeColor: 'cyan',
-                strokeWeight: 3,
-                strokeOpacity: 0.4,
-                lineJoin: 'round',
-                zIndex: ROUTE_INDEX
+                ...getRouteOptions(shop.id)
               });
               route.on('mouseover', () => {
                 hoveredShopId = shop.id;
@@ -226,7 +238,11 @@
     };
 
     // Process shops sequentially to avoid rate limiting
-    for (const shop of data.shops) {
+    // Process selected shop first if exists, then process remaining shops
+    for (const shop of [
+      ...data.shops.filter((shop) => shop.id === selectedShopId),
+      ...data.shops.filter((shop) => shop.id !== selectedShopId)
+    ]) {
       await processShop(shop);
     }
 
@@ -279,14 +295,6 @@
         viewMode: '2D'
       });
 
-      map.add(
-        new amap.TileLayer.Traffic({
-          autoRefresh: true,
-          interval: 180,
-          opacity: 0.3
-        })
-      );
-
       const origin = new amap.Marker({
         position: [data.location.longitude, data.location.latitude],
         title: m.origin(),
@@ -315,7 +323,7 @@
         const marker = new amap.Marker({
           position: shop.location.coordinates,
           title: shop.name,
-          content: '<i class="text-success fa-solid fa-location-dot fa-lg"></i>',
+          content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
           offset: new amap.Pixel(-7.03, -20),
           label: {
             content: shop.name,
@@ -324,6 +332,8 @@
           },
           zIndex
         });
+
+        markers[shop.id] = { marker, zIndex };
 
         marker.on('mouseover', () => {
           hoveredShopId = shop.id;
@@ -334,7 +344,7 @@
           }
         });
         marker.on('click', () => {
-          if (transportMethod) selectedShopId = shop.id;
+          selectedShopId = shop.id;
           highlightedShopId = shop.id;
           if (highlightedShopIdTimeout) {
             clearTimeout(highlightedShopIdTimeout);
@@ -356,7 +366,7 @@
 
   $effect(() => {
     if (!map) return;
-    map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/fresh');
+    map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
   });
 
   $effect(() => {
@@ -379,35 +389,74 @@
   });
 
   $effect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    selectedShopId;
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    hoveredShopId;
-    untrack(() => {
-      Object.keys(travelData).forEach((shopId) => {
-        const id = Number(shopId);
-        const data = travelData[id];
-        if (!data) return;
-        const isSelected = selectedShopId === id;
-        const isHovered = hoveredShopId === id;
-        data.route.setOptions({
-          strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
-          strokeWeight: isSelected ? 3.8 : isHovered ? 4.2 : 3,
-          strokeOpacity: isSelected || isHovered ? 1 : 0.4,
-          lineJoin: 'round',
-          zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
-        });
-      });
+    Object.keys(travelData).forEach((shopId) => {
+      const id = Number(shopId);
+      const data = travelData[id];
+      if (!data) return;
+      data.route.setOptions(getRouteOptions(id));
     });
   });
 
   $effect(() => {
     if (selectedShopId) {
       untrack(() => {
-        const data = travelData[selectedShopId!];
-        if (!data) return;
-        map?.setFitView([data.route]);
+        const route = travelData[selectedShopId!]?.route;
+        if (route) map?.setFitView([route]);
+        else
+          map?.setZoomAndCenter(
+            15,
+            data.shops.find((e) => e.id === selectedShopId)!.location.coordinates
+          );
       });
+    }
+  });
+
+  $effect(() => {
+    const selected = selectedShopId;
+    const hovered = hoveredShopId;
+    untrack(() => {
+      data.shops.forEach((shop) => {
+        markers[shop.id]?.marker.setzIndex(
+          shop.id === selected
+            ? SELECTED_SHOP_INDEX
+            : shop.id === hovered
+              ? HOVERED_SHOP_INDEX
+              : markers[shop.id].zIndex
+        );
+        const element = document.querySelector(`#shop-marker-${shop.id}`) as HTMLElement | null;
+        if (element) {
+          element.className = element.className.replace(
+            /text-error|text-warning dark:text-info|text-info dark:text-success/g,
+            ''
+          );
+          if (selected === shop.id) {
+            element.classList.add('text-error');
+          } else if (hovered === shop.id) {
+            element.classList.add('text-warning');
+            element.classList.add('dark:text-info');
+          } else {
+            element.classList.add('text-info');
+            element.classList.add('dark:text-success');
+          }
+        }
+      });
+    });
+  });
+
+  $effect(() => {
+    if (!amap || !amapReady || !map) return;
+    if (['transit', 'riding', 'driving'].includes(transportMethod!)) {
+      if (!trafficLayer) {
+        trafficLayer = new amap.TileLayer.Traffic({
+          zIndex: 1000,
+          autoRefresh: true,
+          opacity: 0.5
+        });
+        trafficLayer.setMap(map);
+      }
+    } else {
+      trafficLayer?.setMap(null);
+      trafficLayer = undefined;
     }
   });
 </script>
@@ -443,7 +492,7 @@
         bind:value={transportMethod}
       >
         <option value={undefined}>{m.not_specified()}</option>
-        <option value="transfer">{m.public_transport()}</option>
+        <option value="transit">{m.public_transport()}</option>
         <option value="walking">{m.walking()}</option>
         <option value="riding">{m.riding()}</option>
         <option value="driving">{m.driving()}</option>
@@ -499,13 +548,13 @@
           {#each sortedShops as shop (shop.id)}
             <tr
               id="shop-{shop.id}"
-              class="transition-all {highlightedShopId === shop.id
+              class="cursor-pointer transition-all select-none {highlightedShopId === shop.id
                 ? 'bg-accent/12'
                 : hoveredShopId === shop.id
                   ? 'bg-base-300'
                   : ''}"
               onmouseenter={() => {
-                if (transportMethod) hoveredShopId = shop.id;
+                hoveredShopId = shop.id;
               }}
               onmouseleave={() => {
                 if (hoveredShopId === shop.id) {
@@ -513,10 +562,8 @@
                 }
               }}
               onclick={() => {
-                if (transportMethod) {
-                  selectedShopId = shop.id;
-                  amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
+                selectedShopId = shop.id;
+                amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >
               <td>
@@ -654,6 +701,6 @@
   @reference "tailwindcss";
 
   :global(.amap-marker-label) {
-    @apply rounded-full border-0 bg-emerald-500/12 px-2 backdrop-blur-lg;
+    @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;
   }
 </style>
