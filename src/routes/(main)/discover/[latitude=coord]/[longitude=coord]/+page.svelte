@@ -275,9 +275,17 @@
       map = new amap.Map(amapContainer!.id, {
         zoom: 10,
         center: [data.location.longitude, data.location.latitude],
-        mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/whitesmoke',
+        mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
         viewMode: '2D'
       });
+
+      map.add(
+        new amap.TileLayer.Traffic({
+          autoRefresh: true,
+          interval: 180,
+          opacity: 0.3
+        })
+      );
 
       const origin = new amap.Marker({
         position: [data.location.longitude, data.location.latitude],
