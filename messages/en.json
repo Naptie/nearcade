@@ -43,10 +43,10 @@
   "not_specified": "Not Specified",
   "time_length": [
     {
-      "selectors": ["hours"],
       "match": {
-        "hours=0": "{minutes}min",
-        "hours=other": "{hours}h {minutes}m"
+        "hours=0, minutes=*": "{minutes}min",
+        "hours=*, minutes=0": "{hours}h",
+        "hours=*, minutes=*": "{hours}h {minutes}m"
       }
     }
   ],

@@ -34,10 +34,10 @@
   "not_specified": "未指定",
   "time_length": [
     {
-      "selectors": ["hours"],
       "match": {
-        "hours=0": "{minutes} 分钟",
-        "hours>0": "{hours} 时 {minutes} 分"
+        "hours=0, minutes=*": "{minutes} 分钟",
+        "hours=*, minutes=0": "{hours} 小时",
+        "hours=*, minutes=*": "{hours} 时 {minutes} 分"
       }
     }
   ],
