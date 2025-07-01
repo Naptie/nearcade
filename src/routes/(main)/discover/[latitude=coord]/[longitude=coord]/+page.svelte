@@ -325,6 +325,14 @@
           zIndex
         });
 
+        marker.on('mouseover', () => {
+          hoveredShopId = shop.id;
+        });
+        marker.on('mouseout', () => {
+          if (hoveredShopId === shop.id) {
+            hoveredShopId = null;
+          }
+        });
         marker.on('click', () => {
           if (transportMethod) selectedShopId = shop.id;
           highlightedShopId = shop.id;
