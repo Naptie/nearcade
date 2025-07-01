@@ -384,7 +384,7 @@
         const isHovered = hoveredShopId === id;
         data.route.setOptions({
           strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
-          strokeWeight: isSelected ? 4.8 : isHovered ? 4 : 3,
+          strokeWeight: isSelected ? 3.8 : isHovered ? 4.2 : 3,
           strokeOpacity: isSelected || isHovered ? 1 : 0.4,
           lineJoin: 'round',
           zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
