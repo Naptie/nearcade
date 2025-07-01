@@ -214,8 +214,7 @@ export const POST: RequestHandler = async ({ request }) => {
       await universitiesCollection.updateOne(
         { name: universityName },
         {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          $push: { campuses: newCampus } as any
+          $push: { campuses: newCampus } as never
         }
       );
       return json({
