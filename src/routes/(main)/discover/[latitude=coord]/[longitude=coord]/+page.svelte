@@ -556,9 +556,9 @@
                         shop.id
                       ] === null
                         ? 'badge-neutral'
-                        : travelData[shop.id]!.time < maxTravelTime / 3
+                        : travelData[shop.id]!.time < Math.max(maxTravelTime / 3, 1200)
                           ? 'badge-success'
-                          : travelData[shop.id]!.time < (maxTravelTime * 2) / 3
+                          : travelData[shop.id]!.time < Math.max((maxTravelTime * 2) / 3, 2400)
                             ? 'badge-warning'
                             : 'badge-error'}"
                     >
