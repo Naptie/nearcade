@@ -5,7 +5,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
   try {
     // Check if the secret is configured
     if (!AMAP_SECRET) {
-      throw error(500, 'Amap secret not configured');
+      throw error(500, 'AMap secret not configured');
     }
 
     const pathname = url.pathname.replace('/_AMapService', '');
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     });
 
     if (!response.ok) {
-      throw error(response.status, `Amap API request failed: ${response.statusText}`);
+      throw error(response.status, `AMap API request failed: ${response.statusText}`);
     }
 
     // Get the response data
@@ -49,7 +49,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
       }
     });
   } catch (err) {
-    console.error('Amap proxy error:', err);
+    console.error('AMap proxy error:', err);
 
     // If it's already a SvelteKit error, re-throw it
     if (err && typeof err === 'object' && 'status' in err) {
