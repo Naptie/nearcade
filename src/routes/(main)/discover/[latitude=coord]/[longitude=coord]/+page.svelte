@@ -8,7 +8,7 @@
   } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy, getContext, untrack } from 'svelte';
-  import { isDarkMode } from '$lib/utils';
+  import { formatDistance, formatTime, isDarkMode } from '$lib/utils';
   import { browser } from '$app/environment';
 
   let { data } = $props();
@@ -50,20 +50,23 @@
   >({}); // shopId -> travel data
   let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
 
-  let maxTravelTime = $derived.by(() => {
-    if (!transportMethod) return Infinity;
+  let avgTravelTime = $derived.by(() => {
+    if (!transportMethod) return 0;
     const times = Object.values(travelData)
       .filter((data) => data !== null)
       .map((data) => data!.time);
-    return Math.max(...times) || Infinity;
+    return times.length > 0 ? times.reduce((sum, time) => sum + time, 0) / times.length : 0;
   });
 
-  let maxTravelDistance = $derived.by(() => {
-    if (!transportMethod) return data.radius;
+  let avgTravelDistance = $derived.by(() => {
+    if (!transportMethod)
+      return data.shops.reduce((sum, shop) => sum + shop.distance, 0) / data.shops.length;
     const distances = Object.values(travelData)
       .filter((data) => data !== null)
       .map((data) => data!.distance);
-    return Math.max(...distances) || Infinity;
+    return distances.length > 0
+      ? distances.reduce((sum, dist) => sum + dist, 0) / distances.length
+      : 0;
   });
 
   let sortedShops = $derived.by(() => {
@@ -94,23 +97,6 @@
       0
     );
   });
-
-  const formatDistance = (distance: number): string => {
-    if (distance === Infinity) return m.unknown();
-    return m.km({
-      km: distance.toFixed(2)
-    });
-  };
-
-  const formatTime = (seconds: number | null | undefined): string => {
-    if (seconds === null || seconds === undefined) return m.unknown();
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor(seconds / 60) % 60;
-    return m.time_length({
-      hours: hours.toString(),
-      minutes: minutes.toString()
-    });
-  };
 
   const getRouteOptions = (id: number): Partial<AMap.PolylineOptions> => {
     const isSelected = selectedShopId === id;
@@ -590,13 +576,13 @@
                         <span
                           class="whitespace-nowrap {!hasTravelData
                             ? ''
-                            : distance < maxTravelDistance / 3
+                            : distance < avgTravelDistance / 1.5
                               ? 'text-success'
-                              : distance < (maxTravelDistance * 2) / 3
+                              : distance < avgTravelDistance * 1.5
                                 ? 'text-warning'
                                 : 'text-error'}"
                         >
-                          {formatDistance(distance)}
+                          {formatDistance(distance, 2)}
                         </span>
                       {:else}
                         ID: {shop.id}
@@ -615,9 +601,9 @@
                         shop.id
                       ] === null
                         ? 'badge-neutral'
-                        : travelData[shop.id]!.time < Math.max(maxTravelTime / 3, 1200)
+                        : travelData[shop.id]!.time < Math.max(avgTravelTime / 1.5, 1200)
                           ? 'badge-success'
-                          : travelData[shop.id]!.time < Math.max((maxTravelTime * 2) / 3, 2400)
+                          : travelData[shop.id]!.time < Math.max(avgTravelTime * 1.5, 2400)
                             ? 'badge-warning'
                             : 'badge-error'}"
                     >
@@ -627,13 +613,13 @@
                 {:else}
                   <div
                     class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap {shop.distance <
-                    data.radius / 3
+                    avgTravelDistance / 1.5
                       ? 'badge-success'
-                      : shop.distance < (data.radius * 2) / 3
+                      : shop.distance < avgTravelDistance * 1.5
                         ? 'badge-warning'
                         : 'badge-error'}"
                   >
-                    {formatDistance(shop.distance)}
+                    {formatDistance(shop.distance, 2)}
                   </div>
                 {/if}
               </td>
@@ -703,7 +689,7 @@
         <div class="stat-value text-accent">
           {(machineCount / (Math.PI * Math.pow(data.radius, 2))).toFixed(3)}
         </div>
-        <div class="stat-desc">{m.machines_per_km2({ count: 1 })}</div>
+        <div class="stat-desc">{m.machines_per_km2()}</div>
       </div>
     </div>
   {/if}

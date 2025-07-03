@@ -1,3 +1,4 @@
+import { m } from './paraglide/messages';
 import type { Shop, Game } from './types';
 
 export const calculateDistance = (
@@ -75,4 +76,21 @@ export const getGameMachineCount = (shops: Shop[], gameId: number): number => {
 export const calculateAreaDensity = (machineCount: number, radiusKm: number): number => {
   const areaKm2 = Math.PI * Math.pow(radiusKm, 2);
   return machineCount / areaKm2;
+};
+
+export const formatDistance = (distance: number, precision = 0): string => {
+  if (distance === Infinity) return m.unknown();
+  return m.km({
+    km: distance.toFixed(precision)
+  });
+};
+
+export const formatTime = (seconds: number | null | undefined): string => {
+  if (seconds === null || seconds === undefined) return m.unknown();
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor(seconds / 60) % 60;
+  return m.time_length({
+    hours: hours.toString(),
+    minutes: minutes.toString()
+  });
 };

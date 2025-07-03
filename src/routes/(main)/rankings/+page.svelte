@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { parseRelativeTime } from '$lib/utils';
+  import { formatDistance, parseRelativeTime } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
   import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
@@ -238,7 +238,7 @@
                   class="cursor-pointer text-center transition {radiusFilter == option
                     ? 'text-accent'
                     : 'hover:text-base-content'}"
-                  onclick={() => (radiusFilter = option)}>&lt; {option} km</th
+                  onclick={() => (radiusFilter = option)}>&lt; {formatDistance(option)}</th
                 >
               {/each}
               <th class="text-center">{m.actions()}</th>
