@@ -17,8 +17,8 @@
   const SELECTED_SHOP_INDEX = 3001;
   const ORIGIN_INDEX = 3000;
   const SHOP_INDEX = 2000;
-  const SELECTED_ROUTE_INDEX = 1999;
-  const HOVERED_ROUTE_INDEX = 1998;
+  const HOVERED_ROUTE_INDEX = 1999;
+  const SELECTED_ROUTE_INDEX = 1998;
   const ROUTE_INDEX = 1000;
 
   let screenWidth = $state(0);
