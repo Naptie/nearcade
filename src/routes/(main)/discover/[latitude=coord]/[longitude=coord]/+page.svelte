@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { Game, AMapContext, Shop, TransportMethod } from '$lib/types';
+  import type {
+    Game,
+    AMapContext,
+    Shop,
+    TransportMethod,
+    AMapTransportSearchResult
+  } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy, getContext, untrack } from 'svelte';
   import { isDarkMode } from '$lib/utils';
@@ -118,6 +124,7 @@
     };
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let plugins: Record<string, any> = $state({});
 
   const calculateTravelData = async (method: NonNullable<TransportMethod>) => {
@@ -136,14 +143,16 @@
     if (!(method in plugins)) {
       await new Promise<void>((resolve) => {
         amap.plugin([pluginName], () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const a = amap as any;
           if (method === 'transit') {
-            plugins[method] = new (amap as any).Transfer({ city: ' ' });
+            plugins[method] = new a.Transfer({ city: ' ' });
           } else if (method === 'walking') {
-            plugins[method] = new (amap as any).Walking();
+            plugins[method] = new a.Walking();
           } else if (method === 'riding') {
-            plugins[method] = new (amap as any).Riding();
+            plugins[method] = new a.Riding();
           } else {
-            plugins[method] = new (amap as any).Driving();
+            plugins[method] = new a.Driving();
           }
           resolve();
         });
@@ -161,74 +170,77 @@
         );
 
         try {
-          plugin.search(origin, destination, (status: string, result: any) => {
-            console.debug(result);
-            if (
-              status === 'complete' &&
-              typeof result === 'object' &&
-              ((result.plans && result.plans.length > 0) ||
-                (result.routes && result.routes.length > 0))
-            ) {
-              const plans = result.plans ?? result.routes;
-              const minTimeIndex = plans.reduce((minIndex: number, plan: any, index: number) => {
-                return (plan.time || Infinity) < (plans[minIndex].time || Infinity)
-                  ? index
-                  : minIndex;
-              }, 0);
+          plugin.search(
+            origin,
+            destination,
+            (status: string, result: AMapTransportSearchResult) => {
+              console.debug(result);
+              if (
+                status === 'complete' &&
+                typeof result === 'object' &&
+                ((result.plans && result.plans.length > 0) ||
+                  (result.routes && result.routes.length > 0))
+              ) {
+                const plans = result.plans ?? result.routes;
+                const minTimeIndex = plans.reduce((minIndex: number, plan, index: number) => {
+                  return (plan.time || Infinity) < (plans[minIndex].time || Infinity)
+                    ? index
+                    : minIndex;
+                }, 0);
 
-              const bestPlan = plans[minTimeIndex];
-              const path: { latitude: number; longitude: number }[] = bestPlan.path
-                ? bestPlan.path.map((point: { lat: number; lng: number }) => ({
-                    latitude: point.lat,
-                    longitude: point.lng
-                  }))
-                : bestPlan.steps || bestPlan.rides
-                  ? (bestPlan.steps ?? bestPlan.rides)
+                const bestPlan = plans[minTimeIndex];
+                const path = bestPlan.path
+                  ? bestPlan.path.map((point: { lat: number; lng: number }) => ({
+                      latitude: point.lat,
+                      longitude: point.lng
+                    }))
+                  : ('steps' in bestPlan ? bestPlan.steps : bestPlan.rides)
                       .map((step: { path: { lat: number; lng: number }[] }) =>
                         step.path.map((point: { lat: number; lng: number }) => ({
                           latitude: point.lat,
                           longitude: point.lng
                         }))
                       )
-                      .flat()
-                  : [];
-              const route = new amap.Polyline({
-                path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
-                ...getRouteOptions(shop.id)
-              });
-              route.on('mouseover', () => {
-                hoveredShopId = shop.id;
-              });
-              route.on('mouseout', () => {
-                if (hoveredShopId === shop.id) {
-                  hoveredShopId = null;
-                }
-              });
-              route.on('click', () => {
-                selectedShopId = shop.id;
-              });
-              map?.add(route);
-              travelData[shop.id] = {
-                time: bestPlan.time ?? 0,
-                distance: bestPlan.distance ? bestPlan.distance / 1000 : 0,
-                path,
-                route
-              };
-              resolve();
-            } else if (
-              ['CUQPS_HAS_EXCEEDED_THE_LIMIT', 'Request Error', undefined].includes(result) &&
-              retryCount < 10
-            ) {
-              // Rate limit exceeded, add to end of queue for retry
-              setTimeout(() => {
-                processShop(shop, retryCount + 1).then(resolve);
-              }, 1000); // Wait 1 second before retry
-            } else {
-              console.error(result);
-              travelData[shop.id] = null;
-              resolve();
+                      .flat();
+                const route = new amap.Polyline({
+                  path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
+                  ...getRouteOptions(shop.id)
+                });
+                route.on('mouseover', () => {
+                  hoveredShopId = shop.id;
+                });
+                route.on('mouseout', () => {
+                  if (hoveredShopId === shop.id) {
+                    hoveredShopId = null;
+                  }
+                });
+                route.on('click', () => {
+                  selectedShopId = shop.id;
+                });
+                map?.add(route);
+                travelData[shop.id] = {
+                  time: bestPlan.time ?? 0,
+                  distance: bestPlan.distance ? bestPlan.distance / 1000 : 0,
+                  path,
+                  route
+                };
+                resolve();
+              } else if (
+                typeof result !== 'object' &&
+                ['CUQPS_HAS_EXCEEDED_THE_LIMIT', 'Request Error', undefined].includes(result) &&
+                retryCount < 10
+              ) {
+                // Rate limit exceeded, add to end of queue for retry
+                setTimeout(() => {
+                  processShop(shop, retryCount + 1).then(resolve);
+                }, 1000); // Wait 1 second before retry
+              } else {
+                console.error(result);
+                travelData[shop.id] = null;
+                resolve();
+              }
             }
-          });
+          );
         } catch (error) {
           console.error(`Error calculating travel data for shop ${shop.id}:`, error);
           travelData[shop.id] = null;

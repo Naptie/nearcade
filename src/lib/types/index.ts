@@ -1,4 +1,4 @@
-import type { RADIUS_OPTIONS } from './constants';
+import type { RADIUS_OPTIONS } from '../constants';
 
 interface Location {
   type: 'Point';
@@ -102,3 +102,5 @@ export type SortCriteria =
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
+
+export * from './amap';
