@@ -128,5 +128,37 @@
       }
     }
   ],
-  "qq_description": "Join our QQ group for discussions and updates."
+  "qq_description": "Join our QQ group for discussions and updates.",
+  "route_guidance": "Route Guidance",
+  "route_options": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} route option",
+        "countPlural=other": "{count} route options"
+      }
+    }
+  ],
+  "route_steps": "Route Steps",
+  "total_distance": "Total Distance",
+  "close": "Close",
+  "step": "Step {step}",
+  "entrance": "Entrance",
+  "exit": "Exit",
+  "via_stop": "Via Stop",
+  "transfer_at": "Transfer at",
+  "take_line": "Take {line}",
+  "walk_to": "Walk to",
+  "ride_to": "Ride to",
+  "drive_to": "Drive to",
+  "continue_straight": "Continue straight",
+  "turn_left": "Turn left",
+  "turn_right": "Turn right",
+  "slight_left": "Slight left",
+  "slight_right": "Slight right",
+  "sharp_left": "Sharp left",
+  "sharp_right": "Sharp right",
+  "u_turn": "U-turn",
+  "arrive_at": "Arrive at destination"
 }

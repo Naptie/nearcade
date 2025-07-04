@@ -104,3 +104,27 @@ export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'dr
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
 
 export * from './amap';
+import type { TransportSearchResult } from './amap';
+
+// Extended types for route guidance
+export interface CachedRouteData {
+  fullRouteResult: TransportSearchResult;
+  selectedRouteIndex: number;
+  timestamp: number;
+  expiresAt: number;
+}
+
+export interface RouteGuidanceState {
+  isOpen: boolean;
+  shopId: number | null;
+  selectedRouteIndex: number;
+  allRoutes: RouteOption[];
+}
+
+export interface RouteOption {
+  index: number;
+  time: number;
+  distance: number;
+  summary: string;
+  polyline?: AMap.Polyline;
+}

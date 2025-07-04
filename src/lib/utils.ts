@@ -1,5 +1,5 @@
 import { m } from './paraglide/messages';
-import type { Shop, Game } from './types';
+import type { Shop, Game, TransportMethod, TransportSearchResult, CachedRouteData } from './types';
 
 export const calculateDistance = (
   lat1: number,
@@ -93,4 +93,97 @@ export const formatTime = (seconds: number | null | undefined): string => {
     hours: hours.toString(),
     minutes: minutes.toString()
   });
+};
+
+// Route caching utilities
+const ROUTE_CACHE_PREFIX = 'nearcade_route_';
+const ROUTE_CACHE_EXPIRY_HOURS = 24;
+
+export const generateRouteCacheKey = (
+  originLat: number,
+  originLng: number,
+  shopId: number,
+  transportMethod: TransportMethod
+): string => {
+  // Round coordinates to 3 decimal places for caching consistency (~111m precision)
+  const lat = Math.round(originLat * 1000) / 1000;
+  const lng = Math.round(originLng * 1000) / 1000;
+  return `${ROUTE_CACHE_PREFIX}${lat}_${lng}_${shopId}_${transportMethod}`;
+};
+
+export const getCachedRouteData = (cacheKey: string): CachedRouteData | null => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (!cached) return null;
+    
+    const cachedRoute: CachedRouteData = JSON.parse(cached);
+    
+    // Check if cache has expired
+    if (Date.now() > cachedRoute.expiresAt) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+    
+    return cachedRoute;
+  } catch (error) {
+    console.error('Error reading route cache:', error);
+    return null;
+  }
+};
+
+export const setCachedRouteData = (
+  cacheKey: string,
+  routeData: TransportSearchResult,
+  selectedRouteIndex: number = 0
+): void => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const cachedRoute: CachedRouteData = {
+      fullRouteResult: routeData,
+      selectedRouteIndex,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + ROUTE_CACHE_EXPIRY_HOURS * 60 * 60 * 1000
+    };
+    
+    localStorage.setItem(cacheKey, JSON.stringify(cachedRoute));
+  } catch (error) {
+    console.error('Error setting route cache:', error);
+  }
+};
+
+export const clearExpiredRouteCache = (): void => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const keys = Object.keys(localStorage).filter(key => 
+      key.startsWith(ROUTE_CACHE_PREFIX)
+    );
+    
+    const now = Date.now();
+    let clearedCount = 0;      keys.forEach(key => {
+        try {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const cachedRoute: CachedRouteData = JSON.parse(cached);
+            if (now > cachedRoute.expiresAt) {
+              localStorage.removeItem(key);
+              clearedCount++;
+            }
+          }
+        } catch {
+          // Remove corrupted cache entries
+          localStorage.removeItem(key);
+          clearedCount++;
+        }
+      });
+    
+    if (clearedCount > 0) {
+      console.log(`Cleared ${clearedCount} expired route cache entries`);
+    }
+  } catch (error) {
+    console.error('Error clearing expired route cache:', error);
+  }
 };
