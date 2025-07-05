@@ -5,6 +5,7 @@
   import FancyButton from '$lib/components/FancyButton.svelte';
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
 
   let { children } = $props();
   let scrollY = $state(0);
@@ -20,7 +21,7 @@
   });
 
   onDestroy(() => {
-    if (typeof window !== 'undefined') {
+    if (browser) {
       window.removeEventListener('scroll', handleScroll);
     }
   });

@@ -109,16 +109,12 @@ export const POST: RequestHandler = async ({ request }) => {
     let universityName: string;
     let campusName: string | null = null;
 
-    // Check for Chinese brackets first, then English brackets
-    const chineseBracketMatch = name.match(/^(.+?)（(.*)）$/);
-    const englishBracketMatch = name.match(/^(.+?)\(([^)]*)\)$/);
+    // Check for both Chinese and English brackets
+    const bracketMatch = name.match(/^(.+?)(?:（(.*)）|\(([^)]*)\))$/);
 
-    if (chineseBracketMatch) {
-      universityName = chineseBracketMatch[1].trim();
-      campusName = chineseBracketMatch[2].trim() || null;
-    } else if (englishBracketMatch) {
-      universityName = englishBracketMatch[1].trim();
-      campusName = englishBracketMatch[2].trim() || null;
+    if (bracketMatch) {
+      universityName = bracketMatch[1].trim();
+      campusName = (bracketMatch[2] || bracketMatch[3] || '').trim() || null;
     } else {
       universityName = name.trim();
     }

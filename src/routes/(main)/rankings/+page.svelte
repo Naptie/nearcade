@@ -7,6 +7,7 @@
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   let { data } = $props();
   import { getLocale } from '$lib/paraglide/runtime';
+  import { browser } from '$app/environment';
 
   let sortBy: SortCriteria = $state(data.sortBy);
   let radiusFilter: RadiusFilter = $state(data.radius);
@@ -51,7 +52,7 @@
 
   // Update URL when sort criteria or radius changes (without page parameter)
   $effect(() => {
-    if (typeof window !== 'undefined' && (sortBy !== data.sortBy || radiusFilter !== data.radius)) {
+    if (browser && (sortBy !== data.sortBy || radiusFilter !== data.radius)) {
       const url = new URL(window.location.href);
       url.searchParams.set('sortBy', sortBy);
       url.searchParams.set('radius', radiusFilter.toString());
@@ -139,7 +140,7 @@
   };
 
   onDestroy(() => {
-    if (typeof window !== 'undefined') {
+    if (browser) {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
     }

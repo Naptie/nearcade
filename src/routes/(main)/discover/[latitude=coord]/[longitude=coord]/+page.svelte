@@ -9,7 +9,7 @@
     RouteGuidanceState
   } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
-  import { onMount, onDestroy, getContext, untrack } from 'svelte';
+  import { onMount, getContext, untrack } from 'svelte';
   import {
     formatDistance,
     formatTime,
@@ -17,26 +17,27 @@
     generateRouteCacheKey,
     getCachedRouteData,
     setCachedRouteData,
-    clearExpiredRouteCache
+    clearExpiredRouteCache,
+    convertPath
   } from '$lib/utils';
   import { browser } from '$app/environment';
-  import RouteGuidanceDialog from '$lib/components/RouteGuidanceDialog.svelte';
+  import RouteGuidance from '$lib/components/RouteGuidance.svelte';
+  import {
+    SELECTED_ROUTE_INDEX,
+    HOVERED_ROUTE_INDEX,
+    ROUTE_INDEX,
+    ORIGIN_INDEX,
+    SHOP_INDEX,
+    SELECTED_SHOP_INDEX,
+    HOVERED_SHOP_INDEX
+  } from '$lib/constants.js';
 
   let { data } = $props();
-
-  const HOVERED_SHOP_INDEX = 3002;
-  const SELECTED_SHOP_INDEX = 3001;
-  const ORIGIN_INDEX = 3000;
-  const SHOP_INDEX = 2000;
-  const HOVERED_ROUTE_INDEX = 1999;
-  const SELECTED_ROUTE_INDEX = 1998;
-  const ROUTE_INDEX = 1000;
 
   let screenWidth = $state(0);
 
   const amapContext = getContext<AMapContext>('amap');
   let amap = $derived(amapContext?.amap);
-  let amapReady = $derived(amapContext?.ready ?? false);
   let amapError = $derived(amapContext?.error ?? null);
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
   let map: AMap.Map | undefined = $state(undefined);
@@ -54,17 +55,16 @@
       {
         time: number;
         distance: number;
-        path: { latitude: number; longitude: number }[];
+        path: AMap.LngLat[];
         route: AMap.Polyline;
-        fullRouteResult?: TransportSearchResult; // Store complete route data for guidance
+        routeData?: TransportSearchResult; // Store complete route data for guidance
       } | null
     >
   >({}); // shopId -> travel data
   let routeGuidance = $state<RouteGuidanceState>({
     isOpen: false,
     shopId: null,
-    selectedRouteIndex: 0,
-    allRoutes: []
+    selectedRouteIndex: 0
   });
   let cachedRoutes = $state<Record<string, CachedRouteData>>({}); // cacheKey -> cached route data
   let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
@@ -123,15 +123,9 @@
     const hasGuidanceOpen = routeGuidance.isOpen && routeGuidance.shopId === id;
 
     return {
-      strokeColor: hasGuidanceOpen
-        ? '#3B82F6'
-        : isSelected
-          ? 'lime'
-          : isHovered
-            ? 'orange'
-            : 'cyan',
+      strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
       strokeWeight: isSelected ? 3.8 : isHovered ? 4.2 : 3,
-      strokeOpacity: isSelected || isHovered || hasGuidanceOpen ? 1 : 0.4,
+      strokeOpacity: hasGuidanceOpen ? 0 : isSelected || isHovered ? 1 : 0.4,
       lineJoin: 'round',
       zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
     };
@@ -141,7 +135,7 @@
   let plugins: Record<string, any> = $state({});
 
   const calculateTravelData = async (method: NonNullable<TransportMethod>) => {
-    if (!amap || !amapReady || !data || data.shops.length === 0) return;
+    if (!amap || !data || data.shops.length === 0) return;
     travelData = {};
 
     // Clear expired cache entries
@@ -158,17 +152,17 @@
 
     if (!(method in plugins)) {
       await new Promise<void>((resolve) => {
-        amap.plugin([pluginName], () => {
+        amap?.plugin([pluginName], () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const a = amap as any;
           if (method === 'transit') {
-            plugins[method] = new a.Transfer({ city: ' ' });
+            plugins[method] = new a.Transfer({ city: ' ', nightflag: 1, extensions: 'all' });
           } else if (method === 'walking') {
             plugins[method] = new a.Walking();
           } else if (method === 'riding') {
             plugins[method] = new a.Riding();
           } else {
-            plugins[method] = new a.Driving();
+            plugins[method] = new a.Driving({ strategy: 10 });
           }
           resolve();
         });
@@ -179,6 +173,52 @@
 
     const processShop = async (shop: Shop, retryCount = 0): Promise<void> => {
       return new Promise((resolve) => {
+        if (!amap) {
+          return;
+        }
+        const processRouteData = (result: TransportSearchResult, selectedIndex: number) => {
+          if (!amap || typeof result !== 'object') {
+            return;
+          }
+          const routes = 'routes' in result ? result.routes : result.plans;
+          routes.sort((a, b) => (a.time || Infinity) - (b.time || Infinity));
+          const selectedRoute = routes[selectedIndex];
+
+          const path = convertPath(
+            'path' in selectedRoute
+              ? selectedRoute.path
+              : ('steps' in selectedRoute ? selectedRoute.steps : selectedRoute.rides)
+                  .map((step) => step.path)
+                  .flat()
+          );
+
+          const routeLine = new amap.Polyline({
+            path: path,
+            ...getRouteOptions(shop.id)
+          });
+
+          routeLine.on('mouseover', () => {
+            hoveredShopId = shop.id;
+          });
+          routeLine.on('mouseout', () => {
+            if (hoveredShopId === shop.id) {
+              hoveredShopId = null;
+            }
+          });
+          routeLine.on('click', () => {
+            selectedShopId = shop.id;
+          });
+
+          map?.add(routeLine);
+          travelData[shop.id] = {
+            time: selectedRoute.time ?? 0,
+            distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
+            path,
+            route: routeLine,
+            routeData: result
+          };
+        };
+
         const cacheKey = generateRouteCacheKey(
           data.location.latitude,
           data.location.longitude,
@@ -190,71 +230,7 @@
         const cachedData = getCachedRouteData(cacheKey);
         if (cachedData) {
           cachedRoutes[cacheKey] = cachedData;
-
-          // Process cached data same way as fresh data
-          const result = cachedData.fullRouteResult;
-          if (
-            typeof result === 'object' &&
-            (('plans' in result && result.plans.length > 0) ||
-              ('routes' in result && result.routes.length > 0))
-          ) {
-            const routes = 'routes' in result ? result.routes : result.plans;
-            const selectedIndex = Math.min(cachedData.selectedRouteIndex, routes.length - 1);
-            const bestRoute = routes[selectedIndex];
-
-            const path = (
-              'path' in bestRoute
-                ? bestRoute.path
-                : ('steps' in bestRoute ? bestRoute.steps : bestRoute.rides)
-                    .map((step) => step.path)
-                    .flat()
-            ).map((point) => {
-              const p = point as unknown as number[];
-              return {
-                longitude: p[0],
-                latitude: p[1]
-              };
-            });
-
-            const routeLine = new amap.Polyline({
-              path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
-              ...getRouteOptions(shop.id)
-            });
-
-            routeLine.on('mouseover', () => {
-              hoveredShopId = shop.id;
-            });
-            routeLine.on('mouseout', () => {
-              if (hoveredShopId === shop.id) {
-                hoveredShopId = null;
-              }
-            });
-            routeLine.on('click', () => {
-              selectedShopId = shop.id;
-              routeGuidance = {
-                isOpen: true,
-                shopId: shop.id,
-                selectedRouteIndex: selectedIndex,
-                allRoutes: routes.map((route, index) => ({
-                  index,
-                  time: route.time ?? 0,
-                  distance: route.distance ?? 0,
-                  summary: getRouteSummary(route),
-                  polyline: index === selectedIndex ? routeLine : undefined
-                }))
-              };
-            });
-
-            map?.add(routeLine);
-            travelData[shop.id] = {
-              time: bestRoute.time ?? 0,
-              distance: bestRoute.distance ? bestRoute.distance / 1000 : 0,
-              path,
-              route: routeLine,
-              fullRouteResult: result
-            };
-          }
-
+          processRouteData(cachedData.routeData, cachedData.selectedRouteIndex);
           resolve();
           return;
         }
@@ -278,69 +254,12 @@
               // Cache the complete result
               setCachedRouteData(cacheKey, result, 0);
               cachedRoutes[cacheKey] = {
-                fullRouteResult: result,
+                routeData: result,
                 selectedRouteIndex: 0,
-                timestamp: Date.now(),
                 expiresAt: Date.now() + 24 * 60 * 60 * 1000
               };
 
-              const routes = 'routes' in result ? result.routes : result.plans;
-              const minTimeIndex = routes.reduce((minIndex: number, route, index: number) => {
-                return (route.time || Infinity) < (routes[minIndex].time || Infinity)
-                  ? index
-                  : minIndex;
-              }, 0);
-
-              const bestRoute = routes[minTimeIndex];
-              const path =
-                'path' in bestRoute
-                  ? bestRoute.path.map((point) => ({
-                      latitude: point.lat,
-                      longitude: point.lng
-                    }))
-                  : ('steps' in bestRoute ? bestRoute.steps : bestRoute.rides)
-                      .map((step) =>
-                        step.path.map((point) => ({
-                          latitude: point.lat,
-                          longitude: point.lng
-                        }))
-                      )
-                      .flat();
-              const routeLine = new amap.Polyline({
-                path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
-                ...getRouteOptions(shop.id)
-              });
-              routeLine.on('mouseover', () => {
-                hoveredShopId = shop.id;
-              });
-              routeLine.on('mouseout', () => {
-                if (hoveredShopId === shop.id) {
-                  hoveredShopId = null;
-                }
-              });
-              routeLine.on('click', () => {
-                selectedShopId = shop.id;
-                routeGuidance = {
-                  isOpen: true,
-                  shopId: shop.id,
-                  selectedRouteIndex: minTimeIndex,
-                  allRoutes: routes.map((route, index) => ({
-                    index,
-                    time: route.time ?? 0,
-                    distance: route.distance ?? 0,
-                    summary: getRouteSummary(route),
-                    polyline: index === minTimeIndex ? routeLine : undefined
-                  }))
-                };
-              });
-              map?.add(routeLine);
-              travelData[shop.id] = {
-                time: bestRoute.time ?? 0,
-                distance: bestRoute.distance ? bestRoute.distance / 1000 : 0,
-                path,
-                route: routeLine,
-                fullRouteResult: result
-              };
+              processRouteData(result, 0);
               resolve();
             } else if (
               typeof result !== 'object' &&
@@ -381,29 +300,6 @@
     return games?.find((game) => game.id === gameId) || null;
   };
 
-  const getRouteSummary = (route: any): string => {
-    if ('segments' in route) {
-      // Transit plan
-      const transitSegments = route.segments.filter(
-        (s: any) => s.transit_mode === 'SUBWAY' || s.transit_mode === 'BUS'
-      );
-      if (transitSegments.length > 0) {
-        const lines = transitSegments
-          .map((s: any) => s.transit.lines?.[0]?.name)
-          .filter(Boolean)
-          .join(' → ');
-        return lines || m.public_transport();
-      }
-      return m.public_transport();
-    } else if ('steps' in route) {
-      return m.walking();
-    } else if ('rides' in route) {
-      return m.riding();
-    } else {
-      return m.driving();
-    }
-  };
-
   const allGames = [
     { id: 1, name: m.maimai_dx() },
     { id: 3, name: m.chunithm() },
@@ -425,20 +321,26 @@
     screenWidth = window.innerWidth;
   };
 
-  onMount(() => {
-    screenWidth = window.innerWidth;
-    window.addEventListener('resize', handleResize);
-  });
+  const assignAMap = (event: CustomEventInit<typeof AMap>) => {
+    amap = event.detail;
+  };
 
-  onDestroy(() => {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('resize', handleResize);
+  onMount(() => {
+    if (browser) {
+      screenWidth = window.innerWidth;
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('amap-loaded', assignAMap);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('amap-loaded', assignAMap);
+      };
     }
   });
 
   $effect(() => {
-    if (!amap || !amapReady || !data || !amapContainer || darkMode === undefined) return;
+    if (!amap || !amapContainer || !data || darkMode === undefined) return;
     untrack(() => {
+      if (!amap) return;
       map = new amap.Map(amapContainer!.id, {
         zoom: 10,
         center: [data.location.longitude, data.location.latitude],
@@ -459,59 +361,62 @@
         zIndex: ORIGIN_INDEX
       });
       origin.setMap(map);
+      if (data.shops.length > 0) {
+        data.shops.forEach((shop) => {
+          const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
+          const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
+          const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
+          const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
 
-      data.shops.forEach((shop) => {
-        const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
-        const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
-        const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
-        const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+          const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
+          const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
+          const zIndex =
+            Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
 
-        const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
-        const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
-        const zIndex =
-          Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
+          const marker = new amap!.Marker({
+            position: shop.location.coordinates,
+            title: shop.name,
+            content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
+            offset: new amap!.Pixel(-7.03, -20),
+            label: {
+              content: shop.name,
+              offset: new amap!.Pixel(2, -5),
+              direction: 'right'
+            },
+            zIndex
+          });
 
-        const marker = new amap.Marker({
-          position: shop.location.coordinates,
-          title: shop.name,
-          content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
-          offset: new amap.Pixel(-7.03, -20),
-          label: {
-            content: shop.name,
-            offset: new amap.Pixel(2, -5),
-            direction: 'right'
-          },
-          zIndex
+          markers[shop.id] = { marker, zIndex };
+
+          marker.on('mouseover', () => {
+            hoveredShopId = shop.id;
+          });
+          marker.on('mouseout', () => {
+            if (hoveredShopId === shop.id) {
+              hoveredShopId = null;
+            }
+          });
+          marker.on('click', () => {
+            selectedShopId = shop.id;
+            highlightedShopId = shop.id;
+            if (highlightedShopIdTimeout) {
+              clearTimeout(highlightedShopIdTimeout);
+            }
+            if (!routeGuidance.isOpen) {
+              highlightedShopIdTimeout = setTimeout(() => {
+                highlightedShopId = null;
+              }, 3000);
+            }
+            const shopElement = document.getElementById(`shop-${shop.id}`);
+            if (shopElement) {
+              shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          });
+          marker.setMap(map);
         });
 
-        markers[shop.id] = { marker, zIndex };
-
-        marker.on('mouseover', () => {
-          hoveredShopId = shop.id;
-        });
-        marker.on('mouseout', () => {
-          if (hoveredShopId === shop.id) {
-            hoveredShopId = null;
-          }
-        });
-        marker.on('click', () => {
-          selectedShopId = shop.id;
-          highlightedShopId = shop.id;
-          if (highlightedShopIdTimeout) {
-            clearTimeout(highlightedShopIdTimeout);
-          }
-          highlightedShopIdTimeout = setTimeout(() => {
-            highlightedShopId = null;
-          }, 3000);
-          const shopElement = document.getElementById(`shop-${shop.id}`);
-          if (shopElement) {
-            shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        });
-        marker.setMap(map);
-      });
-
-      map.setFitView();
+        map.setFitView();
+      }
     });
   });
 
@@ -521,7 +426,7 @@
   });
 
   $effect(() => {
-    if (!amap || !amapReady || !data) return;
+    if (!amap || !data) return;
     if (transportMethod) {
       untrack(async () => {
         await calculateTravelData(transportMethod!);
@@ -566,12 +471,42 @@
           map?.setFitView([route]);
           routeGuidance.shopId = selectedShopId;
           routeGuidance.isOpen = true;
-          console.log(routeGuidance);
-        } else
+        } else {
           map?.setZoomAndCenter(
             15,
             data.shops.find((e) => e.id === selectedShopId)!.location.coordinates
           );
+        }
+      });
+    }
+  });
+
+  $effect(() => {
+    if (transportMethod && selectedShopId && travelData[selectedShopId]?.routeData) {
+      const selected = selectedShopId;
+      untrack(() => {
+        const result = travelData[selected]?.routeData;
+        if (
+          typeof result !== 'object' ||
+          (!('plans' in result && result.plans.length > 0) &&
+            !('routes' in result && result.routes.length > 0))
+        ) {
+          return;
+        }
+        const cacheKey = generateRouteCacheKey(
+          data.location.latitude,
+          data.location.longitude,
+          selected,
+          transportMethod
+        );
+        const cachedData = cachedRoutes[cacheKey];
+        const selectedIndex = cachedData?.selectedRouteIndex ?? 0;
+
+        routeGuidance = {
+          isOpen: true,
+          shopId: selected,
+          selectedRouteIndex: selectedIndex
+        };
       });
     }
   });
@@ -609,7 +544,7 @@
   });
 
   $effect(() => {
-    if (!amap || !amapReady || !map) return;
+    if (!amap || !map) return;
     if (['transit', 'riding', 'driving'].includes(transportMethod!)) {
       if (!trafficLayer) {
         trafficLayer = new amap.TileLayer.Traffic({
@@ -625,30 +560,28 @@
     }
   });
 
-  // Ensure route guidance closes when transport method changes
-  // $effect(() => {
-  //   if (transportMethod !== undefined) {
-  //     // Close guidance when switching transport methods
-  //     if (routeGuidance.isOpen) {
-  //       routeGuidance.isOpen = false;
-  //       routeGuidance.shopId = null;
-  //     }
-  //   }
-  // });
+  $effect(() => {
+    if (routeGuidance.isOpen && routeGuidance.shopId) {
+      highlightedShopId = routeGuidance.shopId;
+      return () => {
+        highlightedShopId = null;
+      };
+    }
+  });
 </script>
 
-<RouteGuidanceDialog
+<RouteGuidance
   bind:isOpen={routeGuidance.isOpen}
   shop={routeGuidance.shopId ? data.shops.find((s) => s.id === routeGuidance.shopId) : null}
-  routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.fullRouteResult : null}
+  selectedRouteIndex={routeGuidance.selectedRouteIndex}
+  routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
   {transportMethod}
-  isMobile={screenWidth < 768}
-  on:close={() => {
+  {map}
+  {amap}
+  onClose={() => {
     routeGuidance.isOpen = false;
-    routeGuidance.shopId = null;
   }}
-  on:routeSelected={(event) => {
-    const { index, route } = event.detail;
+  onRouteSelected={(index) => {
     routeGuidance.selectedRouteIndex = index;
 
     // Update cache with new selected route index
@@ -661,7 +594,7 @@
       );
       const cachedData = cachedRoutes[cacheKey];
       if (cachedData) {
-        setCachedRouteData(cacheKey, cachedData.fullRouteResult, index);
+        setCachedRouteData(cacheKey, cachedData.routeData, index);
         cachedRoutes[cacheKey] = { ...cachedData, selectedRouteIndex: index };
       }
     }
@@ -669,62 +602,30 @@
     // Update the polyline on the map to show the selected route
     if (routeGuidance.shopId && transportMethod && amap && map) {
       const shopData = travelData[routeGuidance.shopId];
-      if (shopData?.fullRouteResult) {
-        const result = shopData.fullRouteResult;
+      if (shopData?.routeData) {
+        const result = shopData.routeData;
         if (typeof result === 'object') {
           const routes = 'routes' in result ? result.routes : result.plans;
           const selectedRoute = routes[index];
 
           if (selectedRoute) {
-            // Remove the old polyline
-            map.remove(shopData.route);
-
-            // Create new polyline for the selected route
-            const path = (
+            const path = convertPath(
               'path' in selectedRoute
                 ? selectedRoute.path
                 : ('steps' in selectedRoute ? selectedRoute.steps : selectedRoute.rides)
                     .map((step) => step.path)
                     .flat()
-            ).map((point) => {
-              const p = point as unknown as number[];
-              return {
-                longitude: p[0],
-                latitude: p[1]
-              };
-            });
+            );
 
-            const newRouteLine = new amap.Polyline({
-              path: path.map((point) => new amap.LngLat(point.longitude, point.latitude)),
-              ...getRouteOptions(routeGuidance.shopId)
-            });
+            shopData.route.setPath(path);
 
-            // Add event handlers to new polyline
-            newRouteLine.on('mouseover', () => {
-              hoveredShopId = routeGuidance.shopId;
-            });
-            newRouteLine.on('mouseout', () => {
-              if (hoveredShopId === routeGuidance.shopId) {
-                hoveredShopId = null;
-              }
-            });
-            newRouteLine.on('click', () => {
-              selectedShopId = routeGuidance.shopId;
-            });
-
-            map.add(newRouteLine);
-
-            // Update travelData with new polyline and route data
             travelData[routeGuidance.shopId] = {
               ...shopData,
               time: selectedRoute.time ?? 0,
               distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
               path,
-              route: newRouteLine
+              route: shopData.route
             };
-
-            // Fit the map to show the new route
-            map.setFitView([newRouteLine]);
           }
         }
       }
@@ -771,32 +672,31 @@
     </div>
   </div>
   {#if data.shops.length === 0}
-    <div class="alert alert-soft alert-info not-dark:hidden">
+    <div class="alert alert-soft alert-info mb-4 not-dark:hidden">
       <i class="fa-solid fa-circle-info fa-lg"></i>
       <span>{m.no_shops_found()}</span>
     </div>
-    <div class="alert alert-info dark:hidden">
+    <div class="alert alert-info mb-4 dark:hidden">
       <i class="fa-solid fa-circle-info fa-lg"></i>
       <span>{m.no_shops_found()}</span>
     </div>
-  {:else}
-    {#if amapError}
-      <div class="alert alert-error mb-4">
-        <i class="fa-solid fa-circle-xmark fa-lg"></i>
-        <span>
-          {m.map_failure({
-            error: amapError
-          })}
-        </span>
-      </div>
-    {/if}
-    <div
-      id="amap-container"
-      class="mb-4 h-[60vh] w-full rounded-xl {!amapReady
-        ? 'bg-base-200 animate-pulse opacity-50'
-        : ''}"
-      bind:this={amapContainer}
-    ></div>
+  {/if}
+  {#if amapError}
+    <div class="alert alert-error mb-4">
+      <i class="fa-solid fa-circle-xmark fa-lg"></i>
+      <span>
+        {m.map_failure({
+          error: amapError
+        })}
+      </span>
+    </div>
+  {/if}
+  <div
+    id="amap-container"
+    class="mb-4 h-[60vh] w-full rounded-xl {!amap ? 'bg-base-200 animate-pulse opacity-50' : ''}"
+    bind:this={amapContainer}
+  ></div>
+  {#if data.shops.length > 0}
     <div class="overflow-x-auto">
       <table class="bg-base-200/30 dark:bg-base-200 table w-full">
         <thead>
@@ -822,7 +722,7 @@
               class="cursor-pointer transition-all select-none {highlightedShopId === shop.id
                 ? 'bg-accent/12'
                 : hoveredShopId === shop.id
-                  ? 'bg-base-300'
+                  ? 'bg-base-300/30'
                   : ''}"
               onmouseenter={() => {
                 hoveredShopId = shop.id;
@@ -832,62 +732,32 @@
                   hoveredShopId = null;
                 }
               }}
-              onclick={() => {
+              onclick={(event) => {
+                if ((event.target as Element)?.closest('button, a')) return;
                 selectedShopId = shop.id;
                 amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                // Show route guidance if transport method is selected and route data is available
-                if (transportMethod && travelData[shop.id]?.fullRouteResult) {
-                  const result = travelData[shop.id]!.fullRouteResult!;
-                  if (
-                    typeof result !== 'object' ||
-                    (!('plans' in result && result.plans.length > 0) &&
-                      !('routes' in result && result.routes.length > 0))
-                  ) {
-                    console.warn(`No valid route data for shop ${shop.id}`);
-                    return;
-                  }
-                  const routes = 'routes' in result ? result.routes : result.plans;
-                  const cacheKey = generateRouteCacheKey(
-                    data.location.latitude,
-                    data.location.longitude,
-                    shop.id,
-                    transportMethod
-                  );
-                  const cachedData = cachedRoutes[cacheKey];
-                  const selectedIndex = cachedData?.selectedRouteIndex ?? 0;
-
-                  routeGuidance = {
-                    isOpen: true,
-                    shopId: shop.id,
-                    selectedRouteIndex: selectedIndex,
-                    allRoutes: routes.map((route: any, index: number) => ({
-                      index,
-                      time: route.time ?? 0,
-                      distance: route.distance ?? 0,
-                      summary: getRouteSummary(route)
-                    }))
-                  };
-                }
               }}
             >
               <td>
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
-                    <div class="hidden text-sm opacity-50 sm:block">
+                    <div
+                      class="hidden text-sm opacity-50 not-dark:items-center not-dark:gap-1 sm:not-dark:inline-flex sm:dark:block"
+                    >
                       {#if transportMethod}
                         {@const hasTravelData = travelData[shop.id] !== undefined}
                         {@const distance = travelData[shop.id]?.distance ?? shop.distance}
-                        <span>ID: {shop.id} · </span>
+                        <span>ID: {shop.id}</span>
+                        <span class="not-dark:hidden"> · </span>
                         <span
-                          class="whitespace-nowrap {!hasTravelData
+                          class="not-dark:badge not-dark:badge-sm not-dark:badge-soft whitespace-nowrap {!hasTravelData
                             ? ''
                             : distance < avgTravelDistance / 1.5
-                              ? 'text-success'
+                              ? 'not-dark:badge-success dark:text-success'
                               : distance < avgTravelDistance * 1.5
-                                ? 'text-warning'
-                                : 'text-error'}"
+                                ? 'not-dark:badge-warning dark:text-warning'
+                                : 'not-dark:badge-error dark:text-error'}"
                         >
                           {formatDistance(distance, 2)}
                         </span>

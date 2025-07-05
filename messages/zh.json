@@ -103,6 +103,8 @@
   "dismiss_in": "{count} 天内不再显示",
   "qq_description": "有关本网站的问题答疑、数据纠正、功能建议等请在以下 QQ 群中讨论交流！",
   "route_guidance": "路线指引",
+  "cost": "花费",
+  "cost_cny": "{cost} 元",
   "route_options": "{count} 条路线",
   "route_steps": "路线步骤",
   "total_distance": "总距离",
@@ -124,5 +126,16 @@
   "sharp_left": "急左转",
   "sharp_right": "急右转",
   "u_turn": "掉头",
-  "arrive_at": "到达目的地"
+  "arrive_at": "到达目的地",
+  "board_at": "在此上车",
+  "alight_at": "在此下车",
+  "via_stops": "途经 {count} 站",
+  "towards": "开往",
+  "transit_line": "线路",
+  "stations": "{count} 站",
+  "stops": "{count} 站",
+  "boarding_info": "乘车信息",
+  "route_details": "路线详情",
+  "expand_details": "展开详情",
+  "collapse_details": "收起详情"
 }

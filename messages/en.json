@@ -130,6 +130,8 @@
   ],
   "qq_description": "Join our QQ group for discussions and updates.",
   "route_guidance": "Route Guidance",
+  "cost": "Cost",
+  "cost_cny": "{cost} CNY",
   "route_options": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -160,5 +162,43 @@
   "sharp_left": "Sharp left",
   "sharp_right": "Sharp right",
   "u_turn": "U-turn",
-  "arrive_at": "Arrive at destination"
+  "arrive_at": "Arrive at destination",
+  "board_at": "Board at",
+  "alight_at": "Alight at",
+  "via_stops": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Via {count} stop",
+        "countPlural=other": "Via {count} stops"
+      }
+    }
+  ],
+  "towards": "Towards",
+  "transit_line": "Line",
+  "stations": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} station",
+        "countPlural=other": "{count} stations"
+      }
+    }
+  ],
+  "stops": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} stop",
+        "countPlural=other": "{count} stops"
+      }
+    }
+  ],
+  "boarding_info": "Boarding Info",
+  "route_details": "Route Details",
+  "expand_details": "Expand Details",
+  "collapse_details": "Collapse Details"
 }

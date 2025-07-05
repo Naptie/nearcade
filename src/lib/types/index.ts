@@ -46,7 +46,6 @@ export interface University {
 
 export interface AMapContext {
   amap: typeof AMap | undefined;
-  ready: boolean;
   error: string | null;
 }
 
@@ -108,9 +107,8 @@ import type { TransportSearchResult } from './amap';
 
 // Extended types for route guidance
 export interface CachedRouteData {
-  fullRouteResult: TransportSearchResult;
+  routeData: TransportSearchResult;
   selectedRouteIndex: number;
-  timestamp: number;
   expiresAt: number;
 }
 
@@ -118,13 +116,4 @@ export interface RouteGuidanceState {
   isOpen: boolean;
   shopId: number | null;
   selectedRouteIndex: number;
-  allRoutes: RouteOption[];
-}
-
-export interface RouteOption {
-  index: number;
-  time: number;
-  distance: number;
-  summary: string;
-  polyline?: AMap.Polyline;
 }
