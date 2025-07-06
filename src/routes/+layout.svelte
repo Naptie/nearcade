@@ -11,15 +11,11 @@
 
   let { children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
-  let amapReady = $state(false);
   let amapError = $state<string | null>(null);
 
   const amapContext: AMapContext = {
     get amap() {
       return amap;
-    },
-    get ready() {
-      return amapReady;
     },
     get error() {
       return amapError;
@@ -42,7 +38,7 @@
           })
           .then((a: typeof AMap) => {
             amap = a;
-            amapReady = true;
+            window.dispatchEvent(new CustomEvent('amap-loaded', { detail: a }));
           });
       } catch (error) {
         console.error('Failed to load AMap:', error);

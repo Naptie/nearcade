@@ -26,5 +26,16 @@ export const SORT_CRITERIA = [
   }))
 ] as const;
 
+export const ROUTE_CACHE_PREFIX = 'nearcade-route-';
+export const ROUTE_CACHE_EXPIRY_HOURS = 24;
+
+export const HOVERED_SHOP_INDEX = 40002;
+export const SELECTED_SHOP_INDEX = 40001;
+export const ORIGIN_INDEX = 40000;
+export const SHOP_INDEX = 30000;
+export const HOVERED_ROUTE_INDEX = 29999;
+export const SELECTED_ROUTE_INDEX = 20000;
+export const ROUTE_INDEX = 10000;
+
 export type GameKey = (typeof GAMES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];

@@ -46,7 +46,6 @@ export interface University {
 
 export interface AMapContext {
   amap: typeof AMap | undefined;
-  ready: boolean;
   error: string | null;
 }
 
@@ -104,3 +103,17 @@ export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'dr
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
 
 export * from './amap';
+import type { TransportSearchResult } from './amap';
+
+// Extended types for route guidance
+export interface CachedRouteData {
+  routeData: TransportSearchResult;
+  selectedRouteIndex: number;
+  expiresAt: number;
+}
+
+export interface RouteGuidanceState {
+  isOpen: boolean;
+  shopId: number | null;
+  selectedRouteIndex: number;
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
@@ -32,7 +33,7 @@
   });
 
   $effect(() => {
-    if (typeof window !== 'undefined') {
+    if (browser) {
       localStorage.setItem('nearcade-radius', radius.toString());
     }
   });
@@ -40,7 +41,7 @@
   let isLoading = $state(false);
   let locationError = $state('');
   let mapIframe = $state<HTMLIFrameElement>();
-  let amap = getContext<AMapContext>('amap')?.amap;
+  let amap: typeof AMap | undefined = $state(getContext<AMapContext>('amap')?.amap);
 
   let universityQuery = $state('');
   let universities = $state<University[]>([]);
@@ -241,6 +242,19 @@
       `/discover/${location.latitude}/${location.longitude}?radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
     );
   };
+
+  const assignAMap = (event: CustomEventInit<typeof AMap>) => {
+    amap = event.detail;
+  };
+
+  onMount(() => {
+    if (browser) {
+      window.addEventListener('amap-loaded', assignAMap);
+      return () => {
+        window.removeEventListener('amap-loaded', assignAMap);
+      };
+    }
+  });
 </script>
 
 <svelte:head>
