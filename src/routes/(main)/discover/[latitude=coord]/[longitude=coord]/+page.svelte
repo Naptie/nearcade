@@ -61,6 +61,7 @@
       } | null
     >
   >({}); // shopId -> travel data
+  let isLoading = $state(false);
   let routeGuidance = $state<RouteGuidanceState>({
     isOpen: false,
     shopId: null,
@@ -117,6 +118,31 @@
     );
   });
 
+  let isMobile = $derived.by(() => {
+    return browser && screenWidth < 768;
+  });
+
+  const getAMapLink = (shop: Shop | undefined) => {
+    if (!data || !shop) return '';
+    const origin = data.location;
+    const from = `${origin.longitude},${origin.latitude},${origin.name}`;
+    const destination = shop.location;
+    const to = `${destination.coordinates[0]},${destination.coordinates[1]},${shop.name}`;
+    const mode =
+      transportMethod === 'walking'
+        ? 'walk'
+        : transportMethod === 'riding'
+          ? 'ride'
+          : transportMethod === 'driving'
+            ? 'car'
+            : 'bus';
+    return `https://uri.amap.com/navigation?from=${from}&to=${to}&mode=${mode}&src=nearcade&callnative=1`;
+  };
+
+  let amapLink = $derived.by(
+    () => getAMapLink(data.shops.find((s) => s.id === routeGuidance.shopId)) || ''
+  );
+
   const getRouteOptions = (id: number): Partial<AMap.PolylineOptions> => {
     const isSelected = selectedShopId === id;
     const isHovered = hoveredShopId === id;
@@ -131,11 +157,28 @@
     };
   };
 
+  const showRouteGuidance = () => {
+    if (routeGuidance.isOpen || !routeGuidance.shopId || routeGuidance.shopId !== selectedShopId)
+      return;
+    openRouteGuidance();
+  };
+
+  const openRouteGuidance = () => {
+    routeGuidance.isOpen = true;
+    if (isMobile) {
+      amapContainer?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let plugins: Record<string, any> = $state({});
 
   const calculateTravelData = async (method: NonNullable<TransportMethod>) => {
     if (!amap || !data || data.shops.length === 0) return;
+    isLoading = true;
     travelData = {};
 
     // Clear expired cache entries
@@ -207,6 +250,7 @@
           });
           routeLine.on('click', () => {
             selectedShopId = shop.id;
+            showRouteGuidance();
           });
 
           map?.add(routeLine);
@@ -293,7 +337,8 @@
       await processShop(shop);
     }
 
-    map?.setFitView();
+    if (!routeGuidance.isOpen) map?.setFitView();
+    isLoading = false;
   };
 
   const findGame = (games: Game[], gameId: number): Game | null => {
@@ -408,7 +453,7 @@
               }, 3000);
             }
             const shopElement = document.getElementById(`shop-${shop.id}`);
-            if (shopElement) {
+            if (shopElement && !(isMobile && routeGuidance.isOpen)) {
               shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
           });
@@ -470,7 +515,7 @@
         if (route) {
           map?.setFitView([route]);
           routeGuidance.shopId = selectedShopId;
-          routeGuidance.isOpen = true;
+          openRouteGuidance();
         } else {
           map?.setZoomAndCenter(
             15,
@@ -507,6 +552,7 @@
           shopId: selected,
           selectedRouteIndex: selectedIndex
         };
+        openRouteGuidance();
       });
     }
   });
@@ -575,9 +621,10 @@
   shop={routeGuidance.shopId ? data.shops.find((s) => s.id === routeGuidance.shopId) : null}
   selectedRouteIndex={routeGuidance.selectedRouteIndex}
   routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
-  {transportMethod}
+  {isLoading}
   {map}
   {amap}
+  {amapLink}
   onClose={() => {
     routeGuidance.isOpen = false;
   }}
@@ -693,7 +740,9 @@
   {/if}
   <div
     id="amap-container"
-    class="mb-4 h-[60vh] w-full rounded-xl {!amap ? 'bg-base-200 animate-pulse opacity-50' : ''}"
+    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!amap
+      ? 'bg-base-200 animate-pulse opacity-50'
+      : ''}"
     bind:this={amapContainer}
   ></div>
   {#if data.shops.length > 0}
@@ -720,7 +769,7 @@
             <tr
               id="shop-{shop.id}"
               class="cursor-pointer transition-all select-none {highlightedShopId === shop.id
-                ? 'bg-accent/12'
+                ? 'bg-accent/8'
                 : hoveredShopId === shop.id
                   ? 'bg-base-300/30'
                   : ''}"
@@ -735,7 +784,8 @@
               onclick={(event) => {
                 if ((event.target as Element)?.closest('button, a')) return;
                 selectedShopId = shop.id;
-                amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (!(isMobile && routeGuidance.isOpen))
+                  amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >
               <td>
@@ -820,14 +870,23 @@
                 </td>
               {/each}
               <td class="text-right">
-                <div class="flex justify-center space-x-2">
+                <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
                     class="btn btn-ghost btn-sm"
-                    href={`https://map.bemanicn.com/shop/${shop.id}`}
+                    href="https://map.bemanicn.com/shop/{shop.id}"
                     target="_blank"
                   >
                     <i class="fas fa-info-circle"></i>
                     {m.details()}
+                  </a>
+                  <a
+                    class="btn btn-ghost btn-sm"
+                    href={getAMapLink(shop)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i class="fas fa-map-marked-alt"></i>
+                    {m.route()}
                   </a>
                 </div>
               </td>

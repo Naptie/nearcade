@@ -33,7 +33,8 @@
   "no_shops_found": "No shops found in this area. Try searching in a different location.",
   "shop": "Shop",
   "distance": "Distance",
-  "km": "{km} km",
+  "dist_km": "{km}km",
+  "dist_m": "{m}m",
   "travel_time": "Travel Time",
   "transport_method": "Transport Method",
   "public_transport": "Public Transport",
@@ -200,5 +201,7 @@
   "boarding_info": "Boarding Info",
   "route_details": "Route Details",
   "expand_details": "Expand Details",
-  "collapse_details": "Collapse Details"
+  "collapse_details": "Collapse Details",
+  "route": "Route",
+  "open_in_amap": "Open in AMap"
 }

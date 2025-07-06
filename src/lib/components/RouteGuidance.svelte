@@ -16,14 +16,31 @@
   import { convertPath, formatDistance, formatTime, removeRecursiveBrackets } from '$lib/utils';
   import { SELECTED_ROUTE_INDEX } from '$lib/constants';
 
+  type ProcessedStep = (WalkingStep | Ride | DrivingStep) & {
+    isSignificant?: boolean;
+  };
+
+  interface ProcessedSegment {
+    name: string;
+    distance: number;
+    time: number;
+    prominentRoad: string;
+    steps: ProcessedStep[];
+  }
+
+  type ProcessedRoute = (WalkingRoute | RidingRoute | DrivingRoute) & {
+    segments: ProcessedSegment[];
+  };
+
   interface Props {
     isOpen?: boolean;
     shop?: Shop | null;
+    isLoading?: boolean;
     selectedRouteIndex?: number;
     routeData: TransportSearchResult | null;
-    transportMethod?: TransportMethod;
     map?: AMap.Map;
     amap?: typeof AMap;
+    amapLink?: string;
     onClose?: () => void;
     onRouteSelected?: (index: number) => void;
   }
@@ -31,17 +48,155 @@
   let {
     isOpen = $bindable(false),
     shop = null,
+    isLoading = false,
     selectedRouteIndex = 0,
     routeData = undefined,
-    transportMethod = undefined,
     map = undefined,
     amap = undefined,
+    amapLink = '',
     onClose = () => {},
     onRouteSelected = () => {}
   }: Props = $props();
 
   let routes: (TransitPlan | WalkingRoute | RidingRoute | DrivingRoute)[] = $state([]);
   let stepPolylines: AMap.Polyline[] = $state([]);
+
+  const preprocessRoute = (route: WalkingRoute | RidingRoute | DrivingRoute): ProcessedRoute => {
+    const steps: ProcessedStep[] =
+      'steps' in route ? route.steps : 'rides' in route ? route.rides : [];
+    if (steps.length === 0) {
+      return { ...route, segments: [] };
+    }
+
+    // Pass 1: Create initial segments based on road name changes.
+    const initialSegments: { steps: ProcessedStep[]; distance: number; time: number }[] = [];
+    if (steps.length > 0) {
+      initialSegments.push({ steps: [steps[0]], distance: steps[0].distance, time: steps[0].time });
+      for (let i = 1; i < steps.length; i++) {
+        const currentStep = steps[i];
+        const lastSegment = initialSegments[initialSegments.length - 1];
+        const lastStepInSegment = lastSegment.steps[lastSegment.steps.length - 1];
+
+        // Group steps with the same road name. Empty roads create new segments.
+        if (
+          currentStep.road &&
+          (currentStep.road === lastStepInSegment.road ||
+            currentStep.instruction.includes(lastStepInSegment.road))
+        ) {
+          lastSegment.steps.push(currentStep);
+          lastSegment.distance += currentStep.distance;
+          lastSegment.time += currentStep.time;
+        } else {
+          initialSegments.push({
+            steps: [currentStep],
+            distance: currentStep.distance,
+            time: currentStep.time
+          });
+        }
+      }
+    }
+
+    // Pass 2: Merge small, insignificant segments.
+    const finalSegments: ProcessedSegment[] = [];
+    initialSegments.forEach((segment) => {
+      const isSmallSegment = segment.steps.every((step) => !step.road) && segment.time < 90;
+      const lastFinalSegment =
+        finalSegments.length > 0 ? finalSegments[finalSegments.length - 1] : null;
+
+      // Merge small segments into the previous one.
+      if (isSmallSegment && lastFinalSegment) {
+        lastFinalSegment.steps.push(...segment.steps);
+        lastFinalSegment.distance += segment.distance;
+        lastFinalSegment.time += segment.time;
+      } else {
+        // Otherwise, create a new final segment.
+        finalSegments.push({
+          name: '', // Name will be generated in the next pass
+          steps: segment.steps,
+          distance: segment.distance,
+          time: segment.time,
+          prominentRoad: ''
+        });
+      }
+    });
+
+    // Pass 3: Calculate prominent road for each segment before assigning names.
+    finalSegments.forEach((segment) => {
+      // Find the most prominent road name in the segment for naming.
+      const roadTime: { [key: string]: number } = {};
+      let prominentRoad = '';
+      let maxTime = 0;
+
+      segment.steps.forEach((step) => {
+        if (step.road) {
+          roadTime[step.road] = (roadTime[step.road] || 0) + step.time;
+          if (roadTime[step.road] > maxTime) {
+            maxTime = roadTime[step.road];
+            prominentRoad = step.road;
+          }
+        }
+      });
+
+      // Store prominentRoad on the segment for later use
+      segment.prominentRoad = prominentRoad;
+    });
+
+    // Pass 4: Assign names for the final segments.
+    finalSegments.forEach((segment) => {
+      if (segment.steps.length === 1) {
+        segment.name = segment.steps[0].instruction;
+      } else {
+        // Use the previously calculated prominent road name.
+        segment.name = segment.prominentRoad;
+      }
+    });
+
+    // Pass 5: Combine adjacent segments with the same prominent road name.
+    if (finalSegments.length > 1) {
+      const mergedSegments: ProcessedSegment[] = [];
+      let prev: ProcessedSegment | null = null;
+
+      for (const seg of finalSegments) {
+        if (
+          prev &&
+          prev.name &&
+          seg.name &&
+          (prev.name === seg.name ||
+            seg.name.includes(prev.name) ||
+            prev.name.includes(seg.name)) &&
+          prev.name !== ''
+        ) {
+          // Merge seg into prev
+          prev.steps.push(...seg.steps);
+          prev.distance += seg.distance;
+          prev.time += seg.time;
+        } else {
+          mergedSegments.push(seg);
+          prev = seg;
+        }
+      }
+      // Replace finalSegments with mergedSegments
+      finalSegments.length = 0;
+      finalSegments.push(...mergedSegments);
+    }
+
+    // Pass 6: Mark significant steps for the merged segments.
+    finalSegments.forEach((segment) => {
+      // Create deep copies of steps to avoid modifying original state
+      segment.steps = segment.steps.map((step) => ({ ...step }));
+
+      // Mark the step with the longest time as significant.
+      if (segment.steps.length > 0) {
+        const maxTimeIndex = segment.steps.reduce(
+          (maxIndex, step, index) => (step.time > segment.steps[maxIndex].time ? index : maxIndex),
+          0
+        );
+        segment.steps[maxTimeIndex].isSignificant = true;
+      }
+    });
+
+    return { ...route, segments: finalSegments };
+  };
 
   const cleanupPolylines = (polylines: AMap.Polyline[]): void => {
     polylines.forEach((polyline) => {
@@ -66,6 +221,27 @@
     }
   });
 
+  // Preprocess routes into a derived state
+  const processedRoutes = $derived(
+    routes.map((route) => {
+      if (!('segments' in route) && ('steps' in route || 'rides' in route)) {
+        return preprocessRoute(route as WalkingRoute | RidingRoute | DrivingRoute);
+      }
+      return route as TransitPlan;
+    })
+  );
+
+  const transportMethod: TransportMethod = $derived.by(() => {
+    if (processedRoutes.length > 0) {
+      const firstRoute = processedRoutes[0];
+      if ('nightLine' in firstRoute) return 'transit';
+      if ('rides' in firstRoute) return 'riding';
+      if ('tolls' in firstRoute) return 'driving';
+      return 'walking';
+    }
+    return undefined;
+  });
+
   // Clean up polylines when component is destroyed or route changes
   $effect(() => {
     return () => {
@@ -84,75 +260,80 @@
 
   // Create step polylines for the selected route
   $effect(() => {
-    if (map && amap && routes[selectedRouteIndex] && isOpen) {
+    if (map && amap && processedRoutes[selectedRouteIndex] && isOpen) {
       untrack(() => {
         // Clear existing polylines
         cleanupPolylines(stepPolylines);
 
-        const route = routes[selectedRouteIndex];
+        const route = processedRoutes[selectedRouteIndex];
         createStepPolylines(route);
       });
     }
   });
 
-  const createStepPolylines = (route: TransitPlan | WalkingRoute | RidingRoute | DrivingRoute) => {
+  const createStepPolylines = (route: TransitPlan | ProcessedRoute) => {
     if (!amap || !map) return;
 
     const newPolylines: AMap.Polyline[] = [];
 
     if ('segments' in route) {
-      // Transit plan - create polylines for each segment
-      route.segments.forEach((segment, segmentIndex) => {
-        if (segment.transit?.path) {
-          const polyline = createSegmentPolyline(segment, segmentIndex);
-          if (polyline) {
-            newPolylines.push(polyline);
+      if (transportMethod === 'transit') {
+        // Transit plan - create polylines for each segment
+        (route.segments as Segment[]).forEach((segment, segmentIndex) => {
+          if (segment.transit?.path) {
+            const polyline = createSegmentPolyline(segment, segmentIndex);
+            if (polyline) {
+              newPolylines.push(polyline);
+            }
           }
-        }
-      });
-    } else if ('steps' in route) {
-      // Walking route or Driving route - create polylines for each step
-      route.steps.forEach((step, stepIndex) => {
-        if (step.path) {
-          const polyline =
-            'tolls' in step
-              ? createDrivingStepPolyline(step as DrivingStep, stepIndex)
-              : createWalkingStepPolyline(step, 0, stepIndex);
-          if (polyline) {
-            newPolylines.push(polyline);
-          }
-        }
-      });
-    } else if ('rides' in route) {
-      // Riding route - create polylines for each ride
-      route.rides.forEach((ride, rideIndex) => {
-        if (ride.path) {
-          const polyline = createRidingStepPolyline(ride, rideIndex);
-          if (polyline) {
-            newPolylines.push(polyline);
-          }
-        }
-      });
+        });
+      } else {
+        // Processed route - create polylines for each step within segments
+        (route.segments as ProcessedSegment[]).forEach((segment) => {
+          segment.steps.forEach((step, stepIndex) => {
+            if (step.path) {
+              const polyline = createGenericStepPolyline(step, stepIndex);
+              if (polyline) {
+                newPolylines.push(polyline);
+              }
+            }
+          });
+        });
+      }
     }
 
     stepPolylines = newPolylines;
-    map.setFitView(newPolylines);
+    if (newPolylines.length > 0) {
+      map.setFitView(newPolylines);
+    }
   };
 
-  const createDrivingStepPolyline = (
-    step: DrivingStep,
+  const createGenericStepPolyline = (
+    step: ProcessedStep,
     stepIndex: number
   ): AMap.Polyline | null => {
     if (!amap || !map || !step.path) return null;
 
-    const path = step.path.map((point) => new amap.LngLat(point[0], point[1]));
-    const options = getDrivingStepPolylineOptions(stepIndex);
+    const path = Array.isArray(step.path[0])
+      ? (step.path as number[][]).map((p) => new amap.LngLat(p[0], p[1]))
+      : convertPath(step.path as { lat: number; lng: number }[]);
 
-    const polyline = new amap.Polyline({
-      path,
-      ...options
-    });
+    let options: Partial<AMap.PolylineOptions>;
+    switch (transportMethod) {
+      case 'walking':
+        options = getWalkingStepPolylineOptions(0, stepIndex);
+        break;
+      case 'driving':
+        options = getDrivingStepPolylineOptions(stepIndex);
+        break;
+      case 'riding':
+        options = getRidingStepPolylineOptions(stepIndex);
+        break;
+      default:
+        options = getBasePolylineOptions(stepIndex);
+    }
 
+    const polyline = new amap.Polyline({ path, ...options });
     polyline.setMap(map);
     return polyline;
   };
@@ -162,40 +343,6 @@
 
     const path = convertPath(segment.transit.path);
     const options = getSegmentPolylineOptions(segment, segmentIndex);
-
-    const polyline = new amap.Polyline({
-      path,
-      ...options
-    });
-
-    polyline.setMap(map);
-    return polyline;
-  };
-
-  const createWalkingStepPolyline = (
-    step: WalkingStep | TransitStep,
-    segmentIndex: number,
-    stepIndex: number
-  ): AMap.Polyline | null => {
-    if (!amap || !map || !step.path) return null;
-
-    const path = convertPath(step.path);
-    const options = getWalkingStepPolylineOptions(segmentIndex, stepIndex);
-
-    const polyline = new amap.Polyline({
-      path,
-      ...options
-    });
-
-    polyline.setMap(map);
-    return polyline;
-  };
-
-  const createRidingStepPolyline = (ride: Ride, rideIndex: number): AMap.Polyline | null => {
-    if (!amap || !map || !ride.path) return null;
-
-    const path = convertPath(ride.path);
-    const options = getRidingStepPolylineOptions(rideIndex);
 
     const polyline = new amap.Polyline({
       path,
@@ -288,19 +435,13 @@
 
   const selectRoute = (index: number) => {
     selectedRouteIndex = index;
-    cleanupPolylines(stepPolylines);
-    if (map && amap && routes[index]) {
-      createStepPolylines(routes[index]);
-    }
+    // No need to call createStepPolylines here, the $effect will handle it.
     onRouteSelected(index);
   };
 
-  const getRouteSummary = (
-    route: TransitPlan | WalkingRoute | RidingRoute | DrivingRoute
-  ): string => {
-    if ('segments' in route) {
-      // Transit plan
-      const transitSegments = route.segments.filter(
+  const getRouteSummary = (route: TransitPlan | ProcessedRoute): string => {
+    if (transportMethod === 'transit' && 'segments' in route) {
+      const transitSegments = (route.segments as Segment[]).filter(
         (s) => s.transit_mode === 'SUBWAY' || s.transit_mode === 'BUS'
       );
       if (transitSegments.length > 0) {
@@ -308,7 +449,6 @@
           .map((s) => {
             const name = s.transit?.lines?.[0]?.name?.trim();
             if (!name) return '';
-
             return removeRecursiveBrackets(name);
           })
           .filter(Boolean)
@@ -316,12 +456,16 @@
         return lines || m.public_transport();
       }
       return m.public_transport();
-    } else if ('steps' in route) {
-      return m.walking();
-    } else if ('rides' in route) {
-      return m.riding();
-    } else {
-      return m.driving();
+    }
+    switch (transportMethod) {
+      case 'walking':
+        return m.walking();
+      case 'riding':
+        return m.riding();
+      case 'driving':
+        return m.driving();
+      default:
+        return '';
     }
   };
 
@@ -339,60 +483,7 @@
       return step.instruction;
     }
 
-    // Handle other step types with action-based instructions
-    if ('action' in step && step.action) {
-      switch (step.action.toLowerCase()) {
-        case 'start':
-          return step.instruction || m.walk_to();
-        case 'end':
-          return m.arrive_at();
-        case 'left':
-          return m.turn_left();
-        case 'right':
-          return m.turn_right();
-        case 'straight':
-          return m.continue_straight();
-        default:
-          return step.instruction || '';
-      }
-    }
-
     return step.instruction || '';
-  };
-
-  const getStepDetails = (step: Segment | WalkingStep | Ride | DrivingStep) => {
-    const details = [];
-
-    // Handle transit-specific details
-    if ('transit' in step && step.transit) {
-      if (step.transit.entrance) {
-        details.push({ label: m.entrance(), value: step.transit.entrance.name });
-      }
-      if (step.transit.exit) {
-        details.push({ label: m.exit(), value: step.transit.exit.name });
-      }
-      if (step.transit.via_stops && step.transit.via_stops.length > 0) {
-        details.push({
-          label: m.via_stop(),
-          value: step.transit.via_stops.map((stop) => stop.name).join(', ')
-        });
-      }
-    }
-
-    return details;
-  };
-
-  const renderRouteSteps = (
-    route: TransitPlan | WalkingRoute | RidingRoute | DrivingRoute
-  ): (Segment | WalkingStep | Ride | DrivingStep)[] => {
-    if ('segments' in route) {
-      return route.segments;
-    } else if ('steps' in route) {
-      return route.steps;
-    } else if ('rides' in route) {
-      return route.rides;
-    }
-    return [];
   };
 
   const renderTransitSegmentDetails = (segment: Segment) => {
@@ -426,25 +517,16 @@
     if (!preserveDirection) {
       return removeRecursiveBrackets(name);
     }
-
-    // Handle nested parentheses by finding the outermost parentheses
     const match = name.match(/^([^（(]*)[（(](.+)[）)](.*)$/);
     if (!match) return name;
-
     const [, prefix, content, suffix] = match;
-
-    // Split the content by direction separators
     const directionParts = content
       .split(/--+|→|↔/)
-      .map((part: string) => {
-        return part.trim();
-      })
+      .map((part: string) => part.trim())
       .filter((part) => part.length > 0);
-
     if (directionParts.length >= 2) {
       return `${prefix.trim()} (${directionParts.join(' → ')})${suffix}`;
     }
-
     return `${prefix.trim()} (${content})${suffix}`;
   };
 </script>
@@ -457,262 +539,392 @@
     : 'not-md:translate-y-full md:translate-x-full'}"
 >
   <div
-    class="flex h-full max-h-[60vh] flex-col overflow-hidden rounded-t-xl transition-all md:max-h-full md:rounded-l-xl md:rounded-tr-none {isOpen
+    class="flex h-full max-h-[50vh] flex-col overflow-hidden rounded-t-xl transition-all md:max-h-full md:rounded-l-xl md:rounded-tr-none {isOpen
       ? 'shadow-lg/30 hover:shadow-lg/80'
       : 'shadow-lg/0'}"
   >
     <!-- Header -->
-    <div class="bg-base-100 flex items-center justify-between p-4">
+    <div class="bg-base-100 flex items-center justify-between p-2 md:p-4">
       <div class="min-w-0 flex-1">
-        <h3 class="truncate text-lg font-semibold">{shop?.name}</h3>
-        <p class="text-base-content/70 text-sm">{m.route_guidance()}</p>
+        <h3 class="truncate text-base font-semibold not-md:ml-2 md:text-lg">{shop?.name}</h3>
+        <p class="text-base-content/70 text-sm not-md:hidden">{m.route_guidance()}</p>
       </div>
-      <button class="btn btn-ghost btn-sm btn-circle" onclick={closeDialog} aria-label={m.close()}>
-        <i class="fa-solid fa-xmark fa-lg"></i>
-      </button>
+      <div class="flex items-center gap-0.5">
+        <a
+          class="btn btn-ghost btn-sm btn-circle"
+          href={amapLink}
+          aria-label={m.open_in_amap()}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <i class="fa-solid fa-arrow-up-right-from-square fa-lg"></i>
+        </a>
+        <button
+          class="btn btn-ghost btn-sm btn-circle"
+          onclick={closeDialog}
+          aria-label={m.close()}
+        >
+          <i class="fa-solid fa-xmark fa-lg"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Content -->
     <div class="bg-base-100/40 flex-1 overflow-x-hidden overflow-y-auto backdrop-blur-3xl">
-      {#if routes.length > 1}
-        <!-- Route Tabs -->
-        <div class="tabs tabs-border px-4 pt-4">
-          {#each routes as route, index (index)}
-            <button
-              class="tab tab-sm text-nowrap transition {selectedRouteIndex === index
-                ? 'tab-active'
-                : ''}"
-              onclick={() => selectRoute(index)}
-            >
-              <div class="tooltip tooltip-bottom" data-tip={getRouteSummary(route)}>
-                <div class="inline-flex items-center gap-2 text-sm font-medium">
-                  {#if 'nightLine' in route && route.nightLine}
-                    <i class="fa-solid fa-moon"></i>
-                  {/if}
-                  {formatTime(route.time)}
-                </div>
-              </div>
-            </button>
-          {/each}
+      {#if isLoading}
+        <!-- Loading State -->
+        <div class="flex h-full items-center justify-center p-20">
+          <div class="loading loading-spinner loading-lg"></div>
         </div>
-      {/if}
-
-      {#if routes[selectedRouteIndex]}
-        {@const selectedRoute = routes[selectedRouteIndex]}
-        <div class="p-4 md:w-[30vw] md:max-w-lg md:min-w-full">
-          <!-- Route Summary -->
-          <div class="mb-4 grid grid-cols-2 gap-4">
-            {#if 'cost' in selectedRoute && selectedRoute.cost > 0}
-              <div class="stat bg-base-200/50 rounded-lg p-3">
-                <div class="stat-title text-xs">{m.cost()}</div>
-                <div class="stat-value text-lg text-wrap">
-                  {m.cost_cny({ cost: selectedRoute.cost })}
+      {:else}
+        {#if processedRoutes.length > 1}
+          <!-- Route Tabs -->
+          <div class="tabs tabs-border px-4 pt-4">
+            {#each processedRoutes as route, index (index)}
+              <button
+                class="tab tab-sm text-nowrap transition {selectedRouteIndex === index
+                  ? 'tab-active'
+                  : ''}"
+                onclick={() => selectRoute(index)}
+              >
+                <div class="tooltip tooltip-bottom" data-tip={getRouteSummary(route)}>
+                  <div class="inline-flex items-center gap-2 text-sm font-medium">
+                    {#if 'nightLine' in route && route.nightLine}
+                      <i class="fa-solid fa-moon"></i>
+                    {/if}
+                    {formatTime(route.time)}
+                  </div>
                 </div>
-              </div>
-            {:else}
-              <div class="stat bg-base-200/50 rounded-lg p-3">
-                <div class="stat-title text-xs">{m.travel_time()}</div>
-                <div class="stat-value text-lg text-wrap">{formatTime(selectedRoute.time)}</div>
-              </div>
-            {/if}
-            <div class="stat bg-base-200/50 rounded-lg p-3">
-              <div class="stat-title text-xs">{m.total_distance()}</div>
-              <div class="stat-value text-lg text-wrap">
-                {formatDistance(selectedRoute.distance / 1000, 2)}
+              </button>
+            {/each}
+          </div>
+        {/if}
+
+        {#if processedRoutes[selectedRouteIndex]}
+          {@const selectedRoute = processedRoutes[selectedRouteIndex]}
+          <div class="p-4 md:w-[30vw] md:max-w-lg md:min-w-full">
+            <!-- Route Summary -->
+            <div class="mb-4 grid grid-cols-2 gap-4">
+              {#if 'cost' in selectedRoute && selectedRoute.cost > 0}
+                <div class="stat bg-base-200/50 rounded-lg p-3" style="--border: 0">
+                  <div class="stat-title text-xs">{m.cost()}</div>
+                  <div class="stat-value text-lg text-wrap">
+                    {m.cost_cny({ cost: selectedRoute.cost })}
+                  </div>
+                </div>
+              {:else}
+                <div class="stat bg-base-200/50 rounded-lg p-3" style="--border: 0">
+                  <div class="stat-title text-xs">{m.travel_time()}</div>
+                  <div class="stat-value text-lg text-wrap">{formatTime(selectedRoute.time)}</div>
+                </div>
+              {/if}
+              <div class="stat bg-base-200/50 rounded-lg p-3" style="--border: 0">
+                <div class="stat-title text-xs">{m.total_distance()}</div>
+                <div class="stat-value text-lg text-wrap">
+                  {formatDistance(selectedRoute.distance / 1000, 2)}
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Route Steps -->
-          <div class="space-y-3">
-            <h4 class="text-sm font-medium">{m.route_steps()}</h4>
-            {#if renderRouteSteps(selectedRoute).length > 0}
-              {#each renderRouteSteps(selectedRoute) as step, stepIndex (stepIndex)}
-                {@const isTransitSegment = 'transit_mode' in step}
-                {@const transitDetails = isTransitSegment
-                  ? renderTransitSegmentDetails(step)
-                  : null}
-                {@const walkingSteps = isTransitSegment ? renderWalkingStepDetails(step) : []}
-
-                <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
-                  <!-- Main step header -->
-                  <div class="flex items-center gap-3">
-                    <div class="flex-shrink-0">
-                      {#if transportMethod === 'transit' && isTransitSegment && step.transit_mode === 'SUBWAY'}
-                        <div
-                          class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white shadow-lg"
-                        >
-                          <i class="fas fa-subway text-xs"></i>
-                        </div>
-                      {:else if transportMethod === 'transit' && isTransitSegment && step.transit_mode === 'BUS'}
-                        <div
-                          class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg"
-                        >
-                          <i class="fas fa-bus text-xs"></i>
-                        </div>
-                      {:else if transportMethod === 'walking' || (isTransitSegment ? step.transit_mode === 'WALK' : 'assistant_action' in step && !('tolls' in step))}
-                        <div
-                          class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
-                        >
-                          <i class="fas fa-walking text-xs"></i>
-                        </div>
-                      {:else if transportMethod === 'driving' || (!isTransitSegment && 'tolls' in step)}
-                        <div
-                          class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white shadow-lg"
-                        >
-                          <i class="fas fa-car text-xs"></i>
-                        </div>
-                      {:else if transportMethod === 'riding' || (!isTransitSegment && !('assistant_action' in step))}
-                        <div
-                          class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-lg"
-                        >
-                          <i class="fas fa-bicycle text-xs"></i>
-                        </div>
-                      {:else}
-                        <div
-                          class="bg-primary text-primary-content flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shadow-lg"
-                        >
-                          {stepIndex + 1}
-                        </div>
-                      {/if}
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <div class="text-md font-medium">{formatStepInstruction(step)}</div>
-                      <div class="text-base-content/60 text-xs md:text-sm">
-                        <span>{formatDistance(step.distance / 1000, 2)}</span>
-                        {#if step.time}
-                          <span> · {formatTime(step.time)}</span>
-                        {/if}
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Transit details -->
-                  {#if transitDetails}
-                    <div class="ml-9 space-y-2">
-                      <!-- Line information -->
-
-                      <div class="flex items-center gap-2 text-sm">
-                        <i class="fas fa-route text-xs"></i>
-                        <div class="text-base-content/80">
-                          {#if transitDetails.lineName}
-                            <span class="font-medium"
-                              >{formatTransitLineName(transitDetails.lineName, true)} ·
-                            </span>
-                          {/if}
-                          <span
-                            >{transitDetails.lineType === 'SUBWAY'
-                              ? m.stations({ count: transitDetails.stationCount + 1 })
-                              : m.stops({ count: transitDetails.stationCount + 1 })}</span
-                          >
-                        </div>
-                      </div>
-
-                      <!-- Station journey -->
-                      <div class="space-y-1 text-sm">
-                        {#if transitDetails.onStation}
-                          <div class="flex items-center gap-2">
-                            <i class="fas fa-circle-up text-xs text-green-500"></i>
-                            <span class="font-medium">{m.board_at()}:</span>
-                            <span class="text-base-content/80">{transitDetails.onStation.name}</span
+            <!-- Route Steps -->
+            <div class="space-y-3">
+              <h4 class="text-sm font-medium">{m.route_steps()}</h4>
+              {#if selectedRoute.segments && selectedRoute.segments.length > 0}
+                <!-- TRANSIT ROUTE DISPLAY -->
+                {#if transportMethod === 'transit'}
+                  {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
+                    {@const segment = s as Segment}
+                    {@const transitDetails = renderTransitSegmentDetails(segment)}
+                    {@const walkingSteps = renderWalkingStepDetails(segment)}
+                    <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
+                      <!-- Main step header -->
+                      <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0">
+                          {#if segment.transit_mode === 'SUBWAY'}
+                            <div
+                              class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white shadow-lg"
                             >
-                          </div>
-                          {#if transitDetails.entrance}
-                            <div class="text-base-content/60 ml-5 text-xs">
-                              {m.entrance()}: {transitDetails.entrance.name}
+                              <i class="fas fa-subway text-xs"></i>
+                            </div>
+                          {:else if segment.transit_mode === 'BUS'}
+                            <div
+                              class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg"
+                            >
+                              <i class="fas fa-bus text-xs"></i>
+                            </div>
+                          {:else if segment.transit_mode === 'WALK'}
+                            <div
+                              class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
+                            >
+                              <i class="fas fa-walking text-xs"></i>
                             </div>
                           {/if}
-                        {/if}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <div class="text-md font-medium">{formatStepInstruction(segment)}</div>
+                          <div class="text-base-content/60 text-xs md:text-sm">
+                            <span>{formatDistance(segment.distance / 1000, 2)}</span>
+                            {#if segment.time}
+                              <span> · {formatTime(segment.time)}</span>
+                            {/if}
+                          </div>
+                        </div>
+                      </div>
 
-                        <!-- Via stops (collapsible) -->
-                        {#if transitDetails.viaStops.length > 0}
-                          <details class="group ml-5">
+                      <!-- Transit details -->
+                      {#if transitDetails}
+                        <!-- (Existing transit details rendering, unchanged) -->
+                        <div class="ml-9 space-y-2">
+                          <div class="flex items-center gap-2 text-sm">
+                            <i class="fas fa-route text-xs"></i>
+                            <div class="text-base-content/80">
+                              {#if transitDetails.lineName}
+                                <span class="font-medium"
+                                  >{formatTransitLineName(transitDetails.lineName, true)} ·
+                                </span>
+                              {/if}
+                              <span
+                                >{transitDetails.lineType === 'SUBWAY'
+                                  ? m.stations({ count: transitDetails.stationCount + 1 })
+                                  : m.stops({ count: transitDetails.stationCount + 1 })}</span
+                              >
+                            </div>
+                          </div>
+                          <div class="space-y-1 text-sm">
+                            {#if transitDetails.onStation}
+                              <div class="flex items-center gap-2">
+                                <i class="fas fa-circle-up text-xs text-green-500"></i>
+                                <span class="font-medium">{m.board_at()}:</span>
+                                <span class="text-base-content/80"
+                                  >{transitDetails.onStation.name}</span
+                                >
+                              </div>
+                              {#if transitDetails.entrance}
+                                <div class="text-base-content/60 ml-5 text-xs">
+                                  {m.entrance()}: {transitDetails.entrance.name}
+                                </div>
+                              {/if}
+                            {/if}
+                            {#if transitDetails.viaStops.length > 0}
+                              <details class="group ml-5">
+                                <summary
+                                  class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                                >
+                                  <i
+                                    class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
+                                  ></i>
+                                  {m.via_stops({ count: transitDetails.viaStops.length })}
+                                </summary>
+                                <div class="mt-2 ml-4 space-y-1">
+                                  {#each transitDetails.viaStops as stop (stop.id)}
+                                    <div
+                                      class="text-base-content/60 flex items-center gap-2 text-xs"
+                                    >
+                                      <i class="fas fa-circle text-xs opacity-30"></i>
+                                      {stop.name}
+                                    </div>
+                                  {/each}
+                                </div>
+                              </details>
+                            {/if}
+                            {#if transitDetails.offStation}
+                              <div class="flex items-center gap-2">
+                                <i class="fas fa-circle-down text-xs text-red-500"></i>
+                                <span class="font-medium">{m.alight_at()}:</span>
+                                <span class="text-base-content/80"
+                                  >{transitDetails.offStation.name}</span
+                                >
+                              </div>
+                              {#if transitDetails.exit}
+                                <div class="text-base-content/60 ml-5 text-xs">
+                                  {m.exit()}: {transitDetails.exit.name}
+                                </div>
+                              {/if}
+                            {/if}
+                          </div>
+                        </div>
+                      {/if}
+
+                      <!-- Walking steps details -->
+                      {#if walkingSteps.length > 0}
+                        <!-- (Existing walking details rendering, unchanged) -->
+                        <div class="ml-9">
+                          <details class="group">
                             <summary
                               class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
                             >
                               <i
-                                class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
+                                class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
                               ></i>
-                              {m.via_stops({ count: transitDetails.viaStops.length })}
+                              <span class="group-open:hidden"
+                                >{m.expand_details()} ({walkingSteps.length})</span
+                              >
+                              <span class="hidden group-open:inline">{m.collapse_details()}</span>
                             </summary>
-                            <div class="mt-2 ml-4 space-y-1">
-                              {#each transitDetails.viaStops as stop (stop.id)}
+                            <div class="mt-2 space-y-1">
+                              {#each walkingSteps as walkStep, walkStepIndex (walkStepIndex)}
                                 <div class="text-base-content/60 flex items-center gap-2 text-xs">
-                                  <i class="fas fa-circle text-xs opacity-30"></i>
-                                  {stop.name}
+                                  <div
+                                    class="bg-base-300 text-base-content/80 flex h-4 w-4 items-center justify-center rounded-full text-xs"
+                                  >
+                                    {walkStepIndex + 1}
+                                  </div>
+                                  <span>{formatStepInstruction(walkStep)}</span>
                                 </div>
                               {/each}
                             </div>
                           </details>
-                        {/if}
+                        </div>
+                      {/if}
+                    </div>
+                  {/each}
 
-                        {#if transitDetails.offStation}
-                          <div class="flex items-center gap-2">
-                            <i class="fas fa-circle-down text-xs text-red-500"></i>
-                            <span class="font-medium">{m.alight_at()}:</span>
-                            <span class="text-base-content/80"
-                              >{transitDetails.offStation.name}</span
+                  <!-- PROCESSED (NON-TRANSIT) ROUTE DISPLAY -->
+                {:else}
+                  {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
+                    {@const segment = s as ProcessedSegment}
+                    <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
+                      <!-- Segment Header -->
+                      <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0">
+                          {#if transportMethod === 'walking'}
+                            <div
+                              class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
                             >
-                          </div>
-                          {#if transitDetails.exit}
-                            <div class="text-base-content/60 ml-5 text-xs">
-                              {m.exit()}: {transitDetails.exit.name}
+                              <i class="fas fa-walking text-xs"></i>
+                            </div>
+                          {:else if transportMethod === 'driving'}
+                            <div
+                              class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white shadow-lg"
+                            >
+                              <i class="fas fa-car text-xs"></i>
+                            </div>
+                          {:else if transportMethod === 'riding'}
+                            <div
+                              class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-lg"
+                            >
+                              <i class="fas fa-bicycle text-xs"></i>
                             </div>
                           {/if}
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-
-                  <!-- Walking steps details -->
-                  {#if walkingSteps.length > 0}
-                    <div class="ml-9">
-                      <details class="group">
-                        <summary
-                          class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
-                        >
-                          <i
-                            class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
-                          ></i>
-                          <span class="group-open:hidden"
-                            >{m.expand_details()} ({walkingSteps.length})</span
-                          >
-                          <span class="hidden group-open:inline">{m.collapse_details()}</span>
-                        </summary>
-                        <div class="mt-2 space-y-1">
-                          {#each walkingSteps as walkStep, walkStepIndex (walkStepIndex)}
-                            <div class="text-base-content/60 flex items-center gap-2 text-xs">
-                              <div
-                                class="bg-base-300 text-base-content/80 flex h-4 w-4 items-center justify-center rounded-full text-xs"
-                              >
-                                {walkStepIndex + 1}
-                              </div>
-                              <span>{formatStepInstruction(walkStep)}</span>
-                            </div>
-                          {/each}
                         </div>
-                      </details>
-                    </div>
-                  {/if}
-
-                  <!-- Non-transit step details -->
-                  {#if !isTransitSegment}
-                    {#each getStepDetails(step) as detail, i (i)}
-                      <div class="text-base-content/60 ml-9 text-xs">
-                        {detail.label}: {detail.value}
+                        <div class="min-w-0 flex-1">
+                          {#if segment.name}
+                            <div class="text-md font-medium">{segment.name}</div>
+                            <div class="text-base-content/60 text-xs md:text-sm">
+                              <span>{formatDistance(segment.distance / 1000, 2)}</span>
+                              {#if segment.time}
+                                <span> · {formatTime(segment.time)}</span>
+                              {/if}
+                            </div>
+                          {:else}
+                            <div class="text-md font-medium">
+                              <span>{formatDistance(segment.distance / 1000, 2)}</span>
+                              {#if segment.time}
+                                <span> · {formatTime(segment.time)}</span>
+                              {/if}
+                            </div>
+                          {/if}
+                        </div>
                       </div>
-                    {/each}
-                  {/if}
+
+                      <!-- Inner Steps (if more than one) -->
+                      {#if segment.steps.length > 1}
+                        <div class="ml-9">
+                          <details class="group">
+                            <summary
+                              class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                            >
+                              <i
+                                class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
+                              ></i>
+                              <span class="group-open:hidden"
+                                >{m.expand_details()} ({segment.steps.length})</span
+                              >
+                              <span class="hidden group-open:inline">{m.collapse_details()}</span>
+                            </summary>
+                            <div class="mt-2 space-y-2">
+                              {#each segment.steps as step, stepIndex (stepIndex)}
+                                <div class="flex items-center gap-2 text-sm">
+                                  <div
+                                    class="flex h-6 w-6 flex-shrink-0 items-center justify-center {step.isSignificant
+                                      ? 'text-base-content'
+                                      : 'text-base-content/80'}"
+                                  >
+                                    {#if step.orientation}
+                                      <span title={step.orientation}>
+                                        {#if step.orientation === '东'}
+                                          <i class="fa-solid fa-circle-arrow-right"></i>
+                                        {:else if step.orientation === '西'}
+                                          <i class="fa-solid fa-circle-arrow-left"></i>
+                                        {:else if step.orientation === '南'}
+                                          <i class="fa-solid fa-circle-arrow-down"></i>
+                                        {:else if step.orientation === '北'}
+                                          <i class="fa-solid fa-circle-arrow-up"></i>
+                                        {:else if step.orientation === '东北'}
+                                          <i
+                                            class="fa-solid fa-circle-arrow-up"
+                                            style="transform: rotate(45deg);"
+                                          ></i>
+                                        {:else if step.orientation === '东南'}
+                                          <i
+                                            class="fa-solid fa-circle-arrow-right"
+                                            style="transform: rotate(45deg);"
+                                          ></i>
+                                        {:else if step.orientation === '西南'}
+                                          <i
+                                            class="fa-solid fa-circle-arrow-down"
+                                            style="transform: rotate(45deg);"
+                                          ></i>
+                                        {:else if step.orientation === '西北'}
+                                          <i
+                                            class="fa-solid fa-circle-arrow-left"
+                                            style="transform: rotate(45deg);"
+                                          ></i>
+                                        {:else}
+                                          {step.orientation}
+                                        {/if}
+                                      </span>
+                                    {:else}
+                                      <span><i class="fa-solid fa-circle"></i></span>
+                                    {/if}
+                                  </div>
+                                  <div class="flex-1">
+                                    <span
+                                      class={step.isSignificant
+                                        ? 'text-base-content font-semibold'
+                                        : 'text-base-content/80'}>{step.instruction}</span
+                                    >
+                                    {#if step.isSignificant || step.time > 90}
+                                      <div
+                                        class="text-xs {step.isSignificant
+                                          ? 'text-base-content/80'
+                                          : 'text-base-content/60 font-normal'}"
+                                      >
+                                        <span>{formatDistance(step.distance / 1000, 2)}</span>
+                                        {#if step.time}
+                                          <span> · {formatTime(step.time)}</span>
+                                        {/if}
+                                      </div>
+                                    {/if}
+                                  </div>
+                                </div>
+                              {/each}
+                            </div>
+                          </details>
+                        </div>
+                      {/if}
+                    </div>
+                  {/each}
+                {/if}
+              {:else}
+                <div class="text-base-content/50 py-8 text-center">
+                  <i class="fas fa-info-circle mb-2"></i>
+                  <p class="text-sm">{m.loading()}</p>
                 </div>
-              {/each}
-            {:else}
-              <div class="text-base-content/50 py-8 text-center">
-                <i class="fas fa-info-circle mb-2"></i>
-                <p class="text-sm">{m.loading()}</p>
-              </div>
-            {/if}
+              {/if}
+            </div>
           </div>
-        </div>
+        {/if}
       {/if}
     </div>
   </div>

@@ -81,9 +81,13 @@ export const calculateAreaDensity = (machineCount: number, radiusKm: number): nu
 
 export const formatDistance = (distance: number, precision = 0): string => {
   if (distance === Infinity) return m.unknown();
-  return m.km({
-    km: distance.toFixed(precision)
-  });
+  return distance >= 1
+    ? m.dist_km({
+        km: distance.toFixed(precision)
+      })
+    : m.dist_m({
+        m: (distance * 1000).toFixed(Math.max(0, precision - 3))
+      });
 };
 
 export const formatTime = (seconds: number | null | undefined): string => {

@@ -24,7 +24,8 @@
   "no_shops_found": "在该区域未找到机厅。请尝试在其他位置搜索。",
   "shop": "店铺",
   "distance": "直线距离",
-  "km": "{km} 公里",
+  "dist_km": "{km} 千米",
+  "dist_m": "{m} 米",
   "travel_time": "通行时间",
   "transport_method": "交通方式",
   "public_transport": "公共交通",
@@ -51,8 +52,8 @@
   "area_density": "区域密度",
   "shops": "{count} 家店铺",
   "machines": "{count} 台机台",
-  "count_machines_per_km2": "{count} 台 / km²",
-  "machines_per_km2": "台 / km²",
+  "count_machines_per_km2": "{count} 台 / 平方千米",
+  "machines_per_km2": "台 / 平方千米",
   "search_radius": "搜索半径",
   "search_university": "搜索高校名称...",
   "campus_count": "{count} 个校区",
@@ -137,5 +138,7 @@
   "boarding_info": "乘车信息",
   "route_details": "路线详情",
   "expand_details": "展开详情",
-  "collapse_details": "收起详情"
+  "collapse_details": "收起详情",
+  "route": "路线",
+  "open_in_amap": "在高德地图中打开"
 }
