@@ -872,7 +872,7 @@
               <td class="text-right">
                 <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
-                    class="btn btn-ghost btn-sm"
+                    class="btn btn-ghost btn-sm text-nowrap"
                     href="https://map.bemanicn.com/shop/{shop.id}"
                     target="_blank"
                   >
@@ -880,7 +880,7 @@
                     {m.details()}
                   </a>
                   <a
-                    class="btn btn-ghost btn-sm"
+                    class="btn btn-ghost btn-sm text-nowrap"
                     href={getAMapLink(shop)}
                     target="_blank"
                     rel="noopener noreferrer"
