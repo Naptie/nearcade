@@ -537,7 +537,7 @@
       : 'shadow-lg/0'}"
   >
     <!-- Header -->
-    <div class="bg-base-100 flex items-center justify-between p-2 md:p-4">
+    <div class="bg-base-100 flex items-center justify-between gap-2 p-2 md:p-4">
       <div class="min-w-0 flex-1">
         <h3 class="truncate text-base font-semibold not-md:ml-2 md:text-lg">{shop?.name}</h3>
         <p class="text-base-content/70 text-sm not-md:hidden">{m.route_guidance()}</p>
@@ -550,7 +550,7 @@
           target="_blank"
           rel="noopener noreferrer"
         >
-          <i class="fa-solid fa-arrow-up-right-from-square fa-lg"></i>
+          <i class="fa-solid fa-arrow-up-right-from-square fa-md"></i>
         </a>
         <button
           class="btn btn-ghost btn-sm btn-circle"
@@ -652,8 +652,10 @@
                           {/if}
                         </div>
                         <div class="min-w-0 flex-1">
-                          <div class="text-md font-medium">{formatStepInstruction(segment)}</div>
-                          <div class="text-base-content/60 text-xs md:text-sm">
+                          <div class="text-sm font-medium sm:text-base">
+                            {formatStepInstruction(segment)}
+                          </div>
+                          <div class="text-base-content/60 text-xs sm:text-sm">
                             <span>{formatDistance(segment.distance / 1000, 2)}</span>
                             {#if segment.time}
                               <span> · {formatTime(segment.time)}</span>
@@ -765,7 +767,6 @@
                       {/if}
                     </div>
                   {/each}
-
                 {:else}
                   {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
                     {@const segment = s as ProcessedSegment}
@@ -794,15 +795,15 @@
                         </div>
                         <div class="min-w-0 flex-1">
                           {#if segment.name}
-                            <div class="text-md font-medium">{segment.name}</div>
-                            <div class="text-base-content/60 text-xs md:text-sm">
+                            <div class="text-sm font-medium sm:text-base">{segment.name}</div>
+                            <div class="text-base-content/60 text-xs sm:text-sm">
                               <span>{formatDistance(segment.distance / 1000, 2)}</span>
                               {#if segment.time}
                                 <span> · {formatTime(segment.time)}</span>
                               {/if}
                             </div>
                           {:else}
-                            <div class="text-md font-medium">
+                            <div class="text-sm font-medium sm:text-base">
                               <span>{formatDistance(segment.distance / 1000, 2)}</span>
                               {#if segment.time}
                                 <span> · {formatTime(segment.time)}</span>
@@ -826,9 +827,9 @@
                               >
                               <span class="hidden group-open:inline">{m.collapse_details()}</span>
                             </summary>
-                            <div class="mt-2 space-y-2">
+                            <div class="mt-2 space-y-1 md:space-y-2">
                               {#each segment.steps as step, stepIndex (stepIndex)}
-                                <div class="flex items-center gap-2 text-sm">
+                                <div class="flex items-center gap-2 text-xs sm:text-sm">
                                   <div
                                     class="flex h-6 w-6 flex-shrink-0 items-center justify-center {step.isSignificant
                                       ? 'text-base-content'
@@ -900,11 +901,6 @@
                     </div>
                   {/each}
                 {/if}
-              {:else}
-                <div class="text-base-content/50 py-8 text-center">
-                  <i class="fas fa-info-circle mb-2"></i>
-                  <p class="text-sm">{m.loading()}</p>
-                </div>
               {/if}
             </div>
           </div>
@@ -926,6 +922,6 @@
   }
 
   .tooltip:before {
-    @apply max-w-[50vw] px-3 py-2 text-wrap whitespace-normal md:max-w-[15vw];
+    @apply max-w-[50vw] text-xs text-wrap whitespace-normal sm:px-3 sm:py-2 sm:text-sm md:max-w-[15vw];
   }
 </style>
