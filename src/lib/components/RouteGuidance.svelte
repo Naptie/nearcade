@@ -111,7 +111,7 @@
       } else {
         // Otherwise, create a new final segment.
         finalSegments.push({
-          name: '', // Name will be generated in the next pass
+          name: '',
           steps: segment.steps,
           distance: segment.distance,
           time: segment.time,
@@ -137,7 +137,6 @@
         }
       });
 
-      // Store prominentRoad on the segment for later use
       segment.prominentRoad = prominentRoad;
     });
 
@@ -146,7 +145,6 @@
       if (segment.steps.length === 1) {
         segment.name = segment.steps[0].instruction;
       } else {
-        // Use the previously calculated prominent road name.
         segment.name = segment.prominentRoad;
       }
     });
@@ -258,13 +256,10 @@
     }
   });
 
-  // Create step polylines for the selected route
   $effect(() => {
     if (map && amap && processedRoutes[selectedRouteIndex] && isOpen) {
       untrack(() => {
-        // Clear existing polylines
         cleanupPolylines(stepPolylines);
-
         const route = processedRoutes[selectedRouteIndex];
         createStepPolylines(route);
       });
@@ -435,7 +430,6 @@
 
   const selectRoute = (index: number) => {
     selectedRouteIndex = index;
-    // No need to call createStepPolylines here, the $effect will handle it.
     onRouteSelected(index);
   };
 
@@ -472,7 +466,6 @@
   const formatStepInstruction = (
     step: Segment | WalkingStep | Ride | DrivingStep | TransitStep
   ): string => {
-    // Handle transit segments
     if ('transit_mode' in step) {
       if (step.transit_mode === 'SUBWAY' || step.transit_mode === 'BUS') {
         const lineName = step.transit?.lines?.[0]?.name || '';
@@ -572,7 +565,6 @@
     <!-- Content -->
     <div class="bg-base-100/40 flex-1 overflow-x-hidden overflow-y-auto backdrop-blur-3xl">
       {#if isLoading}
-        <!-- Loading State -->
         <div class="flex h-full items-center justify-center p-20">
           <div class="loading loading-spinner loading-lg"></div>
         </div>
@@ -630,7 +622,6 @@
             <div class="space-y-3">
               <h4 class="text-sm font-medium">{m.route_steps()}</h4>
               {#if selectedRoute.segments && selectedRoute.segments.length > 0}
-                <!-- TRANSIT ROUTE DISPLAY -->
                 {#if transportMethod === 'transit'}
                   {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
                     {@const segment = s as Segment}
@@ -671,9 +662,7 @@
                         </div>
                       </div>
 
-                      <!-- Transit details -->
                       {#if transitDetails}
-                        <!-- (Existing transit details rendering, unchanged) -->
                         <div class="ml-9 space-y-2">
                           <div class="flex items-center gap-2 text-sm">
                             <i class="fas fa-route text-xs"></i>
@@ -745,9 +734,7 @@
                         </div>
                       {/if}
 
-                      <!-- Walking steps details -->
                       {#if walkingSteps.length > 0}
-                        <!-- (Existing walking details rendering, unchanged) -->
                         <div class="ml-9">
                           <details class="group">
                             <summary
@@ -779,12 +766,10 @@
                     </div>
                   {/each}
 
-                  <!-- PROCESSED (NON-TRANSIT) ROUTE DISPLAY -->
                 {:else}
                   {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
                     {@const segment = s as ProcessedSegment}
                     <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
-                      <!-- Segment Header -->
                       <div class="flex items-center gap-3">
                         <div class="flex-shrink-0">
                           {#if transportMethod === 'walking'}
@@ -827,7 +812,6 @@
                         </div>
                       </div>
 
-                      <!-- Inner Steps (if more than one) -->
                       {#if segment.steps.length > 1}
                         <div class="ml-9">
                           <details class="group">
