@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
-import { calculateDistance } from '$lib/utils';
+import { areValidCoordinates, calculateDistance } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -19,18 +19,18 @@ if (!client) {
 
 export const load: PageServerLoad = async ({ url }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
-  const lonParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
-  if (!latParam || !lonParam) {
+  const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
+  if (!latParam || !lngParam) {
     throw error(400, 'Latitude and longitude parameters are required');
   }
 
-  const latitude = parseFloat(latParam);
-  const longitude = parseFloat(lonParam);
-  if (isNaN(latitude) || isNaN(longitude)) {
+  const validationResult = areValidCoordinates(latParam, lngParam);
+  if (!validationResult.isValid) {
     throw error(400, 'Invalid latitude or longitude format');
   }
 
   try {
+    const { latitude, longitude } = validationResult;
     const radiusParam = url.searchParams.get('radius');
     const radiusKm = radiusParam ? Math.max(1, Math.min(30, parseInt(radiusParam))) : 10;
     const radiusRadians = radiusKm / 6371;

@@ -193,3 +193,23 @@ export const removeRecursiveBrackets = (input: string) => {
 
   return result.trim();
 };
+
+export const areValidCoordinates = (
+  latParam: string,
+  lngParam: string
+):
+  | { isValid: boolean; latitude: number; longitude: number }
+  | { isValid: false; latitude: null; longitude: null } => {
+  const lat = parseFloat(latParam);
+  const lng = parseFloat(lngParam);
+  if (isNaN(lat) || !isFinite(lat) || isNaN(lng) || !isFinite(lng)) {
+    return { isValid: false, latitude: null, longitude: null };
+  }
+
+  // Latitude: -90 to +90, Longitude: -180 to +180
+  return {
+    isValid: lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180,
+    latitude: lat,
+    longitude: lng
+  };
+};
