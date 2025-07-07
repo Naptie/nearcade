@@ -109,7 +109,6 @@ import type { TransportSearchResult } from './amap';
 export interface CachedRouteData {
   routeData: TransportSearchResult;
   selectedRouteIndex: number;
-  expiresAt: number;
 }
 
 export interface RouteGuidanceState {

@@ -15,6 +15,7 @@
   import { m } from '$lib/paraglide/messages';
   import { convertPath, formatDistance, formatTime, removeRecursiveBrackets } from '$lib/utils';
   import { SELECTED_ROUTE_INDEX } from '$lib/constants';
+  import FancyButton from './FancyButton.svelte';
 
   type ProcessedStep = (WalkingStep | Ride | DrivingStep) & {
     isSignificant?: boolean;
@@ -543,15 +544,13 @@
         <p class="text-base-content/70 text-sm not-md:hidden">{m.route_guidance()}</p>
       </div>
       <div class="flex items-center gap-0.5">
-        <a
-          class="btn btn-ghost btn-sm btn-circle"
+        <FancyButton
           href={amapLink}
-          aria-label={m.open_in_amap()}
           target="_blank"
-          rel="noopener noreferrer"
-        >
-          <i class="fa-solid fa-arrow-up-right-from-square fa-md"></i>
-        </a>
+          class="fa-solid fa-arrow-up-right-from-square fa-md"
+          btnCls="btn-sm lg:btn-sm"
+          text={m.open_in_amap()}
+        />
         <button
           class="btn btn-ghost btn-sm btn-circle"
           onclick={closeDialog}

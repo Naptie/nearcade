@@ -239,7 +239,7 @@
       }
     }
     goto(
-      `/discover/${location.latitude}/${location.longitude}?radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
+      `/discover?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
     );
   };
 

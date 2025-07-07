@@ -26,7 +26,7 @@ export const SORT_CRITERIA = [
   }))
 ] as const;
 
-export const ROUTE_CACHE_PREFIX = 'nearcade-route-';
+export const ROUTE_CACHE_STORE = 'route-cache';
 export const ROUTE_CACHE_EXPIRY_HOURS = 24;
 
 export const HOVERED_SHOP_INDEX = 40002;

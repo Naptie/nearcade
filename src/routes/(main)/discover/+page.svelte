@@ -17,7 +17,7 @@
     generateRouteCacheKey,
     getCachedRouteData,
     setCachedRouteData,
-    clearExpiredRouteCache,
+    clearRouteCache,
     convertPath
   } from '$lib/utils';
   import { browser } from '$app/environment';
@@ -30,7 +30,7 @@
     SHOP_INDEX,
     SELECTED_SHOP_INDEX,
     HOVERED_SHOP_INDEX
-  } from '$lib/constants.js';
+  } from '$lib/constants';
 
   let { data } = $props();
 
@@ -61,7 +61,6 @@
       } | null
     >
   >({}); // shopId -> travel data
-  let isLoading = $state(false);
   let routeGuidance = $state<RouteGuidanceState>({
     isOpen: false,
     shopId: null,
@@ -178,11 +177,14 @@
 
   const calculateTravelData = async (method: NonNullable<TransportMethod>) => {
     if (!amap || !data || data.shops.length === 0) return;
-    isLoading = true;
     travelData = {};
 
-    // Clear expired cache entries
-    clearExpiredRouteCache();
+    const { quota, usage } = await navigator.storage.estimate();
+    if (quota && usage && usage > quota * 0.94) {
+      await clearRouteCache(data.shops.length);
+    } else {
+      await clearRouteCache();
+    }
 
     const pluginName =
       method === 'transit'
@@ -271,60 +273,60 @@
         );
 
         // Check cache first
-        const cachedData = getCachedRouteData(cacheKey);
-        if (cachedData) {
-          cachedRoutes[cacheKey] = cachedData;
-          processRouteData(cachedData.routeData, cachedData.selectedRouteIndex);
-          resolve();
-          return;
-        }
+        getCachedRouteData(cacheKey).then((cachedData) => {
+          if (cachedData) {
+            cachedRoutes[cacheKey] = cachedData;
+            processRouteData(cachedData.routeData, cachedData.selectedRouteIndex);
+            resolve();
+            return;
+          }
 
-        // No cache, make fresh request
-        const origin = new amap.LngLat(data.location.longitude, data.location.latitude);
-        const destination = new amap.LngLat(
-          shop.location.coordinates[0],
-          shop.location.coordinates[1]
-        );
+          // No cache, make fresh request
+          const origin = new amap!.LngLat(data.location.longitude, data.location.latitude);
+          const destination = new amap!.LngLat(
+            shop.location.coordinates[0],
+            shop.location.coordinates[1]
+          );
 
-        try {
-          plugin.search(origin, destination, (status: string, result: TransportSearchResult) => {
-            console.debug(result);
-            if (
-              status === 'complete' &&
-              typeof result === 'object' &&
-              (('plans' in result && result.plans.length > 0) ||
-                ('routes' in result && result.routes.length > 0))
-            ) {
-              // Cache the complete result
-              setCachedRouteData(cacheKey, result, 0);
-              cachedRoutes[cacheKey] = {
-                routeData: result,
-                selectedRouteIndex: 0,
-                expiresAt: Date.now() + 24 * 60 * 60 * 1000
-              };
+          try {
+            plugin.search(origin, destination, (status: string, result: TransportSearchResult) => {
+              console.debug(result);
+              if (
+                status === 'complete' &&
+                typeof result === 'object' &&
+                (('plans' in result && result.plans.length > 0) ||
+                  ('routes' in result && result.routes.length > 0))
+              ) {
+                // Cache the complete result
+                setCachedRouteData(cacheKey, result, 0);
+                cachedRoutes[cacheKey] = {
+                  routeData: result,
+                  selectedRouteIndex: 0
+                };
 
-              processRouteData(result, 0);
-              resolve();
-            } else if (
-              typeof result !== 'object' &&
-              ['CUQPS_HAS_EXCEEDED_THE_LIMIT', 'Request Error', undefined].includes(result) &&
-              retryCount < 10
-            ) {
-              // Rate limit exceeded, add to end of queue for retry
-              setTimeout(() => {
-                processShop(shop, retryCount + 1).then(resolve);
-              }, 1000); // Wait 1 second before retry
-            } else {
-              console.error(result);
-              travelData[shop.id] = null;
-              resolve();
-            }
-          });
-        } catch (error) {
-          console.error(`Error calculating travel data for shop ${shop.id}:`, error);
-          travelData[shop.id] = null;
-          resolve();
-        }
+                processRouteData(result, 0);
+                resolve();
+              } else if (
+                typeof result !== 'object' &&
+                ['CUQPS_HAS_EXCEEDED_THE_LIMIT', 'Request Error', undefined].includes(result) &&
+                retryCount < 10
+              ) {
+                // Rate limit exceeded, add to end of queue for retry
+                setTimeout(() => {
+                  processShop(shop, retryCount + 1).then(resolve);
+                }, 1000); // Wait 1 second before retry
+              } else {
+                console.error(result);
+                travelData[shop.id] = null;
+                resolve();
+              }
+            });
+          } catch (error) {
+            console.error(`Error calculating travel data for shop ${shop.id}:`, error);
+            travelData[shop.id] = null;
+            resolve();
+          }
+        });
       });
     };
 
@@ -338,7 +340,6 @@
     }
 
     if (!routeGuidance.isOpen) map?.setFitView();
-    isLoading = false;
   };
 
   const findGame = (games: Game[], gameId: number): Game | null => {
@@ -621,7 +622,7 @@
   shop={routeGuidance.shopId ? data.shops.find((s) => s.id === routeGuidance.shopId) : null}
   selectedRouteIndex={routeGuidance.selectedRouteIndex}
   routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
-  {isLoading}
+  isLoading={!!routeGuidance.shopId && !travelData[routeGuidance.shopId]}
   {map}
   {amap}
   {amapLink}

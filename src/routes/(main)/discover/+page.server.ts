@@ -8,7 +8,6 @@ import { calculateDistance } from '$lib/utils';
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
 
-// Initialize MongoDB connection
 if (!MONGODB_URI) {
   throw new Error('MONGODB_URI environment variable is not set');
 }
@@ -18,11 +17,20 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-export const load: PageServerLoad = async ({ params, url }) => {
-  try {
-    const latitude = parseFloat(params.latitude);
-    const longitude = parseFloat(params.longitude);
+export const load: PageServerLoad = async ({ url }) => {
+  const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
+  const lonParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
+  if (!latParam || !lonParam) {
+    throw error(400, 'Latitude and longitude parameters are required');
+  }
 
+  const latitude = parseFloat(latParam);
+  const longitude = parseFloat(lonParam);
+  if (isNaN(latitude) || isNaN(longitude)) {
+    throw error(400, 'Invalid latitude or longitude format');
+  }
+
+  try {
     const radiusParam = url.searchParams.get('radius');
     const radiusKm = radiusParam ? Math.max(1, Math.min(30, parseInt(radiusParam))) : 10;
     const radiusRadians = radiusKm / 6371;

@@ -1,17 +1,18 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { preloadCode, preloadData } from '$app/navigation';
-  import { onDestroy, onMount } from 'svelte';
+  import { onMount } from 'svelte';
 
   interface Props {
     text: string;
     class: string;
     btnCls?: string;
     href?: string;
+    target?: string;
     callback?: () => void;
   }
 
-  let { text, class: klass, btnCls, href, callback }: Props = $props();
+  let { text, class: klass, btnCls, href, target, callback }: Props = $props();
 
   let buttonElement: HTMLElement;
   let iconElement: HTMLElement;
@@ -64,7 +65,7 @@
   };
 
   const handleMouseEnter = () => {
-    if (href) {
+    if (href && !href.startsWith('http')) {
       preloadCode(href);
       preloadData(href);
     }
@@ -86,12 +87,9 @@
         buttonElement.style.width = collapsedWidth;
       }
       window.addEventListener('resize', measureButtonDimensions);
-    }
-  });
-
-  onDestroy(() => {
-    if (browser) {
-      window.removeEventListener('resize', measureButtonDimensions);
+      return () => {
+        window.removeEventListener('resize', measureButtonDimensions);
+      };
     }
   });
 
@@ -104,6 +102,7 @@
 <a
   bind:this={buttonElement}
   {href}
+  {target}
   class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {btnCls}"
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}

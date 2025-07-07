@@ -1,6 +1,7 @@
-import { ROUTE_CACHE_EXPIRY_HOURS, ROUTE_CACHE_PREFIX } from './constants';
 import { m } from './paraglide/messages';
+import { Database } from './db';
 import type { Shop, Game, TransportMethod, TransportSearchResult, CachedRouteData } from './types';
+import { ROUTE_CACHE_STORE } from './constants';
 
 export const calculateDistance = (
   lat1: number,
@@ -116,24 +117,13 @@ export const generateRouteCacheKey = (
 ): string => {
   const lat = Number(originLat.toFixed(4));
   const lng = Number(originLng.toFixed(4));
-  return `${ROUTE_CACHE_PREFIX}${lat}-${lng}-${shopId}-${transportMethod}`;
+  return `${transportMethod}-${shopId}-${lat}-${lng}`;
 };
 
-export const getCachedRouteData = (cacheKey: string): CachedRouteData | null => {
+export const getCachedRouteData = async (cacheKey: string): Promise<CachedRouteData | null> => {
   if (typeof window === 'undefined') return null;
-
   try {
-    const cached = localStorage.getItem(cacheKey);
-    if (!cached) return null;
-
-    const cachedRoute: CachedRouteData = JSON.parse(cached);
-
-    // Check if cache has expired
-    if (Date.now() > cachedRoute.expiresAt) {
-      localStorage.removeItem(cacheKey);
-      return null;
-    }
-
+    const cachedRoute = await Database.get<CachedRouteData>(ROUTE_CACHE_STORE, cacheKey);
     return cachedRoute;
   } catch (error) {
     console.error('Error reading route cache:', error);
@@ -141,56 +131,36 @@ export const getCachedRouteData = (cacheKey: string): CachedRouteData | null => 
   }
 };
 
-export const setCachedRouteData = (
+export const setCachedRouteData = async (
   cacheKey: string,
   routeData: TransportSearchResult,
   selectedRouteIndex: number = 0
-): void => {
+): Promise<void> => {
   if (typeof window === 'undefined') return;
-
+  const cachedRoute: CachedRouteData = {
+    routeData: routeData,
+    selectedRouteIndex
+  };
   try {
-    const cachedRoute: CachedRouteData = {
-      routeData: routeData,
-      selectedRouteIndex,
-      expiresAt: Date.now() + ROUTE_CACHE_EXPIRY_HOURS * 60 * 60 * 1000
-    };
-
-    localStorage.setItem(cacheKey, JSON.stringify(cachedRoute));
+    await Database.set(ROUTE_CACHE_STORE, cacheKey, cachedRoute);
   } catch (error) {
-    console.error('Error setting route cache:', error);
+    console.error('Error writing route cache:', error);
   }
 };
 
-export const clearExpiredRouteCache = (): void => {
+export const clearRouteCache = async (n: number = 0): Promise<void> => {
   if (typeof window === 'undefined') return;
-
   try {
-    const keys = Object.keys(localStorage).filter((key) => key.startsWith(ROUTE_CACHE_PREFIX));
-
     const now = Date.now();
-    let clearedCount = 0;
-    keys.forEach((key) => {
-      try {
-        const cached = localStorage.getItem(key);
-        if (cached) {
-          const cachedRoute: CachedRouteData = JSON.parse(cached);
-          if (now > cachedRoute.expiresAt) {
-            localStorage.removeItem(key);
-            clearedCount++;
-          }
-        }
-      } catch {
-        // Remove corrupted cache entries
-        localStorage.removeItem(key);
-        clearedCount++;
-      }
-    });
-
-    if (clearedCount > 0) {
-      console.log(`Cleared ${clearedCount} expired route cache entries`);
+    if (n > 0) {
+      await Database.clearEarliest(ROUTE_CACHE_STORE, n);
+    }
+    const expiredCleared = await Database.clearExpired(ROUTE_CACHE_STORE, now);
+    if (expiredCleared > 0 || n > 0) {
+      console.log(`Cleared ${expiredCleared + n} route cache entries`);
     }
   } catch (error) {
-    console.error('Error clearing expired route cache:', error);
+    console.error('Error clearing route cache:', error);
   }
 };
 

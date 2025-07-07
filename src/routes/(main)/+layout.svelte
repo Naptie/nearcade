@@ -4,7 +4,7 @@
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import { m } from '$lib/paraglide/messages';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { browser } from '$app/environment';
 
   let { children } = $props();
@@ -16,13 +16,12 @@
   };
 
   onMount(() => {
-    scrollY = window.scrollY;
-    window.addEventListener('scroll', handleScroll, { passive: true });
-  });
-
-  onDestroy(() => {
     if (browser) {
-      window.removeEventListener('scroll', handleScroll);
+      scrollY = window.scrollY;
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+      };
     }
   });
 </script>
