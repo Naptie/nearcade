@@ -5,9 +5,10 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
-  let { data } = $props();
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
+
+  let { data } = $props();
 
   let sortBy: SortCriteria = $state(data.sortBy);
   let radiusFilter: RadiusFilter = $state(data.radius);

@@ -1,8 +1,8 @@
 import { PAGINATION } from '$lib/constants';
 import type { SortCriteria, RadiusFilter } from '$lib/types';
-import type { PageServerLoad } from './$types';
+import type { PageLoad } from './$types';
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
+export const load: PageLoad = async ({ fetch, url }) => {
   try {
     // Get query parameters - only sortBy and radius matter for initial load
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
