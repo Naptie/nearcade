@@ -169,37 +169,10 @@
         untrack(async () => {
           var loc = event.data;
           if (loc && loc.module == 'locationPicker') {
-            console.log('Received location from map iframe:', loc);
+            console.debug('Received location from map iframe:', loc);
             location.name = loc.poiname;
             location.latitude = loc.latlng.lat;
             location.longitude = loc.latlng.lng;
-
-            if (loc.poiname) {
-              try {
-                const response = await fetch('/api/universities', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    name: loc.poiname,
-                    location: {
-                      latitude: loc.latlng.lat,
-                      longitude: loc.latlng.lng
-                    }
-                  })
-                });
-
-                if (response.ok) {
-                  const result = await response.json();
-                  console.log('University update result:', result);
-                } else {
-                  console.warn('Failed to update university:', response.statusText);
-                }
-              } catch (error) {
-                console.error('Error updating university:', error);
-              }
-            }
           }
         });
       };

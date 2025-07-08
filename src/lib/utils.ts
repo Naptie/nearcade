@@ -22,16 +22,6 @@ export const calculateDistance = (
   return R * c;
 };
 
-export const areCoordinatesApproxEqual = (
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): boolean => {
-  const tolerance = 0.025;
-  return Math.abs(lat1 - lat2) < tolerance && Math.abs(lng1 - lng2) < tolerance;
-};
-
 export const isDarkMode = (): boolean => {
   const darkModeMediaQuery = window?.matchMedia('(prefers-color-scheme: dark)');
   return darkModeMediaQuery?.matches;
