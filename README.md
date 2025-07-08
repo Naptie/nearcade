@@ -1,101 +1,101 @@
 # nearcade 🕹️
 
-**English** | [中文](README_zh.md)
+**中文** | [English](README_en.md)
 
-A modern web application that helps gamers discover arcade gaming venues. Find the best spots to play popular rhythm games like maimai DX, CHUNITHM, SOUND VOLTEX, and more!
+一个帮你快速查找任意位置附近的机厅的网站。
 
-Please join the following QQ group for discussions.
+有关网站的问题答疑、数据纠正、功能建议等请加入以下 QQ 群进行讨论。
 
-<img src="static/group-chat-qq.jpg" alt="QR code for the nearcade QQ group" width="350"/>
+<img src="static/group-chat-qq.jpg" alt="nearcade QQ群二维码" width="350"/>
 
-## ✨ Features
+## ✨ 功能特色
 
-### 🎯 Location-Based Discovery
+### 🎯 附近探索
 
-- **My Location**: Use GPS to find arcades near your current position
-- **University Search**: Search for arcades near specific universities and campuses
-- **Map Selection**: Pick any location on an interactive map
-- **Customizable Radius**: Search within 1~30 km radius
+- **我的位置**：基于当前位置查找附近的机厅
+- **高校搜索**：搜索特定高校校园附近的机厅
+- **地图选址**：在交互式地图上选择任意位置
+- **自定义半径**：在 1~30 km 半径内搜索
 
-### 🏆 University Rankings
+### 🏆 高校排行榜
 
-- Compare universities by arcade density and machine availability
-- Metrics include shop count, total machines, and area density (machines per km²)
-- Game-specific rankings for popular titles
-- Daily data updates with 24-hour cache refresh
+- 根据校园周围的机厅/机台覆盖情况对高校进行排名
+- 指标包括店铺数量、总机台数和区域密度（每平方公里机台数）
+- 特定游戏机台数量的专项排名
+- 每日数据更新，24 小时缓存刷新
 
-### 🎮 Game Support
+### 🎮 支持的游戏
 
-- maimai DX
-- CHUNITHM
-- Taiko no Tatsujin
-- SOUND VOLTEX
-- WACCA
+- 舞萌DX
+- 中二节奏
+- 太鼓之达人
+- 音律炫动
+- 华卡音舞
 
-## 🛠️ Technical Stack
+## 🛠️ 技术栈
 
-### Frontend Framework
+### 前端框架
 
-- **SvelteKit**: Full-stack framework with SSR/SPA capabilities
-- **Svelte 5**: Latest version with enhanced reactivity system
-- **TypeScript**: Type-safe development throughout
+- **SvelteKit**：具有 SSR/SPA 功能的全栈框架
+- **Svelte 5**：具有增强响应式系统的最新版本
+- **TypeScript**：提供全程类型安全的开发体验
 
-### Styling & UI
+### 样式和 UI
 
-- **Tailwind CSS 4.0**: Utility-first CSS framework
-- **daisyUI**: Semantic component classes for Tailwind
-- **Font Awesome**: Comprehensive icon library
+- **Tailwind CSS 4.0**：实用程序优先的 CSS 框架
+- **daisyUI**：Tailwind 的语义化组件类
+- **Font Awesome**：庞大而全面的图标库
 
-### Backend & Database
+### 后端和数据库
 
-- **MongoDB**: Document database for storing arcade and university data
-- **Server-side API**: RESTful endpoints built with SvelteKit
+- **MongoDB**：用于存储机厅和大学数据的非 SQL 数据库
+- **服务端 API**：使用 SvelteKit 构建的 RESTful API 端点
 
-### Maps & Location Services
+### 地图和位置服务
 
-- **高德地图 (AMap) & 腾讯地图 (Tencent Maps)**: Mapping service integration
-- **Geolocation API**: Browser-based location detection
+- **高德地图和腾讯地图**：地图服务集成
+- **地理位置 API**：基于浏览器的位置检测
 
-### Internationalization
+### 国际化
 
-- **Paraglide.js**: Type-safe i18n solution
-- **Message-based Translation**: Structured translation system
+- **Paraglide.js**：类型安全的国际化（i18n）解决方案
+- **基于消息的翻译**：结构化翻译系统
 
-### Development Tools
+### 开发工具
 
-- **Vite**: Fast build tool and development server
-- **ESLint**: Code linting with Svelte-specific rules
-- **Prettier**: Code formatting with plugin support
-- **PNPM**: Fast, disk space efficient package manager
+- **Vite**：快速构建工具和开发服务器
+- **ESLint**：带有 Svelte 特定规则的代码检查
+- **Prettier**：带插件支持的代码格式化
+- **PNPM**：快速且节省磁盘空间的包管理器
 
-## 🚀 Getting Started
+## 🚀 本地构建
 
-### Prerequisites
+### 前置要求
 
 - Node.js 18+
-- PNPM (recommended) or npm
-- MongoDB instance
-- AMap JS API key & secret
-- Tencent Maps API key
+- PNPM（推荐）或 npm
+- MongoDB 实例
+- 高德地图 JS API key 与 secret
+- 腾讯地图 API key
 
-### Installation
+### 安装
 
-1. **Clone the repository:**
+1. **克隆仓库：**
 
    ```bash
    git clone https://github.com/Naptie/nearcade.git
    cd nearcade
    ```
 
-2. **Install dependencies:**
+2. **安装依赖：**
 
    ```bash
    pnpm install
    ```
 
-3. **Set up environment variables:**
+3. **设置环境变量：**
 
-   Create a `.env` file in the root directory:
+   在根目录创建 `.env` 文件：
 
    ```env
    PUBLIC_AMAP_KEY = "your_key"
@@ -104,58 +104,58 @@ Please join the following QQ group for discussions.
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```
 
-4. **Start development server:**
+4. **启动开发服务器：**
 
    ```bash
    pnpm dev
    ```
 
-5. **Open your browser:**
-   Navigate to `http://localhost:5173`
+5. **打开浏览器：**
+   导航到 `http://localhost:5173`
 
-### Building for Production
+### 生产构建
 
 ```bash
-# Build the application
+# 构建应用
 pnpm build
 
-# Preview the production build
+# 预览生产构建
 pnpm preview
 ```
 
-### Deploy to Cloudflare Workers
+### 部署到 Cloudflare Workers
 
 ```bash
 ADAPTER=cloudflare pnpm cf-deploy
 ```
 
-## 🚢 Running with Docker
+## 🚢 使用 Docker 运行
 
-### Prerequisites
+### 前置要求
 
-- **Docker** installed on your machine (follow the [installation guide](https://docs.docker.com/get-docker/)).
-- **Docker Compose** (for multi-container setups, if needed).
+- **Docker** 已安装在您的机器上（按照[安装指南](https://docs.docker.com/get-docker/)）。
+- **Docker Compose**（用于多容器设置，如果需要）。
 
-### Step-by-Step Guide
+### 分步指南
 
-1. **Clone the repository:**
+1. **克隆仓库：**
 
    ```bash
    git clone https://github.com/Naptie/nearcade.git
    cd nearcade
    ```
 
-2. **Build the Docker images:**
+2. **构建 Docker 镜像：**
 
-   Make sure that both `Dockerfile` and `docker-compose.yml` are in the root directory of your project.
+   确保 `Dockerfile` 和 `docker-compose.yml` 都在项目的根目录中。
 
    ```bash
    docker-compose build
    ```
 
-3. **Set up environment variables:**
+3. **设置环境变量：**
 
-   Ensure that you have the required environment variables set. You can create a `.env` file in the root of your project directory with the following content:
+   确保您已设置所需的环境变量。您可以在项目根目录创建 `.env` 文件，内容如下：
 
    ```env
    PUBLIC_AMAP_KEY = "your_key"
@@ -164,23 +164,23 @@ ADAPTER=cloudflare pnpm cf-deploy
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```
 
-   **Note:** If you're using Docker Compose to run the app and MongoDB together, you may need to modify `MONGODB_URI` to point to the MongoDB container instead of `localhost`.
+   **注意：** 如果您使用 Docker Compose 同时运行应用和 MongoDB，您可能需要修改 `MONGODB_URI` 以指向 MongoDB 容器而不是 `localhost`。
 
-4. **Start the application using Docker Compose:**
+4. **使用 Docker Compose 启动应用：**
 
    ```bash
    docker-compose up
    ```
 
-   This will start both the application and any dependencies, like MongoDB, that you have defined in your `docker-compose.yml` file.
+   这将启动应用程序和您在 `docker-compose.yml` 文件中定义的任何依赖项，如 MongoDB。
 
-5. **Access the application:**
+5. **访问应用：**
 
-   Once the containers are up and running, navigate to `http://localhost:3000` in your browser to view the application.
+   容器启动运行后，在浏览器中导航到 `http://localhost:3000` 查看应用。
 
-### Stopping the Docker Containers
+### 停止 Docker 容器
 
-To stop the Docker containers, run:
+要停止 Docker 容器，运行：
 
 ```bash
 docker-compose down
@@ -188,25 +188,25 @@ docker-compose down
 
 ---
 
-## 🤝 Contributing
+## 🤝 贡献
 
-We welcome contributions! Please feel free to submit issues and pull requests.
+我们欢迎贡献！请随时提交 issue 和 pull request。
 
-### Development Guidelines
+### 开发指南
 
-- Follow TypeScript best practices
-- Use Prettier for code formatting
-- Write meaningful commit messages
-- Test your changes thoroughly
+- 遵循 TypeScript 最佳实践
+- 使用 Prettier 进行代码格式化
+- 编写有意义的提交消息
+- 彻底测试您的更改
 
-## ⭐ Stargazers Over Time
+## ⭐ 星标历史
 
 [![Stargazers over time](https://starchart.cc/Naptie/nearcade.svg?variant=adaptive)](https://starchart.cc/Naptie/nearcade)
 
-## 📄 License
+## 📄 许可证
 
-This project is open source and available under the [Mozilla Public License 2.0](LICENSE).
+本开源项目遵循 [Mozilla 公共许可证 2.0](LICENSE)。
 
-## 🙏 Acknowledgments
+## 🙏 致谢
 
 - [BEMANICN](https://map.bemanicn.com/)
