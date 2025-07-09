@@ -1,65 +1,66 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { preloadCode, preloadData } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   interface Props {
-    text: string;
     class: string;
     btnCls?: string;
     href?: string;
     target?: string;
+    text?: string;
+    content?: () => ReturnType<import('svelte').Snippet>;
     callback?: () => void;
   }
 
-  let { text, class: klass, btnCls, href, target, callback }: Props = $props();
+  let { content, text, class: klass, btnCls, href, target, callback }: Props = $props();
 
   let buttonElement: HTMLElement;
   let iconElement: HTMLElement;
-  let textElement: HTMLElement;
+  let contentElement: HTMLElement;
   let collapsedWidth = $state('auto');
   let expandedWidth = $state('auto');
   let iconTranslateX = $state('0px');
-  let textTranslateX = $state('0px');
+  let contentTranslateX = $state('0px');
 
   const measureButtonDimensions = () => {
-    if (!buttonElement || !iconElement || !textElement) return;
+    if (!buttonElement || !iconElement || !contentElement) return;
 
     const buttonHeight = buttonElement.offsetHeight;
     collapsedWidth = `${buttonHeight}px`;
 
     // Temporarily show the button at full width to measure
     const originalWidth = buttonElement.style.width;
-    const originalTextOpacity = textElement.style.opacity;
-    const originalTextPosition = textElement.style.position;
+    const originalTextOpacity = contentElement.style.opacity;
+    const originalTextPosition = contentElement.style.position;
 
     buttonElement.style.width = 'auto';
-    textElement.style.opacity = '1';
-    textElement.style.position = 'static';
-    textElement.style.transform = 'none';
+    contentElement.style.opacity = '1';
+    contentElement.style.position = 'static';
+    contentElement.style.transform = 'none';
 
     const fullWidth = buttonElement.scrollWidth;
     const iconWidth = iconElement.offsetWidth;
-    const textWidth = textElement.offsetWidth;
+    const contentWidth = contentElement.offsetWidth;
 
     // Calculate positioning for expanded state
-    const gap = 8; // Gap between icon and text
-    const totalContentWidth = iconWidth + gap + textWidth;
+    const gap = 8; // Gap between icon and content
+    const totalContentWidth = iconWidth + gap + contentWidth;
     const buttonCenter = fullWidth / 2;
     const contentStart = buttonCenter - totalContentWidth / 2;
 
     // Calculate how much to move the icon from center to left position
     iconTranslateX = `${contentStart - buttonCenter + iconWidth / 2}px`;
 
-    // Calculate text position - it should be at center initially, then move to right of icon
-    const textFinalPosition = contentStart + iconWidth + gap;
-    textTranslateX = `${textFinalPosition - buttonCenter}px`;
+    // Calculate content position - it should be at center initially, then move to right of icon
+    const contentFinalPosition = contentStart + iconWidth + gap;
+    contentTranslateX = `${contentFinalPosition - buttonCenter}px`;
 
     // Restore original state
     buttonElement.style.width = originalWidth;
-    textElement.style.opacity = originalTextOpacity;
-    textElement.style.position = originalTextPosition;
-    textElement.style.transform = '';
+    contentElement.style.opacity = originalTextOpacity;
+    contentElement.style.position = originalTextPosition;
+    contentElement.style.transform = '';
 
     expandedWidth = `${fullWidth}px`;
   };
@@ -83,8 +84,10 @@
   onMount(() => {
     if (browser) {
       if (buttonElement) {
-        measureButtonDimensions();
         buttonElement.style.width = collapsedWidth;
+        tick().then(() => {
+          measureButtonDimensions();
+        });
       }
       window.addEventListener('resize', measureButtonDimensions);
       return () => {
@@ -93,7 +96,7 @@
     }
   });
 
-  // Remeasure when text changes
+  // Remeasure when content changes
   $effect(() => {
     measureButtonDimensions();
   });
@@ -111,10 +114,16 @@
       callback();
     }
   }}
-  style="--collapsed-width: {collapsedWidth}; --icon-translate-x: {iconTranslateX}; --text-translate-x: {textTranslateX};"
+  style="--collapsed-width: {collapsedWidth}; --icon-translate-x: {iconTranslateX}; --content-translate-x: {contentTranslateX};"
 >
   <i bind:this={iconElement} class="icon {klass}"></i>
-  <span bind:this={textElement} class="text">{text}</span>
+  <div bind:this={contentElement} class="content">
+    {#if content}
+      {@render content()}
+    {:else}
+      {text}
+    {/if}
+  </div>
 </a>
 
 <style lang="postcss">
@@ -130,7 +139,7 @@
     @apply relative z-2 transition-transform duration-200 ease-out;
   }
 
-  .text {
+  .content {
     transform: translateY(-50%) translateX(-50%);
     @apply pointer-events-none absolute top-[50%] left-[50%] z-1 opacity-0 transition duration-200 ease-out;
   }
@@ -139,8 +148,8 @@
     transform: translateX(var(--icon-translate-x));
   }
 
-  .group:hover .text {
-    transform: translateY(-50%) translateX(var(--text-translate-x));
+  .group:hover .content {
+    transform: translateY(-50%) translateX(var(--content-translate-x));
     @apply opacity-100;
   }
 
@@ -153,7 +162,7 @@
       transform: none !important;
     }
 
-    .text {
+    .content {
       transform: translateY(-50%) translateX(-50%) !important;
       @apply !opacity-0;
     }
