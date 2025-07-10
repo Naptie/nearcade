@@ -232,7 +232,7 @@
     <!-- Results Table -->
     {#if displayedRankings && displayedRankings.length > 0}
       <div class="overflow-x-auto overflow-y-hidden">
-        <table class="bg-base-200/30 dark:bg-base-200 table w-full">
+        <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
           <thead>
             <tr>
               <th class="text-center">{m.ranking()}</th>
@@ -252,7 +252,7 @@
             {#each displayedRankings as ranking, index (ranking.id)}
               <tr
                 class="overflow-y-hidden transition-all duration-200 {hoveredRowId === index
-                  ? 'bg-base h-52'
+                  ? 'bg-base-300/30 h-52'
                   : 'h-16'}"
                 onmouseenter={() => handleMouseEnter(index)}
                 onmouseleave={handleMouseLeave}

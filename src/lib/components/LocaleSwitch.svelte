@@ -36,7 +36,7 @@
   />
   {#if open}
     <ul
-      class="dropdown-content menu bg-base-200/50 dark:bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg"
+      class="dropdown-content menu bg-base-200/50 dark:bg-base-200/80 rounded-box z-1 w-40 p-2 shadow-lg"
     >
       {#each locales as locale (locale)}
         <li>

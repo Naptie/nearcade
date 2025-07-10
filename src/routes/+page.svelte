@@ -279,7 +279,7 @@
         </a>
       </div>
       <div
-        class="bg-base-200/60 dark:bg-base-200 bg-opacity-30 collapse-transition collapse -mt-5 h-0 rounded-xl border backdrop-blur-2xl transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
+        class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition collapse -mt-5 h-0 rounded-xl border backdrop-blur-2xl transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
         class:collapse-open={showCollapse}
         class:min-h-fit={showCollapse}
         class:h-full={showCollapse}

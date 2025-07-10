@@ -748,7 +748,7 @@
   ></div>
   {#if data.shops.length > 0}
     <div class="overflow-x-auto">
-      <table class="bg-base-200/30 dark:bg-base-200 table w-full overflow-hidden">
+      <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
         <thead>
           <tr>
             <th class="text-left">{m.shop()}</th>
@@ -898,7 +898,7 @@
     </div>
 
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-      <div class="stat bg-base-200/30 dark:bg-base-200 rounded-xl" style="--border: 0">
+      <div class="stat bg-base-200/30 dark:bg-base-200/60 rounded-xl" style="--border: 0">
         <div class="stat-figure text-primary">
           <i class="fas fa-store text-3xl"></i>
         </div>
@@ -907,7 +907,7 @@
         <div class="stat-desc">{m.in_this_area()}</div>
       </div>
 
-      <div class="stat bg-base-200/30 dark:bg-base-200 rounded-xl" style="--border: 0">
+      <div class="stat bg-base-200/30 dark:bg-base-200/60 rounded-xl" style="--border: 0">
         <div class="stat-figure text-secondary">
           <i class="fas fa-desktop text-3xl"></i>
         </div>
@@ -918,7 +918,7 @@
         <div class="stat-desc">{m.arcade_machines()}</div>
       </div>
 
-      <div class="stat bg-base-200/30 dark:bg-base-200 rounded-xl" style="--border: 0">
+      <div class="stat bg-base-200/30 dark:bg-base-200/60 rounded-xl" style="--border: 0">
         <div class="stat-figure text-accent">
           <i class="fas fa-bullseye text-3xl"></i>
         </div>
