@@ -9,6 +9,7 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
+  import { formatRegionLabel } from '$lib/utils';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);
@@ -415,6 +416,7 @@
                     {#each universities as university (university.name)}
                       <div id={university.name} class="border-base-200 border-b last:border-b-0">
                         {#if university.campuses.length === 1}
+                          {@const campus = university.campuses[0]}
                           <button
                             class="hover:bg-base-200 flex w-full items-center justify-between p-3 text-left transition-colors"
                             onclick={() => selectUniversity(university, university.campuses[0])}
@@ -422,7 +424,11 @@
                             <div>
                               <div class="text-base font-medium">{university.name}</div>
                               <div class="text-base-content/60 text-sm">
-                                {university.type} · {university.majorCategory}
+                                {university.type} · {university.majorCategory} ·
+                                <span class="not-sm:hidden"
+                                  >{formatRegionLabel(campus, true, '')}</span
+                                >
+                                <span class="sm:hidden">{formatRegionLabel(campus, false, '')}</span>
                               </div>
                             </div>
                             <i class="fa-solid fa-chevron-right fa-sm opacity-50"></i>
@@ -447,7 +453,13 @@
                                 >
                                   <div class="flex items-center gap-2 text-sm">
                                     <i class="fa-solid fa-building fa-sm opacity-50"></i>
-                                    {campus.name || m.main_campus()}
+                                    <span>{campus.name || m.main_campus()}</span>
+                                    <span class="text-base-content/60 text-xs not-sm:hidden"
+                                      >{formatRegionLabel(campus, true)}</span
+                                    >
+                                    <span class="text-base-content/60 text-xs sm:hidden"
+                                      >{formatRegionLabel(campus, false)}</span
+                                    >
                                   </div>
                                   <i class="fa-solid fa-chevron-right fa-xs opacity-50"></i>
                                 </button>

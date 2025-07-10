@@ -203,3 +203,21 @@ export const areValidCoordinates = (
     longitude: lng
   };
 };
+
+export const formatRegionLabel = (
+  location?: { province: string; city: string; district?: string } | null,
+  withDistrict = true,
+  divider = ' · '
+): string => {
+  if (!location) return m.unknown();
+
+  const { province, city, district } = location;
+
+  if (withDistrict && district) {
+    return `${formatRegionLabel(location, false, divider)}${divider}${district}`;
+  }
+  if (city && city !== province) {
+    return `${province}${divider}${city}`;
+  }
+  return province;
+};

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistance, parseRelativeTime } from '$lib/utils';
+  import { formatDistance, formatRegionLabel, parseRelativeTime } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
   import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
@@ -269,12 +269,11 @@
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
                     <div class="flex flex-wrap items-center space-x-1.5">
-                      <div class="text-xs opacity-70 sm:text-sm">
-                        {#if ranking.city == ranking.province}
-                          {ranking.city}
-                        {:else}
-                          {ranking.province}{divider}{ranking.city}
-                        {/if}
+                      <div class="text-xs opacity-70 not-xl:hidden sm:text-sm">
+                        {formatRegionLabel(ranking, true, divider)}
+                      </div>
+                      <div class="text-xs opacity-70 sm:text-sm xl:hidden">
+                        {formatRegionLabel(ranking, false, divider)}
                       </div>
                       {#if ranking.is985}
                         <div class="badge badge-soft badge-primary badge-xs">
