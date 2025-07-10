@@ -425,10 +425,12 @@
                               <div class="text-base font-medium">{university.name}</div>
                               <div class="text-base-content/60 text-sm">
                                 {university.type} · {university.majorCategory} ·
-                                <span class="not-sm:hidden"
-                                  >{formatRegionLabel(campus, true, '')}</span
-                                >
-                                <span class="sm:hidden">{formatRegionLabel(campus, false, '')}</span>
+                                <span class="not-sm:hidden">
+                                  {formatRegionLabel(campus, true, '')}
+                                </span>
+                                <span class="sm:hidden">
+                                  {formatRegionLabel(campus, false, '')}
+                                </span>
                               </div>
                             </div>
                             <i class="fa-solid fa-chevron-right fa-sm opacity-50"></i>
