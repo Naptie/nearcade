@@ -748,7 +748,7 @@
   ></div>
   {#if data.shops.length > 0}
     <div class="overflow-x-auto">
-      <table class="bg-base-200/30 dark:bg-base-200 table w-full">
+      <table class="bg-base-200/30 dark:bg-base-200 table w-full overflow-hidden">
         <thead>
           <tr>
             <th class="text-left">{m.shop()}</th>
