@@ -36,7 +36,6 @@ interface CacheMetadata {
 }
 
 interface CachedRanking extends UniversityRankingData {
-  _id?: string;
   rankOrder: { [key: string]: number }; // sortBy_radius -> rank
 }
 
@@ -239,7 +238,7 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
 
         // Assign ranks
         sorted.forEach((ranking, index) => {
-          const cachedRanking = cachedRankings.find((r) => r._id === ranking._id);
+          const cachedRanking = cachedRankings.find((r) => r.id === ranking.id);
           if (cachedRanking) {
             cachedRanking.rankOrder[sortKey] = index + 1;
           }
