@@ -134,8 +134,8 @@
 
   const selectUniversity = (university: University, campus: Campus) => {
     location.name = `${university.name}${campus.name ? ` (${campus.name})` : ''}`;
-    location.latitude = campus.latitude;
-    location.longitude = campus.longitude;
+    location.latitude = campus.location.coordinates[1];
+    location.longitude = campus.location.coordinates[0];
     universityQuery = location.name;
     universities = [];
   };
@@ -422,7 +422,7 @@
                             <div>
                               <div class="text-base font-medium">{university.name}</div>
                               <div class="text-base-content/60 text-sm">
-                                {university.city} · {university.majorCategory}
+                                {university.type} · {university.majorCategory}
                               </div>
                             </div>
                             <i class="fa-solid fa-chevron-right fa-sm opacity-50"></i>
@@ -432,21 +432,21 @@
                             <div>
                               <div class="text-base font-medium">{university.name}</div>
                               <div class="text-base-content/60 text-sm">
-                                {university.city} · {university.majorCategory} ·
+                                {university.type} · {university.majorCategory} ·
                                 {m.campus_count({
                                   count: university.campuses.length
                                 })}
                               </div>
                             </div>
                             <div class="mt-2 space-y-1">
-                              {#each university.campuses as campus ((campus.latitude, campus.longitude))}
+                              {#each university.campuses as campus ((campus.id))}
                                 <button
                                   id="{university.name}-{campus.name}"
                                   class="hover:bg-base-200 flex w-full items-center justify-between rounded-lg px-4 py-2 text-left transition-colors"
                                   onclick={() => selectUniversity(university, campus)}
                                 >
                                   <div class="flex items-center gap-2 text-sm">
-                                    <i class="fa-solid fa-building fa-xs opacity-50"></i>
+                                    <i class="fa-solid fa-building fa-sm opacity-50"></i>
                                     {campus.name || m.main_campus()}
                                   </div>
                                   <i class="fa-solid fa-chevron-right fa-xs opacity-50"></i>

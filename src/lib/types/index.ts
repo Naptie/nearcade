@@ -1,6 +1,6 @@
 import type { RADIUS_OPTIONS } from '../constants';
 
-interface Location {
+export interface Location {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
 }
@@ -24,23 +24,26 @@ export interface Game {
 }
 
 export interface Campus {
+  id: string;
   name: string | null;
-  longitude: number;
-  latitude: number;
+  province: string;
+  city: string;
+  district: string;
+  address: string;
+  location: Location;
 }
 
 export interface University {
   _id?: string;
+  id: string;
   name: string;
-  majorCategory: string;
-  natureOfRunning: string;
-  schoolType: string;
-  is985: boolean;
-  is211: boolean;
-  isDoubleFirstClass: boolean;
-  province: string;
-  city: string;
+  type: string;
+  majorCategory: string | null;
+  natureOfRunning: string | null;
   affiliation: string;
+  is985: boolean | null;
+  is211: boolean | null;
+  isDoubleFirstClass: boolean | null;
   campuses: Campus[];
 }
 
@@ -55,19 +58,22 @@ export interface DonationContext {
 }
 
 export interface UniversityRankingData {
-  universityId: string;
+  id: string;
   universityName: string;
   campusName: string | null;
   fullName: string;
+  type: string;
+  majorCategory: string | null;
+  natureOfRunning: string | null;
+  affiliation: string;
+  is985: boolean | null;
+  is211: boolean | null;
+  isDoubleFirstClass: boolean | null;
   province: string;
   city: string;
-  affiliation: string;
-  schoolType: string;
-  is985: boolean;
-  is211: boolean;
-  isDoubleFirstClass: boolean;
-  longitude: number;
-  latitude: number;
+  district: string;
+  address: string;
+  location: Location;
   rankings: RankingMetrics[];
 }
 

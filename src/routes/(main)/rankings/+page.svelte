@@ -249,7 +249,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each displayedRankings as ranking, index ((ranking.universityId, ranking.fullName))}
+            {#each displayedRankings as ranking, index (ranking.id)}
               <tr
                 class="overflow-y-hidden transition-all duration-200 {hoveredRowId === index
                   ? 'bg-base h-52'
@@ -301,7 +301,7 @@
                         : '0px'}"
                     >
                       <div class="flex flex-wrap text-xs opacity-70 sm:text-sm">
-                        <div id="school-hover-details-{index}">{ranking.schoolType}</div>
+                        <div id="school-hover-details-{index}">{ranking.type}</div>
                         <div class="whitespace-pre">{divider}</div>
                         <div class="tooltip tooltip-bottom" data-tip={m.affiliation()}>
                           {ranking.affiliation}
@@ -382,7 +382,7 @@
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
-                      href="/discover?latitude={ranking.latitude}&longitude={ranking.longitude}&radius={radiusFilter}&name={encodeURIComponent(
+                      href="/discover?latitude={ranking.location.coordinates[1]}&longitude={ranking.location.coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"
                       target="_blank"

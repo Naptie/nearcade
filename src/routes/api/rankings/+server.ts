@@ -9,7 +9,8 @@ import type {
   UniversityRankingData,
   RankingMetrics,
   SortCriteria,
-  RadiusFilter
+  RadiusFilter,
+  Location
 } from '$lib/types';
 import { calculateDistance, getGameMachineCount, calculateAreaDensity } from '$lib/utils';
 import { GAMES, PAGINATION, RADIUS_OPTIONS } from '$lib/constants';
@@ -35,20 +36,19 @@ interface CacheMetadata {
 }
 
 interface CachedRanking extends UniversityRankingData {
-  _id: string;
+  _id?: string;
   rankOrder: { [key: string]: number }; // sortBy_radius -> rank
 }
 
 const getShopsWithinRadius = async (
   shops: Shop[],
-  centerLat: number,
-  centerLng: number,
+  center: Location,
   radiusKm: number
 ): Promise<Shop[]> => {
   return shops.filter((shop) => {
     const distance = calculateDistance(
-      centerLat,
-      centerLng,
+      center.coordinates[1], // latitude
+      center.coordinates[0], // longitude
       shop.location.coordinates[1], // latitude
       shop.location.coordinates[0] // longitude
     );
@@ -156,24 +156,27 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
           : university.name;
 
         rankings.push({
-          universityId: university._id?.toString() || '',
+          id: `${university.id}_${campus.id}`,
           universityName: university.name,
           campusName: campus.name,
           fullName: fullCampusName,
-          province: university.province,
-          city: university.city,
+          type: university.type,
+          majorCategory: university.majorCategory,
+          natureOfRunning: university.natureOfRunning,
           affiliation: university.affiliation,
-          schoolType: university.schoolType,
           is985: university.is985,
           is211: university.is211,
           isDoubleFirstClass: university.isDoubleFirstClass,
-          latitude: campus.latitude,
-          longitude: campus.longitude,
+          province: campus.province,
+          city: campus.city,
+          district: campus.district,
+          address: campus.address,
+          location: campus.location,
           rankings: await Promise.all(
             RADIUS_OPTIONS.map((r) =>
               (async () =>
                 calculateMetricsForRadius(
-                  await getShopsWithinRadius(shops, campus.latitude, campus.longitude, r),
+                  await getShopsWithinRadius(shops, campus.location, r),
                   r
                 ))()
             )
@@ -202,37 +205,9 @@ const calculateAndCacheUniversityRankings = async (): Promise<void> => {
       // We'll calculate ranks after sorting
       return {
         ...ranking,
-        _id: `${ranking.universityId}_${ranking.latitude}_${ranking.longitude}`,
         rankOrder
       };
     });
-
-    // Remove duplicates and log warnings
-    const seenIds = new Set<string>();
-    const uniqueRankings: CachedRanking[] = [];
-
-    for (const ranking of cachedRankings) {
-      const id = ranking._id;
-      if (seenIds.has(id)) {
-        console.warn(`Removing duplicate ranking ID: ${id}`);
-      } else {
-        seenIds.add(id);
-        uniqueRankings.push(ranking);
-      }
-    }
-
-    // Update the cachedRankings array to only contain unique entries
-    cachedRankings.length = 0;
-    cachedRankings.push(...uniqueRankings);
-
-    if (
-      uniqueRankings.length !==
-      cachedRankings.length + (cachedRankings.length - uniqueRankings.length)
-    ) {
-      console.log(
-        `Removed ${cachedRankings.length + (cachedRankings.length - uniqueRankings.length) - uniqueRankings.length} duplicate rankings`
-      );
-    }
 
     // Calculate ranks for each sort criteria and radius combination
     for (const sortBy of sortCriteria) {
@@ -379,19 +354,22 @@ export const GET: RequestHandler = async ({ url }) => {
 
         // Convert to response format
         const responseData = rankings.map((ranking) => ({
-          universityId: ranking.universityId,
+          id: ranking.id,
           universityName: ranking.universityName,
           campusName: ranking.campusName,
           fullName: ranking.fullName,
-          province: ranking.province,
-          city: ranking.city,
+          type: ranking.type,
+          majorCategory: ranking.majorCategory,
+          natureOfRunning: ranking.natureOfRunning,
           affiliation: ranking.affiliation,
-          schoolType: ranking.schoolType,
           is985: ranking.is985,
           is211: ranking.is211,
           isDoubleFirstClass: ranking.isDoubleFirstClass,
-          latitude: ranking.latitude,
-          longitude: ranking.longitude,
+          province: ranking.province,
+          city: ranking.city,
+          district: ranking.district,
+          address: ranking.address,
+          location: ranking.location,
           rankings: ranking.rankings
         }));
 

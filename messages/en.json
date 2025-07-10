@@ -96,7 +96,7 @@
   "report_issue": "Report Issue",
   "map_failure": "Failed to load map: {error}",
   "loading": "Loading...",
-  "university_warning": "Some university/college information may be incomplete or inaccurate. If you're struggling, please select on map instead. We are working to improve data quality.",
+  "university_warning": "Some university/college information may be incomplete or inaccurate. If you're struggling, please select on map instead. Reach out to us on GitHub/QQ if you have any corrections or suggestions.",
   "campus_rankings": "Campus Rankings",
   "campus_rankings_description": "Discover which universities/colleges have the best arcade coverage around their campuses",
   "sort_by": "Sort by",
