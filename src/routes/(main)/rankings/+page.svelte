@@ -268,8 +268,8 @@
                       <span class="pr-1 font-semibold">{ranking.universityName}</span>
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
-                    <div class="flex flex-wrap items-center">
-                      <div class="mr-2 text-xs opacity-70 sm:text-sm">
+                    <div class="flex flex-wrap items-center space-x-1.5">
+                      <div class="text-xs opacity-70 sm:text-sm">
                         {#if ranking.city == ranking.province}
                           {ranking.city}
                         {:else}
@@ -277,12 +277,12 @@
                         {/if}
                       </div>
                       {#if ranking.is985}
-                        <div class="badge badge-soft badge-primary badge-xs mr-2">
+                        <div class="badge badge-soft badge-primary badge-xs">
                           {m.badge_985()}
                         </div>
                       {/if}
                       {#if ranking.is211}
-                        <div class="badge badge-soft badge-secondary badge-xs mr-2">
+                        <div class="badge badge-soft badge-secondary badge-xs">
                           {m.badge_211()}
                         </div>
                       {/if}
