@@ -21,5 +21,18 @@ export default defineConfig({
       outdir: './src/lib/paraglide',
       strategy: ['cookie', 'localStorage', 'preferredLanguage', 'baseLocale']
     })
-  ]
+  ],
+  build: {
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        passes: 2
+      },
+      mangle: true,
+      format: {
+        comments: false
+      }
+    },
+    sourcemap: true
+  }
 });
