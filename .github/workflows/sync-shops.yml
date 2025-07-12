@@ -1,4 +1,4 @@
-name: Sync Shops and Update Rankings
+name: Sync Shops
 
 on:
   schedule:
