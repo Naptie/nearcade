@@ -52,6 +52,17 @@ export interface AMapContext {
   error: string | null;
 }
 
+export interface UniversityRankingResponse {
+  data: UniversityRankingData[];
+  totalCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+  cached: boolean;
+  cacheTime: Date;
+  stale: boolean;
+  calculating: boolean;
+}
+
 export interface UniversityRankingData {
   id: string;
   universityName: string;

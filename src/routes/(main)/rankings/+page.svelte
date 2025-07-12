@@ -3,7 +3,12 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDistance, formatRegionLabel, parseRelativeTime } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
-  import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
+  import type {
+    UniversityRankingData,
+    SortCriteria,
+    RadiusFilter,
+    UniversityRankingResponse
+  } from '$lib/types';
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
@@ -78,7 +83,7 @@
           throw new Error(`Failed to load more results: ${response.status}`);
         }
 
-        const result = await response.json();
+        const result = (await response.json()) as UniversityRankingResponse;
 
         // Append new results to existing ones
         displayedRankings = [...displayedRankings, ...result.data];

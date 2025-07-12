@@ -1,5 +1,5 @@
 import { PAGINATION } from '$lib/constants';
-import type { SortCriteria, RadiusFilter } from '$lib/types';
+import type { SortCriteria, RadiusFilter, UniversityRankingResponse } from '$lib/types';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, url }) => {
@@ -20,7 +20,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
       throw new Error(`API call failed: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as UniversityRankingResponse;
 
     return {
       rankings: result.data,
