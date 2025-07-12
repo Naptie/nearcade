@@ -37,7 +37,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Compile Paraglide messages
-        run: pnpm exec @inlang/paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
+        run: pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
 
       - name: Run the ranking update script
         run: pnpm exec tsx ./scripts/update-rankings.ts
