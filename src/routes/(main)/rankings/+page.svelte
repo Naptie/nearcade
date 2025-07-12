@@ -18,7 +18,7 @@
   let isLoadingMore = $state(false);
   let hoveredRowId: number | null = $state(null);
   let showHoverDetails: number | null = $state(null);
-  let hoverTimeout: number | null = null;
+  let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
   let screenWidth = $state(0);
   let schoolHoverDetailsHeights: { [key: number]: number } = $state({});
 
