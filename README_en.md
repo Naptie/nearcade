@@ -77,6 +77,7 @@ Please join the following QQ group for discussions.
 - MongoDB instance
 - AMap JS API key & secret
 - Tencent Maps API key
+- Sentry
 
 ### Installation
 
@@ -100,6 +101,10 @@ Please join the following QQ group for discussions.
    ```env
    PUBLIC_AMAP_KEY = "your_key"
    PUBLIC_QQMAP_KEY = "your_key"
+
+   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
+   SENTRY_AUTH_TOKEN = "your_token"
+
    AMAP_SECRET = "your_secret"
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```
