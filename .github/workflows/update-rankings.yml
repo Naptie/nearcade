@@ -11,7 +11,7 @@ on:
         required: true
 
 jobs:
-  update:
+  update-rankings:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
