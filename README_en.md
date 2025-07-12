@@ -66,14 +66,14 @@ Please join the following QQ group for discussions.
 - **Vite**: Fast build tool and development server
 - **ESLint**: Code linting with Svelte-specific rules
 - **Prettier**: Code formatting with plugin support
-- **PNPM**: Fast, disk space efficient package manager
+- **pnpm**: Fast, disk space efficient package manager
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- PNPM (recommended) or npm
+- pnpm (recommended) or npm
 - MongoDB instance
 - AMap JS API key & secret
 - Tencent Maps API key

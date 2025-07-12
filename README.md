@@ -66,14 +66,14 @@
 - **Vite**：快速构建工具和开发服务器
 - **ESLint**：带有 Svelte 特定规则的代码检查
 - **Prettier**：带插件支持的代码格式化
-- **PNPM**：快速且节省磁盘空间的包管理器
+- **pnpm**：快速且节省磁盘空间的包管理器
 
 ## 🚀 本地构建
 
 ### 前置要求
 
 - Node.js 18+
-- PNPM（推荐）或 npm
+- pnpm（推荐）或 npm
 - MongoDB 实例
 - 高德地图 JS API key 与 secret
 - 腾讯地图 API key
