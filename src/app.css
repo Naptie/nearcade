@@ -1,4 +1,4 @@
-@import url('https://fonts.font.im/css2?family=Sora&family=Noto+Sans+SC&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora&family=Noto+Sans+SC&display=swap');
 @import 'tailwindcss';
 
 @plugin 'daisyui' {
