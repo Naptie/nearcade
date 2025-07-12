@@ -17,7 +17,7 @@ Please join the following QQ group for discussions.
 - **Map Selection**: Pick any location on an interactive map
 - **Customizable Radius**: Search within 1~30 km radius
 
-### 🏆 University Rankings
+### 🏆 Campus Rankings
 
 - Compare universities by arcade density and machine availability
 - Metrics include shop count, total machines, and area density (machines per km²)
