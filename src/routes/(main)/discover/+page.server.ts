@@ -8,10 +8,6 @@ import { areValidCoordinates, calculateDistance } from '$lib/utils';
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
 
-if (!MONGODB_URI) {
-  throw new Error('MONGODB_URI environment variable is not set');
-}
-
 if (!client) {
   client = new MongoClient(MONGODB_URI);
   clientPromise = client.connect();
