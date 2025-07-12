@@ -36,10 +36,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build the project
-        run: pnpm build
+      - name: Compile Paraglide messages
+        run: pnpm exec @inlang/paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
 
-      - name: Run ranking update script
+      - name: Run the ranking update script
         run: pnpm exec tsx ./scripts/update-rankings.ts
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
