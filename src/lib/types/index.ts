@@ -52,11 +52,6 @@ export interface AMapContext {
   error: string | null;
 }
 
-export interface DonationContext {
-  openModal: () => void;
-  visitCount: () => number;
-}
-
 export interface UniversityRankingData {
   id: string;
   universityName: string;
