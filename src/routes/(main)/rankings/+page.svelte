@@ -12,6 +12,7 @@
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
+  import { env } from '$env/dynamic/public';
 
   let { data } = $props();
 
@@ -71,7 +72,7 @@
       isLoadingMore = true;
       try {
         // Fetch next page via API using cursor-based pagination
-        const apiUrl = new URL('/api/rankings', window.location.origin);
+        const apiUrl = new URL(`${env.PUBLIC_API_BASE || ''}/api/rankings`, window.location.origin);
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('radius', radiusFilter.toString());
         apiUrl.searchParams.set('after', nextCursor);

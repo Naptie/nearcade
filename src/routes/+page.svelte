@@ -1,6 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
+  import { env } from '$env/dynamic/public';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
   import FancyButton from '$lib/components/FancyButton.svelte';
@@ -47,7 +48,7 @@
   let universityQuery = $state('');
   let universities = $state<University[]>([]);
   let isSearchingUniversities = $state(false);
-  let searchTimeout: number;
+  let searchTimeout: ReturnType<typeof setTimeout> | undefined;
 
   const getMyLocation = () => {
     if (!navigator.geolocation) {
@@ -104,8 +105,10 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(`/api/universities?q=${encodeURIComponent(query)}`);
-      const data = await response.json();
+      const response = await fetch(
+        `${env.PUBLIC_API_BASE || ''}/api/universities?q=${encodeURIComponent(query)}`
+      );
+      const data = (await response.json()) as { universities: University[] };
 
       // Only update if this is still the latest request
       if (requestId === searchRequestId) {
