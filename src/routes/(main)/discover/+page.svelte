@@ -46,7 +46,7 @@
   let hoveredShopId: number | null = $state(null);
   let selectedShopId: number | null = $state(null);
   let highlightedShopId: number | null = $state(null);
-  let highlightedShopIdTimeout: number | null = $state(null);
+  let highlightedShopIdTimeout: ReturnType<typeof setTimeout> | null = $state(null);
   let darkMode = $derived(browser ? isDarkMode() : undefined);
   let transportMethod = $state<TransportMethod>(undefined); // 'transit', 'walking', 'riding', 'driving'
   let travelData = $state<

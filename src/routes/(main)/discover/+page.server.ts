@@ -1,3 +1,4 @@
-import { loadShops } from '$lib/discover.server';
+import { loadShops } from '$lib/endpoints/discover.server';
+import type { PageServerLoad } from './$types';
 
-export const load = loadShops;
+export const load: PageServerLoad = loadShops;

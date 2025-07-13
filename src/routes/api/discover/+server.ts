@@ -1,4 +1,4 @@
-import { loadShops } from '$lib/discover.server';
+import { loadShops } from '$lib/endpoints/discover.server';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
