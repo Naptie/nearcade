@@ -167,6 +167,11 @@ jobs:
       - name: Install NDK
         run: sdkmanager "ndk;27.2.12479018"
 
+      - name: Set Android environment variables
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> $GITHUB_ENV
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -192,7 +197,6 @@ jobs:
           AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
-          NDK_HOME: $ANDROID_HOME/ndk/27.2.12479018
 
       - name: Sign bundle
         id: sign-bundle
@@ -328,7 +332,7 @@ jobs:
         id: build
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLIC_API_BASE: ${{ vars.PUBLIC_API_BASE }}
           PUBLIC_AMAP_KEY: ${{ vars.PUBLIC_AMAP_KEY }}
           PUBLIC_QQMAP_KEY: ${{ vars.PUBLIC_QQMAP_KEY }}
