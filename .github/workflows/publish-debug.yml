@@ -73,13 +73,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.13.1'
+          run_install: false
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+          node-version: 'lts/*'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm i
@@ -120,13 +124,110 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  publish-tauri:
-    name: Build with Tauri
+  publish-android:
+    name: Build for Android
+    runs-on: ubuntu-22.04
     needs: metadata
     permissions:
       contents: write
     concurrency:
-      group: 'publish-debug-tauri-${{ matrix.platform }}-${{ matrix.args }}'
+      group: 'publish-debug-android'
+      cancel-in-progress: false
+
+    steps:
+      - name: Confirm build version and datetime
+        run: |
+          echo "Version: ${{ needs.metadata.outputs.version }}"
+          echo "Build datetime: ${{ needs.metadata.outputs.current-datetime }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.13.1'
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager "ndk;27.2.12479018"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Prepare for static build
+        run: find src/routes -type f \( -name '+page.server.ts' -o -name '+page.server.js' \) -delete
+
+      - name: Create build
+        run: pnpm tauri android build --aab
+        env:
+          PUBLIC_API_BASE: ${{ vars.PUBLIC_API_BASE }}
+          PUBLIC_AMAP_KEY: ${{ vars.PUBLIC_AMAP_KEY }}
+          PUBLIC_QQMAP_KEY: ${{ vars.PUBLIC_QQMAP_KEY }}
+          AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+
+      - name: Sign bundle
+        id: sign-bundle
+        uses: kevin-david/zipalign-sign-android-release@v2
+        with:
+          releaseDirectory: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/
+          signingKeyBase64: ${{ secrets.RELEASE_KEYSTORE }}
+          keyStorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          zipAlign: true
+
+      - name: Move and rename builds
+        run: |
+          mkdir -p ~/artifacts/android/
+          mv src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab ~/artifacts/android/nearcade_${{ needs.metadata.outputs.version-name }}.aab
+          mv ${{ steps.sign-bundle.outputs.signedReleaseFile }} ~/artifacts/android/nearcade_${{ needs.metadata.outputs.version-name }}.apk
+          ls -l ~/artifacts/android/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ needs.metadata.outputs.version-name }}
+          path: ~/artifacts/android/*
+
+      - name: Clean up artifacts
+        if: ${{ always() }}
+        run: |
+          rm -rf ~/artifacts/
+
+  publish-desktop:
+    name: Build for Desktop
+    needs: metadata
+    permissions:
+      contents: write
+    concurrency:
+      group: 'publish-debug-desktop-${{ matrix.platform }}-${{ matrix.args }}'
       cancel-in-progress: false
 
     strategy:
@@ -156,13 +257,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.13.1'
+          run_install: false
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+          node-version: 'lts/*'
+          cache: 'pnpm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -245,7 +350,7 @@ jobs:
         run: |
           IFS=','
           SPACE='.SPACE_PLACEHOLDER.'
-          mkdir -p ~/artifacts/tauri/
+          mkdir -p ~/artifacts/desktop/
           artifact_paths=$(echo '${{ steps.build.outputs.artifactPaths }}' | sed -e 's/\[//g; s/\]//g' -e 's/["]//g' -e 's/ /$SPACE/g')
           for artifact_path in $artifact_paths; do
             original_path=$(echo "$artifact_path" | sed -e 's/$SPACE/ /g')
@@ -253,18 +358,18 @@ jobs:
               echo "Skipping $original_path"
               continue
             fi
-            mv "$original_path" ~/artifacts/tauri/
+            mv "$original_path" ~/artifacts/desktop/
           done
 
       - name: Generate artifact info
         id: info
-        run: echo "NAME=tauri-${{ matrix.platform }}-$(echo ${{ matrix.args || '--target x86_64' }} | sed 's/.* //')-${{ needs.metadata.outputs.version-name }}" >> $GITHUB_OUTPUT
+        run: echo "NAME=${{ matrix.platform }}-$(echo ${{ matrix.args || '--target x86_64' }} | sed 's/.* //')-${{ needs.metadata.outputs.version-name }}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.info.outputs.NAME }}
-          path: ~/artifacts/tauri/*
+          path: ~/artifacts/desktop/*
 
       - name: Clean up artifacts
         if: ${{ always() }}

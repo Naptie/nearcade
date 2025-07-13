@@ -1,4 +1,5 @@
 name: Sync Shops
+run-name: Synchronize shops data and trigger rankings update
 
 on:
   schedule:
@@ -22,7 +23,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10.13.0'
+          version: '10.13.1'
           run_install: false
 
       - name: Set up Node.js
@@ -56,7 +57,7 @@ jobs:
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
 
-  trigger-ranking-update:
+  trigger-rankings-update:
     needs: sync-shops
     # This job calls the reusable workflow
     uses: ./.github/workflows/update-rankings.yml
