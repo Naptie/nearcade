@@ -204,12 +204,10 @@ jobs:
           alias: ${{ secrets.RELEASE_KEYSTORE_ALIAS }}
           zipAlign: true
 
-      - name: Move and rename builds
+      - name: Move and rename build
         run: |
           mkdir -p ~/artifacts/android/
-          mv src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab ~/artifacts/android/nearcade_${{ needs.metadata.outputs.version-name }}.aab
           mv ${{ steps.sign-bundle.outputs.signedReleaseFile }} ~/artifacts/android/nearcade_${{ needs.metadata.outputs.version-name }}.apk
-          ls -l ~/artifacts/android/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
