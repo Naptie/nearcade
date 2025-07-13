@@ -201,6 +201,7 @@ jobs:
           releaseDirectory: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/
           signingKeyBase64: ${{ secrets.RELEASE_KEYSTORE }}
           keyStorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          alias: ${{ secrets.RELEASE_KEYSTORE_ALIAS }}
           zipAlign: true
 
       - name: Move and rename builds
