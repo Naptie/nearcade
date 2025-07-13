@@ -1,0 +1,259 @@
+name: Publish (Debug)
+run-name: Publish debug builds
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'messages/**'
+      - 'project.inlang/**'
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'static/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'svelte.config.js'
+      - 'vite.config.ts'
+      - '.github/workflows/publish-debug.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  metadata:
+    name: Retrieve metadata
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: 'publish-debug'
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Specify version
+        id: version
+        run: echo "VERSION=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Specify current datetime
+        id: current-datetime
+        run: echo "CURRENT_DATETIME=$(date +'%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      current-datetime: ${{ steps.current-datetime.outputs.CURRENT_DATETIME }}
+      version-name: ${{ steps.version.outputs.VERSION }}_${{ steps.current-datetime.outputs.CURRENT_DATETIME }}
+
+  publish-web:
+    name: Publish to Sentry and GitHub Pages
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push'
+    needs: metadata
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: 'publish-debug-web'
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Confirm build version and datetime
+        run: |
+          echo "Version: ${{ needs.metadata.outputs.version }}"
+          echo "Build datetime: ${{ needs.metadata.outputs.current-datetime }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Create build
+        run: pnpm build
+        env:
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+          PATH_BASE: /nearcade
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: phizone
+          SENTRY_PROJECT: nearcade
+        with:
+          environment: production
+          sourcemaps: './build'
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './build'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish-tauri:
+    name: Build with Tauri
+    needs: metadata
+    permissions:
+      contents: write
+    concurrency:
+      group: 'publish-debug-tauri-${{ matrix.platform }}-${{ matrix.args }}'
+      cancel-in-progress: false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'ubuntu-22.04-arm'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+          - platform: 'windows-latest'
+            args: '--target aarch64-pc-windows-msvc'
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Confirm build version and datetime
+        run: |
+          echo "Version: ${{ needs.metadata.outputs.version }}"
+          echo "Build datetime: ${{ needs.metadata.outputs.current-datetime }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || (matrix.platform == 'windows-latest' && 'aarch64-pc-windows-msvc' || '') }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install dependencies (Ubuntu only)
+        if: startsWith(matrix.platform, 'ubuntu-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libasound2-dev
+
+      - name: Install frontend dependencies
+        run: pnpm i
+
+      - name: Install code-signing certificate and API key
+        if: startsWith(matrix.platform, 'macos-')
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_DIA_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DIA_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+          ASC_API_KEY_BASE64: ${{ secrets.APPLE_ASC_API_KEY }}
+          ASC_API_KEY_ID: ${{ secrets.APPLE_ASC_API_KEY_ID }}
+        run: |
+          ASC_API_KEY_PATH=$RUNNER_TEMP/AuthKey_${ASC_API_KEY_ID}.p8
+
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+          echo -n "$ASC_API_KEY_BASE64" | base64 --decode -o $ASC_API_KEY_PATH
+
+      - name: Obtain certificate ID and API key path
+        id: apple-signing
+        if: startsWith(matrix.platform, 'macos-')
+        env:
+          ASC_API_KEY_ID: ${{ secrets.APPLE_ASC_API_KEY_ID }}
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          ASC_API_KEY_PATH=$RUNNER_TEMP/AuthKey_${ASC_API_KEY_ID}.p8
+
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_OUTPUT
+          echo "ASC_API_KEY_PATH=$ASC_API_KEY_PATH" >> $GITHUB_OUTPUT
+
+      - name: Build
+        id: build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+          APPLE_CERTIFICATE: ${{ startsWith(matrix.platform, 'macos-') && secrets.APPLE_DIA_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ startsWith(matrix.platform, 'macos-') && secrets.APPLE_DIA_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos-') && steps.apple-signing.outputs.CERT_ID || '' }}
+          APPLE_API_KEY: ${{ startsWith(matrix.platform, 'macos-') && secrets.APPLE_ASC_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ startsWith(matrix.platform, 'macos-') && secrets.APPLE_ASC_API_KEY_ISSUER_ID || '' }}
+          APPLE_API_KEY_PATH: ${{ startsWith(matrix.platform, 'macos-') && steps.apple-signing.outputs.ASC_API_KEY_PATH || '' }}
+        with:
+          includeDebug: true
+          args: ${{ matrix.args }}
+
+      - name: Move and rename builds
+        run: |
+          IFS=','
+          SPACE='.SPACE_PLACEHOLDER.'
+          mkdir -p ~/artifacts/tauri/
+          artifact_paths=$(echo '${{ steps.build.outputs.artifactPaths }}' | sed -e 's/\[//g; s/\]//g' -e 's/["]//g' -e 's/ /$SPACE/g')
+          for artifact_path in $artifact_paths; do
+            original_path=$(echo "$artifact_path" | sed -e 's/$SPACE/ /g')
+            if [[ "$original_path" == *.app ]]; then
+              echo "Skipping $original_path"
+              continue
+            fi
+            renamed_path=$(echo "$original_path" | sed -E "s/PhiZone Player[_-]${{ needs.metadata.outputs.version }}(-1)?/PhiZone.Player_${{ needs.metadata.outputs.version-name }}/g")
+            echo "Renaming: $original_path -> $renamed_path"
+            mv "$original_path" "$renamed_path"
+            mv "$renamed_path" ~/artifacts/tauri/
+          done
+
+      - name: Generate artifact info
+        id: info
+        run: echo "NAME=tauri-${{ matrix.platform }}-$(echo ${{ matrix.args || '--target x86_64' }} | sed 's/.* //')-${{ needs.metadata.outputs.version-name }}" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.info.outputs.NAME }}
+          path: ~/artifacts/tauri/*
+
+      - name: Clean up artifacts
+        if: ${{ always() }}
+        run: |
+          rm -rf ~/artifacts/

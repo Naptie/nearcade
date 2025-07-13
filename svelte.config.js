@@ -5,6 +5,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 const isCloudflare = process.env.ADAPTER === 'cloudflare';
 const hasApiBase = process.env.PUBLIC_API_BASE && process.env.PUBLIC_API_BASE.trim() !== '';
+const base = process.env.PATH_BASE || '';
 
 const config = {
   preprocess: vitePreprocess(),
@@ -20,8 +21,11 @@ const config = {
             strict: true
           })
         : adapterAuto(),
+    paths: {
+      base
+    },
     prerender: {
-      entries: ['/', '/discover', '/rankings']
+      entries: [`${base}/`, `${base}/discover`, `${base}/rankings`]
     }
   }
 };

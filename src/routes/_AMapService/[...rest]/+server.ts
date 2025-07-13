@@ -1,3 +1,4 @@
+import { base } from '$app/paths';
 import { AMAP_SECRET } from '$env/static/private';
 import { error, type RequestHandler } from '@sveltejs/kit';
 
@@ -8,7 +9,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
       throw error(500, 'AMap secret not configured');
     }
 
-    const pathname = url.pathname.replace('/_AMapService', '');
+    const pathname = url.pathname.replace(`${base}/_AMapService`, '');
 
     // Build the target URL - proxy to https://restapi.amap.com/
     const targetUrl = new URL(`https://restapi.amap.com${pathname}`);

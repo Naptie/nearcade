@@ -1,6 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { env } from '$env/dynamic/public';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
@@ -106,7 +107,7 @@
     isSearchingUniversities = true;
     try {
       const response = await fetch(
-        `${env.PUBLIC_API_BASE || ''}/api/universities?q=${encodeURIComponent(query)}`
+        `${env.PUBLIC_API_BASE || base}/api/universities?q=${encodeURIComponent(query)}`
       );
       const data = (await response.json()) as { universities: University[] };
 
@@ -216,7 +217,7 @@
       }
     }
     goto(
-      `/discover?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
+      `${base}/discover?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
     );
   };
 
@@ -249,7 +250,7 @@
       btnCls="not-sm:hidden"
       text={m.donate()}
     />
-    <FancyButton href="/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
+    <FancyButton href="{base}/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
   </div>
 
   <div class="hero-content my-10 text-center">

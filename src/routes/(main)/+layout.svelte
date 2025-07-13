@@ -6,6 +6,7 @@
   import { m } from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { base } from '$app/paths';
 
   let { children } = $props();
   let scrollY = $state(0);
@@ -45,8 +46,12 @@
         btnCls="not-sm:hidden"
         text={m.donate()}
       />
-      <FancyButton href="/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
-      <FancyButton href="/" class="fa-solid fa-home fa-lg" text={m.home()} />
+      <FancyButton
+        href="{base}/rankings"
+        class="fa-solid fa-trophy fa-lg"
+        text={m.campus_rankings()}
+      />
+      <FancyButton href="{base}/" class="fa-solid fa-home fa-lg" text={m.home()} />
     </div>
   </div>
 </nav>

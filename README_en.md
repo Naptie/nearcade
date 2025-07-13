@@ -101,13 +101,13 @@ Please join the following QQ group for discussions.
    ```env
    PUBLIC_AMAP_KEY = "your_key"
    PUBLIC_QQMAP_KEY = "your_key"
-
    PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
-   SENTRY_AUTH_TOKEN = "your_token"
 
    AMAP_SECRET = "your_secret"
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```
+
+   Additionally, if you need to generate a static build, set the `PUBLIC_API_BASE` environment variable (and delete all `+page.server.ts` files); if you want to publish a Sentry release or upload source maps to Sentry, set the `SENTRY_AUTH_TOKEN` environment variable.
 
 4. **Start development server:**
 
@@ -165,6 +165,8 @@ ADAPTER=cloudflare pnpm cf-deploy
    ```env
    PUBLIC_AMAP_KEY = "your_key"
    PUBLIC_QQMAP_KEY = "your_key"
+   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
+
    AMAP_SECRET = "your_secret"
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```

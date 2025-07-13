@@ -3,12 +3,12 @@
   import '../app.css';
   import '@fortawesome/fontawesome-free/css/all.min.css';
   import { browser } from '$app/environment';
-  import { page } from '$app/state';
   import { PUBLIC_AMAP_KEY } from '$env/static/public';
   import type { AMapContext } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import { env } from '$env/dynamic/public';
+  import { base } from '$app/paths';
 
   let { children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -28,7 +28,7 @@
   onMount(async () => {
     if (browser) {
       (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
-        serviceHost: `${env.PUBLIC_API_BASE || page.url.origin}/_AMapService`
+        serviceHost: `${env.PUBLIC_API_BASE || base}/_AMapService`
       };
       try {
         const AMapLoader = await import('@amap/amap-jsapi-loader');

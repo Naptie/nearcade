@@ -13,6 +13,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
   import { env } from '$env/dynamic/public';
+  import { base } from '$app/paths';
 
   let { data } = $props();
 
@@ -72,7 +73,10 @@
       isLoadingMore = true;
       try {
         // Fetch next page via API using cursor-based pagination
-        const apiUrl = new URL(`${env.PUBLIC_API_BASE || ''}/api/rankings`, window.location.origin);
+        const apiUrl = new URL(
+          `${env.PUBLIC_API_BASE || base}/api/rankings`,
+          window.location.origin
+        );
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('radius', radiusFilter.toString());
         apiUrl.searchParams.set('after', nextCursor);
@@ -387,7 +391,7 @@
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
-                      href="/discover?latitude={ranking.location.coordinates[1]}&longitude={ranking
+                      href="{base}/discover?latitude={ranking.location.coordinates[1]}&longitude={ranking
                         .location.coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"

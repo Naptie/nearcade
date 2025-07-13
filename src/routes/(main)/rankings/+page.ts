@@ -1,3 +1,4 @@
+import { base } from '$app/paths';
 import { env } from '$env/dynamic/public';
 import { PAGINATION } from '$lib/constants';
 import type { SortCriteria, RadiusFilter, UniversityRankingResponse } from '$lib/types';
@@ -10,7 +11,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
     const radius = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
 
     // Always start with no cursor for initial load (cursor-based pagination)
-    const apiUrl = new URL(`${env.PUBLIC_API_BASE || ''}/api/rankings`, url.origin);
+    const apiUrl = new URL(`${env.PUBLIC_API_BASE || base}/api/rankings`, url.origin);
     apiUrl.searchParams.set('sortBy', sortBy);
     apiUrl.searchParams.set('radius', radius.toString());
     apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());

@@ -101,13 +101,13 @@
    ```env
    PUBLIC_AMAP_KEY = "your_key"
    PUBLIC_QQMAP_KEY = "your_key"
-
    PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
-   SENTRY_AUTH_TOKEN = "your_token"
 
    AMAP_SECRET = "your_secret"
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```
+
+   此外，如果需要生成静态构建，请设置环境变量 `PUBLIC_API_BASE`（并删除所有 `+page.server.ts` 文件）；如果需要发布 Sentry release 或上传 source maps 至 Sentry，请设置环境变量 `SENTRY_AUTH_TOKEN`。
 
 4. **启动开发服务器：**
 
@@ -165,6 +165,8 @@ ADAPTER=cloudflare pnpm cf-deploy
    ```env
    PUBLIC_AMAP_KEY = "your_key"
    PUBLIC_QQMAP_KEY = "your_key"
+   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
+
    AMAP_SECRET = "your_secret"
    MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
    ```

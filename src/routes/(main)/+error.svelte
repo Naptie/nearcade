@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { page } from '$app/state';
   import { GITHUB_LINK } from '$lib';
   import Footer from '$lib/components/Footer.svelte';
@@ -44,7 +45,7 @@
   let errorContent = $derived(getErrorContent(status));
 
   const goHome = () => {
-    goto('/');
+    goto(`${base}/`);
   };
 
   const tryAgain = () => {
