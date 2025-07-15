@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { handle as handleAuth } from '$lib/auth';
 
 Sentry.init({
   dsn: PUBLIC_SENTRY_DSN,
@@ -25,7 +26,7 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
   return response;
 };
 
-export const handle: Handle = sequence(Sentry.sentryHandle(), handleParaglide, handleHeaders);
+export const handle: Handle = sequence(Sentry.sentryHandle(), handleParaglide, handleHeaders, handleAuth);
 
 export const handleError: HandleServerError = Sentry.handleErrorWithSentry(({ status }) => {
   if (status === 404) {

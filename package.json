@@ -51,6 +51,7 @@
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
     "@amap/amap-jsapi-types": "^0.0.15",
+    "@auth/sveltekit": "^1.10.0",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@inlang/paraglide-js": "^2.2.0",
     "@sentry/sveltekit": "^9.38.0",
