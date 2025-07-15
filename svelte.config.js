@@ -16,7 +16,8 @@ const config = {
       ? adapterCloudflare()
       : isNetlify
         ? adapterNetlify({
-            edge: true
+            edge: false,
+            split: true
           })
         : hasApiBase
           ? adapterStatic({
