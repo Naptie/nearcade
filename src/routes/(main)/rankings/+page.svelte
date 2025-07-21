@@ -264,7 +264,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each displayedRankings as ranking, index (ranking.id)}
+            {#each displayedRankings as ranking, index (index)}
               <tr
                 class="overflow-y-hidden transition-all duration-200 {hoveredRowId === index
                   ? 'bg-base-300/30 h-52'
