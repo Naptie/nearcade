@@ -22,6 +22,7 @@
   let displayedRankings: UniversityRankingData[] = $state(data.rankings);
   let hasMore = $state(data.hasMore);
   let nextCursor = $state(data.nextCursor);
+  let isLoading = $state(false);
   let isLoadingMore = $state(false);
   let hoveredRowId: number | null = $state(null);
   let showHoverDetails: number | null = $state(null);
@@ -66,6 +67,10 @@
       url.searchParams.set('radius', radiusFilter.toString());
       url.searchParams.delete('page'); // Remove page parameter for infinite scroll
       goto(url.toString(), { invalidateAll: true });
+      isLoading = true; // Show loading state when changing sort/radius
+      return () => {
+        isLoading = false; // Reset loading state when component is destroyed
+      };
     }
   });
   const handleLoadMore = async () => {
@@ -264,15 +269,19 @@
                 class="overflow-y-hidden transition-all duration-200 {hoveredRowId === index
                   ? 'bg-base-300/30 h-52'
                   : 'h-16'}"
+                class:skeleton={isLoading}
                 onmouseenter={() => handleMouseEnter(index)}
                 onmouseleave={handleMouseLeave}
               >
-                <td class="text-center font-bold">
+                <td
+                  class="text-center font-bold transition-opacity duration-200"
+                  class:opacity-50={isLoading}
+                >
                   <div class="flex items-center justify-center">
                     <span class="text-lg">{index + 1}</span>
                   </div>
                 </td>
-                <td>
+                <td class="transition-opacity duration-200" class:opacity-50={isLoading}>
                   <div class="flex flex-col gap-1">
                     <div>
                       <span class="pr-1 font-semibold">{ranking.universityName}</span>
@@ -323,7 +332,8 @@
                 {#each visibleRadiusOptions as option (option)}
                   {@const metrics = getMetricsForRadius(ranking, option)}
                   <td
-                    class="xs:w-28 relative w-20 text-center sm:w-24 md:w-32 lg:w-44 xl:w-48 2xl:w-52"
+                    class="xs:w-28 relative w-20 text-center transition-opacity duration-200 sm:w-24 md:w-32 lg:w-44 xl:w-48 2xl:w-52"
+                    class:opacity-50={isLoading}
                   >
                     {#if metrics}
                       <div
@@ -358,7 +368,9 @@
                         >
                           <div class="grid w-full grid-cols-1 gap-0.5 text-center">
                             <div>{m.shops({ count: formatNumber(metrics.shopCount) })}</div>
-                            <div>{m.machines({ count: formatNumber(metrics.totalMachines) })}</div>
+                            <div>
+                              {m.machines({ count: formatNumber(metrics.totalMachines) })}
+                            </div>
                             <div>
                               {m.count_machines_per_km2({
                                 count: formatDensity(metrics.areaDensity)
@@ -387,12 +399,16 @@
                   </td>
                 {/each}
 
-                <td class="text-center">
+                <td
+                  class="text-center transition-opacity duration-200"
+                  class:opacity-50={isLoading}
+                >
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
-                      href="{base}/discover?latitude={ranking.location.coordinates[1]}&longitude={ranking
-                        .location.coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(
+                      href="{base}/discover?latitude={ranking.location
+                        .coordinates[1]}&longitude={ranking.location
+                        .coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"
                       target="_blank"
