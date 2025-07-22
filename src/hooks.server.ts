@@ -26,7 +26,12 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
   return response;
 };
 
-export const handle: Handle = sequence(Sentry.sentryHandle(), handleParaglide, handleHeaders, handleAuth);
+export const handle: Handle = sequence(
+  Sentry.sentryHandle(),
+  handleParaglide,
+  handleHeaders,
+  handleAuth
+);
 
 export const handleError: HandleServerError = Sentry.handleErrorWithSentry(({ status }) => {
   if (status === 404) {

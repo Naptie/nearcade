@@ -4,19 +4,20 @@
   import { onMount } from 'svelte';
 
   interface Props {
-    class: string;
+    class?: string;
     btnCls?: string;
     href?: string;
     target?: string;
     text?: string;
+    image?: string;
     content?: () => ReturnType<import('svelte').Snippet>;
     callback?: () => void;
   }
 
-  let { content, text, class: klass, btnCls, href, target, callback }: Props = $props();
+  let { image, content, text, class: klass = '', btnCls, href, target, callback }: Props = $props();
 
   let buttonElement: HTMLElement;
-  let iconElement: HTMLElement;
+  let iconElement: HTMLElement | undefined = $state(undefined);
   let contentElement: HTMLElement;
 
   const measureButtonDimensions = () => {
@@ -54,10 +55,12 @@
     const gap = 8; // Gap between icon and content
     const totalContentWidth = iconWidth + gap + contentWidth;
     const buttonCenter = fullWidth / 2;
-    const contentStart = buttonCenter - totalContentWidth / 2;
+    const startPosition = buttonCenter - totalContentWidth / 2;
 
-    const iconTranslateX = `${contentStart - buttonCenter + iconWidth / 2}px`;
-    const contentFinalPosition = contentStart + iconWidth + gap;
+    const iconTranslateX = image
+      ? `${buttonHeight / 2 - buttonCenter}px`
+      : `${startPosition - buttonCenter + iconWidth / 2}px`;
+    const contentFinalPosition = image ? buttonHeight : startPosition + iconWidth + gap;
     const contentTranslateX = `${contentFinalPosition - buttonCenter}px`;
 
     // Set the calculated values as CSS custom properties
@@ -122,7 +125,9 @@
   bind:this={buttonElement}
   {href}
   {target}
-  class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {btnCls}"
+  class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
+    ? 'px-2'
+    : ''} {btnCls}"
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
   onclick={() => {
@@ -131,7 +136,15 @@
     }
   }}
 >
-  <i bind:this={iconElement} class="icon {klass}"></i>
+  {#if image}
+    <div bind:this={iconElement} class="avatar icon">
+      <div class="w-5 lg:w-7 {klass}">
+        <img src={image} alt="Icon" />
+      </div>
+    </div>
+  {:else}
+    <i bind:this={iconElement} class="icon {klass}"></i>
+  {/if}
   <div bind:this={contentElement} class="content">
     {#if content}
       {@render content()}
@@ -150,7 +163,7 @@
   }
 
   .icon {
-    @apply relative z-2 transition-transform duration-200 ease-out;
+    @apply z-2 transition-transform duration-200 ease-out;
   }
 
   .content {
