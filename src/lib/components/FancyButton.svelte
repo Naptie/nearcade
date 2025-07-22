@@ -19,10 +19,6 @@
   let iconElement: HTMLElement;
   let contentElement: HTMLElement;
 
-  // No need for collapsedWidth, expandedWidth, etc. to be state.
-  // We can set them directly as CSS custom properties.
-
-  // --- REFACTORED MEASUREMENT LOGIC ---
   const measureButtonDimensions = () => {
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
 
@@ -62,7 +58,6 @@
 
     const iconTranslateX = `${contentStart - buttonCenter + iconWidth / 2}px`;
     const contentFinalPosition = contentStart + iconWidth + gap;
-    // The content is already centered by `left: 50%`, so we calculate its offset from that center.
     const contentTranslateX = `${contentFinalPosition - buttonCenter}px`;
 
     // Set the calculated values as CSS custom properties
