@@ -23,5 +23,6 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
     Discord(config),
     Osu(config)
   ],
-  adapter: MongoDBAdapter(client)
+  adapter: MongoDBAdapter(client),
+  trustHost: true
 });
