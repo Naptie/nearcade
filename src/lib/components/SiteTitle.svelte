@@ -4,7 +4,7 @@
   let { class: klass = '' } = $props();
 </script>
 
-<a class="font-bold tracking-tight select-none {klass}" href="{base}/">
+<a class="font-semibold tracking-tight select-none {klass}" href="{base}/">
   <span
     class="from-primary dark:via-secondary to-secondary dark:to-accent bg-gradient-to-br bg-clip-text pr-[0.03em] text-transparent"
   >

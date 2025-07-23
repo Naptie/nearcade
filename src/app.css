@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora&family=Noto+Sans+SC&display=swap');
+@import '@fontsource-variable/sora';
+@import '@fontsource-variable/noto-sans-sc';
 @import 'tailwindcss';
 
 @plugin 'daisyui' {
@@ -8,5 +9,5 @@
 }
 
 body {
-  font-family: 'Sora', 'Noto Sans SC', sans-serif;
+  font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
 }
