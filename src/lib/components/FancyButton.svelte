@@ -19,9 +19,12 @@
   let buttonElement: HTMLElement;
   let iconElement: HTMLElement | undefined = $state(undefined);
   let contentElement: HTMLElement;
+  let lastMeasured = $state(0);
 
   const measureButtonDimensions = () => {
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
+    if (Date.now() - lastMeasured < 1000) return;
+    lastMeasured = Date.now();
 
     const buttonHeight = buttonElement.offsetHeight;
     const collapsedWidth = `${buttonHeight}px`;
