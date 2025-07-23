@@ -16,8 +16,10 @@
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
 
   const providers = [
-    { name: 'GitHub', icon: 'fa-github' },
+    { name: 'QQ', icon: 'fa-qq' },
+    { name: 'Apple', id: 'apple', icon: 'fa-apple' },
     { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
+    { name: 'GitHub', icon: 'fa-github' },
     {
       name: 'Discord',
       icon: 'fa-discord',
@@ -28,7 +30,12 @@
       icon: 'osu.svg',
       class: 'hover:bg-[#DA5892] hover:text-white'
     }
-  ];
+  ].map((provider) => ({
+    ...provider,
+    id: provider.id || provider.name.toLowerCase().replace(/[^a-z]/g, ''),
+    class:
+      provider.class || 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'
+  }));
 
   // Close modal when clicking backdrop
   const handleDialogClick = (event: MouseEvent) => {
@@ -74,15 +81,12 @@
       <div class="text-center">
         <h3 class="mb-4 text-lg font-bold">{m.sign_in()}</h3>
         <div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
-          {#each providers as provider (provider.name)}
-            {@const providerId = provider.id || provider.name.toLowerCase().replace(/[^a-z]/g, '')}
+          {#each providers as provider (provider.id)}
             <form method="POST" action="/session/signin">
-              <input type="hidden" name="providerId" value={providerId} />
+              <input type="hidden" name="providerId" value={provider.id} />
               <button
                 type="submit"
-                class="btn btn-outline not-2xs:btn-circle w-full items-center gap-2 py-5 sm:px-6 {provider.class
-                  ? provider.class
-                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'}"
+                class="btn btn-outline not-2xs:btn-circle w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
               >
                 {#if provider.icon.startsWith('fa-')}
                   <i class="fa-brands fa-lg {provider.icon}"></i>
