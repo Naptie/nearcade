@@ -2,16 +2,16 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { env } from '$env/dynamic/public';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
+  import AuthModal from '$lib/components/AuthModal.svelte';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel } from '$lib/utils';
+  import { formatRegionLabel, toPath } from '$lib/utils';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);
@@ -106,9 +106,7 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(
-        `${env.PUBLIC_API_BASE || base}/api/universities?q=${encodeURIComponent(query)}`
-      );
+      const response = await fetch(toPath(`/api/universities?q=${encodeURIComponent(query)}`));
       const data = (await response.json()) as { universities: University[] };
 
       // Only update if this is still the latest request
@@ -250,7 +248,12 @@
       btnCls="not-sm:hidden"
       text={m.donate()}
     />
-    <FancyButton href="{base}/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
+    <FancyButton
+      href="{base}/rankings"
+      class="fa-solid fa-trophy fa-lg"
+      text={m.campus_rankings()}
+    />
+    <AuthModal size="lg" />
   </div>
 
   <div class="hero-content my-10 text-center">

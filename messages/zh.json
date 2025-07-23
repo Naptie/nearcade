@@ -140,5 +140,8 @@
   "expand_details": "展开详情",
   "collapse_details": "收起详情",
   "route": "路线",
-  "open_in_amap": "在高德地图中打开"
+  "open_in_amap": "在高德地图中打开",
+  "sign_in": "登录",
+  "sign_in_with": "使用 {provider} 登录",
+  "sign_out": "登出"
 }

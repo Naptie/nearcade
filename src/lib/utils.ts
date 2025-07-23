@@ -2,6 +2,8 @@ import { m } from './paraglide/messages';
 import { Database } from './db';
 import type { Shop, Game, TransportMethod, TransportSearchResult, CachedRouteData } from './types';
 import { ROUTE_CACHE_STORE } from './constants';
+import { env } from '$env/dynamic/public';
+import { base } from '$app/paths';
 
 export const calculateDistance = (
   lat1: number,
@@ -220,4 +222,9 @@ export const formatRegionLabel = (
     return `${province}${divider}${city}`;
   }
   return province;
+};
+
+export const toPath = (path: string) => {
+  path = ((p) => (p.startsWith('/') ? p : `/${p}`))(path.trim());
+  return `${env.PUBLIC_API_BASE || base}${path}`;
 };

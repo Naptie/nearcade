@@ -203,5 +203,8 @@
   "expand_details": "Expand Details",
   "collapse_details": "Collapse Details",
   "route": "Route",
-  "open_in_amap": "Open in AMap"
+  "open_in_amap": "Open in AMap",
+  "sign_in": "Sign In",
+  "sign_in_with": "Sign in with {provider}",
+  "sign_out": "Sign Out"
 }

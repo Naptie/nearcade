@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistance, formatRegionLabel, parseRelativeTime } from '$lib/utils';
+  import { formatDistance, formatRegionLabel, parseRelativeTime, toPath } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
     UniversityRankingData,
@@ -12,7 +12,6 @@
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
-  import { env } from '$env/dynamic/public';
   import { base } from '$app/paths';
 
   let { data } = $props();
@@ -78,10 +77,7 @@
       isLoadingMore = true;
       try {
         // Fetch next page via API using cursor-based pagination
-        const apiUrl = new URL(
-          `${env.PUBLIC_API_BASE || base}/api/rankings`,
-          window.location.origin
-        );
+        const apiUrl = new URL(toPath('/api/rankings'), window.location.origin);
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('radius', radiusFilter.toString());
         apiUrl.searchParams.set('after', nextCursor);
