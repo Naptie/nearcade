@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
-import { handle as handleAuth } from '$lib/auth';
+import { handle as handleAuth } from '$lib/auth.server';
 
 Sentry.init({
   dsn: PUBLIC_SENTRY_DSN,
