@@ -15,6 +15,21 @@
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
 
+  const providers = [
+    { name: 'GitHub', icon: 'fa-github' },
+    { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
+    {
+      name: 'Discord',
+      icon: 'fa-discord',
+      class: 'hover:bg-[#5865F2] hover:text-white'
+    },
+    {
+      name: 'osu!',
+      icon: 'osu.svg',
+      class: 'hover:bg-[#DA5892] hover:text-white'
+    }
+  ];
+
   // Close modal when clicking backdrop
   const handleDialogClick = (event: MouseEvent) => {
     if (event.target === dialogElement) {
@@ -58,24 +73,24 @@
 
       <div class="text-center">
         <h3 class="mb-4 text-lg font-bold">{m.sign_in()}</h3>
-        <div class="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2">
-          {#each [{ name: 'GitHub', icon: 'fa-github' }, { name: 'osu!', icon: 'osu.svg', class: 'hover:bg-[#DA5892]' }] as provider (provider.name)}
-            {@const providerId = provider.name.toLowerCase().replace(/[^a-z]/g, '')}
+        <div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
+          {#each providers as provider (provider.name)}
+            {@const providerId = provider.id || provider.name.toLowerCase().replace(/[^a-z]/g, '')}
             <form method="POST" action="/session/signin">
               <input type="hidden" name="providerId" value={providerId} />
               <button
                 type="submit"
-                class="btn btn-outline hover:text-primary-content w-full items-center gap-2 py-5 sm:px-6 dark:hover:text-black {provider.class
+                class="btn btn-outline not-2xs:btn-circle w-full items-center gap-2 py-5 sm:px-6 {provider.class
                   ? provider.class
-                  : 'hover:bg-primary dark:hover:bg-white'}"
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'}"
               >
                 {#if provider.icon.startsWith('fa-')}
                   <i class="fa-brands fa-lg {provider.icon}"></i>
                 {:else}
                   <img src="{base}/{provider.icon}" alt="{provider.name} Logo" class="h-5 w-5" />
                 {/if}
-                <p class="not-md:hidden">{m.sign_in_with({ provider: provider.name })}</p>
-                <p class="hidden not-md:block">{provider.name}</p>
+                <p class="not-sm:hidden">{m.sign_in_with({ provider: provider.name })}</p>
+                <p class="not-2xs:hidden sm:hidden">{provider.name}</p>
               </button>
             </form>
           {/each}
@@ -121,3 +136,20 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .not-2xs\:hidden {
+    @media not (width >= 18rem) {
+      display: none;
+    }
+  }
+
+  .not-2xs\:btn-circle {
+    @media not (width >= 18rem) {
+      border-radius: calc(infinity * 1px);
+      padding-inline: 0;
+      width: var(--size);
+      height: var(--size);
+    }
+  }
+</style>

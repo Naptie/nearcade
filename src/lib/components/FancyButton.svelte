@@ -136,10 +136,14 @@
     }
   }}
 >
-  {#if image}
-    <div bind:this={iconElement} class="avatar icon">
-      <div class="w-5 lg:w-7 {klass}">
-        <img src={image} alt="Icon" />
+  {#if image || !klass.includes('fa-')}
+    <div bind:this={iconElement} class="avatar icon {image ? '' : 'avatar-placeholder'}">
+      <div class="w-5 lg:w-7 {klass} {image ? '' : 'bg-neutral text-neutral-content'}">
+        {#if image}
+          <img src={image} alt="Icon" />
+        {:else if text}
+          <span class="text-xs lg:text-sm">{text.trim()[0]}</span>
+        {/if}
       </div>
     </div>
   {:else}
