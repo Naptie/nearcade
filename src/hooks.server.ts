@@ -33,13 +33,14 @@ export const handle: Handle = sequence(
   handleAuth
 );
 
-export const handleError: HandleServerError = Sentry.handleErrorWithSentry(({ status }) => {
+export const handleError: HandleServerError = Sentry.handleErrorWithSentry(({ status, error }) => {
   if (status === 404) {
     return {
       message: '',
       code: ''
     };
   }
+  console.error(error);
   return {
     message: 'An unexpected error occurred. Please try again later.',
     code: 'INTERNAL_ERROR'
