@@ -682,13 +682,13 @@
 />
 
 <svelte:head>
-  <title
-    >{data.location.name
+  <title>
+    {data.location.name
       ? m.arcades_near({
           name: data.location.name
         })
-      : m.nearby_arcades()} - nearcade</title
-  >
+      : m.nearby_arcades()} - {m.app_name()}
+  </title>
 </svelte:head>
 
 <div class="container mx-auto pt-20 sm:px-4">
