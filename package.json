@@ -11,8 +11,11 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "format": "prettier --write .",
-    "lint": "prettier --check . && eslint .",
+    "lint": "eslint .",
     "fl": "prettier --write . && eslint . --fix",
+    "msg": "tsx ./scripts/manage-messages.js",
+    "msgw": "tsx ./scripts/manage-messages.js --write",
+    "calc-uni-stats": "tsx ./scripts/update-university-stats.ts",
     "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
@@ -59,7 +62,11 @@
     "@sentry/sveltekit": "^9.38.0",
     "crypto-js": "^4.2.0",
     "daisyui": "^5.0.46",
-    "mongodb": "^6.17.0"
+    "date-fns": "^4.1.0",
+    "mongodb": "^6.17.0",
+    "nanoid": "^5.1.5",
+    "sveltekit-superforms": "^2.27.1",
+    "zod": "^4.0.5"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

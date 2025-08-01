@@ -15,5 +15,5 @@
     class="bg-gradient-to-br from-sky-500 via-purple-500 to-rose-500 bg-clip-text pr-[0.03em] text-transparent"
   >
     {firstPart}
-  </span><span class="text-base-content">{secondPart}</span>
+  </span><span>{secondPart}</span>
 </a>

@@ -191,7 +191,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.campus_rankings()} - nearcade</title>
+  <title>{m.campus_rankings()} - {m.app_name()}</title>
 </svelte:head>
 
 <div class="container mx-auto pt-20 sm:px-4">
@@ -280,7 +280,12 @@
                 <td class="transition-opacity duration-200" class:opacity-50={isLoading}>
                   <div class="flex flex-col gap-1">
                     <div>
-                      <span class="pr-1 font-semibold">{ranking.universityName}</span>
+                      <a
+                        href="{base}/universities/{ranking.id.split('_')[0]}"
+                        target="_blank"
+                        class="text-base-content link-accent pr-1 font-semibold transition-colors"
+                        >{ranking.universityName}</a
+                      >
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
                     <div class="flex flex-wrap items-center space-x-1.5">
@@ -317,7 +322,7 @@
                       <div class="flex flex-wrap text-xs opacity-70 sm:text-sm">
                         <div id="school-hover-details-{index}">{ranking.type}</div>
                         <div class="whitespace-pre">{divider}</div>
-                        <div class="tooltip tooltip-bottom" data-tip={m.affiliation()}>
+                        <div class="tooltip tooltip-bottom" data-tip={m.governing_body()}>
                           {ranking.affiliation}
                         </div>
                       </div>

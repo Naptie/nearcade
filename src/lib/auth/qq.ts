@@ -108,7 +108,6 @@ export function QQ<P extends QQProfile>(options: OAuthUserConfig<P> = {}): OAuth
     id: 'qq',
     name: 'QQ',
     type: 'oauth',
-    style: { logo: '/providers/qq2.svg', brandColor: '#fff', text: '#000' },
     checks: checks.filter((c) => c === 'pkce' || c === 'state' || c === 'none'),
     clientId,
     clientSecret,
@@ -163,7 +162,6 @@ export function QQ<P extends QQProfile>(options: OAuthUserConfig<P> = {}): OAuth
       return {
         id: tokens.openid + '',
         name: profile.nickname,
-        username: tokens.openid,
         email: null,
         image: profile.figureurl_2 ?? profile.figureurl
       };

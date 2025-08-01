@@ -81,12 +81,6 @@ function main() {
     }
   }
 
-  // Optionally, print sorted keys for each locale
-  for (const locale of locales) {
-    console.log(`\nSorted keys in ${locale}:`);
-    console.log(localeKeys[locale]);
-  }
-
   // Write sorted files if --write is passed
   if (process.argv.includes('--write')) {
     for (const locale of locales) {

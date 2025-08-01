@@ -234,7 +234,7 @@
 </script>
 
 <svelte:head>
-  <title>nearcade</title>
+  <title>{m.app_name()}</title>
 </svelte:head>
 
 <div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">
@@ -276,14 +276,23 @@
             <i class="fa-solid fa-angle-down fa-sm"></i>
           </span>
         </button>
-        <a
-          href={GITHUB_LINK}
-          target="_blank"
-          class="btn btn-outline hover:bg-primary hover:text-primary-content gap-2 py-5 sm:px-6 dark:hover:bg-white dark:hover:text-black"
-        >
-          {m.github()}
-          <i class="fa-brands fa-github fa-xl"></i>
-        </a>
+        <div class="join">
+          <a
+            href="{base}/universities"
+            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content gap-2 py-5 sm:px-6 dark:hover:bg-white dark:hover:text-black"
+          >
+            {m.find_university()}
+            <i class="fa-solid fa-graduation-cap fa-xl"></i>
+          </a>
+          <a href="{base}/clubs">
+            <button
+              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content gap-2 py-5 sm:px-6 dark:hover:bg-white dark:hover:text-black"
+            >
+              {m.find_clubs()}
+              <i class="fa-solid fa-users fa-xl"></i>
+            </button>
+          </a>
+        </div>
       </div>
       <div
         class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition collapse -mt-5 h-0 rounded-xl border backdrop-blur-2xl transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
@@ -426,10 +435,20 @@
                           {@const campus = university.campuses[0]}
                           <button
                             class="hover:bg-base-200 flex w-full items-center justify-between p-3 text-left transition-colors"
-                            onclick={() => selectUniversity(university, university.campuses[0])}
+                            onclick={(e) => {
+                              // Prevent button action if <a> was clicked
+                              if ((e.target as Element).closest('a')) return;
+                              selectUniversity(university, university.campuses[0]);
+                            }}
                           >
                             <div>
-                              <div class="text-base font-medium">{university.name}</div>
+                              <a
+                                href="{base}/universities/{university.id}"
+                                target="_blank"
+                                class="text-base-content link-accent text-base font-medium transition-colors"
+                              >
+                                {university.name}
+                              </a>
                               <div class="text-base-content/60 text-sm">
                                 {university.type} · {university.majorCategory} ·
                                 <span class="not-sm:hidden">
@@ -445,7 +464,12 @@
                         {:else}
                           <div class="p-3">
                             <div>
-                              <div class="text-base font-medium">{university.name}</div>
+                              <a
+                                href="{base}/universities/{university.id}"
+                                target="_blank"
+                                class="text-base-content link-accent text-base font-medium transition-colors"
+                                >{university.name}</a
+                              >
                               <div class="text-base-content/60 text-sm">
                                 {university.type} · {university.majorCategory} ·
                                 {m.campus_count({
@@ -491,7 +515,7 @@
                   id="mapPage"
                   frameborder="0"
                   bind:this={mapIframe}
-                  title="Map Location Picker"
+                  title={m.map_location_picker()}
                   class="h-[80vh] w-[75vw] min-w-full rounded-xl border sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
                   src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_QQMAP_KEY}&referer=nearcade"
                 >
@@ -518,6 +542,12 @@
     </div>
   </div>
   <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+    <FancyButton
+      href={GITHUB_LINK}
+      target="_blank"
+      class="fa-brands fa-github fa-lg"
+      text="GitHub"
+    />
     <SocialMediaModal
       name="QQ"
       class="fa-brands fa-qq fa-lg"

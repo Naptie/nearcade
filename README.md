@@ -48,7 +48,7 @@
 
 ### 后端和数据库
 
-- **MongoDB**：用于存储机厅和大学数据的非 SQL 数据库
+- **MongoDB**：用于存储机厅和高校数据的非 SQL 数据库
 - **服务端 API**：使用 SvelteKit 构建的 RESTful API 端点
 
 ### 地图和位置服务

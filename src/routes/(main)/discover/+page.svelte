@@ -21,6 +21,7 @@
     convertPath
   } from '$lib/utils';
   import { browser } from '$app/environment';
+  import { base } from '$app/paths';
   import RouteGuidance from '$lib/components/RouteGuidance.svelte';
   import {
     SELECTED_ROUTE_INDEX,
@@ -68,6 +69,62 @@
   });
   let cachedRoutes = $state<Record<string, CachedRouteData>>({}); // cacheKey -> cached route data
   let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
+
+  // Auto-discovery functionality
+  let user = $derived(data.session?.user);
+  let autoDiscoveryThreshold = $derived(user?.autoDiscoveryThreshold ?? 3); // Default to 3 clicks
+  let shopClickCounts = $state<Record<number, number>>({});
+
+  // Load shop click counts from localStorage on mount
+  $effect(() => {
+    if (browser) {
+      const newCounts: Record<number, number> = {};
+      data.shops.forEach((shop) => {
+        const stored = localStorage.getItem(`nearcade-shop-${shop.id}-count`);
+        if (stored) {
+          newCounts[shop.id] = parseInt(stored, 10) || 0;
+        }
+      });
+      shopClickCounts = newCounts;
+    }
+  });
+
+  // Function to handle shop interaction clicks (details/route buttons)
+  async function handleShopClick(shop: Shop) {
+    if (!browser || !user) return;
+
+    const currentCount = shopClickCounts[shop.id] || 0;
+    const newCount = currentCount + 1;
+
+    // Update localStorage and state
+    localStorage.setItem(`nearcade-shop-${shop.id}-count`, newCount.toString());
+    shopClickCounts = { ...shopClickCounts, [shop.id]: newCount };
+
+    // Check if threshold is reached and user isn't already frequenting this arcade
+    if (newCount >= autoDiscoveryThreshold && !user.frequentingArcades?.includes(shop.id)) {
+      try {
+        // Submit form to add arcade automatically
+        const formData = new FormData();
+        formData.append('arcadeId', shop.id.toString());
+
+        const response = await fetch(`${base}/settings/frequenting-arcades?/addArcade`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          // Reset click count for this shop since it's now been added
+          localStorage.removeItem(`nearcade-shop-${shop.id}-count`);
+          shopClickCounts = { ...shopClickCounts, [shop.id]: 0 };
+
+          // Optionally show a notification
+          console.log(`Auto-added ${shop.name} to your frequenting arcades!`);
+        }
+      } catch (error) {
+        console.error('Failed to auto-add arcade:', error);
+      }
+    }
+  }
 
   let avgTravelTime = $derived.by(() => {
     if (!transportMethod) return 0;
@@ -876,6 +933,7 @@
                     class="btn btn-ghost btn-sm text-nowrap"
                     href="https://map.bemanicn.com/shop/{shop.id}"
                     target="_blank"
+                    onclick={() => handleShopClick(shop)}
                   >
                     <i class="fas fa-info-circle"></i>
                     {m.details()}
@@ -885,6 +943,7 @@
                     href={getAMapLink(shop)}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onclick={() => handleShopClick(shop)}
                   >
                     <i class="fas fa-map-marked-alt"></i>
                     {m.route()}

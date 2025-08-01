@@ -2,6 +2,7 @@ import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
 import { MongoClient } from 'mongodb';
 import type { Shop } from '$lib/types';
+import type { Session } from '@auth/sveltekit';
 import { areValidCoordinates, calculateDistance } from '$lib/utils';
 
 let client: MongoClient | undefined;
@@ -12,7 +13,15 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-export const loadShops = async ({ url }: { url: URL }) => {
+export const loadShops = async ({
+  url,
+  parent
+}: {
+  url: URL;
+  parent: () => Promise<{ session: Session | null }>;
+}) => {
+  const { session } = await parent();
+
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
   const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
   if (!latParam || !lngParam) {
@@ -72,7 +81,8 @@ export const loadShops = async ({ url }: { url: URL }) => {
         latitude,
         longitude
       },
-      radius: radiusKm
+      radius: radiusKm,
+      session
     };
   } catch (err) {
     console.error('Error loading shops:', err);

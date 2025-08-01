@@ -1,5 +1,5 @@
-name: Sync Shops
-run-name: Synchronize shops data and trigger rankings update
+name: Update Shops and Stats
+run-name: Synchronize shops data and trigger stats update
 
 on:
   schedule:
@@ -59,7 +59,11 @@ jobs:
 
   trigger-rankings-update:
     needs: sync-shops
-    # This job calls the reusable workflow
     uses: ./.github/workflows/update-rankings.yml
+    secrets:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+  trigger-university-stats-update:
+    uses: ./.github/workflows/update-university-stats.yml
     secrets:
       MONGODB_URI: ${{ secrets.MONGODB_URI }}

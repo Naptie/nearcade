@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { page } from '$app/state';
   import { GITHUB_LINK } from '$lib';
   import Footer from '$lib/components/Footer.svelte';
@@ -32,6 +33,27 @@
           icon: 'fas fa-exclamation-triangle',
           color: 'text-warning'
         };
+      case 403:
+        return {
+          title: m.error_403_title(),
+          description: m.error_403_description(),
+          icon: 'fas fa-xmark-circle',
+          color: 'text-error'
+        };
+      case 401:
+        return {
+          title: m.error_401_title(),
+          description: m.error_401_description(),
+          icon: 'fas fa-lock',
+          color: 'text-warning'
+        };
+      case 410:
+        return {
+          title: m.error_410_title(),
+          description: m.error_410_description(),
+          icon: 'fas fa-trash',
+          color: 'text-error'
+        };
       default:
         return {
           title: m.error_unknown_title(),
@@ -45,7 +67,7 @@
   let errorContent = $derived(getErrorContent(status));
 
   const goHome = () => {
-    goto('/');
+    goto(`${base}/`);
   };
 
   const tryAgain = () => {
@@ -59,7 +81,7 @@
 </script>
 
 <svelte:head>
-  <title>{errorContent.title} - nearcade</title>
+  <title>{errorContent.title} - {m.app_name()}</title>
 </svelte:head>
 
 <div
@@ -106,12 +128,12 @@
           </button>
 
           <div class="flex gap-2">
-            <button class="btn btn-outline btn-secondary flex-1" onclick={tryAgain}>
+            <button class="btn btn-soft btn-secondary flex-1" onclick={tryAgain}>
               <i class="fas fa-refresh"></i>
               {m.try_again()}
             </button>
 
-            <button class="btn btn-outline btn-ghost flex-1" onclick={reportIssue}>
+            <button class="btn btn-soft btn-ghost flex-1" onclick={reportIssue}>
               <i class="fas fa-bug"></i>
               {m.report_issue()}
             </button>

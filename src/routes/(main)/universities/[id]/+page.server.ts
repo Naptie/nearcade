@@ -1,0 +1,687 @@
+import { error, fail } from '@sveltejs/kit';
+import { MONGODB_URI } from '$env/static/private';
+import { MongoClient } from 'mongodb';
+import type { PageServerLoad, Actions } from './$types';
+import type { University, Club, Campus } from '$lib/types';
+import { checkUniversityPermission, getUniversityMembersWithUserData } from '$lib/utils';
+import { PAGINATION } from '$lib/constants';
+import { logCampusChanges } from '$lib/changelog.server';
+import { nanoid } from 'nanoid';
+
+let client: MongoClient | undefined;
+let clientPromise: Promise<MongoClient>;
+
+if (!client) {
+  client = new MongoClient(MONGODB_URI);
+  clientPromise = client.connect();
+}
+
+export const load: PageServerLoad = async ({ params, parent }) => {
+  const { id } = params;
+
+  try {
+    const mongoClient = await clientPromise;
+    const db = mongoClient.db();
+    const universitiesCollection = db.collection('universities');
+    const membersCollection = db.collection('university_members');
+    const clubsCollection = db.collection('clubs');
+
+    // Try to find university by ID first, then by slug
+    let university = (await universitiesCollection.findOne({
+      id: id
+    })) as unknown as University | null;
+
+    if (!university) {
+      university = (await universitiesCollection.findOne({
+        slug: id
+      })) as unknown as University | null;
+    }
+
+    if (!university) {
+      throw error(404, 'University not found');
+    }
+
+    // Get member statistics and list with user data joined
+    const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
+    const members = await getUniversityMembersWithUserData(university.id, mongoClient, {
+      limit: PAGINATION.PAGE_SIZE,
+      sort: { joinedAt: -1 }
+    });
+
+    // Get clubs belonging to this university
+    const totalClubs = await clubsCollection.countDocuments({ universityId: university.id });
+    const clubs = (await clubsCollection
+      .find({ universityId: university.id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .toArray()) as unknown as Club[];
+
+    // Clean up club data
+    clubs.forEach((club) => {
+      club._id = club._id?.toString();
+    });
+
+    university._id = university._id?.toString();
+    university.studentsCount = totalMembers;
+
+    const parentData = await parent();
+    const user = parentData.session?.user;
+
+    // Check permissions for the current user
+    let userPermissions: { canEdit: boolean; canManage: boolean; role?: string } = {
+      canEdit: false,
+      canManage: false
+    };
+    if (user) {
+      userPermissions = await checkUniversityPermission(user.id!, university.id, mongoClient);
+    }
+
+    return {
+      university,
+      user,
+      userPermissions,
+      members,
+      clubs,
+      stats: {
+        totalMembers,
+        totalClubs,
+        clubsCount: university.clubsCount || 0,
+        frequentingArcadesCount:
+          (university.frequentingArcades && university.frequentingArcades.length) || 0
+      }
+    };
+  } catch (err) {
+    console.error('Error loading university:', err);
+    if (err && typeof err === 'object' && 'status' in err) {
+      throw err;
+    }
+    throw error(500, 'Failed to load university data');
+  }
+};
+
+export const actions: Actions = {
+  addCampus: async ({ request, locals }) => {
+    const user = (await locals.auth())?.user;
+    if (!user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const universityId = formData.get('universityId') as string;
+      const id = formData.get('id') as string;
+      const name = formData.get('name') as string;
+      const address = formData.get('address') as string;
+      const latitude = parseFloat(formData.get('latitude') as string);
+      const longitude = parseFloat(formData.get('longitude') as string);
+      const province = formData.get('province') as string;
+      const city = formData.get('city') as string;
+      const district = formData.get('district') as string;
+
+      const mongoClient = await clientPromise;
+
+      // Check permissions using new system
+      const permissions = await checkUniversityPermission(user.id!, universityId, mongoClient);
+      if (!permissions.canManage) {
+        return fail(403, { message: 'Insufficient privileges' });
+      }
+
+      if (!name || !address || !latitude || !longitude) {
+        return fail(400, { message: 'Missing required fields' });
+      }
+
+      const db = mongoClient.db();
+      const universitiesCollection = db.collection('universities');
+
+      const newCampus = {
+        id: id || nanoid(),
+        name,
+        address,
+        province,
+        city,
+        district,
+        location: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        },
+        createdAt: new Date(),
+        createdBy: user.id
+      };
+
+      await universitiesCollection.updateOne({ id: universityId }, {
+        $push: { campuses: newCampus }
+      } as object);
+
+      // Log campus addition to changelog
+      await logCampusChanges(mongoClient, universityId, 'campus_added', newCampus as Campus, {
+        id: user.id!,
+        name: user.name,
+        image: user.image
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('Error adding campus:', err);
+      return fail(500, { message: 'Failed to add campus' });
+    }
+  },
+
+  updateCampus: async ({ request, locals }) => {
+    const session = await locals.auth();
+    if (!session || !session.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    const user = session.user;
+
+    try {
+      const formData = await request.formData();
+      const universityId = formData.get('universityId') as string;
+      const campusId = formData.get('campusId') as string;
+      const name = formData.get('name') as string;
+      const address = formData.get('address') as string;
+      const latitude = parseFloat(formData.get('latitude') as string);
+      const longitude = parseFloat(formData.get('longitude') as string);
+      const province = formData.get('province') as string;
+      const city = formData.get('city') as string;
+      const district = formData.get('district') as string;
+
+      const mongoClient = await clientPromise;
+
+      // Check permissions using new system
+      const permissions = await checkUniversityPermission(user.id!, universityId, mongoClient);
+      if (!permissions.canEdit) {
+        return fail(403, { message: 'Insufficient privileges' });
+      }
+
+      if (!name || !address || !latitude || !longitude || !campusId) {
+        return fail(400, { message: 'Missing required fields' });
+      }
+
+      const db = mongoClient.db();
+      const universitiesCollection = db.collection('universities');
+
+      // Get current campus data for changelog comparison
+      const currentUniversity = await universitiesCollection.findOne(
+        { id: universityId },
+        { projection: { campuses: 1 } }
+      );
+      const currentCampus = currentUniversity?.campuses?.find((c: Campus) => c.id === campusId);
+
+      if (!currentCampus) {
+        return fail(404, { message: 'Campus not found' });
+      }
+
+      const updatedCampus: Campus = {
+        ...currentCampus,
+        name,
+        address,
+        province,
+        city,
+        district,
+        location: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        },
+        updatedAt: new Date(),
+        updatedBy: user.id
+      };
+
+      await universitiesCollection.updateOne(
+        { id: universityId, 'campuses.id': campusId },
+        {
+          $set: {
+            'campuses.$.name': name,
+            'campuses.$.address': address,
+            'campuses.$.province': province,
+            'campuses.$.city': city,
+            'campuses.$.district': district,
+            'campuses.$.location.type': 'Point',
+            'campuses.$.location.coordinates': [longitude, latitude],
+            'campuses.$.updatedAt': new Date(),
+            'campuses.$.updatedBy': user.id
+          }
+        }
+      );
+
+      // Log campus changes to changelog
+      await logCampusChanges(
+        mongoClient,
+        universityId,
+        'campus_updated',
+        updatedCampus,
+        {
+          id: user.id!,
+          name: user.name,
+          image: user.image
+        },
+        currentCampus
+      );
+
+      return { success: true };
+    } catch (err) {
+      console.error('Error updating campus:', err);
+      return fail(500, { message: 'Failed to update campus' });
+    }
+  },
+
+  deleteCampus: async ({ request, locals }) => {
+    const session = await locals.auth();
+    if (!session || !session.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    const user = session.user;
+
+    try {
+      const formData = await request.formData();
+      const universityId = formData.get('universityId') as string;
+      const campusId = formData.get('campusId') as string;
+
+      const mongoClient = await clientPromise;
+
+      // Check permissions using new system - only managers can delete
+      const permissions = await checkUniversityPermission(user.id!, universityId, mongoClient);
+      if (!permissions.canManage) {
+        return fail(403, { message: 'Insufficient privileges' });
+      }
+
+      if (!campusId) {
+        return fail(400, { message: 'Campus ID is required' });
+      }
+
+      const db = mongoClient.db();
+      const universitiesCollection = db.collection('universities');
+
+      // Check if this is the last campus
+      const university = await universitiesCollection.findOne({ id: universityId });
+      if (!university || university.campuses.length <= 1) {
+        return fail(400, { message: 'Cannot delete the last campus' });
+      }
+
+      // Get campus data before deletion for changelog
+      const campusToDelete = university.campuses.find((c: Campus) => c.id === campusId);
+      if (!campusToDelete) {
+        return fail(404, { message: 'Campus not found' });
+      }
+
+      await universitiesCollection.updateOne({ id: universityId }, {
+        $pull: { campuses: { id: campusId } }
+      } as object);
+
+      // Log campus deletion to changelog
+      await logCampusChanges(mongoClient, universityId, 'campus_deleted', campusToDelete, {
+        id: user.id!,
+        name: user.name,
+        image: user.image
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('Error deleting campus:', err);
+      return fail(500, { message: 'Failed to delete campus' });
+    }
+  },
+
+  inviteMember: async ({ request, locals }) => {
+    const session = await locals.auth();
+    if (!session || !session.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    const user = session.user;
+
+    try {
+      const formData = await request.formData();
+      const universityId = formData.get('universityId') as string;
+      const email = formData.get('email') as string;
+      const memberType = formData.get('memberType') as string;
+
+      const mongoClient = await clientPromise;
+
+      // Check permissions using new system - only managers can invite
+      const permissions = await checkUniversityPermission(user.id!, universityId, mongoClient);
+      if (!permissions.canManage) {
+        return fail(403, { message: 'Insufficient privileges' });
+      }
+
+      if (!email || !memberType) {
+        return fail(400, { message: 'Email and member type are required' });
+      }
+
+      // Validate member type
+      if (!['student', 'moderator', 'admin'].includes(memberType)) {
+        return fail(400, { message: 'Invalid member type' });
+      }
+
+      const db = mongoClient.db();
+      const usersCollection = db.collection('users');
+      const universityMembersCollection = db.collection('university_members');
+
+      // Find user by email
+      const targetUser = await usersCollection.findOne({ email });
+      if (!targetUser) {
+        return fail(400, { message: 'User not found' });
+      }
+
+      // Check if already a member
+      const existingMembership = await universityMembersCollection.findOne({
+        userId: targetUser.id, // Use the user's id field, not _id
+        universityId
+      });
+
+      if (existingMembership) {
+        return fail(400, { message: 'User is already a member' });
+      }
+
+      // Create membership
+      const newMembership = {
+        universityId,
+        userId: targetUser.id, // Use the user's id field, not _id
+        memberType,
+        joinedAt: new Date()
+      };
+
+      await universityMembersCollection.insertOne(newMembership);
+
+      // Update user type based on new role
+      // This will be handled by the updateUserType function
+      // For now, we'll do a simplified update
+      if (memberType === 'admin') {
+        await usersCollection.updateOne(
+          { id: targetUser.id }, // Use id field instead of _id
+          { $set: { userType: 'school_admin', universityId } }
+        );
+      } else if (memberType === 'moderator') {
+        await usersCollection.updateOne(
+          { id: targetUser.id }, // Use id field instead of _id
+          { $set: { userType: 'school_moderator', universityId } }
+        );
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error('Error inviting member:', err);
+      return fail(500, { message: 'Failed to invite member' });
+    }
+  },
+
+  removeMember: async ({ locals, request }) => {
+    const session = await locals.auth();
+    if (!session?.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const targetUserId = formData.get('userId') as string;
+      const universityId = formData.get('universityId') as string;
+
+      if (!targetUserId || !universityId) {
+        return fail(400, { message: 'User ID and University ID are required' });
+      }
+
+      const mongoClient = await clientPromise;
+
+      // Check permissions
+      const permissions = await checkUniversityPermission(
+        session.user.id!,
+        universityId,
+        mongoClient
+      );
+      if (!permissions.canEdit) {
+        return fail(403, { message: 'Insufficient permissions' });
+      }
+
+      // Verify target user is not admin/moderator if requester is not admin
+      if (!permissions.canManage) {
+        const db = mongoClient.db();
+        const membersCollection = db.collection('university_members');
+        const targetMember = await membersCollection.findOne({
+          universityId,
+          userId: targetUserId
+        });
+
+        if (targetMember && ['admin', 'moderator'].includes(targetMember.memberType)) {
+          return fail(403, { message: 'Cannot remove admin or moderator members' });
+        }
+      }
+
+      const db = mongoClient.db();
+      const membersCollection = db.collection('university_members');
+      const usersCollection = db.collection('users');
+
+      // Remove membership
+      await membersCollection.deleteOne({
+        universityId,
+        userId: targetUserId
+      });
+
+      // Update user type back to regular student
+      await usersCollection.updateOne(
+        { id: targetUserId },
+        { $set: { userType: 'student' }, $unset: { universityId: '' } }
+      );
+
+      return { success: true, message: 'Member removed successfully' };
+    } catch (err) {
+      console.error('Error removing member:', err);
+      return fail(500, { message: 'Failed to remove member' });
+    }
+  },
+
+  grantModerator: async ({ locals, request }) => {
+    const session = await locals.auth();
+    if (!session?.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const targetUserId = formData.get('userId') as string;
+      const universityId = formData.get('universityId') as string;
+
+      if (!targetUserId || !universityId) {
+        return fail(400, { message: 'User ID and University ID are required' });
+      }
+
+      const mongoClient = await clientPromise;
+
+      // Only admins can grant moderator roles
+      const permissions = await checkUniversityPermission(
+        session.user.id!,
+        universityId,
+        mongoClient
+      );
+      if (!permissions.canManage) {
+        return fail(403, { message: 'Only admins can grant moderator roles' });
+      }
+
+      const db = mongoClient.db();
+      const membersCollection = db.collection('university_members');
+      const usersCollection = db.collection('users');
+
+      // Update membership type
+      await membersCollection.updateOne(
+        { universityId, userId: targetUserId },
+        { $set: { memberType: 'moderator' } }
+      );
+
+      // Update user type
+      await usersCollection.updateOne(
+        { id: targetUserId },
+        { $set: { userType: 'school_moderator', universityId } }
+      );
+
+      return { success: true, message: 'Moderator role granted successfully' };
+    } catch (err) {
+      console.error('Error granting moderator:', err);
+      return fail(500, { message: 'Failed to grant moderator role' });
+    }
+  },
+
+  revokeModerator: async ({ locals, request }) => {
+    const session = await locals.auth();
+    if (!session?.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const targetUserId = formData.get('userId') as string;
+      const universityId = formData.get('universityId') as string;
+
+      if (!targetUserId || !universityId) {
+        return fail(400, { message: 'User ID and University ID are required' });
+      }
+
+      const mongoClient = await clientPromise;
+
+      // Only admins can revoke moderator roles
+      const permissions = await checkUniversityPermission(
+        session.user.id!,
+        universityId,
+        mongoClient
+      );
+      if (!permissions.canManage) {
+        return fail(403, { message: 'Only admins can revoke moderator roles' });
+      }
+
+      const db = mongoClient.db();
+      const membersCollection = db.collection('university_members');
+      const usersCollection = db.collection('users');
+
+      // Update membership type
+      await membersCollection.updateOne(
+        { universityId, userId: targetUserId },
+        { $set: { memberType: 'student' } }
+      );
+
+      // Update user type
+      await usersCollection.updateOne(
+        { id: targetUserId },
+        { $set: { userType: 'student', universityId } }
+      );
+
+      return { success: true, message: 'Moderator role revoked successfully' };
+    } catch (err) {
+      console.error('Error revoking moderator:', err);
+      return fail(500, { message: 'Failed to revoke moderator role' });
+    }
+  },
+
+  grantAdmin: async ({ locals, request }) => {
+    const session = await locals.auth();
+    if (!session?.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const targetUserId = formData.get('userId') as string;
+      const universityId = formData.get('universityId') as string;
+
+      if (!targetUserId || !universityId) {
+        return fail(400, { message: 'User ID and University ID are required' });
+      }
+
+      const mongoClient = await clientPromise;
+
+      // Check if current user is a site admin (site admins can grant admin without losing their status)
+      const db = mongoClient.db();
+      const usersCollection = db.collection('users');
+      const currentUser = await usersCollection.findOne({ id: session.user.id });
+
+      if (currentUser?.userType !== 'site_admin') {
+        return fail(403, { message: 'Only site admins can grant admin privileges' });
+      }
+
+      const membersCollection = db.collection('university_members');
+
+      // Promote target user to admin (without demoting current user)
+      await membersCollection.updateOne(
+        { universityId, userId: targetUserId },
+        { $set: { memberType: 'admin' } }
+      );
+
+      await usersCollection.updateOne(
+        { id: targetUserId },
+        { $set: { userType: 'school_admin', universityId } }
+      );
+
+      return { success: true, message: 'Admin privileges granted successfully' };
+    } catch (err) {
+      console.error('Error granting admin:', err);
+      return fail(500, { message: 'Failed to grant admin privileges' });
+    }
+  },
+
+  transferAdmin: async ({ locals, request }) => {
+    const session = await locals.auth();
+    if (!session?.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const targetUserId = formData.get('userId') as string;
+      const universityId = formData.get('universityId') as string;
+
+      if (!targetUserId || !universityId) {
+        return fail(400, { message: 'User ID and University ID are required' });
+      }
+
+      const mongoClient = await clientPromise;
+
+      // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
+      const permissions = await checkUniversityPermission(
+        session.user.id!,
+        universityId,
+        mongoClient
+      );
+      if (!permissions.canManage) {
+        return fail(403, { message: 'Only admins can transfer admin privileges' });
+      }
+
+      // Check if current user is a site admin (they should use grantAdmin instead)
+      const db = mongoClient.db();
+      const usersCollection = db.collection('users');
+      const currentUser = await usersCollection.findOne({ id: session.user.id });
+
+      if (currentUser?.userType === 'site_admin') {
+        return fail(403, {
+          message: 'Site admins should use grant admin instead of transfer admin'
+        });
+      }
+
+      const membersCollection = db.collection('university_members');
+
+      // Demote current admin to moderator
+      await membersCollection.updateOne(
+        { universityId, userId: session.user.id },
+        { $set: { memberType: 'moderator' } }
+      );
+
+      await usersCollection.updateOne(
+        { id: session.user.id },
+        { $set: { userType: 'school_moderator', universityId } }
+      );
+
+      // Promote target user to admin
+      await membersCollection.updateOne(
+        { universityId, userId: targetUserId },
+        { $set: { memberType: 'admin' } }
+      );
+
+      await usersCollection.updateOne(
+        { id: targetUserId },
+        { $set: { userType: 'school_admin', universityId } }
+      );
+
+      return { success: true, message: 'Admin privileges transferred successfully' };
+    } catch (err) {
+      console.error('Error transferring admin:', err);
+      return fail(500, { message: 'Failed to transfer admin privileges' });
+    }
+  }
+};

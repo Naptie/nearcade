@@ -11,3 +11,7 @@
 body {
   font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
 }
+
+.label-text-alt {
+  @apply text-xs;
+}

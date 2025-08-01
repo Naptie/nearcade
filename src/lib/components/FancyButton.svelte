@@ -1,6 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { preloadCode, preloadData } from '$app/navigation';
+  import { m } from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -143,7 +144,7 @@
     <div bind:this={iconElement} class="avatar icon {image ? '' : 'avatar-placeholder'}">
       <div class="w-5 lg:w-7 {klass} {image ? '' : 'bg-neutral text-neutral-content'}">
         {#if image}
-          <img src={image} alt="Icon" />
+          <img src={image} alt={m.icon()} />
         {:else if text}
           <span class="text-xs lg:text-sm">{text.trim()[0]}</span>
         {/if}
@@ -166,11 +167,15 @@
 
   .adaptive {
     width: var(--collapsed-width);
-    transition: width 0.2s ease-out;
+    transition:
+      width 0.15s ease-out,
+      color 0.2s cubic-bezier(0, 0, 0.2, 1),
+      background-color 0.2s cubic-bezier(0, 0, 0.2, 1),
+      border-color 0.2s cubic-bezier(0, 0, 0.2, 1);
   }
 
   .icon {
-    @apply z-2 transition-transform duration-200 ease-out;
+    @apply z-2 transition-transform duration-150 ease-out;
   }
 
   .content {

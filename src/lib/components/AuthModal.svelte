@@ -4,12 +4,14 @@
   import { page } from '$app/state';
   import { signOut } from '@auth/sveltekit/client';
   import { base } from '$app/paths';
+  import { isAdminOrModerator } from '$lib/utils';
 
   interface Props {
     size?: string;
+    class?: string;
   }
 
-  let { size = 'lg' }: Props = $props();
+  let { size = 'lg', class: klass = '' }: Props = $props();
 
   let session = $derived(page.data.session);
   let open = $state(false);
@@ -17,7 +19,6 @@
 
   const providers = [
     { name: 'QQ', icon: 'fa-qq' },
-    { name: 'Apple', id: 'apple', icon: 'fa-apple' },
     { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
     { name: 'GitHub', icon: 'fa-github' },
     {
@@ -29,6 +30,11 @@
       name: 'osu!',
       icon: 'osu.svg',
       class: 'hover:bg-[#DA5892] hover:text-white'
+    },
+    {
+      name: 'Phira',
+      icon: 'phira.png',
+      class: 'hover:bg-[#4479F4] hover:text-white'
     }
   ].map((provider) => ({
     ...provider,
@@ -57,7 +63,7 @@
     callback={() => {
       dialogElement?.showModal();
     }}
-    class="fa-solid fa-user fa-{size}"
+    class="fa-solid fa-user fa-{size} {klass}"
     text={m.sign_in()}
   />
 
@@ -73,7 +79,7 @@
         onclick={() => {
           dialogElement?.close();
         }}
-        aria-label="Close modal"
+        aria-label={m.close_modal()}
       >
         <i class="fa-solid fa-xmark fa-lg"></i>
       </button>
@@ -82,7 +88,7 @@
         <h3 class="mb-4 text-lg font-bold">{m.sign_in()}</h3>
         <div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
           {#each providers as provider (provider.id)}
-            <form method="POST" action="/session/signin">
+            <form method="POST" action="{base}/session/signin">
               <input type="hidden" name="providerId" value={provider.id} />
               <button
                 type="submit"
@@ -91,7 +97,11 @@
                 {#if provider.icon.startsWith('fa-')}
                   <i class="fa-brands fa-lg {provider.icon}"></i>
                 {:else}
-                  <img src="{base}/{provider.icon}" alt="{provider.name} Logo" class="h-5 w-5" />
+                  <img
+                    src="{base}/{provider.icon}"
+                    alt="{provider.name} {m.provider_logo()}"
+                    class="h-5 w-5 rounded-full"
+                  />
                 {/if}
                 <p class="not-sm:hidden">{m.sign_in_with({ provider: provider.name })}</p>
                 <p class="not-2xs:hidden sm:hidden">{provider.name}</p>
@@ -115,7 +125,7 @@
     }}
   >
     <FancyButton
-      class="rounded-full"
+      class="rounded-full {klass}"
       image={session.user?.image || ''}
       text={session.user.name || ''}
       callback={() => {
@@ -125,6 +135,20 @@
     {#if open}
       <ul class="dropdown-content menu bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg">
         <li>
+          <a href="{base}/users/{session.user.id}" class="flex items-center gap-2">
+            <i class="fa-solid fa-user"></i>
+            {m.my_profile()}
+          </a>
+          {#if isAdminOrModerator(session.user)}
+            <a href="{base}/admin" class="flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved"></i>
+              {m.admin_panel()}
+            </a>
+          {/if}
+          <a href="{base}/settings" class="flex items-center gap-2">
+            <i class="fa-solid fa-gear"></i>
+            {m.settings()}
+          </a>
           <button
             class="inline-flex items-center gap-2"
             onclick={() => {

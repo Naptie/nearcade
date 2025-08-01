@@ -21,8 +21,12 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 
 const handleHeaders: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET');
+  try {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET');
+  } catch {
+    // Intentionally ignore errors when setting headers
+  }
   return response;
 };
 

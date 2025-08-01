@@ -31,12 +31,17 @@ export interface Campus {
   district: string;
   address: string;
   location: Location;
+  createdAt?: Date;
+  updatedAt?: Date;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface University {
   _id?: string;
   id: string;
   name: string;
+  slug?: string | null; // Customizable URL slug
   type: string;
   majorCategory: string | null;
   natureOfRunning: string | null;
@@ -45,6 +50,18 @@ export interface University {
   is211: boolean | null;
   isDoubleFirstClass: boolean | null;
   campuses: Campus[];
+  // Customization fields
+  backgroundColor?: string | null; // Hex color code
+  avatarUrl?: string | null; // University avatar/logo URL
+  description?: string | null; // University description
+  website?: string | null; // Official website
+  // Stats (calculated fields)
+  studentsCount?: number;
+  frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
+  clubsCount?: number;
+  // Timestamps
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface AMapContext {
@@ -113,6 +130,217 @@ export type SortCriteria =
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
+
+// Discussion permission enums
+export enum DiscussionReadability {
+  PUBLIC = 0, // Anyone can read
+  UNIV_MEMBERS = 1, // Only university members can read
+  CLUB_MEMBERS = 2 // Only club members can read
+}
+
+export enum DiscussionWritability {
+  UNIV_MEMBERS = 0, // All university members can write
+  CLUB_MEMBERS = 1, // Only club members can write
+  ADMIN_AND_MODS = 2 // Only admins and moderators can write
+}
+
+// User types and roles
+export type UserType =
+  | 'student'
+  | 'school_moderator'
+  | 'school_admin'
+  | 'club_admin'
+  | 'club_moderator'
+  | 'site_admin';
+
+export interface Club {
+  _id?: string;
+  id: string;
+  universityId: string;
+  name: string;
+  slug?: string | null; // Customizable URL slug
+  description?: string | null;
+  avatarUrl?: string | null;
+  backgroundColor?: string | null;
+  website?: string | null;
+  // Settings
+  acceptJoinRequests: boolean;
+  discussionReadability: DiscussionReadability;
+  discussionWritability: DiscussionWritability;
+  // Stats
+  membersCount?: number;
+  // Starred arcades (shop IDs)
+  starredArcades: string[];
+  // Timestamps
+  createdAt?: Date;
+  updatedAt?: Date;
+  createdBy?: string; // User ID of creator
+}
+
+export interface ClubMember {
+  _id?: string;
+  id: string;
+  clubId: string;
+  userId: string;
+  memberType: 'member' | 'moderator' | 'admin';
+  joinedAt: Date;
+  invitedBy?: string | null; // User ID of who invited them
+}
+
+// Composite type with user data joined
+export interface ClubMemberWithUser extends ClubMember {
+  user: {
+    _id: string;
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+}
+
+export interface InviteLink {
+  _id?: string;
+  id: string;
+  code: string; // Unique invite code
+  type: 'university' | 'club';
+  targetId: string; // University ID or Club ID
+  createdBy: string; // User ID of creator
+  title?: string | null; // Display title for the invite
+  description?: string | null;
+  // Usage limits
+  maxUses?: number | null; // null means unlimited
+  currentUses: number;
+  expiresAt?: Date | null; // null means no expiration
+  // Settings
+  requireApproval: boolean; // Require admin approval after using invite
+  // Status
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface UniversityMember {
+  _id?: string;
+  id: string;
+  universityId: string;
+  userId: string;
+  memberType: 'student' | 'moderator' | 'admin';
+  joinedAt: Date;
+}
+
+// Composite type with user data joined
+export interface UniversityMemberWithUser extends UniversityMember {
+  user: {
+    _id: string;
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+}
+
+export interface JoinRequest {
+  _id?: string;
+  id: string;
+  type: 'university' | 'club';
+  targetId: string; // University ID or Club ID
+  userId: string;
+  requestMessage?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: Date;
+  reviewedAt?: Date | null;
+  reviewedBy?: string | null; // User ID of reviewer
+  reviewNote?: string | null;
+}
+
+// Composite type with user data joined
+export interface JoinRequestWithUser extends JoinRequest {
+  user: {
+    _id: string;
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+}
+
+export interface Discussion {
+  _id?: string;
+  id: string;
+  type: 'university' | 'club';
+  targetId: string; // University ID or Club ID
+  title: string;
+  content: string;
+  authorId: string;
+  authorName?: string | null;
+  authorImage?: string | null;
+  isPinned: boolean;
+  isLocked: boolean;
+  replyCount: number;
+  lastReplyAt?: Date | null;
+  lastReplyBy?: string | null;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface DiscussionReply {
+  _id?: string;
+  id: string;
+  discussionId: string;
+  content: string;
+  authorId: string;
+  authorName?: string | null;
+  authorImage?: string | null;
+  replyToId?: string | null; // ID of reply being replied to
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface Announcement {
+  _id?: string;
+  id: string;
+  type: 'university' | 'club';
+  targetId: string; // University ID or Club ID
+  title: string;
+  content: string;
+  authorId: string;
+  authorName?: string | null;
+  authorImage?: string | null;
+  isPinned: boolean;
+  isImportant: boolean; // For highlighting important announcements
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface ChangelogEntry {
+  _id?: string;
+  id: string;
+  type: 'university' | 'club';
+  targetId: string; // University ID or Club ID
+  action: 'created' | 'modified' | 'deleted' | 'campus_added' | 'campus_updated' | 'campus_deleted';
+  // Structured field information for internationalization
+  fieldInfo: {
+    field: string; // Field name in English (e.g., 'name', 'description', 'campus.address')
+    campusId?: string | null; // If this is a campus field change
+    campusName?: string | null; // Campus name for display
+  };
+  oldValue?: string | null;
+  newValue?: string | null;
+  // Additional metadata for complex changes
+  metadata?: {
+    [key: string]: string | number | boolean | null;
+  };
+  userId: string; // Who made the change
+  userName?: string | null;
+  userImage?: string | null;
+  createdAt: Date;
+}
 
 export * from './amap';
 import type { TransportSearchResult } from './amap';
