@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   try {
     const mongoClient = await clientPromise;
     const db = mongoClient.db();
-    const universitiesCollection = db.collection('universities');
+    const universitiesCollection = db.collection<University>('universities');
 
     let universities: University[];
     let totalCount: number;
@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       totalCount = await universitiesCollection.countDocuments();
       universities = (await universitiesCollection
         .find({})
-        .sort({ name: 1 })
+        .sort({ studentsCount: -1, clubsCount: -1, name: 1 })
         .skip(skip)
         .limit(limit)
         .toArray()) as unknown as University[];
@@ -66,6 +66,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
                 }
               }
             },
+            { $sort: { score: { $meta: 'searchScore' }, studentsCount: -1, clubsCount: -1 } },
             { $skip: skip },
             { $limit: limit }
           ])
@@ -82,7 +83,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         totalCount = await universitiesCollection.countDocuments(searchQuery);
         searchResults = (await universitiesCollection
           .find(searchQuery)
-          .sort({ name: 1 })
+          .sort({ studentsCount: -1, clubsCount: -1 })
           .skip(skip)
           .limit(limit)
           .toArray()) as unknown as University[];

@@ -124,7 +124,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       totalCount = await clubsCollection.countDocuments(baseFilter);
       clubs = (await clubsCollection
         .find(baseFilter)
-        .sort({ name: 1 })
+        .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limit)
         .toArray()) as (Club & { universityName?: string; universityAvatarUrl?: string | null })[];
