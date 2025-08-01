@@ -153,11 +153,15 @@
                           district: mainCampus.district
                         })}
                       {:else}
-                        {@const addressCounts = new Map()}
-                        {#each university.campuses as campus (campus.id)}
-                          {@const key = `${campus.province}-${campus.city}-${campus.district}`}
-                          {addressCounts.set(key, (addressCounts.get(key) || 0) + 1)}
-                        {/each}
+                        {@const addressCounts = university.campuses.reduce(
+                          (map, campus) =>
+                            map.set(
+                              `${campus.province}-${campus.city}-${campus.district}`,
+                              (map.get(`${campus.province}-${campus.city}-${campus.district}`) ||
+                                0) + 1
+                            ),
+                          new Map()
+                        )}
                         {#if addressCounts.size > 0}
                           {@const mostCommonEntry = Array.from(addressCounts.entries()).reduce(
                             (max, current) => (current[1] > max[1] ? current : max)
