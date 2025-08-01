@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-    import { invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import type { PageData, ActionData } from './$types';
 
