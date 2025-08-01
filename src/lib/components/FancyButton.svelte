@@ -1,30 +1,31 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { preloadCode, preloadData } from '$app/navigation';
+  import { m } from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
 
   interface Props {
-    class: string;
+    class?: string;
     btnCls?: string;
     href?: string;
     target?: string;
     text?: string;
+    image?: string;
     content?: () => ReturnType<import('svelte').Snippet>;
     callback?: () => void;
   }
 
-  let { content, text, class: klass, btnCls, href, target, callback }: Props = $props();
+  let { image, content, text, class: klass = '', btnCls, href, target, callback }: Props = $props();
 
   let buttonElement: HTMLElement;
-  let iconElement: HTMLElement;
+  let iconElement: HTMLElement | undefined = $state(undefined);
   let contentElement: HTMLElement;
+  let lastMeasured = $state(0);
 
-  // No need for collapsedWidth, expandedWidth, etc. to be state.
-  // We can set them directly as CSS custom properties.
-
-  // --- REFACTORED MEASUREMENT LOGIC ---
   const measureButtonDimensions = () => {
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
+    if (Date.now() - lastMeasured < 1000) return;
+    lastMeasured = Date.now();
 
     const buttonHeight = buttonElement.offsetHeight;
     const collapsedWidth = `${buttonHeight}px`;
@@ -58,11 +59,12 @@
     const gap = 8; // Gap between icon and content
     const totalContentWidth = iconWidth + gap + contentWidth;
     const buttonCenter = fullWidth / 2;
-    const contentStart = buttonCenter - totalContentWidth / 2;
+    const startPosition = buttonCenter - totalContentWidth / 2;
 
-    const iconTranslateX = `${contentStart - buttonCenter + iconWidth / 2}px`;
-    const contentFinalPosition = contentStart + iconWidth + gap;
-    // The content is already centered by `left: 50%`, so we calculate its offset from that center.
+    const iconTranslateX = image
+      ? `${buttonHeight / 2 - buttonCenter}px`
+      : `${startPosition - buttonCenter + iconWidth / 2}px`;
+    const contentFinalPosition = image ? buttonHeight : startPosition + iconWidth + gap;
     const contentTranslateX = `${contentFinalPosition - buttonCenter}px`;
 
     // Set the calculated values as CSS custom properties
@@ -127,7 +129,9 @@
   bind:this={buttonElement}
   {href}
   {target}
-  class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {btnCls}"
+  class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
+    ? 'px-2'
+    : ''} {btnCls}"
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
   onclick={() => {
@@ -136,7 +140,19 @@
     }
   }}
 >
-  <i bind:this={iconElement} class="icon {klass}"></i>
+  {#if image || !klass.includes('fa-')}
+    <div bind:this={iconElement} class="avatar icon {image ? '' : 'avatar-placeholder'}">
+      <div class="w-5 lg:w-7 {klass} {image ? '' : 'bg-neutral text-neutral-content'}">
+        {#if image}
+          <img src={image} alt={m.icon()} />
+        {:else if text}
+          <span class="text-xs lg:text-sm">{text.trim()[0]}</span>
+        {/if}
+      </div>
+    </div>
+  {:else}
+    <i bind:this={iconElement} class="icon {klass}"></i>
+  {/if}
   <div bind:this={contentElement} class="content">
     {#if content}
       {@render content()}
@@ -151,11 +167,15 @@
 
   .adaptive {
     width: var(--collapsed-width);
-    transition: width 0.2s ease-out;
+    transition:
+      width 0.15s ease-out,
+      color 0.2s cubic-bezier(0, 0, 0.2, 1),
+      background-color 0.2s cubic-bezier(0, 0, 0.2, 1),
+      border-color 0.2s cubic-bezier(0, 0, 0.2, 1);
   }
 
   .icon {
-    @apply relative z-2 transition-transform duration-200 ease-out;
+    @apply z-2 transition-transform duration-150 ease-out;
   }
 
   .content {

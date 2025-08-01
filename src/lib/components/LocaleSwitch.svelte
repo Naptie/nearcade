@@ -3,6 +3,8 @@
   import { getLocale, locales, setLocale } from '$lib/paraglide/runtime';
   import FancyButton from './FancyButton.svelte';
 
+  let { class: klass = '' } = $props();
+
   let open = $state(false);
 </script>
 
@@ -19,7 +21,7 @@
 >
   {#snippet content()}
     <div class="flex items-center gap-2">
-      <span>{m.name()}</span>
+      <span>{m.locale_name()}</span>
       <i
         class="fa-solid fa-chevron-down fa-xs transition-transform ease-out"
         class:rotate-180={open}
@@ -27,7 +29,7 @@
     </div>
   {/snippet}
   <FancyButton
-    class="fa-solid fa-language fa-lg"
+    class="fa-solid fa-language fa-lg {klass}"
     btnCls="gap-2"
     {content}
     callback={() => {
@@ -46,7 +48,7 @@
               open = false;
             }}
           >
-            {m.name(undefined, { locale })}
+            {m.locale_name(undefined, { locale })}
             {#if getLocale() === locale}
               <i class="fa-solid fa-check text-primary"></i>
             {/if}

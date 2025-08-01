@@ -43,7 +43,7 @@
     <button
       class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
       onclick={onClose}
-      aria-label="Close modal"
+      aria-label={m.close_modal()}
     >
       <i class="fa-solid fa-xmark fa-lg"></i>
     </button>
@@ -58,7 +58,7 @@
       <div class="mb-6 flex justify-center">
         <img
           src="/donate-wechat.png"
-          alt="WeChat Donation QR Code"
+          alt={m.wechat_donation_qr()}
           class="max-h-[50vh] w-fit rounded-xl object-contain shadow-lg"
         />
       </div>

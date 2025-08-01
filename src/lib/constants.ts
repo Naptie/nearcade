@@ -12,7 +12,7 @@ export const RADIUS_OPTIONS = [1, 2, 5, 10] as const;
 
 // Pagination constants
 export const PAGINATION = {
-  PAGE_SIZE: 50,
+  PAGE_SIZE: 48,
   SCROLL_THRESHOLD: 300 // pixels from bottom to trigger load more
 } as const;
 
