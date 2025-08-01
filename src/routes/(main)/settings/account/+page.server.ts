@@ -159,6 +159,9 @@ export const actions: Actions = {
       const usersCollection = db.collection('users');
       const accountsCollection = db.collection('accounts');
       const sessionsCollection = db.collection('sessions');
+      const universityMembersCollection = db.collection('university_members');
+      const clubMembersCollection = db.collection('club_members');
+      const joinRequestsCollection = db.collection('join_requests');
 
       // Delete user profile
       await usersCollection.deleteOne({ id: user.id });
@@ -168,6 +171,15 @@ export const actions: Actions = {
 
       // Delete sessions
       await sessionsCollection.deleteMany({ userId: user.id });
+
+      // Delete university memberships
+      await universityMembersCollection.deleteMany({ userId: user.id });
+
+      // Delete club memberships
+      await clubMembersCollection.deleteMany({ userId: user.id });
+
+      // Delete join requests
+      await joinRequestsCollection.deleteMany({ userId: user.id });
 
       return { success: true, message: 'Account deleted successfully' };
     } catch (err) {
