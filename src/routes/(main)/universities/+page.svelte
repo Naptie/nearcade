@@ -108,13 +108,14 @@
                   </h3>
                   <div class="mt-1 flex flex-wrap gap-1">
                     {#if university.is985}
-                      <span class="badge badge-primary badge-xs">{m.badge_985()}</span>
+                      <span class="badge badge-soft badge-primary badge-xs">{m.badge_985()}</span>
                     {/if}
                     {#if university.is211}
-                      <span class="badge badge-secondary badge-xs">{m.badge_211()}</span>
+                      <span class="badge badge-soft badge-secondary badge-xs">{m.badge_211()}</span>
                     {/if}
                     {#if university.isDoubleFirstClass}
-                      <span class="badge badge-accent badge-xs">{m.badge_double_first_class()}</span
+                      <span class="badge badge-soft badge-accent badge-xs"
+                        >{m.badge_double_first_class()}</span
                       >
                     {/if}
                   </div>
