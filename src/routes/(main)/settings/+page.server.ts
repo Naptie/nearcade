@@ -50,10 +50,6 @@ export const actions: Actions = {
       const isEmailPublic = formData.get('isEmailPublic') === 'on';
       const isUniversityPublic = formData.get('isUniversityPublic') === 'on';
 
-      if (!displayName?.trim()) {
-        return fail(400, { message: 'Display name is required' });
-      }
-
       // If username is provided, validate it
       if (username && username !== user.name) {
         // Validate username format
@@ -83,14 +79,14 @@ export const actions: Actions = {
       const usersCollection = db.collection('users');
 
       const updateData: {
-        displayName: string;
+        displayName?: string;
         bio: string;
         isEmailPublic: boolean;
         isUniversityPublic: boolean;
         updatedAt: Date;
         name?: string;
       } = {
-        displayName: displayName.trim(),
+        displayName: displayName.trim() || undefined,
         bio: bio.trim(),
         isEmailPublic,
         isUniversityPublic,

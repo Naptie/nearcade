@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+    import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import type { PageData, ActionData } from './$types';
 
@@ -14,19 +15,6 @@
   let username = $state(data.userProfile?.name || '');
   let isEmailPublic = $state(data.userProfile?.isEmailPublic || false);
   let isUniversityPublic = $state(data.userProfile?.isUniversityPublic !== false);
-
-  function handleSubmit() {
-    return async ({ result }: { result: import('@sveltejs/kit').ActionResult }) => {
-      isSubmitting = false;
-
-      if (result.type === 'success') {
-        showSuccess = true;
-        setTimeout(() => {
-          showSuccess = false;
-        }, 3000);
-      }
-    };
-  }
 </script>
 
 <div class="space-y-6">
@@ -89,7 +77,21 @@
   <form
     method="POST"
     action="?/updateProfile"
-    use:enhance={handleSubmit}
+    use:enhance={() => {
+      isSubmitting = true;
+
+      return async ({ result }) => {
+        isSubmitting = false;
+
+        if (result.type === 'success') {
+          showSuccess = true;
+          invalidateAll();
+          setTimeout(() => {
+            showSuccess = false;
+          }, 3000);
+        }
+      };
+    }}
     class="bg-base-100 space-y-6 rounded-lg p-6"
   >
     <h3 class="text-lg font-semibold">{m.profile_information()}</h3>
@@ -106,7 +108,6 @@
         bind:value={displayName}
         placeholder={m.enter_your_display_name()}
         class="input input-bordered w-full"
-        required
         maxlength="50"
       />
       <div class="label">
@@ -128,9 +129,10 @@
         bind:value={username}
         placeholder={m.username()}
         class="input input-bordered w-full"
-        pattern="[A-Za-z0-9_-]+"
+        pattern="[A-Za-z0-9_\-]+"
         title={m.username_requirements()}
         maxlength="30"
+        required
       />
       <div class="label-text-alt text-base-content/60 mt-1">
         {m.username_requirements()}
