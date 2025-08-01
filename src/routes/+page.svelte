@@ -282,14 +282,14 @@
             class="btn btn-soft hover:bg-primary join-item hover:text-primary-content gap-2 py-5 sm:px-6 dark:hover:bg-white dark:hover:text-black"
           >
             {m.find_university()}
-            <i class="fa-solid fa-graduation-cap fa-xl"></i>
+            <i class="fa-solid fa-graduation-cap fa-lg"></i>
           </a>
           <a href="{base}/clubs">
             <button
               class="btn btn-soft hover:bg-primary join-item hover:text-primary-content gap-2 py-5 sm:px-6 dark:hover:bg-white dark:hover:text-black"
             >
               {m.find_clubs()}
-              <i class="fa-solid fa-users fa-xl"></i>
+              <i class="fa-solid fa-users fa-lg"></i>
             </button>
           </a>
         </div>
