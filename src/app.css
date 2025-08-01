@@ -12,6 +12,12 @@ body {
   font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
 }
 
+code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    'Noto Sans SC Variable', monospace;
+}
+
 .label-text-alt {
   @apply text-xs;
 }

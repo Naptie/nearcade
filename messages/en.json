@@ -133,6 +133,7 @@
   "changelog_field_website": "Website",
   "changelog_load_more": "Load More",
   "changelog_loading": "Loading changelog...",
+  "changelog_modified": "Modified \"{field}\"",
   "changelog_no_entries": "No changes have been recorded yet",
   "changelog_set_to": "Set \"{field}\" to \"{newValue}\"",
   "changelog_updated_campus": "Updated {field} in campus \"{campusName}\"",

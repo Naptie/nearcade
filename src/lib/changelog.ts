@@ -76,23 +76,29 @@ export function formatChangelogDescription(entry: ChangelogEntry, m: MessagesObj
   }
 
   // Handle regular field changes
-  if (entry.oldValue && entry.newValue) {
-    return m.changelog_changed_from_to({
-      field: fieldName,
-      oldValue: formatValue(entry.oldValue, entry.fieldInfo.field, m),
-      newValue: formatValue(entry.newValue, entry.fieldInfo.field, m)
-    });
-  }
+  if ((entry.oldValue?.length || 0) < 10 && (entry.newValue?.length || 0) < 10) {
+    if (entry.oldValue && entry.newValue) {
+      return m.changelog_changed_from_to({
+        field: fieldName,
+        oldValue: formatValue(entry.oldValue, entry.fieldInfo.field, m),
+        newValue: formatValue(entry.newValue, entry.fieldInfo.field, m)
+      });
+    }
 
-  if (entry.newValue && !entry.oldValue) {
-    return m.changelog_set_to({
-      field: fieldName,
-      newValue: formatValue(entry.newValue, entry.fieldInfo.field, m)
-    });
-  }
+    if (entry.newValue && !entry.oldValue) {
+      return m.changelog_set_to({
+        field: fieldName,
+        newValue: formatValue(entry.newValue, entry.fieldInfo.field, m)
+      });
+    }
 
-  if (entry.oldValue && !entry.newValue) {
-    return m.changelog_cleared({
+    if (entry.oldValue && !entry.newValue) {
+      return m.changelog_cleared({
+        field: fieldName
+      });
+    }
+  } else {
+    return m.changelog_modified({
       field: fieldName
     });
   }

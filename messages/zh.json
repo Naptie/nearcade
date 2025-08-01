@@ -124,6 +124,7 @@
   "changelog_field_website": "网站",
   "changelog_load_more": "加载更多",
   "changelog_loading": "正在加载更新日志...",
+  "changelog_modified": "修改“{field}”",
   "changelog_no_entries": "暂无更改记录",
   "changelog_set_to": "将“{field}”设置为“{newValue}”",
   "changelog_updated_campus": "更新校区“{campusName}”的{field}",
