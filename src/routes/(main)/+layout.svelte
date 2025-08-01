@@ -38,7 +38,7 @@
     : 'bg-base-100/50 shadow lg:shadow-md'}"
 >
   <div class="flex-1">
-    <SiteTitle class="text-3xl transition-colors md:text-4xl {textWhite}" />
+    <SiteTitle class="text-3xl md:text-4xl" />
   </div>
   <div class="flex-none">
     <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
