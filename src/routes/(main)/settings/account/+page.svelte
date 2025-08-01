@@ -4,6 +4,7 @@
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getUserTypeLabel } from '$lib/utils';
+  import { signOut } from '@auth/sveltekit/client';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -208,7 +209,7 @@
     <h2 class="text-error mb-4 text-xl font-semibold">{m.danger_zone()}</h2>
 
     <div class="space-y-4">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-4">
         <div>
           <h3 class="text-error font-medium">{m.delete_account()}</h3>
           <p class="text-base-content/60 text-sm">{m.delete_account_warning()}</p>
@@ -316,7 +317,7 @@
           showDeleteConfirm = false;
           return async ({ result }) => {
             if (result.type === 'success') {
-              goto('/');
+              await signOut({ redirectTo: `${base}/` });
             }
           };
         }}
