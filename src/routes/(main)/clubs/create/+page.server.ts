@@ -1,8 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { MONGODB_URI } from '$env/static/private';
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Club } from '$lib/types';
+import { nanoid } from 'nanoid';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -101,7 +102,7 @@ export const actions: Actions = {
       }
 
       // Create club
-      const clubId = new ObjectId().toString();
+      const clubId = nanoid();
       const club: Club = {
         id: clubId,
         universityId,
@@ -124,7 +125,7 @@ export const actions: Actions = {
       // Add creator as admin member
       const clubMembersCollection = db.collection('club_members');
       await clubMembersCollection.insertOne({
-        id: new ObjectId().toString(),
+        id: nanoid(),
         clubId,
         userId: user.id,
         memberType: 'admin',
