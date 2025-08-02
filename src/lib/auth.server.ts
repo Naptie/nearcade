@@ -5,7 +5,7 @@ import MicrosoftEntraID from '@auth/sveltekit/providers/microsoft-entra-id';
 import Osu from '@auth/sveltekit/providers/osu';
 import client from './db.server';
 import Discord from '@auth/sveltekit/providers/discord';
-import { QQ } from './auth/qq';
+import QQ from './auth/qq';
 import { AUTH_QQ_PROXY } from '$env/static/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from './utils';

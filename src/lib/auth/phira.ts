@@ -15,9 +15,7 @@ export interface PhiraProfile {
 /**
  * Defines the custom OAuth provider for Phira.
  */
-export default function Phira<P extends PhiraProfile>(
-  options: OAuthUserConfig<P>
-): OAuth2Config<P> {
+const Phira = <P extends PhiraProfile>(options: OAuthUserConfig<P>): OAuth2Config<P> => {
   const {
     clientId = AUTH_PHIRA_ID,
     clientSecret = AUTH_PHIRA_SECRET,
@@ -86,4 +84,6 @@ export default function Phira<P extends PhiraProfile>(
     },
     ...rest
   };
-}
+};
+
+export default Phira;

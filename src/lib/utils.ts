@@ -24,11 +24,11 @@ import { redirect } from '@sveltejs/kit';
 /**
  * Generates a valid and unique username based on input name
  */
-export async function generateValidUsername(
+export const generateValidUsername = async (
   inputName: string | null | undefined,
   fallbackId: string,
   usersCollection: Collection<Document>
-): Promise<string> {
+): Promise<string> => {
   // Helper function to check if name is valid (A-Za-z0-9_-)
   const isValidCharacterSet = (name: string): boolean => {
     return /^[A-Za-z0-9_-]+$/.test(name);
@@ -62,7 +62,7 @@ export async function generateValidUsername(
 
   // Fall back to using the ID
   return fallbackId;
-}
+};
 
 export const calculateDistance = (
   lat1: number,
@@ -409,11 +409,11 @@ export const updateUserType = async (userId: string, client: MongoClient): Promi
 /**
  * Joins university member data with user data
  */
-export async function getUniversityMembersWithUserData(
+export const getUniversityMembersWithUserData = async (
   universityId: string,
   mongoClient: MongoClient,
   options: { limit?: number; sort?: Record<string, 1 | -1> } = {}
-) {
+) => {
   const db = mongoClient.db();
   const membersCollection = db.collection<UniversityMember>('university_members');
   const usersCollection = db.collection<Document>('users');
@@ -458,16 +458,16 @@ export async function getUniversityMembersWithUserData(
       } as UniversityMemberWithUser;
     })
     .filter((member) => member.user !== null); // Filter out members whose users don't exist
-}
+};
 
 /**
  * Joins club member data with user data
  */
-export async function getClubMembersWithUserData(
+export const getClubMembersWithUserData = async (
   clubId: string,
   mongoClient: MongoClient,
   options: { limit?: number; sort?: Record<string, 1 | -1> } = {}
-) {
+) => {
   const db = mongoClient.db();
   const membersCollection = db.collection('club_members');
   const usersCollection = db.collection('users');
@@ -510,7 +510,7 @@ export async function getClubMembersWithUserData(
       } as ClubMemberWithUser;
     })
     .filter((member) => member.user !== null); // Filter out members whose users don't exist
-}
+};
 
 export const isAdminOrModerator = (user?: { userType?: string }): boolean => {
   return (

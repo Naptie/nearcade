@@ -96,7 +96,7 @@ is_yellow_year_vip	是否为年费黄钻用户 */
  * @param options
  * @returns
  */
-export function QQ<P extends QQProfile>(options: OAuthUserConfig<P> = {}): OAuth2Config<P> {
+const QQ = <P extends QQProfile>(options: OAuthUserConfig<P> = {}): OAuth2Config<P> => {
   const {
     clientId = AUTH_QQ_ID,
     clientSecret = AUTH_QQ_SECRET,
@@ -168,4 +168,6 @@ export function QQ<P extends QQProfile>(options: OAuthUserConfig<P> = {}): OAuth
     },
     ...rest
   };
-}
+};
+
+export default QQ;
