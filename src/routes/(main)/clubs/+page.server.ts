@@ -185,6 +185,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     };
   } catch (err) {
     console.error('Error loading clubs:', err);
-    throw error(500, 'Failed to load clubs');
+    error(500, 'Failed to load clubs');
   }
 };

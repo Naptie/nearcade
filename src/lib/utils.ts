@@ -19,6 +19,7 @@ import { base } from '$app/paths';
 import type { MongoClient } from 'mongodb';
 import { page } from '$app/state';
 import type { User } from '@auth/sveltekit';
+import { redirect } from '@sveltejs/kit';
 
 /**
  * Generates a valid and unique username based on input name
@@ -583,4 +584,8 @@ export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
 
 export const toPlainArray = <T extends { _id?: string | ObjectId } | null>(docs: T[]) => {
   return docs.map(toPlainObject);
+};
+
+export const loginRedirect = (url: URL) => {
+  throw redirect(302, `${base}/?login=1&redirect=${encodeURIComponent(url.toString())}`);
 };

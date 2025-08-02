@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
+  import { toPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -16,7 +17,7 @@
     messageType = '';
 
     try {
-      const response = await fetch(`/api/invites/${data.invite.code}/redeem`, {
+      const response = await fetch(toPath(`/api/invites/${data.invite.code}/redeem`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -31,9 +32,9 @@
         // Redirect after a delay
         setTimeout(() => {
           if (data.invite.type === 'university') {
-            goto(`/universities/${data.targetInfo.id}`);
+            goto(`${base}/universities/${data.targetInfo.id}`);
           } else {
-            goto(`/clubs/${data.targetInfo.id}`);
+            goto(`${base}/clubs/${data.targetInfo.id}`);
           }
         }, 2000);
       } else {

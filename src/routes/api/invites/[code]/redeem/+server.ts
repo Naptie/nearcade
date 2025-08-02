@@ -19,7 +19,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    throw error(401, 'Unauthorized');
+    error(401, 'Unauthorized');
   }
 
   try {
@@ -31,17 +31,17 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     const invite = await invitesCollection.findOne({ code, isActive: true });
 
     if (!invite) {
-      throw error(404, 'Invalid or expired invite link');
+      error(404, 'Invalid or expired invite link');
     }
 
     // Check if invite is expired
     if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
-      throw error(410, 'This invite link has expired');
+      error(410, 'This invite link has expired');
     }
 
     // Check if invite has reached max uses
     if (invite.maxUses && invite.currentUses >= invite.maxUses) {
-      throw error(410, 'This invite link has been used up');
+      error(410, 'This invite link has been used up');
     }
 
     const userId = session.user.id!;
@@ -57,7 +57,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       });
 
       if (existingMember) {
-        throw error(400, 'You are already a member of this university');
+        error(400, 'You are already a member of this university');
       }
 
       if (invite.requireApproval) {
@@ -98,7 +98,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       });
 
       if (existingMember) {
-        throw error(400, 'You are already a member of this club');
+        error(400, 'You are already a member of this club');
       }
 
       if (invite.requireApproval) {
@@ -176,6 +176,6 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to redeem invite');
+    error(500, 'Failed to redeem invite');
   }
 };

@@ -16,12 +16,12 @@ export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
   const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
   if (!latParam || !lngParam) {
-    throw error(400, 'Latitude and longitude parameters are required');
+    error(400, 'Latitude and longitude parameters are required');
   }
 
   const validationResult = areValidCoordinates(latParam, lngParam);
   if (!validationResult.isValid) {
-    throw error(400, 'Invalid latitude or longitude format');
+    error(400, 'Invalid latitude or longitude format');
   }
 
   try {
@@ -74,6 +74,6 @@ export const loadShops = async ({ url }: { url: URL }) => {
     };
   } catch (err) {
     console.error('Error loading shops:', err);
-    throw error(500, 'Failed to load shops from database');
+    error(500, 'Failed to load shops from database');
   }
 };

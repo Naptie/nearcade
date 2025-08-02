@@ -110,6 +110,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     };
   } catch (err) {
     console.error('Error loading universities:', err);
-    throw error(500, 'Failed to load universities');
+    error(500, 'Failed to load universities');
   }
 };

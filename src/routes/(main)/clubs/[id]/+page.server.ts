@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!club) {
-      throw error(404, 'Club not found');
+      error(404, 'Club not found');
     }
 
     // Get university information
@@ -143,7 +143,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load club data');
+    error(500, 'Failed to load club data');
   }
 };
 

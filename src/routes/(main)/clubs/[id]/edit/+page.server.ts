@@ -1,9 +1,9 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
-import { checkClubPermission, toPlainObject } from '$lib/utils';
+import { checkClubPermission, loginRedirect, toPlainObject } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -13,12 +13,12 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
   const session = await locals.auth();
 
   if (!session || !session.user) {
-    redirect(302, '/auth/signin');
+    throw loginRedirect(url);
   }
 
   try {
@@ -38,13 +38,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!club) {
-      throw error(404, 'Club not found');
+      error(404, 'Club not found');
     }
 
     const userPermissions = await checkClubPermission(session.user.id!, club.id, client);
 
     if (!userPermissions.canEdit) {
-      throw error(403, { message: 'You do not have permission to edit this club' });
+      error(403, { message: 'You do not have permission to edit this club' });
     }
 
     return {
@@ -56,7 +56,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load club data');
+    error(500, 'Failed to load club data');
   }
 };
 

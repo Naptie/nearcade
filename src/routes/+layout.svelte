@@ -8,8 +8,10 @@
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import { toPath } from '$lib/utils';
+  import { page } from '$app/state';
+  import { goto } from '$app/navigation';
 
-  let { children } = $props();
+  let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
   let amapError = $state<string | null>(null);
 
@@ -43,6 +45,17 @@
       } catch (error) {
         console.error('Failed to load AMap:', error);
         amapError = error instanceof Error ? error.message : 'Failed to load AMap';
+      }
+
+      let redirect = page.url.searchParams.get('redirect');
+      if (data.session?.user) {
+        redirect ??= localStorage.getItem('nearcade-redirect');
+        if (redirect) {
+          localStorage.removeItem('nearcade-redirect');
+          goto(redirect);
+        }
+      } else if (redirect) {
+        localStorage.setItem('nearcade-redirect', redirect);
       }
     }
   });

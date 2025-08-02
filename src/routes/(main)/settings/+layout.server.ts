@@ -1,12 +1,11 @@
-import { base } from '$app/paths';
+import { loginRedirect } from '$lib/utils';
 import type { LayoutServerLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 
-export const load: LayoutServerLoad = async ({ locals }) => {
+export const load: LayoutServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
   // Redirect to sign in if not authenticated
   if (!session) {
-    throw redirect(302, `${base}/`);
+    throw loginRedirect(url);
   }
 
   return {

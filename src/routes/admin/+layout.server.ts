@@ -5,7 +5,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    throw error(401, 'Authentication required');
+    error(401, 'Authentication required');
   }
 
   const userType = session.user.userType;
@@ -18,7 +18,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
   ].includes(userType || '');
 
   if (!hasAccess) {
-    throw error(403, 'Access denied. Admin or moderator privileges required.');
+    error(403, 'Access denied. Admin or moderator privileges required.');
   }
 
   return {

@@ -3,8 +3,9 @@ import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { University } from '$lib/types';
-import { checkUniversityPermission } from '$lib/utils';
+import { checkUniversityPermission, loginRedirect } from '$lib/utils';
 import { logUniversityChanges } from '$lib/changelog.server';
+import { base } from '$app/paths';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -14,8 +15,15 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-export const load: PageServerLoad = async ({ params, parent }) => {
+export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
+
+  const parentData = await parent();
+  const user = parentData.session?.user;
+
+  if (!user) {
+    throw loginRedirect(url);
+  }
 
   try {
     const mongoClient = await clientPromise;
@@ -40,21 +48,14 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
 
     if (!university) {
-      throw error(404, 'University not found');
-    }
-
-    const parentData = await parent();
-    const user = parentData.session?.user;
-
-    if (!user) {
-      throw error(401, 'Authentication required');
+      error(404, 'University not found');
     }
 
     // Check permissions for the current user
     const userPermissions = await checkUniversityPermission(user.id!, university.id, mongoClient);
 
     if (!userPermissions.canEdit) {
-      throw error(403, 'Insufficient privileges');
+      error(403, 'Insufficient privileges');
     }
 
     return {
@@ -67,7 +68,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load university data');
+    error(500, 'Failed to load university data');
   }
 };
 
@@ -230,7 +231,7 @@ export const actions: Actions = {
 
       await universitiesCollection.updateOne({ id }, { $set: updateData });
 
-      throw redirect(302, `/universities/${id}`);
+      redirect(302, `${base}/universities/${id}`);
     } catch (err) {
       if (err && typeof err === 'object' && 'status' in err && 'location' in err) {
         throw err; // Re-throw redirect

@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import type { PageData } from './$types';
-  import { getUserTypeBadgeClass, getUserTypeLabel } from '$lib/utils';
+  import { getUserTypeBadgeClass, getUserTypeLabel, toPath } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -94,7 +94,7 @@
 
     loadingUserDetails = true;
     try {
-      const response = await fetch(`/api/admin/users/${userId}`);
+      const response = await fetch(toPath(`/api/admin/users/${userId}`));
       if (response.ok) {
         userDetails = await response.json();
       } else {

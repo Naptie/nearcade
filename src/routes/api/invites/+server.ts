@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    throw error(401, 'Unauthorized');
+    error(401, 'Unauthorized');
   }
 
   try {
@@ -37,11 +37,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     // Validate input
     if (!type || !targetId) {
-      throw error(400, 'Missing required fields');
+      error(400, 'Missing required fields');
     }
 
     if (!['university', 'club'].includes(type)) {
-      throw error(400, 'Invalid invite type');
+      error(400, 'Invalid invite type');
     }
 
     const mongoClient = await clientPromise;
@@ -76,7 +76,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to create invite');
+    error(500, 'Failed to create invite');
   }
 };
 
@@ -84,7 +84,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    throw error(401, 'Unauthorized');
+    error(401, 'Unauthorized');
   }
 
   try {
@@ -106,6 +106,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     return json({ invites });
   } catch (err) {
     console.error('Error fetching invites:', err);
-    throw error(500, 'Failed to fetch invites');
+    error(500, 'Failed to fetch invites');
   }
 };

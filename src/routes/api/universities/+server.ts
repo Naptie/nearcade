@@ -82,6 +82,6 @@ export const GET: RequestHandler = async ({ url }) => {
     return json({ universities });
   } catch (err) {
     console.error('Error searching universities:', err);
-    throw error(500, 'Failed to search universities');
+    error(500, 'Failed to search universities');
   }
 };

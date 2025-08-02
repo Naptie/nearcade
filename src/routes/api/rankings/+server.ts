@@ -130,6 +130,6 @@ export const GET: RequestHandler = async ({ url }) => {
     }
   } catch (err) {
     console.error('Error getting rankings:', err);
-    throw error(500, 'Failed to get rankings');
+    error(500, 'Failed to get rankings');
   }
 };

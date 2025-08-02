@@ -5,6 +5,8 @@
   import { signOut } from '@auth/sveltekit/client';
   import { base } from '$app/paths';
   import { isAdminOrModerator } from '$lib/utils';
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
 
   interface Props {
     size?: string;
@@ -57,6 +59,12 @@
       dialogElement?.close();
     }
   };
+
+  onMount(() => {
+    if (browser && page.url.searchParams.get('login') === '1') {
+      dialogElement?.showModal();
+    }
+  });
 </script>
 
 {#if !session || !session.user || session.expires < new Date().toISOString()}

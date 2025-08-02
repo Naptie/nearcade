@@ -78,7 +78,7 @@
       return async ({ result }) => {
         isSubmitting = false;
         if (result.type === 'success') {
-          goto(`/clubs/${slug}`);
+          goto(`${base}/clubs/${slug}`);
         } else if (result.type === 'failure') {
           errors = (result.data?.errors as string[]) || [];
 

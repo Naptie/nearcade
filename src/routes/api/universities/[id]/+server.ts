@@ -33,7 +33,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     if (!university) {
-      throw error(404, 'University not found');
+      error(404, 'University not found');
     }
 
     return json({ university });
@@ -42,6 +42,6 @@ export const GET: RequestHandler = async ({ params }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load university data');
+    error(500, 'Failed to load university data');
   }
 };

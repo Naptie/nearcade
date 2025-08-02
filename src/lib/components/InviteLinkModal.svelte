@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import type { InviteLink } from '$lib/types';
+  import { toPath } from '$lib/utils';
 
   let { isOpen = $bindable(false), type = 'university', targetId = '', targetName = '' } = $props();
 
@@ -17,7 +18,7 @@
     isGenerating = true;
 
     try {
-      const response = await fetch('/api/invites', {
+      const response = await fetch(toPath('/api/invites'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

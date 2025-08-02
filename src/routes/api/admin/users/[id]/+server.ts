@@ -19,18 +19,18 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    throw error(401, 'Unauthorized');
+    error(401, 'Unauthorized');
   }
 
   // Only site admins can access user details
   if (session.user.userType !== 'site_admin') {
-    throw error(403, 'Access denied');
+    error(403, 'Access denied');
   }
 
   const userId = params.id;
 
   if (!userId) {
-    throw error(400, 'User ID is required');
+    error(400, 'User ID is required');
   }
 
   try {
@@ -41,7 +41,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const user = await db.collection('users').findOne({ id: userId });
 
     if (!user) {
-      throw error(404, 'User not found');
+      error(404, 'User not found');
     }
 
     // Get university memberships with university details
@@ -85,6 +85,6 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     });
   } catch (err) {
     console.error('Error fetching user details:', err);
-    throw error(500, 'Failed to fetch user details');
+    error(500, 'Failed to fetch user details');
   }
 };

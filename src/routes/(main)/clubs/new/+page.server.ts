@@ -4,6 +4,8 @@ import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
+import { base } from '$app/paths';
+import { loginRedirect } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -17,7 +19,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   const session = await locals.auth();
 
   if (!session || !session.user) {
-    redirect(302, '/auth/signin');
+    throw loginRedirect(url);
   }
 
   const universityId = url.searchParams.get('university');
@@ -137,6 +139,6 @@ export const actions: Actions = {
       return fail(500, { message: 'Failed to create club' });
     }
 
-    redirect(302, `/clubs/${slug}`);
+    redirect(302, `${base}/clubs/${slug}`);
   }
 };

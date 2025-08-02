@@ -1,8 +1,9 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
-import type { PageServerLoad } from './$types.js';
+import type { PageServerLoad } from './$types';
 import type { InviteLink, University, Club } from '$lib/types';
+import { loginRedirect } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -12,9 +13,14 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { code } = params;
   const session = await locals.auth();
+
+  // If user is not signed in, redirect to sign in
+  if (!session?.user) {
+    throw loginRedirect(url);
+  }
 
   try {
     const mongoClient = await clientPromise;
@@ -32,17 +38,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     );
 
     if (!invite) {
-      throw error(404, 'Invalid or expired invite link');
+      error(404, 'Invalid or expired invite link');
     }
 
     // Check if invite is expired
     if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
-      throw error(410, 'This invite link has expired');
+      error(410, 'This invite link has expired');
     }
 
     // Check if invite has reached max uses
     if (invite.maxUses && invite.currentUses >= invite.maxUses) {
-      throw error(410, 'This invite link has been used up');
+      error(410, 'This invite link has been used up');
     }
 
     // Get target information
@@ -71,12 +77,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!targetInfo) {
-      throw error(404, `${invite.type === 'university' ? 'University' : 'Club'} not found`);
-    }
-
-    // If user is not signed in, redirect to sign in
-    if (!session?.user) {
-      throw redirect(302, `/auth/signin?callbackUrl=${encodeURIComponent(`/invite/${code}`)}`);
+      error(404, `${invite.type === 'university' ? 'University' : 'Club'} not found`);
     }
 
     return {
@@ -89,6 +90,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load invite');
+    error(500, 'Failed to load invite');
   }
 };

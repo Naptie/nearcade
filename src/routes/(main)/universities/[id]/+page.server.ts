@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
 
     if (!university) {
-      throw error(404, 'University not found');
+      error(404, 'University not found');
     }
 
     // Get member statistics and list with user data joined
@@ -95,7 +95,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load university data');
+    error(500, 'Failed to load university data');
   }
 };
 

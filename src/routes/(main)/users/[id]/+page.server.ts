@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!user) {
-      throw error(404, 'User not found');
+      error(404, 'User not found');
     }
 
     // Check if viewing own profile
@@ -82,6 +82,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     if (err && typeof err === 'object' && 'status' in err) {
       throw err;
     }
-    throw error(500, 'Failed to load user profile');
+    error(500, 'Failed to load user profile');
   }
 };

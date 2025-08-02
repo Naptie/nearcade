@@ -2,6 +2,7 @@
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { Shop } from '$lib/types';
+  import { toPath } from '$lib/utils';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -19,7 +20,7 @@
 
     isSearching = true;
     try {
-      const response = await fetch(`/api/shops/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(toPath(`/api/shops/search?q=${encodeURIComponent(query)}`));
       if (response.ok) {
         const results = (await response.json()) as { shops: Shop[] };
         searchResults = results.shops || [];
