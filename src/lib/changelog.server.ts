@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 import type { ChangelogEntry, University, Campus } from './types';
-import crypto from 'crypto';
+import { nanoid } from 'nanoid';
 
 interface ChangelogUser {
   id: string;
@@ -36,7 +36,7 @@ export async function logChange(
   const changelogCollection = db.collection<ChangelogEntry>('changelog');
 
   const changelogEntry: ChangelogEntry = {
-    id: crypto.randomUUID(),
+    id: nanoid(),
     type: change.type,
     targetId: change.targetId,
     action: change.action,

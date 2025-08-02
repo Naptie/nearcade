@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
 
   interface Props {
@@ -10,10 +11,17 @@
     };
     showName?: boolean;
     size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+    target?: '_blank' | '_self';
     class?: string;
   }
 
-  let { user, showName = false, size = 'md', class: className = '' }: Props = $props();
+  let {
+    user,
+    showName = false,
+    size = 'md',
+    target = '_self',
+    class: className = ''
+  }: Props = $props();
 
   // Size mappings for avatar
   const avatarSizeClasses = {
@@ -22,6 +30,14 @@
     md: 'w-10 h-10',
     lg: 'w-16 h-16',
     xl: 'w-24 h-24 sm:w-32 sm:h-32'
+  };
+
+  const gapClasses = {
+    xs: 'gap-1',
+    sm: 'gap-2',
+    md: 'gap-3',
+    lg: 'gap-4',
+    xl: 'gap-5'
   };
 
   const statusSizeClasses = {
@@ -54,7 +70,11 @@
   }
 </script>
 
-<div class="flex items-center gap-3 {className}">
+<a
+  href="{base}/users/@{user.name}"
+  {target}
+  class="group flex items-center {gapClasses[size]} {className}"
+>
   <!-- Avatar -->
   <div class="relative shrink-0">
     <div class="avatar {user.image ? '' : 'placeholder'}">
@@ -88,7 +108,7 @@
 
   <!-- Name (if showName is true) -->
   {#if showName}
-    <div class="min-w-0 flex-1">
+    <div class="group-hover:text-accent min-w-0 flex-1 transition-colors">
       {#if user.displayName}
         <div class="truncate font-medium">
           {user.displayName}
@@ -109,4 +129,4 @@
       {/if}
     </div>
   {/if}
-</div>
+</a>

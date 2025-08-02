@@ -12,6 +12,7 @@
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
+  import { onMount } from 'svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -62,8 +63,13 @@
   });
 
   // Load search radius from localStorage
-  $effect(() => {
+  onMount(() => {
     if (browser) {
+      window.dispatchEvent(
+        new CustomEvent('nearcade-org-background', {
+          detail: { hasCustomBackground: !!data.university.backgroundColor }
+        })
+      );
       const savedRadius = localStorage.getItem('nearcade-radius');
       if (savedRadius) {
         searchRadius = parseInt(savedRadius, 10) || 10;
@@ -571,7 +577,7 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <a
-                    href="{base}/clubs/create?university={data.university.id}"
+                    href="{base}/clubs/new?university={data.university.id}"
                     class="btn btn-primary btn-sm btn-soft"
                   >
                     <i class="fa-solid fa-plus"></i>

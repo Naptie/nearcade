@@ -13,8 +13,11 @@
   let { children } = $props();
   let scrollY = $state(0);
   let isAtTop = $derived(scrollY <= 10);
+  let orgHasCustomBackground = $state(false);
   let textWhite = $derived(
-    isAtTop && page.url.pathname.match(/\/(universities|clubs)\/\S+/) ? 'text-white' : ''
+    isAtTop && page.url.pathname.match(/\/(universities|clubs)\/\S+/) && orgHasCustomBackground
+      ? 'text-white'
+      : ''
   );
 
   const handleScroll = () => {
@@ -24,9 +27,15 @@
   onMount(() => {
     if (browser) {
       scrollY = window.scrollY;
+      const orgBackgroundCallback = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        orgHasCustomBackground = customEvent.detail.hasCustomBackground;
+      };
       window.addEventListener('scroll', handleScroll, { passive: true });
+      window.addEventListener('nearcade-org-background', orgBackgroundCallback);
       return () => {
         window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('nearcade-org-background', orgBackgroundCallback);
       };
     }
   });

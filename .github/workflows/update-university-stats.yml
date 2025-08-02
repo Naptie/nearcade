@@ -2,6 +2,10 @@ name: Update University Stats
 run-name: Update university statistics
 
 on:
+  # Runs at 4:00 UTC every day
+  schedule:
+    - cron: '0 4 * * *'
+
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -12,7 +16,7 @@ on:
         required: true
 
 jobs:
-  update-rankings:
+  update-university-stats:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

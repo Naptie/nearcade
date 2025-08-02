@@ -57,8 +57,6 @@ export const load: PageServerLoad = async ({ parent }) => {
       .find({ id: { $in: clubIds } }, { projection: { _id: 0 } })
       .toArray();
 
-    console.log(universities, clubs);
-
     return {
       userProfile,
       universities,

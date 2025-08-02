@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { browser } from '$app/environment';
+  import { base } from '$app/paths';
 
   let { isOpen, visitCount, onClose, onDismiss } = $props();
 
@@ -57,7 +58,7 @@
 
       <div class="mb-6 flex justify-center">
         <img
-          src="/donate-wechat.png"
+          src="{base}/donate-wechat.png"
           alt={m.wechat_donation_qr()}
           class="max-h-[50vh] rounded-xl object-contain shadow-lg"
         />

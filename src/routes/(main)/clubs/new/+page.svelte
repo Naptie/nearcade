@@ -236,7 +236,7 @@
             <div>
               <span class="label-text">{m.accept_join_requests()}</span>
               <div class="text-base-content/60 text-xs">
-                Allow new members to request to join the club
+                {m.accept_join_requests_description()}
               </div>
             </div>
           </label>

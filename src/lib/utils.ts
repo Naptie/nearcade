@@ -1,6 +1,6 @@
 import { m } from './paraglide/messages';
 import { Database } from './db';
-import type { Collection, Document } from 'mongodb';
+import type { Collection, Document, ObjectId } from 'mongodb';
 import type {
   Shop,
   Game,
@@ -445,17 +445,14 @@ export async function getUniversityMembersWithUserData(
       const user = userMap.get(member.userId);
       if (!user) {
         return {
-          ...member,
-          _id: member._id?.toString(),
+          ...toPlainObject(member),
           user: null
         };
       }
       return {
-        ...member,
-        _id: member._id?.toString(),
+        ...toPlainObject(member),
         user: {
-          ...user,
-          _id: user._id?.toString()
+          ...toPlainObject(user)
         }
       } as UniversityMemberWithUser;
     })
@@ -502,18 +499,13 @@ export async function getClubMembersWithUserData(
       const user = userMap.get(member.userId);
       if (!user) {
         return {
-          ...member,
-          _id: member._id?.toString(),
+          ...toPlainObject(member),
           user: null
         };
       }
       return {
-        ...member,
-        _id: member._id?.toString(),
-        user: {
-          ...user,
-          _id: user._id?.toString()
-        }
+        ...toPlainObject(member),
+        user: toPlainObject(user)
       } as ClubMemberWithUser;
     })
     .filter((member) => member.user !== null); // Filter out members whose users don't exist
@@ -565,4 +557,30 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
     default:
       return 'badge-soft';
   }
+};
+
+export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
+  doc: T
+): T extends null ? null : Omit<T, '_id'> & { _id: string } => {
+  if (doc === null) return null as T extends null ? null : Omit<T, '_id'> & { _id: string };
+
+  const plainify = (value: unknown): unknown => {
+    if (value === null || value === undefined) return value;
+    if (Array.isArray(value)) return value.map(plainify);
+    if (typeof value === 'object') {
+      const result: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(value)) {
+        result[key] =
+          (key === '_id' && val) || val instanceof Date ? val.toString() : plainify(val);
+      }
+      return result;
+    }
+    return value;
+  };
+
+  return plainify(doc) as T extends null ? null : Omit<T, '_id'> & { _id: string };
+};
+
+export const toPlainArray = <T extends { _id?: string | ObjectId } | null>(docs: T[]) => {
+  return docs.map(toPlainObject);
 };

@@ -151,7 +151,7 @@
             name="slug"
             type="text"
             bind:value={slug}
-            placeholder={m.placeholder_awesome_club()}
+            placeholder="awesome-club"
             class="input input-bordered w-full"
             pattern="[a-z0-9\-]+"
             title={m.slug_help()}
@@ -301,7 +301,7 @@
             <div>
               <span class="label-text">{m.accept_join_requests()}</span>
               <div class="text-base-content/60 text-xs">
-                Allow new members to request to join the club
+                {m.accept_join_requests_description()}
               </div>
             </div>
           </label>

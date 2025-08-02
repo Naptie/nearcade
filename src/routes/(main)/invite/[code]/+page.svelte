@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
+  import { base } from '$app/paths';
 
   let { data }: { data: PageData } = $props();
 
@@ -63,7 +64,7 @@
 
   const getUsageText = () => {
     if (data.invite.maxUses) {
-      return m.max_uses({
+      return m.uses({
         current: data.invite.currentUses,
         max: data.invite.maxUses
       });
@@ -95,7 +96,7 @@
               {data.invite.title || m.invite_title_placeholder({ target: data.targetInfo.name })}
             </h1>
             <p class="text-primary-content/80">
-              {data.invite.type === 'university' ? m.university_detail() : m.club()}
+              {data.invite.type === 'university' ? m.university() : m.club()}
               {m.invite()}
             </p>
           </div>
@@ -106,7 +107,12 @@
       <div class="p-6">
         <!-- Target Info -->
         <div class="mb-6">
-          <div class="mb-4 flex items-center gap-4">
+          <a
+            href="{base}/{data.invite.type === 'university' ? 'universities' : 'clubs'}/{data
+              .targetInfo.slug || data.targetInfo.id}"
+            target="_blank"
+            class="group mb-4 flex items-center gap-4"
+          >
             {#if data.targetInfo.avatarUrl}
               <img
                 src={data.targetInfo.avatarUrl}
@@ -122,17 +128,17 @@
                 ></i>
               </div>
             {/if}
-            <div>
+            <div class="group-hover:text-accent transition-colors">
               <h2 class="text-xl font-semibold">{data.targetInfo.name}</h2>
               {#if 'type' in data.targetInfo}
-                <p class="text-base-content/70">{data.targetInfo.type}</p>
+                <p class="opacity-70">{data.targetInfo.type}</p>
               {:else}
                 <p class="text-base-content/70">
                   {data.targetInfo.description || m.student_organization()}
                 </p>
               {/if}
             </div>
-          </div>
+          </a>
 
           <!-- Description -->
           {#if data.invite.description}
@@ -205,7 +211,9 @@
             {/if}
             <div>
               <p class="font-medium">{data.user.displayName || data.user.name}</p>
-              <p class="text-base-content/70 text-sm">{data.user.email}</p>
+              {#if data.user.email && !data.user.email.endsWith('.nearcade')}
+                <p class="text-base-content/70 text-sm">{data.user.email}</p>
+              {/if}
             </div>
           </div>
         </div>

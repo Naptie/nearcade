@@ -4,6 +4,7 @@ import { MongoClient } from 'mongodb';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
+import { toPlainArray } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -33,6 +34,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       universities = (await universitiesCollection
         .find({})
         .sort({ studentsCount: -1, clubsCount: -1, name: 1 })
+        .collation({ locale: 'zh@collation=gb2312han' })
         .skip(skip)
         .limit(limit)
         .toArray()) as unknown as University[];
@@ -95,14 +97,10 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       }
     }
 
-    universities.forEach((university) => {
-      university._id = university._id?.toString();
-    });
-
     const parentData = await parent();
 
     return {
-      universities,
+      universities: toPlainArray(universities),
       totalCount,
       currentPage: page,
       hasNextPage: skip + universities.length < totalCount,

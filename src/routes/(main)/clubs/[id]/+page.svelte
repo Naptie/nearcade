@@ -5,6 +5,7 @@
   import type { PageData } from './$types';
   import InviteLinkModal from '$lib/components/InviteLinkModal.svelte';
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
+  import JoinRequestModal from '$lib/components/JoinRequestModal.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { PAGINATION } from '$lib/constants';
   import type { ClubMemberWithUser, Shop } from '$lib/types';
@@ -30,6 +31,7 @@
 
   let activeTab = $state(getInitialTab());
   let showInviteModal = $state(false);
+  let showJoinRequestModal = $state(false);
 
   // Role management state
   let showRemoveMemberModal = $state(false);
@@ -67,6 +69,11 @@
   let radius = $state(10);
 
   onMount(() => {
+    window.dispatchEvent(
+      new CustomEvent('nearcade-org-background', {
+        detail: { hasCustomBackground: !!data.club.backgroundColor }
+      })
+    );
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
       radius = parseInt(savedRadius);
@@ -379,17 +386,32 @@
             {data.club.name}
           </h1>
 
-          <!-- Edit Club Button for privileged users -->
-          {#if userPrivileges.canEdit}
-            <a
-              href="{base}/clubs/{data.club.slug || data.club.id}/edit"
-              class="btn btn-circle btn-lg btn-ghost text-white/80 hover:text-white"
-              title="{m.edit()} {m.club()}"
-              aria-label="{m.edit()} {m.club()}"
-            >
-              <i class="fa-solid fa-edit"></i>
-            </a>
-          {/if}
+          <div class="flex items-center gap-2">
+            <!-- Join Button for eligible users -->
+            {#if data.user && data.canJoin && !data.existingJoinRequest}
+              <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
+                <i class="fa-solid fa-plus"></i>
+                {m.join_club()}
+              </button>
+            {:else if data.existingJoinRequest}
+              <div class="badge badge-warning">
+                <i class="fa-solid fa-clock"></i>
+                {m.join_request_sent()}
+              </div>
+            {/if}
+
+            <!-- Edit Club Button for privileged users -->
+            {#if userPrivileges.canEdit}
+              <a
+                href="{base}/clubs/{data.club.slug || data.club.id}/edit"
+                class="btn btn-circle btn-lg btn-ghost"
+                title="{m.edit()} {m.club()}"
+                aria-label="{m.edit()} {m.club()}"
+              >
+                <i class="fa-solid fa-edit"></i>
+              </a>
+            {/if}
+          </div>
         </div>
 
         {#if data.university}
@@ -981,3 +1003,14 @@
     </div>
   </div>
 {/if}
+
+<!-- Join Request Modal -->
+<JoinRequestModal
+  bind:isOpen={showJoinRequestModal}
+  clubId={data.club.id}
+  clubName={data.club.name}
+  onSuccess={() => {
+    // Reload the page to update join request status
+    window.location.reload();
+  }}
+/>

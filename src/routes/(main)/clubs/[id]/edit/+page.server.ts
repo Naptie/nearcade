@@ -3,7 +3,7 @@ import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
-import { checkClubPermission } from '$lib/utils';
+import { checkClubPermission, toPlainObject } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -48,10 +48,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     return {
-      club: {
-        ...club,
-        _id: club._id?.toString()
-      },
+      club: toPlainObject(club),
       userPermissions
     };
   } catch (err) {

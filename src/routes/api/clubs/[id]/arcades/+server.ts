@@ -3,7 +3,8 @@ import { MongoClient } from 'mongodb';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import type { Shop } from '$lib/types';
+import type { Club, Shop } from '$lib/types';
+import { toPlainArray } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -21,8 +22,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     const mongoClient = await clientPromise;
     const db = mongoClient.db();
-    const clubsCollection = db.collection('clubs');
-    const shopsCollection = db.collection('shops');
+    const clubsCollection = db.collection<Club>('clubs');
+    const shopsCollection = db.collection<Shop>('shops');
 
     // Get club data
     const club = await clubsCollection.findOne({
@@ -60,13 +61,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
       // Sort arcades to match the order in club.starredArcades
       const arcadeMap = new Map(arcadeResults.map((arcade) => [arcade.id, arcade]));
-      arcades = pageArcadeIds
-        .map((id: number) => arcadeMap.get(id))
-        .filter(Boolean)
-        .map((arcade: unknown) => ({
-          ...(arcade as Shop),
-          _id: (arcade as Shop)._id?.toString()
-        })) as Shop[];
+      arcades = toPlainArray(
+        pageArcadeIds.map((id: number) => arcadeMap.get(id)).filter(Boolean) as Shop[]
+      );
     }
 
     return json({

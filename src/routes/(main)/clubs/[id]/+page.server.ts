@@ -2,9 +2,15 @@ import { error, fail } from '@sveltejs/kit';
 import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types.js';
-import type { Club, University, Shop } from '$lib/types';
-import { getClubMembersWithUserData, checkClubPermission } from '$lib/utils';
+import type { Club, University, Shop, ClubMember } from '$lib/types';
+import {
+  getClubMembersWithUserData,
+  checkClubPermission,
+  toPlainArray,
+  toPlainObject
+} from '$lib/utils';
 import { PAGINATION } from '$lib/constants.js';
+import { nanoid } from 'nanoid';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -21,20 +27,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   try {
     const mongoClient = await clientPromise;
     const db = mongoClient.db();
-    const clubsCollection = db.collection('clubs');
-    const membersCollection = db.collection('club_members');
-    const universitiesCollection = db.collection('universities');
-    const shopsCollection = db.collection('shops');
+    const clubsCollection = db.collection<Club>('clubs');
+    const membersCollection = db.collection<ClubMember>('club_members');
+    const universitiesCollection = db.collection<University>('universities');
+    const shopsCollection = db.collection<Shop>('shops');
 
     // Try to find club by ID first, then by slug
-    let club = (await clubsCollection.findOne({
+    let club = await clubsCollection.findOne({
       id: id
-    })) as unknown as Club | null;
+    });
 
     if (!club) {
-      club = (await clubsCollection.findOne({
+      club = await clubsCollection.findOne({
         slug: id
-      })) as unknown as Club | null;
+      });
     }
 
     if (!club) {
@@ -42,9 +48,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     // Get university information
-    const university = (await universitiesCollection.findOne({
+    const university = await universitiesCollection.findOne({
       id: club.universityId
-    })) as University | null;
+    });
 
     // Get member statistics
     const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
@@ -62,16 +68,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         .filter((id) => !isNaN(id));
 
       if (arcadeIds.length > 0) {
-        const arcadeResults = await shopsCollection
-          .find({ id: { $in: arcadeIds } })
-          .limit(PAGINATION.PAGE_SIZE)
-          .toArray();
-
-        // Convert ObjectId to string for client
-        starredArcades = arcadeResults.map((arcade) => ({
-          ...arcade,
-          _id: arcade._id?.toString()
-        })) as Shop[];
+        starredArcades = toPlainArray(
+          await shopsCollection
+            .find({ id: { $in: arcadeIds } })
+            .limit(PAGINATION.PAGE_SIZE)
+            .toArray()
+        );
       }
     }
 
@@ -80,27 +82,61 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       ? await checkClubPermission(session.user.id!, club.id, mongoClient)
       : { canEdit: false, canManage: false };
 
+    // Check if user is a member and if they can join (for non-members)
+    let canJoin = false;
+    let isUniversityMember = false;
+    let existingJoinRequest = null;
+
+    if (session?.user && club.acceptJoinRequests) {
+      const db = mongoClient.db();
+      const clubMembersCollection = db.collection('club_members');
+      const universityMembersCollection = db.collection('university_members');
+      const joinRequestsCollection = db.collection('join_requests');
+
+      // Check if user is already a club member
+      const existingMembership = await clubMembersCollection.findOne({
+        clubId: club.id,
+        userId: session.user.id
+      });
+
+      if (!existingMembership) {
+        // Check if user is a member of the club's university
+        const universityMembership = await universityMembersCollection.findOne({
+          universityId: club.universityId,
+          userId: session.user.id
+        });
+
+        isUniversityMember = !!universityMembership;
+        canJoin = isUniversityMember;
+
+        // Check for existing join request
+        if (canJoin) {
+          existingJoinRequest = await joinRequestsCollection.findOne({
+            type: 'club',
+            targetId: club.id,
+            userId: session.user.id,
+            status: 'pending'
+          });
+        }
+      }
+    }
+
     // Update calculated fields
     club.membersCount = totalMembers;
 
     return {
-      club: {
-        ...club,
-        _id: club._id?.toString()
-      },
-      university: university
-        ? {
-            ...university,
-            _id: university._id?.toString()
-          }
-        : null,
+      club: toPlainObject(club),
+      university: toPlainObject(university),
       members,
       starredArcades,
       stats: {
         totalMembers
       },
       user: session?.user || null,
-      userPermissions
+      userPermissions,
+      canJoin,
+      isUniversityMember,
+      existingJoinRequest: toPlainObject(existingJoinRequest)
     };
   } catch (err) {
     console.error('Error loading club:', err);
@@ -424,6 +460,92 @@ export const actions: Actions = {
     } catch (err) {
       console.error('Error removing arcade:', err);
       return fail(500, { message: 'Failed to remove arcade' });
+    }
+  },
+
+  joinRequest: async ({ locals, request }) => {
+    const session = await locals.auth();
+    if (!session?.user?.id) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const clubId = formData.get('clubId') as string;
+      const requestMessage = formData.get('requestMessage') as string;
+
+      if (!clubId) {
+        return fail(400, { message: 'Club ID is required' });
+      }
+
+      const mongoClient = await clientPromise;
+      const db = mongoClient.db();
+      const clubsCollection = db.collection('clubs');
+      const clubMembersCollection = db.collection('club_members');
+      const universityMembersCollection = db.collection('university_members');
+      const joinRequestsCollection = db.collection('join_requests');
+
+      // Check if club exists and accepts join requests
+      const club = await clubsCollection.findOne({ id: clubId });
+      if (!club) {
+        return fail(404, { message: 'Club not found' });
+      }
+
+      if (!club.acceptJoinRequests) {
+        return fail(400, { message: 'This club does not accept join requests' });
+      }
+
+      // Check if user is already a member
+      const existingMembership = await clubMembersCollection.findOne({
+        clubId: clubId,
+        userId: session.user.id
+      });
+
+      if (existingMembership) {
+        return fail(400, { message: 'You are already a member of this club' });
+      }
+
+      // Check if user is a member of the club's university
+      const universityMembership = await universityMembersCollection.findOne({
+        universityId: club.universityId,
+        userId: session.user.id
+      });
+
+      if (!universityMembership) {
+        return fail(403, {
+          message: 'You must be a member of the hosting university to join this club'
+        });
+      }
+
+      // Check for existing pending join request
+      const existingRequest = await joinRequestsCollection.findOne({
+        type: 'club',
+        targetId: clubId,
+        userId: session.user.id,
+        status: 'pending'
+      });
+
+      if (existingRequest) {
+        return fail(400, { message: 'You already have a pending join request for this club' });
+      }
+
+      // Create join request
+      const joinRequest = {
+        id: nanoid(),
+        type: 'club' as const,
+        targetId: clubId,
+        userId: session.user.id,
+        requestMessage: requestMessage || null,
+        status: 'pending' as const,
+        createdAt: new Date()
+      };
+
+      await joinRequestsCollection.insertOne(joinRequest);
+
+      return { success: true, message: 'Join request submitted successfully' };
+    } catch (err) {
+      console.error('Error creating join request:', err);
+      return fail(500, { message: 'Failed to submit join request' });
     }
   }
 };

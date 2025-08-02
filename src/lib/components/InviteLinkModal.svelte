@@ -233,7 +233,12 @@
       </div>
     {/if}
   </div>
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="modal-backdrop" onclick={handleClose}></div>
+  <div
+    class="modal-backdrop"
+    onclick={handleClose}
+    onkeydown={(e) => e.key === 'Escape' && handleClose()}
+    role="button"
+    tabindex="0"
+    aria-label={m.close_modal()}
+  ></div>
 </div>

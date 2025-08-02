@@ -162,7 +162,7 @@ export function QQ<P extends QQProfile>(options: OAuthUserConfig<P> = {}): OAuth
       return {
         id: tokens.openid + '',
         name: profile.nickname,
-        email: null,
+        email: tokens.openid + '@qq.nearcade',
         image: profile.figureurl_2 ?? profile.figureurl
       };
     },

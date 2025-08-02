@@ -552,7 +552,7 @@
       name="QQ"
       class="fa-brands fa-qq fa-lg"
       description={m.qq_description()}
-      image="/group-chat-qq.jpg"
+      image="{base}/group-chat-qq.jpg"
     />
   </div>
 </div>

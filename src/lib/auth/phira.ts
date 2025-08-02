@@ -1,4 +1,3 @@
-import { base } from '$app/paths';
 import { AUTH_PHIRA_ID, AUTH_PHIRA_SECRET } from '$env/static/private';
 import { customFetch } from '@auth/sveltekit';
 import type { OAuthUserConfig, OAuth2Config } from '@auth/sveltekit/providers';
@@ -35,7 +34,7 @@ export default function Phira<P extends PhiraProfile>(
     clientSecret,
 
     authorization: {
-      url: `http://localhost:5173${base}/api/auth/phira`,
+      url: `https://phira.moe/oauth`,
       params: {
         scope: '1'
       }

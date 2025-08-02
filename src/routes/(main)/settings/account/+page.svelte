@@ -68,7 +68,9 @@
           </div>
           <div>
             <h3 class="font-medium">@{profile.name}</h3>
-            <p class="text-base-content/60 text-sm">{profile.email}</p>
+            {#if profile.email && !profile.email.endsWith('.nearcade')}
+              <p class="text-base-content/60 text-sm">{profile.email}</p>
+            {/if}
             <p class="text-base-content/50 text-xs">{getUserTypeLabel(profile.userType)}</p>
           </div>
         </div>

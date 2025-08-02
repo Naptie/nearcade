@@ -3,6 +3,7 @@ import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad } from './$types';
 import type { Club, University } from '$lib/types';
+import { toPlainObject } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -66,7 +67,11 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           { $limit: limit }
         ];
 
-        clubs = (await clubsCollection.aggregate(pipeline).toArray()) as (Club & {
+        clubs = (await clubsCollection
+          .aggregate(pipeline, {
+            collation: { locale: 'zh@collation=gb2312han' }
+          })
+          .toArray()) as (Club & {
           universityName?: string;
           universityAvatarUrl?: string | null;
         })[];
@@ -112,6 +117,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         clubs = (await clubsCollection
           .find(searchQuery)
           .sort({ name: 1 })
+          .collation({ locale: 'zh@collation=gb2312han' })
           .skip(skip)
           .limit(limit)
           .toArray()) as (Club & {
@@ -147,17 +153,20 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     );
 
     // Add university names and avatars to clubs
-    clubs.forEach((club) => {
-      club._id = club._id?.toString();
+    clubs = clubs.map((club) => {
       const universityInfo = universityMap.get(club.universityId);
-      club.universityName = universityInfo?.name;
-      club.universityAvatarUrl = universityInfo?.avatarUrl;
+      return {
+        ...toPlainObject(club),
+        universityName: universityInfo?.name,
+        universityAvatarUrl: universityInfo?.avatarUrl
+      };
     });
 
     // Get list of universities for filter dropdown
     const allUniversities = await universitiesCollection
       .find({})
       .sort({ name: 1 })
+      .collation({ locale: 'zh@collation=gb2312han' })
       .project({ _id: 0, id: 1, name: 1 })
       .toArray();
 

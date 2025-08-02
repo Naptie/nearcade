@@ -1,0 +1,155 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+  import { m } from '$lib/paraglide/messages';
+  import type { PageData } from './$types';
+
+  let { data }: { data: PageData } = $props();
+</script>
+
+<svelte:head>
+  <title>{m.admin_dashboard()} - {m.app_name()}</title>
+</svelte:head>
+
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-base-content text-3xl font-bold">{m.admin_dashboard()}</h1>
+      <p class="text-base-content/60 mt-1">{m.admin_dashboard_description()}</p>
+    </div>
+  </div>
+
+  {#if data.stats}
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <!-- Total Users -->
+      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-base-content/60 text-sm font-medium">{m.admin_users()}</p>
+            <p class="text-base-content text-2xl font-bold">{data.stats.totalUsers}</p>
+          </div>
+          <div class="rounded-full bg-blue-100 p-3">
+            <i class="fa-solid fa-users text-lg text-blue-600"></i>
+          </div>
+        </div>
+        {#if data.recentActivity}
+          <div class="mt-4 flex items-center text-sm">
+            <span class="font-medium text-green-600">+{data.recentActivity.newUsers}</span>
+            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Total Universities -->
+      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-base-content/60 text-sm font-medium">{m.admin_universities()}</p>
+            <p class="text-base-content text-2xl font-bold">{data.stats.totalUniversities}</p>
+          </div>
+          <div class="rounded-full bg-purple-100 p-3">
+            <i class="fa-solid fa-building-columns text-lg text-purple-600"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Clubs -->
+      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-base-content/60 text-sm font-medium">{m.admin_clubs()}</p>
+            <p class="text-base-content text-2xl font-bold">{data.stats.totalClubs}</p>
+          </div>
+          <div class="rounded-full bg-green-100 p-3">
+            <i class="fa-solid fa-users-gear text-lg text-green-600"></i>
+          </div>
+        </div>
+        {#if data.recentActivity}
+          <div class="mt-4 flex items-center text-sm">
+            <span class="font-medium text-green-600">+{data.recentActivity.newClubs}</span>
+            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Total Shops -->
+      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-base-content/60 text-sm font-medium">{m.admin_arcade_shops()}</p>
+            <p class="text-base-content text-2xl font-bold">{data.stats.totalShops}</p>
+          </div>
+          <div class="rounded-full bg-orange-100 p-3">
+            <i class="fa-solid fa-gamepad text-lg text-orange-600"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Invites -->
+      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-base-content/60 text-sm font-medium">{m.admin_invites()}</p>
+            <p class="text-base-content text-2xl font-bold">{data.stats.totalInvites}</p>
+          </div>
+          <div class="rounded-full bg-indigo-100 p-3">
+            <i class="fa-solid fa-link text-lg text-indigo-600"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending Join Requests -->
+      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-base-content/60 text-sm font-medium">{m.join_requests()}</p>
+            <p class="text-base-content text-2xl font-bold">{data.stats.pendingJoinRequests}</p>
+          </div>
+          <div class="rounded-full bg-yellow-100 p-3">
+            <i class="fa-solid fa-user-plus text-lg text-yellow-600"></i>
+          </div>
+        </div>
+        {#if data.recentActivity}
+          <div class="mt-4 flex items-center text-sm">
+            <span class="font-medium text-yellow-600">+{data.recentActivity.newJoinRequests}</span>
+            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+      <h2 class="text-base-content mb-4 text-xl font-semibold">{m.admin_quick_actions()}</h2>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <a href="{base}/admin/users" class="btn btn-soft">
+          <i class="fa-solid fa-users mr-2"></i>
+          {m.admin_users()}
+        </a>
+        <a href="{base}/admin/universities" class="btn btn-soft">
+          <i class="fa-solid fa-building-columns mr-2"></i>
+          {m.admin_universities()}
+        </a>
+        <a href="{base}/admin/clubs" class="btn btn-soft">
+          <i class="fa-solid fa-users-gear mr-2"></i>
+          {m.admin_clubs()}
+        </a>
+        <a href="{base}/admin/join-requests" class="btn btn-soft">
+          <i class="fa-solid fa-user-plus mr-2"></i>
+          {m.join_requests()}
+        </a>
+      </div>
+    </div>
+  {:else}
+    <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+      <div class="py-8 text-center">
+        <i class="fa-solid fa-exclamation-triangle text-warning mb-4 text-4xl"></i>
+        <h3 class="text-base-content mb-2 text-lg font-semibold">
+          {m.admin_unable_to_load_statistics()}
+        </h3>
+        <p class="text-base-content/60">{m.admin_error_loading_data()}</p>
+      </div>
+    </div>
+  {/if}
+</div>

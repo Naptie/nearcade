@@ -2,8 +2,7 @@ import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
 import { MongoClient } from 'mongodb';
 import type { Shop } from '$lib/types';
-import type { Session } from '@auth/sveltekit';
-import { areValidCoordinates, calculateDistance } from '$lib/utils';
+import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
@@ -13,15 +12,7 @@ if (!client) {
   clientPromise = client.connect();
 }
 
-export const loadShops = async ({
-  url,
-  parent
-}: {
-  url: URL;
-  parent: () => Promise<{ session: Session | null }>;
-}) => {
-  const { session } = await parent();
-
+export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
   const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
   if (!latParam || !lngParam) {
@@ -60,15 +51,13 @@ export const loadShops = async ({
         const distance = calculateDistance(latitude, longitude, shopLat, shopLng);
 
         return {
-          ...shop,
-          _id: shop._id.toString(),
+          ...toPlainObject(shop),
           distance: distance
         };
       }
 
       return {
-        ...shop,
-        _id: shop._id.toString(),
+        ...toPlainObject(shop),
         distance: Infinity
       };
     });
@@ -81,8 +70,7 @@ export const loadShops = async ({
         latitude,
         longitude
       },
-      radius: radiusKm,
-      session
+      radius: radiusKm
     };
   } catch (err) {
     console.error('Error loading shops:', err);

@@ -34,7 +34,8 @@
     {
       name: 'Phira',
       icon: 'phira.png',
-      class: 'hover:bg-[#4479F4] hover:text-white'
+      class:
+        'bg-gradient-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
     }
   ].map((provider) => ({
     ...provider,
@@ -73,7 +74,7 @@
     onclick={handleDialogClick}
     onkeydown={handleKeydown}
   >
-    <div class="modal-box relative max-h-[90vh] max-w-xl">
+    <div class="text-base-content modal-box relative max-h-[90vh] max-w-xl">
       <button
         class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
         onclick={() => {
@@ -92,7 +93,7 @@
               <input type="hidden" name="providerId" value={provider.id} />
               <button
                 type="submit"
-                class="btn btn-outline not-2xs:btn-circle w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
+                class="btn btn-outline not-2xs:btn-circle btn-t w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
               >
                 {#if provider.icon.startsWith('fa-')}
                   <i class="fa-brands fa-lg {provider.icon}"></i>
@@ -133,9 +134,11 @@
       }}
     />
     {#if open}
-      <ul class="dropdown-content menu bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg">
+      <ul
+        class="text-base-content dropdown-content menu bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg"
+      >
         <li>
-          <a href="{base}/users/{session.user.id}" class="flex items-center gap-2">
+          <a href="{base}/users/@{session.user.name}" class="flex items-center gap-2">
             <i class="fa-solid fa-user"></i>
             {m.my_profile()}
           </a>
@@ -179,5 +182,13 @@
       width: var(--size);
       height: var(--size);
     }
+  }
+
+  .btn-t {
+    transition-property:
+      color, background-color, border-color, box-shadow, --tw-gradient-from, --tw-gradient-via,
+      --tw-gradient-to;
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    transition-duration: 0.2s;
   }
 </style>

@@ -3,7 +3,13 @@ import { MONGODB_URI } from '$env/static/private';
 import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Club, Campus } from '$lib/types';
-import { checkUniversityPermission, getUniversityMembersWithUserData } from '$lib/utils';
+import {
+  checkUniversityPermission,
+  getUniversityMembersWithUserData,
+  toPlainArray,
+  toPlainObject,
+  updateUserType
+} from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { logCampusChanges } from '$lib/changelog.server';
 import { nanoid } from 'nanoid';
@@ -56,12 +62,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       .limit(50)
       .toArray()) as unknown as Club[];
 
-    // Clean up club data
-    clubs.forEach((club) => {
-      club._id = club._id?.toString();
-    });
-
-    university._id = university._id?.toString();
     university.studentsCount = totalMembers;
 
     const parentData = await parent();
@@ -77,11 +77,11 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
 
     return {
-      university,
+      university: toPlainObject(university),
       user,
       userPermissions,
       members,
-      clubs,
+      clubs: toPlainArray(clubs),
       stats: {
         totalMembers,
         totalClubs,
@@ -377,27 +377,14 @@ export const actions: Actions = {
       // Create membership
       const newMembership = {
         universityId,
-        userId: targetUser.id, // Use the user's id field, not _id
+        userId: targetUser.id,
         memberType,
         joinedAt: new Date()
       };
 
       await universityMembersCollection.insertOne(newMembership);
 
-      // Update user type based on new role
-      // This will be handled by the updateUserType function
-      // For now, we'll do a simplified update
-      if (memberType === 'admin') {
-        await usersCollection.updateOne(
-          { id: targetUser.id }, // Use id field instead of _id
-          { $set: { userType: 'school_admin', universityId } }
-        );
-      } else if (memberType === 'moderator') {
-        await usersCollection.updateOne(
-          { id: targetUser.id }, // Use id field instead of _id
-          { $set: { userType: 'school_moderator', universityId } }
-        );
-      }
+      await updateUserType(targetUser.id, mongoClient);
 
       return { success: true };
     } catch (err) {
@@ -449,7 +436,6 @@ export const actions: Actions = {
 
       const db = mongoClient.db();
       const membersCollection = db.collection('university_members');
-      const usersCollection = db.collection('users');
 
       // Remove membership
       await membersCollection.deleteOne({
@@ -457,11 +443,7 @@ export const actions: Actions = {
         userId: targetUserId
       });
 
-      // Update user type back to regular student
-      await usersCollection.updateOne(
-        { id: targetUserId },
-        { $set: { userType: 'student' }, $unset: { universityId: '' } }
-      );
+      await updateUserType(targetUserId, mongoClient);
 
       return { success: true, message: 'Member removed successfully' };
     } catch (err) {
@@ -499,7 +481,6 @@ export const actions: Actions = {
 
       const db = mongoClient.db();
       const membersCollection = db.collection('university_members');
-      const usersCollection = db.collection('users');
 
       // Update membership type
       await membersCollection.updateOne(
@@ -508,10 +489,7 @@ export const actions: Actions = {
       );
 
       // Update user type
-      await usersCollection.updateOne(
-        { id: targetUserId },
-        { $set: { userType: 'school_moderator', universityId } }
-      );
+      await updateUserType(targetUserId, mongoClient);
 
       return { success: true, message: 'Moderator role granted successfully' };
     } catch (err) {
@@ -549,7 +527,6 @@ export const actions: Actions = {
 
       const db = mongoClient.db();
       const membersCollection = db.collection('university_members');
-      const usersCollection = db.collection('users');
 
       // Update membership type
       await membersCollection.updateOne(
@@ -558,10 +535,7 @@ export const actions: Actions = {
       );
 
       // Update user type
-      await usersCollection.updateOne(
-        { id: targetUserId },
-        { $set: { userType: 'student', universityId } }
-      );
+      await updateUserType(targetUserId, mongoClient);
 
       return { success: true, message: 'Moderator role revoked successfully' };
     } catch (err) {
@@ -604,10 +578,7 @@ export const actions: Actions = {
         { $set: { memberType: 'admin' } }
       );
 
-      await usersCollection.updateOne(
-        { id: targetUserId },
-        { $set: { userType: 'school_admin', universityId } }
-      );
+      await updateUserType(targetUserId, mongoClient);
 
       return { success: true, message: 'Admin privileges granted successfully' };
     } catch (err) {
@@ -662,10 +633,7 @@ export const actions: Actions = {
         { $set: { memberType: 'moderator' } }
       );
 
-      await usersCollection.updateOne(
-        { id: session.user.id },
-        { $set: { userType: 'school_moderator', universityId } }
-      );
+      await updateUserType(session.user.id!, mongoClient);
 
       // Promote target user to admin
       await membersCollection.updateOne(
@@ -673,10 +641,7 @@ export const actions: Actions = {
         { $set: { memberType: 'admin' } }
       );
 
-      await usersCollection.updateOne(
-        { id: targetUserId },
-        { $set: { userType: 'school_admin', universityId } }
-      );
+      await updateUserType(targetUserId, mongoClient);
 
       return { success: true, message: 'Admin privileges transferred successfully' };
     } catch (err) {

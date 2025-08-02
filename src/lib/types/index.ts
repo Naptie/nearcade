@@ -268,6 +268,15 @@ export interface JoinRequestWithUser extends JoinRequest {
     image: string | null;
     userType: string | null;
   };
+  reviewer?: {
+    _id: string;
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
 }
 
 export interface Discussion {
