@@ -59,7 +59,7 @@
         <img
           src="/donate-wechat.png"
           alt={m.wechat_donation_qr()}
-          class="max-h-[50vh] w-fit rounded-xl object-contain shadow-lg"
+          class="max-h-[50vh] rounded-xl object-contain shadow-lg"
         />
       </div>
 
