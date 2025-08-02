@@ -61,17 +61,17 @@ export function formatChangelogDescription(entry: ChangelogEntry, m: MessagesObj
 
   // Handle campus-specific actions
   if (entry.action === 'campus_added') {
-    return m.changelog_added_campus({ campusName: entry.fieldInfo.campusName || m.unknown() });
+    return m.changelog_added_campus({ campusName: entry.fieldInfo.campusName || m.main_campus() });
   }
 
   if (entry.action === 'campus_deleted') {
-    return m.changelog_deleted_campus({ campusName: entry.fieldInfo.campusName || m.unknown() });
+    return m.changelog_deleted_campus({ campusName: entry.fieldInfo.campusName || m.main_campus() });
   }
 
   if (entry.action === 'campus_updated') {
     return m.changelog_updated_campus({
       field: fieldName,
-      campusName: entry.fieldInfo.campusName || m.unknown()
+      campusName: entry.fieldInfo.campusName || m.main_campus()
     });
   }
 
