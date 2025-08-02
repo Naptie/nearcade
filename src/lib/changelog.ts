@@ -6,7 +6,7 @@ type MessagesObject = Record<string, (...args: unknown[]) => string>;
 /**
  * Get the internationalized field name for a changelog field
  */
-export function getChangelogFieldName(field: string, m: MessagesObject): string {
+export const getChangelogFieldName = (field: string, m: MessagesObject): string => {
   const fieldMap: Record<string, string> = {
     name: m.changelog_field_name(),
     type: m.changelog_field_type(),
@@ -31,15 +31,15 @@ export function getChangelogFieldName(field: string, m: MessagesObject): string 
   };
 
   return fieldMap[field] || field;
-}
+};
 
 /**
  * Get the internationalized action name for a changelog action
  */
-export function getChangelogActionName(
+export const getChangelogActionName = (
   action: ChangelogEntry['action'],
   m: MessagesObject
-): string {
+): string => {
   const actionMap: Record<string, string> = {
     created: m.changelog_action_created(),
     modified: m.changelog_action_modified(),
@@ -50,12 +50,12 @@ export function getChangelogActionName(
   };
 
   return actionMap[action] || action;
-}
+};
 
 /**
  * Format a changelog entry description with proper internationalization
  */
-export function formatChangelogDescription(entry: ChangelogEntry, m: MessagesObject): string {
+export const formatChangelogDescription = (entry: ChangelogEntry, m: MessagesObject): string => {
   const fieldName = getChangelogFieldName(entry.fieldInfo.field, m);
   const actionName = getChangelogActionName(entry.action, m);
 
@@ -107,12 +107,12 @@ export function formatChangelogDescription(entry: ChangelogEntry, m: MessagesObj
 
   // Fallback
   return `${actionName} ${fieldName}`;
-}
+};
 
 /**
  * Format a value for display based on field type
  */
-export function formatValue(value: string, field: string, m: MessagesObject): string {
+export const formatValue = (value: string, field: string, m: MessagesObject): string => {
   // Handle boolean values
   if (field.startsWith('is')) {
     return value === 'true' ? m.yes() : m.no();
@@ -129,4 +129,4 @@ export function formatValue(value: string, field: string, m: MessagesObject): st
   }
 
   return value;
-}
+};

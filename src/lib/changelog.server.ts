@@ -19,7 +19,7 @@ interface FieldChange {
 /**
  * Log a change to the changelog
  */
-export async function logChange(
+export const logChange = async (
   client: MongoClient,
   change: {
     type: 'university' | 'club';
@@ -31,7 +31,7 @@ export async function logChange(
     newValue?: string | null;
     metadata?: ChangelogEntry['metadata'];
   }
-): Promise<void> {
+): Promise<void> => {
   const db = client.db();
   const changelogCollection = db.collection<ChangelogEntry>('changelog');
 
@@ -51,18 +51,18 @@ export async function logChange(
   };
 
   await changelogCollection.insertOne(changelogEntry);
-}
+};
 
 /**
  * Compare two objects and log changes for each field that differs
  */
-export async function logUniversityChanges(
+export const logUniversityChanges = async (
   client: MongoClient,
   universityId: string,
   oldData: Partial<University>,
   newData: Partial<University>,
   user: ChangelogUser
-): Promise<void> {
+): Promise<void> => {
   const changes: FieldChange[] = [];
 
   // Define fields to track
@@ -115,19 +115,19 @@ export async function logUniversityChanges(
       newValue: change.newValue
     });
   }
-}
+};
 
 /**
  * Log campus-specific changes
  */
-export async function logCampusChanges(
+export const logCampusChanges = async (
   client: MongoClient,
   universityId: string,
   action: 'campus_added' | 'campus_updated' | 'campus_deleted',
   campus: Campus,
   user: ChangelogUser,
   oldCampusData?: Partial<Campus>
-): Promise<void> {
+): Promise<void> => {
   if (action === 'campus_added' || action === 'campus_deleted') {
     // For add/delete, log a single entry
     await logChange(client, {
@@ -204,12 +204,12 @@ export async function logCampusChanges(
       }
     }
   }
-}
+};
 
 /**
  * Format values for comparison and storage
  */
-function formatValueForComparison(value: unknown): string | null {
+const formatValueForComparison = (value: unknown): string | null => {
   if (value === null || value === undefined) {
     return null;
   }
@@ -223,19 +223,19 @@ function formatValueForComparison(value: unknown): string | null {
   }
 
   return String(value);
-}
+};
 
 /**
  * Get changelog entries for a university
  */
-export async function getChangelogEntries(
+export const getChangelogEntries = async (
   client: MongoClient,
   universityId: string,
   options: {
     limit?: number;
     offset?: number;
   } = {}
-): Promise<{ entries: ChangelogEntry[]; total: number }> {
+): Promise<{ entries: ChangelogEntry[]; total: number }> => {
   const { limit = 50, offset = 0 } = options;
 
   const db = client.db();
@@ -258,4 +258,4 @@ export async function getChangelogEntries(
   ]);
 
   return { entries, total };
-}
+};
