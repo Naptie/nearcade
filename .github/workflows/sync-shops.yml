@@ -3,8 +3,8 @@ run-name: Synchronize shops data and trigger rankings update
 
 on:
   schedule:
-    # Runs at 21:00 UTC every day
-    - cron: '0 21 * * *'
+    # Runs at 17:00 UTC every Sunday
+    - cron: '0 17 * * 0'
   workflow_dispatch:
 
 jobs:
