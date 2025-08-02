@@ -443,7 +443,7 @@
                           >
                             <div>
                               <a
-                                href="{base}/universities/{university.id}"
+                                href="{base}/universities/{university.slug || university.id}"
                                 target="_blank"
                                 class="text-base-content link-accent text-base font-medium transition-colors"
                               >
@@ -465,7 +465,7 @@
                           <div class="p-3">
                             <div>
                               <a
-                                href="{base}/universities/{university.id}"
+                                href="{base}/universities/{university.slug || university.id}"
                                 target="_blank"
                                 class="text-base-content link-accent text-base font-medium transition-colors"
                                 >{university.name}</a

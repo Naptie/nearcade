@@ -32,7 +32,7 @@
   let useCustomBackgroundColor = $state(!!data.university.backgroundColor);
 
   const handleCancel = () => {
-    goto(`${base}/universities/${data.university.id}`);
+    goto(`${base}/universities/${data.university.slug || data.university.id}`);
   };
 </script>
 

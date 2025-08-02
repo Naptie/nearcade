@@ -65,7 +65,9 @@ export function formatChangelogDescription(entry: ChangelogEntry, m: MessagesObj
   }
 
   if (entry.action === 'campus_deleted') {
-    return m.changelog_deleted_campus({ campusName: entry.fieldInfo.campusName || m.main_campus() });
+    return m.changelog_deleted_campus({
+      campusName: entry.fieldInfo.campusName || m.main_campus()
+    });
   }
 
   if (entry.action === 'campus_updated') {

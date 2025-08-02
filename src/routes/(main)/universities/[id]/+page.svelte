@@ -321,7 +321,7 @@
           <!-- Edit University Button for privileged users -->
           {#if userPrivileges.canEdit}
             <a
-              href="{base}/universities/{data.university.id}/edit"
+              href="{base}/universities/{data.university.slug || data.university.id}/edit"
               class="btn btn-circle btn-lg btn-ghost"
               title={m.edit_university_info()}
               aria-label={m.edit_university_info()}
@@ -651,7 +651,7 @@
                         {m.create_club_to_get_started()}
                       </p>
                       <a
-                        href="{base}/clubs/create?university={data.university.id}"
+                        href="{base}/clubs/new?university={data.university.id}"
                         class="btn btn-primary btn-sm btn-soft"
                       >
                         <i class="fa-solid fa-plus"></i>

@@ -90,7 +90,7 @@
               <tr class="hover">
                 <td>
                   <a
-                    href="{base}/clubs/{club.slug || club.id}"
+                    href="{base}/clubs/{club.id}"
                     target="_blank"
                     class="group flex items-center gap-3"
                   >
@@ -122,7 +122,7 @@
                 <td>
                   {#if club.university}
                     <a
-                      href="{base}/universities/{club.university.slug || club.university.id}"
+                      href="{base}/universities/{club.university.id}"
                       class="hover:text-accent transition-colors"
                     >
                       {club.university.name}
@@ -153,7 +153,7 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/clubs/{club.slug || club.id}/edit"
+                      href="{base}/clubs/{club.id}/edit"
                       target="_blank"
                       class="btn btn-primary btn-soft btn-sm"
                     >

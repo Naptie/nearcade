@@ -246,7 +246,7 @@
 
     <!-- Submit Button -->
     <div class="flex justify-end gap-4">
-      <a href="{base}/clubs" class="btn btn-ghost">
+      <a href="{base}/universities/{data.university?.id}" class="btn btn-ghost">
         {m.cancel()}
       </a>
       <button type="submit" class="btn btn-primary" disabled={isSubmitting}>

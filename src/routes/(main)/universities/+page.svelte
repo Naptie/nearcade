@@ -87,7 +87,7 @@
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.universities as university (university.id)}
           <a
-            href="{base}/universities/{university.id}"
+            href="{base}/universities/{university.slug || university.id}"
             class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
           >
             <div class="card-body p-6">

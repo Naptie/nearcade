@@ -49,7 +49,7 @@
             <div class="mb-3 flex items-center gap-2">
               <i class="fa-solid fa-graduation-cap text-base-content/50"></i>
               <a
-                href="{base}/universities/{data.university.id}"
+                href="{base}/universities/{data.university.slug || data.university.id}"
                 class="hover:text-accent text-base-content/80 transition-colors"
               >
                 {data.university.name}

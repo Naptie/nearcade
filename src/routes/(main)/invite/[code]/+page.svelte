@@ -31,11 +31,9 @@
 
         // Redirect after a delay
         setTimeout(() => {
-          if (data.invite.type === 'university') {
-            goto(`${base}/universities/${data.targetInfo.id}`);
-          } else {
-            goto(`${base}/clubs/${data.targetInfo.id}`);
-          }
+          goto(
+            `${base}/${data.invite.type === 'university' ? 'universities' : 'clubs'}/${data.targetInfo.slug || data.targetInfo.id}`
+          );
         }, 2000);
       } else {
         const error = (await response.json()) as { message?: string };

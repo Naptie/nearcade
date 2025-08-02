@@ -103,7 +103,7 @@
         {#each data.universities as university (university.id)}
           <div class="bg-base-100 flex items-center justify-between rounded-lg p-4">
             <a
-              href="{base}/universities/{university.id}"
+              href="{base}/universities/{university.slug || university.id}"
               class="group flex cursor-pointer items-center gap-3"
             >
               <div class="avatar {university.avatarUrl ? '' : 'avatar-placeholder'}">
@@ -177,7 +177,7 @@
                 </h3>
                 {#if club.university}
                   <a
-                    href="{base}/universities/{club.university.id}"
+                    href="{base}/universities/{club.university.slug || club.university.id}"
                     class="hover:text-accent text-base-content/60 text-sm transition-colors"
                     >{club.university.name}</a
                   >
