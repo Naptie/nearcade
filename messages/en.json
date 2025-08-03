@@ -224,6 +224,7 @@
   "badges_table_header": "Badges",
   "basic_information": "Basic Information",
   "bio": "Bio",
+  "bio_too_long": "Bio must be 500 characters or less",
   "board_at": "Board at",
   "boarding_info": "Boarding Info",
   "browse_clubs": "Browse Clubs",
@@ -419,6 +420,7 @@
     }
   ],
   "display_name": "Display Name",
+  "display_name_too_long": "Display name must be 50 characters or less",
   "dist_km": "{km}km",
   "dist_m": "{m}m",
   "distance": "Distance",
@@ -657,6 +659,8 @@
   "profile": "Profile",
   "profile_image": "Profile",
   "profile_information": "Profile Information",
+  "profile_update_error": "An error occurred while updating your profile. Please try again.",
+  "profile_update_failed": "Failed to update profile",
   "profile_updated": "Profile updated successfully",
   "provider_logo": "Logo",
   "province": "Province",
@@ -892,8 +896,11 @@
   "user_id": "User ID",
   "user_type": "User Type",
   "username": "Username",
+  "username_invalid": "Username can only contain letters, numbers, underscores, and hyphens",
+  "username_required": "Username is required",
   "username_requirements": "Username can only contain letters, numbers, underscores, and hyphens",
   "username_taken": "This username is already taken",
+  "username_too_long": "Username must be 30 characters or less",
   "uses": [
     {
       "declarations": ["input current", "input max"],
@@ -906,6 +913,7 @@
       }
     }
   ],
+  "validation_error": "Please check your input and try again",
   "verified": "Verified",
   "verified_members": "Verified Members",
   "verified_student": "Verified Student",

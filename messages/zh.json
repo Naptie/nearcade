@@ -206,6 +206,7 @@
   "badges_table_header": "徽章",
   "basic_information": "基本信息",
   "bio": "个人简介",
+  "bio_too_long": "简介不能超过500个字符",
   "board_at": "在此上车",
   "boarding_info": "乘车信息",
   "browse_clubs": "浏览社团",
@@ -356,6 +357,7 @@
   "discussions": "讨论",
   "dismiss_in": "{count} 天内不再显示",
   "display_name": "显示名称",
+  "display_name_too_long": "显示名称不能超过50个字符",
   "dist_km": "{km} 千米",
   "dist_m": "{m} 米",
   "distance": "直线距离",
@@ -576,6 +578,8 @@
   "profile": "个人资料",
   "profile_image": "个人头像",
   "profile_information": "个人资料",
+  "profile_update_error": "更新个人资料时发生错误，请重试。",
+  "profile_update_failed": "更新个人资料失败",
   "profile_updated": "资料更新成功",
   "provider_logo": "提供商Logo",
   "province": "省份",
@@ -757,8 +761,11 @@
   "user_id": "用户ID",
   "user_type": "用户类型",
   "username": "用户名",
+  "username_invalid": "用户名只能包含字母、数字、下划线和连字符",
+  "username_required": "用户名是必填项",
   "username_requirements": "用户名只能包含字母、数字、下划线和连字符",
   "username_taken": "此用户名已被使用",
+  "username_too_long": "用户名不能超过30个字符",
   "uses": [
     {
       "declarations": ["input current", "input max"],
@@ -768,6 +775,7 @@
       }
     }
   ],
+  "validation_error": "请检查您的输入并重试",
   "verified": "已认证",
   "verified_members": "认证成员",
   "verified_student": "认证学生",

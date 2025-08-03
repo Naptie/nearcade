@@ -10,12 +10,135 @@
   let isSubmitting = $state(false);
   let showSuccess = $state(false);
 
-  // Form data
+  // Form data with error handling
   let displayName = $state(data.userProfile?.displayName || '');
   let bio = $state(data.userProfile?.bio || '');
   let username = $state(data.userProfile?.name || '');
   let isEmailPublic = $state(data.userProfile?.isEmailPublic || false);
   let isUniversityPublic = $state(data.userProfile?.isUniversityPublic !== false);
+
+  // Reset form data when form errors occur (preserve user input)
+  $effect(() => {
+    if (form && 'formData' in form && form.formData) {
+      const formData = form.formData as {
+        displayName?: string;
+        bio?: string;
+        username?: string;
+        isEmailPublic?: boolean;
+        isUniversityPublic?: boolean;
+      };
+      displayName = formData.displayName || '';
+      bio = formData.bio || '';
+      username = formData.username || '';
+      isEmailPublic = formData.isEmailPublic || false;
+      isUniversityPublic = formData.isUniversityPublic !== false;
+    }
+  });
+
+  // Clear client errors when server errors are received
+  $effect(() => {
+    if (form && 'fieldErrors' in form && form.fieldErrors) {
+      clientErrors = {};
+    }
+  });
+
+  // Field error helper
+  function getFieldError(field: string): string | undefined {
+    if (form && 'fieldErrors' in form && form.fieldErrors) {
+      return (form.fieldErrors as Record<string, string>)[field];
+    }
+    return undefined;
+  }
+
+  // Check if field has error
+  function hasFieldError(field: string): boolean {
+    return !!getFieldError(field);
+  }
+
+  // Client-side validation state
+  let clientErrors = $state<Record<string, string>>({});
+
+  // Real-time validation
+  function validateField(field: string, value: string) {
+    switch (field) {
+      case 'username':
+        if (!value.trim()) {
+          clientErrors.username = 'username_required';
+        } else if (value.trim().length > 30) {
+          clientErrors.username = 'username_too_long';
+        } else if (!/^[A-Za-z0-9_-]+$/.test(value.trim())) {
+          clientErrors.username = 'username_invalid';
+        } else {
+          delete clientErrors.username;
+        }
+        break;
+      case 'displayName':
+        if (value.trim().length > 50) {
+          clientErrors.displayName = 'display_name_too_long';
+        } else {
+          delete clientErrors.displayName;
+        }
+        break;
+      case 'bio':
+        if (value.trim().length > 500) {
+          clientErrors.bio = 'bio_too_long';
+        } else {
+          delete clientErrors.bio;
+        }
+        break;
+    }
+    clientErrors = { ...clientErrors }; // Trigger reactivity
+  }
+
+  // Get error for field (server or client)
+  function getError(field: string): string | undefined {
+    return getFieldError(field) || clientErrors[field];
+  }
+
+  // Check if field has any error (server or client)
+  function hasError(field: string): boolean {
+    return hasFieldError(field) || !!clientErrors[field];
+  }
+
+  // Check if form is valid
+  let isFormValid = $derived.by(() => {
+    const hasClientErrors = Object.keys(clientErrors).length > 0;
+    const hasServerErrors =
+      form && 'fieldErrors' in form && form.fieldErrors && Object.keys(form.fieldErrors).length > 0;
+    const hasRequiredFields = username.trim().length > 0;
+    return !hasClientErrors && !hasServerErrors && hasRequiredFields;
+  });
+
+  // Safe message getter for i18n
+  function getMessage(key: string | undefined): string {
+    if (!key) return '';
+
+    // Handle common error message keys
+    switch (key) {
+      case 'username_required':
+        return m.username_required();
+      case 'username_too_long':
+        return m.username_too_long();
+      case 'username_invalid':
+        return m.username_invalid();
+      case 'username_taken':
+        return m.username_taken();
+      case 'display_name_too_long':
+        return m.display_name_too_long();
+      case 'bio_too_long':
+        return m.bio_too_long();
+      case 'profile_update_failed':
+        return m.profile_update_failed();
+      case 'profile_update_error':
+        return m.profile_update_error();
+      case 'profile_updated':
+        return m.profile_updated();
+      case 'validation_error':
+        return m.validation_error();
+      default:
+        return key;
+    }
+  }
 </script>
 
 <div class="space-y-6">
@@ -28,10 +151,10 @@
   </div>
 
   <!-- Success Alert -->
-  {#if showSuccess}
+  {#if showSuccess || (form?.success && form?.message)}
     <div class="alert alert-success">
       <i class="fa-solid fa-check-circle"></i>
-      <span>{m.profile_updated()}</span>
+      <span>{form?.success ? getMessage(form.message) : m.profile_updated()}</span>
     </div>
   {/if}
 
@@ -39,7 +162,7 @@
   {#if form?.message && !form.success}
     <div class="alert alert-error">
       <i class="fa-solid fa-exclamation-triangle"></i>
-      <span>{form.message}</span>
+      <span>{getMessage(form.message)}</span>
     </div>
   {/if}
 
@@ -84,12 +207,12 @@
       return async ({ result }) => {
         isSubmitting = false;
 
-        if (result.type === 'success') {
+        if (result.type === 'success' && result.data?.success) {
           showSuccess = true;
           invalidateAll();
           setTimeout(() => {
             showSuccess = false;
-          }, 3000);
+          }, 5000);
         }
       };
     }}
@@ -107,14 +230,23 @@
         name="displayName"
         type="text"
         bind:value={displayName}
+        oninput={() => validateField('displayName', displayName)}
         placeholder={m.enter_your_display_name()}
         class="input input-bordered w-full"
+        class:input-error={hasError('displayName')}
         maxlength="50"
       />
       <div class="label">
-        <span class="label-text-alt text-base-content/50">
-          {m.this_is_how_others_will_see_your_name()}
-        </span>
+        {#if hasError('displayName')}
+          <span class="label-text-alt text-error">
+            <i class="fa-solid fa-exclamation-triangle mr-1"></i>
+            {getMessage(getError('displayName'))}
+          </span>
+        {:else}
+          <span class="label-text-alt text-base-content/50">
+            {m.this_is_how_others_will_see_your_name()}
+          </span>
+        {/if}
       </div>
     </div>
 
@@ -122,21 +254,33 @@
     <div class="form-control">
       <label class="label" for="username">
         <span class="label-text">{m.username()}</span>
+        <span class="label-text-alt text-error">*</span>
       </label>
       <input
         id="username"
         name="username"
         type="text"
         bind:value={username}
+        oninput={() => validateField('username', username)}
         placeholder={m.username()}
         class="input input-bordered w-full"
+        class:input-error={hasError('username')}
         pattern="[A-Za-z0-9_\-]+"
         title={m.username_requirements()}
         maxlength="30"
         required
       />
-      <div class="label-text-alt text-base-content/60 mt-1">
-        {m.username_requirements()}
+      <div class="label">
+        {#if hasError('username')}
+          <span class="label-text-alt text-error">
+            <i class="fa-solid fa-exclamation-triangle mr-1"></i>
+            {getMessage(getError('username'))}
+          </span>
+        {:else}
+          <span class="label-text-alt text-base-content/60">
+            {m.username_requirements()}
+          </span>
+        {/if}
       </div>
     </div>
 
@@ -149,14 +293,23 @@
         id="bio"
         name="bio"
         bind:value={bio}
+        oninput={() => validateField('bio', bio)}
         placeholder={m.tell_us_about_yourself()}
         class="textarea textarea-bordered h-24 w-full"
+        class:textarea-error={hasError('bio')}
         maxlength="500"
       ></textarea>
       <div class="label">
-        <span class="label-text-alt text-base-content/50">
-          {bio.length}/500 {m.characters()}
-        </span>
+        {#if hasError('bio')}
+          <span class="label-text-alt text-error">
+            <i class="fa-solid fa-exclamation-triangle mr-1"></i>
+            {getMessage(getError('bio'))}
+          </span>
+        {:else}
+          <span class="label-text-alt {bio.length > 450 ? 'text-warning' : 'text-base-content/50'}">
+            {bio.length}/500 {m.characters()}
+          </span>
+        {/if}
       </div>
     </div>
 
@@ -198,7 +351,7 @@
 
     <!-- Submit Button -->
     <div class="flex justify-end">
-      <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
+      <button type="submit" class="btn btn-primary" disabled={isSubmitting || !isFormValid}>
         {#if isSubmitting}
           <span class="loading loading-spinner loading-sm"></span>
         {:else}

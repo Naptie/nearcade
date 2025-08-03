@@ -29,7 +29,7 @@ export const actions: Actions = {
   updateProfile: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: 'Unauthorized', fieldErrors: {} });
     }
 
     const user = session.user;
@@ -42,26 +42,65 @@ export const actions: Actions = {
       const isEmailPublic = formData.get('isEmailPublic') === 'on';
       const isUniversityPublic = formData.get('isUniversityPublic') === 'on';
 
-      // If username is provided, validate it
-      if (username && username !== user.name) {
-        // Validate username format
-        if (!/^[A-Za-z0-9_-]+$/.test(username)) {
-          return fail(400, {
-            message: 'Username can only contain letters, numbers, underscores, and hyphens'
-          });
-        }
+      // Field-specific validation errors
+      const fieldErrors: Record<string, string> = {};
 
+      // Validate username
+      if (!username || username.trim() === '') {
+        fieldErrors.username = 'username_required';
+      } else if (username.trim().length > 30) {
+        fieldErrors.username = 'username_too_long';
+      } else if (!/^[A-Za-z0-9_-]+$/.test(username.trim())) {
+        fieldErrors.username = 'username_invalid';
+      }
+
+      // Validate display name
+      if (displayName && displayName.trim().length > 50) {
+        fieldErrors.displayName = 'display_name_too_long';
+      }
+
+      // Validate bio
+      if (bio && bio.trim().length > 500) {
+        fieldErrors.bio = 'bio_too_long';
+      }
+
+      // If there are validation errors, return them
+      if (Object.keys(fieldErrors).length > 0) {
+        return fail(400, {
+          message: 'validation_error',
+          fieldErrors,
+          formData: {
+            displayName,
+            bio,
+            username,
+            isEmailPublic,
+            isUniversityPublic
+          }
+        });
+      }
+
+      // Check if username is taken (if username changed)
+      if (username && username.trim() !== user.name) {
         const db = client.db();
         const usersCollection = db.collection('users');
 
-        // Check if username is taken (excluding current user)
         const existingUser = await usersCollection.findOne({
-          name: username,
+          name: username.trim(),
           _id: { $ne: new ObjectId(user.id) }
         });
 
         if (existingUser) {
-          return fail(400, { message: 'This username is already taken' });
+          return fail(400, {
+            message: 'username_taken',
+            fieldErrors: { username: 'username_taken' },
+            formData: {
+              displayName,
+              bio,
+              username,
+              isEmailPublic,
+              isUniversityPublic
+            }
+          });
         }
       }
 
@@ -76,24 +115,27 @@ export const actions: Actions = {
         updatedAt: Date;
         name?: string;
       } = {
-        displayName: displayName.trim() || undefined,
-        bio: bio.trim(),
+        displayName: displayName?.trim() || undefined,
+        bio: bio?.trim() || '',
         isEmailPublic,
         isUniversityPublic,
         updatedAt: new Date()
       };
 
       // Only update username if it's different
-      if (username && username !== user.name) {
+      if (username && username.trim() !== user.name) {
         updateData.name = username.trim();
       }
 
       await usersCollection.updateOne({ _id: new ObjectId(user.id) }, { $set: updateData });
 
-      return { success: true, message: 'Profile updated successfully' };
+      return { success: true, message: 'profile_updated' };
     } catch (err) {
       console.error('Error updating profile:', err);
-      return fail(500, { message: 'Failed to update profile' });
+      return fail(500, {
+        message: 'profile_update_error',
+        fieldErrors: {}
+      });
     }
   }
 };
