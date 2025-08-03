@@ -163,8 +163,8 @@
           </div>
         </div>
 
-        <!-- Contact Info (if own profile) -->
-        {#if data.isOwnProfile && data.user.email && !data.user.email.endsWith('.nearcade')}
+        <!-- Contact Info -->
+        {#if data.user.email && !data.user.email.endsWith('.nearcade')}
           <div class="bg-base-200 rounded-lg p-4">
             <h3 class="mb-3 font-semibold">{m.contact()}</h3>
             <div class="space-y-2">
