@@ -51,8 +51,20 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       }
 
       if (invite.requireApproval) {
-        // Create join request
+        // Check if a pending join request already exists
         const joinRequestsCollection = db.collection<JoinRequest>('join_requests');
+        const existingRequest = await joinRequestsCollection.findOne({
+          type: 'university',
+          targetId: invite.targetId,
+          userId: userId,
+          status: 'pending'
+        });
+
+        if (existingRequest) {
+          error(400, 'You already have a pending join request for this university');
+        }
+
+        // Create join request
         const joinRequest: Omit<JoinRequest, '_id'> = {
           id: nanoid(),
           type: 'university',
@@ -92,8 +104,20 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       }
 
       if (invite.requireApproval) {
-        // Create join request
+        // Check if a pending join request already exists
         const joinRequestsCollection = db.collection<JoinRequest>('join_requests');
+        const existingRequest = await joinRequestsCollection.findOne({
+          type: 'club',
+          targetId: invite.targetId,
+          userId: userId,
+          status: 'pending'
+        });
+
+        if (existingRequest) {
+          error(400, 'You already have a pending join request for this club');
+        }
+
+        // Create join request
         const joinRequest: Omit<JoinRequest, '_id'> = {
           id: nanoid(),
           type: 'club',

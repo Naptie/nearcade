@@ -262,6 +262,28 @@ export const actions: Actions = {
           joinedAt: new Date(),
           invitedBy: null
         });
+
+        // Automatically add user to hosting university if not already a member
+        const clubsCollection = db.collection('clubs');
+        const club = await clubsCollection.findOne({ id: joinRequest.targetId });
+
+        if (club?.universityId) {
+          const universityMembersCollection = db.collection('university_members');
+          const existingUniversityMember = await universityMembersCollection.findOne({
+            universityId: club.universityId,
+            userId: joinRequest.userId
+          });
+
+          if (!existingUniversityMember) {
+            await universityMembersCollection.insertOne({
+              id: nanoid(),
+              universityId: club.universityId,
+              userId: joinRequest.userId,
+              memberType: 'student',
+              joinedAt: new Date()
+            });
+          }
+        }
       }
 
       // Update join request status
