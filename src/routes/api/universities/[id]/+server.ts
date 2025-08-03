@@ -1,24 +1,14 @@
 import { json } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const GET: RequestHandler = async ({ params }) => {
   const { id } = params;
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug

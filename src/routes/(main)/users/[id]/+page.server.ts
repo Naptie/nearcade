@@ -1,25 +1,15 @@
 import { error } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
 import type { University, UniversityMember } from '$lib/types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const session = await locals.auth();
   const { id } = params;
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const usersCollection = db.collection<User>('users');
 
     // Get user data

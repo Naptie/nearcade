@@ -1,17 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient, type Document } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { Shop } from '$lib/types';
 import type { User } from '@auth/sveltekit';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -21,8 +12,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const usersCollection = db.collection<User>('users');
     const shopsCollection = db.collection<Shop>('shops');
 
@@ -72,8 +62,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection<User>('users');
       const shopsCollection = db.collection<Shop>('shops');
 
@@ -116,15 +105,17 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection<User>('users');
 
       // Remove arcade from user's frequenting list
-      await usersCollection.updateOne({ id: user.id }, {
-        $pull: { frequentingArcades: arcadeId },
-        $set: { updatedAt: new Date() }
-      } as Document);
+      await usersCollection.updateOne(
+        { id: user.id },
+        {
+          $pull: { frequentingArcades: arcadeId },
+          $set: { updatedAt: new Date() }
+        }
+      );
 
       return { success: true, message: 'Arcade removed from your frequenting list' };
     } catch (err) {
@@ -149,8 +140,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Auto-discovery threshold must be between 1 and 10' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection<User>('users');
 
       // Update user's auto-discovery threshold

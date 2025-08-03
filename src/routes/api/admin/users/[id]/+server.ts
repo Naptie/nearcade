@@ -1,19 +1,8 @@
 import { json, error } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import { toPlainArray } from '$lib/utils';
 import type { ClubMember, Club, University, UniversityMember } from '$lib/types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-} else {
-  clientPromise = Promise.resolve(client);
-}
+import client from '$lib/db.server';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   const session = await locals.auth();
@@ -34,7 +23,6 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   }
 
   try {
-    const client = await clientPromise;
     const db = client.db();
 
     // Get user basic information

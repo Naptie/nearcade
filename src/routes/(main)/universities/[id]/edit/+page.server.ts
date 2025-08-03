@@ -1,19 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { University } from '$lib/types';
 import { checkUniversityPermission, loginRedirect } from '$lib/utils';
 import { logUniversityChanges } from '$lib/changelog.server';
 import { base } from '$app/paths';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -26,8 +17,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug
@@ -52,7 +42,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     // Check permissions for the current user
-    const userPermissions = await checkUniversityPermission(user.id!, university.id, mongoClient);
+    const userPermissions = await checkUniversityPermission(user.id!, university.id, client);
 
     if (!userPermissions.canEdit) {
       error(403, 'Insufficient privileges');
@@ -99,10 +89,8 @@ export const actions: Actions = {
       const is211 = formData.get('is211') === 'on';
       const isDoubleFirstClass = formData.get('isDoubleFirstClass') === 'on';
 
-      const mongoClient = await clientPromise;
-
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user.id!, id, mongoClient);
+      const permissions = await checkUniversityPermission(user.id!, id, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -174,7 +162,7 @@ export const actions: Actions = {
         });
       }
 
-      const db = mongoClient.db();
+      const db = client.db();
       const universitiesCollection = db.collection('universities');
 
       // Get current university data for changelog comparison
@@ -223,7 +211,7 @@ export const actions: Actions = {
       }
 
       // Log changes to changelog
-      await logUniversityChanges(mongoClient, id, currentUniversity, updateData, {
+      await logUniversityChanges(client, id, currentUniversity, updateData, {
         id: user.id!,
         name: user.name,
         image: user.image

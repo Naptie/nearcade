@@ -1,18 +1,9 @@
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { toPlainArray } from '$lib/utils';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -21,8 +12,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   const skip = (page - 1) * limit;
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection<University>('universities');
 
     let universities: University[];

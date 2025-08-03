@@ -1,16 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient, type Document } from 'mongodb';
+import type { Document } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { UniversityMember, University, Club } from '$lib/types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -32,8 +24,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   };
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection<University>('universities');
     const clubsCollection = db.collection<Club>('clubs');
 
@@ -94,8 +85,8 @@ export const actions: Actions = {
       if (!universityId) {
         return fail(400, { message: 'University ID is required' });
       }
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+
+      const db = client.db();
       const universityMembersCollection = db.collection<UniversityMember>('university_members');
 
       await universityMembersCollection.deleteOne({
@@ -126,8 +117,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Club ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection('users');
 
       // Remove club from user's club list
@@ -152,8 +142,7 @@ export const actions: Actions = {
     const user = session.user;
 
     try {
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection('users');
       const accountsCollection = db.collection('accounts');
       const sessionsCollection = db.collection('sessions');

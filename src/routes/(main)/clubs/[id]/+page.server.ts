@@ -1,7 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
-import type { PageServerLoad, Actions } from './$types.js';
+import type { PageServerLoad, Actions } from './$types';
 import type { Club, University, Shop, ClubMember } from '$lib/types';
 import {
   getClubMembersWithUserData,
@@ -9,24 +7,16 @@ import {
   toPlainArray,
   toPlainObject
 } from '$lib/utils';
-import { PAGINATION } from '$lib/constants.js';
+import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
   const session = await locals.auth();
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const clubsCollection = db.collection<Club>('clubs');
     const membersCollection = db.collection<ClubMember>('club_members');
     const universitiesCollection = db.collection<University>('universities');
@@ -55,7 +45,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     // Get member statistics
     const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
 
-    const members = await getClubMembersWithUserData(club.id, mongoClient, {
+    const members = await getClubMembersWithUserData(club.id, client, {
       limit: PAGINATION.PAGE_SIZE
     });
 
@@ -79,7 +69,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
     // Check user permissions if authenticated
     const userPermissions = session?.user
-      ? await checkClubPermission(session.user.id!, club.id, mongoClient)
+      ? await checkClubPermission(session.user.id!, club.id, client)
       : { canEdit: false, canManage: false };
 
     // Check if user is a member and if they can join (for non-members)
@@ -88,7 +78,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     let existingJoinRequest = null;
 
     if (session?.user && club.acceptJoinRequests) {
-      const db = mongoClient.db();
+      const db = client.db();
       const clubMembersCollection = db.collection('club_members');
       const universityMembersCollection = db.collection('university_members');
       const joinRequestsCollection = db.collection('join_requests');
@@ -163,17 +153,15 @@ export const actions: Actions = {
         return fail(400, { message: 'User ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Check permissions
-      const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+      const permissions = await checkClubPermission(session.user.id, clubId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
       // Verify target user is not admin/moderator if requester is not admin
       if (!permissions.canManage) {
-        const db = mongoClient.db();
+        const db = client.db();
         const membersCollection = db.collection('club_members');
         const targetMember = await membersCollection.findOne({
           clubId,
@@ -185,7 +173,7 @@ export const actions: Actions = {
         }
       }
 
-      const db = mongoClient.db();
+      const db = client.db();
       const membersCollection = db.collection('club_members');
 
       // Remove membership
@@ -216,15 +204,13 @@ export const actions: Actions = {
         return fail(400, { message: 'User ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Only admins can grant moderator roles
-      const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+      const permissions = await checkClubPermission(session.user.id, clubId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can grant moderator roles' });
       }
 
-      const db = mongoClient.db();
+      const db = client.db();
       const membersCollection = db.collection('club_members');
 
       // Update membership type
@@ -255,15 +241,13 @@ export const actions: Actions = {
         return fail(400, { message: 'User ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Only admins can revoke moderator roles
-      const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+      const permissions = await checkClubPermission(session.user.id, clubId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can revoke moderator roles' });
       }
 
-      const db = mongoClient.db();
+      const db = client.db();
       const membersCollection = db.collection('club_members');
 
       // Update membership type
@@ -294,10 +278,8 @@ export const actions: Actions = {
         return fail(400, { message: 'User ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Check if current user is a site admin (site admins can grant admin without losing their status)
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection('users');
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
@@ -335,16 +317,14 @@ export const actions: Actions = {
         return fail(400, { message: 'User ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
-      const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+      const permissions = await checkClubPermission(session.user.id, clubId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can transfer admin privileges' });
       }
 
       // Check if current user is a site admin (they should use grantAdmin instead)
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection('users');
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
@@ -390,15 +370,13 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Check permissions
-      const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+      const permissions = await checkClubPermission(session.user.id, clubId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
-      const db = mongoClient.db();
+      const db = client.db();
       const clubsCollection = db.collection('clubs');
       const shopsCollection = db.collection('shops');
 
@@ -439,15 +417,13 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID and Club ID are required' });
       }
 
-      const mongoClient = await clientPromise;
-
       // Check permissions
-      const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+      const permissions = await checkClubPermission(session.user.id, clubId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
-      const db = mongoClient.db();
+      const db = client.db();
       const clubsCollection = db.collection('clubs');
 
       // Remove arcade from club's starred list
@@ -478,8 +454,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Club ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const clubsCollection = db.collection('clubs');
       const clubMembersCollection = db.collection('club_members');
       const universityMembersCollection = db.collection('university_members');

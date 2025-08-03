@@ -1,17 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import { getChangelogEntries } from '$lib/changelog.server';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   const { id } = params;
@@ -23,8 +14,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const { entries, total } = await getChangelogEntries(mongoClient, id, {
+    const { entries, total } = await getChangelogEntries(client, id, {
       limit,
       offset: (page - 1) * limit
     });

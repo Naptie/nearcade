@@ -2,16 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import { checkClubPermission } from '$lib/utils';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const GET: RequestHandler = async ({ params, url, cookies }) => {
   try {
@@ -23,8 +14,7 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
       return json({ error: 'Invalid club ID' }, { status: 400 });
     }
 
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const clubsCollection = db.collection('clubs');
     const membersCollection = db.collection('club_members');
 
@@ -42,7 +32,7 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
       const sessionsCollection = db.collection('sessions');
       const session = await sessionsCollection.findOne({ sessionToken: sessionCookie });
       if (session) {
-        await checkClubPermission(session.userId, club.id, mongoClient);
+        await checkClubPermission(session.userId, club.id, client);
         // For now, allow anyone to view members - can adjust based on privacy requirements
       }
     }

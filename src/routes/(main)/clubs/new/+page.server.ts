@@ -1,19 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { base } from '$app/paths';
 import { loginRedirect } from '$lib/utils';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = await locals.auth();
@@ -29,8 +20,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection<University>('universities');
 
     const university = await universitiesCollection.findOne({ id: universityId });
@@ -86,8 +76,7 @@ export const actions: Actions = {
         });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const clubsCollection = db.collection<Club>('clubs');
       const universitiesCollection = db.collection<University>('universities');
 

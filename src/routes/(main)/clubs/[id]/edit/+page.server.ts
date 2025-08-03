@@ -1,17 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
 import { checkClubPermission, loginRedirect, toPlainObject } from '$lib/utils';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -22,8 +13,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const clubsCollection = db.collection<Club>('clubs');
 
     // Try to find club by ID first, then by slug
@@ -159,8 +149,7 @@ export const actions: Actions = {
         });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const clubsCollection = db.collection<Club>('clubs');
 
       // Get current club

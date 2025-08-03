@@ -1,16 +1,7 @@
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { Shop } from '$lib/types';
 import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
@@ -30,8 +21,7 @@ export const loadShops = async ({ url }: { url: URL }) => {
     const radiusKm = radiusParam ? Math.max(1, Math.min(30, parseInt(radiusParam))) : 10;
     const radiusRadians = radiusKm / 6371;
 
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const shopsCollection = db.collection('shops');
     const shops = (await shopsCollection
       .find({

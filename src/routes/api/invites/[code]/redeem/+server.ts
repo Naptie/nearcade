@@ -1,18 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import type { InviteLink, UniversityMember, ClubMember, JoinRequest } from '$lib/types';
 import { nanoid } from 'nanoid';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
   const { code } = params;
@@ -23,8 +14,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
 
     // Find and validate invite
     const invitesCollection = db.collection<InviteLink>('invite_links');

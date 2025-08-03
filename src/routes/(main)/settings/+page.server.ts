@@ -1,15 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -59,8 +51,7 @@ export const actions: Actions = {
           });
         }
 
-        const mongoClient = await clientPromise;
-        const db = mongoClient.db();
+        const db = client.db();
         const usersCollection = db.collection('users');
 
         // Check if username is taken (excluding current user)
@@ -74,8 +65,7 @@ export const actions: Actions = {
         }
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection('users');
 
       const updateData: {

@@ -1,14 +1,5 @@
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
+import client from '$lib/db.server';
 import type { PageServerLoad } from './$types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
 
 export const load: PageServerLoad = async ({ locals }) => {
   const session = await locals.auth();
@@ -19,8 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
 
     // Get basic statistics
     const stats = {

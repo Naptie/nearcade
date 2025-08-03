@@ -1,18 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 interface CacheMetadata {
   _id: string;
@@ -29,8 +20,7 @@ interface CachedRanking extends UniversityRankingData {
 
 export const GET: RequestHandler = async ({ url }) => {
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const cacheCollection = db.collection('rankings');
 
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';

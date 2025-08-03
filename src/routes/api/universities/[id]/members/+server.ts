@@ -2,16 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import { checkUniversityPermission } from '$lib/utils';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const GET: RequestHandler = async ({ params, url, cookies }) => {
   try {
@@ -23,8 +14,7 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
       return json({ error: 'Invalid university ID' }, { status: 400 });
     }
 
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection('universities');
     const membersCollection = db.collection('university_members');
 
@@ -49,11 +39,7 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
       return json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const userPrivileges = await checkUniversityPermission(
-      session.userId,
-      university.id,
-      mongoClient
-    );
+    const userPrivileges = await checkUniversityPermission(session.userId, university.id, client);
     if (!userPrivileges.canEdit && !userPrivileges.canManage) {
       // For now, allow anyone to view members - adjust this based on privacy requirements
       // return json({ error: 'Access denied' }, { status: 403 });

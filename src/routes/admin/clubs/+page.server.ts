@@ -1,18 +1,9 @@
 import { fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
-import type { Club } from '$lib/types';
+import type { Club, University } from '$lib/types';
 import { checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -23,8 +14,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
 
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = PAGINATION.PAGE_SIZE;
@@ -70,8 +60,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     }
 
     // Get clubs
-    const clubsCollection = db.collection('clubs');
-    const universitiesCollection = db.collection('universities');
+    const clubsCollection = db.collection<Club>('clubs');
+    const universitiesCollection = db.collection<University>('universities');
 
     // Fetch clubs with member counts
     const clubs = (await clubsCollection
@@ -105,7 +95,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       .find({ id: { $in: universityIds } })
       .toArray();
 
-    const universityMap = new Map();
+    const universityMap = new Map<string, University>();
     universities.forEach((uni) => universityMap.set(uni.id, uni));
 
     // Attach university info to clubs
@@ -149,15 +139,14 @@ export const actions: Actions = {
         return fail(400, { message: 'Club ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
 
       // Check permissions
       let hasPermission = false;
       if (session.user.userType === 'site_admin') {
         hasPermission = true;
       } else {
-        const permissions = await checkClubPermission(session.user.id, clubId, mongoClient);
+        const permissions = await checkClubPermission(session.user.id, clubId, client);
         hasPermission = permissions.canManage;
       }
 

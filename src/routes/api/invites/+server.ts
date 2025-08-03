@@ -1,18 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import type { InviteLink } from '$lib/types';
 import { nanoid } from 'nanoid';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 interface CreateInviteRequest {
   type: 'university' | 'club';
@@ -44,8 +35,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       error(400, 'Invalid invite type');
     }
 
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
 
     // Check permissions - for now, allow any authenticated user to create invites
     // TODO: Add proper permission checks based on user role and target
@@ -88,8 +78,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const invitesCollection = db.collection('invite_links');
 
     const type = url.searchParams.get('type');

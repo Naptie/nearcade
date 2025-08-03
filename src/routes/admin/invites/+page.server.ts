@@ -1,19 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { InviteLink } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-} else {
-  clientPromise = Promise.resolve(client);
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -28,7 +17,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const limit = 20;
   const skip = (page - 1) * limit;
 
-  const client = await clientPromise;
   const db = client.db();
 
   // Build search query
@@ -227,7 +215,6 @@ export const actions: Actions = {
     }
 
     try {
-      const client = await clientPromise;
       const db = client.db();
 
       // Get invite details

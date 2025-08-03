@@ -1,17 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
-import { MongoClient, type Document } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import type { User } from '@auth/sveltekit';
 import type { Shop } from '$lib/types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -21,8 +12,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const usersCollection = db.collection<User>('users');
     const shopsCollection = db.collection<Shop>('shops');
 
@@ -31,7 +21,7 @@ export const load: PageServerLoad = async ({ parent }) => {
     const starredArcadeIds = userProfile?.starredArcades || [];
 
     // Get arcade details if there are any
-    let starredArcades: Document[] = [];
+    let starredArcades: Shop[] = [];
     if (starredArcadeIds.length > 0) {
       starredArcades = await shopsCollection.find({ id: { $in: starredArcadeIds } }).toArray();
     }
@@ -40,7 +30,6 @@ export const load: PageServerLoad = async ({ parent }) => {
       starredArcades: starredArcades.map((arcade) => ({
         id: arcade.id,
         name: arcade.name,
-        address: arcade.address || '',
         location: arcade.location,
         games: arcade.games || []
       }))
@@ -70,8 +59,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection<User>('users');
       const shopsCollection = db.collection<Shop>('shops');
 
@@ -114,15 +102,17 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID is required' });
       }
 
-      const mongoClient = await clientPromise;
-      const db = mongoClient.db();
+      const db = client.db();
       const usersCollection = db.collection<User>('users');
 
       // Remove arcade from user's starred list
-      await usersCollection.updateOne({ id: user.id }, {
-        $pull: { starredArcades: arcadeId },
-        $set: { updatedAt: new Date() }
-      } as Document);
+      await usersCollection.updateOne(
+        { id: user.id },
+        {
+          $pull: { starredArcades: arcadeId },
+          $set: { updatedAt: new Date() }
+        }
+      );
 
       return { success: true, message: 'Arcade unstarred successfully' };
     } catch (err) {
