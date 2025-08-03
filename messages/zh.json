@@ -710,7 +710,7 @@
   "type_table_header": "类型",
   "u_turn": "掉头",
   "uncategorized": "未分类",
-  "universities_and_colleges_available": "{count} 所高校和高校可用",
+  "universities_and_colleges_available": "{count} 所高校可用",
   "university": "高校",
   "university_affiliation": "隶属关系",
   "university_affiliation_placeholder": "例如：教育部",
@@ -762,7 +762,10 @@
   "username_taken": "此用户名已被使用",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
