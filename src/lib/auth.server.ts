@@ -37,18 +37,21 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
   trustHost: true,
   callbacks: {
     session: async ({ session, user }) => {
+      const userId = session.userId;
       user.lastActiveAt = new Date();
       const db = client.db();
       const usersCollection = db.collection<User>('users');
 
       const dbUser: User | null = await usersCollection.findOne({
-        _id: new ObjectId(session.userId)
+        _id: new ObjectId(userId)
       });
 
       if (dbUser) {
+        const signUp = !dbUser.joinedAt;
         dbUser.lastActiveAt = user.lastActiveAt;
-        if (!dbUser.joinedAt) {
+        if (signUp) {
           // First time signup - set up user data
+          dbUser.id = userId;
           dbUser.joinedAt = dbUser.lastActiveAt;
           dbUser.displayName = user.name;
 
@@ -72,22 +75,14 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
           dbUser.isEmailPublic = false;
           dbUser.isUniversityPublic = true;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _id, id: _, email, ...rest } = dbUser;
-        const uid = _id!.toString() as string & ObjectId;
+        const { _id, email, ...rest } = dbUser;
         await usersCollection.updateOne(
-          { _id: dbUser._id },
-          {
-            $set: {
-              id: uid,
-              joinedAt: dbUser.joinedAt,
-              lastActiveAt: dbUser.lastActiveAt
-            }
-          }
+          { _id },
+          { $set: signUp ? rest : { lastActiveAt: dbUser.lastActiveAt } }
         );
         session.user = {
-          _id: uid,
-          id: uid,
+          _id: userId,
+          id: userId,
           email: email || '',
           emailVerified: null,
           ...rest
