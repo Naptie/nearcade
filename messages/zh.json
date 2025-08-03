@@ -762,10 +762,7 @@
   "username_taken": "此用户名已被使用",
   "uses": [
     {
-      "declarations": [
-        "input current",
-        "input max"
-      ],
+      "declarations": ["input current", "input max"],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
