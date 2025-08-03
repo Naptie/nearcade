@@ -1,5 +1,5 @@
 runtime: nodejs
 install: npm install
-build: npm run build
+build: npm run prepare && npm run build
 run: HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity node build
 exposeEnvironmentsOnBuild: true
