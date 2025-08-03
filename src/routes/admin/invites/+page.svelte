@@ -6,6 +6,7 @@
   import { base } from '$app/paths';
   import type { PageData } from './$types';
   import type { InviteLink } from '$lib/types';
+  import { getDisplayName } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -219,7 +220,7 @@
                     target="_blank"
                     class="hover:text-accent text-sm transition-colors"
                   >
-                    {invite.creator?.displayName || `@${invite.creator?.name || 'Unknown'}`}
+                    {getDisplayName(invite.creator)}
                   </a>
                 </td>
                 <td>

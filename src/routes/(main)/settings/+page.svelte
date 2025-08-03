@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
+  import { getDisplayName } from '$lib/utils';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -61,7 +62,7 @@
         </div>
         <div>
           <h2 class="text-xl font-semibold">
-            {data.userProfile.displayName || `@${data.userProfile.name}`}
+            {getDisplayName(data.userProfile)}
           </h2>
           {#if data.userProfile.displayName && data.userProfile.name && data.userProfile.displayName !== data.userProfile.name}
             <p class="text-base-content/70">

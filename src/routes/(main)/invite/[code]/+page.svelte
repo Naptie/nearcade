@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
-  import { toPath } from '$lib/utils';
+  import { getDisplayName, toPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -209,7 +209,7 @@
               </div>
             {/if}
             <div>
-              <p class="font-medium">{data.user.displayName || data.user.name}</p>
+              <p class="font-medium">{getDisplayName(data.user)}</p>
               {#if data.user.email && !data.user.email.endsWith('.nearcade')}
                 <p class="text-base-content/70 text-sm">{data.user.email}</p>
               {/if}

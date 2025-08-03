@@ -5,7 +5,7 @@
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import AuthModal from '$lib/components/AuthModal.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
-  import { getUserTypeLabel } from '$lib/utils';
+  import { getDisplayName, getUserTypeLabel } from '$lib/utils';
 
   let { children, data } = $props();
 
@@ -98,7 +98,7 @@
             {#if data.user?.image}
               <img
                 src={data.user.image}
-                alt={data.user?.displayName || `@${data.user?.name}`}
+                alt={getDisplayName(data.user)}
                 class="h-8 w-8 rounded-full"
               />
             {:else}
@@ -108,7 +108,7 @@
             {/if}
             <div class="min-w-0 flex-1">
               <div class="truncate text-sm font-medium">
-                {data.user?.displayName || `@${data.user?.name}`}
+                {getDisplayName(data.user)}
               </div>
               <div class="text-base-content/60 text-xs">
                 {getUserTypeLabel(data.user?.userType)}

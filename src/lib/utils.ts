@@ -560,6 +560,12 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
   }
 };
 
+export const getDisplayName = (user?: { displayName?: string | null; name?: string | null }) => {
+  return !user
+    ? m.unknown_user()
+    : user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());
+};
+
 export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
   doc: T
 ): T extends null ? null : Omit<T, '_id'> & { _id: string } => {

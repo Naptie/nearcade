@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import type { UniversityMemberWithUser, ClubMemberWithUser } from '$lib/types';
+  import { getDisplayName } from '$lib/utils';
 
   type Member = UniversityMemberWithUser | ClubMemberWithUser;
 
@@ -65,7 +66,7 @@
         </div>
         <div>
           <div class="font-medium">
-            {selectedMember.user.displayName || `@${selectedMember.user.name}`}
+            {getDisplayName(selectedMember.user)}
           </div>
           <div class="text-base-content/60 text-sm">
             {selectedMember.memberType === 'admin'
@@ -111,7 +112,7 @@
         </div>
         <div>
           <div class="font-medium">
-            {selectedMember.user.displayName || `@${selectedMember.user.name}`}
+            {getDisplayName(selectedMember.user)}
           </div>
           <div class="text-base-content/60 text-sm">
             {m.member()} → {m.moderator()}
@@ -153,7 +154,7 @@
         </div>
         <div>
           <div class="font-medium">
-            {selectedMember.user.displayName || `@${selectedMember.user.name}`}
+            {getDisplayName(selectedMember.user)}
           </div>
           <div class="text-base-content/60 text-sm">
             {m.moderator()} → {m.member()}
@@ -195,7 +196,7 @@
         </div>
         <div>
           <div class="font-medium">
-            {selectedMember.user.displayName || `@${selectedMember.user.name}`}
+            {getDisplayName(selectedMember.user)}
           </div>
           <div class="text-base-content/60 text-sm">
             {selectedMember.memberType === 'moderator' ? m.moderator() : m.member()} → {m.admin()}
@@ -241,7 +242,7 @@
         </div>
         <div>
           <div class="font-medium">
-            {selectedMember.user.displayName || `@${selectedMember.user.name}`}
+            {getDisplayName(selectedMember.user)}
           </div>
           <div class="text-base-content/60 text-sm">
             {selectedMember.memberType === 'moderator' ? m.moderator() : m.member()} → {m.admin()}

@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import type { PageData } from './$types';
-  import { getUserTypeBadgeClass, getUserTypeLabel, toPath } from '$lib/utils';
+  import { getDisplayName, getUserTypeBadgeClass, getUserTypeLabel, toPath } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -80,7 +80,7 @@
     if (editingUser) return;
     editingUser = {
       id: user.id,
-      name: user.displayName || `@${user.name}`,
+      name: getDisplayName(user),
       userType: user.userType
     };
     newUserType = user.userType || 'regular';
@@ -222,7 +222,7 @@
                     <UserAvatar {user} size="md" target="_blank" />
                     <div class="group-hover:text-accent transition-colors">
                       <div class="font-medium">
-                        {user.displayName || `@${user.name}`}
+                        {getDisplayName(user)}
                       </div>
                       {#if user.email && !user.email.endsWith('.nearcade')}
                         <div class="text-sm opacity-60">

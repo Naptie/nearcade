@@ -1,6 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
+  import { getDisplayName } from '$lib/utils';
 
   interface Props {
     user: {
@@ -59,14 +60,9 @@
 
   // Get initials from display name or username
   function getInitials(user: Props['user']): string {
-    const name = user.displayName || user.name;
+    const name = getDisplayName(user);
     if (!name) return '?';
     return name.trim()[0].toUpperCase();
-  }
-
-  // Get display name with fallback logic
-  function getDisplayName(user: Props['user']) {
-    return user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());
   }
 </script>
 
