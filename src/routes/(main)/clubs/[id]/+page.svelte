@@ -588,17 +588,7 @@
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between p-4">
-                      <a
-                        href="{base}/users/@{member.user?.name}"
-                        class="group flex items-center gap-3"
-                      >
-                        <UserAvatar
-                          user={member.user}
-                          showName={true}
-                          size="md"
-                          class="group-hover:text-accent transition-colors"
-                        />
-                      </a>
+                      <UserAvatar user={member.user} showName={true} size="md" />
 
                       <div class="flex items-center gap-2">
                         <!-- Member Type Badge -->
