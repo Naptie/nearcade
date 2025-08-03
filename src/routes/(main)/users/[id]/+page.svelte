@@ -150,10 +150,14 @@
               <span class="text-base-content/70">{m.frequenting_arcades()}</span>
               <span class="font-medium">{data.user.frequentingArcades.length}</span>
             </div>
-            {#if data.university}
+            <div class="flex justify-between">
+              <span class="text-base-content/70">{m.starred_arcades()}</span>
+              <span class="font-medium">{data.user.starredArcades.length}</span>
+            </div>
+            {#if data.universityMembershipCount !== null}
               <div class="flex justify-between">
                 <span class="text-base-content/70">{m.university()}</span>
-                <span class="font-medium">1</span>
+                <span class="font-medium">{data.universityMembershipCount}</span>
               </div>
             {/if}
           </div>

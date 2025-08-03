@@ -29,9 +29,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     const isOwnProfile = session?.user?._id === user.id;
 
     // Get university info if user belongs to one
+    let universityMembershipCount: number | null = null;
     let university: University | null = null;
+
     if (isOwnProfile || user.isUniversityPublic) {
       const universityMembersCollection = db.collection<UniversityMember>('university_members');
+      universityMembershipCount = await universityMembersCollection.countDocuments({
+        userId: user.id
+      });
+
       const membership = await universityMembersCollection.findOne(
         {
           userId: user.id
@@ -62,8 +68,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         lastActiveAt: user.lastActiveAt,
         // Only show full data if viewing own profile or if public
         email: isOwnProfile || user.isEmailPublic ? user.email : null,
-        frequentingArcades: user.frequentingArcades || []
+        frequentingArcades: user.frequentingArcades || [],
+        starredArcades: user.starredArcades || []
       },
+      universityMembershipCount,
       university,
       isOwnProfile
     };
