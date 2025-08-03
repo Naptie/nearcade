@@ -90,7 +90,7 @@
   });
 
   // Function to handle shop interaction clicks (details/route buttons)
-  async function handleShopClick(shop: Shop) {
+  const handleShopClick = async (shop: Shop) => {
     if (!browser || !user) return;
 
     const currentCount = shopClickCounts[shop.id] || 0;
@@ -124,7 +124,7 @@
         console.error('Failed to auto-add arcade:', error);
       }
     }
-  }
+  };
 
   let avgTravelTime = $derived.by(() => {
     if (!transportMethod) return 0;

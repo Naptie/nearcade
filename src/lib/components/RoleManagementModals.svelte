@@ -32,16 +32,16 @@
     onSubmit
   }: Props = $props();
 
-  function closeModals() {
+  const closeModals = () => {
     onClose?.();
-  }
+  };
 
-  function handleSubmit(action: string) {
+  const handleSubmit = (action: string) => {
     if (selectedMember && selectedMember.user && onSubmit) {
       onSubmit(action, selectedMember.user.id);
     }
     closeModals();
-  }
+  };
 </script>
 
 <!-- Remove Member Modal -->

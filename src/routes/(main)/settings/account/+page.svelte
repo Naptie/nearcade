@@ -15,15 +15,15 @@
   let leavingUniversityId = $state('');
   let leavingClubId = $state('');
 
-  function confirmLeaveUniversity(universityId: string) {
+  const confirmLeaveUniversity = (universityId: string) => {
     leavingUniversityId = universityId;
     showLeaveUniversityConfirm = true;
-  }
+  };
 
-  function confirmLeaveClub(clubId: string) {
+  const confirmLeaveClub = (clubId: string) => {
     leavingClubId = clubId;
     showLeaveClubConfirm = true;
-  }
+  };
 </script>
 
 <svelte:head>

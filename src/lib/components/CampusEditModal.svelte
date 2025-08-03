@@ -72,7 +72,7 @@
     }
   });
 
-  function handleLocationSelected(location: typeof selectedLocation) {
+  const handleLocationSelected = (location: typeof selectedLocation) => {
     selectedLocation = location;
     if (!selectedLocation) return;
     formData.latitude = selectedLocation.latitude;
@@ -84,12 +84,12 @@
     const districtMatch = addressParts[1]?.match(/(.+?[区县市])/);
     formData.district = districtMatch ? districtMatch[1] : formData.district;
     isLocationPickerOpen = false;
-  }
+  };
 
-  function handleClose() {
+  const handleClose = () => {
     open = false;
     errorMessage = '';
-  }
+  };
 </script>
 
 <!-- Modal -->

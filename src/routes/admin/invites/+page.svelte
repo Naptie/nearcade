@@ -23,18 +23,18 @@
     { value: 'expired', label: m.expired() }
   ];
 
-  function handleSearchInput() {
+  const handleSearchInput = () => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
       updateFilters();
     }, 300);
-  }
+  };
 
-  function handleStatusChange() {
+  const handleStatusChange = () => {
     updateFilters();
-  }
+  };
 
-  function updateFilters() {
+  const updateFilters = () => {
     const url = new URL(page.url);
 
     if (searchQuery.trim()) {
@@ -51,9 +51,9 @@
 
     url.searchParams.delete('page'); // Reset to first page
     goto(url.toString());
-  }
+  };
 
-  function copyInviteLink(code: string) {
+  const copyInviteLink = (code: string) => {
     const link = `${window.location.origin}${base}/invite/${code}`;
     navigator.clipboard.writeText(link);
     copiedId = code;
@@ -62,7 +62,7 @@
         copiedId = null; // Clear after a short delay
       }
     }, 2000);
-  }
+  };
 
   const isExpired = (invite: InviteLink) => {
     return invite.expiresAt
@@ -70,17 +70,17 @@
       : invite.maxUses && invite.currentUses >= invite.maxUses;
   };
 
-  function getStatusBadgeClass(invite: InviteLink) {
+  const getStatusBadgeClass = (invite: InviteLink) => {
     if (isExpired(invite)) return 'badge-error';
     if (invite.currentUses > 0) return 'badge-success';
     return 'badge-info';
-  }
+  };
 
-  function getStatusText(invite: InviteLink) {
+  const getStatusText = (invite: InviteLink) => {
     if (isExpired(invite)) return m.expired();
     if (invite.currentUses > 0) return m.active();
     return m.new();
-  }
+  };
 </script>
 
 <svelte:head>

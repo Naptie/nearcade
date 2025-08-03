@@ -17,15 +17,15 @@
   let requestMessage = $state('');
   let isSubmitting = $state(false);
 
-  function closeModal() {
+  const closeModal = () => {
     isOpen = false;
     requestMessage = '';
-  }
+  };
 
-  function handleSuccess() {
+  const handleSuccess = () => {
     onSuccess();
     closeModal();
-  }
+  };
 </script>
 
 <!-- Join Request Modal -->

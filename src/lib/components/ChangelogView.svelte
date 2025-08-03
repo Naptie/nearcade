@@ -10,7 +10,7 @@
   import { enUS, zhCN } from 'date-fns/locale';
 
   // Create a wrapper for the messages to match our expected type
-  function createMessagesWrapper() {
+  const createMessagesWrapper = () => {
     return new Proxy(
       {},
       {
@@ -25,7 +25,7 @@
         }
       }
     );
-  }
+  };
 
   interface Props {
     universityId: string;
@@ -42,7 +42,7 @@
 
   const ITEMS_PER_PAGE = 20;
 
-  async function loadChangelogEntries(page = 1, append = false) {
+  const loadChangelogEntries = async (page = 1, append = false) => {
     const isInitialLoad = page === 1;
 
     if (isInitialLoad) {
@@ -84,14 +84,14 @@
       isLoading = false;
       isLoadingMore = false;
     }
-  }
+  };
 
-  async function loadMore() {
+  const loadMore = async () => {
     if (!hasMore || isLoadingMore) return;
     await loadChangelogEntries(currentPage + 1, true);
-  }
+  };
 
-  function getActionIcon(action: ChangelogEntry['action']): string {
+  const getActionIcon = (action: ChangelogEntry['action']): string => {
     switch (action) {
       case 'created':
         return 'fa-plus text-success';
@@ -107,9 +107,9 @@
       default:
         return 'fa-edit text-base-content';
     }
-  }
+  };
 
-  function getActionBadgeClass(action: ChangelogEntry['action']): string {
+  const getActionBadgeClass = (action: ChangelogEntry['action']): string => {
     switch (action) {
       case 'created':
       case 'campus_added':
@@ -124,7 +124,7 @@
       default:
         return 'badge-ghost';
     }
-  }
+  };
 
   onMount(() => {
     loadChangelogEntries();

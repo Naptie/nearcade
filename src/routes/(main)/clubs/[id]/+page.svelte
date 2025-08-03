@@ -22,13 +22,13 @@
   ];
 
   // Initialize activeTab from URL hash or default to 'members'
-  function getInitialTab() {
+  const getInitialTab = () => {
     if (browser) {
       const hash = window.location.hash.substring(1);
       return tabs.find((tab) => tab.id === hash)?.id || 'members';
     }
     return 'members';
-  }
+  };
 
   let activeTab = $state(getInitialTab());
   let showInviteModal = $state(false);
@@ -102,15 +102,15 @@
   });
 
   // Function to change tab and update URL
-  function changeTab(tabId: string) {
+  const changeTab = (tabId: string) => {
     activeTab = tabId;
     if (browser) {
       window.history.replaceState(null, '', `#${tabId}`);
     }
-  }
+  };
 
   // Infinite scrolling for members
-  async function loadMoreMembers() {
+  const loadMoreMembers = async () => {
     if (isLoadingMoreMembers || !hasMoreMembers) return;
 
     isLoadingMoreMembers = true;
@@ -138,10 +138,10 @@
     } finally {
       isLoadingMoreMembers = false;
     }
-  }
+  };
 
   // Infinite scrolling for starred arcades
-  async function loadMoreArcades() {
+  const loadMoreArcades = async () => {
     if (isLoadingMoreArcades || !hasMoreArcades) return;
 
     isLoadingMoreArcades = true;
@@ -169,10 +169,10 @@
     } finally {
       isLoadingMoreArcades = false;
     }
-  }
+  };
 
   // Arcade search functions
-  async function searchArcades(query: string) {
+  const searchArcades = async (query: string) => {
     if (!query.trim()) {
       searchResults = [];
       return;
@@ -193,9 +193,9 @@
     } finally {
       isSearching = false;
     }
-  }
+  };
 
-  function handleSearchInput() {
+  const handleSearchInput = () => {
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
@@ -203,18 +203,18 @@
     searchTimeout = setTimeout(() => {
       searchArcades(searchQuery);
     }, 300);
-  }
+  };
 
-  function clearSearch() {
+  const clearSearch = () => {
     searchQuery = '';
     searchResults = [];
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-  }
+  };
 
   // Handle arcade management actions
-  async function handleArcadeAction(action: string, arcadeId: string) {
+  const handleArcadeAction = async (action: string, arcadeId: string) => {
     if (!arcadeId) return;
 
     const formData = new FormData();
@@ -241,45 +241,45 @@
       console.error(`Error during ${action}:`, error);
       alert(`Error during ${action}`);
     }
-  }
+  };
 
   // Role management functions
-  function openRemoveMemberModal(member: ClubMemberWithUser) {
+  const openRemoveMemberModal = (member: ClubMemberWithUser) => {
     selectedMember = member;
     showRemoveMemberModal = true;
-  }
+  };
 
-  function openGrantModeratorModal(member: ClubMemberWithUser) {
+  const openGrantModeratorModal = (member: ClubMemberWithUser) => {
     selectedMember = member;
     showGrantModeratorModal = true;
-  }
+  };
 
-  function openRevokeModeratorModal(member: ClubMemberWithUser) {
+  const openRevokeModeratorModal = (member: ClubMemberWithUser) => {
     selectedMember = member;
     showRevokeModeratorModal = true;
-  }
+  };
 
-  function openGrantAdminModal(member: ClubMemberWithUser) {
+  const openGrantAdminModal = (member: ClubMemberWithUser) => {
     selectedMember = member;
     showGrantAdminModal = true;
-  }
+  };
 
-  function openTransferAdminModal(member: ClubMemberWithUser) {
+  const openTransferAdminModal = (member: ClubMemberWithUser) => {
     selectedMember = member;
     showTransferAdminModal = true;
-  }
+  };
 
-  function closeModals() {
+  const closeModals = () => {
     showRemoveMemberModal = false;
     showGrantModeratorModal = false;
     showRevokeModeratorModal = false;
     showGrantAdminModal = false;
     showTransferAdminModal = false;
     selectedMember = null;
-  }
+  };
 
   // Handle role management actions with form submission
-  async function handleRoleAction(action: string, memberId: string) {
+  const handleRoleAction = async (action: string, memberId: string) => {
     if (!memberId) return;
 
     const formData = new FormData();
@@ -305,10 +305,10 @@
       console.error(`Error during ${action}:`, error);
       alert(`Error during ${action}`);
     }
-  }
+  };
 
   // Check what actions current user can perform on a member
-  function canManageMember(member: ClubMemberWithUser) {
+  const canManageMember = (member: ClubMemberWithUser) => {
     if (!userPrivileges.canManage)
       return {
         remove: false,
@@ -341,7 +341,7 @@
       grantAdmin: isCurrentUserSiteAdmin && !isMemberAdmin,
       transferAdmin: isCurrentUserAdmin && !isCurrentUserSiteAdmin && !isMemberAdmin
     };
-  }
+  };
 </script>
 
 <svelte:head>

@@ -23,18 +23,18 @@
   let selectedUserType = $state(data.userType || 'all');
   let searchTimeout: ReturnType<typeof setTimeout>;
 
-  function handleSearchInput() {
+  const handleSearchInput = () => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
       updateFilters();
     }, 300);
-  }
+  };
 
-  function handleUserTypeChange() {
+  const handleUserTypeChange = () => {
     updateFilters();
-  }
+  };
 
-  function updateFilters() {
+  const updateFilters = () => {
     const url = new URL(page.url);
 
     if (searchQuery.trim()) {
@@ -51,7 +51,7 @@
 
     url.searchParams.delete('page'); // Reset to first page
     goto(url.toString());
-  }
+  };
 
   // Modal state for user type editing
   let editingUser: { id?: string; name?: string | null; userType?: string } | null = $state(null);
@@ -74,12 +74,12 @@
     admin: m.admin_member_type_admin()
   };
 
-  async function openEditModal(user: {
+  const openEditModal = async (user: {
     id?: string;
     name?: string | null;
     displayName?: string | null;
     userType?: string;
-  }) {
+  }) => {
     if (editingUser) return;
     editingUser = {
       id: user.id,
@@ -90,9 +90,9 @@
 
     // Fetch user details with memberships
     await fetchUserDetails(user.id);
-  }
+  };
 
-  async function fetchUserDetails(userId?: string) {
+  const fetchUserDetails = async (userId?: string) => {
     if (!userId) return;
 
     loadingUserDetails = true;
@@ -110,9 +110,9 @@
     } finally {
       loadingUserDetails = false;
     }
-  }
+  };
 
-  function closeEditModal() {
+  const closeEditModal = () => {
     newUserType = '';
     setTimeout(() => {
       editingUser = null;
@@ -122,9 +122,9 @@
       selectedOrganizationType = 'university';
       selectedMemberType = '';
     }, 300);
-  }
+  };
 
-  function getExistingMembership(organizationType: string, organizationId: string) {
+  const getExistingMembership = (organizationType: string, organizationId: string) => {
     if (!userDetails) return null;
 
     if (organizationType === 'university') {
@@ -135,7 +135,7 @@
       return userDetails.clubMemberships?.find((m) => m.clubId === organizationId) || null;
     }
     return null;
-  }
+  };
 </script>
 
 <svelte:head>

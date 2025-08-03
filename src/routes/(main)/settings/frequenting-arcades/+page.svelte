@@ -18,7 +18,7 @@
     label: m.clicks({ count: i + 1 })
   }));
 
-  async function searchArcades(query: string) {
+  const searchArcades = async (query: string) => {
     if (!query.trim()) {
       searchResults = [];
       return;
@@ -39,9 +39,9 @@
     } finally {
       isSearching = false;
     }
-  }
+  };
 
-  function handleSearchInput() {
+  const handleSearchInput = () => {
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
@@ -49,15 +49,15 @@
     searchTimeout = setTimeout(() => {
       searchArcades(searchQuery);
     }, 300);
-  }
+  };
 
-  function clearSearch() {
+  const clearSearch = () => {
     searchQuery = '';
     searchResults = [];
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-  }
+  };
 </script>
 
 <svelte:head>

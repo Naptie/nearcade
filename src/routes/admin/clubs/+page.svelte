@@ -14,14 +14,14 @@
   let selectedUniversity = $state('');
   let showCreateModal = $state(false);
 
-  function handleSearchInput() {
+  const handleSearchInput = () => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
       updateSearch();
     }, 300);
-  }
+  };
 
-  function updateSearch() {
+  const updateSearch = () => {
     const url = new URL(page.url);
     if (searchQuery.trim()) {
       url.searchParams.set('search', searchQuery.trim());
@@ -30,7 +30,7 @@
     }
     url.searchParams.delete('page'); // Reset to first page
     goto(url.toString());
-  }
+  };
 </script>
 
 <svelte:head>

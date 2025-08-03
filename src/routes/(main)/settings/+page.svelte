@@ -43,23 +43,23 @@
   });
 
   // Field error helper
-  function getFieldError(field: string): string | undefined {
+  const getFieldError = (field: string): string | undefined => {
     if (form && 'fieldErrors' in form && form.fieldErrors) {
       return (form.fieldErrors as Record<string, string>)[field];
     }
     return undefined;
-  }
+  };
 
   // Check if field has error
-  function hasFieldError(field: string): boolean {
+  const hasFieldError = (field: string): boolean => {
     return !!getFieldError(field);
-  }
+  };
 
   // Client-side validation state
   let clientErrors = $state<Record<string, string>>({});
 
   // Real-time validation
-  function validateField(field: string, value: string) {
+  const validateField = (field: string, value: string) => {
     switch (field) {
       case 'username':
         if (!value.trim()) {
@@ -88,17 +88,17 @@
         break;
     }
     clientErrors = { ...clientErrors }; // Trigger reactivity
-  }
+  };
 
   // Get error for field (server or client)
-  function getError(field: string): string | undefined {
+  const getError = (field: string): string | undefined => {
     return getFieldError(field) || clientErrors[field];
-  }
+  };
 
   // Check if field has any error (server or client)
-  function hasError(field: string): boolean {
+  const hasError = (field: string): boolean => {
     return hasFieldError(field) || !!clientErrors[field];
-  }
+  };
 
   // Check if form is valid
   let isFormValid = $derived.by(() => {
@@ -110,7 +110,7 @@
   });
 
   // Safe message getter for i18n
-  function getMessage(key: string | undefined): string {
+  const getMessage = (key: string | undefined): string => {
     if (!key) return '';
 
     // Handle common error message keys
@@ -138,7 +138,7 @@
       default:
         return key;
     }
-  }
+  };
 </script>
 
 <div class="space-y-6">

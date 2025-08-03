@@ -25,10 +25,10 @@
   ];
 
   // Initialize activeTab from URL hash or default to 'campuses'
-  function getInitialTab() {
+  const getInitialTab = () => {
     const hash = page.url.hash.substring(1);
     return (tabs.find((tab) => tab.id === hash) || tabs[0]).id;
-  }
+  };
 
   let activeTab = $state(getInitialTab());
   let isCampusModalOpen = $state(false);
@@ -99,31 +99,31 @@
   });
 
   // Function to change tab and update URL
-  function changeTab(tabId: string) {
+  const changeTab = (tabId: string) => {
     activeTab = tabId;
     if (browser) {
       window.history.replaceState(null, '', `#${tabId}`);
     }
-  }
+  };
 
   // Handle campus operations
-  function openAddCampusModal() {
+  const openAddCampusModal = () => {
     editingCampus = null;
     isCampusModalOpen = true;
-  }
+  };
 
-  function openEditCampusModal(campus: Campus) {
+  const openEditCampusModal = (campus: Campus) => {
     editingCampus = campus;
     isCampusModalOpen = true;
-  }
+  };
 
-  function confirmDeleteCampus(campusId: string) {
+  const confirmDeleteCampus = (campusId: string) => {
     deletingCampusId = campusId;
     showDeleteConfirm = true;
-  }
+  };
 
   // Infinite scrolling functions
-  async function loadMoreMembers() {
+  const loadMoreMembers = async () => {
     if (isLoadingMoreMembers || !hasMoreMembers) return;
 
     isLoadingMoreMembers = true;
@@ -150,9 +150,9 @@
     } finally {
       isLoadingMoreMembers = false;
     }
-  }
+  };
 
-  async function loadMoreClubs() {
+  const loadMoreClubs = async () => {
     if (isLoadingMoreClubs || !hasMoreClubs) return;
 
     isLoadingMoreClubs = true;
@@ -179,45 +179,45 @@
     } finally {
       isLoadingMoreClubs = false;
     }
-  }
+  };
 
   // Role management functions
-  function openRemoveMemberModal(member: UniversityMemberWithUser) {
+  const openRemoveMemberModal = (member: UniversityMemberWithUser) => {
     selectedMember = member;
     showRemoveMemberModal = true;
-  }
+  };
 
-  function openGrantModeratorModal(member: UniversityMemberWithUser) {
+  const openGrantModeratorModal = (member: UniversityMemberWithUser) => {
     selectedMember = member;
     showGrantModeratorModal = true;
-  }
+  };
 
-  function openRevokeModeratorModal(member: UniversityMemberWithUser) {
+  const openRevokeModeratorModal = (member: UniversityMemberWithUser) => {
     selectedMember = member;
     showRevokeModeratorModal = true;
-  }
+  };
 
-  function openGrantAdminModal(member: UniversityMemberWithUser) {
+  const openGrantAdminModal = (member: UniversityMemberWithUser) => {
     selectedMember = member;
     showGrantAdminModal = true;
-  }
+  };
 
-  function openTransferAdminModal(member: UniversityMemberWithUser) {
+  const openTransferAdminModal = (member: UniversityMemberWithUser) => {
     selectedMember = member;
     showTransferAdminModal = true;
-  }
+  };
 
-  function closeModals() {
+  const closeModals = () => {
     showRemoveMemberModal = false;
     showGrantModeratorModal = false;
     showRevokeModeratorModal = false;
     showGrantAdminModal = false;
     showTransferAdminModal = false;
     selectedMember = null;
-  }
+  };
 
   // Handle role management actions with form submission
-  async function handleRoleAction(action: string, memberId: string) {
+  const handleRoleAction = async (action: string, memberId: string) => {
     if (!memberId) return;
 
     const formData = new FormData();
@@ -244,10 +244,10 @@
       console.error(`Error during ${action}:`, error);
       alert(`Error during ${action}`);
     }
-  }
+  };
 
   // Check what actions current user can perform on a university member
-  function canManageMember(member: UniversityMemberWithUser) {
+  const canManageMember = (member: UniversityMemberWithUser) => {
     if (!userPrivileges.canManage)
       return {
         remove: false,
@@ -280,7 +280,7 @@
       grantAdmin: isCurrentUserSiteAdmin && !isMemberAdmin,
       transferAdmin: isCurrentUserAdmin && !isCurrentUserSiteAdmin && !isMemberAdmin
     };
-  }
+  };
 </script>
 
 <svelte:head>

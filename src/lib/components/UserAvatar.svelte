@@ -59,11 +59,11 @@
   };
 
   // Get initials from display name or username
-  function getInitials(user: Props['user']): string {
+  const getInitials = (user: Props['user']): string => {
     const name = getDisplayName(user);
     if (!name) return '?';
     return name.trim()[0].toUpperCase();
-  }
+  };
 </script>
 
 <a

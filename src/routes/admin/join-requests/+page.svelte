@@ -28,36 +28,36 @@
     rejected: m.admin_rejected()
   };
 
-  function openReviewModal(
+  const openReviewModal = (
     action: string,
     request:
       | (JoinRequestWithUser & {
           target: Record<string, unknown> | null;
         })
       | null
-  ) {
+  ) => {
     reviewAction = action;
     selectedRequest = request;
     reviewNote = '';
     showReviewModal = true;
-  }
+  };
 
-  function closeReviewModal() {
+  const closeReviewModal = () => {
     showReviewModal = false;
     reviewAction = '';
     selectedRequest = null;
     reviewNote = '';
-  }
+  };
 
-  function updateFilters(newFilters: Record<string, string>) {
+  const updateFilters = (newFilters: Record<string, string>) => {
     const url = new URL(page.url);
     Object.entries(newFilters).forEach(([key, value]) => {
       url.searchParams.set(key, value);
     });
     goto(url.toString());
-  }
+  };
 
-  function getStatusBadgeClass(status: string) {
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case 'pending':
         return 'badge-warning';
@@ -68,7 +68,7 @@
       default:
         return 'badge-neutral';
     }
-  }
+  };
 </script>
 
 <svelte:head>
