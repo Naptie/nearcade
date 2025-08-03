@@ -599,3 +599,19 @@ export const toPlainArray = <T extends { _id?: string | ObjectId } | null>(docs:
 export const loginRedirect = (url: URL) => {
   throw redirect(302, `${base}/?login=1&redirect=${encodeURIComponent(url.toString())}`);
 };
+
+export const formatDate = (date?: Date | string | null): string => {
+  if (!date) return m.unknown();
+  if (typeof date === 'string') {
+    date = new Date(date);
+  }
+  return date.toLocaleDateString();
+};
+
+export const formatDateTime = (date?: Date | string | null): string => {
+  if (!date) return m.unknown();
+  if (typeof date === 'string') {
+    date = new Date(date);
+  }
+  return date.toLocaleString();
+};

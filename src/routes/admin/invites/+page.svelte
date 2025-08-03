@@ -6,7 +6,7 @@
   import { base } from '$app/paths';
   import type { PageData } from './$types';
   import type { InviteLink } from '$lib/types';
-  import { getDisplayName } from '$lib/utils';
+  import { formatDateTime, getDisplayName } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -53,10 +53,6 @@
     goto(url.toString());
   }
 
-  function formatDate(date: Date | string) {
-    return new Date(date).toLocaleString();
-  }
-
   function copyInviteLink(code: string) {
     const link = `${window.location.origin}${base}/invite/${code}`;
     navigator.clipboard.writeText(link);
@@ -91,16 +87,16 @@
   <title>{m.admin_invites()} - {m.admin_panel()} - {m.app_name()}</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="min-w-3xs space-y-6">
   <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
+  <div class="flex flex-col items-center justify-between gap-4 md:flex-row">
+    <div class="not-md:text-center">
       <h1 class="text-base-content text-3xl font-bold">{m.admin_invites()}</h1>
       <p class="text-base-content/60 mt-1">{m.admin_invite_description()}</p>
     </div>
 
     <!-- Invite Statistics -->
-    <div class="flex gap-4">
+    <div class="flex gap-4 not-sm:flex-wrap">
       <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
         <div class="stat-title text-xs">{m.total()}</div>
         <div class="stat-value text-lg">{data.inviteStats?.total || 0}</div>
@@ -162,10 +158,10 @@
         <table class="table">
           <thead>
             <tr>
-              <th>{m.admin_invite_code()}</th>
+              <th class="not-md:hidden">{m.admin_invite_code()}</th>
               <th>{m.admin_invite_target()}</th>
-              <th>{m.admin_invite_creator()}</th>
-              <th>{m.admin_invite_usage()}</th>
+              <th class="not-sm:hidden">{m.admin_invite_creator()}</th>
+              <th class="not-md:hidden">{m.admin_invite_usage()}</th>
               <th>{m.admin_status()}</th>
               <th>{m.admin_invite_created()}</th>
               <th class="text-right">{m.admin_actions()}</th>
@@ -174,7 +170,7 @@
           <tbody>
             {#each data.invites as invite (invite.id)}
               <tr class="hover">
-                <td>
+                <td class="not-md:hidden">
                   <div class="font-mono text-sm">
                     <button
                       class="hover:text-accent cursor-pointer transition-colors"
@@ -189,22 +185,26 @@
                   <div class="text-sm">
                     {#if invite.club}
                       <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-users-gear text-primary"></i>
+                        <span class="not-xl:hidden">
+                          <i class="fa-solid fa-users-gear text-primary"></i>
+                        </span>
                         <a
                           href="{base}/clubs/{invite.club.id}"
                           target="_blank"
-                          class="hover:text-accent transition-colors"
+                          class="hover:text-accent line-clamp-2 font-medium transition-colors"
                         >
                           {invite.club.name}
                         </a>
                       </div>
                     {:else if invite.university}
                       <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-graduation-cap text-primary"></i>
+                        <span class="not-xl:hidden">
+                          <i class="fa-solid fa-graduation-cap text-primary"></i>
+                        </span>
                         <a
                           href="{base}/universities/{invite.university.id}"
                           target="_blank"
-                          class="hover:text-accent transition-colors"
+                          class="hover:text-accent line-clamp-2 font-medium transition-colors"
                         >
                           {invite.university.name}
                         </a>
@@ -214,16 +214,17 @@
                     {/if}
                   </div>
                 </td>
-                <td>
+                <td class="max-w-[10vw] truncate not-sm:hidden">
                   <a
                     href="{base}/users/{invite.creator?.id}"
                     target="_blank"
                     class="hover:text-accent text-sm transition-colors"
+                    title={getDisplayName(invite.creator)}
                   >
                     {getDisplayName(invite.creator)}
                   </a>
                 </td>
-                <td>
+                <td class="not-md:hidden">
                   <div class="text-sm">
                     {m.uses({
                       current: invite.currentUses || 0,
@@ -232,16 +233,16 @@
                   </div>
                 </td>
                 <td>
-                  <div class="badge badge-soft {getStatusBadgeClass(invite)}">
+                  <div class="badge badge-soft text-nowrap {getStatusBadgeClass(invite)}">
                     {getStatusText(invite)}
                   </div>
                 </td>
                 <td>
                   <div class="text-sm">
-                    {formatDate(invite.createdAt)}
+                    {formatDateTime(invite.createdAt)}
                     {#if invite.expiresAt}
                       <div class="text-base-content/60 text-xs">
-                        {m.admin_invite_expires()}: {formatDate(invite.expiresAt)}
+                        {m.admin_invite_expires()}: {formatDateTime(invite.expiresAt)}
                       </div>
                     {/if}
                   </div>
@@ -249,28 +250,28 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <button
-                      class="btn btn-soft btn-sm"
+                      class="btn btn-soft btn-sm text-nowrap"
                       onclick={() => copyInviteLink(invite.code)}
                       title={m.admin_invite_copy_link()}
                       disabled={copiedId === invite.code}
                     >
                       {#if copiedId === invite.code}
                         <i class="fa-solid fa-check"></i>
-                        {m.copied()}
+                        <span class="not-lg:hidden">{m.copied()}</span>
                       {:else}
                         <i class="fa-solid fa-copy"></i>
-                        {m.copy()}
+                        <span class="not-lg:hidden">{m.copy()}</span>
                       {/if}
                     </button>
                     <form method="POST" action="?/delete" use:enhance class="inline">
                       <input type="hidden" name="inviteId" value={invite.id} />
                       <button
                         type="submit"
-                        class="btn btn-error btn-sm btn-soft"
+                        class="btn btn-error btn-sm btn-soft text-nowrap"
                         onclick={() => confirm(m.admin_invite_delete_confirm())}
                       >
                         <i class="fa-solid fa-trash"></i>
-                        {m.delete()}
+                        <span class="not-lg:hidden">{m.delete()}</span>
                       </button>
                     </form>
                   </div>

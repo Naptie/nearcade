@@ -10,7 +10,7 @@
   <title>{m.admin_dashboard()} - {m.app_name()}</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="min-w-3xs space-y-6">
   <!-- Page Header -->
   <div class="flex items-center justify-between">
     <div>

@@ -7,6 +7,7 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
   import type { JoinRequestWithUser } from '$lib/types';
+  import { formatDateTime } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -56,10 +57,6 @@
     goto(url.toString());
   }
 
-  function formatDateTime(date: Date | string) {
-    return new Date(date).toLocaleString();
-  }
-
   function getStatusBadgeClass(status: string) {
     switch (status) {
       case 'pending':
@@ -78,7 +75,7 @@
   <title>{m.join_requests()} - {m.admin_panel()} - {m.app_name()}</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="min-w-3xs space-y-6">
   <!-- Page Header -->
   <div class="flex items-center justify-between">
     <div>
@@ -134,32 +131,40 @@
             <tr>
               <th>{m.admin_user_header()}</th>
               <th>{m.admin_target_header()}</th>
-              <th>{m.admin_type_header()}</th>
-              <th>{m.admin_message_header()}</th>
+              <th class="not-md:hidden">{m.admin_message_header()}</th>
+              <th class="not-md:hidden">{m.admin_created_header()}</th>
               <th>{m.admin_status_header()}</th>
-              <th>{m.admin_created_header()}</th>
-              <th>{m.admin_review_note_header()}</th>
-              <th>{m.admin_reviewer_header()}</th>
+              <th class="not-lg:hidden">{m.admin_review_note_header()}</th>
+              <th class="not-sm:hidden">{m.admin_reviewer_header()}</th>
               <th class="text-right">{m.admin_actions_header()}</th>
             </tr>
           </thead>
           <tbody>
             {#each data.joinRequests as request (request.id)}
               <tr class="hover">
-                <td>
+                <td class="max-w-[10vw]">
                   <div class="flex items-center gap-3">
                     <UserAvatar user={request.user} target="_blank" showName={true} size="sm" />
                   </div>
                 </td>
-                <td>
-                  <div class="truncate font-medium">
+                <td class="max-w-[10vw]">
+                  <div class="flex items-center gap-2">
                     {#if request.target}
+                      {#if request.type === 'university'}
+                        <span class="not-xl:hidden">
+                          <i class="fa-solid fa-graduation-cap text-primary"></i>
+                        </span>
+                      {:else}
+                        <span class="not-xl:hidden">
+                          <i class="fa-solid fa-users-gear text-primary"></i>
+                        </span>
+                      {/if}
                       <a
                         href="{base}/{request.type === 'university'
                           ? 'universities'
                           : 'clubs'}/{request.target.slug || request.target.id}"
                         target="_blank"
-                        class="hover:text-accent transition-colors"
+                        class="hover:text-accent line-clamp-3 font-medium transition-colors"
                       >
                         {request.target.name}
                       </a>
@@ -168,55 +173,43 @@
                     {/if}
                   </div>
                 </td>
-                <td>
-                  <div class="badge badge-soft text-nowrap">
-                    {request.type === 'university' ? m.university() : m.club()}
-                  </div>
+                <td class="max-w-[20vw] not-md:hidden">
+                  {#if request.requestMessage}
+                    <div class="line-clamp-4 text-sm" title={request.requestMessage}>
+                      {request.requestMessage}
+                    </div>
+                  {:else}
+                    <span class="text-base-content/40 text-sm italic">{m.admin_no_message()}</span>
+                  {/if}
                 </td>
-                <td>
-                  <div class="max-w-xs">
-                    {#if request.requestMessage}
-                      <div class="truncate text-sm" title={request.requestMessage}>
-                        {request.requestMessage}
-                      </div>
-                    {:else}
-                      <span class="text-base-content/40 text-sm italic">{m.admin_no_message()}</span
-                      >
-                    {/if}
-                  </div>
+                <td class="not-md:hidden">
+                  <div class="text-sm">{formatDateTime(request.createdAt)}</div>
                 </td>
                 <td>
                   <div class="badge badge-soft text-nowrap {getStatusBadgeClass(request.status)}">
                     {statusLabelMap[request.status] || request.status}
                   </div>
                 </td>
-                <td>
-                  <div class="text-sm">{formatDateTime(request.createdAt)}</div>
+                <td class="max-w-[20vw] not-lg:hidden">
+                  {#if request.reviewNote}
+                    <div class="line-clamp-4 text-sm" title={request.reviewNote}>
+                      {request.reviewNote}
+                    </div>
+                  {:else}
+                    <span class="text-base-content/40 text-sm italic">{m.none()}</span>
+                  {/if}
                   {#if request.reviewedAt}
                     <div class="text-base-content/60 mt-1 text-xs">
                       {m.reviewed_at({ time: formatDateTime(request.reviewedAt) })}
                     </div>
                   {/if}
                 </td>
-                <td>
-                  <div class="max-w-xs">
-                    {#if request.reviewNote}
-                      <div class="truncate text-sm" title={request.reviewNote}>
-                        {request.reviewNote}
-                      </div>
-                    {:else}
-                      <span class="text-base-content/40 text-sm italic">{m.none()}</span>
-                    {/if}
-                  </div>
-                </td>
-                <td>
-                  <div>
-                    {#if request.reviewer}
-                      <UserAvatar user={request.reviewer} showName={true} size="xs" />
-                    {:else}
-                      <span class="text-base-content/40 text-sm italic">{m.none()}</span>
-                    {/if}
-                  </div>
+                <td class="max-w-[10vw] not-sm:hidden">
+                  {#if request.reviewer}
+                    <UserAvatar user={request.reviewer} showName={true} size="xs" />
+                  {:else}
+                    <span class="text-base-content/40 text-sm italic">{m.none()}</span>
+                  {/if}
                 </td>
                 <td>
                   <div class="flex justify-end gap-2">
@@ -226,14 +219,14 @@
                         onclick={() => openReviewModal('approve', request)}
                       >
                         <i class="fa-solid fa-check"></i>
-                        {m.approve()}
+                        <span class="not-lg:hidden">{m.approve()}</span>
                       </button>
                       <button
                         class="btn btn-error btn-sm text-nowrap"
                         onclick={() => openReviewModal('reject', request)}
                       >
                         <i class="fa-solid fa-times"></i>
-                        {m.reject()}
+                        <span class="not-lg:hidden">{m.reject()}</span>
                       </button>
                     {/if}
                     <form method="POST" action="?/delete" use:enhance class="inline">
@@ -244,7 +237,7 @@
                         onclick={() => confirm(m.admin_join_request_delete_confirm())}
                       >
                         <i class="fa-solid fa-trash"></i>
-                        {m.delete()}
+                        <span class="not-lg:hidden">{m.delete()}</span>
                       </button>
                     </form>
                   </div>

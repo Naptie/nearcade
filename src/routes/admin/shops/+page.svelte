@@ -43,10 +43,10 @@
   <title>{m.admin_shops()} - {m.admin_panel()} - {m.app_name()}</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="min-w-3xs space-y-6">
   <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
+  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
+    <div class="not-sm:text-center">
       <h1 class="text-base-content text-3xl font-bold">{m.admin_shops()}</h1>
       <p class="text-base-content/60 mt-1">{m.admin_shops_description()}</p>
     </div>
@@ -85,8 +85,8 @@
           <thead>
             <tr>
               <th>{m.admin_shop_header()}</th>
-              <th>{m.admin_location_header()}</th>
-              <th>{m.admin_games_header()}</th>
+              <th class="not-lg:hidden">{m.admin_location_header()}</th>
+              <th class="not-sm:hidden">{m.admin_games_header()}</th>
               <th class="text-right">{m.admin_actions_header()}</th>
             </tr>
           </thead>
@@ -94,26 +94,19 @@
             {#each data.shops as shop (shop.id)}
               <tr class="hover">
                 <td>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="bg-primary/20 mask mask-squircle flex h-10 w-10 items-center justify-center"
-                    >
-                      <i class="fa-solid fa-gamepad text-primary"></i>
-                    </div>
-                    <div>
-                      <div class="font-medium">
-                        <a
-                          href="https://map.bemanicn.com/shop/{shop.id}"
-                          target="_blank"
-                          class="hover:text-accent transition-colors"
-                        >
-                          {shop.name}
-                        </a>
-                      </div>
+                  <div>
+                    <div class="font-medium">
+                      <a
+                        href="https://map.bemanicn.com/shop/{shop.id}"
+                        target="_blank"
+                        class="hover:text-accent line-clamp-3 transition-colors"
+                      >
+                        {shop.name}
+                      </a>
                     </div>
                   </div>
                 </td>
-                <td>
+                <td class="not-lg:hidden">
                   <div class="max-w-xs text-sm">
                     {#if shop.location?.coordinates}
                       <span class="text-xs opacity-60">
@@ -126,7 +119,7 @@
                     {/if}
                   </div>
                 </td>
-                <td>
+                <td class="not-sm:hidden">
                   {#if shop.games && shop.games.length > 0}
                     <div class="mt-1 flex flex-wrap gap-1">
                       {#each shop.games.slice(0, 3) as game (game.id)}

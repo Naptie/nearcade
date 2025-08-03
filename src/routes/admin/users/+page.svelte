@@ -5,7 +5,14 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import type { PageData } from './$types';
-  import { getDisplayName, getUserTypeBadgeClass, getUserTypeLabel, toPath } from '$lib/utils';
+  import {
+    formatDate,
+    formatDateTime,
+    getDisplayName,
+    getUserTypeBadgeClass,
+    getUserTypeLabel,
+    toPath
+  } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -44,10 +51,6 @@
 
     url.searchParams.delete('page'); // Reset to first page
     goto(url.toString());
-  }
-
-  function formatDate(date: Date | string) {
-    return new Date(date).toLocaleDateString();
   }
 
   // Modal state for user type editing
@@ -141,14 +144,14 @@
 
 <div class="space-y-6">
   <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
+  <div class="flex flex-col items-center justify-between gap-4 lg:flex-row">
+    <div class="not-lg:text-center">
       <h1 class="text-base-content text-3xl font-bold">{m.admin_users()}</h1>
       <p class="text-base-content/60 mt-1">{m.admin_users_description()}</p>
     </div>
 
     <!-- User Type Statistics -->
-    <div class="flex gap-4">
+    <div class="flex gap-4 not-md:flex-wrap">
       {#each Object.entries(data.userTypeStats || {}) as [type, count], index (index)}
         <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
           <div class="stat-title text-xs">{getUserTypeLabel(type)}</div>
@@ -203,39 +206,36 @@
           <thead>
             <tr>
               <th>{m.admin_user_header()}</th>
-              <th>{m.admin_type_header()}</th>
+              <th class="not-xs:hidden">{m.admin_type_header()}</th>
               <th>{m.admin_associations_header()}</th>
-              <th>{m.admin_last_active_header()}</th>
-              <th>{m.admin_joined_header()}</th>
+              <th class="not-sm:hidden">{m.admin_last_active_header()}</th>
+              <th class="not-md:hidden">{m.admin_joined_header()}</th>
               <th class="text-right">{m.admin_actions_header()}</th>
             </tr>
           </thead>
           <tbody>
             {#each data.users as user (user.id)}
               <tr class="hover">
-                <td>
-                  <div
-                    class="group flex cursor-pointer items-center gap-3 truncate"
-                    title="ID: {user.id}"
-                  >
+                <td class="max-w-[15vw]">
+                  <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
                     <UserAvatar {user} size="md" target="_blank" />
                     <a
                       href="{base}/users/@{user.name}"
                       target="_blank"
-                      class="group-hover:text-accent transition-colors"
+                      class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors"
                     >
-                      <div class="font-medium">
+                      <div class="truncate font-medium">
                         {getDisplayName(user)}
                       </div>
                       {#if user.email && !user.email.endsWith('.nearcade')}
-                        <div class="text-sm opacity-60">
+                        <div class="truncate text-sm opacity-60">
                           {user.email}
                         </div>
                       {/if}
                     </a>
                   </div>
                 </td>
-                <td>
+                <td class="not-xs:hidden">
                   <div class="badge badge-sm text-nowrap {getUserTypeBadgeClass(user.userType)}">
                     {getUserTypeLabel(user.userType)}
                   </div>
@@ -246,17 +246,23 @@
                     <div>{m.admin_clubs_count({ count: user.clubsCount || 0 })}</div>
                   </div>
                 </td>
-                <td>
+                <td class="not-sm:hidden">
                   {#if user.lastActiveAt}
-                    <div class="truncate text-sm">
+                    <div class="truncate text-sm lg:hidden">
                       {formatDate(user.lastActiveAt)}
+                    </div>
+                    <div class="truncate text-sm not-lg:hidden">
+                      {formatDateTime(user.lastActiveAt)}
                     </div>
                   {/if}
                 </td>
-                <td>
+                <td class="not-md:hidden">
                   {#if user.joinedAt}
-                    <div class="truncate text-sm">
+                    <div class="truncate text-sm xl:hidden">
                       {formatDate(user.joinedAt)}
+                    </div>
+                    <div class="truncate text-sm not-xl:hidden">
+                      {formatDateTime(user.joinedAt)}
                     </div>
                   {/if}
                 </td>
@@ -637,3 +643,11 @@
     aria-label={m.close_modal()}
   ></div>
 </div>
+
+<style>
+  .not-xs\:hidden {
+    @media (width < 35rem) {
+      display: none;
+    }
+  }
+</style>

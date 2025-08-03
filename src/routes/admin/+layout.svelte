@@ -86,7 +86,7 @@
 
   <div class="flex min-h-[calc(100vh-4rem)]">
     <!-- Sidebar -->
-    <aside class="bg-base-100 border-base-300 w-64 border-r shadow-sm">
+    <aside class="bg-base-100 border-base-300 w-64 min-w-36 border-r shadow-sm">
       <div class="p-4">
         <h2 class="text-base-content mb-4 text-lg font-semibold">
           {m.admin_panel()}
@@ -128,7 +128,7 @@
                 : 'text-base-content hover:bg-base-200'}"
             >
               <i class="fa-solid {item.icon} w-4"></i>
-              <span class="text-sm font-medium">{item.label}</span>
+              <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
             </a>
           {/each}
         </nav>
@@ -136,7 +136,7 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 p-6">
+    <main class="max-w-[calc(100%-9rem)] flex-1 p-6">
       {@render children()}
     </main>
   </div>

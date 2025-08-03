@@ -3,7 +3,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { getUserTypeLabel } from '$lib/utils';
+  import { formatDate, getUserTypeLabel } from '$lib/utils';
   import { signOut } from '@auth/sveltekit/client';
   import type { PageData } from './$types';
 
@@ -14,11 +14,6 @@
   let showLeaveClubConfirm = $state(false);
   let leavingUniversityId = $state('');
   let leavingClubId = $state('');
-
-  function formatDate(date?: Date | string | null) {
-    if (!date) return m.unknown();
-    return new Date(date).toLocaleDateString();
-  }
 
   function confirmLeaveUniversity(universityId: string) {
     leavingUniversityId = universityId;

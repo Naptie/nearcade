@@ -10,6 +10,7 @@
   import { PAGINATION } from '$lib/constants';
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
+  import { formatDate } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -79,11 +80,6 @@
       radius = parseInt(savedRadius);
     }
   });
-
-  function formatDate(date?: Date | string | null) {
-    if (!date) return m.unknown();
-    return new Date(date).toLocaleDateString();
-  }
 
   // Handle URL hash changes for tab navigation
   $effect(() => {

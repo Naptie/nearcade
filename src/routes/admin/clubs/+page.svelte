@@ -5,6 +5,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import type { PageData } from './$types';
+  import { formatDate } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -30,10 +31,6 @@
     url.searchParams.delete('page'); // Reset to first page
     goto(url.toString());
   }
-
-  function formatDate(date: Date | string) {
-    return new Date(date).toLocaleDateString();
-  }
 </script>
 
 <svelte:head>
@@ -47,9 +44,9 @@
       <h1 class="text-base-content text-3xl font-bold">{m.admin_clubs()}</h1>
       <p class="text-base-content/60 mt-1">{m.admin_clubs_description()}</p>
     </div>
-    <button onclick={() => (showCreateModal = true)} class="btn btn-primary">
+    <button onclick={() => (showCreateModal = true)} class="btn btn-primary not-sm:btn-circle">
       <i class="fa-solid fa-plus"></i>
-      {m.add_club()}
+      <span class="not-sm:hidden">{m.add_club()}</span>
     </button>
   </div>
 
@@ -79,16 +76,16 @@
             <tr>
               <th>{m.club()}</th>
               <th>{m.admin_university_header()}</th>
-              <th>{m.admin_members_header()}</th>
-              <th>{m.admin_created_header()}</th>
-              <th>{m.admin_status_header()}</th>
+              <th class="not-sm:hidden">{m.admin_members_header()}</th>
+              <th class="not-md:hidden">{m.admin_status_header()}</th>
+              <th class="not-lg:hidden">{m.admin_created_header()}</th>
               <th class="text-right">{m.admin_actions_header()}</th>
             </tr>
           </thead>
           <tbody>
             {#each data.clubs as club (club.id)}
               <tr class="hover">
-                <td>
+                <td class="max-w-[20vw]">
                   <a
                     href="{base}/clubs/{club.id}"
                     target="_blank"
@@ -107,8 +104,8 @@
                         <i class="fa-solid fa-users-gear text-primary"></i>
                       </div>
                     {/if}
-                    <div class="group-hover:text-accent transition-colors">
-                      <div class="font-medium">
+                    <div class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors">
+                      <div class="line-clamp-2 font-medium">
                         {club.name}
                       </div>
                       {#if club.description}
@@ -123,7 +120,7 @@
                   {#if club.university}
                     <a
                       href="{base}/universities/{club.university.id}"
-                      class="hover:text-accent transition-colors"
+                      class="hover:text-accent line-clamp-2 transition-colors"
                     >
                       {club.university.name}
                     </a>
@@ -131,23 +128,23 @@
                     <span class="text-base-content/60">{m.admin_unknown()}</span>
                   {/if}
                 </td>
-                <td>
+                <td class="not-sm:hidden">
                   <div class="text-sm">
                     {m.member_count_people({ count: club.membersCount || 0 })}
                   </div>
                 </td>
-                <td>
-                  <div class="text-sm">
-                    {club.createdAt ? formatDate(club.createdAt) : 'Unknown'}
-                  </div>
-                </td>
-                <td>
+                <td class="not-md:hidden">
                   <div
-                    class="badge badge-soft {club.acceptJoinRequests
+                    class="badge badge-soft text-nowrap {club.acceptJoinRequests
                       ? 'badge-success'
                       : 'badge-neutral'}"
                   >
                     {club.acceptJoinRequests ? m.is_open() : m.invite_only()}
+                  </div>
+                </td>
+                <td class="not-lg:hidden">
+                  <div class="text-sm">
+                    {formatDate(club.createdAt)}
                   </div>
                 </td>
                 <td>
@@ -155,20 +152,20 @@
                     <a
                       href="{base}/clubs/{club.id}/edit"
                       target="_blank"
-                      class="btn btn-primary btn-soft btn-sm"
+                      class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
                       <i class="fa-solid fa-edit"></i>
-                      <span class="not-md:hidden">{m.edit()}</span>
+                      <span class="not-lg:hidden">{m.edit()}</span>
                     </a>
                     <form method="POST" action="?/delete" use:enhance class="inline">
                       <input type="hidden" name="clubId" value={club.id} />
                       <button
                         type="submit"
-                        class="btn btn-error btn-sm btn-soft"
+                        class="btn btn-error btn-sm btn-soft text-nowrap"
                         onclick={() => confirm(m.admin_club_delete_confirm())}
                       >
                         <i class="fa-solid fa-trash"></i>
-                        <span class="not-md:hidden">{m.delete()}</span>
+                        <span class="not-lg:hidden">{m.delete()}</span>
                       </button>
                     </form>
                   </div>

@@ -70,6 +70,7 @@
   href="{base}/users/@{user.name}"
   {target}
   class="group flex items-center {gapClasses[size]} {className}"
+  class:w-full={showName}
 >
   <!-- Avatar -->
   <div class="relative shrink-0">

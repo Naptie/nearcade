@@ -81,7 +81,7 @@
           <tbody>
             {#each data.universities as university (university.id)}
               <tr class="hover">
-                <td>
+                <td class="max-w-[20vw]">
                   <a
                     href="{base}/universities/{university.slug || university.id}"
                     target="_blank"
@@ -100,8 +100,8 @@
                         <i class="fa-solid fa-graduation-cap text-primary"></i>
                       </div>
                     {/if}
-                    <div class="group-hover:text-accent transition-colors">
-                      <div class="font-medium">
+                    <div class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors">
+                      <div class="line-clamp-2 font-medium">
                         {university.name}
                       </div>
                       {#if university.description}
@@ -132,7 +132,7 @@
                     <a
                       href="{base}/universities/{university.slug || university.id}/edit"
                       target="_blank"
-                      class="btn btn-primary btn-soft btn-sm"
+                      class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
                       <i class="fa-solid fa-edit"></i>
                       <span class="not-md:hidden">{m.edit()}</span>
@@ -142,7 +142,7 @@
                         <input type="hidden" name="universityId" value={university.id} />
                         <button
                           type="submit"
-                          class="btn btn-error btn-sm btn-soft"
+                          class="btn btn-error btn-sm btn-soft text-nowrap"
                           onclick={() => confirm(m.admin_university_delete_confirm())}
                         >
                           <i class="fa-solid fa-trash"></i>
