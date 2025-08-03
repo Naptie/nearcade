@@ -152,7 +152,7 @@
                   </div>
                 </td>
                 <td>
-                  <div class="font-medium">
+                  <div class="truncate font-medium">
                     {#if request.target}
                       <a
                         href="{base}/{request.type === 'university'
@@ -169,7 +169,7 @@
                   </div>
                 </td>
                 <td>
-                  <div class="badge badge-soft">
+                  <div class="badge badge-soft text-nowrap">
                     {request.type === 'university' ? m.university() : m.club()}
                   </div>
                 </td>
@@ -186,7 +186,7 @@
                   </div>
                 </td>
                 <td>
-                  <div class="badge badge-soft {getStatusBadgeClass(request.status)}">
+                  <div class="badge badge-soft text-nowrap {getStatusBadgeClass(request.status)}">
                     {statusLabelMap[request.status] || request.status}
                   </div>
                 </td>
@@ -222,14 +222,14 @@
                   <div class="flex justify-end gap-2">
                     {#if request.status === 'pending'}
                       <button
-                        class="btn btn-success btn-sm"
+                        class="btn btn-success btn-sm text-nowrap"
                         onclick={() => openReviewModal('approve', request)}
                       >
                         <i class="fa-solid fa-check"></i>
                         {m.approve()}
                       </button>
                       <button
-                        class="btn btn-error btn-sm"
+                        class="btn btn-error btn-sm text-nowrap"
                         onclick={() => openReviewModal('reject', request)}
                       >
                         <i class="fa-solid fa-times"></i>
@@ -240,7 +240,7 @@
                       <input type="hidden" name="requestId" value={request.id} />
                       <button
                         type="submit"
-                        class="btn btn-error btn-sm btn-soft"
+                        class="btn btn-error btn-sm btn-soft text-nowrap"
                         onclick={() => confirm(m.admin_join_request_delete_confirm())}
                       >
                         <i class="fa-solid fa-trash"></i>

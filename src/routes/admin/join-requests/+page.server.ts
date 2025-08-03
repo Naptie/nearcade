@@ -97,10 +97,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         }
       },
       {
-        $unwind: '$user'
+        $unwind: {
+          path: '$user',
+          preserveNullAndEmptyArrays: false // always has a user
+        }
       },
       {
-        $unwind: '$reviewer'
+        $unwind: {
+          path: '$reviewer',
+          preserveNullAndEmptyArrays: true // allow requests with no reviewer
+        }
       },
       {
         $project: {
