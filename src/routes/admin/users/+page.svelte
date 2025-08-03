@@ -214,13 +214,16 @@
             {#each data.users as user (user.id)}
               <tr class="hover">
                 <td>
-                  <a
-                    href="{base}/users/{user.id}"
-                    target="_blank"
+                  <div
                     class="group flex cursor-pointer items-center gap-3 truncate"
+                    title="ID: {user.id}"
                   >
                     <UserAvatar {user} size="md" target="_blank" />
-                    <div class="group-hover:text-accent transition-colors">
+                    <a
+                      href="{base}/users/@{user.name}"
+                      target="_blank"
+                      class="group-hover:text-accent transition-colors"
+                    >
                       <div class="font-medium">
                         {getDisplayName(user)}
                       </div>
@@ -229,8 +232,8 @@
                           {user.email}
                         </div>
                       {/if}
-                    </div>
-                  </a>
+                    </a>
+                  </div>
                 </td>
                 <td>
                   <div class="badge badge-sm text-nowrap {getUserTypeBadgeClass(user.userType)}">
