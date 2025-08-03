@@ -860,7 +860,7 @@
                 <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
                 <h4 class="mb-2 text-lg font-medium">{m.discussion_forum()}</h4>
                 <p class="text-base-content/60 mb-4">{m.discussion_forum_description()}</p>
-                <div class="badge badge-info">{m.coming_soon()}</div>
+                <div class="badge badge-info badge-soft">{m.coming_soon()}</div>
               </div>
             </div>
           </div>
