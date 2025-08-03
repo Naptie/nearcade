@@ -15,8 +15,10 @@
   let isAtTop = $derived(scrollY <= 10);
   let orgHasCustomBackground = $state(false);
   let textWhite = $derived(
-    isAtTop && page.url.pathname.match(/\/(universities|clubs)\/\S+/) && orgHasCustomBackground
-      ? 'text-white'
+    isAtTop && page.url.pathname.match(/\/(universities|clubs)\/(?!new\b)\S+/)
+      ? orgHasCustomBackground
+        ? 'text-white'
+        : 'dark:text-white'
       : ''
   );
 
