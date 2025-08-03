@@ -696,17 +696,9 @@
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between p-4">
-                      <a
-                        href="{base}/users/@{member.user.name}"
-                        class="group flex items-center gap-3"
-                      >
-                        <UserAvatar
-                          user={member.user}
-                          showName={true}
-                          size="md"
-                          class="group-hover:text-accent transition-colors"
-                        />
-                      </a>
+                      <div>
+                        <UserAvatar user={member.user} showName={true} size="md" />
+                      </div>
 
                       <div class="flex items-center gap-2">
                         <!-- Member Type Badge -->
@@ -715,7 +707,7 @@
                             ? 'badge-error'
                             : member.memberType === 'moderator'
                               ? 'badge-warning'
-                              : 'badge-neutral'} badge-sm"
+                              : 'badge-neutral'} badge-sm text-nowrap"
                         >
                           {member.memberType === 'admin'
                             ? m.admin()
