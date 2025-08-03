@@ -20,14 +20,15 @@ import type { MongoClient } from 'mongodb';
 import { page } from '$app/state';
 import type { User } from '@auth/sveltekit';
 import { redirect } from '@sveltejs/kit';
+import { nanoid } from 'nanoid';
 
 /**
  * Generates a valid and unique username based on input name
  */
 export const generateValidUsername = async (
   inputName: string | null | undefined,
-  fallbackId: string,
-  usersCollection: Collection<Document>
+  userId: string | ObjectId | undefined,
+  usersCollection: Collection<User>
 ): Promise<string> => {
   // Helper function to check if name is valid (A-Za-z0-9_-)
   const isValidCharacterSet = (name: string): boolean => {
@@ -41,7 +42,10 @@ export const generateValidUsername = async (
 
   // Helper function to check if username is unique
   const isUnique = async (username: string): Promise<boolean> => {
-    const existing = await usersCollection.findOne({ name: username });
+    const existing = await usersCollection.findOne({
+      name: username,
+      _id: { $ne: userId }
+    });
     return !existing;
   };
 
@@ -61,7 +65,7 @@ export const generateValidUsername = async (
   }
 
   // Fall back to using the ID
-  return fallbackId;
+  return userId?.toString() || nanoid();
 };
 
 export const calculateDistance = (

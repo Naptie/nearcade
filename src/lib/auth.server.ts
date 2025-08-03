@@ -62,18 +62,10 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
             if (!existingUser) {
               dbUser.name = user.name;
             } else {
-              dbUser.name = await generateValidUsername(
-                user.name,
-                user.id || 'user',
-                usersCollection
-              );
+              dbUser.name = await generateValidUsername(user.name, dbUser._id, usersCollection);
             }
           } else {
-            dbUser.name = await generateValidUsername(
-              user.name,
-              user.id || 'user',
-              usersCollection
-            );
+            dbUser.name = await generateValidUsername(user.name, dbUser._id, usersCollection);
           }
 
           // Set default privacy settings
