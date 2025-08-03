@@ -475,9 +475,7 @@
   "load_more_members": "加载更多成员",
   "loading": "正在加载...",
   "loading_clubs": "正在加载社团...",
-  "loading_data": "正在加载...",
   "loading_members": "正在加载成员...",
-  "loading_more": "正在加载更多...",
   "location_not_supported": "此浏览器不支持地理位置服务。",
   "location_permission_denied": "用户拒绝了位置访问请求。",
   "location_timeout": "位置请求超时。",
@@ -564,6 +562,7 @@
   "page": "第 {page} 页",
   "pending": "待审核",
   "pending_approval": "待审批",
+  "pending_requests": "待审请求",
   "permission_denied": "权限不足",
   "personal_settings": "个人设置",
   "pick_location": "选择位置",
@@ -762,7 +761,10 @@
   "username_taken": "此用户名已被使用",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"

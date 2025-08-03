@@ -29,7 +29,7 @@
             <p class="text-base-content/60 text-sm font-medium">{m.admin_users()}</p>
             <p class="text-base-content text-2xl font-bold">{data.stats.totalUsers}</p>
           </div>
-          <div class="rounded-full bg-blue-100 p-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
             <i class="fa-solid fa-users text-lg text-blue-600"></i>
           </div>
         </div>
@@ -48,7 +48,7 @@
             <p class="text-base-content/60 text-sm font-medium">{m.admin_universities()}</p>
             <p class="text-base-content text-2xl font-bold">{data.stats.totalUniversities}</p>
           </div>
-          <div class="rounded-full bg-purple-100 p-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
             <i class="fa-solid fa-building-columns text-lg text-purple-600"></i>
           </div>
         </div>
@@ -61,7 +61,7 @@
             <p class="text-base-content/60 text-sm font-medium">{m.admin_clubs()}</p>
             <p class="text-base-content text-2xl font-bold">{data.stats.totalClubs}</p>
           </div>
-          <div class="rounded-full bg-green-100 p-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
             <i class="fa-solid fa-users-gear text-lg text-green-600"></i>
           </div>
         </div>
@@ -80,7 +80,7 @@
             <p class="text-base-content/60 text-sm font-medium">{m.admin_arcade_shops()}</p>
             <p class="text-base-content text-2xl font-bold">{data.stats.totalShops}</p>
           </div>
-          <div class="rounded-full bg-orange-100 p-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
             <i class="fa-solid fa-gamepad text-lg text-orange-600"></i>
           </div>
         </div>
@@ -93,20 +93,26 @@
             <p class="text-base-content/60 text-sm font-medium">{m.admin_invites()}</p>
             <p class="text-base-content text-2xl font-bold">{data.stats.totalInvites}</p>
           </div>
-          <div class="rounded-full bg-indigo-100 p-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
             <i class="fa-solid fa-link text-lg text-indigo-600"></i>
           </div>
         </div>
+        {#if data.recentActivity}
+          <div class="mt-4 flex items-center text-sm">
+            <span class="font-medium text-green-600">+{data.recentActivity.newInvites}</span>
+            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+          </div>
+        {/if}
       </div>
 
       <!-- Pending Join Requests -->
       <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.join_requests()}</p>
+            <p class="text-base-content/60 text-sm font-medium">{m.pending_requests()}</p>
             <p class="text-base-content text-2xl font-bold">{data.stats.pendingJoinRequests}</p>
           </div>
-          <div class="rounded-full bg-yellow-100 p-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
             <i class="fa-solid fa-user-plus text-lg text-yellow-600"></i>
           </div>
         </div>

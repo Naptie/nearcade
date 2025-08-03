@@ -33,6 +33,9 @@ export const load: PageServerLoad = async ({ locals }) => {
       newClubs: await db.collection('clubs').countDocuments({
         createdAt: { $gte: oneWeekAgo }
       }),
+      newInvites: await db.collection('invites').countDocuments({
+        createdAt: { $gte: oneWeekAgo }
+      }),
       newJoinRequests: await db.collection('join_requests').countDocuments({
         createdAt: { $gte: oneWeekAgo }
       })
