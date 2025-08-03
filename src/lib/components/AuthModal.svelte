@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { signOut } from '@auth/sveltekit/client';
   import { base } from '$app/paths';
-  import { isAdminOrModerator } from '$lib/utils';
+  import { getDisplayName, isAdminOrModerator } from '$lib/utils';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
 
@@ -136,7 +136,7 @@
     <FancyButton
       class="rounded-full {klass}"
       image={session.user?.image || ''}
-      text={session.user.name || ''}
+      text={getDisplayName(session.user)}
       callback={() => {
         open = !open;
       }}
