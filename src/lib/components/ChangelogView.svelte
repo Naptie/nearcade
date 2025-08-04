@@ -182,7 +182,11 @@
                     <span class="text-sm font-medium">
                       {entry.userName || m.unknown_user()}
                     </span>
-                    <span class="badge badge-soft badge-sm {getActionBadgeClass(entry.action)}">
+                    <span
+                      class="badge badge-soft badge-sm not-sm:hidden {getActionBadgeClass(
+                        entry.action
+                      )}"
+                    >
                       {getChangelogActionName(entry.action, createMessagesWrapper())}
                     </span>
                   </div>
@@ -217,13 +221,13 @@
                     <div class="flex flex-col gap-1">
                       <div class="flex items-center gap-2">
                         <span class="text-base-content/60">{m.from()}:</span>
-                        <code class="bg-error/10 text-error rounded px-1 text-xs">
+                        <code class="bg-error/10 text-error rounded px-1 text-xs break-all">
                           {entry.oldValue}
                         </code>
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-base-content/60">{m.to()}:</span>
-                        <code class="bg-success/10 text-success rounded px-1 text-xs">
+                        <code class="bg-success/10 text-success rounded px-1 text-xs break-all">
                           {entry.newValue}
                         </code>
                       </div>
@@ -231,14 +235,14 @@
                   {:else if entry.newValue}
                     <div class="flex items-center gap-2">
                       <span class="text-base-content/60">{m.set_to()}:</span>
-                      <code class="bg-success/10 text-success rounded px-1 text-xs">
+                      <code class="bg-success/10 text-success rounded px-1 text-xs break-all">
                         {entry.newValue}
                       </code>
                     </div>
                   {:else if entry.oldValue}
                     <div class="flex items-center gap-2">
                       <span class="text-base-content/60">{m.cleared_value()}:</span>
-                      <code class="bg-error/10 text-error rounded px-1 text-xs">
+                      <code class="bg-error/10 text-error rounded px-1 text-xs break-all">
                         {entry.oldValue}
                       </code>
                     </div>
