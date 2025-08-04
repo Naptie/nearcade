@@ -479,7 +479,7 @@
       <div class="tabs tabs-lifted mb-6 overflow-x-auto">
         {#each tabs as tab (tab.id)}
           <button
-            class="tab tab-lifted whitespace-nowrap"
+            class="tab tab-lifted whitespace-nowrap transition-colors"
             class:tab-active={activeTab === tab.id}
             onclick={() => changeTab(tab.id)}
           >
