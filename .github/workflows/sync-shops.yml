@@ -1,5 +1,5 @@
-name: Update Shops and Stats
-run-name: Synchronize shops data and trigger stats update
+name: Sync Shops
+run-name: Synchronize shops data
 
 on:
   schedule:
@@ -56,14 +56,3 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
-
-  trigger-rankings-update:
-    needs: sync-shops
-    uses: ./.github/workflows/update-rankings.yml
-    secrets:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
-
-  trigger-university-stats-update:
-    uses: ./.github/workflows/update-university-stats.yml
-    secrets:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
