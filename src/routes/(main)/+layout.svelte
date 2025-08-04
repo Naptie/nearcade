@@ -67,7 +67,12 @@
         class="fa-solid fa-trophy fa-lg text-shadow"
         text={m.campus_rankings()}
       />
-      <FancyButton href="{base}/" class="fa-solid fa-home fa-lg text-shadow" text={m.home()} />
+      <FancyButton
+        href="{base}/"
+        class="fa-solid fa-home fa-lg text-shadow"
+        btnCls="not-sm:hidden"
+        text={m.home()}
+      />
       <AuthModal size="lg" class="text-shadow shadow" />
     </div>
   </div>
