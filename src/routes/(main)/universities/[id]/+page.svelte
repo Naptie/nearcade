@@ -470,7 +470,7 @@
 {/snippet}
 
 <!-- Main Content -->
-<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:px-8">
+<div class="mx-auto max-w-7xl min-w-2xs px-4 py-8 sm:px-6 md:px-8">
   <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
     {@render sidebar('not-md:hidden')}
     <!-- Main Content Area -->
