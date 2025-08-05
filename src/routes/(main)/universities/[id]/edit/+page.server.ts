@@ -9,8 +9,8 @@ import client from '$lib/db.server';
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
 
-  const parentData = await parent();
-  const user = parentData.session?.user;
+  const { session } = await parent();
+  const user = session?.user;
 
   if (!user) {
     throw loginRedirect(url);
@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     // Check permissions for the current user
-    const userPermissions = await checkUniversityPermission(user.id!, university.id, client);
+    const userPermissions = await checkUniversityPermission(user, university, client);
 
     if (!userPermissions.canEdit) {
       error(403, 'Insufficient privileges');
@@ -90,7 +90,7 @@ export const actions: Actions = {
       const isDoubleFirstClass = formData.get('isDoubleFirstClass') === 'on';
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user.id!, id, client);
+      const permissions = await checkUniversityPermission(user, id, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient privileges' });
       }

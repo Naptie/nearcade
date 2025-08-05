@@ -227,6 +227,7 @@
   "bio_too_long": "Bio must be 500 characters or less",
   "board_at": "Board at",
   "boarding_info": "Boarding Info",
+  "body": "Body",
   "browse_clubs": "Browse Clubs",
   "browse_search_clubs": "Browse and search student clubs and organizations",
   "browse_search_universities": "Browse and search universities and colleges",
@@ -915,12 +916,17 @@
     }
   ],
   "validation_error": "Please check your input and try again",
+  "verification_email_title": "[nearcade] SSV Student Status Verification",
+  "verification_instruction": "Send an email to {email} with the following content using an email address ending with {suffix}",
   "verified": "Verified",
   "verified_members": "Verified Members",
   "verified_student": "Verified Student",
   "verified_students": "Verified Students",
   "verified_students_only": "Verified Students Only",
+  "verify": "Verify",
+  "verify_and_join": "Verify and Join",
   "verify_student": "Verify Student",
+  "verify_title": "Verify Your Student Status at {university}",
   "via_stop": "Via Stop",
   "via_stops": [
     {

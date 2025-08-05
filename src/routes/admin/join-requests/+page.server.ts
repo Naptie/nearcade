@@ -224,17 +224,13 @@ export const actions: Actions = {
         hasPermission = true;
       } else if (joinRequest.type === 'university') {
         const permissions = await checkUniversityPermission(
-          session.user.id,
+          session.user,
           joinRequest.targetId,
           client
         );
         hasPermission = permissions.canManage;
       } else if (joinRequest.type === 'club') {
-        const permissions = await checkClubPermission(
-          session.user.id,
-          joinRequest.targetId,
-          client
-        );
+        const permissions = await checkClubPermission(session.user, joinRequest.targetId, client);
         hasPermission = permissions.canManage;
       }
 
@@ -341,17 +337,13 @@ export const actions: Actions = {
         hasPermission = true;
       } else if (joinRequest.type === 'university') {
         const permissions = await checkUniversityPermission(
-          session.user.id,
+          session.user,
           joinRequest.targetId,
           client
         );
         hasPermission = permissions.canManage;
       } else if (joinRequest.type === 'club') {
-        const permissions = await checkClubPermission(
-          session.user.id,
-          joinRequest.targetId,
-          client
-        );
+        const permissions = await checkClubPermission(session.user, joinRequest.targetId, client);
         hasPermission = permissions.canManage;
       }
 
@@ -409,17 +401,13 @@ export const actions: Actions = {
         let hasPermission = false;
         if (joinRequest.type === 'university') {
           const permissions = await checkUniversityPermission(
-            session.user.id,
+            session.user,
             joinRequest.targetId,
             client
           );
           hasPermission = permissions.canManage;
         } else if (joinRequest.type === 'club') {
-          const permissions = await checkClubPermission(
-            session.user.id,
-            joinRequest.targetId,
-            client
-          );
+          const permissions = await checkClubPermission(session.user, joinRequest.targetId, client);
           hasPermission = permissions.canManage;
         }
 

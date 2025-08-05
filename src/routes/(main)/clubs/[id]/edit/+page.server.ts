@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       error(404, 'Club not found');
     }
 
-    const userPermissions = await checkClubPermission(session.user.id!, club.id, client);
+    const userPermissions = await checkClubPermission(session.user, club, client);
 
     if (!userPermissions.canEdit) {
       error(403, { message: 'You do not have permission to edit this club' });
@@ -167,10 +167,7 @@ export const actions: Actions = {
         return fail(404, { message: 'Club not found' });
       }
 
-      if (
-        !session?.user ||
-        !(await checkClubPermission(session.user.id!, club.id, client)).canEdit
-      ) {
+      if (!session?.user || !(await checkClubPermission(session.user, club, client)).canEdit) {
         return fail(403, { message: 'You do not have permission to edit this club' });
       }
 

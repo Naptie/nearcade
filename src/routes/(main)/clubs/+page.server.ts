@@ -160,7 +160,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       .project({ _id: 0, id: 1, name: 1 })
       .toArray();
 
-    const parentData = await parent();
+    const { session } = await parent();
 
     return {
       clubs,
@@ -171,7 +171,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       query,
       selectedUniversityId: universityId,
       universities: allUniversities,
-      user: parentData.session?.user
+      user: session?.user
     };
   } catch (err) {
     console.error('Error loading clubs:', err);

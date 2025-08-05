@@ -384,12 +384,12 @@
 
           <div class="flex items-center gap-2">
             <!-- Join Button for eligible users -->
-            {#if data.user && data.canJoin && !data.existingJoinRequest}
+            {#if data.user && data.userPermissions.canJoin === 2}
               <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
                 <i class="fa-solid fa-plus"></i>
                 {m.join_club()}
               </button>
-            {:else if data.existingJoinRequest}
+            {:else if data.userPermissions.canJoin === 1}
               <div class="badge badge-warning">
                 <i class="fa-solid fa-clock"></i>
                 {m.join_request_sent()}

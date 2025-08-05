@@ -69,47 +69,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
     // Check user permissions if authenticated
     const userPermissions = session?.user
-      ? await checkClubPermission(session.user.id!, club.id, client)
-      : { canEdit: false, canManage: false };
-
-    // Check if user is a member and if they can join (for non-members)
-    let canJoin = false;
-    let isUniversityMember = false;
-    let existingJoinRequest = null;
-
-    if (session?.user && club.acceptJoinRequests) {
-      const db = client.db();
-      const clubMembersCollection = db.collection('club_members');
-      const universityMembersCollection = db.collection('university_members');
-      const joinRequestsCollection = db.collection('join_requests');
-
-      // Check if user is already a club member
-      const existingMembership = await clubMembersCollection.findOne({
-        clubId: club.id,
-        userId: session.user.id
-      });
-
-      if (!existingMembership) {
-        // Check if user is a member of the club's university
-        const universityMembership = await universityMembersCollection.findOne({
-          universityId: club.universityId,
-          userId: session.user.id
-        });
-
-        isUniversityMember = !!universityMembership;
-        canJoin = isUniversityMember;
-
-        // Check for existing join request
-        if (canJoin) {
-          existingJoinRequest = await joinRequestsCollection.findOne({
-            type: 'club',
-            targetId: club.id,
-            userId: session.user.id,
-            status: 'pending'
-          });
-        }
-      }
-    }
+      ? await checkClubPermission(session.user, club, client)
+      : { canEdit: false, canManage: false, canJoin: 0 as const };
 
     // Update calculated fields
     club.membersCount = totalMembers;
@@ -123,10 +84,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         totalMembers
       },
       user: session?.user || null,
-      userPermissions,
-      canJoin,
-      isUniversityMember,
-      existingJoinRequest: toPlainObject(existingJoinRequest)
+      userPermissions
     };
   } catch (err) {
     console.error('Error loading club:', err);
@@ -154,7 +112,7 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkClubPermission(session.user.id, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
@@ -205,7 +163,7 @@ export const actions: Actions = {
       }
 
       // Only admins can grant moderator roles
-      const permissions = await checkClubPermission(session.user.id, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can grant moderator roles' });
       }
@@ -242,7 +200,7 @@ export const actions: Actions = {
       }
 
       // Only admins can revoke moderator roles
-      const permissions = await checkClubPermission(session.user.id, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can revoke moderator roles' });
       }
@@ -318,7 +276,7 @@ export const actions: Actions = {
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
-      const permissions = await checkClubPermission(session.user.id, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can transfer admin privileges' });
       }
@@ -371,7 +329,7 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkClubPermission(session.user.id, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
@@ -418,7 +376,7 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkClubPermission(session.user.id, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }

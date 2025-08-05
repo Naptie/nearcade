@@ -309,26 +309,44 @@
 
       <!-- University Info -->
       <div class="flex-1">
-        <div class="mb-2 flex items-center justify-between gap-3">
-          <h1
-            class="text-3xl font-bold sm:text-4xl lg:text-5xl {data.university.backgroundColor
-              ? 'text-white'
-              : 'text-base-content dark:text-white'}"
-          >
+        <div
+          class="mb-2 flex items-center justify-between gap-3 {data.university.backgroundColor
+            ? 'text-white'
+            : 'text-base-content dark:text-white'}"
+        >
+          <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
             {data.university.name}
           </h1>
 
-          <!-- Edit University Button for privileged users -->
-          {#if userPrivileges.canEdit}
-            <a
-              href="{base}/universities/{data.university.slug || data.university.id}/edit"
-              class="btn btn-circle btn-lg btn-ghost"
-              title={m.edit_university_info()}
-              aria-label={m.edit_university_info()}
-            >
-              <i class="fa-solid fa-edit"></i>
-            </a>
-          {/if}
+          <div class="flex items-center gap-2">
+            <!-- Join Button for eligible users -->
+            {#if data.user && data.userPermissions.canJoin > 0}
+              <a
+                href="{base}/universities/{data.university.slug || data.university.id}/verify"
+                class="btn btn-ghost"
+              >
+                {#if data.userPermissions.canJoin === 2}
+                  <i class="fa-solid fa-plus"></i>
+                  {m.verify_and_join()}
+                {:else}
+                  <i class="fa-solid fa-user-check"></i>
+                  {m.verify()}
+                {/if}
+              </a>
+            {/if}
+
+            <!-- Edit University Button for privileged users -->
+            {#if userPrivileges.canEdit}
+              <a
+                href="{base}/universities/{data.university.slug || data.university.id}/edit"
+                class="btn btn-circle btn-lg btn-ghost"
+                title={m.edit_university_info()}
+                aria-label={m.edit_university_info()}
+              >
+                <i class="fa-solid fa-edit"></i>
+              </a>
+            {/if}
+          </div>
         </div>
 
         <div class="flex gap-1">

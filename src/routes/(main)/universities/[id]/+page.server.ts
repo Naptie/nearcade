@@ -54,16 +54,22 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
     university.studentsCount = totalMembers;
 
-    const parentData = await parent();
-    const user = parentData.session?.user;
+    const { session } = await parent();
+    const user = session?.user;
 
     // Check permissions for the current user
-    let userPermissions: { canEdit: boolean; canManage: boolean; role?: string } = {
+    let userPermissions: {
+      canEdit: boolean;
+      canManage: boolean;
+      canJoin: 0 | 1 | 2;
+      role?: string;
+    } = {
       canEdit: false,
-      canManage: false
+      canManage: false,
+      canJoin: 0
     };
     if (user) {
-      userPermissions = await checkUniversityPermission(user.id!, university.id, client);
+      userPermissions = await checkUniversityPermission(user, university.id, client);
     }
 
     return {
@@ -109,7 +115,7 @@ export const actions: Actions = {
       const district = formData.get('district') as string;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -175,7 +181,7 @@ export const actions: Actions = {
       const district = formData.get('district') as string;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -265,7 +271,7 @@ export const actions: Actions = {
       const campusId = formData.get('campusId') as string;
 
       // Check permissions using new system - only managers can delete
-      const permissions = await checkUniversityPermission(user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -322,7 +328,7 @@ export const actions: Actions = {
       const memberType = formData.get('memberType') as string;
 
       // Check permissions using new system - only managers can invite
-      const permissions = await checkUniversityPermission(user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -391,7 +397,7 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkUniversityPermission(session.user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, client);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
@@ -444,7 +450,7 @@ export const actions: Actions = {
       }
 
       // Only admins can grant moderator roles
-      const permissions = await checkUniversityPermission(session.user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can grant moderator roles' });
       }
@@ -484,7 +490,7 @@ export const actions: Actions = {
       }
 
       // Only admins can revoke moderator roles
-      const permissions = await checkUniversityPermission(session.user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can revoke moderator roles' });
       }
@@ -565,7 +571,7 @@ export const actions: Actions = {
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
-      const permissions = await checkUniversityPermission(session.user.id!, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, client);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can transfer admin privileges' });
       }

@@ -146,7 +146,7 @@ export const actions: Actions = {
       if (session.user.userType === 'site_admin') {
         hasPermission = true;
       } else {
-        const permissions = await checkClubPermission(session.user.id, clubId, client);
+        const permissions = await checkClubPermission(session.user, clubId, client);
         hasPermission = permissions.canManage;
       }
 

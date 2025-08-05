@@ -11,7 +11,9 @@ import type {
   ClubMember,
   ClubMemberWithUser,
   UniversityMemberWithUser,
-  UserType
+  UserType,
+  Club,
+  University
 } from './types';
 import { ROUTE_CACHE_STORE } from './constants';
 import { env } from '$env/dynamic/public';
@@ -294,72 +296,116 @@ export const toPath = (path: string) => {
 
 // Permission utilities
 export const checkUniversityPermission = async (
-  userId: string,
-  universityId: string,
+  user: User,
+  university: University | string,
   client: MongoClient
-): Promise<{ canEdit: boolean; canManage: boolean; role?: string }> => {
+): Promise<{ canEdit: boolean; canManage: boolean; canJoin: 0 | 1 | 2; role?: string }> => {
   // Site admins always have full permission
   const db = client.db();
-  const usersCollection = db.collection('users');
-  const user = await usersCollection.findOne({ id: userId });
 
-  if (user?.userType === 'site_admin') {
-    return { canEdit: true, canManage: true, role: 'admin' };
+  if (typeof university === 'string') {
+    const universityDoc = await db
+      .collection<University>('universities')
+      .findOne({ id: university });
+    if (!universityDoc) {
+      throw new Error(`University with ID ${university} not found`);
+    }
+    university = universityDoc;
   }
 
+  const eligibleForVerification = !!university.website;
+  const isSiteAdmin = user?.userType === 'site_admin';
+
   // Check university membership
-  const universityMembersCollection = db.collection('university_members');
+  const universityMembersCollection = db.collection<UniversityMember>('university_members');
   const membership = await universityMembersCollection.findOne({
-    userId,
-    universityId
+    userId: user.id,
+    universityId: university.id
   });
 
   if (!membership) {
-    return { canEdit: false, canManage: false };
+    return {
+      canEdit: isSiteAdmin,
+      canManage: isSiteAdmin,
+      canJoin: eligibleForVerification ? 2 : 0
+    };
   }
 
-  const isAdmin = membership.memberType === 'admin';
+  const isAdmin = isSiteAdmin || membership.memberType === 'admin';
   const isModerator = membership.memberType === 'moderator';
 
   return {
     canEdit: isAdmin || isModerator,
     canManage: isAdmin,
-    role: membership.memberType
+    canJoin: eligibleForVerification && !membership.verificationEmail ? 1 : 0,
+    role: isSiteAdmin ? 'admin' : membership.memberType
   };
 };
 
 export const checkClubPermission = async (
-  userId: string,
-  clubId: string,
+  user: User,
+  club: Club | string,
   client: MongoClient
-): Promise<{ canEdit: boolean; canManage: boolean; role?: string }> => {
-  // Site admins always have full permission
+): Promise<{ canEdit: boolean; canManage: boolean; canJoin: 0 | 1 | 2; role?: string }> => {
   const db = client.db();
-  const usersCollection = db.collection('users');
-  const user = await usersCollection.findOne({ id: userId });
+  const clubMembersCollection = db.collection('club_members');
+  const universityMembersCollection = db.collection('university_members');
+  const joinRequestsCollection = db.collection('join_requests');
 
-  if (user?.userType === 'site_admin') {
-    return { canEdit: true, canManage: true, role: 'site_admin' };
+  const isSiteAdmin = user?.userType === 'site_admin';
+
+  if (typeof club === 'string') {
+    const clubDoc = await db.collection<Club>('clubs').findOne({ id: club });
+    if (!clubDoc) {
+      throw new Error(`Club with ID ${club} not found`);
+    }
+    club = clubDoc;
   }
 
   // Check club membership
-  const clubMembersCollection = db.collection('club_members');
   const membership = await clubMembersCollection.findOne({
-    userId,
-    clubId
+    userId: user.id,
+    clubId: club.id
   });
 
-  if (!membership) {
-    return { canEdit: false, canManage: false };
+  let canJoin: 0 | 1 | 2 = 0;
+
+  if (!membership && club?.acceptJoinRequests) {
+    // Check if user is a member of the club's university
+    const universityMembership = await universityMembersCollection.findOne({
+      universityId: club.universityId,
+      userId: user.id
+    });
+
+    if (universityMembership) {
+      // Check for existing join request
+      const existingJoinRequest = await joinRequestsCollection.findOne({
+        type: 'club',
+        targetId: club.id,
+        userId: user.id,
+        status: 'pending'
+      });
+      canJoin = existingJoinRequest ? 1 : 2;
+    }
   }
 
-  const isAdmin = membership.memberType === 'admin';
+  if (!membership) {
+    return {
+      canEdit: isSiteAdmin,
+      canManage: isSiteAdmin,
+      role: isSiteAdmin ? 'admin' : undefined,
+      canJoin
+    };
+  }
+
+  const isAdmin = isSiteAdmin || membership.memberType === 'admin';
   const isModerator = membership.memberType === 'moderator';
 
   return {
     canEdit: isAdmin || isModerator,
     canManage: isAdmin,
-    role: membership.memberType
+    canJoin: 0, // already a member
+    role: isSiteAdmin ? 'admin' : membership.memberType
   };
 };
 

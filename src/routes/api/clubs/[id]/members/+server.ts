@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import { checkClubPermission } from '$lib/utils';
 import client from '$lib/db.server';
 
-export const GET: RequestHandler = async ({ params, url, cookies }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
   try {
     const clubId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -24,17 +23,6 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
     });
     if (!club) {
       return json({ error: 'Club not found' }, { status: 404 });
-    }
-
-    // Check user permissions (optional - members might be publicly viewable)
-    const sessionCookie = cookies.get('authjs.session-token');
-    if (sessionCookie) {
-      const sessionsCollection = db.collection('sessions');
-      const session = await sessionsCollection.findOne({ sessionToken: sessionCookie });
-      if (session) {
-        await checkClubPermission(session.userId, club.id, client);
-        // For now, allow anyone to view members - can adjust based on privacy requirements
-      }
     }
 
     // Get members with pagination

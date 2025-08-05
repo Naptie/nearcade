@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import { checkUniversityPermission } from '$lib/utils';
 import client from '$lib/db.server';
 
-export const GET: RequestHandler = async ({ params, url, cookies }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
   try {
     const universityId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -24,25 +23,6 @@ export const GET: RequestHandler = async ({ params, url, cookies }) => {
     });
     if (!university) {
       return json({ error: 'University not found' }, { status: 404 });
-    }
-
-    // Check user permissions
-    const sessionCookie = cookies.get('authjs.session-token');
-    if (!sessionCookie) {
-      return json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    // Get user from session
-    const sessionsCollection = db.collection('sessions');
-    const session = await sessionsCollection.findOne({ sessionToken: sessionCookie });
-    if (!session) {
-      return json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    const userPrivileges = await checkUniversityPermission(session.userId, university.id, client);
-    if (!userPrivileges.canEdit && !userPrivileges.canManage) {
-      // For now, allow anyone to view members - adjust this based on privacy requirements
-      // return json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Get members with pagination

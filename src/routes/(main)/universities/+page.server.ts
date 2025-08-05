@@ -87,7 +87,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       }
     }
 
-    const parentData = await parent();
+    const { session } = await parent();
 
     return {
       universities: toPlainArray(universities),
@@ -96,7 +96,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       hasNextPage: skip + universities.length < totalCount,
       hasPrevPage: page > 1,
       query,
-      user: parentData.session?.user
+      user: session?.user
     };
   } catch (err) {
     console.error('Error loading universities:', err);
