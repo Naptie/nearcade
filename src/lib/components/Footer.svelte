@@ -6,13 +6,13 @@
 </script>
 
 <div class="text-center select-none {klass}">
-  <div class="text-base-content/40 flex items-center justify-center gap-2">
-    <SiteTitle class="text-sm opacity-40 transition hover:opacity-75" />
+  <div class="text-base-content flex items-center justify-center gap-2">
+    <SiteTitle class="text-sm opacity-40 transition-opacity hover:opacity-75" />
     <span class="text-xs">•</span>
     <a
       href={GITHUB_LINK}
       target="_blank"
-      class="hover:text-base-content/60 text-xs transition-colors"
+      class="text-xs opacity-40 transition-opacity hover:opacity-70"
     >
       <i class="fab fa-github"></i>
       GitHub
