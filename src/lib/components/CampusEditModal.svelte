@@ -160,7 +160,7 @@
         <!-- Campus Address -->
         <div class="form-control flex-1">
           <label class="label" for="campus-province">
-            <span class="label-text">{m.province()} </span>
+            <span class="label-text">{m.province()}</span>
           </label>
           <input
             id="campus-province"
@@ -174,7 +174,7 @@
         </div>
         <div class="form-control flex-1">
           <label class="label" for="campus-city">
-            <span class="label-text">{m.city()} </span>
+            <span class="label-text">{m.city()}</span>
           </label>
           <input
             id="campus-city"
@@ -188,7 +188,7 @@
         </div>
         <div class="form-control flex-1">
           <label class="label" for="campus-district">
-            <span class="label-text">{m.district()} </span>
+            <span class="label-text">{m.district()}</span>
           </label>
           <input
             id="campus-district"
