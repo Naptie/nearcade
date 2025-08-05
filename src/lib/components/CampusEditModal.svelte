@@ -81,7 +81,7 @@
     formData.city = selectedLocation.city;
     const addressParts = selectedLocation.address.split(selectedLocation.city);
     formData.province = addressParts[0] || selectedLocation.city;
-    const districtMatch = addressParts[1]?.match(/(.+?[区县市])/);
+    const districtMatch = addressParts[1]?.match(/(.+?[区县市旗])/);
     formData.district = districtMatch ? districtMatch[1] : formData.district;
     isLocationPickerOpen = false;
   };
