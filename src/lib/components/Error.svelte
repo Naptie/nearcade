@@ -130,7 +130,7 @@
       </div>
     </div>
   </div>
-  <Footer />
+  <Footer class="mt-6" />
 </div>
 
 <style>

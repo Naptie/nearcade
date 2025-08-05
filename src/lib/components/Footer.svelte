@@ -2,7 +2,7 @@
   import { GITHUB_LINK } from '$lib';
   import SiteTitle from './SiteTitle.svelte';
 
-  let { class: klass = 'my-6' } = $props();
+  let { class: klass = '' } = $props();
 </script>
 
 <div class="text-center select-none {klass}">
