@@ -1,7 +1,9 @@
 runtime: nodejs
 install: npm install
 build: |
-  export REDIS_URI="$REDIS_URL_main"
+  if [ -z "$REDIS_URI" ]; then
+    export REDIS_URI="$REDIS_URL_main"
+  fi
   npm run prepare
   npm run build
 run: |
