@@ -53,7 +53,7 @@ export const GET: RequestHandler = async ({ url }) => {
         err &&
         typeof err === 'object' &&
         'code' in err &&
-        err.code !== 31082 /* SearchNotEnabled */
+        err.code !== 6047401 /* SearchNotEnabled */
       ) {
         // If the error is not related to the index not existing, rethrow it
         throw err;
