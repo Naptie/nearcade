@@ -14,7 +14,77 @@ if (!('MONGODB_URI' in process.env)) {
 const { IMAP_HOST, IMAP_PORT, IMAP_USER, IMAP_PASSWORD, REDIS_URI, AUTH_SECRET, MONGODB_URI } =
   process.env;
 
-// Utility to promisify imap.openBox
+// --- NEW HELPER FUNCTIONS FOR SECURITY ---
+
+/**
+ * Parses authentication headers to verify the sender's authenticity.
+ * @param headers The headers map from the parsed email.
+ * @returns An object with the verified domain and sender address if DMARC passes, otherwise null.
+ */
+const getVerifiedSenderInfo = (
+  headers: ParsedMail['headers']
+): { verifiedDomain: string; senderAddress: string } | null => {
+  // The `authentication-results` header is added by the receiving server (e.g., Google, Microsoft)
+  // and contains a summary of SPF, DKIM, and DMARC checks. It cannot be forged by the sender.
+  const authResultsHeader = headers.get('authentication-results');
+  const authResults = Array.isArray(authResultsHeader)
+    ? authResultsHeader.join(' ')
+    : authResultsHeader?.toString();
+
+  if (!authResults || !authResults.includes('dmarc=pass')) {
+    // If DMARC did not pass, we cannot trust the sender's `From` address. Reject the email.
+    console.log('[Security] DMARC check failed or header not found.');
+    return null;
+  }
+
+  // DMARC=pass means the `header.from` domain is authentic.
+  const domainMatch = authResults.match(/header\.from=([\w.-]+)/);
+  const verifiedDomain = domainMatch?.[1];
+
+  if (!verifiedDomain) {
+    console.log('[Security] Could not extract verified domain from DMARC pass.');
+    return null;
+  }
+
+  // The `received-spf` header contains the `envelope-from` address, which is more reliable
+  // than the display `From` header. This is the address we should use for verification.
+  const spfHeader = headers.get('received-spf');
+  const spfResults = Array.isArray(spfHeader) ? spfHeader.join(' ') : spfHeader?.toString();
+  const senderMatch = spfResults?.match(/envelope-from=([^;]+)/);
+  const senderAddress = senderMatch?.[1];
+
+  if (!senderAddress) {
+    console.log('[Security] Could not extract envelope-from address.');
+    return null;
+  }
+
+  console.log(`[Security] Verified domain: ${verifiedDomain}, sender: ${senderAddress}`);
+  return { verifiedDomain, senderAddress };
+};
+
+/**
+ * Checks if the authenticated domain matches the expected university domain.
+ * @param authDomain The domain verified by DMARC.
+ * @param expectedDomain The university's domain from your database.
+ * @returns True if the domains match exactly or if authDomain is a subdomain.
+ */
+const isDomainMatch = (authDomain: string, expectedDomain: string): boolean => {
+  const authLower = authDomain.trim().toLowerCase();
+  const expectedLower = expectedDomain.trim().toLowerCase();
+
+  // 1. Exact match (e.g., "example.edu.cn" === "example.edu.cn")
+  if (authLower === expectedLower) {
+    return true;
+  }
+
+  // 2. Subdomain match (e.g., "mail.example.edu.cn" ends with ".example.edu.cn")
+  if (authLower.endsWith('.' + expectedLower)) {
+    return true;
+  }
+
+  return false;
+};
+
 const openBoxAsync = (imap: Imap, boxName: string): Promise<Imap.Box> => {
   return new Promise((resolve, reject) => {
     imap.openBox(boxName, false, (err, box) => {
@@ -24,7 +94,6 @@ const openBoxAsync = (imap: Imap, boxName: string): Promise<Imap.Box> => {
   });
 };
 
-// Utility to promisify imap.search
 const searchAsync = (imap: Imap, criteria: string[]): Promise<number[]> => {
   return new Promise((resolve, reject) => {
     imap.search(criteria, (err, results) => {
@@ -38,22 +107,29 @@ const parseEmail = (stream: Source): Promise<ParsedMail> => {
   return simpleParser(stream);
 };
 
-// Redis client
 const redis = createRedisClient({ url: REDIS_URI });
 
 const ensureRedisConnected = async () => {
   if (!redis.isOpen) await redis.connect();
 };
 
-const report = async (key: string, value: string, expire: number = 60 * 60 * 24 /* 1 day */) => {
+const report = async (key: string, value: string, expire: number = 60 * 60 * 24) => {
   console.log(`[Report] ${key} - ${value}`);
   await redis.set(key, value, { EX: expire });
 };
 
-// MongoDB client
 const mongo = new MongoClient(MONGODB_URI!);
 
-// Main polling function
+const getDomainFromWebsite = (website: string): string | null => {
+  try {
+    const hostname = new URL(website || '').hostname;
+    const parts = hostname.split('.');
+    return parts.length > 2 ? parts.slice(1).join('.') : hostname;
+  } catch {
+    return null;
+  }
+};
+
 const startPolling = () => {
   const imap = new Imap({
     user: IMAP_USER!,
@@ -83,10 +159,9 @@ const startPolling = () => {
 
   const poll = async () => {
     try {
-      // Only search unseen messages
       const results = await searchAsync(imap, ['UNSEEN']);
       if (results.length === 0) {
-        setTimeout(poll, 5000); // Poll every 5s
+        setTimeout(poll, 5000);
         return;
       }
 
@@ -108,7 +183,6 @@ const startPolling = () => {
           } catch (err) {
             console.error('Processing error:', err);
           } finally {
-            // Mark the message as Seen
             imap.addFlags(seqno, '\\Seen', (err) => {
               if (err) {
                 console.error(`Failed to mark message ${seqno} as read:`, err);
@@ -128,36 +202,11 @@ const startPolling = () => {
   };
 };
 
-const getDomainFromWebsite = (website: string): string | null => {
-  try {
-    const hostname = new URL(website || '').hostname;
-    const parts = hostname.split('.');
-    return parts.length > 2 ? parts.slice(1).join('.') : hostname;
-  } catch {
-    return null;
-  }
-};
-
-const isEmailDomainAccepted = (email: string, domain: string): boolean => {
-  // Standardize domain and email
-  const emailLower = email.trim().toLowerCase();
-  const domainLower = domain.trim().toLowerCase();
-
-  // 1. exact domain: @example.edu.cn
-  if (emailLower.endsWith('@' + domainLower)) {
-    return true;
-  }
-
-  // 2. subdomain: @[any].example.edu.cn
-  // Match: @sub.example.edu.cn, @foo.bar.example.edu.cn, etc.
-  const domainPattern = new RegExp(`@([a-zA-Z0-9._-]+\\.)+${domainLower.replace('.', '\\.')}$`);
-  if (domainPattern.test(emailLower)) {
-    return true;
-  }
-
-  return false;
-};
-
+/**
+ * Processes a single email after it has been parsed.
+ * Includes security checks before processing verification logic.
+ * @param parsed The parsed email object from mailparser.
+ */
 const processEmail = async (parsed: ParsedMail) => {
   const subject: string = parsed.subject || '';
   if (!subject.startsWith('[nearcade] SSV ')) return;
@@ -174,44 +223,54 @@ const processEmail = async (parsed: ParsedMail) => {
   const userId = userLine.slice(6).trim();
   const givenHmac = hmacLine ? hmacLine.slice(6).trim() : '';
 
-  // Calculate HMAC
+  const key = `nearcade:ssv:${universityId}:${userId}`;
+  await ensureRedisConnected();
+  await report(key, 'processing');
+
+  // Security checks
+
+  // 1. Verify email authenticity and get trusted sender info.
+  const verifiedInfo = getVerifiedSenderInfo(parsed.headers);
+  if (!verifiedInfo) {
+    await report(key, 'untrusted_sender');
+    return;
+  }
+  const { verifiedDomain, senderAddress } = verifiedInfo;
+
+  // 2. Check HMAC to verify request integrity.
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const calculatedHmac = createHmac('sha256', AUTH_SECRET!)
     .update(`${userId}|${universityId}|${today.toISOString()}`)
     .digest('hex');
 
-  await ensureRedisConnected();
-
-  const key = `nearcade:ssv:${universityId}:${userId}`;
-
   if (givenHmac !== calculatedHmac) {
     await report(key, 'hmac_mismatch');
     return;
   }
 
-  // Now, check the domain
-  // MongoDB logic
+  // Database operations
+
   const db = mongo.db();
   const universities = db.collection('universities');
   const collection = db.collection('university_members');
 
-  // Fetch university doc for domain extraction
   const university = await universities.findOne({ id: universityId });
   if (!university || !university.website) {
     await report(key, 'underconfigured_university');
     return;
   }
 
-  const domain = getDomainFromWebsite(university.website);
-  const emailAddress = parsed.from?.value?.[0]?.address || '';
-  if (!domain || !isEmailDomainAccepted(emailAddress, domain)) {
+  // 3. Compare the *verified* domain against the university's expected domain.
+  const expectedDomain = getDomainFromWebsite(university.website);
+  if (!expectedDomain || !isDomainMatch(verifiedDomain, expectedDomain)) {
     await report(key, 'domain_mismatch');
     return;
   }
 
+  // 4. Use the *verified* sender address to check for existing users.
   const alreadyVerified = await collection.findOne({
-    verificationEmail: emailAddress
+    verificationEmail: senderAddress
   });
 
   if (alreadyVerified) {
@@ -219,14 +278,12 @@ const processEmail = async (parsed: ParsedMail) => {
     return;
   }
 
-  await report(key, 'processing');
-
   const existing = await collection.findOne({ universityId, userId });
 
   if (existing) {
     await collection.updateOne(
       { universityId, userId },
-      { $set: { verificationEmail: emailAddress } }
+      { $set: { verificationEmail: senderAddress } }
     );
   } else {
     await collection.insertOne({
@@ -234,7 +291,7 @@ const processEmail = async (parsed: ParsedMail) => {
       universityId,
       userId,
       memberType: 'student',
-      verificationEmail: emailAddress,
+      verificationEmail: senderAddress,
       joinedAt: new Date()
     });
   }

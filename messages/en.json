@@ -897,6 +897,8 @@
   "unlimited_uses": "Unlimited uses",
   "unlock_discussion": "Unlock Discussion",
   "unpin_discussion": "Unpin Discussion",
+  "untrusted_sender": "Untrusted sender",
+  "untrusted_sender_description": "The email could not be verified as coming from a trusted source.",
   "unused": "Unused",
   "unverified": "Unverified",
   "update_location": "Update Location",

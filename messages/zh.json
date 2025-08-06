@@ -762,6 +762,8 @@
   "unlimited_uses": "无限使用",
   "unlock_discussion": "解锁讨论",
   "unpin_discussion": "取消置顶",
+  "untrusted_sender": "发信人不受信任",
+  "untrusted_sender_description": "无法验证电子邮件是否来自受信任的来源。",
   "unused": "未使用",
   "unverified": "未验证",
   "update_location": "更新位置",

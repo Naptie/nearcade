@@ -69,6 +69,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const status = (await redis.get(`nearcade:ssv:${university.id}:${user.id}`)) as
       | 'success'
       | 'processing'
+      | 'untrusted_sender'
       | 'hmac_mismatch'
       | 'underconfigured_university'
       | 'domain_mismatch'
