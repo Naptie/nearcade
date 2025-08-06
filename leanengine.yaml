@@ -1,5 +1,10 @@
 runtime: nodejs
 install: npm install
-build: npm run prepare && npm run build
-run: HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity node build
+build: |
+  export REDIS_URI="$REDIS_URL_main"
+  npm run prepare
+  npm run build
+run: |
+  HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity node build &
+  npm run ssv-poll
 exposeEnvironmentsOnBuild: true
