@@ -4,6 +4,7 @@
   import type { PageData } from './$types';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import { formatDateTime } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -16,7 +17,7 @@
     return parts.length > 2 ? parts.slice(1).join('.') : hostname;
   });
 
-  let title = $derived(m.verification_email_title());
+  let title = $derived(`[nearcade] SSV ${m.verification_email_title()}`);
   let body = $derived(`UNIV: ${data.university.id}\nUSER: ${data.user.id}\nHMAC: ${data.hmac}`);
 
   const targetEmail = 'verify@nearcade.phi.zone';
@@ -57,64 +58,71 @@
       })}
     </p>
   </div>
-  <div
-    class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 flex flex-col gap-2 rounded-xl border p-4 backdrop-blur-2xl dark:border-neutral-700 dark:shadow-neutral-700/70"
-  >
-    <div class="flex flex-col">
-      <div class="flex items-center justify-between gap-1">
-        <span class="label">{m.title()}</span>
-        <button
-          class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-          disabled={copied === title}
-          onclick={() => copy(title)}
+  <div class="flex flex-col items-center gap-2">
+    <div
+      class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 flex flex-col gap-2 rounded-xl border p-4 backdrop-blur-2xl dark:border-neutral-700 dark:shadow-neutral-700/70"
+    >
+      <div class="flex flex-col">
+        <div class="flex items-center justify-between gap-1">
+          <span class="label">{m.title()}</span>
+          <button
+            class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
+            disabled={copied === title}
+            onclick={() => copy(title)}
+          >
+            {#if copied === title}
+              <i class="fa-solid fa-check"></i>
+              <span class="not-lg:hidden">{m.copied()}</span>
+            {:else}
+              <i class="fa-solid fa-copy"></i>
+              <span class="not-lg:hidden">{m.copy()}</span>
+            {/if}
+          </button>
+        </div>
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <code
+          class="cursor-copy font-semibold break-all transition-colors"
+          class:hover:text-accent={copied !== title}
+          class:text-success={copied === title}
+          onmousedown={() => copy(title)}
+          onmouseup={() => copy(title)}
         >
-          {#if copied === title}
-            <i class="fa-solid fa-check"></i>
-            <span class="not-lg:hidden">{m.copied()}</span>
-          {:else}
-            <i class="fa-solid fa-copy"></i>
-            <span class="not-lg:hidden">{m.copy()}</span>
-          {/if}
-        </button>
+          {title}
+        </code>
       </div>
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <code
-        class="cursor-copy font-semibold break-all transition-colors"
-        class:hover:text-accent={copied !== title}
-        class:text-success={copied === title}
-        onclick={() => copy(title)}
-      >
-        {title}
-      </code>
+      <div class="flex flex-col">
+        <div class="flex items-center justify-between gap-1">
+          <span class="label">{m.body()}</span>
+          <button
+            class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
+            disabled={copied === body}
+            onclick={() => copy(body)}
+          >
+            {#if copied === body}
+              <i class="fa-solid fa-check"></i>
+              <span class="not-lg:hidden">{m.copied()}</span>
+            {:else}
+              <i class="fa-solid fa-copy"></i>
+              <span class="not-lg:hidden">{m.copy()}</span>
+            {/if}
+          </button>
+        </div>
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <code
+          class="cursor-copy break-all whitespace-pre-line transition-colors"
+          class:hover:text-accent={copied !== body}
+          class:text-success={copied === body}
+          onmousedown={() => copy(body)}
+          onmouseup={() => copy(body)}
+        >
+          {body}
+        </code>
+      </div>
     </div>
-    <div class="flex flex-col">
-      <div class="flex items-center justify-between gap-1">
-        <span class="label">{m.body()}</span>
-        <button
-          class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-          disabled={copied === body}
-          onclick={() => copy(body)}
-        >
-          {#if copied === body}
-            <i class="fa-solid fa-check"></i>
-            <span class="not-lg:hidden">{m.copied()}</span>
-          {:else}
-            <i class="fa-solid fa-copy"></i>
-            <span class="not-lg:hidden">{m.copy()}</span>
-          {/if}
-        </button>
-      </div>
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <code
-        class="cursor-copy break-all whitespace-pre-line transition-colors"
-        class:hover:text-accent={copied !== body}
-        class:text-success={copied === body}
-        onclick={() => copy(body)}
-      >
-        {body}
-      </code>
+    <div class="flex">
+      <span class="label text-sm">{m.expires()}: {formatDateTime(data.expires)}</span>
     </div>
   </div>
   <Footer />

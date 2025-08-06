@@ -242,7 +242,7 @@
                     {formatDateTime(invite.createdAt)}
                     {#if invite.expiresAt}
                       <div class="text-base-content/60 text-xs">
-                        {m.admin_invite_expires()}: {formatDateTime(invite.expiresAt)}
+                        {m.expires()}: {formatDateTime(invite.expiresAt)}
                       </div>
                     {/if}
                   </div>

@@ -364,6 +364,7 @@ export const actions: Actions = {
 
       // Create membership
       const newMembership = {
+        id: nanoid(),
         universityId,
         userId: targetUser.id,
         memberType,

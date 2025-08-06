@@ -49,15 +49,22 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       redirect(302, `${base}/universities/${university.slug || university.id}`);
     }
 
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
     const hmac = createHmac('sha256', AUTH_SECRET)
-      .update(`${user.id}|${university.id}`)
+      .update(`${user.id}|${university.id}|${today.toISOString()}`)
       .digest('hex');
+
+    const expires = new Date(today);
+    expires.setUTCDate(today.getUTCDate() + 1);
 
     return {
       university,
       user,
       userPermissions,
-      hmac
+      hmac,
+      expires
     };
   } catch (err) {
     console.error('Error loading university:', err);
