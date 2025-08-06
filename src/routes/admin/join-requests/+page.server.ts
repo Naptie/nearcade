@@ -121,7 +121,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           reviewedAt: 1,
           reviewedBy: 1,
           reviewNote: 1,
-          'user._id': 1,
           'user.id': 1,
           'user.name': 1,
           'user.displayName': 1,

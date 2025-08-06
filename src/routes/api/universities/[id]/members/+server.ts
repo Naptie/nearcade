@@ -46,7 +46,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
             memberType: 1,
             joinedAt: 1,
             user: {
-              _id: '$user._id',
               id: '$user.id',
               name: '$user.name',
               displayName: '$user.displayName',
