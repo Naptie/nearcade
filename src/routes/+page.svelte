@@ -294,7 +294,7 @@
         </div>
       </div>
       <div
-        class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition collapse -mt-5 h-0 rounded-xl border backdrop-blur-2xl transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
+        class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
         class:collapse-open={showCollapse}
         class:min-h-fit={showCollapse}
         class:h-full={showCollapse}
@@ -426,7 +426,7 @@
                 {/if}
                 {#if universities.length > 0}
                   <div
-                    class="bg-base-100 h-[40vh] w-full overflow-y-auto rounded-lg border transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
+                    class="bg-base-100 border-base-300 h-[40vh] w-full overflow-y-auto rounded-lg border shadow-none transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
                   >
                     {#each universities as university (university.name)}
                       <div id={university.name} class="border-base-200 border-b last:border-b-0">
@@ -562,7 +562,7 @@
     left: 0;
   }
   .collapse-transition {
-    transition-property: grid-template-rows, height, opacity, border-color, shadow, margin-top;
+    transition-property: grid-template-rows, height, opacity, border-color, box-shadow, margin-top;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 300ms, 300ms, 300ms, 150ms, 150ms, 300ms;
   }
