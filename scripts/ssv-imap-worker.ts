@@ -5,6 +5,7 @@ import { createClient as createRedisClient } from 'redis';
 import { MongoClient } from 'mongodb';
 import { nanoid } from 'nanoid';
 import dotenv from 'dotenv';
+import type { UserType, UniversityMember, ClubMember } from '../src/lib/types';
 
 if (!('MONGODB_URI' in process.env)) {
   // Load environment variables for local development
@@ -128,6 +129,53 @@ const getDomainFromWebsite = (website: string): string | null => {
   } catch {
     return null;
   }
+};
+
+const updateUserType = async (userId: string): Promise<void> => {
+  const db = mongo.db();
+  const universityMembersCollection = db.collection('university_members');
+  const clubMembersCollection = db.collection('club_members');
+  const usersCollection = db.collection('users');
+
+  // Get all memberships for this user
+  const universityMemberships = await universityMembersCollection
+    .find<UniversityMember>({ userId })
+    .toArray();
+  const clubMemberships = await clubMembersCollection.find<ClubMember>({ userId }).toArray();
+
+  // Determine highest privilege
+  let newUserType: UserType | undefined = undefined;
+
+  // Check for admin roles
+  const isSiteAdmin = (await usersCollection.findOne({ id: userId }))?.userType === 'site_admin';
+  const isUniversityAdmin = universityMemberships.some((m) => m.memberType === 'admin');
+  const isClubAdmin = clubMemberships.some((m) => m.memberType === 'admin');
+
+  if (isSiteAdmin) {
+    newUserType = 'site_admin';
+  } else if (isUniversityAdmin) {
+    newUserType = 'school_admin';
+  } else if (isClubAdmin) {
+    newUserType = 'club_admin';
+  } else {
+    // Check for moderator roles
+    const isUniversityModerator = universityMemberships.some((m) => m.memberType === 'moderator');
+    const isClubModerator = clubMemberships.some((m) => m.memberType === 'moderator');
+
+    if (isUniversityModerator) {
+      newUserType = 'school_moderator';
+    } else if (isClubModerator) {
+      newUserType = 'club_moderator';
+    } else {
+      // Check for member roles
+      if (universityMemberships.some((m) => m.memberType === 'student')) {
+        newUserType = 'student';
+      }
+    }
+  }
+
+  // Update user type
+  await usersCollection.updateOne({ id: userId }, { $set: { userType: newUserType } });
 };
 
 const startPolling = () => {
@@ -286,14 +334,18 @@ const processEmail = async (parsed: ParsedMail) => {
       { $set: { verificationEmail: senderAddress } }
     );
   } else {
+    const memberCount = await collection.countDocuments({ universityId });
+
     await collection.insertOne({
       id: nanoid(),
       universityId,
       userId,
-      memberType: 'student',
+      memberType: memberCount < 2 ? 'admin' : 'student',
       verificationEmail: senderAddress,
       joinedAt: new Date()
     });
+
+    await updateUserType(userId);
   }
 
   await report(key, 'success');
