@@ -227,7 +227,7 @@ export interface UniversityMember {
   universityId: string;
   userId: string;
   memberType: 'student' | 'moderator' | 'admin';
-  verificationEmail?: string | null;
+  verificationEmail?: string;
   joinedAt: Date;
 }
 

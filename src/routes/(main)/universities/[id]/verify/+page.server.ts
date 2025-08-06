@@ -4,8 +4,9 @@ import type { University } from '$lib/types';
 import { checkUniversityPermission, loginRedirect } from '$lib/utils';
 import { base } from '$app/paths';
 import client from '$lib/db.server';
-import { AUTH_SECRET } from '$env/static/private';
+import { AUTH_SECRET, REDIS_URI } from '$env/static/private';
 import { createHmac } from 'crypto';
+import { createClient } from 'redis';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -43,7 +44,11 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     // Check permissions for the current user
-    const userPermissions = await checkUniversityPermission(user, university, client);
+    const { verificationEmail, ...userPermissions } = await checkUniversityPermission(
+      user,
+      university,
+      client
+    );
 
     if (!userPermissions.canJoin) {
       redirect(302, `${base}/universities/${university.slug || university.id}`);
@@ -59,12 +64,25 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const expires = new Date(today);
     expires.setUTCDate(today.getUTCDate() + 1);
 
+    const redis = createClient({ url: REDIS_URI });
+    await redis.connect();
+    const status = (await redis.get(`nearcade:ssv:${university.id}:${user.id}`)) as
+      | 'success'
+      | 'processing'
+      | 'hmac_mismatch'
+      | 'underconfigured_university'
+      | 'domain_mismatch'
+      | 'already_verified'
+      | null;
+
     return {
       university,
       user,
       userPermissions,
       hmac,
-      expires
+      expires,
+      status,
+      verificationEmail
     };
   } catch (err) {
     console.error('Error loading university:', err);

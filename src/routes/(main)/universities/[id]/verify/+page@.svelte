@@ -5,6 +5,9 @@
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import { formatDateTime } from '$lib/utils';
+  import { onMount } from 'svelte';
+  import { invalidateAll } from '$app/navigation';
+  import { base } from '$app/paths';
 
   let { data }: { data: PageData } = $props();
 
@@ -35,6 +38,18 @@
       }
     }, 2000);
   };
+
+  onMount(() => {
+    if (data.status !== 'success') {
+      const interval = setInterval(() => {
+        if (data.status === 'success') {
+          clearInterval(interval);
+        } else {
+          invalidateAll();
+        }
+      }, 10000);
+    }
+  });
 </script>
 
 <svelte:head>
@@ -50,80 +65,116 @@
   class="container mx-auto flex min-h-screen flex-col items-center justify-center gap-6 py-20 sm:px-4"
 >
   <div class="flex flex-col items-center gap-2 text-center">
-    <h1 class="text-4xl font-bold">{m.verify_title({ university: data.university.name })}</h1>
-    <p class="text-base-content/80">
-      {@html m.verification_instruction({
-        suffix: `<span class="text-success font-semibold">${domain}</span>`,
-        email: `<a href="mailto:${targetEmail}" class="link-accent transition-colors">${targetEmail}</a>`
+    <h1 class="text-4xl font-bold">
+      {@html m.verify_title({
+        university: `<a href="${base}/universities/${data.university.slug || data.university.id}" class="hover:text-accent transition-colors">${data.university.name}</a>`
       })}
-    </p>
+    </h1>
+    {#if !data.verificationEmail}
+      <p class="text-base-content/80">
+        {@html m.verification_instruction({
+          suffix: `<span class="text-success font-semibold">${domain}</span>`,
+          email: `<a href="mailto:${targetEmail}" class="link-accent transition-colors">${targetEmail}</a>`
+        })}
+      </p>
+    {/if}
   </div>
   <div class="flex flex-col items-center gap-2">
     <div
       class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 flex flex-col gap-2 rounded-xl border p-4 backdrop-blur-2xl dark:border-neutral-700 dark:shadow-neutral-700/70"
     >
-      <div class="flex flex-col">
-        <div class="flex items-center justify-between gap-1">
-          <span class="label">{m.title()}</span>
-          <button
-            class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-            disabled={copied === title}
-            onclick={() => copy(title)}
-          >
-            {#if copied === title}
-              <i class="fa-solid fa-check"></i>
-              <span class="not-lg:hidden">{m.copied()}</span>
-            {:else}
-              <i class="fa-solid fa-copy"></i>
-              <span class="not-lg:hidden">{m.copy()}</span>
-            {/if}
-          </button>
+      {#if data.verificationEmail}
+        <div class="flex flex-col items-center">
+          <span>{m.student_status_verified()}</span>
+          <span class="text-success text-2xl font-semibold">{data.verificationEmail}</span>
         </div>
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <code
-          class="cursor-copy font-semibold break-all transition-colors"
-          class:hover:text-accent={copied !== title}
-          class:text-success={copied === title}
-          onmousedown={() => copy(title)}
-          onmouseup={() => copy(title)}
-        >
-          {title}
-        </code>
-      </div>
-      <div class="flex flex-col">
-        <div class="flex items-center justify-between gap-1">
-          <span class="label">{m.body()}</span>
-          <button
-            class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-            disabled={copied === body}
-            onclick={() => copy(body)}
+      {:else}
+        <div class="flex flex-col">
+          <div class="flex items-center justify-between gap-1">
+            <span class="label">{m.title()}</span>
+            <button
+              class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
+              disabled={copied === title}
+              onclick={() => copy(title)}
+            >
+              {#if copied === title}
+                <i class="fa-solid fa-check"></i>
+                <span class="not-lg:hidden">{m.copied()}</span>
+              {:else}
+                <i class="fa-solid fa-copy"></i>
+                <span class="not-lg:hidden">{m.copy()}</span>
+              {/if}
+            </button>
+          </div>
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <code
+            class="cursor-copy font-semibold break-all transition-colors"
+            class:hover:text-accent={copied !== title}
+            class:text-success={copied === title}
+            onmousedown={() => copy(title)}
+            onmouseup={() => copy(title)}
           >
-            {#if copied === body}
-              <i class="fa-solid fa-check"></i>
-              <span class="not-lg:hidden">{m.copied()}</span>
-            {:else}
-              <i class="fa-solid fa-copy"></i>
-              <span class="not-lg:hidden">{m.copy()}</span>
-            {/if}
-          </button>
+            {title}
+          </code>
         </div>
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <code
-          class="cursor-copy break-all whitespace-pre-line transition-colors"
-          class:hover:text-accent={copied !== body}
-          class:text-success={copied === body}
-          onmousedown={() => copy(body)}
-          onmouseup={() => copy(body)}
+        <div class="flex flex-col">
+          <div class="flex items-center justify-between gap-1">
+            <span class="label">{m.body()}</span>
+            <button
+              class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
+              disabled={copied === body}
+              onclick={() => copy(body)}
+            >
+              {#if copied === body}
+                <i class="fa-solid fa-check"></i>
+                <span class="not-lg:hidden">{m.copied()}</span>
+              {:else}
+                <i class="fa-solid fa-copy"></i>
+                <span class="not-lg:hidden">{m.copy()}</span>
+              {/if}
+            </button>
+          </div>
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <code
+            class="cursor-copy break-all whitespace-pre-line transition-colors"
+            class:hover:text-accent={copied !== body}
+            class:text-success={copied === body}
+            onmousedown={() => copy(body)}
+            onmouseup={() => copy(body)}
+          >
+            {body}
+          </code>
+        </div>
+      {/if}
+    </div>
+    {#if !data.verificationEmail}
+      <div class="flex items-center text-sm">
+        <span class="label">{m.expires()}: {formatDateTime(data.expires)}</span>
+        <div class="divider divider-horizontal"></div>
+        <div
+          class={data.status && data.status !== 'success' && data.status !== 'processing'
+            ? 'tooltip tooltip-bottom tooltip-error'
+            : ''}
+          data-tip={data.status && data.status !== 'success' && data.status !== 'processing'
+            ? m[`${data.status}_description`]()
+            : ''}
         >
-          {body}
-        </code>
+          <span class="label">{m.status()}: </span>
+          <span
+            class={data.status && data.status !== 'processing'
+              ? data.status === 'success'
+                ? 'text-success'
+                : 'text-error'
+              : 'text-info inline-flex items-center gap-1'}
+          >
+            {m[data.status || 'waiting_for_email']()}
+            {#if !data.status || data.status === 'processing'}
+              <span class="loading loading-spinner loading-xs"></span>
+            {/if}
+          </span>
+        </div>
       </div>
-    </div>
-    <div class="flex">
-      <span class="label text-sm">{m.expires()}: {formatDateTime(data.expires)}</span>
-    </div>
+    {/if}
   </div>
   <Footer />
 </div>

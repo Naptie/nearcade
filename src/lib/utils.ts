@@ -299,7 +299,13 @@ export const checkUniversityPermission = async (
   user: User,
   university: University | string,
   client: MongoClient
-): Promise<{ canEdit: boolean; canManage: boolean; canJoin: 0 | 1 | 2; role?: string }> => {
+): Promise<{
+  canEdit: boolean;
+  canManage: boolean;
+  canJoin: 0 | 1 | 2;
+  role?: string;
+  verificationEmail?: string;
+}> => {
   // Site admins always have full permission
   const db = client.db();
 
@@ -337,8 +343,9 @@ export const checkUniversityPermission = async (
   return {
     canEdit: isAdmin || isModerator,
     canManage: isAdmin,
-    canJoin: eligibleForVerification && !membership.verificationEmail ? 1 : 0,
-    role: isSiteAdmin ? 'admin' : membership.memberType
+    canJoin: eligibleForVerification ? 1 : 0,
+    role: isSiteAdmin ? 'admin' : membership.memberType,
+    verificationEmail: membership.verificationEmail
   };
 };
 
