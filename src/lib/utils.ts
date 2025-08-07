@@ -1,6 +1,6 @@
 import { m } from './paraglide/messages';
 import { Database } from './db';
-import type { Collection, Document, ObjectId } from 'mongodb';
+import type { Collection, ObjectId } from 'mongodb';
 import type {
   Shop,
   Game,
@@ -469,52 +469,62 @@ export const updateUserType = async (userId: string, client: MongoClient): Promi
 export const getUniversityMembersWithUserData = async (
   universityId: string,
   mongoClient: MongoClient,
-  options: { limit?: number; sort?: Record<string, 1 | -1> } = {}
+  options: {
+    limit?: number;
+    sort?: Record<string, 1 | -1>;
+    filter?: Record<string, unknown>;
+    userFilter?: Record<string, unknown>;
+    userSort?: Record<string, 1 | -1>;
+  } = {}
 ) => {
   const db = mongoClient.db();
   const membersCollection = db.collection<UniversityMember>('university_members');
-  const usersCollection = db.collection<Document>('users');
 
-  // Get membership data
-  let query = membersCollection.find({ universityId });
+  // Build filter for university_members
+  const memberFilter = { universityId, ...(options.filter || {}) };
 
-  if (options.sort) {
-    query = query.sort(options.sort);
-  }
-
-  if (options.limit) {
-    query = query.limit(options.limit);
-  }
-
-  const membershipData = await query.toArray();
-
-  // Get user IDs from membership data
-  const userIds = membershipData.map((member) => member.userId);
-
-  // Fetch user data for all members
-  const users = await usersCollection.find({ id: { $in: userIds } }).toArray();
-
-  // Create a map for quick user lookup
-  const userMap = new Map(users.map((user) => [user.id, user]));
-
-  // Combine membership data with user data
-  return membershipData
-    .map((member) => {
-      const user = userMap.get(member.userId);
-      if (!user) {
-        return {
-          ...toPlainObject(member),
-          user: null
-        };
+  // Aggregation pipeline
+  const pipeline = [
+    { $match: memberFilter },
+    ...(options.sort ? [{ $sort: options.sort }] : []),
+    ...(options.limit ? [{ $limit: options.limit }] : []),
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: 'id',
+        as: 'user'
       }
-      return {
-        ...toPlainObject(member),
-        user: {
-          ...toPlainObject(user)
-        }
-      } as UniversityMemberWithUser;
-    })
-    .filter((member) => member.user !== null); // Filter out members whose users don't exist
+    },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: false } },
+    ...(options.userFilter
+      ? [
+          {
+            $match: Object.entries(options.userFilter).reduce(
+              (acc, [k, v]) => ({ ...acc, [`user.${k}`]: v }),
+              {}
+            )
+          }
+        ]
+      : []),
+    ...(options.userSort
+      ? [
+          {
+            $sort: Object.entries(options.userSort).reduce(
+              (acc, [k, v]) => ({ ...acc, [`user.${k}`]: v }),
+              {}
+            )
+          }
+        ]
+      : [])
+  ];
+
+  const results = (await membersCollection
+    .aggregate(pipeline)
+    .toArray()) as UniversityMemberWithUser[];
+
+  // Convert to plain objects and type
+  return toPlainArray(results);
 };
 
 /**
@@ -523,50 +533,60 @@ export const getUniversityMembersWithUserData = async (
 export const getClubMembersWithUserData = async (
   clubId: string,
   mongoClient: MongoClient,
-  options: { limit?: number; sort?: Record<string, 1 | -1> } = {}
+  options: {
+    limit?: number;
+    sort?: Record<string, 1 | -1>;
+    filter?: Record<string, unknown>;
+    userFilter?: Record<string, unknown>;
+    userSort?: Record<string, 1 | -1>;
+  } = {}
 ) => {
   const db = mongoClient.db();
-  const membersCollection = db.collection('club_members');
-  const usersCollection = db.collection('users');
+  const membersCollection = db.collection<ClubMember>('club_members');
 
-  // Get membership data
-  let query = membersCollection.find({ clubId });
+  // Build filter for club_members
+  const memberFilter = { clubId, ...(options.filter || {}) };
 
-  if (options.sort) {
-    query = query.sort(options.sort);
-  }
-
-  if (options.limit) {
-    query = query.limit(options.limit);
-  }
-
-  const membershipData = await query.toArray();
-
-  // Get user IDs from membership data
-  const userIds = membershipData.map((member) => member.userId);
-
-  // Fetch user data for all members
-  const users = await usersCollection.find({ id: { $in: userIds } }).toArray();
-
-  // Create a map for quick user lookup
-  const userMap = new Map(users.map((user) => [user.id, user]));
-
-  // Combine membership data with user data
-  return membershipData
-    .map((member) => {
-      const user = userMap.get(member.userId);
-      if (!user) {
-        return {
-          ...toPlainObject(member),
-          user: null
-        };
+  // Aggregation pipeline
+  const pipeline = [
+    { $match: memberFilter },
+    ...(options.sort ? [{ $sort: options.sort }] : []),
+    ...(options.limit ? [{ $limit: options.limit }] : []),
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: 'id',
+        as: 'user'
       }
-      return {
-        ...toPlainObject(member),
-        user: toPlainObject(user)
-      } as ClubMemberWithUser;
-    })
-    .filter((member) => member.user !== null); // Filter out members whose users don't exist
+    },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: false } },
+    ...(options.userFilter
+      ? [
+          {
+            $match: Object.entries(options.userFilter).reduce(
+              (acc, [k, v]) => ({ ...acc, [`user.${k}`]: v }),
+              {}
+            )
+          }
+        ]
+      : []),
+    ...(options.userSort
+      ? [
+          {
+            $sort: Object.entries(options.userSort).reduce(
+              (acc, [k, v]) => ({ ...acc, [`user.${k}`]: v }),
+              {}
+            )
+          }
+        ]
+      : [])
+  ];
+
+  const results = (await membersCollection.aggregate(pipeline).toArray()) as ClubMemberWithUser[];
+
+  // Convert to plain objects and type
+  return toPlainArray(results);
 };
 
 export const isAdminOrModerator = (user?: { userType?: string }): boolean => {

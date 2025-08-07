@@ -2,8 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
+import type { Club, ClubMember, UniversityMember } from '$lib/types';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
     const clubId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -14,8 +15,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
     }
 
     const db = client.db();
-    const clubsCollection = db.collection('clubs');
-    const membersCollection = db.collection('club_members');
+    const clubsCollection = db.collection<Club>('clubs');
+    const membersCollection = db.collection<ClubMember>('club_members');
 
     // Check if club exists
     const club = await clubsCollection.findOne({
@@ -23,6 +24,16 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
     if (!club) {
       return json({ error: 'Club not found' }, { status: 404 });
+    }
+
+    const session = await locals.auth();
+    let isUniversityMember = false;
+    if (session?.user) {
+      const userMembership = await db.collection<UniversityMember>('university_members').findOne({
+        userId: session.user.id,
+        universityId: club.universityId
+      });
+      isUniversityMember = !!userMembership?.memberType;
     }
 
     // Get members with pagination
@@ -40,6 +51,15 @@ export const GET: RequestHandler = async ({ params, url }) => {
           }
         },
         { $unwind: '$user' },
+        ...(isUniversityMember
+          ? []
+          : [
+              {
+                $match: {
+                  'user.isUniversityPublic': true
+                }
+              }
+            ]),
         {
           $project: {
             _id: 1,

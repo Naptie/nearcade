@@ -37,23 +37,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       error(404, 'University not found');
     }
 
-    // Get member statistics and list with user data joined
-    const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
-    const members = await getUniversityMembersWithUserData(university.id, client, {
-      limit: PAGINATION.PAGE_SIZE,
-      sort: { joinedAt: -1 }
-    });
-
-    // Get clubs belonging to this university
-    const totalClubs = await clubsCollection.countDocuments({ universityId: university.id });
-    const clubs = (await clubsCollection
-      .find({ universityId: university.id })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .toArray()) as unknown as Club[];
-
-    university.studentsCount = totalMembers;
-
     const { session } = await parent();
     const user = session?.user;
 
@@ -71,6 +54,28 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     if (user) {
       userPermissions = await checkUniversityPermission(user, university.id, client);
     }
+
+    // Get member statistics and list with user data joined
+    const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
+    const members = await getUniversityMembersWithUserData(university.id, client, {
+      limit: PAGINATION.PAGE_SIZE,
+      sort: { joinedAt: -1 },
+      userFilter: userPermissions.role
+        ? {}
+        : {
+            isUniversityPublic: true
+          }
+    });
+
+    // Get clubs belonging to this university
+    const totalClubs = await clubsCollection.countDocuments({ universityId: university.id });
+    const clubs = (await clubsCollection
+      .find({ universityId: university.id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .toArray()) as unknown as Club[];
+
+    university.studentsCount = totalMembers;
 
     return {
       university: toPlainObject(university),

@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { Club, University, Shop, ClubMember } from '$lib/types';
+import type { Club, University, Shop, ClubMember, UniversityMember } from '$lib/types';
 import {
   getClubMembersWithUserData,
   checkClubPermission,
@@ -20,6 +20,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     const clubsCollection = db.collection<Club>('clubs');
     const membersCollection = db.collection<ClubMember>('club_members');
     const universitiesCollection = db.collection<University>('universities');
+    const universityMembersCollection = db.collection<UniversityMember>('university_members');
     const shopsCollection = db.collection<Shop>('shops');
 
     // Try to find club by ID first, then by slug
@@ -37,16 +38,34 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       error(404, 'Club not found');
     }
 
+    // Check user permissions if authenticated
+    const userPermissions = session?.user
+      ? await checkClubPermission(session.user, club, client)
+      : { canEdit: false, canManage: false, canJoin: 0 as const };
+
     // Get university information
     const university = await universitiesCollection.findOne({
       id: club.universityId
     });
 
+    // Get university membership if user is authenticated
+    const universityMembership = session?.user
+      ? await universityMembersCollection.findOne({
+          universityId: club.universityId,
+          userId: session.user.id
+        })
+      : null;
+
     // Get member statistics
     const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
 
     const members = await getClubMembersWithUserData(club.id, client, {
-      limit: PAGINATION.PAGE_SIZE
+      limit: PAGINATION.PAGE_SIZE,
+      filter: universityMembership?.memberType
+        ? {}
+        : {
+            isUniversityPublic: true
+          }
     });
 
     // Get starred arcades with pagination
@@ -66,11 +85,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         );
       }
     }
-
-    // Check user permissions if authenticated
-    const userPermissions = session?.user
-      ? await checkClubPermission(session.user, club, client)
-      : { canEdit: false, canManage: false, canJoin: 0 as const };
 
     // Update calculated fields
     club.membersCount = totalMembers;
