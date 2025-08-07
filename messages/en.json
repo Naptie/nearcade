@@ -464,6 +464,11 @@
   "unlock_post": "Unlock Post",
   "edited": "edited",
   "save": "Save",
+  "read_more": "Read More",
+  "posting_to": "Posting to",
+  "nothing_to_preview": "Nothing to preview yet",
+  "loading": "Loading",
+  "no_posts_created_yet": "No posts have been created yet",
   "dismiss_in": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

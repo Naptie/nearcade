@@ -1,0 +1,179 @@
+<script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+  import type { PostWithAuthor } from '$lib/types';
+  import PostCard from './PostCard.svelte';
+  import PostCreateModal from './PostCreateModal.svelte';
+  import { base } from '$app/paths';
+  import { PAGINATION } from '$lib/constants';
+  
+  interface Props {
+    organizationType: 'university' | 'club';
+    organizationId: string;
+    organizationName: string;
+    organizationSlug?: string;
+    currentUserId?: string;
+    canCreatePost: boolean;
+    initialPosts?: PostWithAuthor[];
+  }
+
+  let { 
+    organizationType,
+    organizationId,
+    organizationName,
+    organizationSlug,
+    currentUserId,
+    canCreatePost,
+    initialPosts = []
+  }: Props = $props();
+
+  let posts = $state<PostWithAuthor[]>(initialPosts);
+  let isLoading = $state(false);
+  let hasMore = $state(initialPosts.length >= PAGINATION.PAGE_SIZE);
+  let currentPage = $state(1);
+  let showCreateModal = $state(false);
+  let error = $state('');
+
+  const loadMorePosts = async () => {
+    if (isLoading || !hasMore) return;
+
+    isLoading = true;
+    try {
+      const nextPage = currentPage + 1;
+      const endpoint = `${base}/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=${nextPage}`;
+      const response = await fetch(endpoint);
+      
+      if (response.ok) {
+        const result = await response.json();
+        const newPosts = result.posts || [];
+        posts = [...posts, ...newPosts];
+        hasMore = result.hasMore;
+        currentPage = nextPage;
+      } else {
+        error = 'Failed to load more posts';
+      }
+    } catch (err) {
+      error = 'Network error while loading posts';
+    } finally {
+      isLoading = false;
+    }
+  };
+
+  const handlePostCreated = (postId: string) => {
+    // Refresh posts by fetching the first page again
+    refreshPosts();
+  };
+
+  const refreshPosts = async () => {
+    try {
+      const endpoint = `${base}/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=1`;
+      const response = await fetch(endpoint);
+      
+      if (response.ok) {
+        const result = await response.json();
+        posts = result.posts || [];
+        hasMore = result.hasMore;
+        currentPage = 1;
+        error = '';
+      }
+    } catch (err) {
+      console.error('Error refreshing posts:', err);
+    }
+  };
+</script>
+
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h3 class="flex items-center gap-2 text-lg font-semibold">
+      <i class="fa-solid fa-comments"></i>
+      {m.posts()}
+    </h3>
+    {#if currentUserId && canCreatePost}
+      <button 
+        class="btn btn-primary btn-sm btn-soft"
+        onclick={() => showCreateModal = true}
+      >
+        <i class="fa-solid fa-plus"></i>
+        {m.new_post()}
+      </button>
+    {/if}
+  </div>
+
+  <!-- Error message -->
+  {#if error}
+    <div class="alert alert-error">
+      <i class="fa-solid fa-exclamation-triangle"></i>
+      <span>{error}</span>
+    </div>
+  {/if}
+
+  <!-- Posts container -->
+  <div class="space-y-4">
+    {#if posts.length > 0}
+      <!-- Posts list -->
+      {#each posts as post (post.id)}
+        <PostCard 
+          {post} 
+          showOrganization={false}
+          {organizationType}
+          {organizationName}
+          {organizationSlug}
+        />
+      {/each}
+
+      <!-- Load more button -->
+      {#if hasMore}
+        <div class="text-center py-4">
+          <button 
+            class="btn btn-ghost btn-sm"
+            onclick={loadMorePosts}
+            disabled={isLoading}
+          >
+            {#if isLoading}
+              <span class="loading loading-spinner loading-sm"></span>
+              {m.loading()}
+            {:else}
+              {m.load_more()}
+            {/if}
+          </button>
+        </div>
+      {:else if posts.length >= PAGINATION.PAGE_SIZE}
+        <div class="text-center py-4 text-base-content/60 text-sm">
+          {m.all_results_loaded()}
+        </div>
+      {/if}
+    {:else}
+      <!-- Empty state -->
+      <div class="bg-base-100 rounded-lg p-8 text-center">
+        <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
+        <h4 class="text-lg font-medium mb-2">{m.no_posts_yet()}</h4>
+        {#if currentUserId && canCreatePost}
+          <p class="text-base-content/60 mb-4">
+            {m.create_first_post()}
+          </p>
+          <button 
+            class="btn btn-primary btn-sm btn-soft"
+            onclick={() => showCreateModal = true}
+          >
+            <i class="fa-solid fa-plus"></i>
+            {m.create_post()}
+          </button>
+        {:else}
+          <p class="text-base-content/60">
+            {m.no_posts_created_yet()}
+          </p>
+        {/if}
+      </div>
+    {/if}
+  </div>
+</div>
+
+<!-- Create Post Modal -->
+<PostCreateModal
+  isOpen={showCreateModal}
+  {organizationType}
+  {organizationId}
+  {organizationName}
+  onClose={() => showCreateModal = false}
+  onSuccess={handlePostCreated}
+/>

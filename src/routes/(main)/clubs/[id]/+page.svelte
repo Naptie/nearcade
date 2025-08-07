@@ -7,6 +7,7 @@
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
   import JoinRequestModal from '$lib/components/JoinRequestModal.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import PostsList from '$lib/components/PostsList.svelte';
   import { PAGINATION } from '$lib/constants';
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
@@ -841,10 +842,15 @@
             </div>
           </div>
         {:else if activeTab === 'posts'}
-          <div class="py-12 text-center">
-            <i class="fa-solid fa-comments text-base-content/30 text-4xl"></i>
-            <p class="text-base-content/60 mt-4">{m.feature_in_development()}</p>
-          </div>
+          <PostsList
+            organizationType="club"
+            organizationId={data.club.id}
+            organizationName={data.club.name}
+            organizationSlug={data.club.slug}
+            currentUserId={data.user?._id}
+            canCreatePost={!!data.user}
+            initialPosts={[]}
+          />
         {:else if activeTab === 'announcements'}
           <div class="py-12 text-center">
             <i class="fa-solid fa-bullhorn text-base-content/30 text-4xl"></i>

@@ -9,6 +9,7 @@
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ChangelogView from '$lib/components/ChangelogView.svelte';
+  import PostsList from '$lib/components/PostsList.svelte';
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
@@ -852,28 +853,15 @@
             </div>
           </div>
         {:else if activeTab === 'posts'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-comments"></i>
-                {m.posts()}
-              </h3>
-              <button class="btn btn-primary btn-sm btn-soft" disabled>
-                <i class="fa-solid fa-plus"></i>
-                {m.new_post()}
-              </button>
-            </div>
-
-            <!-- Posts area would go here -->
-            <div class="bg-base-100 rounded-lg p-6">
-              <div class="py-8 text-center">
-                <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
-                <h4 class="mb-2 text-lg font-medium">{m.posts()}</h4>
-                <p class="text-base-content/60 mb-4">{m.create_first_post()}</p>
-                <div class="badge badge-info badge-soft">{m.coming_soon()}</div>
-              </div>
-            </div>
-          </div>
+          <PostsList
+            organizationType="university"
+            organizationId={data.university.id}
+            organizationName={data.university.name}
+            organizationSlug={data.university.slug}
+            currentUserId={data.user?._id}
+            canCreatePost={!!data.user}
+            initialPosts={[]}
+          />
         {:else if activeTab === 'changelog'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">
