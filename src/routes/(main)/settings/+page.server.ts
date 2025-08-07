@@ -20,7 +20,9 @@ export const load: PageServerLoad = async ({ parent }) => {
       displayName: user.displayName,
       userType: user.userType,
       isEmailPublic: user.isEmailPublic,
-      isUniversityPublic: user.isUniversityPublic
+      isUniversityPublic: user.isUniversityPublic,
+      isFrequentingArcadePublic: user.isFrequentingArcadePublic,
+      isStarredArcadePublic: user.isStarredArcadePublic
     }
   };
 };
@@ -41,6 +43,8 @@ export const actions: Actions = {
       const username = formData.get('username') as string;
       const isEmailPublic = formData.get('isEmailPublic') === 'on';
       const isUniversityPublic = formData.get('isUniversityPublic') === 'on';
+      const isFrequentingArcadePublic = formData.get('isFrequentingArcadePublic') === 'on';
+      const isStarredArcadePublic = formData.get('isStarredArcadePublic') === 'on';
 
       // Field-specific validation errors
       const fieldErrors: Record<string, string> = {};
@@ -74,7 +78,9 @@ export const actions: Actions = {
             bio,
             username,
             isEmailPublic,
-            isUniversityPublic
+            isUniversityPublic,
+            isFrequentingArcadePublic,
+            isStarredArcadePublic
           }
         });
       }
@@ -98,7 +104,9 @@ export const actions: Actions = {
               bio,
               username,
               isEmailPublic,
-              isUniversityPublic
+              isUniversityPublic,
+              isFrequentingArcadePublic,
+              isStarredArcadePublic
             }
           });
         }
@@ -112,6 +120,8 @@ export const actions: Actions = {
         bio: string;
         isEmailPublic: boolean;
         isUniversityPublic: boolean;
+        isFrequentingArcadePublic: boolean;
+        isStarredArcadePublic: boolean;
         updatedAt: Date;
         name?: string;
       } = {
@@ -119,6 +129,8 @@ export const actions: Actions = {
         bio: bio?.trim() || '',
         isEmailPublic,
         isUniversityPublic,
+        isFrequentingArcadePublic,
+        isStarredArcadePublic,
         updatedAt: new Date()
       };
 

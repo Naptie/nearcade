@@ -1,9 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { base } from '$app/paths';
+  import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
-  import { onMount } from 'svelte';
 
   interface Shop {
     id: number;
@@ -14,20 +14,13 @@
 
   let {
     shop,
-    shops
+    shops,
+    radius
   }: {
     shop: Shop;
     shops?: Shop[] | undefined;
+    radius: number;
   } = $props();
-
-  let radius = $state(10);
-
-  onMount(() => {
-    const savedRadius = localStorage.getItem('nearcade-radius');
-    if (savedRadius) {
-      radius = parseInt(savedRadius);
-    }
-  });
 </script>
 
 <div class="group bg-base-100 flex items-center justify-between rounded-lg p-4">
@@ -77,22 +70,24 @@
       >
         <i class="fa-solid fa-map-location-dot"></i>
       </a>
-      <form method="POST" action="?/removeArcade" use:enhance>
-        <input type="hidden" name="arcadeId" value={shop.id} />
-        <button
-          type="submit"
-          class="btn btn-soft btn-circle btn-error btn-sm"
-          title={m.remove_arcade()}
-          aria-label={m.remove_arcade()}
-          onclick={(e) => {
-            if (!confirm(m.confirm_remove_arcade())) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </form>
+      {#if page.url.pathname.startsWith(`${base}/settings/`)}
+        <form method="POST" action="?/removeArcade" use:enhance>
+          <input type="hidden" name="arcadeId" value={shop.id} />
+          <button
+            type="submit"
+            class="btn btn-soft btn-circle btn-error btn-sm"
+            title={m.remove_arcade()}
+            aria-label={m.remove_arcade()}
+            onclick={(e) => {
+              if (!confirm(m.confirm_remove_arcade())) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </form>
+      {/if}
     </div>
   {/if}
 </div>

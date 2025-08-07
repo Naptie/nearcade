@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { Shop } from '$lib/types';
   import { toPath } from '$lib/utils';
+    import { onMount } from 'svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -11,6 +12,14 @@
   let searchResults = $state<Shop[]>([]);
   let isSearching = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout> | undefined = $state(undefined);
+  let radius = $state(10);
+
+  onMount(() => {
+    const savedRadius = localStorage.getItem('nearcade-radius');
+    if (savedRadius) {
+      radius = parseInt(savedRadius);
+    }
+  });
 
   const searchArcades = async (query: string) => {
     if (!query.trim()) {
@@ -97,7 +106,7 @@
     {:else if searchResults.length > 0}
       <div class="max-h-96 space-y-2 overflow-y-auto">
         {#each searchResults as shop (shop.id)}
-          <ManagedArcade {shop} shops={data.starredArcades} />
+          <ManagedArcade {shop} shops={data.starredArcades} {radius} />
         {/each}
       </div>
     {:else if searchQuery && !isSearching}
@@ -115,7 +124,7 @@
     {#if data.starredArcades && data.starredArcades.length > 0}
       <div class="grid gap-4">
         {#each data.starredArcades as shop (shop.id)}
-          <ManagedArcade {shop} />
+          <ManagedArcade {shop} {radius} />
         {/each}
       </div>
     {:else}

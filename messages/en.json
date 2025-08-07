@@ -198,6 +198,7 @@
   "already_starred": "Already Starred",
   "already_verified": "Already verified",
   "already_verified_description": "The email address has already been used to verify an account.",
+  "and_x_more": "and {count} more",
   "announcement_feature": "Announcement Feature",
   "announcements": "Announcements",
   "anonymous_user": "Anonymous User",
@@ -489,6 +490,8 @@
     }
   ],
   "frequenting_arcades": "Frequenting Arcades",
+  "frequenting_arcades_public": "Show my frequenting arcades to other users",
+  "frequenting_arcades_visibility": "Frequenting Arcades Visibility",
   "from": "From",
   "generate_invite_link": "Generate Invite Link",
   "get_my_location": "Get My Location",
@@ -781,6 +784,8 @@
       }
     }
   ],
+  "starred_arcades_public": "Show my starred arcades to other users",
+  "starred_arcades_visibility": "Starred Arcades Visibility",
   "stations": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

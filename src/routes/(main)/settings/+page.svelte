@@ -16,6 +16,8 @@
   let username = $state(data.userProfile?.name || '');
   let isEmailPublic = $state(data.userProfile?.isEmailPublic || false);
   let isUniversityPublic = $state(data.userProfile?.isUniversityPublic !== false);
+  let isFrequentingArcadePublic = $state(data.userProfile?.isFrequentingArcadePublic || false);
+  let isStarredArcadePublic = $state(data.userProfile?.isStarredArcadePublic || false);
 
   // Reset form data when form errors occur (preserve user input)
   $effect(() => {
@@ -26,12 +28,16 @@
         username?: string;
         isEmailPublic?: boolean;
         isUniversityPublic?: boolean;
+        isFrequentingArcadePublic?: boolean;
+        isStarredArcadePublic?: boolean;
       };
       displayName = formData.displayName || '';
       bio = formData.bio || '';
       username = formData.username || '';
       isEmailPublic = formData.isEmailPublic || false;
       isUniversityPublic = formData.isUniversityPublic !== false;
+      isFrequentingArcadePublic = formData.isFrequentingArcadePublic || false;
+      isStarredArcadePublic = formData.isStarredArcadePublic || false;
     }
   });
 
@@ -315,7 +321,7 @@
 
     <div class="divider">{m.privacy_settings()}</div>
 
-    <div class="space-y-3">
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
       <!-- Email Visibility -->
       <div class="form-control">
         <label class="label cursor-pointer justify-start gap-3">
@@ -344,6 +350,38 @@
           <div>
             <span class="text-base-content">{m.university_visibility()}</span>
             <div class="text-base-content/60 text-xs">{m.university_public()}</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Frequenting Arcades Visibility -->
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            name="isFrequentingArcadePublic"
+            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+            bind:checked={isFrequentingArcadePublic}
+          />
+          <div>
+            <span class="text-base-content">{m.frequenting_arcades_visibility()}</span>
+            <div class="text-base-content/60 text-xs">{m.frequenting_arcades_public()}</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Starred Arcades Visibility -->
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            name="isStarredArcadePublic"
+            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+            bind:checked={isStarredArcadePublic}
+          />
+          <div>
+            <span class="text-base-content">{m.starred_arcades_visibility()}</span>
+            <div class="text-base-content/60 text-xs">{m.starred_arcades_public()}</div>
           </div>
         </label>
       </div>

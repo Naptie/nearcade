@@ -4,11 +4,25 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { getUserTypeBadgeClass, getUserTypeLabel } from '$lib/utils';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import type { PageData } from './$types';
   import { formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
+  import { onMount } from 'svelte';
+  import type { Shop } from '$lib/types';
 
   let { data }: { data: PageData } = $props();
+
+  const ARCADE_DISPLAY_LIMIT = 10;
+
+  let radius = $state(10);
+
+  onMount(() => {
+    const savedRadius = localStorage.getItem('nearcade-radius');
+    if (savedRadius) {
+      radius = parseInt(savedRadius);
+    }
+  });
 </script>
 
 <svelte:head>
@@ -124,6 +138,66 @@
             <p>{m.activity_log_feature_in_development()}</p>
           </div>
         </div>
+
+        <!-- Frequenting Arcades -->
+        {#if (data.user.frequentingArcades && data.user.frequentingArcades.length > 0) || data.isOwnProfile}
+          <div class="bg-base-200 rounded-lg p-6">
+            <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <i class="fa-solid fa-clock"></i>
+              {m.frequenting_arcades()}
+            </h3>
+            {#if data.user.frequentingArcades && data.user.frequentingArcades.length > 0}
+              <div class="space-y-3">
+                {#each data.user.frequentingArcades as shop (shop.id)}
+                  <ManagedArcade {shop} {radius} />
+                {/each}
+              </div>
+            {:else}
+              <div class="text-base-content/60 py-8 text-center">
+                <i class="fa-solid fa-clock mb-4 text-4xl"></i>
+                <p>{m.no_frequenting_arcades()}</p>
+                {#if data.isOwnProfile}
+                  <a
+                    href="{base}/settings/frequenting-arcades"
+                    class="hover:text-accent mt-2 text-sm transition-colors"
+                  >
+                    {m.add_arcade_to_get_started()}
+                  </a>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Starred Arcades -->
+        {#if (data.user.starredArcades && data.user.starredArcades.length > 0) || data.isOwnProfile}
+          <div class="bg-base-200 rounded-lg p-6">
+            <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <i class="fa-solid fa-star"></i>
+              {m.starred_arcades()}
+            </h3>
+            {#if data.user.starredArcades && data.user.starredArcades.length > 0}
+              <div class="space-y-3">
+                {#each data.user.starredArcades as shop (shop.id)}
+                  <ManagedArcade {shop} {radius} />
+                {/each}
+              </div>
+            {:else}
+              <div class="text-base-content/60 py-8 text-center">
+                <i class="fa-solid fa-star mb-4 text-4xl"></i>
+                <p>{m.no_starred_arcades()}</p>
+                {#if data.isOwnProfile}
+                  <a
+                    href="{base}/settings/starred-arcades"
+                    class="hover:text-accent mt-2 text-sm transition-colors"
+                  >
+                    {m.add_arcade_to_get_started()}
+                  </a>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
 
       <!-- Sidebar -->
@@ -150,6 +224,70 @@
             </div>
           </div>
         </div>
+
+        {#snippet arcade(shop: Shop)}
+          <div class="flex items-center justify-between gap-1 text-sm">
+            <a
+              href="https://map.bemanicn.com/shop/{shop.id}"
+              target="_blank"
+              class="hover:text-accent transition-colors"
+            >
+              {shop.name}
+            </a>
+            <a
+              href="{base}/discover?longitude={shop.location?.coordinates[0]}&latitude={shop
+                .location?.coordinates[1]}&name={shop.name}&radius={radius}"
+              target="_blank"
+              class="btn btn-ghost btn-circle btn-xs"
+              title={m.explore_nearby()}
+              aria-label={m.explore_nearby()}
+            >
+              <i class="fa-solid fa-map-location-dot"></i>
+            </a>
+          </div>
+        {/snippet}
+
+        <!-- Sidebar Frequenting Arcades -->
+        {#if data.user.frequentingArcades && data.user.frequentingArcades.length > 0}
+          <div class="bg-base-200 rounded-lg p-4">
+            <h3 class="mb-3 flex items-center gap-2 font-semibold">
+              <i class="fa-solid fa-clock"></i>
+              {m.frequenting_arcades()}
+            </h3>
+            <div class="space-y-2">
+              {#each data.user.frequentingArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop.id)}
+                {@render arcade(shop)}
+              {/each}
+              {#if data.user.frequentingArcades.length > ARCADE_DISPLAY_LIMIT}
+                <div class="text-base-content/60 text-xs">
+                  {m.and_x_more({
+                    count: data.user.frequentingArcades.length - ARCADE_DISPLAY_LIMIT
+                  })}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Sidebar Starred Arcades -->
+        {#if data.user.starredArcades && data.user.starredArcades.length > 0}
+          <div class="bg-base-200 rounded-lg p-4">
+            <h3 class="mb-3 flex items-center gap-2 font-semibold">
+              <i class="fa-solid fa-star"></i>
+              {m.starred_arcades()}
+            </h3>
+            <div class="space-y-2">
+              {#each data.user.starredArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop.id)}
+                {@render arcade(shop)}
+              {/each}
+              {#if data.user.starredArcades.length > ARCADE_DISPLAY_LIMIT}
+                <div class="text-base-content/60 text-xs">
+                  {m.and_x_more({ count: data.user.starredArcades.length - ARCADE_DISPLAY_LIMIT })}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
 
         <!-- Contact Info -->
         {#if data.user.email && !data.user.email.endsWith('.nearcade')}

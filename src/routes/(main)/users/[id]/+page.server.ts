@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
-import type { University, UniversityMember } from '$lib/types';
+import type { University, UniversityMember, Shop } from '$lib/types';
 import client from '$lib/db.server';
+import { toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const session = await locals.auth();
@@ -57,6 +58,28 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       }
     }
 
+    // Get arcade data based on privacy settings
+    let frequentingArcades: Shop[] = [];
+    let starredArcades: Shop[] = [];
+
+    if (isOwnProfile || user.isFrequentingArcadePublic) {
+      const frequentingArcadeIds = user.frequentingArcades || [];
+      if (frequentingArcadeIds.length > 0) {
+        const shopsCollection = db.collection<Shop>('shops');
+        frequentingArcades = await shopsCollection
+          .find({ id: { $in: frequentingArcadeIds } })
+          .toArray();
+      }
+    }
+
+    if (isOwnProfile || user.isStarredArcadePublic) {
+      const starredArcadeIds = user.starredArcades || [];
+      if (starredArcadeIds.length > 0) {
+        const shopsCollection = db.collection<Shop>('shops');
+        starredArcades = await shopsCollection.find({ id: { $in: starredArcadeIds } }).toArray();
+      }
+    }
+
     return {
       user: {
         id: user.id,
@@ -68,7 +91,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         joinedAt: user.joinedAt,
         lastActiveAt: user.lastActiveAt,
         // Only show full data if viewing own profile or if public
-        email: isOwnProfile || user.isEmailPublic ? user.email : null
+        email: isOwnProfile || user.isEmailPublic ? user.email : null,
+        frequentingArcades: toPlainArray(frequentingArcades),
+        starredArcades: toPlainArray(starredArcades)
       },
       frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,
       starredArcadesCount: user.starredArcades ? user.starredArcades.length : 0,

@@ -14,5 +14,7 @@ declare module '@auth/sveltekit' {
     autoDiscoveryThreshold?: number; // Number of clicks before auto-adding to frequenting arcades
     isEmailPublic?: boolean;
     isUniversityPublic?: boolean;
+    isFrequentingArcadePublic?: boolean;
+    isStarredArcadePublic?: boolean;
   }
 }
