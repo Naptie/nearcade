@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
     const members = await getClubMembersWithUserData(club.id, client, {
       limit: PAGINATION.PAGE_SIZE,
-      filter: universityMembership?.memberType
+      userFilter: universityMembership?.memberType
         ? {}
         : {
             isUniversityPublic: true
