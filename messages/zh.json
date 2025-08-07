@@ -724,6 +724,7 @@
   "uncategorized": "未分类",
   "underconfigured_university": "高校信息未完善",
   "underconfigured_university_description": "该高校缺少自动验证所需的关键信息。请联系高校管理员完成设置。",
+  "universities": "高校",
   "universities_and_colleges_available": "{count} 所高校可用",
   "university": "高校",
   "university_affiliation": "隶属关系",

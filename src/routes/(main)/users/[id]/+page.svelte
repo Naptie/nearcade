@@ -113,20 +113,6 @@
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <!-- Main Content -->
       <div class="space-y-8 lg:col-span-2">
-        <!-- Frequenting Arcades -->
-        {#if data.user.frequentingArcades.length > 0}
-          <div class="bg-base-200 rounded-lg p-6">
-            <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <i class="fa-solid fa-gamepad"></i>
-              {m.frequenting_arcades()}
-            </h3>
-            <div class="text-base-content/60 py-8 text-center">
-              <i class="fa-solid fa-gamepad mb-2 text-3xl"></i>
-              <p>{m.feature_in_development()}</p>
-            </div>
-          </div>
-        {/if}
-
         <!-- Recent Activity -->
         <div class="bg-base-200 rounded-lg p-6">
           <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
@@ -148,18 +134,20 @@
           <div class="space-y-3">
             <div class="flex justify-between">
               <span class="text-base-content/70">{m.frequenting_arcades()}</span>
-              <span class="font-medium">{data.user.frequentingArcades.length}</span>
+              <span class="font-medium">{data.frequentingArcadesCount}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-base-content/70">{m.starred_arcades()}</span>
-              <span class="font-medium">{data.user.starredArcades.length}</span>
+              <span class="font-medium">{data.starredArcadesCount}</span>
             </div>
-            {#if data.universityMembershipCount !== null}
-              <div class="flex justify-between">
-                <span class="text-base-content/70">{m.university()}</span>
-                <span class="font-medium">{data.universityMembershipCount}</span>
-              </div>
-            {/if}
+            <div class="flex justify-between">
+              <span class="text-base-content/70">{m.universities()}</span>
+              <span class="font-medium">{data.universityMembershipCount}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-base-content/70">{m.clubs()}</span>
+              <span class="font-medium">{data.clubMembershipCount}</span>
+            </div>
           </div>
         </div>
 

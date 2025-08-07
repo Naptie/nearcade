@@ -850,6 +850,7 @@
   "uncategorized": "Uncategorized",
   "underconfigured_university": "Underconfigured University",
   "underconfigured_university_description": "This university is missing essential information that is required for auto-verification. Please contact the university administration to complete the setup.",
+  "universities": "Universities/Colleges",
   "universities_and_colleges_available": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

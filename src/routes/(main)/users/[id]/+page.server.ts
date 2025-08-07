@@ -29,15 +29,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     const isOwnProfile = session?.user?._id === user.id;
 
     // Get university info if user belongs to one
-    let universityMembershipCount: number | null = null;
     let university: University | null = null;
+    const universityMembersCollection = db.collection<UniversityMember>('university_members');
+    const universityMembershipCount = await universityMembersCollection.countDocuments({
+      userId: user.id
+    });
+    const clubMembershipCount = await db.collection('club_members').countDocuments({
+      userId: user.id
+    });
 
     if (isOwnProfile || user.isUniversityPublic) {
-      const universityMembersCollection = db.collection<UniversityMember>('university_members');
-      universityMembershipCount = await universityMembersCollection.countDocuments({
-        userId: user.id
-      });
-
       const membership = await universityMembersCollection.findOne(
         {
           userId: user.id
@@ -67,11 +68,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         joinedAt: user.joinedAt,
         lastActiveAt: user.lastActiveAt,
         // Only show full data if viewing own profile or if public
-        email: isOwnProfile || user.isEmailPublic ? user.email : null,
-        frequentingArcades: user.frequentingArcades || [],
-        starredArcades: user.starredArcades || []
+        email: isOwnProfile || user.isEmailPublic ? user.email : null
       },
+      frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,
+      starredArcadesCount: user.starredArcades ? user.starredArcades.length : 0,
       universityMembershipCount,
+      clubMembershipCount,
       university,
       isOwnProfile
     };
