@@ -20,7 +20,7 @@
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
     { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
     { id: 'members', label: m.members(), icon: 'fa-users' },
-    { id: 'discussions', label: m.discussions(), icon: 'fa-comments' },
+    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
@@ -851,25 +851,25 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'discussions'}
+        {:else if activeTab === 'posts'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
                 <i class="fa-solid fa-comments"></i>
-                {m.discussions()}
+                {m.posts()}
               </h3>
               <button class="btn btn-primary btn-sm btn-soft" disabled>
                 <i class="fa-solid fa-plus"></i>
-                {m.new_discussion()}
+                {m.new_post()}
               </button>
             </div>
 
-            <!-- Discussion forum would go here -->
+            <!-- Posts area would go here -->
             <div class="bg-base-100 rounded-lg p-6">
               <div class="py-8 text-center">
                 <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
-                <h4 class="mb-2 text-lg font-medium">{m.discussion_forum()}</h4>
-                <p class="text-base-content/60 mb-4">{m.discussion_forum_description()}</p>
+                <h4 class="mb-2 text-lg font-medium">{m.posts()}</h4>
+                <p class="text-base-content/60 mb-4">{m.create_first_post()}</p>
                 <div class="badge badge-info badge-soft">{m.coming_soon()}</div>
               </div>
             </div>

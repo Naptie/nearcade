@@ -17,7 +17,7 @@
   const tabs = [
     { id: 'members', label: m.members(), icon: 'fa-users' },
     { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
-    { id: 'discussions', label: m.discussions(), icon: 'fa-comments' },
+    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'announcements', label: m.announcements(), icon: 'fa-bullhorn' }
   ];
 
@@ -840,7 +840,7 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'discussions'}
+        {:else if activeTab === 'posts'}
           <div class="py-12 text-center">
             <i class="fa-solid fa-comments text-base-content/30 text-4xl"></i>
             <p class="text-base-content/60 mt-4">{m.feature_in_development()}</p>

@@ -350,6 +350,87 @@ export interface ChangelogEntry {
   createdAt: Date;
 }
 
+// Posts feature types
+export interface Post {
+  _id?: string;
+  id: string;
+  title: string;
+  content: string; // Markdown content
+  // Organization affiliation - either universityId or clubId will be set
+  universityId?: string;
+  clubId?: string;
+  // Author information
+  createdBy: string; // User ID
+  createdAt: Date;
+  updatedAt?: Date;
+  // Engagement metrics
+  upvotes: number;
+  downvotes: number;
+  commentCount: number;
+  // Moderation
+  isPinned: boolean;
+  isLocked: boolean;
+}
+
+// Composite type with author data joined
+export interface PostWithAuthor extends Post {
+  author: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+}
+
+export interface PostVote {
+  _id?: string;
+  id: string;
+  postId: string;
+  userId: string;
+  voteType: 'upvote' | 'downvote';
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface Comment {
+  _id?: string;
+  id: string;
+  postId: string;
+  content: string; // Markdown content
+  createdBy: string; // User ID
+  createdAt: Date;
+  updatedAt?: Date;
+  // For nested replies
+  parentCommentId?: string | null;
+  // Engagement
+  upvotes: number;
+  downvotes: number;
+}
+
+// Composite type with author data joined
+export interface CommentWithAuthor extends Comment {
+  author: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+}
+
+export interface CommentVote {
+  _id?: string;
+  id: string;
+  commentId: string;
+  userId: string;
+  voteType: 'upvote' | 'downvote';
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
 export * from './amap';
 import type { TransportSearchResult } from './amap';
 
