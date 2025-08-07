@@ -37,5 +37,10 @@ export const HOVERED_ROUTE_INDEX = 29999;
 export const SELECTED_ROUTE_INDEX = 20000;
 export const ROUTE_INDEX = 10000;
 
+export enum ShopSource {
+  BEMANICN,
+  ZIV
+}
+
 export type GameKey = (typeof GAMES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];

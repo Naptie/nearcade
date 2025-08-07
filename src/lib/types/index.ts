@@ -1,4 +1,4 @@
-import type { RADIUS_OPTIONS } from '../constants';
+import type { RADIUS_OPTIONS, ShopSource } from '../constants';
 
 export interface Location {
   type: 'Point';
@@ -9,10 +9,12 @@ export interface Shop {
   _id: string;
   id: number;
   name: string;
-  province_code: string;
-  city_code: string;
+  region: string;
+  subregion: string;
+  city: string;
   location: Location;
   games: Game[];
+  source: ShopSource;
 }
 
 export interface Game {
@@ -20,7 +22,7 @@ export interface Game {
   name: string;
   version: string;
   quantity: number;
-  cost: number;
+  cost: string;
 }
 
 export interface Campus {
