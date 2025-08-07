@@ -190,7 +190,6 @@ export interface ClubMember {
 // Composite type with user data joined
 export interface ClubMemberWithUser extends ClubMember {
   user: {
-    _id: string;
     id: string;
     name: string | null;
     displayName?: string | null;
@@ -234,7 +233,6 @@ export interface UniversityMember {
 // Composite type with user data joined
 export interface UniversityMemberWithUser extends UniversityMember {
   user: {
-    _id: string;
     id: string;
     name: string | null;
     displayName?: string | null;

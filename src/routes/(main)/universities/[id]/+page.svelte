@@ -134,7 +134,7 @@
       );
       if (response.ok) {
         const result = (await response.json()) as {
-          members: UniversityMemberWithUser[];
+          members: typeof data.members;
           hasMore: boolean;
           page: number;
         };
