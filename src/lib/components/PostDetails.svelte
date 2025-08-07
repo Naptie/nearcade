@@ -7,7 +7,8 @@
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
   import { renderMarkdown } from '$lib/markdown';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { navigating } from '$app/stores';
 
   interface Props {
     post: PostWithAuthor;
@@ -41,6 +42,11 @@
   let isSubmittingComment = $state(false);
   let showCommentPreview = $state(false);
   let commentError = $state('');
+  let replyingTo = $state<string | null>(null);
+  let replyContent = $state('');
+  let showReplyPreview = $state(false);
+  let isSubmittingReply = $state(false);
+  let componentMounted = $state(true);
 
   const netVotes = $derived(localUpvotes - localDownvotes);
   const backUrl = $derived.by(() => {
@@ -107,37 +113,157 @@
         window.location.reload();
       } else {
         const errorData = (await response.json()) as { error: string };
-        commentError = errorData.error || 'Failed to post comment';
+        commentError = errorData.error || m.failed_to_post_comment();
       }
     } catch {
-      commentError = 'Network error. Please try again.';
+      commentError = m.network_error_try_again();
     } finally {
       isSubmittingComment = false;
     }
   };
 
   const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
-    // TODO: Implement comment voting
-    console.log('Comment vote:', commentId, voteType);
+    if (!currentUserId) return;
+    
+    try {
+      const response = await fetch(`${base}/api/comments/${commentId}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ voteType })
+      });
+
+      if (response.ok) {
+        const result = (await response.json()) as {
+          upvotes: number;
+          downvotes: number;
+          userVote: 'upvote' | 'downvote' | null;
+        };
+        
+        // Update the specific comment in the comments array
+        localComments = localComments.map(comment => 
+          comment.id === commentId 
+            ? { ...comment, upvotes: result.upvotes, downvotes: result.downvotes }
+            : comment
+        );
+      } else {
+        console.error('Failed to vote on comment');
+      }
+    } catch (error) {
+      console.error('Error voting on comment:', error);
+    }
   };
 
   const handleCommentReply = (commentId: string) => {
-    // TODO: Implement comment replies
-    console.log('Reply to comment:', commentId);
+    replyingTo = commentId;
+    replyContent = '';
+    showReplyPreview = false;
   };
 
-  const handleCommentEdit = (commentId: string) => {
-    // TODO: Implement comment editing
-    console.log('Edit comment:', commentId);
+  const submitReply = async () => {
+    if (!currentUserId || !replyContent.trim() || !replyingTo || isSubmittingReply) return;
+
+    isSubmittingReply = true;
+    commentError = '';
+
+    try {
+      const response = await fetch(`${base}/api/posts/${post.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: replyContent.trim(),
+          parentCommentId: replyingTo
+        })
+      });
+
+      if (response.ok) {
+        replyingTo = null;
+        replyContent = '';
+        showReplyPreview = false;
+        // Refresh comments by reloading the page
+        window.location.reload();
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        commentError = errorData.error || m.failed_to_post_comment();
+      }
+    } catch {
+      commentError = m.network_error_try_again();
+    } finally {
+      isSubmittingReply = false;
+    }
   };
 
-  const handleCommentDelete = (commentId: string) => {
-    // TODO: Implement comment deletion
-    console.log('Delete comment:', commentId);
+  const handleCommentEdit = async (commentId: string) => {
+    if (!currentUserId) return;
+    
+    try {
+      // Find the comment to edit
+      const commentToEdit = localComments.find(c => c.id === commentId);
+      if (!commentToEdit) return;
+
+      const newContent = prompt('Edit comment:', commentToEdit.content);
+      if (!newContent || newContent.trim() === commentToEdit.content) return;
+
+      const response = await fetch(`${base}/api/comments/${commentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: newContent.trim() })
+      });
+
+      if (response.ok) {
+        // Refresh comments by reloading the page
+        window.location.reload();
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        alert(errorData.error || 'Failed to edit comment');
+      }
+    } catch (error) {
+      console.error('Error editing comment:', error);
+      alert('Network error. Please try again.');
+    }
+  };
+
+  const handleCommentDelete = async (commentId: string) => {
+    if (!currentUserId) return;
+    
+    if (!confirm(m.confirm_delete_comment())) return;
+
+    try {
+      const response = await fetch(`${base}/api/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Remove comment from local state
+        localComments = localComments.filter(c => c.id !== commentId && c.parentCommentId !== commentId);
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        alert(errorData.error || 'Failed to delete comment');
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      alert('Network error. Please try again.');
+    }
   };
 
   onMount(async () => {
     content = await renderMarkdown(post.content);
+  });
+
+  onDestroy(() => {
+    componentMounted = false;
+  });
+
+  // Handle navigation away to prevent stale component display
+  $effect(() => {
+    if ($navigating) {
+      componentMounted = false;
+    }
   });
 </script>
 
@@ -146,6 +272,7 @@
   <meta name="description" content={post.content.substring(0, 200)} />
 </svelte:head>
 
+{#if componentMounted}
 <div class="mx-auto max-w-4xl px-4 pt-20">
   <!-- Back link -->
   <div class="mb-6">
@@ -330,16 +457,110 @@
     <!-- Comments list -->
     {#if localComments.length > 0}
       <div class="space-y-1">
-        {#each localComments as comment (comment.id)}
-          <Comment
-            {comment}
-            {currentUserId}
-            canManage={false}
-            onVote={handleCommentVote}
-            onReply={handleCommentReply}
-            onEdit={handleCommentEdit}
-            onDelete={handleCommentDelete}
-          />
+        {#each localComments.filter(c => !c.parentCommentId) as comment (comment.id)}
+          <div>
+            <Comment
+              {comment}
+              {currentUserId}
+              canManage={false}
+              onVote={handleCommentVote}
+              onReply={handleCommentReply}
+              onEdit={handleCommentEdit}
+              onDelete={handleCommentDelete}
+              depth={0}
+            />
+            
+            <!-- Nested replies -->
+            {#each localComments.filter(c => c.parentCommentId === comment.id) as reply (reply.id)}
+              <Comment
+                comment={reply}
+                {currentUserId}
+                canManage={false}
+                onVote={handleCommentVote}
+                onReply={handleCommentReply}
+                onEdit={handleCommentEdit}
+                onDelete={handleCommentDelete}
+                depth={1}
+              />
+            {/each}
+            
+            <!-- Reply form -->
+            {#if replyingTo === comment.id}
+              <div class="bg-base-200 ml-8 mt-2 rounded-lg p-4">
+                {#if commentError}
+                  <div class="alert alert-error mb-4">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    <span>{commentError}</span>
+                  </div>
+                {/if}
+
+                <!-- Reply tabs -->
+                <div class="tabs tabs-boxed mb-3">
+                  <button
+                    class="tab {!showReplyPreview ? 'tab-active' : ''}"
+                    onclick={() => (showReplyPreview = false)}
+                  >
+                    <i class="fa-solid fa-edit mr-2"></i>
+                    {m.write()}
+                  </button>
+                  <button
+                    class="tab {showReplyPreview ? 'tab-active' : ''}"
+                    onclick={() => (showReplyPreview = true)}
+                    disabled={!replyContent.trim()}
+                  >
+                    <i class="fa-solid fa-eye mr-2"></i>
+                    {m.preview()}
+                  </button>
+                </div>
+
+                <!-- Reply input area -->
+                {#if showReplyPreview}
+                  <div class="bg-base-300 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4">
+                    {#if replyContent.trim()}
+                      {@html renderMarkdown(replyContent)}
+                    {:else}
+                      <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
+                    {/if}
+                  </div>
+                {:else}
+                  <textarea
+                    placeholder={m.reply_to_comment()}
+                    class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
+                    bind:value={replyContent}
+                    disabled={isSubmittingReply}
+                  ></textarea>
+                {/if}
+
+                <div class="flex items-center justify-between">
+                  <div class="text-base-content/60 text-xs">
+                    <i class="fa-brands fa-markdown mr-1"></i>
+                    {m.markdown_supported()}
+                  </div>
+                  <div class="flex gap-2">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      onclick={() => { replyingTo = null; replyContent = ''; }}
+                      disabled={isSubmittingReply}
+                    >
+                      {m.cancel()}
+                    </button>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick={submitReply}
+                      disabled={isSubmittingReply || !replyContent.trim()}
+                    >
+                      {#if isSubmittingReply}
+                        <span class="loading loading-spinner loading-sm"></span>
+                      {:else}
+                        <i class="fa-solid fa-paper-plane"></i>
+                      {/if}
+                      {m.reply()}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
         {/each}
       </div>
     {:else}
@@ -355,3 +576,4 @@
     {/if}
   </section>
 </div>
+{/if}

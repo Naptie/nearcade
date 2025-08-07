@@ -50,10 +50,10 @@
         hasMore = result.hasMore;
         currentPage = nextPage;
       } else {
-        error = 'Failed to load more posts';
+        error = m.failed_to_load_more_posts();
       }
     } catch {
-      error = 'Network error while loading posts';
+      error = m.network_error_loading_posts();
     } finally {
       isLoading = false;
     }

@@ -1027,5 +1027,9 @@
   "welcome": "Welcome",
   "write": "Write",
   "years_short": "y",
-  "yes": "Yes"
+  "yes": "Yes",
+  "failed_to_load_more_posts": "Failed to load more posts",
+  "network_error_loading_posts": "Network error while loading posts",
+  "network_error_try_again": "Network error. Please try again.",
+  "failed_to_post_comment": "Failed to post comment"
 }
