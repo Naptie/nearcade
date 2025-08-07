@@ -4,6 +4,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { enhance } from '$app/forms';
+  import { renderMarkdown } from '$lib/markdown';
   
   interface Props {
     comment: CommentWithAuthor;
@@ -177,7 +178,7 @@
         </form>
       {:else}
         <div class="prose prose-sm max-w-none">
-          {@html comment.content}
+          {@html renderMarkdown(comment.content)}
         </div>
       {/if}
 

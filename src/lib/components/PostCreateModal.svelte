@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { base } from '$app/paths';
+  import { renderMarkdown } from '$lib/markdown';
   
   interface Props {
     isOpen: boolean;
@@ -170,7 +171,7 @@
           {#if showPreview}
             <div class="h-full overflow-y-auto p-4 bg-base-200 rounded-lg prose prose-sm max-w-none">
               {#if content.trim()}
-                {@html content}
+                {@html renderMarkdown(content)}
               {:else}
                 <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
               {/if}

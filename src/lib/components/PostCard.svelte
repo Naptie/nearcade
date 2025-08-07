@@ -4,6 +4,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
+  import { stripMarkdown } from '$lib/markdown';
   
   interface Props {
     post: PostWithAuthor;
@@ -26,8 +27,9 @@
   // Truncate content for preview (limit to ~200 characters)
   const truncatedContent = $derived(() => {
     const maxLength = 200;
-    if (post.content.length <= maxLength) return post.content;
-    return post.content.substring(0, maxLength) + '...';
+    const plainText = stripMarkdown(post.content);
+    if (plainText.length <= maxLength) return plainText;
+    return plainText.substring(0, maxLength) + '...';
   });
 
   const postDetailUrl = $derived(() => {
@@ -87,7 +89,7 @@
       {post.title}
     </h3>
     <div class="text-base-content/80 text-sm line-clamp-3 prose prose-sm max-w-none mb-3">
-      {@html truncatedContent}
+      {truncatedContent}
     </div>
   </a>
 

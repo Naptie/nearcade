@@ -469,6 +469,8 @@
   "nothing_to_preview": "Nothing to preview yet",
   "loading": "Loading",
   "no_posts_created_yet": "No posts have been created yet",
+  "login_to_vote_and_comment": "Login to vote and comment",
+  "login_to_comment": "Login to comment",
   "dismiss_in": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

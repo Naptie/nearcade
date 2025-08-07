@@ -415,6 +415,8 @@
   "nothing_to_preview": "暂无内容预览",
   "loading": "加载中",
   "no_posts_created_yet": "还没有帖子",
+  "login_to_vote_and_comment": "登录后可以投票和评论",
+  "login_to_comment": "登录后可以评论",
   "dismiss_in": "{count} 天内不再显示",
   "display_name": "显示名称",
   "display_name_too_long": "显示名称不能超过50个字符",
