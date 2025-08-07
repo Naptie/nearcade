@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid post ID' }, { status: 400 });
     }
 
-    const { voteType } = await request.json();
+    const { voteType } = (await request.json()) as { voteType: 'upvote' | 'downvote' };
     if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
       return json({ error: 'Invalid vote type' }, { status: 400 });
     }
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (existingVote.voteType === voteType) {
         // Same vote - remove it (toggle off)
         await votesCollection.deleteOne({ _id: existingVote._id });
-        
+
         if (voteType === 'upvote') {
           upvoteDelta = -1;
         } else {
@@ -55,14 +55,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         // Different vote - change it
         await votesCollection.updateOne(
           { _id: existingVote._id },
-          { 
-            $set: { 
+          {
+            $set: {
               voteType: voteType,
               updatedAt: new Date()
-            } 
+            }
           }
         );
-        
+
         if (voteType === 'upvote') {
           upvoteDelta = 1;
           downvoteDelta = -1;
@@ -80,9 +80,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         voteType: voteType,
         createdAt: new Date()
       };
-      
+
       await votesCollection.insertOne(newVote);
-      
+
       if (voteType === 'upvote') {
         upvoteDelta = 1;
       } else {
@@ -93,8 +93,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Update post vote counts
     await postsCollection.updateOne(
       { id: postId },
-      { 
-        $inc: { 
+      {
+        $inc: {
           upvotes: upvoteDelta,
           downvotes: downvoteDelta
         },

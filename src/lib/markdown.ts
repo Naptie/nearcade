@@ -4,12 +4,12 @@ import DOMPurify from 'dompurify';
 // Configure marked for safe HTML output
 marked.setOptions({
   breaks: true,
-  gfm: true,
+  gfm: true
 });
 
 // Custom renderer to handle links safely
 const renderer = new marked.Renderer();
-renderer.link = (href, title, text) => {
+renderer.link = ({ href, title, text }) => {
   // Make external links open in new tab and add security attributes
   const isExternal = href && (href.startsWith('http://') || href.startsWith('https://'));
   const target = isExternal ? ' target="_blank"' : '';
@@ -23,15 +23,29 @@ marked.use({ renderer });
 /**
  * Convert markdown text to sanitized HTML
  */
-export function renderMarkdown(markdown: string): string {
+export async function renderMarkdown(markdown: string): Promise<string> {
   if (!markdown) return '';
-  
-  const html = marked(markdown);
+
+  const html = await marked(markdown);
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'ul', 'ol', 'li',
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      's',
+      'code',
+      'pre',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
       'blockquote',
       'a',
       'img'
@@ -44,8 +58,8 @@ export function renderMarkdown(markdown: string): string {
 /**
  * Strip HTML tags and return plain text
  */
-export function stripMarkdown(markdown: string): string {
-  const html = renderMarkdown(markdown);
+export async function stripMarkdown(markdown: string): Promise<string> {
+  const html = await renderMarkdown(markdown);
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return doc.body.textContent || '';
 }

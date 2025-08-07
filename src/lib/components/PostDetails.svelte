@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import type { PostWithAuthor, CommentWithAuthor } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
@@ -6,7 +7,8 @@
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
   import { renderMarkdown } from '$lib/markdown';
-  
+  import { onMount } from 'svelte';
+
   interface Props {
     post: PostWithAuthor;
     comments: CommentWithAuthor[];
@@ -18,8 +20,8 @@
     organizationId: string;
   }
 
-  let { 
-    post, 
+  let {
+    post,
     comments,
     userVote,
     currentUserId,
@@ -29,6 +31,7 @@
     organizationId
   }: Props = $props();
 
+  let content = $state('');
   let localUserVote = $state(userVote);
   let localUpvotes = $state(post.upvotes);
   let localDownvotes = $state(post.downvotes);
@@ -40,10 +43,11 @@
   let commentError = $state('');
 
   const netVotes = $derived(localUpvotes - localDownvotes);
-  const backUrl = $derived(() => {
-    const orgPath = organizationType === 'university' 
-      ? `/universities/${organizationSlug || organizationId}#posts`
-      : `/clubs/${organizationSlug || organizationId}#posts`;
+  const backUrl = $derived.by(() => {
+    const orgPath =
+      organizationType === 'university'
+        ? `/universities/${organizationSlug || organizationId}#posts`
+        : `/clubs/${organizationSlug || organizationId}#posts`;
     return `${base}${orgPath}`;
   });
 
@@ -61,7 +65,11 @@
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const result = (await response.json()) as {
+          upvotes: number;
+          downvotes: number;
+          userVote: 'upvote' | 'downvote' | null;
+        };
         localUpvotes = result.upvotes;
         localDownvotes = result.downvotes;
         localUserVote = result.userVote;
@@ -87,8 +95,8 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          content: newCommentContent.trim() 
+        body: JSON.stringify({
+          content: newCommentContent.trim()
         })
       });
 
@@ -98,10 +106,10 @@
         // Refresh comments by reloading the page
         window.location.reload();
       } else {
-        const errorData = await response.json();
+        const errorData = (await response.json()) as { error: string };
         commentError = errorData.error || 'Failed to post comment';
       }
-    } catch (error) {
+    } catch {
       commentError = 'Network error. Please try again.';
     } finally {
       isSubmittingComment = false;
@@ -127,6 +135,10 @@
     // TODO: Implement comment deletion
     console.log('Delete comment:', commentId);
   };
+
+  onMount(async () => {
+    content = await renderMarkdown(post.content);
+  });
 </script>
 
 <svelte:head>
@@ -134,10 +146,10 @@
   <meta name="description" content={post.content.substring(0, 200)} />
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-4 py-8">
+<div class="mx-auto max-w-4xl px-4 pt-20">
   <!-- Back link -->
   <div class="mb-6">
-    <a href={backUrl} class="link link-primary text-sm flex items-center gap-2">
+    <a href={backUrl} class="hover:text-primary flex items-center gap-2 text-sm transition-colors">
       <i class="fa-solid fa-arrow-left"></i>
       {m.back_to_posts()}
     </a>
@@ -147,17 +159,17 @@
   <article class="bg-base-100 rounded-lg p-6 shadow-md">
     <!-- Post header -->
     <header class="mb-6">
-      <div class="flex items-start justify-between gap-4 mb-4">
+      <div class="mb-4 flex items-start justify-between gap-4">
         <div class="flex items-center gap-3">
           <UserAvatar user={post.author} size="md" showName={false} />
           <div>
             <div class="font-medium">
               {post.author.displayName || post.author.name || m.anonymous_user()}
             </div>
-            <div class="text-sm text-base-content/60">
+            <div class="text-base-content/60 text-sm">
               {formatDistanceToNow(post.createdAt, { addSuffix: true })}
-              {#if post.updatedAt && post.updatedAt.getTime() !== post.createdAt.getTime()}
-                <span class="ml-2">({m.edited()})</span>
+              {#if post.updatedAt && post.updatedAt !== post.createdAt}
+                <span class="ml-1">({m.edited()})</span>
               {/if}
             </div>
           </div>
@@ -180,12 +192,12 @@
         </div>
       </div>
 
-      <h1 class="text-2xl font-bold mb-4">{post.title}</h1>
+      <h1 class="mb-4 text-3xl font-bold">{post.title}</h1>
     </header>
 
     <!-- Post content -->
-    <div class="prose prose-lg max-w-none mb-6">
-      {@html renderMarkdown(post.content)}
+    <div class="prose mb-6 max-w-none">
+      {@html content}
     </div>
 
     <!-- Voting section -->
@@ -193,7 +205,7 @@
       <div class="flex items-center gap-4">
         <!-- Vote buttons -->
         <div class="flex items-center gap-2">
-          <button 
+          <button
             class="btn btn-ghost btn-sm {localUserVote === 'upvote' ? 'btn-success' : ''}"
             onclick={() => handleVote('upvote')}
             disabled={!currentUserId || isVoting}
@@ -202,12 +214,18 @@
             <i class="fa-solid fa-chevron-up"></i>
             <span>{localUpvotes}</span>
           </button>
-          
-          <span class="font-bold text-lg {netVotes > 0 ? 'text-success' : netVotes < 0 ? 'text-error' : 'text-base-content/60'}">
+
+          <span
+            class="text-lg font-bold {netVotes > 0
+              ? 'text-success'
+              : netVotes < 0
+                ? 'text-error'
+                : 'text-base-content/60'}"
+          >
             {netVotes > 0 ? '+' : ''}{netVotes}
           </span>
-          
-          <button 
+
+          <button
             class="btn btn-ghost btn-sm {localUserVote === 'downvote' ? 'btn-error' : ''}"
             onclick={() => handleVote('downvote')}
             disabled={!currentUserId || isVoting}
@@ -219,7 +237,7 @@
         </div>
 
         <!-- Comment count -->
-        <div class="flex items-center gap-1 text-base-content/60">
+        <div class="text-base-content/60 flex items-center gap-1">
           <i class="fa-solid fa-comments"></i>
           <span>{localComments.length}</span>
           <span>{m.comments().toLowerCase()}</span>
@@ -227,7 +245,7 @@
       </div>
 
       {#if !currentUserId}
-        <div class="text-sm text-base-content/60">
+        <div class="text-base-content/60 text-sm">
           {m.login_to_vote_and_comment()}
         </div>
       {/if}
@@ -236,14 +254,14 @@
 
   <!-- Comments section -->
   <section class="mt-8">
-    <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+    <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold">
       <i class="fa-solid fa-comments"></i>
       {m.comments()} ({localComments.length})
     </h2>
 
     <!-- Add comment form -->
     {#if currentUserId}
-      <div class="bg-base-100 rounded-lg p-4 mb-6">
+      <div class="bg-base-100 mb-6 rounded-lg p-4">
         {#if commentError}
           <div class="alert alert-error mb-4">
             <i class="fa-solid fa-exclamation-triangle"></i>
@@ -253,16 +271,16 @@
 
         <!-- Comment tabs -->
         <div class="tabs tabs-boxed mb-3">
-          <button 
+          <button
             class="tab {!showCommentPreview ? 'tab-active' : ''}"
-            onclick={() => showCommentPreview = false}
+            onclick={() => (showCommentPreview = false)}
           >
             <i class="fa-solid fa-edit mr-2"></i>
             {m.write()}
           </button>
-          <button 
+          <button
             class="tab {showCommentPreview ? 'tab-active' : ''}"
-            onclick={() => showCommentPreview = true}
+            onclick={() => (showCommentPreview = true)}
             disabled={!newCommentContent.trim()}
           >
             <i class="fa-solid fa-eye mr-2"></i>
@@ -272,7 +290,7 @@
 
         <!-- Comment input area -->
         {#if showCommentPreview}
-          <div class="min-h-[100px] p-4 bg-base-200 rounded-lg prose prose-sm max-w-none mb-3">
+          <div class="bg-base-200 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4">
             {#if newCommentContent.trim()}
               {@html renderMarkdown(newCommentContent)}
             {:else}
@@ -282,18 +300,18 @@
         {:else}
           <textarea
             placeholder={m.comment_placeholder()}
-            class="textarea textarea-bordered w-full min-h-[100px] mb-3"
+            class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
             bind:value={newCommentContent}
             disabled={isSubmittingComment}
           ></textarea>
         {/if}
 
-        <div class="flex justify-between items-center">
-          <div class="text-xs text-base-content/60">
+        <div class="flex items-center justify-between">
+          <div class="text-base-content/60 text-xs">
             <i class="fa-brands fa-markdown mr-1"></i>
             {m.markdown_supported()}
           </div>
-          <button 
+          <button
             class="btn btn-primary btn-sm"
             onclick={handleCommentSubmit}
             disabled={isSubmittingComment || !newCommentContent.trim()}
@@ -313,7 +331,7 @@
     {#if localComments.length > 0}
       <div class="space-y-1">
         {#each localComments as comment (comment.id)}
-          <Comment 
+          <Comment
             {comment}
             {currentUserId}
             canManage={false}
@@ -327,7 +345,7 @@
     {:else}
       <div class="bg-base-100 rounded-lg p-8 text-center">
         <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
-        <h3 class="text-lg font-medium mb-2">{m.no_comments_yet()}</h3>
+        <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
         {#if currentUserId}
           <p class="text-base-content/60">{m.be_first_to_comment()}</p>
         {:else}

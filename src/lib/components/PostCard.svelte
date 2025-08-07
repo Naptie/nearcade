@@ -5,7 +5,9 @@
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
   import { stripMarkdown } from '$lib/markdown';
-  
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+
   interface Props {
     post: PostWithAuthor;
     showOrganization?: boolean;
@@ -14,35 +16,41 @@
     organizationSlug?: string;
   }
 
-  let { 
-    post, 
+  let {
+    post,
     showOrganization = false,
     organizationType = 'university',
     organizationName = '',
     organizationSlug = ''
   }: Props = $props();
 
-  const netVotes = $derived(post.upvotes - post.downvotes);
-  
-  // Truncate content for preview (limit to ~200 characters)
-  const truncatedContent = $derived(() => {
-    const maxLength = 200;
-    const plainText = stripMarkdown(post.content);
-    if (plainText.length <= maxLength) return plainText;
-    return plainText.substring(0, maxLength) + '...';
-  });
+  let truncatedContent = $state('');
 
-  const postDetailUrl = $derived(() => {
-    const orgPath = post.universityId 
+  let netVotes = $derived(post.upvotes - post.downvotes);
+  let postDetailUrl = $derived.by(() => {
+    const orgPath = post.universityId
       ? `/universities/${organizationSlug || post.universityId}`
       : `/clubs/${organizationSlug || post.clubId}`;
     return `${base}${orgPath}/posts/${post.id}`;
   });
+
+  onMount(() => {
+    const maxLength = 500;
+    stripMarkdown(post.content).then((text) => {
+      if (text.length <= maxLength) return text;
+      truncatedContent = text.substring(0, maxLength) + '...';
+    });
+  });
 </script>
 
-<div class="bg-base-100 rounded-lg p-4 hover:shadow-md transition-shadow border border-base-300">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div
+  class="bg-base-100 border-base-300/0 hover:border-primary cursor-pointer rounded-lg border-2 p-4 transition hover:shadow-lg"
+  onclick={() => goto(postDetailUrl)}
+>
   <!-- Post Header -->
-  <div class="flex items-start justify-between gap-3 mb-3">
+  <div class="mb-3 flex items-start justify-between gap-3">
     <div class="flex items-center gap-3">
       <UserAvatar user={post.author} size="sm" showName={false} />
       <div class="flex flex-col">
@@ -52,15 +60,17 @@
           </span>
           {#if showOrganization && organizationName}
             <span class="text-base-content/60">in</span>
-            <a 
-              href="{base}/{organizationType === 'university' ? 'universities' : 'clubs'}/{organizationSlug}"
+            <a
+              href="{base}/{organizationType === 'university'
+                ? 'universities'
+                : 'clubs'}/{organizationSlug}"
               class="link link-primary text-sm"
             >
               {organizationName}
             </a>
           {/if}
         </div>
-        <div class="text-xs text-base-content/60">
+        <div class="text-base-content/60 text-xs">
           {formatDistanceToNow(post.createdAt, { addSuffix: true })}
         </div>
       </div>
@@ -84,37 +94,40 @@
   </div>
 
   <!-- Post Content -->
-  <a href={postDetailUrl} class="block group">
-    <h3 class="text-lg font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
+  <div>
+    <h3 class="mb-2 line-clamp-2 text-lg font-semibold">
       {post.title}
     </h3>
-    <div class="text-base-content/80 text-sm line-clamp-3 prose prose-sm max-w-none mb-3">
+    <div class="mb-3 line-clamp-3 max-w-none text-sm opacity-70">
       {truncatedContent}
     </div>
-  </a>
+  </div>
 
   <!-- Post Footer -->
   <div class="flex items-center justify-between text-sm">
     <!-- Vote count and comments -->
     <div class="flex items-center gap-4">
-      <div class="flex items-center gap-1">
-        <i class="fa-solid fa-chevron-up text-success"></i>
-        <span class="font-medium {netVotes > 0 ? 'text-success' : netVotes < 0 ? 'text-error' : 'text-base-content/60'}">
+      <div
+        class="flex items-center gap-1 {netVotes > 0
+          ? 'text-success'
+          : netVotes < 0
+            ? 'text-error'
+            : 'text-base-content/60'}"
+      >
+        <div class="relative flex flex-col gap-1">
+          <i class="fa-solid fa-chevron-up fa-sm opacity-0"></i>
+          <i class="fa-solid fa-chevron-up fa-sm absolute bottom-1.25"></i>
+          <i class="fa-solid fa-chevron-down fa-sm absolute top-1.25"></i>
+        </div>
+        <span class="font-medium">
           {netVotes > 0 ? '+' : ''}{netVotes}
         </span>
-        <i class="fa-solid fa-chevron-down text-error"></i>
       </div>
-      
-      <div class="flex items-center gap-1 text-base-content/60">
+
+      <div class="text-base-content/60 flex items-center gap-1">
         <i class="fa-solid fa-comments"></i>
         <span>{post.commentCount}</span>
-        <span>{m.comments().toLowerCase()}</span>
       </div>
     </div>
-
-    <!-- Read more link -->
-    <a href={postDetailUrl} class="link link-primary text-sm">
-      {m.read_more()} →
-    </a>
   </div>
 </div>

@@ -858,7 +858,7 @@
             organizationId={data.university.id}
             organizationName={data.university.name}
             organizationSlug={data.university.slug}
-            currentUserId={data.user?._id}
+            currentUserId={data.user?.id}
             canCreatePost={!!data.user}
             initialPosts={[]}
           />

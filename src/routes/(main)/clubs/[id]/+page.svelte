@@ -847,7 +847,7 @@
             organizationId={data.club.id}
             organizationName={data.club.name}
             organizationSlug={data.club.slug}
-            currentUserId={data.user?._id}
+            currentUserId={data.user?.id}
             canCreatePost={!!data.user}
             initialPosts={[]}
           />

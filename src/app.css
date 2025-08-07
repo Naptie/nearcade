@@ -1,6 +1,7 @@
 @import '@fontsource-variable/sora';
 @import '@fontsource-variable/noto-sans-sc';
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
 
 @plugin 'daisyui' {
   themes:

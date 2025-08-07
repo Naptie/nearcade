@@ -1,11 +1,13 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import type { CommentWithAuthor } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { enhance } from '$app/forms';
   import { renderMarkdown } from '$lib/markdown';
-  
+  import { onMount } from 'svelte';
+
   interface Props {
     comment: CommentWithAuthor;
     currentUserId?: string;
@@ -18,9 +20,9 @@
     depth?: number;
   }
 
-  let { 
-    comment, 
-    currentUserId, 
+  let {
+    comment,
+    currentUserId,
     canManage = false,
     onReply,
     onEdit,
@@ -30,6 +32,7 @@
     depth = 0
   }: Props = $props();
 
+  let content = $state('');
   let showMenu = $state(false);
   let isEditing = $state(false);
   let editContent = $state(comment.content);
@@ -37,7 +40,7 @@
   const netVotes = $derived(comment.upvotes - comment.downvotes);
   const isOwnComment = $derived(currentUserId === comment.createdBy);
   const canEditOrDelete = $derived(isOwnComment || canManage);
-  
+
   // Limit nesting depth to avoid infinite nesting
   const maxDepth = 3;
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
@@ -72,10 +75,14 @@
     }
     showMenu = false;
   };
+
+  onMount(async () => {
+    content = await renderMarkdown(comment.content);
+  });
 </script>
 
 <div class="comment {shouldIndent ? 'ml-8' : ''} {depth > maxDepth ? 'opacity-60' : ''}">
-  <div class="flex gap-3 p-3 hover:bg-base-300/50 rounded-lg transition-colors">
+  <div class="hover:bg-base-300/50 flex gap-3 rounded-lg p-3 transition-colors">
     <!-- Avatar -->
     <div class="shrink-0">
       <UserAvatar user={comment.author} size="sm" showName={false} />
@@ -91,7 +98,7 @@
           <span class="text-base-content/60">
             {formatDistanceToNow(comment.createdAt, { addSuffix: true })}
           </span>
-          {#if comment.updatedAt && comment.updatedAt.getTime() !== comment.createdAt.getTime()}
+          {#if comment.updatedAt && comment.updatedAt !== comment.createdAt}
             <span class="text-base-content/40 text-xs">
               ({m.edited()})
             </span>
@@ -104,7 +111,6 @@
             <button
               type="button"
               tabindex="0"
-              role="button"
               class="btn btn-ghost btn-circle btn-xs"
               onclick={() => (showMenu = !showMenu)}
               onkeydown={(e) => {
@@ -113,6 +119,7 @@
                   showMenu = !showMenu;
                 }
               }}
+              aria-label={m.actions()}
             >
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </button>
@@ -146,8 +153,8 @@
 
       <!-- Content -->
       {#if isEditing}
-        <form 
-          method="POST" 
+        <form
+          method="POST"
           action="?/editComment"
           use:enhance={() => {
             return async ({ result }) => {
@@ -162,7 +169,7 @@
             <textarea
               name="content"
               bind:value={editContent}
-              class="textarea textarea-bordered w-full min-h-[100px]"
+              class="textarea textarea-bordered min-h-[100px] w-full"
               placeholder={m.comment_placeholder()}
               required
             ></textarea>
@@ -178,7 +185,7 @@
         </form>
       {:else}
         <div class="prose prose-sm max-w-none">
-          {@html renderMarkdown(comment.content)}
+          {@html content}
         </div>
       {/if}
 
@@ -187,7 +194,7 @@
         <div class="flex items-center gap-4 text-sm">
           <!-- Voting -->
           <div class="flex items-center gap-2">
-            <button 
+            <button
               class="btn btn-ghost btn-xs flex items-center gap-1"
               onclick={() => handleVote('upvote')}
               disabled={!currentUserId}
@@ -195,12 +202,18 @@
               <i class="fa-solid fa-chevron-up"></i>
               <span>{comment.upvotes}</span>
             </button>
-            
-            <span class="text-base-content/60 font-medium {netVotes > 0 ? 'text-success' : netVotes < 0 ? 'text-error' : ''}">
+
+            <span
+              class="text-base-content/60 font-medium {netVotes > 0
+                ? 'text-success'
+                : netVotes < 0
+                  ? 'text-error'
+                  : ''}"
+            >
               {netVotes > 0 ? '+' : ''}{netVotes}
             </span>
-            
-            <button 
+
+            <button
               class="btn btn-ghost btn-xs flex items-center gap-1"
               onclick={() => handleVote('downvote')}
               disabled={!currentUserId}
@@ -212,10 +225,7 @@
 
           <!-- Reply button -->
           {#if currentUserId && onReply}
-            <button 
-              class="btn btn-ghost btn-xs"
-              onclick={handleReply}
-            >
+            <button class="btn btn-ghost btn-xs" onclick={handleReply}>
               <i class="fa-solid fa-reply"></i>
               {m.reply()}
             </button>

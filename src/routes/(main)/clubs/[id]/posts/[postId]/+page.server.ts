@@ -2,29 +2,30 @@ import type { PageServerLoad } from './$types';
 import client from '$lib/db.server';
 import type { Club, Post, PostWithAuthor, CommentWithAuthor, PostVote } from '$lib/types';
 import { error } from '@sveltejs/kit';
+import { toPlainArray, toPlainObject } from '$lib/utils';
 
 export const load = (async ({ params, locals }) => {
   const { id: clubId, postId } = params;
-  
+
   const db = client.db();
   const clubsCollection = db.collection<Club>('clubs');
   const postsCollection = db.collection<Post>('posts');
   const commentsCollection = db.collection('comments');
-  
+
   // Get club
   const club = await clubsCollection.findOne({
     $or: [{ id: clubId }, { slug: clubId }]
   });
-  
+
   if (!club) {
     throw error(404, 'Club not found');
   }
-  
+
   // Get post with author
   const postResult = await postsCollection
     .aggregate<PostWithAuthor>([
       {
-        $match: { 
+        $match: {
           id: postId,
           clubId: club.id
         }
@@ -107,9 +108,9 @@ export const load = (async ({ params, locals }) => {
   }
 
   return {
-    club,
-    post,
-    comments,
+    club: toPlainObject(club),
+    post: toPlainObject(post),
+    comments: toPlainArray(comments),
     userVote,
     user: session?.user || null
   };

@@ -1,9 +1,9 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import { enhance } from '$app/forms';
   import { base } from '$app/paths';
   import { renderMarkdown } from '$lib/markdown';
-  
+
   interface Props {
     isOpen: boolean;
     organizationType: 'university' | 'club';
@@ -13,25 +13,29 @@
     onSuccess?: (postId: string) => void;
   }
 
-  let { 
-    isOpen, 
-    organizationType,
-    organizationId,
-    organizationName,
-    onClose, 
-    onSuccess 
-  }: Props = $props();
+  let { isOpen, organizationType, organizationId, organizationName, onClose, onSuccess }: Props =
+    $props();
 
   let title = $state('');
   let content = $state('');
   let isSubmitting = $state(false);
-  let showPreview = $state(false);
   let error = $state('');
+  let preview = $state('');
+
+  $effect(() => {
+    if (!content.trim()) {
+      preview = '';
+    } else {
+      renderMarkdown(content).then((html) => {
+        console.log(html);
+        preview = html;
+      });
+    }
+  });
 
   const reset = () => {
     title = '';
     content = '';
-    showPreview = false;
     error = '';
     isSubmitting = false;
   };
@@ -64,17 +68,17 @@
       });
 
       if (response.ok) {
-        const result = await response.json();
+        const result = (await response.json()) as { postId: string };
         reset();
         onClose();
         if (onSuccess) {
           onSuccess(result.postId);
         }
       } else {
-        const errorData = await response.json();
+        const errorData = (await response.json()) as { error: string };
         error = errorData.error || 'Failed to create post';
       }
-    } catch (err) {
+    } catch {
       error = 'Network error. Please try again.';
     } finally {
       isSubmitting = false;
@@ -92,26 +96,27 @@
 
 {#if isOpen}
   <div class="modal modal-open">
-    <div class="modal-box max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="modal-box flex max-h-[90vh] max-w-7xl flex-col overflow-hidden">
       <!-- Header -->
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold flex items-center gap-2">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="flex items-center gap-2 text-lg font-bold">
           <i class="fa-solid fa-plus"></i>
           {m.create_post()}
         </h3>
-        <button 
+        <button
           class="btn btn-ghost btn-circle btn-sm"
           onclick={handleClose}
           disabled={isSubmitting}
+          aria-label={m.close()}
         >
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
 
       <!-- Organization info -->
-      <div class="mb-4 p-3 bg-base-200 rounded-lg text-sm">
+      <div class="bg-base-200 mb-4 rounded-lg p-3 text-sm">
         <span class="text-base-content/60">
-          {m.posting_to()}: 
+          {m.posting_to()}:
         </span>
         <span class="font-medium">{organizationName}</span>
       </div>
@@ -125,7 +130,7 @@
       {/if}
 
       <!-- Form -->
-      <div class="flex-1 flex flex-col min-h-0">
+      <div class="flex min-h-0 flex-1 flex-col">
         <!-- Title input -->
         <div class="form-control mb-4">
           <label class="label" for="post-title">
@@ -135,60 +140,40 @@
             id="post-title"
             type="text"
             placeholder={m.post_title_placeholder()}
-            class="input input-bordered"
+            class="input input-bordered w-full"
             bind:value={title}
             disabled={isSubmitting}
             maxlength="200"
           />
-          <label class="label">
+          <label class="label" for="post-title">
             <span class="label-text-alt text-base-content/60">
               {title.length}/200
             </span>
           </label>
         </div>
 
-        <!-- Content tabs -->
-        <div class="tabs tabs-boxed mb-2">
-          <button 
-            class="tab {!showPreview ? 'tab-active' : ''}"
-            onclick={() => showPreview = false}
-          >
-            <i class="fa-solid fa-edit mr-2"></i>
-            {m.write()}
-          </button>
-          <button 
-            class="tab {showPreview ? 'tab-active' : ''}"
-            onclick={() => showPreview = true}
-            disabled={!content.trim()}
-          >
-            <i class="fa-solid fa-eye mr-2"></i>
-            {m.preview()}
-          </button>
-        </div>
-
         <!-- Content area -->
-        <div class="flex-1 min-h-0">
-          {#if showPreview}
-            <div class="h-full overflow-y-auto p-4 bg-base-200 rounded-lg prose prose-sm max-w-none">
-              {#if content.trim()}
-                {@html renderMarkdown(content)}
-              {:else}
-                <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-              {/if}
-            </div>
-          {:else}
-            <textarea
-              placeholder={m.post_content_placeholder()}
-              class="textarea textarea-bordered resize-none h-full"
-              bind:value={content}
-              disabled={isSubmitting}
-              onkeydown={handleKeyDown}
-            ></textarea>
-          {/if}
+        <div class="flex min-h-32 flex-col sm:flex-row">
+          <textarea
+            placeholder={m.post_content_placeholder()}
+            class="textarea textarea-bordered h-auto w-auto flex-1 resize-none rounded-2xl not-sm:rounded-b-none sm:rounded-r-none"
+            bind:value={content}
+            disabled={isSubmitting}
+            onkeydown={handleKeyDown}
+          ></textarea>
+          <div
+            class="bg-base-200 prose prose-sm h-auto flex-1 overflow-y-auto rounded-2xl px-4 py-2 not-sm:rounded-t-none sm:rounded-l-none"
+          >
+            {#if preview}
+              {@html preview}
+            {:else}
+              <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
+            {/if}
+          </div>
         </div>
 
         <!-- Markdown hint -->
-        <div class="mt-2 text-xs text-base-content/60">
+        <div class="text-base-content/60 mt-2 text-xs">
           <i class="fa-brands fa-markdown mr-1"></i>
           {m.markdown_supported()}
         </div>
@@ -196,14 +181,10 @@
 
       <!-- Footer -->
       <div class="modal-action">
-        <button 
-          class="btn btn-ghost"
-          onclick={handleClose}
-          disabled={isSubmitting}
-        >
+        <button class="btn btn-ghost" onclick={handleClose} disabled={isSubmitting}>
           {m.cancel()}
         </button>
-        <button 
+        <button
           class="btn btn-primary"
           onclick={handleSubmit}
           disabled={isSubmitting || !title.trim() || !content.trim()}
@@ -215,9 +196,7 @@
           {/if}
           {m.publish_post()}
         </button>
-        <div class="text-xs text-base-content/60 ml-2">
-          Ctrl+Enter
-        </div>
+        <div class="text-base-content/60 ml-2 text-xs">Ctrl+Enter</div>
       </div>
     </div>
   </div>

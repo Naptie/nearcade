@@ -3,7 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { Shop } from '$lib/types';
   import { toPath } from '$lib/utils';
-    import { onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();

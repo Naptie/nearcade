@@ -22,7 +22,7 @@ import type { MongoClient } from 'mongodb';
 import { page } from '$app/state';
 import type { User } from '@auth/sveltekit';
 import { redirect } from '@sveltejs/kit';
-import { nanoid } from 'nanoid';
+import { customAlphabet, nanoid } from 'nanoid';
 
 /**
  * Generates a valid and unique username based on input name
@@ -687,4 +687,9 @@ export const formatDateTime = (date?: Date | string | null): string => {
     date = new Date(date);
   }
   return date.toLocaleString();
+};
+
+export const postId = () => {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  return customAlphabet(alphabet, 21)();
 };

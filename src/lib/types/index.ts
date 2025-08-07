@@ -41,7 +41,7 @@ export interface University {
   _id?: string;
   id: string;
   name: string;
-  slug?: string | null; // Customizable URL slug
+  slug?: string; // Customizable URL slug
   type: string;
   majorCategory: string | null;
   natureOfRunning: string | null;
@@ -51,10 +51,10 @@ export interface University {
   isDoubleFirstClass: boolean | null;
   campuses: Campus[];
   // Customization fields
-  backgroundColor?: string | null; // Hex color code
-  avatarUrl?: string | null; // University avatar/logo URL
-  description?: string | null; // University description
-  website?: string | null; // Official website
+  backgroundColor?: string; // Hex color code
+  avatarUrl?: string; // University avatar/logo URL
+  description?: string; // University description
+  website?: string; // Official website
   // Stats (calculated fields)
   studentsCount?: number;
   frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
@@ -158,11 +158,11 @@ export interface Club {
   id: string;
   universityId: string;
   name: string;
-  slug?: string | null; // Customizable URL slug
-  description?: string | null;
-  avatarUrl?: string | null;
-  backgroundColor?: string | null;
-  website?: string | null;
+  slug?: string; // Customizable URL slug
+  description?: string;
+  avatarUrl?: string;
+  backgroundColor?: string;
+  website?: string;
   // Settings
   acceptJoinRequests: boolean;
   discussionReadability: DiscussionReadability;

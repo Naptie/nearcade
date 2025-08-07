@@ -5,26 +5,26 @@ import { error } from '@sveltejs/kit';
 
 export const load = (async ({ params, locals }) => {
   const { id: universityId, postId } = params;
-  
+
   const db = client.db();
   const universitiesCollection = db.collection<University>('universities');
   const postsCollection = db.collection<Post>('posts');
   const commentsCollection = db.collection('comments');
-  
+
   // Get university
   const university = await universitiesCollection.findOne({
     $or: [{ id: universityId }, { slug: universityId }]
   });
-  
+
   if (!university) {
     throw error(404, 'University not found');
   }
-  
+
   // Get post with author
   const postResult = await postsCollection
     .aggregate<PostWithAuthor>([
       {
-        $match: { 
+        $match: {
           id: postId,
           universityId: university.id
         }

@@ -191,10 +191,10 @@ export const actions: Actions = {
         name: name.trim(),
         type: type.trim(),
         affiliation: affiliation.trim(),
-        description: description?.trim() || null,
-        website: website?.trim() || null,
-        avatarUrl: avatarUrl?.trim() || null,
-        slug: slug?.trim() || null,
+        description: description?.trim() || undefined,
+        website: website?.trim() || undefined,
+        avatarUrl: avatarUrl?.trim() || undefined,
+        slug: slug?.trim() || undefined,
         majorCategory: majorCategory?.trim() || null,
         natureOfRunning: natureOfRunning?.trim() || null,
         is985,
@@ -207,7 +207,7 @@ export const actions: Actions = {
       if (useCustomBackgroundColor && backgroundColor && backgroundColor.trim().length > 0) {
         updateData.backgroundColor = backgroundColor.trim();
       } else {
-        updateData.backgroundColor = null; // Reset if not using custom color
+        updateData.backgroundColor = undefined; // Reset if not using custom color
       }
 
       // Log changes to changelog

@@ -186,9 +186,9 @@ export const actions: Actions = {
       const updateData: Partial<Club> & { updatedAt: Date } = {
         name: name.trim(),
         slug: slug.trim(),
-        description: description?.trim() || null,
-        website: website?.trim() || null,
-        avatarUrl: avatarUrl?.trim() || null,
+        description: description?.trim() || undefined,
+        website: website?.trim() || undefined,
+        avatarUrl: avatarUrl?.trim() || undefined,
         acceptJoinRequests,
         discussionReadability,
         discussionWritability,
@@ -199,7 +199,7 @@ export const actions: Actions = {
       if (useCustomBackgroundColor && backgroundColor && backgroundColor.trim().length > 0) {
         updateData.backgroundColor = backgroundColor.trim();
       } else {
-        updateData.backgroundColor = null;
+        updateData.backgroundColor = undefined;
       }
 
       await clubsCollection.updateOne({ id: club.id }, { $set: updateData });

@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
 import type { Post, PostWithAuthor, PostVote, Comment, CommentWithAuthor } from '$lib/types';
-import { nanoid } from 'nanoid';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {

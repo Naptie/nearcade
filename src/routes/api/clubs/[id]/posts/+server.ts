@@ -3,9 +3,9 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
 import type { Post, PostWithAuthor, Club } from '$lib/types';
-import { nanoid } from 'nanoid';
+import { postId } from '$lib/utils';
 
-export const GET: RequestHandler = async ({ locals, params, url }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
   try {
     const clubId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -91,7 +91,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid club ID' }, { status: 400 });
     }
 
-    const { title, content } = await request.json();
+    const { title, content } = (await request.json()) as { title: string; content: string };
     if (!title || !content) {
       return json({ error: 'Title and content are required' }, { status: 400 });
     }
@@ -110,7 +110,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     // Create new post
     const newPost: Post = {
-      id: nanoid(),
+      id: postId(),
       title: title.trim(),
       content: content.trim(),
       clubId: club.id,

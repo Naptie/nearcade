@@ -5,7 +5,8 @@
   import PostCreateModal from './PostCreateModal.svelte';
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
-  
+  import { onMount } from 'svelte';
+
   interface Props {
     organizationType: 'university' | 'club';
     organizationId: string;
@@ -16,7 +17,7 @@
     initialPosts?: PostWithAuthor[];
   }
 
-  let { 
+  let {
     organizationType,
     organizationId,
     organizationName,
@@ -41,9 +42,9 @@
       const nextPage = currentPage + 1;
       const endpoint = `${base}/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=${nextPage}`;
       const response = await fetch(endpoint);
-      
+
       if (response.ok) {
-        const result = await response.json();
+        const result = (await response.json()) as { posts: PostWithAuthor[]; hasMore: boolean };
         const newPosts = result.posts || [];
         posts = [...posts, ...newPosts];
         hasMore = result.hasMore;
@@ -51,15 +52,14 @@
       } else {
         error = 'Failed to load more posts';
       }
-    } catch (err) {
+    } catch {
       error = 'Network error while loading posts';
     } finally {
       isLoading = false;
     }
   };
 
-  const handlePostCreated = (postId: string) => {
-    // Refresh posts by fetching the first page again
+  const handlePostCreated = () => {
     refreshPosts();
   };
 
@@ -67,9 +67,9 @@
     try {
       const endpoint = `${base}/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=1`;
       const response = await fetch(endpoint);
-      
+
       if (response.ok) {
-        const result = await response.json();
+        const result = (await response.json()) as { posts: PostWithAuthor[]; hasMore: boolean };
         posts = result.posts || [];
         hasMore = result.hasMore;
         currentPage = 1;
@@ -79,6 +79,10 @@
       console.error('Error refreshing posts:', err);
     }
   };
+
+  onMount(() => {
+    refreshPosts();
+  });
 </script>
 
 <div class="space-y-6">
@@ -89,10 +93,7 @@
       {m.posts()}
     </h3>
     {#if currentUserId && canCreatePost}
-      <button 
-        class="btn btn-primary btn-sm btn-soft"
-        onclick={() => showCreateModal = true}
-      >
+      <button class="btn btn-primary btn-sm btn-soft" onclick={() => (showCreateModal = true)}>
         <i class="fa-solid fa-plus"></i>
         {m.new_post()}
       </button>
@@ -112,8 +113,8 @@
     {#if posts.length > 0}
       <!-- Posts list -->
       {#each posts as post (post.id)}
-        <PostCard 
-          {post} 
+        <PostCard
+          {post}
           showOrganization={false}
           {organizationType}
           {organizationName}
@@ -123,12 +124,8 @@
 
       <!-- Load more button -->
       {#if hasMore}
-        <div class="text-center py-4">
-          <button 
-            class="btn btn-ghost btn-sm"
-            onclick={loadMorePosts}
-            disabled={isLoading}
-          >
+        <div class="py-4 text-center">
+          <button class="btn btn-ghost btn-sm" onclick={loadMorePosts} disabled={isLoading}>
             {#if isLoading}
               <span class="loading loading-spinner loading-sm"></span>
               {m.loading()}
@@ -138,7 +135,7 @@
           </button>
         </div>
       {:else if posts.length >= PAGINATION.PAGE_SIZE}
-        <div class="text-center py-4 text-base-content/60 text-sm">
+        <div class="text-base-content/60 py-4 text-center text-sm">
           {m.all_results_loaded()}
         </div>
       {/if}
@@ -146,15 +143,12 @@
       <!-- Empty state -->
       <div class="bg-base-100 rounded-lg p-8 text-center">
         <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
-        <h4 class="text-lg font-medium mb-2">{m.no_posts_yet()}</h4>
+        <h4 class="mb-2 text-lg font-medium">{m.no_posts_yet()}</h4>
         {#if currentUserId && canCreatePost}
           <p class="text-base-content/60 mb-4">
             {m.create_first_post()}
           </p>
-          <button 
-            class="btn btn-primary btn-sm btn-soft"
-            onclick={() => showCreateModal = true}
-          >
+          <button class="btn btn-primary btn-sm btn-soft" onclick={() => (showCreateModal = true)}>
             <i class="fa-solid fa-plus"></i>
             {m.create_post()}
           </button>
@@ -174,6 +168,6 @@
   {organizationType}
   {organizationId}
   {organizationName}
-  onClose={() => showCreateModal = false}
+  onClose={() => (showCreateModal = false)}
   onSuccess={handlePostCreated}
 />

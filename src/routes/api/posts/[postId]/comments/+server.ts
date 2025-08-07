@@ -16,7 +16,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid post ID' }, { status: 400 });
     }
 
-    const { content, parentCommentId } = await request.json();
+    const { content, parentCommentId } = (await request.json()) as {
+      content: string;
+      parentCommentId?: string;
+    };
     if (!content || !content.trim()) {
       return json({ error: 'Comment content is required' }, { status: 400 });
     }
@@ -56,16 +59,19 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Update post comment count
     await postsCollection.updateOne(
       { id: postId },
-      { 
+      {
         $inc: { commentCount: 1 },
         $set: { updatedAt: new Date() }
       }
     );
 
-    return json({ 
-      success: true, 
-      commentId: newComment.id 
-    }, { status: 201 });
+    return json(
+      {
+        success: true,
+        commentId: newComment.id
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating comment:', error);
     return json({ error: 'Internal server error' }, { status: 500 });
