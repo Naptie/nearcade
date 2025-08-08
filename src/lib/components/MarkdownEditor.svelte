@@ -9,7 +9,6 @@
     disabled?: boolean;
     onKeyDown?: (event: KeyboardEvent) => void;
     minHeight?: string;
-    showPreviewTab?: boolean;
   }
 
   let {
@@ -17,12 +16,10 @@
     placeholder = m.post_content_placeholder(),
     disabled = false,
     onKeyDown,
-    minHeight = 'min-h-32',
-    showPreviewTab = true
+    minHeight = 'min-h-32'
   }: Props = $props();
 
   let preview = $state('');
-  let showPreview = $state(false);
 
   $effect(() => {
     if (!value.trim()) {
@@ -35,55 +32,29 @@
   });
 </script>
 
-{#if showPreviewTab}
-  <!-- Tab Navigation -->
-  <div class="tabs tabs-lifted mb-2">
-    <button class="tab {!showPreview ? 'tab-active' : ''}" onclick={() => (showPreview = false)}>
-      <i class="fa-solid fa-edit mr-1"></i>
-      {m.write()}
-    </button>
-    <button class="tab {showPreview ? 'tab-active' : ''}" onclick={() => (showPreview = true)}>
-      <i class="fa-solid fa-eye mr-1"></i>
-      {m.preview()}
-    </button>
-  </div>
-{/if}
-
 <!-- Content area -->
-<div class="flex {minHeight} flex-col {showPreviewTab ? 'sm:flex-row' : ''}">
-  {#if !showPreviewTab || !showPreview}
-    <textarea
-      {placeholder}
-      class="textarea textarea-bordered h-auto w-auto flex-1 resize-none rounded-2xl {showPreviewTab
-        ? 'not-sm:rounded-b-none sm:rounded-r-none'
-        : ''}"
-      bind:value
-      {disabled}
-      onkeydown={onKeyDown}
-    ></textarea>
-  {/if}
+<div class="flex {minHeight} relative flex-col sm:flex-row">
+  <textarea
+    {placeholder}
+    class="textarea textarea-bordered h-auto w-auto flex-1 resize-none rounded-2xl not-sm:rounded-b-none sm:rounded-r-none"
+    bind:value
+    {disabled}
+    onkeydown={onKeyDown}
+  ></textarea>
 
-  {#if showPreviewTab && (showPreview || !showPreview)}
-    <div
-      class="bg-base-200 prose prose-sm h-auto flex-1 overflow-y-auto rounded-2xl px-4 py-2 {showPreview
-        ? ''
-        : 'not-sm:rounded-t-none sm:rounded-l-none'} {showPreview && showPreviewTab
-        ? 'block'
-        : showPreviewTab
-          ? 'hidden sm:block'
-          : 'hidden'}"
-    >
-      {#if preview}
-        {@html preview}
-      {:else}
-        <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-      {/if}
-    </div>
-  {/if}
-</div>
+  <div
+    class="bg-base-200/20 prose prose-sm border-base-content/20 h-auto flex-1 overflow-auto rounded-2xl border px-4 py-2 not-sm:rounded-t-none not-sm:border-t-0 sm:rounded-l-none sm:border-l-0"
+  >
+    {#if preview}
+      {@html preview}
+    {:else}
+      <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
+    {/if}
+  </div>
 
-<!-- Markdown hint -->
-<div class="text-base-content/60 mt-2 text-xs">
-  <i class="fa-brands fa-markdown mr-1"></i>
-  {m.markdown_supported()}
+  <!-- Markdown hint -->
+  <div class="text-base-content/60 absolute -bottom-6 text-xs">
+    <i class="fa-brands fa-markdown"></i>
+    <span class="ml-1 not-sm:hidden">{m.markdown_supported()}</span>
+  </div>
 </div>

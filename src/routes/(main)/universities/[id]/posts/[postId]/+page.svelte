@@ -14,4 +14,6 @@
   organizationName={data.university.name}
   organizationSlug={data.university.slug}
   organizationId={data.university.id}
+  canEdit={data.canEdit}
+  canManage={data.canManage}
 />

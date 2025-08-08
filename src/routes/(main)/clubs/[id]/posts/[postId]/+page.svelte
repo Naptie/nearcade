@@ -14,4 +14,6 @@
   organizationName={data.club.name}
   organizationSlug={data.club.slug}
   organizationId={data.club.id}
+  canEdit={data.canEdit}
+  canManage={data.canManage}
 />

@@ -2,10 +2,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import type {
-  Post,
-  PostWithAuthor,
-  University,
+import {
+  type Post,
+  type PostWithAuthor,
+  type University,
   PostReadability,
   PostWritability
 } from '$lib/types';

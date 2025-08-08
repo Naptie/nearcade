@@ -79,15 +79,15 @@
     <!-- Post badges -->
     <div class="flex gap-1">
       {#if post.isPinned}
-        <div class="badge badge-success badge-sm">
-          <i class="fa-solid fa-thumbtack mr-1"></i>
-          {m.pinned_post()}
+        <div class="badge badge-soft badge-info badge-sm text-nowrap">
+          <i class="fa-solid fa-thumbtack"></i>
+          <span class="not-sm:hidden">{m.pinned()}</span>
         </div>
       {/if}
       {#if post.isLocked}
-        <div class="badge badge-warning badge-sm">
-          <i class="fa-solid fa-lock mr-1"></i>
-          {m.locked_post()}
+        <div class="badge badge-soft badge-warning badge-sm text-nowrap">
+          <i class="fa-solid fa-lock"></i>
+          <span class="not-sm:hidden">{m.locked()}</span>
         </div>
       {/if}
     </div>
@@ -115,9 +115,9 @@
             : 'text-base-content/60'}"
       >
         <div class="relative flex flex-col gap-1">
-          <i class="fa-solid fa-chevron-up fa-sm opacity-0"></i>
-          <i class="fa-solid fa-chevron-up fa-sm absolute bottom-1.25"></i>
-          <i class="fa-solid fa-chevron-down fa-sm absolute top-1.25"></i>
+          <i class="fa-solid fa-caret-up opacity-0"></i>
+          <i class="fa-solid fa-caret-up absolute bottom-0.75"></i>
+          <i class="fa-solid fa-caret-down absolute top-0.75"></i>
         </div>
         <span class="font-medium">
           {netVotes > 0 ? '+' : ''}{netVotes}

@@ -9,9 +9,9 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import PostsList from '$lib/components/PostsList.svelte';
   import { PAGINATION } from '$lib/constants';
-  import type { ClubMemberWithUser, Shop } from '$lib/types';
+  import { PostWritability, type ClubMemberWithUser, type Shop } from '$lib/types';
   import { onMount } from 'svelte';
-  import { formatDate } from '$lib/utils';
+  import { formatDate, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -68,6 +68,21 @@
     return data.userPermissions;
   });
 
+  let canWritePosts = $derived.by(() => {
+    const postWritability = data.club.postWritability ?? PostWritability.CLUB_MEMBERS;
+    let canWritePosts = false;
+
+    if (postWritability === PostWritability.UNIV_MEMBERS) {
+      canWritePosts = data.userPermissions.canJoin > 0;
+    } else if (postWritability === PostWritability.CLUB_MEMBERS) {
+      canWritePosts = !!data.userPermissions.role;
+    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+      canWritePosts = data.userPermissions.canEdit;
+    }
+
+    return canWritePosts;
+  });
+
   let radius = $state(10);
 
   onMount(() => {
@@ -118,7 +133,7 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        `${base}/api/clubs/${data.club.slug || data.club.id}/members?page=${nextPage}`
+        fromPath(`/api/clubs/${data.club.slug || data.club.id}/members?page=${nextPage}`)
       );
 
       if (response.ok) {
@@ -149,7 +164,7 @@
     try {
       const nextPage = currentArcadesPage + 1;
       const response = await fetch(
-        `${base}/api/clubs/${data.club.slug || data.club.id}/arcades?page=${nextPage}`
+        fromPath(`/api/clubs/${data.club.slug || data.club.id}/arcades?page=${nextPage}`)
       );
 
       if (response.ok) {
@@ -181,7 +196,7 @@
 
     isSearching = true;
     try {
-      const response = await fetch(`${base}/api/shops/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(fromPath(`/api/shops/search?q=${encodeURIComponent(query)}`));
       if (response.ok) {
         const results = (await response.json()) as { shops: Shop[] };
         searchResults = results.shops || [];
@@ -414,7 +429,7 @@
         {#if data.university}
           <a
             href="{base}/universities/{data.university.slug || data.university.id}"
-            class="link link-hover text-lg text-white/90"
+            class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
           >
             {data.university.name}
           </a>
@@ -848,7 +863,7 @@
             organizationName={data.club.name}
             organizationSlug={data.club.slug}
             currentUserId={data.user?.id}
-            canCreatePost={!!data.user}
+            canCreatePost={canWritePosts}
             initialPosts={[]}
           />
         {:else if activeTab === 'announcements'}
@@ -884,119 +899,117 @@
 />
 
 <!-- Add Arcade Modal -->
-{#if showAddArcadeModal}
-  <div class="modal modal-open">
-    <div class="modal-box max-w-4xl">
-      <div class="mb-6 flex items-center justify-between">
-        <h3 class="text-lg font-bold">
-          <i class="fa-solid fa-gamepad mr-2"></i>
-          {m.add_arcade()}
-        </h3>
+<div class="modal" class:modal-open={showAddArcadeModal}>
+  <div class="modal-box max-w-4xl">
+    <div class="mb-6 flex items-center justify-between">
+      <h3 class="text-lg font-bold">
+        <i class="fa-solid fa-gamepad mr-2"></i>
+        {m.add_arcade()}
+      </h3>
+      <button
+        class="btn btn-ghost btn-circle btn-sm"
+        onclick={() => {
+          showAddArcadeModal = false;
+          clearSearch();
+        }}
+        aria-label={m.close()}
+      >
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Search Section -->
+    <div class="mb-6">
+      <div class="mb-4 flex gap-2">
+        <div class="flex-1">
+          <input
+            type="text"
+            placeholder={m.search_arcades_placeholder()}
+            class="input input-bordered w-full"
+            bind:value={searchQuery}
+            oninput={handleSearchInput}
+          />
+        </div>
         <button
-          class="btn btn-ghost btn-circle btn-sm"
-          onclick={() => {
-            showAddArcadeModal = false;
-            clearSearch();
-          }}
-          aria-label={m.close()}
+          class="btn btn-ghost"
+          onclick={clearSearch}
+          disabled={!searchQuery}
+          aria-label={m.clear_search()}
         >
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
 
-      <!-- Search Section -->
-      <div class="mb-6">
-        <div class="mb-4 flex gap-2">
-          <div class="flex-1">
-            <input
-              type="text"
-              placeholder={m.search_arcades_placeholder()}
-              class="input input-bordered w-full"
-              bind:value={searchQuery}
-              oninput={handleSearchInput}
-            />
-          </div>
-          <button
-            class="btn btn-ghost"
-            onclick={clearSearch}
-            disabled={!searchQuery}
-            aria-label={m.clear_search()}
-          >
-            <i class="fa-solid fa-times"></i>
-          </button>
+      {#if isSearching}
+        <div class="flex items-center justify-center py-8">
+          <span class="loading loading-spinner loading-lg"></span>
         </div>
-
-        {#if isSearching}
-          <div class="flex items-center justify-center py-8">
-            <span class="loading loading-spinner loading-lg"></span>
-          </div>
-        {:else if searchResults.length > 0}
-          <div class="max-h-96 space-y-2 overflow-y-auto">
-            {#each searchResults as shop (shop.id)}
-              <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
-                <div class="flex-1">
-                  <h4 class="font-medium">{shop.name}</h4>
-                  <p class="text-base-content/60 text-sm">
-                    ID: {shop.id}
-                  </p>
-                  {#if shop.games && shop.games.length > 0}
-                    <div class="mt-1 flex flex-wrap gap-1">
-                      {#each shop.games.slice(0, 3) as game (game.id)}
-                        <span class="badge badge-xs badge-ghost">
-                          {game.name || `Game ${game.id}`}
-                        </span>
-                      {/each}
-                      {#if shop.games.length > 3}
-                        <span class="badge badge-xs badge-ghost">
-                          +{shop.games.length - 3} more
-                        </span>
-                      {/if}
-                    </div>
-                  {/if}
-                </div>
-                {#if !data.club.starredArcades.includes(shop.id.toString())}
-                  <button
-                    class="btn btn-primary btn-sm"
-                    onclick={() => {
-                      handleArcadeAction('addArcade', shop.id.toString());
-                      showAddArcadeModal = false;
-                      clearSearch();
-                    }}
-                  >
-                    <i class="fa-solid fa-plus"></i>
-                    {m.add()}
-                  </button>
-                {:else}
-                  <span class="badge badge-success">
-                    <i class="fa-solid fa-check mr-1"></i>
-                    {m.already_added()}
-                  </span>
+      {:else if searchResults.length > 0}
+        <div class="max-h-96 space-y-2 overflow-y-auto">
+          {#each searchResults as shop (shop.id)}
+            <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
+              <div class="flex-1">
+                <h4 class="font-medium">{shop.name}</h4>
+                <p class="text-base-content/60 text-sm">
+                  ID: {shop.id}
+                </p>
+                {#if shop.games && shop.games.length > 0}
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    {#each shop.games.slice(0, 3) as game (game.id)}
+                      <span class="badge badge-xs badge-ghost">
+                        {game.name || `Game ${game.id}`}
+                      </span>
+                    {/each}
+                    {#if shop.games.length > 3}
+                      <span class="badge badge-xs badge-ghost">
+                        +{shop.games.length - 3} more
+                      </span>
+                    {/if}
+                  </div>
                 {/if}
               </div>
-            {/each}
-          </div>
-        {:else if searchQuery && !isSearching}
-          <div class="text-base-content/60 py-8 text-center">
-            <i class="fa-solid fa-search mb-2 text-2xl"></i>
-            <p>{m.no_arcades_found()}</p>
-          </div>
-        {/if}
-      </div>
+              {#if !data.club.starredArcades.includes(shop.id.toString())}
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick={() => {
+                    handleArcadeAction('addArcade', shop.id.toString());
+                    showAddArcadeModal = false;
+                    clearSearch();
+                  }}
+                >
+                  <i class="fa-solid fa-plus"></i>
+                  {m.add()}
+                </button>
+              {:else}
+                <span class="badge badge-success">
+                  <i class="fa-solid fa-check mr-1"></i>
+                  {m.already_added()}
+                </span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else if searchQuery && !isSearching}
+        <div class="text-base-content/60 py-8 text-center">
+          <i class="fa-solid fa-search mb-2 text-2xl"></i>
+          <p>{m.no_arcades_found()}</p>
+        </div>
+      {/if}
+    </div>
 
-      <div class="modal-action">
-        <button
-          class="btn"
-          onclick={() => {
-            showAddArcadeModal = false;
-            clearSearch();
-          }}
-        >
-          {m.close()}
-        </button>
-      </div>
+    <div class="modal-action">
+      <button
+        class="btn"
+        onclick={() => {
+          showAddArcadeModal = false;
+          clearSearch();
+        }}
+      >
+        {m.close()}
+      </button>
     </div>
   </div>
-{/if}
+</div>
 
 <!-- Join Request Modal -->
 <JoinRequestModal

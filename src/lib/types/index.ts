@@ -58,9 +58,6 @@ export interface University {
   // Settings
   postReadability?: PostReadability; // Optional, defaults to PUBLIC
   postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
-  // Legacy aliases for backward compatibility
-  discussionReadability?: PostReadability;
-  discussionWritability?: PostWritability;
   // Stats (calculated fields)
   studentsCount?: number;
   frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
@@ -150,10 +147,6 @@ export enum PostWritability {
   ADMIN_AND_MODS = 2 // Only admins and moderators can write
 }
 
-// Legacy aliases for backward compatibility
-export const DiscussionReadability = PostReadability;
-export const DiscussionWritability = PostWritability;
-
 // User types and roles
 export type UserType =
   | 'student'
@@ -177,9 +170,6 @@ export interface Club {
   acceptJoinRequests: boolean;
   postReadability: PostReadability;
   postWritability: PostWritability;
-  // Legacy aliases for backward compatibility
-  discussionReadability?: PostReadability;
-  discussionWritability?: PostWritability;
   // Stats
   membersCount?: number;
   // Starred arcades (shop IDs)
@@ -291,38 +281,6 @@ export interface JoinRequestWithUser extends JoinRequest {
   };
 }
 
-export interface Discussion {
-  _id?: string;
-  id: string;
-  type: 'university' | 'club';
-  targetId: string; // University ID or Club ID
-  title: string;
-  content: string;
-  authorId: string;
-  authorName?: string | null;
-  authorImage?: string | null;
-  isPinned: boolean;
-  isLocked: boolean;
-  replyCount: number;
-  lastReplyAt?: Date | null;
-  lastReplyBy?: string | null;
-  createdAt: Date;
-  updatedAt?: Date;
-}
-
-export interface DiscussionReply {
-  _id?: string;
-  id: string;
-  discussionId: string;
-  content: string;
-  authorId: string;
-  authorName?: string | null;
-  authorImage?: string | null;
-  replyToId?: string | null; // ID of reply being replied to
-  createdAt: Date;
-  updatedAt?: Date;
-}
-
 export interface Announcement {
   _id?: string;
   id: string;
@@ -423,7 +381,7 @@ export interface Comment {
 }
 
 // Composite type with author data joined
-export interface CommentWithAuthor extends Comment {
+export interface CommentWithAuthorAndVote extends Comment {
   author: {
     id: string;
     name: string | null;
@@ -432,6 +390,7 @@ export interface CommentWithAuthor extends Comment {
     image: string | null;
     userType: string | null;
   };
+  vote?: CommentVote;
 }
 
 export interface CommentVote {

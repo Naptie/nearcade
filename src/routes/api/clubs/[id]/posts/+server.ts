@@ -2,7 +2,13 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import type { Post, PostWithAuthor, Club, PostReadability, PostWritability } from '$lib/types';
+import {
+  type Post,
+  type PostWithAuthor,
+  type Club,
+  PostReadability,
+  PostWritability
+} from '$lib/types';
 import { postId, checkClubPermission } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
@@ -138,14 +144,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
     let canWritePosts = false;
 
+    const permissions = await checkClubPermission(session.user, club, client);
     if (postWritability === PostWritability.UNIV_MEMBERS) {
-      const permissions = await checkClubPermission(session.user, club, client);
-      canWritePosts = permissions.canJoin <= 2; // Can join club means they're in university
+      canWritePosts = permissions.canJoin > 0;
     } else if (postWritability === PostWritability.CLUB_MEMBERS) {
-      const permissions = await checkClubPermission(session.user, club, client);
-      canWritePosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+      canWritePosts = !!permissions.role;
     } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-      const permissions = await checkClubPermission(session.user, club, client);
       canWritePosts = permissions.canEdit;
     }
 

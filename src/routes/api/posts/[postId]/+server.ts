@@ -6,7 +6,7 @@ import type {
   PostWithAuthor,
   PostVote,
   Comment,
-  CommentWithAuthor,
+  CommentWithAuthorAndVote,
   University,
   Club
 } from '$lib/types';
@@ -23,6 +23,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const db = client.db();
     const postsCollection = db.collection<Post>('posts');
     const commentsCollection = db.collection<Comment>('comments');
+    const session = await locals.auth();
 
     // Get post with author info
     const postResult = await postsCollection
@@ -63,7 +64,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
     // Get comments for this post
     const comments = await commentsCollection
-      .aggregate<CommentWithAuthor>([
+      .aggregate<CommentWithAuthorAndVote>([
         {
           $match: { postId: postId }
         },
@@ -76,9 +77,29 @@ export const GET: RequestHandler = async ({ locals, params }) => {
           }
         },
         {
+          $lookup: {
+            from: 'comment_votes',
+            localField: 'id',
+            foreignField: 'commentId',
+            as: 'commentVoteData'
+          }
+        },
+        {
           $addFields: {
             author: {
               $arrayElemAt: ['$authorData', 0]
+            },
+            vote: {
+              $arrayElemAt: [
+                {
+                  $filter: {
+                    input: '$commentVoteData',
+                    as: 'vote',
+                    cond: { $eq: ['$$vote.userId', session?.user?.id] }
+                  }
+                },
+                0
+              ]
             }
           }
         },
@@ -97,7 +118,6 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
     // Get user's vote if logged in
     let userVote = null;
-    const session = await locals.auth();
     if (session?.user?.id) {
       const votesCollection = db.collection<PostVote>('post_votes');
       const vote = await votesCollection.findOne({
@@ -131,7 +151,12 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid post ID' }, { status: 400 });
     }
 
-    const { title, content, isPinned, isLocked } = await request.json();
+    const { title, content, isPinned, isLocked } = (await request.json()) as {
+      title?: string;
+      content?: string;
+      isPinned?: boolean;
+      isLocked?: boolean;
+    };
 
     const db = client.db();
     const postsCollection = db.collection<Post>('posts');

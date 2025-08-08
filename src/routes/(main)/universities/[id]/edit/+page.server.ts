@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { University } from '$lib/types';
+import { PostReadability, PostWritability, type University } from '$lib/types';
 import { checkUniversityPermission, loginRedirect } from '$lib/utils';
 import { logUniversityChanges } from '$lib/changelog.server';
 import { base } from '$app/paths';
@@ -88,6 +88,8 @@ export const actions: Actions = {
       const is985 = formData.get('is985') === 'on';
       const is211 = formData.get('is211') === 'on';
       const isDoubleFirstClass = formData.get('isDoubleFirstClass') === 'on';
+      const postReadability = parseInt(formData.get('postReadability') as string);
+      const postWritability = parseInt(formData.get('postWritability') as string);
 
       // Check permissions using new system
       const permissions = await checkUniversityPermission(user, id, client);
@@ -139,6 +141,20 @@ export const actions: Actions = {
         }
       }
 
+      if (
+        postReadability !== PostReadability.PUBLIC &&
+        postReadability !== PostReadability.UNIV_MEMBERS
+      ) {
+        errors.push('Invalid post readability setting');
+      }
+
+      if (
+        postWritability !== PostWritability.ADMIN_AND_MODS &&
+        postWritability !== PostWritability.UNIV_MEMBERS
+      ) {
+        errors.push('Invalid post writability setting');
+      }
+
       if (errors.length > 0) {
         return fail(400, {
           message: 'Validation failed',
@@ -157,7 +173,9 @@ export const actions: Actions = {
             affiliation: affiliation?.trim() || '',
             is985,
             is211,
-            isDoubleFirstClass
+            isDoubleFirstClass,
+            postReadability,
+            postWritability
           }
         });
       }
@@ -200,6 +218,8 @@ export const actions: Actions = {
         is985,
         is211,
         isDoubleFirstClass,
+        postReadability,
+        postWritability,
         updatedAt: new Date()
       };
 

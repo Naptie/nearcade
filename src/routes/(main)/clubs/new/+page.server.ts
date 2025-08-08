@@ -62,8 +62,8 @@ export const actions: Actions = {
       const backgroundColor = formData.get('backgroundColor') as string;
       const universityId = formData.get('universityId') as string;
       const acceptJoinRequests = formData.get('acceptJoinRequests') === 'on';
-      const discussionReadability = parseInt(formData.get('discussionReadability') as string);
-      const discussionWritability = parseInt(formData.get('discussionWritability') as string);
+      const postReadability = parseInt(formData.get('postReadability') as string);
+      const postWritability = parseInt(formData.get('postWritability') as string);
 
       if (!name?.trim() || !slug?.trim() || !universityId?.trim()) {
         return fail(400, { message: 'Name, slug, and university are required' });
@@ -104,8 +104,8 @@ export const actions: Actions = {
         avatarUrl: avatarUrl?.trim() || undefined,
         backgroundColor: backgroundColor || undefined,
         acceptJoinRequests,
-        discussionReadability,
-        discussionWritability,
+        postReadability,
+        postWritability,
         starredArcades: [],
         createdAt: new Date(),
         createdBy: user.id

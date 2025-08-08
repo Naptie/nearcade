@@ -3,9 +3,9 @@
   import type { PostWithAuthor } from '$lib/types';
   import PostCard from './PostCard.svelte';
   import PostCreateModal from './PostCreateModal.svelte';
-  import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { onMount } from 'svelte';
+  import { fromPath } from '$lib/utils';
 
   interface Props {
     organizationType: 'university' | 'club';
@@ -40,7 +40,9 @@
     isLoading = true;
     try {
       const nextPage = currentPage + 1;
-      const endpoint = `${base}/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=${nextPage}`;
+      const endpoint = fromPath(
+        `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=${nextPage}`
+      );
       const response = await fetch(endpoint);
 
       if (response.ok) {
@@ -65,7 +67,9 @@
 
   const refreshPosts = async () => {
     try {
-      const endpoint = `${base}/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=1`;
+      const endpoint = fromPath(
+        `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=1`
+      );
       const response = await fetch(endpoint);
 
       if (response.ok) {

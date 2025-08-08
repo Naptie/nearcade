@@ -1,14 +1,17 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import type { CommentWithAuthor } from '$lib/types';
+  import type { CommentWithAuthorAndVote } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { renderMarkdown } from '$lib/markdown';
   import { onMount } from 'svelte';
+  import MarkdownEditor from './MarkdownEditor.svelte';
+  import { getDisplayName } from '$lib/utils';
+  import { base } from '$app/paths';
 
   interface Props {
-    comment: CommentWithAuthor;
+    comment: CommentWithAuthorAndVote;
     currentUserId?: string;
     canManage?: boolean;
     onReply?: (commentId: string) => void;
@@ -35,13 +38,14 @@
   let editContent = $state(comment.content);
   let isSavingEdit = $state(false);
 
+  // Limit nesting depth to avoid infinite nesting
+  const maxDepth = 1;
+
   const netVotes = $derived(comment.upvotes - comment.downvotes);
   const isOwnComment = $derived(currentUserId === comment.createdBy);
   const canEditOrDelete = $derived(isOwnComment || canManage);
   const canReply = $derived(depth < maxDepth); // Limit reply depth
 
-  // Limit nesting depth to avoid infinite nesting
-  const maxDepth = 3;
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
 
   const handleVote = (voteType: 'upvote' | 'downvote') => {
@@ -98,7 +102,7 @@
 </script>
 
 <div class="comment {shouldIndent ? 'ml-8' : ''} {depth > maxDepth ? 'opacity-60' : ''}">
-  <div class="hover:bg-base-300/50 flex gap-3 rounded-lg p-3 transition-colors">
+  <div class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors">
     <!-- Avatar -->
     <div class="shrink-0">
       <UserAvatar user={comment.author} size="sm" showName={false} />
@@ -108,9 +112,12 @@
       <!-- Header -->
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
-          <span class="font-medium">
-            {comment.author.displayName || comment.author.name || m.anonymous_user()}
-          </span>
+          <a
+            href="{base}/users/@{comment.author.name}"
+            class="hover:text-accent font-medium transition-colors"
+          >
+            {getDisplayName(comment.author)}
+          </a>
           <span class="text-base-content/60">
             {formatDistanceToNow(comment.createdAt, { addSuffix: true })}
           </span>
@@ -158,25 +165,13 @@
       <!-- Content -->
       {#if isEditing}
         <div class="space-y-3">
-          <textarea
+          <MarkdownEditor
             bind:value={editContent}
-            class="textarea textarea-bordered min-h-[100px] w-full"
             placeholder={m.comment_placeholder()}
-            required
             disabled={isSavingEdit}
-          ></textarea>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="btn btn-primary btn-sm"
-              onclick={saveEdit}
-              disabled={isSavingEdit || !editContent.trim()}
-            >
-              {#if isSavingEdit}
-                <span class="loading loading-spinner loading-xs"></span>
-              {/if}
-              {m.save()}
-            </button>
+            minHeight="min-h-[100px]"
+          />
+          <div class="flex justify-end gap-2">
             <button
               type="button"
               class="btn btn-ghost btn-sm"
@@ -185,10 +180,21 @@
             >
               {m.cancel()}
             </button>
+            <button
+              type="button"
+              class="btn btn-soft btn-primary btn-sm"
+              onclick={saveEdit}
+              disabled={isSavingEdit || !editContent.trim()}
+            >
+              {#if isSavingEdit}
+                <span class="loading loading-spinner loading-xs"></span>
+              {/if}
+              {m.save()}
+            </button>
           </div>
         </div>
       {:else}
-        <div class="prose prose-sm max-w-none">
+        <div class="prose not-md:prose-xs md:prose-sm max-w-none overflow-x-auto">
           {@html content}
         </div>
       {/if}
@@ -199,11 +205,14 @@
           <!-- Voting -->
           <div class="flex items-center gap-2">
             <button
-              class="btn btn-ghost btn-xs flex items-center gap-1"
+              class="btn btn-ghost hover:btn-success btn-xs flex items-center gap-1 {comment.vote
+                ?.voteType === 'upvote'
+                ? 'not-hover:text-success'
+                : ''}"
               onclick={() => handleVote('upvote')}
               disabled={!currentUserId}
             >
-              <i class="fa-solid fa-chevron-up"></i>
+              <i class="fa-solid fa-caret-up fa-lg"></i>
               <span>{comment.upvotes}</span>
             </button>
 
@@ -218,11 +227,14 @@
             </span>
 
             <button
-              class="btn btn-ghost btn-xs flex items-center gap-1"
+              class="btn btn-ghost hover:btn-error btn-xs flex items-center gap-1 {comment.vote
+                ?.voteType === 'downvote'
+                ? 'not-hover:text-error'
+                : ''}"
               onclick={() => handleVote('downvote')}
               disabled={!currentUserId}
             >
-              <i class="fa-solid fa-chevron-down"></i>
+              <i class="fa-solid fa-caret-down fa-lg"></i>
               <span>{comment.downvotes}</span>
             </button>
           </div>

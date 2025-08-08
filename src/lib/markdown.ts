@@ -1,5 +1,19 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { markedHighlight } from 'marked-highlight';
+import hljs from 'highlight.js';
+
+// Configure marked to use highlight.js for code highlighting
+marked.use(
+  markedHighlight({
+    emptyLangClass: 'hljs',
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+      return hljs.highlight(code, { language }).value;
+    }
+  })
+);
 
 // Configure marked for safe HTML output
 marked.setOptions({
@@ -48,9 +62,10 @@ export async function renderMarkdown(markdown: string): Promise<string> {
       'li',
       'blockquote',
       'a',
-      'img'
+      'img',
+      'span'
     ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'src', 'alt', 'width', 'height'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'src', 'alt', 'width', 'height', 'class'],
     ALLOW_DATA_ATTR: false
   });
 }

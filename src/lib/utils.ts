@@ -289,7 +289,7 @@ export const formatRegionLabel = (
   return province;
 };
 
-export const toPath = (path: string) => {
+export const fromPath = (path: string) => {
   path = ((p) => (p.startsWith('/') ? p : `/${p}`))(path.trim());
   return `${env.PUBLIC_API_BASE || `${page.url.origin}${base}`}${path}`;
 };

@@ -1,7 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import type { PostWithAuthor, CommentWithAuthor } from '$lib/types';
+  import type { PostWithAuthor, CommentWithAuthorAndVote } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
@@ -10,10 +10,11 @@
   import { renderMarkdown } from '$lib/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
+  import { getDisplayName, fromPath } from '$lib/utils';
 
   interface Props {
     post: PostWithAuthor;
-    comments: CommentWithAuthor[];
+    comments: CommentWithAuthorAndVote[];
     userVote: 'upvote' | 'downvote' | null;
     currentUserId?: string;
     organizationType: 'university' | 'club';
@@ -38,10 +39,6 @@
   }: Props = $props();
 
   let content = $state('');
-  let localUserVote = $state(userVote);
-  let localUpvotes = $state(post.upvotes);
-  let localDownvotes = $state(post.downvotes);
-  let localComments = $state<CommentWithAuthor[]>(comments);
   let isVoting = $state(false);
   let newCommentContent = $state('');
   let isSubmittingComment = $state(false);
@@ -57,11 +54,11 @@
   let editContent = $state(post.content);
   let isSavingPost = $state(false);
 
-  const netVotes = $derived(localUpvotes - localDownvotes);
-  const isOwnPost = $derived(currentUserId === post.createdBy);
-  const canEditPost = $derived(isOwnPost || canEdit);
-  const canManagePost = $derived(canManage);
-  const backUrl = $derived.by(() => {
+  let netVotes = $derived(post.upvotes - post.downvotes);
+  let isOwnPost = $derived(currentUserId === post.createdBy);
+  let canEditPost = $derived(isOwnPost || canEdit);
+  let canManagePost = $derived(canManage);
+  let backUrl = $derived.by(() => {
     const orgPath =
       organizationType === 'university'
         ? `/universities/${organizationSlug || organizationId}#posts`
@@ -74,7 +71,7 @@
 
     isVoting = true;
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}/vote`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}/vote`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -83,14 +80,7 @@
       });
 
       if (response.ok) {
-        const result = (await response.json()) as {
-          upvotes: number;
-          downvotes: number;
-          userVote: 'upvote' | 'downvote' | null;
-        };
-        localUpvotes = result.upvotes;
-        localDownvotes = result.downvotes;
-        localUserVote = result.userVote;
+        invalidateAll();
       } else {
         console.error('Failed to vote');
       }
@@ -108,7 +98,7 @@
     commentError = '';
 
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}/comments`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}/comments`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -136,7 +126,7 @@
     if (!currentUserId) return;
 
     try {
-      const response = await fetch(`${base}/api/comments/${commentId}/vote`, {
+      const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -145,18 +135,7 @@
       });
 
       if (response.ok) {
-        const result = (await response.json()) as {
-          upvotes: number;
-          downvotes: number;
-          userVote: 'upvote' | 'downvote' | null;
-        };
-
-        // Update the specific comment in the comments array
-        localComments = localComments.map((comment) =>
-          comment.id === commentId
-            ? { ...comment, upvotes: result.upvotes, downvotes: result.downvotes }
-            : comment
-        );
+        invalidateAll();
       } else {
         console.error('Failed to vote on comment');
       }
@@ -177,7 +156,7 @@
     commentError = '';
 
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}/comments`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}/comments`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -191,8 +170,7 @@
       if (response.ok) {
         replyingTo = null;
         replyContent = '';
-        // Refresh comments by reloading the page
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json()) as { error: string };
         commentError = errorData.error || m.failed_to_post_comment();
@@ -208,7 +186,7 @@
     if (!currentUserId) return;
 
     try {
-      const response = await fetch(`${base}/api/comments/${commentId}`, {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -218,7 +196,7 @@
 
       if (response.ok) {
         // Update the comment in local state
-        localComments = localComments.map((comment) =>
+        comments = comments.map((comment) =>
           comment.id === commentId
             ? { ...comment, content: newContent, updatedAt: new Date() }
             : comment
@@ -239,15 +217,13 @@
     if (!confirm(m.confirm_delete_comment())) return;
 
     try {
-      const response = await fetch(`${base}/api/comments/${commentId}`, {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
         method: 'DELETE'
       });
 
       if (response.ok) {
         // Remove comment from local state
-        localComments = localComments.filter(
-          (c) => c.id !== commentId && c.parentCommentId !== commentId
-        );
+        comments = comments.filter((c) => c.id !== commentId && c.parentCommentId !== commentId);
       } else {
         const errorData = (await response.json()) as { error: string };
         alert(errorData.error || 'Failed to delete comment');
@@ -263,7 +239,7 @@
     if (!canManagePost) return;
 
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -288,7 +264,7 @@
     if (!canManagePost) return;
 
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -328,7 +304,7 @@
 
     isSavingPost = true;
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -367,7 +343,7 @@
     if (!confirm(m.confirm_delete_post())) return;
 
     try {
-      const response = await fetch(`${base}/api/posts/${post.id}`, {
+      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
         method: 'DELETE'
       });
 
@@ -399,9 +375,9 @@
 </svelte:head>
 
 {#if componentMounted}
-  <div class="mx-auto max-w-6xl px-4 pt-20 pb-4">
+  <div class="mx-auto {isEditingPost ? 'max-w-full' : 'max-w-6xl'} pt-20 pb-4 sm:px-4">
     <!-- Back link -->
-    <div class="mb-6">
+    <div class="mb-6 not-sm:px-4">
       <a
         href={backUrl}
         class="hover:text-primary flex items-center gap-2 text-sm transition-colors"
@@ -419,9 +395,12 @@
           <div class="flex items-center gap-3">
             <UserAvatar user={post.author} size="md" showName={false} />
             <div>
-              <div class="font-medium">
-                {post.author.displayName || post.author.name || m.anonymous_user()}
-              </div>
+              <a
+                href="{base}/users/@{post.author.name}"
+                class="hover:text-accent font-medium transition-colors"
+              >
+                {getDisplayName(post.author)}
+              </a>
               <div class="text-base-content/60 text-sm">
                 {formatDistanceToNow(post.createdAt, { addSuffix: true })}
                 {#if post.updatedAt && post.updatedAt !== post.createdAt}
@@ -432,18 +411,18 @@
           </div>
 
           <!-- Post badges -->
-          <div class="flex items-center justify-between">
-            <div class="flex gap-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex gap-2 text-nowrap">
               {#if localPost.isPinned}
-                <div class="badge badge-success">
-                  <i class="fa-solid fa-thumbtack mr-1"></i>
-                  {m.pinned_post()}
+                <div class="badge badge-soft badge-info">
+                  <i class="fa-solid fa-thumbtack"></i>
+                  <span class="not-sm:hidden">{m.pinned()}</span>
                 </div>
               {/if}
               {#if localPost.isLocked}
-                <div class="badge badge-warning">
+                <div class="badge badge-soft badge-warning">
                   <i class="fa-solid fa-lock mr-1"></i>
-                  {m.locked_post()}
+                  <span class="not-sm:hidden">{m.locked()}</span>
                 </div>
               {/if}
             </div>
@@ -455,9 +434,23 @@
                   <i class="fa-solid fa-ellipsis-vertical"></i>
                 </summary>
                 <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-56 p-2 shadow">
+                  {#if canManagePost}
+                    <li>
+                      <button onclick={togglePinPost} class="text-info">
+                        <i class="fa-solid fa-thumbtack"></i>
+                        {localPost.isPinned ? m.unpin_post() : m.pin_post()}
+                      </button>
+                    </li>
+                    <li>
+                      <button onclick={toggleLockPost} class="text-warning">
+                        <i class="fa-solid {localPost.isLocked ? 'fa-unlock' : 'fa-lock'}"></i>
+                        {localPost.isLocked ? m.unlock_post() : m.lock_post()}
+                      </button>
+                    </li>
+                  {/if}
                   {#if canEditPost}
                     <li>
-                      <button onclick={startEditingPost} class="text-info">
+                      <button onclick={startEditingPost} class="text-success">
                         <i class="fa-solid fa-edit"></i>
                         {m.edit_post()}
                       </button>
@@ -469,40 +462,26 @@
                       </button>
                     </li>
                   {/if}
-                  {#if canManagePost}
-                    <li>
-                      <button onclick={togglePinPost} class="text-secondary">
-                        <i class="fa-solid fa-thumbtack"></i>
-                        {localPost.isPinned ? m.unpin_post() : m.pin_post()}
-                      </button>
-                    </li>
-                    <li>
-                      <button onclick={toggleLockPost} class="text-warning">
-                        <i class="fa-solid fa-lock"></i>
-                        {localPost.isLocked ? m.unlock_post() : m.lock_post()}
-                      </button>
-                    </li>
-                  {/if}
                 </ul>
               </details>
             {/if}
           </div>
-
-          <!-- Post title -->
-          {#if isEditingPost}
-            <div class="mb-4">
-              <input
-                type="text"
-                class="input input-bordered w-full text-3xl font-bold"
-                bind:value={editTitle}
-                disabled={isSavingPost}
-                maxlength="200"
-              />
-            </div>
-          {:else}
-            <h1 class="mb-4 text-3xl font-bold">{localPost.title}</h1>
-          {/if}
         </div>
+
+        <!-- Post title -->
+        {#if isEditingPost}
+          <div class="mb-4">
+            <input
+              type="text"
+              class="input input-bordered w-full text-2xl font-bold"
+              bind:value={editTitle}
+              disabled={isSavingPost}
+              maxlength="200"
+            />
+          </div>
+        {:else}
+          <h1 class="mb-4 text-3xl font-bold md:text-4xl">{localPost.title}</h1>
+        {/if}
       </header>
 
       <!-- Post content -->
@@ -514,7 +493,15 @@
             disabled={isSavingPost}
             minHeight="min-h-48"
           />
-          <div class="mt-4 flex gap-2">
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick={cancelEditingPost}
+              disabled={isSavingPost}
+            >
+              {m.cancel()}
+            </button>
             <button
               type="button"
               class="btn btn-primary"
@@ -526,18 +513,10 @@
               {/if}
               {m.save_changes()}
             </button>
-            <button
-              type="button"
-              class="btn btn-ghost"
-              onclick={cancelEditingPost}
-              disabled={isSavingPost}
-            >
-              {m.cancel()}
-            </button>
           </div>
         </div>
       {:else}
-        <div class="prose mb-6 max-w-none">
+        <div class="prose not-md:prose-sm mb-6 max-w-none overflow-x-auto">
           {@html content}
         </div>
       {/if}
@@ -548,13 +527,15 @@
           <!-- Vote buttons -->
           <div class="flex items-center gap-2">
             <button
-              class="btn btn-ghost btn-sm {localUserVote === 'upvote' ? 'btn-success' : ''}"
+              class="btn btn-ghost hover:btn-success btn-sm {userVote === 'upvote'
+                ? 'not-hover:text-success'
+                : ''}"
               onclick={() => handleVote('upvote')}
               disabled={!currentUserId || isVoting || (localPost.isLocked && !canManagePost)}
               title={m.upvote()}
             >
-              <i class="fa-solid fa-chevron-up"></i>
-              <span>{localUpvotes}</span>
+              <i class="fa-solid fa-caret-up fa-lg"></i>
+              <span>{post.upvotes}</span>
             </button>
 
             <span
@@ -568,20 +549,22 @@
             </span>
 
             <button
-              class="btn btn-ghost btn-sm {localUserVote === 'downvote' ? 'btn-error' : ''}"
+              class="btn btn-ghost hover:btn-error btn-sm {userVote === 'downvote'
+                ? 'not-hover:text-error'
+                : ''}"
               onclick={() => handleVote('downvote')}
               disabled={!currentUserId || isVoting || (localPost.isLocked && !canManagePost)}
               title={m.downvote()}
             >
-              <i class="fa-solid fa-chevron-down"></i>
-              <span>{localDownvotes}</span>
+              <i class="fa-solid fa-caret-down fa-lg"></i>
+              <span>{post.downvotes}</span>
             </button>
           </div>
 
           <!-- Comment count -->
           <div class="text-base-content/60 flex items-center gap-1">
             <i class="fa-solid fa-comments"></i>
-            <span>{localComments.length}</span>
+            <span>{comments.length}</span>
             <span>{m.comments().toLowerCase()}</span>
           </div>
         </div>
@@ -596,14 +579,14 @@
 
     <!-- Comments section -->
     <section class="mt-8">
-      <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold">
+      <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold not-sm:px-4">
         <i class="fa-solid fa-comments"></i>
-        {m.comments()} ({localComments.length})
+        {m.comments()} ({comments.length})
       </h2>
 
       <!-- Add comment form -->
       {#if currentUserId && (!localPost.isLocked || canManagePost)}
-        <div class="bg-base-100 mb-6 rounded-lg p-4">
+        <div class="bg-base-100 mb-6 rounded-xl p-4">
           {#if commentError}
             <div class="alert alert-error mb-4">
               <i class="fa-solid fa-exclamation-triangle"></i>
@@ -634,16 +617,16 @@
           </div>
         </div>
       {:else if currentUserId && localPost.isLocked}
-        <div class="bg-base-200 mb-6 rounded-lg p-4 text-center">
+        <div class="bg-base-200 mb-6 rounded-xl p-4 text-center">
           <i class="fa-solid fa-lock text-warning mb-2 text-2xl"></i>
           <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
         </div>
       {/if}
 
       <!-- Comments list -->
-      {#if localComments.length > 0}
+      {#if comments.length > 0}
         <div class="space-y-1">
-          {#each localComments.filter((c) => !c.parentCommentId) as comment (comment.id)}
+          {#each comments.filter((c) => !c.parentCommentId) as comment (comment.id)}
             <div>
               <Comment
                 {comment}
@@ -656,23 +639,9 @@
                 depth={0}
               />
 
-              <!-- Nested replies -->
-              {#each localComments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
-                <Comment
-                  comment={reply}
-                  {currentUserId}
-                  canManage={false}
-                  onVote={localPost.isLocked && !canManagePost ? undefined : handleCommentVote}
-                  onReply={localPost.isLocked && !canManagePost ? undefined : handleCommentReply}
-                  onEdit={handleCommentEdit}
-                  onDelete={handleCommentDelete}
-                  depth={1}
-                />
-              {/each}
-
               <!-- Reply form -->
               {#if replyingTo === comment.id}
-                <div class="bg-base-200 mt-2 ml-8 rounded-lg p-4">
+                <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
                   {#if commentError}
                     <div class="alert alert-error mb-4">
                       <i class="fa-solid fa-exclamation-triangle"></i>
@@ -687,7 +656,7 @@
                     minHeight="min-h-[100px]"
                   />
 
-                  <div class="mt-3 flex items-center justify-between">
+                  <div class="mt-3 flex items-center justify-end">
                     <div class="flex gap-2">
                       <button
                         class="btn btn-ghost btn-sm"
@@ -715,11 +684,25 @@
                   </div>
                 </div>
               {/if}
+
+              <!-- Nested replies -->
+              {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
+                <Comment
+                  comment={reply}
+                  {currentUserId}
+                  canManage={false}
+                  onVote={localPost.isLocked && !canManagePost ? undefined : handleCommentVote}
+                  onReply={localPost.isLocked && !canManagePost ? undefined : handleCommentReply}
+                  onEdit={handleCommentEdit}
+                  onDelete={handleCommentDelete}
+                  depth={1}
+                />
+              {/each}
             </div>
           {/each}
         </div>
       {:else}
-        <div class="bg-base-100 rounded-lg p-8 text-center">
+        <div class="bg-base-100 rounded-xl p-8 text-center">
           <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
           <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
           {#if currentUserId}

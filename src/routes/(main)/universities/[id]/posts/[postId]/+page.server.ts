@@ -1,7 +1,14 @@
 import type { PageServerLoad } from './$types';
 import client from '$lib/db.server';
-import type { University, Post, PostWithAuthor, CommentWithAuthor, PostVote } from '$lib/types';
+import type {
+  University,
+  Post,
+  PostWithAuthor,
+  CommentWithAuthorAndVote,
+  PostVote
+} from '$lib/types';
 import { error } from '@sveltejs/kit';
+import { checkUniversityPermission, toPlainArray, toPlainObject } from '$lib/utils';
 
 export const load = (async ({ params, locals }) => {
   const { id: universityId, postId } = params;
@@ -59,10 +66,11 @@ export const load = (async ({ params, locals }) => {
   }
 
   const post = postResult[0];
+  const session = await locals.auth();
 
   // Get comments with authors
   const comments = await commentsCollection
-    .aggregate<CommentWithAuthor>([
+    .aggregate<CommentWithAuthorAndVote>([
       {
         $match: { postId: postId }
       },
@@ -75,9 +83,29 @@ export const load = (async ({ params, locals }) => {
         }
       },
       {
+        $lookup: {
+          from: 'comment_votes',
+          localField: 'id',
+          foreignField: 'commentId',
+          as: 'commentVoteData'
+        }
+      },
+      {
         $addFields: {
           author: {
             $arrayElemAt: ['$authorData', 0]
+          },
+          vote: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: '$commentVoteData',
+                  as: 'vote',
+                  cond: { $eq: ['$$vote.userId', session?.user?.id] }
+                }
+              },
+              0
+            ]
           }
         }
       },
@@ -94,23 +122,29 @@ export const load = (async ({ params, locals }) => {
     ])
     .toArray();
 
-  // Get user's vote if logged in
   let userVote = null;
-  const session = await locals.auth();
-  if (session?.user?.id) {
+  let canEdit = false;
+  let canManage = false;
+  if (session?.user) {
     const votesCollection = db.collection<PostVote>('post_votes');
     const vote = await votesCollection.findOne({
       postId: postId,
       userId: session.user.id
     });
     userVote = vote ? vote.voteType : null;
+
+    const permissions = await checkUniversityPermission(session.user, university, client);
+    canEdit = permissions.canEdit;
+    canManage = permissions.canEdit; // Only canEdit users can manage posts
   }
 
   return {
-    university,
-    post,
-    comments,
+    university: toPlainObject(university),
+    post: toPlainObject(post),
+    comments: toPlainArray(comments),
     userVote,
+    canEdit,
+    canManage,
     user: session?.user || null
   };
 }) satisfies PageServerLoad;

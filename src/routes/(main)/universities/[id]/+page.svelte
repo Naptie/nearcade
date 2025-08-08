@@ -14,6 +14,7 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
+  import { fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -131,7 +132,7 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        `${base}/api/universities/${data.university.id}/members?page=${nextPage}`
+        fromPath(`/api/universities/${data.university.id}/members?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
@@ -160,7 +161,7 @@
     try {
       const nextPage = currentClubsPage + 1;
       const response = await fetch(
-        `${base}/api/universities/${data.university.id}/clubs?page=${nextPage}`
+        fromPath(`/api/universities/${data.university.id}/clubs?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {

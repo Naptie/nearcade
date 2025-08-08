@@ -69,8 +69,8 @@ export const actions: Actions = {
       const backgroundColor = formData.get('backgroundColor') as string;
       const useCustomBackgroundColor = formData.get('useCustomBackgroundColor') === 'true';
       const acceptJoinRequests = formData.get('acceptJoinRequests') === 'on';
-      const discussionReadability = parseInt(formData.get('discussionReadability') as string);
-      const discussionWritability = parseInt(formData.get('discussionWritability') as string);
+      const postReadability = parseInt(formData.get('postReadability') as string);
+      const postWritability = parseInt(formData.get('postWritability') as string);
 
       if (!name?.trim() || !slug?.trim()) {
         return fail(400, {
@@ -85,8 +85,8 @@ export const actions: Actions = {
             backgroundColor: backgroundColor?.trim() || '',
             useCustomBackgroundColor,
             acceptJoinRequests,
-            discussionReadability,
-            discussionWritability
+            postReadability,
+            postWritability
           }
         });
       }
@@ -143,8 +143,8 @@ export const actions: Actions = {
             backgroundColor: backgroundColor?.trim() || '',
             useCustomBackgroundColor,
             acceptJoinRequests,
-            discussionReadability,
-            discussionWritability
+            postReadability,
+            postWritability
           }
         });
       }
@@ -190,8 +190,8 @@ export const actions: Actions = {
         website: website?.trim() || undefined,
         avatarUrl: avatarUrl?.trim() || undefined,
         acceptJoinRequests,
-        discussionReadability,
-        discussionWritability,
+        postReadability,
+        postWritability,
         updatedAt: new Date()
       };
 

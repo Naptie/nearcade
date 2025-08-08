@@ -1,6 +1,6 @@
 import { PAGINATION } from '$lib/constants';
 import type { SortCriteria, RadiusFilter, UniversityRankingResponse } from '$lib/types';
-import { toPath } from '$lib/utils';
+import { fromPath } from '$lib/utils';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, url }) => {
@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
     const radius = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
 
     // Always start with no cursor for initial load (cursor-based pagination)
-    const apiUrl = new URL(toPath('/api/rankings'), url.origin);
+    const apiUrl = new URL(fromPath('/api/rankings'), url.origin);
     apiUrl.searchParams.set('sortBy', sortBy);
     apiUrl.searchParams.set('radius', radius.toString());
     apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());

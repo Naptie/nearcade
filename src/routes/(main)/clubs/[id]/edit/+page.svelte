@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { DiscussionReadability, DiscussionWritability } from '$lib/types';
+  import { PostReadability, PostWritability } from '$lib/types';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -19,8 +19,8 @@
   let avatarUrl = $state(data.club.avatarUrl || '');
   let backgroundColor = $state(data.club.backgroundColor || '#3b82f6');
   let acceptJoinRequests = $state(data.club.acceptJoinRequests);
-  let discussionReadability = $state(data.club.discussionReadability);
-  let discussionWritability = $state(data.club.discussionWritability);
+  let postReadability = $state(data.club.postReadability);
+  let postWritability = $state(data.club.postWritability);
 
   // Track whether user wants to set a custom background color
   let useCustomBackgroundColor = $state(!!data.club.backgroundColor);
@@ -93,8 +93,8 @@
               backgroundColor?: string;
               useCustomBackgroundColor?: boolean;
               acceptJoinRequests?: boolean;
-              discussionReadability?: DiscussionReadability;
-              discussionWritability?: DiscussionWritability;
+              postReadability?: PostReadability;
+              postWritability?: PostWritability;
             };
             name = fd.name || name;
             slug = fd.slug || slug;
@@ -104,8 +104,8 @@
             backgroundColor = fd.backgroundColor || backgroundColor;
             useCustomBackgroundColor = fd.useCustomBackgroundColor ?? useCustomBackgroundColor;
             acceptJoinRequests = fd.acceptJoinRequests ?? acceptJoinRequests;
-            discussionReadability = fd.discussionReadability || discussionReadability;
-            discussionWritability = fd.discussionWritability || discussionWritability;
+            postReadability = fd.postReadability || postReadability;
+            postWritability = fd.postWritability || postWritability;
           }
         }
       };
@@ -255,37 +255,37 @@
       <h2 class="mb-6 text-xl font-semibold">{m.club_settings()}</h2>
 
       <div class="space-y-6">
-        <!-- Discussion Readability -->
+        <!-- Post Readability -->
         <div class="form-control">
-          <label class="label" for="discussionReadability">
-            <span class="label-text">{m.discussion_readability()}</span>
+          <label class="label" for="postReadability">
+            <span class="label-text">{m.post_readability()}</span>
           </label>
           <select
-            id="discussionReadability"
-            name="discussionReadability"
-            bind:value={discussionReadability}
+            id="postReadability"
+            name="postReadability"
+            bind:value={postReadability}
             class="select select-bordered w-full"
           >
-            <option value={DiscussionReadability.PUBLIC}>{m.public()}</option>
-            <option value={DiscussionReadability.UNIV_MEMBERS}>{m.university_members()}</option>
-            <option value={DiscussionReadability.CLUB_MEMBERS}>{m.club_members()}</option>
+            <option value={PostReadability.PUBLIC}>{m.public()}</option>
+            <option value={PostReadability.UNIV_MEMBERS}>{m.university_members()}</option>
+            <option value={PostReadability.CLUB_MEMBERS}>{m.club_members()}</option>
           </select>
         </div>
 
-        <!-- Discussion Writability -->
+        <!-- Post Writability -->
         <div class="form-control">
-          <label class="label" for="discussionWritability">
-            <span class="label-text">{m.discussion_writability()}</span>
+          <label class="label" for="postWritability">
+            <span class="label-text">{m.post_writability()}</span>
           </label>
           <select
-            id="discussionWritability"
-            name="discussionWritability"
-            bind:value={discussionWritability}
+            id="postWritability"
+            name="postWritability"
+            bind:value={postWritability}
             class="select select-bordered w-full"
           >
-            <option value={DiscussionWritability.ADMIN_AND_MODS}>{m.admins_and_mods()}</option>
-            <option value={DiscussionWritability.UNIV_MEMBERS}>{m.university_members()}</option>
-            <option value={DiscussionWritability.CLUB_MEMBERS}>{m.club_members()}</option>
+            <option value={PostWritability.ADMIN_AND_MODS}>{m.admins_and_mods()}</option>
+            <option value={PostWritability.UNIV_MEMBERS}>{m.university_members()}</option>
+            <option value={PostWritability.CLUB_MEMBERS}>{m.club_members()}</option>
           </select>
         </div>
 
