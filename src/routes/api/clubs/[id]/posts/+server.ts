@@ -2,14 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import {
-  type Post,
-  type PostWithAuthor,
-  type Club,
-  PostReadability,
-  PostWritability
-} from '$lib/types';
-import { postId, checkClubPermission } from '$lib/utils';
+import { type Post, type PostWithAuthor, type Club, PostReadability } from '$lib/types';
+import { postId, checkClubPermission, canWriteClubPosts } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -47,10 +41,10 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       } else {
         const permissions = await checkClubPermission(session.user, club, client);
         if (postReadability === PostReadability.CLUB_MEMBERS) {
-          canReadPosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+          canReadPosts = !!permissions.role;
         } else {
           // UNIV_MEMBERS - check if user is member of university
-          canReadPosts = permissions.canJoin <= 2; // Can join club means they're in university
+          canReadPosts = permissions.canJoin > 0 || !!permissions.role;
         }
       }
     }
@@ -141,19 +135,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Check post writability permissions
-    const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
-    let canWritePosts = false;
-
     const permissions = await checkClubPermission(session.user, club, client);
-    if (postWritability === PostWritability.UNIV_MEMBERS) {
-      canWritePosts = permissions.canJoin > 0;
-    } else if (postWritability === PostWritability.CLUB_MEMBERS) {
-      canWritePosts = !!permissions.role;
-    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-      canWritePosts = permissions.canEdit;
-    }
 
-    if (!canWritePosts) {
+    if (!canWriteClubPosts(permissions, club)) {
       return json({ error: 'Permission denied' }, { status: 403 });
     }
 

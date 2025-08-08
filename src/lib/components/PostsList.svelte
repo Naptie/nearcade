@@ -29,6 +29,7 @@
 
   let posts = $state<PostWithAuthor[]>(initialPosts);
   let isLoading = $state(false);
+  let isInitialFetchFinished = $state(false);
   let hasMore = $state(initialPosts.length >= PAGINATION.PAGE_SIZE);
   let currentPage = $state(1);
   let showCreateModal = $state(false);
@@ -58,6 +59,7 @@
       error = m.network_error_loading_posts();
     } finally {
       isLoading = false;
+      isInitialFetchFinished = true;
     }
   };
 
@@ -143,7 +145,7 @@
           {m.all_results_loaded()}
         </div>
       {/if}
-    {:else}
+    {:else if isInitialFetchFinished}
       <!-- Empty state -->
       <div class="bg-base-100 rounded-lg p-8 text-center">
         <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
@@ -161,6 +163,10 @@
             {m.no_posts_created_yet()}
           </p>
         {/if}
+      </div>
+    {:else}
+      <div class="flex flex-col items-center gap-2 py-4">
+        <span class="loading loading-spinner loading-xl"></span>
       </div>
     {/if}
   </div>

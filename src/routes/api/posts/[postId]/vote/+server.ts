@@ -57,9 +57,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         ) {
           const permissions = await checkClubPermission(session.user, club, client);
           if (postReadability === PostReadability.CLUB_MEMBERS) {
-            canVote = permissions.canJoin <= 1; // Member or can join (meaning already member)
+            canVote = !!permissions.role;
           } else {
-            canVote = permissions.canJoin <= 2; // Can join club means they're in university
+            canVote = permissions.canJoin > 0 || !!permissions.role;
           }
         }
       }

@@ -1,7 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type { Comment, CommentVote } from '$lib/types';
+import {
+  PostReadability,
+  type Club,
+  type Comment,
+  type CommentVote,
+  type University
+} from '$lib/types';
 import { nanoid } from 'nanoid';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
@@ -44,26 +50,31 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     let canVote = true;
 
     if (post.universityId) {
-      const university = await db.collection('universities').findOne({ id: post.universityId });
+      const university = await db
+        .collection<University>('universities')
+        .findOne({ id: post.universityId });
       if (university) {
-        const postReadability = university.postReadability ?? 'PUBLIC';
-        if (postReadability === 'UNIV_MEMBERS') {
+        const postReadability = university.postReadability ?? PostReadability.PUBLIC;
+        if (postReadability === PostReadability.UNIV_MEMBERS) {
           const { checkUniversityPermission } = await import('$lib/utils');
           const permissions = await checkUniversityPermission(session.user, university, client);
           canVote = !!permissions.role; // User is member if role is not empty
         }
       }
     } else if (post.clubId) {
-      const club = await db.collection('clubs').findOne({ id: post.clubId });
+      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const postReadability = club.postReadability ?? 'CLUB_MEMBERS';
-        if (postReadability === 'CLUB_MEMBERS' || postReadability === 'UNIV_MEMBERS') {
+        const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+        if (
+          postReadability === PostReadability.CLUB_MEMBERS ||
+          postReadability === PostReadability.UNIV_MEMBERS
+        ) {
           const { checkClubPermission } = await import('$lib/utils');
           const permissions = await checkClubPermission(session.user, club, client);
-          if (postReadability === 'CLUB_MEMBERS') {
-            canVote = permissions.canJoin <= 1; // Member or can join (meaning already member)
+          if (postReadability === PostReadability.CLUB_MEMBERS) {
+            canVote = !!permissions.role;
           } else {
-            canVote = permissions.canJoin <= 2; // Can join club means they're in university
+            canVote = permissions.canJoin > 0 || !!permissions.role;
           }
         }
       }
@@ -78,14 +89,16 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       let canInteract = false;
 
       if (post.universityId) {
-        const university = await db.collection('universities').findOne({ id: post.universityId });
+        const university = await db
+          .collection<University>('universities')
+          .findOne({ id: post.universityId });
         if (university) {
           const { checkUniversityPermission } = await import('$lib/utils');
           const permissions = await checkUniversityPermission(session.user, university, client);
           canInteract = permissions.canEdit;
         }
       } else if (post.clubId) {
-        const club = await db.collection('clubs').findOne({ id: post.clubId });
+        const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
         if (club) {
           const { checkClubPermission } = await import('$lib/utils');
           const permissions = await checkClubPermission(session.user, club, client);

@@ -8,7 +8,12 @@ import type {
   PostVote
 } from '$lib/types';
 import { error } from '@sveltejs/kit';
-import { checkUniversityPermission, toPlainArray, toPlainObject } from '$lib/utils';
+import {
+  canWriteUnivPosts,
+  checkUniversityPermission,
+  toPlainArray,
+  toPlainObject
+} from '$lib/utils';
 
 export const load = (async ({ params, locals }) => {
   const { id: universityId, postId } = params;
@@ -125,6 +130,7 @@ export const load = (async ({ params, locals }) => {
   let userVote = null;
   let canEdit = false;
   let canManage = false;
+  let canComment = false;
   if (session?.user) {
     const votesCollection = db.collection<PostVote>('post_votes');
     const vote = await votesCollection.findOne({
@@ -136,6 +142,7 @@ export const load = (async ({ params, locals }) => {
     const permissions = await checkUniversityPermission(session.user, university, client);
     canEdit = permissions.canEdit;
     canManage = permissions.canEdit; // Only canEdit users can manage posts
+    canComment = canWriteUnivPosts(permissions, university);
   }
 
   return {
@@ -145,6 +152,7 @@ export const load = (async ({ params, locals }) => {
     userVote,
     canEdit,
     canManage,
+    canComment,
     user: session?.user || null
   };
 }) satisfies PageServerLoad;

@@ -2,9 +2,13 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
 import type { Post, Comment, University, Club } from '$lib/types';
-import { PostWritability } from '$lib/types';
 import { nanoid } from 'nanoid';
-import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
+import {
+  checkUniversityPermission,
+  checkClubPermission,
+  canWriteUnivPosts,
+  canWriteClubPosts
+} from '$lib/utils';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -44,28 +48,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
         const permissions = await checkUniversityPermission(session.user, university, client);
-
-        if (postWritability === PostWritability.UNIV_MEMBERS) {
-          canComment = !!permissions.role; // User is member if role is not empty
-        } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-          canComment = permissions.canEdit;
-        }
+        canComment = canWriteUnivPosts(permissions, university);
       }
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
         const permissions = await checkClubPermission(session.user, club, client);
-
-        if (postWritability === PostWritability.UNIV_MEMBERS) {
-          canComment = permissions.canJoin > 0;
-        } else if (postWritability === PostWritability.CLUB_MEMBERS) {
-          canComment = !!permissions.role;
-        } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-          canComment = permissions.canEdit;
-        }
+        canComment = canWriteClubPosts(permissions, club);
       }
     }
 

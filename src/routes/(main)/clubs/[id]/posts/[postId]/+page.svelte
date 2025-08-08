@@ -16,4 +16,5 @@
   organizationId={data.club.id}
   canEdit={data.canEdit}
   canManage={data.canManage}
+  canComment={data.canComment}
 />

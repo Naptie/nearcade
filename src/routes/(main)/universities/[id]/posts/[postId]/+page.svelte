@@ -16,4 +16,5 @@
   organizationId={data.university.id}
   canEdit={data.canEdit}
   canManage={data.canManage}
+  canComment={data.canComment}
 />

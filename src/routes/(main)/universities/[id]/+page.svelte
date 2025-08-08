@@ -4,7 +4,6 @@
   import { enhance } from '$app/forms';
   import type { PageData } from './$types';
   import type { Campus, UniversityMemberWithUser } from '$lib/types';
-  import { PostWritability } from '$lib/types';
   import CampusEditModal from '$lib/components/CampusEditModal.svelte';
   import InviteLinkModal from '$lib/components/InviteLinkModal.svelte';
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
@@ -15,7 +14,7 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { fromPath } from '$lib/utils';
+  import { canWriteUnivPosts, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -66,21 +65,7 @@
   });
 
   // Check if user can write posts based on university postWritability setting
-  let canWritePosts = $derived.by(() => {
-    if (!data.user) return false;
-
-    const postWritability = data.university.postWritability ?? PostWritability.UNIV_MEMBERS;
-    let canWritePosts = false;
-
-    if (postWritability === PostWritability.UNIV_MEMBERS) {
-      // For universities, user is member if role is not empty
-      canWritePosts = !!data.userPermissions.role;
-    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-      canWritePosts = data.userPermissions.canEdit;
-    }
-
-    return canWritePosts;
-  });
+  let canWritePosts = $derived(canWriteUnivPosts(data.userPermissions, data.university));
 
   // Load search radius from localStorage
   onMount(() => {

@@ -24,6 +24,7 @@
     organizationId: string;
     canManage?: boolean; // User can pin/unpin, lock/unlock posts
     canEdit?: boolean; // User can edit/delete posts
+    canComment?: boolean; // User can comment on posts
   }
 
   let {
@@ -36,7 +37,8 @@
     organizationSlug,
     organizationId,
     canManage = false,
-    canEdit = false
+    canEdit = false,
+    canComment: canCommentGeneral = false
   }: Props = $props();
 
   let content = $state('');
@@ -78,11 +80,7 @@
   let canComment = $derived.by(() => {
     if (!currentUserId) return false;
     if (localPost.isLocked && !canManagePost) return false;
-
-    // Commenting permissions align with post writability
-    // The API already handles this, so for UI we just need to check basic permissions
-    // The actual permission enforcement is done in the API
-    return true;
+    return canCommentGeneral;
   });
   let backUrl = $derived.by(() => {
     const orgPath =
@@ -254,7 +252,9 @@
 
       if (response.ok) {
         // Remove comment from local state
-        comments = comments.filter((c) => c.id !== commentId && c.parentCommentId !== commentId);
+        comments = comments.filter(
+          (c) => c.id !== deletingCommentId && c.parentCommentId !== deletingCommentId
+        );
       } else {
         const errorData = (await response.json()) as { error: string };
         alert(errorData.error || 'Failed to delete comment');
@@ -650,8 +650,13 @@
         </div>
       {:else if currentUserId && (localPost.isLocked || !canComment)}
         <div class="bg-base-200 mb-6 rounded-xl p-4 text-center">
-          <i class="fa-solid fa-lock text-warning mb-2 text-2xl"></i>
-          <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
+          {#if localPost.isLocked}
+            <i class="fa-solid fa-lock text-warning mb-2 text-2xl"></i>
+            <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
+          {:else}
+            <i class="fa-solid fa-ban text-error mb-2 text-4xl"></i>
+            <p class="text-base-content/60">{m.no_comment_permission()}</p>
+          {/if}
         </div>
       {/if}
 
@@ -738,7 +743,9 @@
           <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
           <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
           {#if currentUserId}
-            <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+            {#if canComment}
+              <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+            {/if}
           {:else}
             <p class="text-base-content/60">{m.login_to_comment()}</p>
           {/if}

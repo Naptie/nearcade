@@ -50,6 +50,9 @@ importers:
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
+      katex:
+        specifier: ^0.16.22
+        version: 0.16.22
       mailparser:
         specifier: ^3.7.4
         version: 3.7.4
@@ -59,6 +62,9 @@ importers:
       marked-highlight:
         specifier: ^2.2.2
         version: 2.2.2(marked@16.1.2)
+      marked-katex-extension:
+        specifier: ^5.1.5
+        version: 5.1.5(katex@0.16.22)(marked@16.1.2)
       mongodb:
         specifier: ^6.17.0
         version: 6.17.0
@@ -1995,6 +2001,10 @@ packages:
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
+  commander@8.3.0:
+    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
+    engines: {node: '>= 12'}
+
   comment-json@4.2.5:
     resolution: {integrity: sha512-bKw/r35jR3HGt5PEPm1ljsQQGyCrR8sFGNiN5L+ykDHdpO8Smxkrkla9Yi6NkQyUrb8V54PGhfMs6NrIwtxtdw==}
     engines: {node: '>= 6'}
@@ -2478,6 +2488,10 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
+  katex@0.16.22:
+    resolution: {integrity: sha512-XCHRdUw4lf3SKBaJe4EvgqIuWwkPSo9XoeO8GjQW94Bp7TWv9hNhzZjZ+OH9yf1UmLygb7DIT5GSFQiyt16zYg==}
+    hasBin: true
+
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
 
@@ -2627,6 +2641,12 @@ packages:
   marked-highlight@2.2.2:
     resolution: {integrity: sha512-KlHOP31DatbtPPXPaI8nx1KTrG3EW0Z5zewCwpUj65swbtKOTStteK3sNAjBqV75Pgo3fNEVNHeptg18mDuWgw==}
     peerDependencies:
+      marked: '>=4 <17'
+
+  marked-katex-extension@5.1.5:
+    resolution: {integrity: sha512-AAlfnpi3ivBWt4Paqb8YW2R7eq2ESJ+AtrgJU1jImUwnxHJAhPkZ5MsR3POnWV9HKwlBLZTVGC5I5+I2xWRiFg==}
+    peerDependencies:
+      katex: '>=0.16 <0.17'
       marked: '>=4 <17'
 
   marked@16.1.2:
@@ -5272,6 +5292,8 @@ snapshots:
 
   commander@2.20.3: {}
 
+  commander@8.3.0: {}
+
   comment-json@4.2.5:
     dependencies:
       array-timsort: 1.0.3
@@ -5772,6 +5794,10 @@ snapshots:
 
   json5@2.2.3: {}
 
+  katex@0.16.22:
+    dependencies:
+      commander: 8.3.0
+
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
@@ -5908,6 +5934,11 @@ snapshots:
 
   marked-highlight@2.2.2(marked@16.1.2):
     dependencies:
+      marked: 16.1.2
+
+  marked-katex-extension@5.1.5(katex@0.16.22)(marked@16.1.2):
+    dependencies:
+      katex: 0.16.22
       marked: 16.1.2
 
   marked@16.1.2: {}

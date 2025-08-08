@@ -2,14 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import {
-  type Post,
-  type PostWithAuthor,
-  type University,
-  PostReadability,
-  PostWritability
-} from '$lib/types';
-import { postId, checkUniversityPermission } from '$lib/utils';
+import { type Post, type PostWithAuthor, type University, PostReadability } from '$lib/types';
+import { postId, checkUniversityPermission, canWriteUnivPosts } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -134,18 +128,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Check post writability permissions
-    const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
-    let canWritePosts = false;
-
     const permissions = await checkUniversityPermission(session.user, university, client);
-    if (postWritability === PostWritability.UNIV_MEMBERS) {
-      // For universities, user is member if role is not empty
-      canWritePosts = !!permissions.role;
-    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-      canWritePosts = permissions.canEdit;
-    }
 
-    if (!canWritePosts) {
+    if (!canWriteUnivPosts(permissions, university)) {
       return json({ error: 'Permission denied' }, { status: 403 });
     }
 

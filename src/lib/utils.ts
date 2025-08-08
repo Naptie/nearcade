@@ -1,19 +1,20 @@
 import { m } from './paraglide/messages';
 import { Database } from './db';
 import type { Collection, ObjectId } from 'mongodb';
-import type {
-  Shop,
-  Game,
-  TransportMethod,
-  TransportSearchResult,
-  CachedRouteData,
-  UniversityMember,
-  ClubMember,
-  ClubMemberWithUser,
-  UniversityMemberWithUser,
-  UserType,
-  Club,
-  University
+import {
+  type Shop,
+  type Game,
+  type TransportMethod,
+  type TransportSearchResult,
+  type CachedRouteData,
+  type UniversityMember,
+  type ClubMember,
+  type ClubMemberWithUser,
+  type UniversityMemberWithUser,
+  type UserType,
+  type Club,
+  type University,
+  PostWritability
 } from './types';
 import { ROUTE_CACHE_STORE } from './constants';
 import { env } from '$env/dynamic/public';
@@ -692,4 +693,38 @@ export const formatDateTime = (date?: Date | string | null): string => {
 export const postId = () => {
   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
   return customAlphabet(alphabet, 21)();
+};
+
+export const canWriteUnivPosts = (
+  userPermissions: { role?: string; canEdit: boolean },
+  university: University
+) => {
+  const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
+  let canWritePosts = false;
+
+  if (postWritability === PostWritability.UNIV_MEMBERS) {
+    canWritePosts = !!userPermissions.role;
+  } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+    canWritePosts = userPermissions.canEdit;
+  }
+
+  return canWritePosts;
+};
+
+export const canWriteClubPosts = (
+  userPermissions: { role?: string; canEdit: boolean; canJoin: 0 | 1 | 2 },
+  club: Club
+) => {
+  const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
+  let canWritePosts = false;
+
+  if (postWritability === PostWritability.UNIV_MEMBERS) {
+    canWritePosts = userPermissions.canJoin > 0 || !!userPermissions.role;
+  } else if (postWritability === PostWritability.CLUB_MEMBERS) {
+    canWritePosts = !!userPermissions.role;
+  } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+    canWritePosts = userPermissions.canEdit;
+  }
+
+  return canWritePosts;
 };

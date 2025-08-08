@@ -9,9 +9,9 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import PostsList from '$lib/components/PostsList.svelte';
   import { PAGINATION } from '$lib/constants';
-  import { PostWritability, type ClubMemberWithUser, type Shop } from '$lib/types';
+  import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
-  import { formatDate, fromPath } from '$lib/utils';
+  import { canWriteClubPosts, formatDate, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -68,20 +68,7 @@
     return data.userPermissions;
   });
 
-  let canWritePosts = $derived.by(() => {
-    const postWritability = data.club.postWritability ?? PostWritability.CLUB_MEMBERS;
-    let canWritePosts = false;
-
-    if (postWritability === PostWritability.UNIV_MEMBERS) {
-      canWritePosts = data.userPermissions.canJoin > 0;
-    } else if (postWritability === PostWritability.CLUB_MEMBERS) {
-      canWritePosts = !!data.userPermissions.role;
-    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-      canWritePosts = data.userPermissions.canEdit;
-    }
-
-    return canWritePosts;
-  });
+  let canWritePosts = $derived(canWriteClubPosts(data.userPermissions, data.club));
 
   let radius = $state(10);
 
