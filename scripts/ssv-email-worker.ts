@@ -257,7 +257,10 @@ const startPolling = () => {
  */
 const processEmail = async (parsed: ParsedMail) => {
   const subject: string = parsed.subject || '';
-  if (!subject.startsWith('[nearcade] SSV ')) return;
+  if (!subject.startsWith('[nearcade] SSV ')) {
+    console.log('[Parser] Ignoring email with subject:', subject);
+    return;
+  }
 
   const body: string = parsed.text || '';
   const lines = body.split('\n').map((l) => l.trim());
@@ -265,7 +268,10 @@ const processEmail = async (parsed: ParsedMail) => {
   const userLine = lines.find((l) => l.startsWith('USER: '));
   const hmacLine = lines.find((l) => l.startsWith('HMAC: '));
 
-  if (!univLine || !userLine) return;
+  if (!univLine || !userLine) {
+    console.log('[Parser] Ignoring email with body:', body);
+    return;
+  }
 
   const universityId = univLine.slice(6).trim();
   const userId = userLine.slice(6).trim();
