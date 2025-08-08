@@ -845,7 +845,10 @@
   "username_too_long": "用户名不能超过30个字符",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
