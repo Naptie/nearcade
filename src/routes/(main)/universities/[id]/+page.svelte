@@ -315,7 +315,8 @@
       <!-- University Info -->
       <div class="flex-1">
         <div
-          class="mb-2 flex items-center justify-between gap-3 {data.university.backgroundColor
+          class="mb-2 flex flex-col items-center justify-between gap-3 sm:flex-row {data.university
+            .backgroundColor
             ? 'text-white'
             : 'text-base-content dark:text-white'}"
         >
@@ -354,7 +355,7 @@
           </div>
         </div>
 
-        <div class="flex gap-1">
+        <div class="flex gap-1 text-nowrap">
           {#if data.university.is985}
             <span class="badge badge-primary badge-sm">{m.badge_985()}</span>
           {/if}
@@ -718,12 +719,12 @@
               {#if displayedMembers && displayedMembers.length > 0}
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
-                    <div class="flex items-center justify-between p-4">
-                      <div>
+                    <div class="flex items-center justify-between gap-1 p-4">
+                      <div class="overflow-hidden">
                         <UserAvatar user={member.user} showName={true} size="md" />
                       </div>
 
-                      <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-1">
                         <!-- Member Type Badge -->
                         <div
                           class="badge {member.memberType === 'admin'
