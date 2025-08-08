@@ -1,6 +1,8 @@
+@import 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css';
 @import '@fontsource-variable/sora';
 @import '@fontsource-variable/noto-sans-sc';
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
 
 @plugin 'daisyui' {
   themes:
@@ -16,6 +18,16 @@ code {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     'Noto Sans SC Variable', monospace;
+}
+
+.prose {
+  pre {
+    @apply bg-base-200/50;
+  }
+}
+
+.hljs {
+  @apply !bg-transparent !p-0 text-sm;
 }
 
 .label-text-alt {

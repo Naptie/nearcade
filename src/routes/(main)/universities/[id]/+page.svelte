@@ -9,10 +9,12 @@
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ChangelogView from '$lib/components/ChangelogView.svelte';
+  import PostsList from '$lib/components/PostsList.svelte';
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
+  import { canWriteUnivPosts, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -20,7 +22,7 @@
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
     { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
     { id: 'members', label: m.members(), icon: 'fa-users' },
-    { id: 'discussions', label: m.discussions(), icon: 'fa-comments' },
+    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
@@ -61,6 +63,9 @@
     if (!data.user) return { canEdit: false, canManage: false };
     return data.userPermissions;
   });
+
+  // Check if user can write posts based on university postWritability setting
+  let canWritePosts = $derived(canWriteUnivPosts(data.userPermissions, data.university));
 
   // Load search radius from localStorage
   onMount(() => {
@@ -130,7 +135,7 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        `${base}/api/universities/${data.university.id}/members?page=${nextPage}`
+        fromPath(`/api/universities/${data.university.id}/members?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
@@ -159,7 +164,7 @@
     try {
       const nextPage = currentClubsPage + 1;
       const response = await fetch(
-        `${base}/api/universities/${data.university.id}/clubs?page=${nextPage}`
+        fromPath(`/api/universities/${data.university.id}/clubs?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
@@ -851,29 +856,16 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'discussions'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-comments"></i>
-                {m.discussions()}
-              </h3>
-              <button class="btn btn-primary btn-sm btn-soft" disabled>
-                <i class="fa-solid fa-plus"></i>
-                {m.new_discussion()}
-              </button>
-            </div>
-
-            <!-- Discussion forum would go here -->
-            <div class="bg-base-100 rounded-lg p-6">
-              <div class="py-8 text-center">
-                <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
-                <h4 class="mb-2 text-lg font-medium">{m.discussion_forum()}</h4>
-                <p class="text-base-content/60 mb-4">{m.discussion_forum_description()}</p>
-                <div class="badge badge-info badge-soft">{m.coming_soon()}</div>
-              </div>
-            </div>
-          </div>
+        {:else if activeTab === 'posts'}
+          <PostsList
+            organizationType="university"
+            organizationId={data.university.id}
+            organizationName={data.university.name}
+            organizationSlug={data.university.slug}
+            currentUserId={data.user?.id}
+            canCreatePost={canWritePosts}
+            initialPosts={[]}
+          />
         {:else if activeTab === 'changelog'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">

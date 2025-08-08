@@ -4,6 +4,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
+  import { PostReadability, PostWritability } from '$lib/types';
 
   let { data }: { data: PageData } = $props();
 
@@ -25,7 +26,9 @@
     website: data.university.website || '',
     avatarUrl: data.university.avatarUrl || '',
     backgroundColor: data.university.backgroundColor || '#3b82f6',
-    slug: data.university.slug || ''
+    slug: data.university.slug || '',
+    postReadability: data.university.postReadability || PostReadability.PUBLIC,
+    postWritability: data.university.postWritability || PostWritability.UNIV_MEMBERS
   });
 
   // Track whether user wants to set a custom background color
@@ -335,6 +338,45 @@
           <span class="label-text-alt text-base-content/50">
             {formData.description.length}/2000 {m.characters()}
           </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- University Settings -->
+    <div class="bg-base-200 rounded-lg p-6">
+      <h2 class="mb-6 text-xl font-semibold">{m.university_settings()}</h2>
+
+      <div class="space-y-6">
+        <!-- Post Readability -->
+        <div class="form-control">
+          <label class="label" for="postReadability">
+            <span class="label-text">{m.post_readability()}</span>
+          </label>
+          <select
+            id="postReadability"
+            name="postReadability"
+            bind:value={formData.postReadability}
+            class="select select-bordered w-full"
+          >
+            <option value={PostReadability.PUBLIC}>{m.public()}</option>
+            <option value={PostReadability.UNIV_MEMBERS}>{m.university_members()}</option>
+          </select>
+        </div>
+
+        <!-- Post Writability -->
+        <div class="form-control">
+          <label class="label" for="postWritability">
+            <span class="label-text">{m.post_writability()}</span>
+          </label>
+          <select
+            id="postWritability"
+            name="postWritability"
+            bind:value={formData.postWritability}
+            class="select select-bordered w-full"
+          >
+            <option value={PostWritability.ADMIN_AND_MODS}>{m.admins_and_mods()}</option>
+            <option value={PostWritability.UNIV_MEMBERS}>{m.university_members()}</option>
+          </select>
         </div>
       </div>
     </div>

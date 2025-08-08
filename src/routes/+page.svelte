@@ -11,7 +11,7 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel, toPath } from '$lib/utils';
+  import { formatRegionLabel, fromPath } from '$lib/utils';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);
@@ -106,7 +106,7 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(toPath(`/api/universities?q=${encodeURIComponent(query)}`));
+      const response = await fetch(fromPath(`/api/universities?q=${encodeURIComponent(query)}`));
       const data = (await response.json()) as { universities: University[] };
 
       // Only update if this is still the latest request

@@ -69,8 +69,8 @@ export const actions: Actions = {
       const backgroundColor = formData.get('backgroundColor') as string;
       const useCustomBackgroundColor = formData.get('useCustomBackgroundColor') === 'true';
       const acceptJoinRequests = formData.get('acceptJoinRequests') === 'on';
-      const discussionReadability = parseInt(formData.get('discussionReadability') as string);
-      const discussionWritability = parseInt(formData.get('discussionWritability') as string);
+      const postReadability = parseInt(formData.get('postReadability') as string);
+      const postWritability = parseInt(formData.get('postWritability') as string);
 
       if (!name?.trim() || !slug?.trim()) {
         return fail(400, {
@@ -85,8 +85,8 @@ export const actions: Actions = {
             backgroundColor: backgroundColor?.trim() || '',
             useCustomBackgroundColor,
             acceptJoinRequests,
-            discussionReadability,
-            discussionWritability
+            postReadability,
+            postWritability
           }
         });
       }
@@ -143,8 +143,8 @@ export const actions: Actions = {
             backgroundColor: backgroundColor?.trim() || '',
             useCustomBackgroundColor,
             acceptJoinRequests,
-            discussionReadability,
-            discussionWritability
+            postReadability,
+            postWritability
           }
         });
       }
@@ -186,12 +186,12 @@ export const actions: Actions = {
       const updateData: Partial<Club> & { updatedAt: Date } = {
         name: name.trim(),
         slug: slug.trim(),
-        description: description?.trim() || null,
-        website: website?.trim() || null,
-        avatarUrl: avatarUrl?.trim() || null,
+        description: description?.trim() || undefined,
+        website: website?.trim() || undefined,
+        avatarUrl: avatarUrl?.trim() || undefined,
         acceptJoinRequests,
-        discussionReadability,
-        discussionWritability,
+        postReadability,
+        postWritability,
         updatedAt: new Date()
       };
 
@@ -199,7 +199,7 @@ export const actions: Actions = {
       if (useCustomBackgroundColor && backgroundColor && backgroundColor.trim().length > 0) {
         updateData.backgroundColor = backgroundColor.trim();
       } else {
-        updateData.backgroundColor = null;
+        updateData.backgroundColor = undefined;
       }
 
       await clubsCollection.updateOne({ id: club.id }, { $set: updateData });

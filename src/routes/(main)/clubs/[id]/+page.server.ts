@@ -1,6 +1,12 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { Club, University, Shop, ClubMember, UniversityMember } from '$lib/types';
+import {
+  type Club,
+  type University,
+  type Shop,
+  type ClubMember,
+  type UniversityMember
+} from '$lib/types';
 import {
   getClubMembersWithUserData,
   checkClubPermission,

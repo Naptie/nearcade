@@ -42,8 +42,8 @@
   };
 
   const statusSizeClasses = {
-    xs: 'h-1 w-1 -right-1 -bottom-1',
-    sm: 'h-2 w-2 -right-0.5 -bottom-0.5',
+    xs: 'h-2 w-2 -right-0.5 -bottom-0.5',
+    sm: 'h-2.5 w-2.5 -right-0.25 -bottom-0.25',
     md: 'h-3 w-3 right-0 bottom-0',
     lg: 'h-4 w-4 right-0.5 bottom-0.5',
     xl: 'w-4 h-4 sm:w-6 sm:h-6 right-1 bottom-1'

@@ -41,7 +41,7 @@ export interface University {
   _id?: string;
   id: string;
   name: string;
-  slug?: string | null; // Customizable URL slug
+  slug?: string; // Customizable URL slug
   type: string;
   majorCategory: string | null;
   natureOfRunning: string | null;
@@ -51,10 +51,13 @@ export interface University {
   isDoubleFirstClass: boolean | null;
   campuses: Campus[];
   // Customization fields
-  backgroundColor?: string | null; // Hex color code
-  avatarUrl?: string | null; // University avatar/logo URL
-  description?: string | null; // University description
-  website?: string | null; // Official website
+  backgroundColor?: string; // Hex color code
+  avatarUrl?: string; // University avatar/logo URL
+  description?: string; // University description
+  website?: string; // Official website
+  // Settings
+  postReadability?: PostReadability; // Optional, defaults to PUBLIC
+  postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
   // Stats (calculated fields)
   studentsCount?: number;
   frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
@@ -131,14 +134,14 @@ export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'dr
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
 
-// Discussion permission enums
-export enum DiscussionReadability {
+// Post permission enums
+export enum PostReadability {
   PUBLIC = 0, // Anyone can read
   UNIV_MEMBERS = 1, // Only university members can read
   CLUB_MEMBERS = 2 // Only club members can read
 }
 
-export enum DiscussionWritability {
+export enum PostWritability {
   UNIV_MEMBERS = 0, // All university members can write
   CLUB_MEMBERS = 1, // Only club members can write
   ADMIN_AND_MODS = 2 // Only admins and moderators can write
@@ -158,15 +161,15 @@ export interface Club {
   id: string;
   universityId: string;
   name: string;
-  slug?: string | null; // Customizable URL slug
-  description?: string | null;
-  avatarUrl?: string | null;
-  backgroundColor?: string | null;
-  website?: string | null;
+  slug?: string; // Customizable URL slug
+  description?: string;
+  avatarUrl?: string;
+  backgroundColor?: string;
+  website?: string;
   // Settings
   acceptJoinRequests: boolean;
-  discussionReadability: DiscussionReadability;
-  discussionWritability: DiscussionWritability;
+  postReadability: PostReadability;
+  postWritability: PostWritability;
   // Stats
   membersCount?: number;
   // Starred arcades (shop IDs)
@@ -278,38 +281,6 @@ export interface JoinRequestWithUser extends JoinRequest {
   };
 }
 
-export interface Discussion {
-  _id?: string;
-  id: string;
-  type: 'university' | 'club';
-  targetId: string; // University ID or Club ID
-  title: string;
-  content: string;
-  authorId: string;
-  authorName?: string | null;
-  authorImage?: string | null;
-  isPinned: boolean;
-  isLocked: boolean;
-  replyCount: number;
-  lastReplyAt?: Date | null;
-  lastReplyBy?: string | null;
-  createdAt: Date;
-  updatedAt?: Date;
-}
-
-export interface DiscussionReply {
-  _id?: string;
-  id: string;
-  discussionId: string;
-  content: string;
-  authorId: string;
-  authorName?: string | null;
-  authorImage?: string | null;
-  replyToId?: string | null; // ID of reply being replied to
-  createdAt: Date;
-  updatedAt?: Date;
-}
-
 export interface Announcement {
   _id?: string;
   id: string;
@@ -348,6 +319,88 @@ export interface ChangelogEntry {
   userName?: string | null;
   userImage?: string | null;
   createdAt: Date;
+}
+
+// Posts feature types
+export interface Post {
+  _id?: string;
+  id: string;
+  title: string;
+  content: string; // Markdown content
+  // Organization affiliation - either universityId or clubId will be set
+  universityId?: string;
+  clubId?: string;
+  // Author information
+  createdBy: string; // User ID
+  createdAt: Date;
+  updatedAt?: Date;
+  // Engagement metrics
+  upvotes: number;
+  downvotes: number;
+  commentCount: number;
+  // Moderation
+  isPinned: boolean;
+  isLocked: boolean;
+}
+
+// Composite type with author data joined
+export interface PostWithAuthor extends Post {
+  author: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+}
+
+export interface PostVote {
+  _id?: string;
+  id: string;
+  postId: string;
+  userId: string;
+  voteType: 'upvote' | 'downvote';
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface Comment {
+  _id?: string;
+  id: string;
+  postId: string;
+  content: string; // Markdown content
+  createdBy: string; // User ID
+  createdAt: Date;
+  updatedAt?: Date;
+  // For nested replies
+  parentCommentId?: string | null;
+  // Engagement
+  upvotes: number;
+  downvotes: number;
+}
+
+// Composite type with author data joined
+export interface CommentWithAuthorAndVote extends Comment {
+  author: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    email: string | null;
+    image: string | null;
+    userType: string | null;
+  };
+  vote?: CommentVote;
+}
+
+export interface CommentVote {
+  _id?: string;
+  id: string;
+  commentId: string;
+  userId: string;
+  voteType: 'upvote' | 'downvote';
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export * from './amap';
