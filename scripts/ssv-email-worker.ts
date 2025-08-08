@@ -104,8 +104,8 @@ const searchAsync = (imap: Imap, criteria: string[]): Promise<number[]> => {
   });
 };
 
-const parseEmail = (stream: Source): Promise<ParsedMail> => {
-  return simpleParser(stream);
+const parseEmail = async (stream: Source): Promise<ParsedMail> => {
+  return await simpleParser(stream);
 };
 
 const redis = createRedisClient({ url: REDIS_URI });
