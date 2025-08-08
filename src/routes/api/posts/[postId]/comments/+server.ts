@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (university) {
         const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
         const permissions = await checkUniversityPermission(session.user, university, client);
-        
+
         if (postWritability === PostWritability.UNIV_MEMBERS) {
           canComment = !!permissions.role; // User is member if role is not empty
         } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
@@ -58,7 +58,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (club) {
         const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
         const permissions = await checkClubPermission(session.user, club, client);
-        
+
         if (postWritability === PostWritability.UNIV_MEMBERS) {
           canComment = permissions.canJoin > 0;
         } else if (postWritability === PostWritability.CLUB_MEMBERS) {

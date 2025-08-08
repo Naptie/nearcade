@@ -33,6 +33,71 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Comment not found' }, { status: 404 });
     }
 
+    // Get the post to check permissions
+    const postsCollection = db.collection('posts');
+    const post = await postsCollection.findOne({ id: comment.postId });
+    if (!post) {
+      return json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    // Check voting permissions based on post readability (anyone who can read posts can vote)
+    let canVote = true;
+
+    if (post.universityId) {
+      const university = await db.collection('universities').findOne({ id: post.universityId });
+      if (university) {
+        const postReadability = university.postReadability ?? 'PUBLIC';
+        if (postReadability === 'UNIV_MEMBERS') {
+          const { checkUniversityPermission } = await import('$lib/utils');
+          const permissions = await checkUniversityPermission(session.user, university, client);
+          canVote = !!permissions.role; // User is member if role is not empty
+        }
+      }
+    } else if (post.clubId) {
+      const club = await db.collection('clubs').findOne({ id: post.clubId });
+      if (club) {
+        const postReadability = club.postReadability ?? 'CLUB_MEMBERS';
+        if (postReadability === 'CLUB_MEMBERS' || postReadability === 'UNIV_MEMBERS') {
+          const { checkClubPermission } = await import('$lib/utils');
+          const permissions = await checkClubPermission(session.user, club, client);
+          if (postReadability === 'CLUB_MEMBERS') {
+            canVote = permissions.canJoin <= 1; // Member or can join (meaning already member)
+          } else {
+            canVote = permissions.canJoin <= 2; // Can join club means they're in university
+          }
+        }
+      }
+    }
+
+    if (!canVote) {
+      return json({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    // Check if post is locked and user has permission to interact
+    if (post.isLocked) {
+      let canInteract = false;
+
+      if (post.universityId) {
+        const university = await db.collection('universities').findOne({ id: post.universityId });
+        if (university) {
+          const { checkUniversityPermission } = await import('$lib/utils');
+          const permissions = await checkUniversityPermission(session.user, university, client);
+          canInteract = permissions.canEdit;
+        }
+      } else if (post.clubId) {
+        const club = await db.collection('clubs').findOne({ id: post.clubId });
+        if (club) {
+          const { checkClubPermission } = await import('$lib/utils');
+          const permissions = await checkClubPermission(session.user, club, client);
+          canInteract = permissions.canEdit;
+        }
+      }
+
+      if (!canInteract) {
+        return json({ error: 'Post is locked' }, { status: 403 });
+      }
+    }
+
     // Check for existing vote
     const existingVote = await votesCollection.findOne({
       commentId: commentId,

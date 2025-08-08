@@ -5,6 +5,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
+  import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
   import { renderMarkdown } from '$lib/markdown';
@@ -53,11 +54,36 @@
   let editTitle = $state(post.title);
   let editContent = $state(post.content);
   let isSavingPost = $state(false);
+  let showDeletePostConfirm = $state(false);
+  let showDeleteCommentConfirm = $state(false);
+  let deletingCommentId = $state('');
 
   let netVotes = $derived(post.upvotes - post.downvotes);
   let isOwnPost = $derived(currentUserId === post.createdBy);
   let canEditPost = $derived(isOwnPost || canEdit);
   let canManagePost = $derived(canManage);
+
+  // Determine if user can vote based on post readability permissions
+  let canVote = $derived.by(() => {
+    if (!currentUserId) return false;
+    if (localPost.isLocked && !canManagePost) return false;
+
+    // Voting permissions align with post readability - anyone who can read can vote
+    // The API already handles this, so for UI we just need to check basic permissions
+    // The actual permission enforcement is done in the API
+    return true;
+  });
+
+  // Determine if user can comment based on post writability permissions
+  let canComment = $derived.by(() => {
+    if (!currentUserId) return false;
+    if (localPost.isLocked && !canManagePost) return false;
+
+    // Commenting permissions align with post writability
+    // The API already handles this, so for UI we just need to check basic permissions
+    // The actual permission enforcement is done in the API
+    return true;
+  });
   let backUrl = $derived.by(() => {
     const orgPath =
       organizationType === 'university'
@@ -214,10 +240,15 @@
   const handleCommentDelete = async (commentId: string) => {
     if (!currentUserId) return;
 
-    if (!confirm(m.confirm_delete_comment())) return;
+    deletingCommentId = commentId;
+    showDeleteCommentConfirm = true;
+  };
+
+  const confirmDeleteComment = async () => {
+    if (!deletingCommentId) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
+      const response = await fetch(fromPath(`/api/comments/${deletingCommentId}`), {
         method: 'DELETE'
       });
 
@@ -339,9 +370,10 @@
 
   const deletePost = async () => {
     if (!canEditPost) return;
+    showDeletePostConfirm = true;
+  };
 
-    if (!confirm(m.confirm_delete_post())) return;
-
+  const confirmDeletePost = async () => {
     try {
       const response = await fetch(fromPath(`/api/posts/${post.id}`), {
         method: 'DELETE'
@@ -531,7 +563,7 @@
                 ? 'not-hover:text-success'
                 : ''}"
               onclick={() => handleVote('upvote')}
-              disabled={!currentUserId || isVoting || (localPost.isLocked && !canManagePost)}
+              disabled={!canVote || isVoting}
               title={m.upvote()}
             >
               <i class="fa-solid fa-caret-up fa-lg"></i>
@@ -553,7 +585,7 @@
                 ? 'not-hover:text-error'
                 : ''}"
               onclick={() => handleVote('downvote')}
-              disabled={!currentUserId || isVoting || (localPost.isLocked && !canManagePost)}
+              disabled={!canVote || isVoting}
               title={m.downvote()}
             >
               <i class="fa-solid fa-caret-down fa-lg"></i>
@@ -585,7 +617,7 @@
       </h2>
 
       <!-- Add comment form -->
-      {#if currentUserId && (!localPost.isLocked || canManagePost)}
+      {#if canComment}
         <div class="bg-base-100 mb-6 rounded-xl p-4">
           {#if commentError}
             <div class="alert alert-error mb-4">
@@ -616,7 +648,7 @@
             </button>
           </div>
         </div>
-      {:else if currentUserId && localPost.isLocked}
+      {:else if currentUserId && (localPost.isLocked || !canComment)}
         <div class="bg-base-200 mb-6 rounded-xl p-4 text-center">
           <i class="fa-solid fa-lock text-warning mb-2 text-2xl"></i>
           <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
@@ -632,8 +664,8 @@
                 {comment}
                 {currentUserId}
                 canManage={false}
-                onVote={localPost.isLocked && !canManagePost ? undefined : handleCommentVote}
-                onReply={localPost.isLocked && !canManagePost ? undefined : handleCommentReply}
+                onVote={canVote ? handleCommentVote : undefined}
+                onReply={canComment ? handleCommentReply : undefined}
                 onEdit={handleCommentEdit}
                 onDelete={handleCommentDelete}
                 depth={0}
@@ -691,8 +723,8 @@
                   comment={reply}
                   {currentUserId}
                   canManage={false}
-                  onVote={localPost.isLocked && !canManagePost ? undefined : handleCommentVote}
-                  onReply={localPost.isLocked && !canManagePost ? undefined : handleCommentReply}
+                  onVote={canVote ? handleCommentVote : undefined}
+                  onReply={canComment ? handleCommentReply : undefined}
                   onEdit={handleCommentEdit}
                   onDelete={handleCommentDelete}
                   depth={1}
@@ -715,3 +747,22 @@
     </section>
   </div>
 {/if}
+
+<!-- Confirmation Modals -->
+<ConfirmationModal
+  bind:isOpen={showDeletePostConfirm}
+  title={m.confirm_delete_post_title()}
+  message={m.confirm_delete_post()}
+  onConfirm={confirmDeletePost}
+  onCancel={() => {}}
+/>
+
+<ConfirmationModal
+  bind:isOpen={showDeleteCommentConfirm}
+  title={m.confirm_delete_comment_title()}
+  message={m.confirm_delete_comment()}
+  onConfirm={confirmDeleteComment}
+  onCancel={() => {
+    deletingCommentId = '';
+  }}
+/>

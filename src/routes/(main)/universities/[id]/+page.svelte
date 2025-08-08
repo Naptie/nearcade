@@ -68,7 +68,7 @@
   // Check if user can write posts based on university postWritability setting
   let canWritePosts = $derived.by(() => {
     if (!data.user) return false;
-    
+
     const postWritability = data.university.postWritability ?? PostWritability.UNIV_MEMBERS;
     let canWritePosts = false;
 

@@ -51,8 +51,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
         const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
-        if (postReadability === PostReadability.CLUB_MEMBERS || 
-            postReadability === PostReadability.UNIV_MEMBERS) {
+        if (
+          postReadability === PostReadability.CLUB_MEMBERS ||
+          postReadability === PostReadability.UNIV_MEMBERS
+        ) {
           const permissions = await checkClubPermission(session.user, club, client);
           if (postReadability === PostReadability.CLUB_MEMBERS) {
             canVote = permissions.canJoin <= 1; // Member or can join (meaning already member)

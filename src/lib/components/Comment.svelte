@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { CommentWithAuthorAndVote } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
+  import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { renderMarkdown } from '$lib/markdown';
   import { onMount } from 'svelte';
@@ -37,6 +38,7 @@
   let isEditing = $state(false);
   let editContent = $state(comment.content);
   let isSavingEdit = $state(false);
+  let showDeleteConfirm = $state(false);
 
   // Limit nesting depth to avoid infinite nesting
   const maxDepth = 1;
@@ -73,10 +75,14 @@
   };
 
   const handleDelete = () => {
-    if (onDelete && confirm(m.confirm_delete_comment())) {
+    showDeleteConfirm = true;
+    showMenu = false;
+  };
+
+  const confirmDelete = () => {
+    if (onDelete) {
       onDelete(comment.id);
     }
-    showMenu = false;
   };
 
   const saveEdit = async () => {
@@ -251,3 +257,11 @@
     </div>
   </div>
 </div>
+
+<ConfirmationModal
+  bind:isOpen={showDeleteConfirm}
+  title={m.confirm_delete_comment_title()}
+  message={m.confirm_delete_comment()}
+  onConfirm={confirmDelete}
+  onCancel={() => {}}
+/>
