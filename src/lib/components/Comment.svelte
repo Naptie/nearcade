@@ -15,7 +15,6 @@
     onEdit?: (commentId: string, newContent: string) => Promise<void>;
     onDelete?: (commentId: string) => void;
     onVote?: (commentId: string, voteType: 'upvote' | 'downvote') => void;
-    isReplying?: boolean;
     depth?: number;
   }
 
@@ -27,7 +26,6 @@
     onEdit,
     onDelete,
     onVote,
-    isReplying = false,
     depth = 0
   }: Props = $props();
 
@@ -168,8 +166,8 @@
             disabled={isSavingEdit}
           ></textarea>
           <div class="flex gap-2">
-            <button 
-              type="button" 
+            <button
+              type="button"
               class="btn btn-primary btn-sm"
               onclick={saveEdit}
               disabled={isSavingEdit || !editContent.trim()}
@@ -179,9 +177,9 @@
               {/if}
               {m.save()}
             </button>
-            <button 
-              type="button" 
-              class="btn btn-ghost btn-sm" 
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
               onclick={cancelEditing}
               disabled={isSavingEdit}
             >

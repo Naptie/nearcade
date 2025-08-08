@@ -40,7 +40,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       let canInteract = false;
 
       if (post.universityId) {
-        const university = await db.collection<University>('universities').findOne({ id: post.universityId });
+        const university = await db
+          .collection<University>('universities')
+          .findOne({ id: post.universityId });
         if (university) {
           const permissions = await checkUniversityPermission(session.user, university, client);
           canInteract = permissions.canEdit;

@@ -32,7 +32,10 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
     let canReadPosts = true;
 
-    if (postReadability === PostReadability.CLUB_MEMBERS || postReadability === PostReadability.UNIV_MEMBERS) {
+    if (
+      postReadability === PostReadability.CLUB_MEMBERS ||
+      postReadability === PostReadability.UNIV_MEMBERS
+    ) {
       if (!session?.user?.id) {
         canReadPosts = false;
       } else {

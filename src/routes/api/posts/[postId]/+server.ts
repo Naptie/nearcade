@@ -1,7 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type { Post, PostWithAuthor, PostVote, Comment, CommentWithAuthor, University, Club } from '$lib/types';
+import type {
+  Post,
+  PostWithAuthor,
+  PostVote,
+  Comment,
+  CommentWithAuthor,
+  University,
+  Club
+} from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
@@ -139,7 +147,9 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     let canManage = false;
 
     if (post.universityId) {
-      const university = await db.collection<University>('universities').findOne({ id: post.universityId });
+      const university = await db
+        .collection<University>('universities')
+        .findOne({ id: post.universityId });
       if (university) {
         const permissions = await checkUniversityPermission(session.user, university, client);
         canEdit = permissions.canEdit;
@@ -173,7 +183,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     // Build update object
     const updateData: Partial<Post> = {};
-    
+
     if (title !== undefined) {
       updateData.title = title;
     }
@@ -193,10 +203,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Update the post
-    await postsCollection.updateOne(
-      { id: postId },
-      { $set: updateData }
-    );
+    await postsCollection.updateOne({ id: postId }, { $set: updateData });
 
     return json({ success: true });
   } catch (error) {
@@ -232,7 +239,9 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     const isOwner = post.createdBy === session.user.id;
 
     if (post.universityId) {
-      const university = await db.collection<University>('universities').findOne({ id: post.universityId });
+      const university = await db
+        .collection<University>('universities')
+        .findOne({ id: post.universityId });
       if (university) {
         const permissions = await checkUniversityPermission(session.user, university, client);
         canDelete = isOwner || permissions.canEdit;

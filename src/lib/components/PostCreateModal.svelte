@@ -140,7 +140,7 @@
         </div>
 
         <!-- Content area -->
-        <MarkdownEditor 
+        <MarkdownEditor
           bind:value={content}
           placeholder={m.post_content_placeholder()}
           disabled={isSubmitting}

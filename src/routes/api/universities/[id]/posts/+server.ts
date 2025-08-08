@@ -2,7 +2,13 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import type { Post, PostWithAuthor, University, PostReadability, PostWritability } from '$lib/types';
+import type {
+  Post,
+  PostWithAuthor,
+  University,
+  PostReadability,
+  PostWritability
+} from '$lib/types';
 import { postId, checkUniversityPermission } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {

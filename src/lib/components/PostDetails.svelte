@@ -219,7 +219,7 @@
       if (response.ok) {
         // Update the comment in local state
         localComments = localComments.map((comment) =>
-          comment.id === commentId 
+          comment.id === commentId
             ? { ...comment, content: newContent, updatedAt: new Date() }
             : comment
         );
@@ -340,9 +340,9 @@
       });
 
       if (response.ok) {
-        localPost = { 
-          ...localPost, 
-          title: editTitle.trim(), 
+        localPost = {
+          ...localPost,
+          title: editTitle.trim(),
           content: editContent.trim(),
           updatedAt: new Date()
         };
@@ -432,88 +432,89 @@
           </div>
 
           <!-- Post badges -->
-        <div class="flex items-center justify-between">
-          <div class="flex gap-2">
-            {#if localPost.isPinned}
-              <div class="badge badge-success">
-                <i class="fa-solid fa-thumbtack mr-1"></i>
-                {m.pinned_post()}
-              </div>
-            {/if}
-            {#if localPost.isLocked}
-              <div class="badge badge-warning">
-                <i class="fa-solid fa-lock mr-1"></i>
-                {m.locked_post()}
-              </div>
+          <div class="flex items-center justify-between">
+            <div class="flex gap-2">
+              {#if localPost.isPinned}
+                <div class="badge badge-success">
+                  <i class="fa-solid fa-thumbtack mr-1"></i>
+                  {m.pinned_post()}
+                </div>
+              {/if}
+              {#if localPost.isLocked}
+                <div class="badge badge-warning">
+                  <i class="fa-solid fa-lock mr-1"></i>
+                  {m.locked_post()}
+                </div>
+              {/if}
+            </div>
+
+            <!-- Management menu -->
+            {#if currentUserId && (canManagePost || canEditPost)}
+              <details class="dropdown dropdown-end" bind:open={showManageMenu}>
+                <summary class="btn btn-ghost btn-circle btn-sm" aria-label={m.actions()}>
+                  <i class="fa-solid fa-ellipsis-vertical"></i>
+                </summary>
+                <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-56 p-2 shadow">
+                  {#if canEditPost}
+                    <li>
+                      <button onclick={startEditingPost} class="text-info">
+                        <i class="fa-solid fa-edit"></i>
+                        {m.edit_post()}
+                      </button>
+                    </li>
+                    <li>
+                      <button onclick={deletePost} class="text-error">
+                        <i class="fa-solid fa-trash"></i>
+                        {m.delete_post()}
+                      </button>
+                    </li>
+                  {/if}
+                  {#if canManagePost}
+                    <li>
+                      <button onclick={togglePinPost} class="text-secondary">
+                        <i class="fa-solid fa-thumbtack"></i>
+                        {localPost.isPinned ? m.unpin_post() : m.pin_post()}
+                      </button>
+                    </li>
+                    <li>
+                      <button onclick={toggleLockPost} class="text-warning">
+                        <i class="fa-solid fa-lock"></i>
+                        {localPost.isLocked ? m.unlock_post() : m.lock_post()}
+                      </button>
+                    </li>
+                  {/if}
+                </ul>
+              </details>
             {/if}
           </div>
 
-          <!-- Management menu -->
-          {#if currentUserId && (canManagePost || canEditPost)}
-            <details class="dropdown dropdown-end" bind:open={showManageMenu}>
-              <summary class="btn btn-ghost btn-circle btn-sm" aria-label={m.actions()}>
-                <i class="fa-solid fa-ellipsis-vertical"></i>
-              </summary>
-              <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-56 p-2 shadow">
-                {#if canEditPost}
-                  <li>
-                    <button onclick={startEditingPost} class="text-info">
-                      <i class="fa-solid fa-edit"></i>
-                      {m.edit_post()}
-                    </button>
-                  </li>
-                  <li>
-                    <button onclick={deletePost} class="text-error">
-                      <i class="fa-solid fa-trash"></i>
-                      {m.delete_post()}
-                    </button>
-                  </li>
-                {/if}
-                {#if canManagePost}
-                  <li>
-                    <button onclick={togglePinPost} class="text-secondary">
-                      <i class="fa-solid fa-thumbtack"></i>
-                      {localPost.isPinned ? m.unpin_post() : m.pin_post()}
-                    </button>
-                  </li>
-                  <li>
-                    <button onclick={toggleLockPost} class="text-warning">
-                      <i class="fa-solid fa-lock"></i>
-                      {localPost.isLocked ? m.unlock_post() : m.lock_post()}
-                    </button>
-                  </li>
-                {/if}
-              </ul>
-            </details>
+          <!-- Post title -->
+          {#if isEditingPost}
+            <div class="mb-4">
+              <input
+                type="text"
+                class="input input-bordered w-full text-3xl font-bold"
+                bind:value={editTitle}
+                disabled={isSavingPost}
+                maxlength="200"
+              />
+            </div>
+          {:else}
+            <h1 class="mb-4 text-3xl font-bold">{localPost.title}</h1>
           {/if}
         </div>
-
-        <!-- Post title -->
-        {#if isEditingPost}
-          <div class="mb-4">
-            <input
-              type="text"
-              class="input input-bordered w-full text-3xl font-bold"
-              bind:value={editTitle}
-              disabled={isSavingPost}
-              maxlength="200"
-            />
-          </div>
-        {:else}
-          <h1 class="mb-4 text-3xl font-bold">{localPost.title}</h1>
-        {/if}
       </header>
 
       <!-- Post content -->
       {#if isEditingPost}
         <div class="mb-6">
-          <MarkdownEditor 
+          <MarkdownEditor
             bind:value={editContent}
             placeholder={m.post_content_placeholder()}
             disabled={isSavingPost}
             minHeight="min-h-48"
           />
-          <div class="flex gap-2 mt-4">
+          <div class="mt-4 flex gap-2">
             <button
               type="button"
               class="btn btn-primary"
@@ -610,14 +611,14 @@
             </div>
           {/if}
 
-          <MarkdownEditor 
+          <MarkdownEditor
             bind:value={newCommentContent}
             placeholder={m.comment_placeholder()}
             disabled={isSubmittingComment}
             minHeight="min-h-[100px]"
           />
 
-          <div class="flex justify-end mt-3">
+          <div class="mt-3 flex justify-end">
             <button
               class="btn btn-primary btn-sm"
               onclick={handleCommentSubmit}
@@ -679,14 +680,14 @@
                     </div>
                   {/if}
 
-                  <MarkdownEditor 
+                  <MarkdownEditor
                     bind:value={replyContent}
                     placeholder={m.reply_to_comment()}
                     disabled={isSubmittingReply}
                     minHeight="min-h-[100px]"
                   />
 
-                  <div class="flex items-center justify-between mt-3">
+                  <div class="mt-3 flex items-center justify-between">
                     <div class="flex gap-2">
                       <button
                         class="btn btn-ghost btn-sm"
