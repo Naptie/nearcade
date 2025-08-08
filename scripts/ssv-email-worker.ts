@@ -262,7 +262,7 @@ const processEmail = async (parsed: ParsedMail) => {
     return;
   }
 
-  const body: string = parsed.text || '';
+  const body: string = parsed.text || parsed.html || '';
   const lines = body.split('\n').map((l) => l.trim());
   const univLine = lines.find((l) => l.startsWith('UNIV: '));
   const userLine = lines.find((l) => l.startsWith('USER: '));
