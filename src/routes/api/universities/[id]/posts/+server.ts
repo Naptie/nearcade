@@ -43,7 +43,8 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
         canReadPosts = false;
       } else {
         const permissions = await checkUniversityPermission(session.user, university, client);
-        canReadPosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+        // For universities, user is member if role is not empty
+        canReadPosts = !!permissions.role;
       }
     }
 
@@ -136,11 +137,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
     let canWritePosts = false;
 
+    const permissions = await checkUniversityPermission(session.user, university, client);
     if (postWritability === PostWritability.UNIV_MEMBERS) {
-      const permissions = await checkUniversityPermission(session.user, university, client);
-      canWritePosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+      // For universities, user is member if role is not empty
+      canWritePosts = !!permissions.role;
     } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
-      const permissions = await checkUniversityPermission(session.user, university, client);
       canWritePosts = permissions.canEdit;
     }
 

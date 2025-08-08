@@ -2,6 +2,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
+import markedKatex from 'marked-katex-extension';
 
 // Configure marked to use highlight.js for code highlighting
 marked.use(
@@ -12,6 +13,19 @@ marked.use(
       const language = hljs.getLanguage(lang) ? lang : 'plaintext';
       return hljs.highlight(code, { language }).value;
     }
+  })
+);
+
+// Configure marked to use KaTeX for LaTeX math rendering
+marked.use(
+  markedKatex({
+    throwOnError: false,
+    displayMode: false,
+    output: 'html',
+    strict: false,
+    trust: false,
+    macros: {},
+    globalGroup: true
   })
 );
 
@@ -63,9 +77,57 @@ export async function renderMarkdown(markdown: string): Promise<string> {
       'blockquote',
       'a',
       'img',
-      'span'
+      'span',
+      // KaTeX tags
+      'math',
+      'annotation',
+      'semantics',
+      'mrow',
+      'mfrac',
+      'msup',
+      'msub',
+      'msubsup',
+      'msqrt',
+      'mroot',
+      'mi',
+      'mn',
+      'mo',
+      'mtext',
+      'mspace',
+      'mover',
+      'munder',
+      'munderover',
+      'mtable',
+      'mtr',
+      'mtd',
+      'mstyle',
+      'mpadded',
+      'mphantom',
+      'mfenced',
+      'menclose'
     ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'src', 'alt', 'width', 'height', 'class'],
+    ALLOWED_ATTR: [
+      'href',
+      'target',
+      'rel',
+      'title',
+      'src',
+      'alt',
+      'width',
+      'height',
+      'class',
+      // KaTeX attributes
+      'aria-hidden',
+      'style',
+      'mathvariant',
+      'mathsize',
+      'mathcolor',
+      'mathbackground',
+      'displaystyle',
+      'scriptlevel',
+      'data-katex',
+      'data-katex-display'
+    ],
     ALLOW_DATA_ATTR: false
   });
 }

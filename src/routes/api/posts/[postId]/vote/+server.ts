@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
 import type { Post, PostVote, University, Club } from '$lib/types';
+import { PostReadability } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 
@@ -30,6 +31,40 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
       return json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    // Check voting permissions based on post readability (anyone who can read posts can vote)
+    let canVote = true;
+
+    if (post.universityId) {
+      const university = await db
+        .collection<University>('universities')
+        .findOne({ id: post.universityId });
+      if (university) {
+        const postReadability = university.postReadability ?? PostReadability.PUBLIC;
+        if (postReadability === PostReadability.UNIV_MEMBERS) {
+          const permissions = await checkUniversityPermission(session.user, university, client);
+          canVote = !!permissions.role; // User is member if role is not empty
+        }
+      }
+    } else if (post.clubId) {
+      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+      if (club) {
+        const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+        if (postReadability === PostReadability.CLUB_MEMBERS || 
+            postReadability === PostReadability.UNIV_MEMBERS) {
+          const permissions = await checkClubPermission(session.user, club, client);
+          if (postReadability === PostReadability.CLUB_MEMBERS) {
+            canVote = permissions.canJoin <= 1; // Member or can join (meaning already member)
+          } else {
+            canVote = permissions.canJoin <= 2; // Can join club means they're in university
+          }
+        }
+      }
+    }
+
+    if (!canVote) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Check if post is locked and user has permission to interact

@@ -4,6 +4,7 @@
   import { enhance } from '$app/forms';
   import type { PageData } from './$types';
   import type { Campus, UniversityMemberWithUser } from '$lib/types';
+  import { PostWritability } from '$lib/types';
   import CampusEditModal from '$lib/components/CampusEditModal.svelte';
   import InviteLinkModal from '$lib/components/InviteLinkModal.svelte';
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
@@ -62,6 +63,23 @@
   let userPrivileges = $derived.by(() => {
     if (!data.user) return { canEdit: false, canManage: false };
     return data.userPermissions;
+  });
+
+  // Check if user can write posts based on university postWritability setting
+  let canWritePosts = $derived.by(() => {
+    if (!data.user) return false;
+    
+    const postWritability = data.university.postWritability ?? PostWritability.UNIV_MEMBERS;
+    let canWritePosts = false;
+
+    if (postWritability === PostWritability.UNIV_MEMBERS) {
+      // For universities, user is member if role is not empty
+      canWritePosts = !!data.userPermissions.role;
+    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+      canWritePosts = data.userPermissions.canEdit;
+    }
+
+    return canWritePosts;
   });
 
   // Load search radius from localStorage
@@ -860,7 +878,7 @@
             organizationName={data.university.name}
             organizationSlug={data.university.slug}
             currentUserId={data.user?.id}
-            canCreatePost={!!data.user}
+            canCreatePost={canWritePosts}
             initialPosts={[]}
           />
         {:else if activeTab === 'changelog'}

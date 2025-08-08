@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
 import type { Post, Comment, University, Club } from '$lib/types';
+import { PostWritability } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 
@@ -33,6 +34,43 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
       return json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    // Check commenting permissions based on post writability
+    let canComment = false;
+
+    if (post.universityId) {
+      const university = await db
+        .collection<University>('universities')
+        .findOne({ id: post.universityId });
+      if (university) {
+        const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
+        const permissions = await checkUniversityPermission(session.user, university, client);
+        
+        if (postWritability === PostWritability.UNIV_MEMBERS) {
+          canComment = !!permissions.role; // User is member if role is not empty
+        } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+          canComment = permissions.canEdit;
+        }
+      }
+    } else if (post.clubId) {
+      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+      if (club) {
+        const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
+        const permissions = await checkClubPermission(session.user, club, client);
+        
+        if (postWritability === PostWritability.UNIV_MEMBERS) {
+          canComment = permissions.canJoin > 0;
+        } else if (postWritability === PostWritability.CLUB_MEMBERS) {
+          canComment = !!permissions.role;
+        } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+          canComment = permissions.canEdit;
+        }
+      }
+    }
+
+    if (!canComment) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Check if post is locked and user has permission to comment
