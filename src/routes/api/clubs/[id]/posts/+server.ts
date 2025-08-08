@@ -2,11 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import type { Post, PostWithAuthor, Club } from '$lib/types';
-import { postId } from '$lib/utils';
+import type { Post, PostWithAuthor, Club, PostReadability, PostWritability } from '$lib/types';
+import { postId, checkClubPermission } from '$lib/utils';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
+    const session = await locals.auth();
     const clubId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
@@ -25,6 +26,28 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
     if (!club) {
       return json({ error: 'Club not found' }, { status: 404 });
+    }
+
+    // Check post readability permissions
+    const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+    let canReadPosts = true;
+
+    if (postReadability === PostReadability.CLUB_MEMBERS || postReadability === PostReadability.UNIV_MEMBERS) {
+      if (!session?.user?.id) {
+        canReadPosts = false;
+      } else {
+        const permissions = await checkClubPermission(session.user, club, client);
+        if (postReadability === PostReadability.CLUB_MEMBERS) {
+          canReadPosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+        } else {
+          // UNIV_MEMBERS - check if user is member of university
+          canReadPosts = permissions.canJoin <= 2; // Can join club means they're in university
+        }
+      }
+    }
+
+    if (!canReadPosts) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Get posts for this club
@@ -106,6 +129,25 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     });
     if (!club) {
       return json({ error: 'Club not found' }, { status: 404 });
+    }
+
+    // Check post writability permissions
+    const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
+    let canWritePosts = false;
+
+    if (postWritability === PostWritability.UNIV_MEMBERS) {
+      const permissions = await checkClubPermission(session.user, club, client);
+      canWritePosts = permissions.canJoin <= 2; // Can join club means they're in university
+    } else if (postWritability === PostWritability.CLUB_MEMBERS) {
+      const permissions = await checkClubPermission(session.user, club, client);
+      canWritePosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+      const permissions = await checkClubPermission(session.user, club, client);
+      canWritePosts = permissions.canEdit;
+    }
+
+    if (!canWritePosts) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Create new post

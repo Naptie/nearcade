@@ -4,6 +4,7 @@
   import type { PostWithAuthor, CommentWithAuthor } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
+  import MarkdownEditor from './MarkdownEditor.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
   import { renderMarkdown } from '$lib/markdown';
@@ -19,6 +20,8 @@
     organizationName: string;
     organizationSlug?: string;
     organizationId: string;
+    canManage?: boolean; // User can pin/unpin, lock/unlock posts
+    canEdit?: boolean; // User can edit/delete posts
   }
 
   let {
@@ -29,7 +32,9 @@
     organizationType,
     organizationName,
     organizationSlug,
-    organizationId
+    organizationId,
+    canManage = false,
+    canEdit = false
   }: Props = $props();
 
   let content = $state('');
@@ -40,15 +45,22 @@
   let isVoting = $state(false);
   let newCommentContent = $state('');
   let isSubmittingComment = $state(false);
-  let showCommentPreview = $state(false);
   let commentError = $state('');
   let replyingTo = $state<string | null>(null);
   let replyContent = $state('');
-  let showReplyPreview = $state(false);
   let isSubmittingReply = $state(false);
   let componentMounted = $state(true);
+  let localPost = $state(post);
+  let showManageMenu = $state(false);
+  let isEditingPost = $state(false);
+  let editTitle = $state(post.title);
+  let editContent = $state(post.content);
+  let isSavingPost = $state(false);
 
   const netVotes = $derived(localUpvotes - localDownvotes);
+  const isOwnPost = $derived(currentUserId === post.createdBy);
+  const canEditPost = $derived(isOwnPost || canEdit);
+  const canManagePost = $derived(canManage);
   const backUrl = $derived.by(() => {
     const orgPath =
       organizationType === 'university'
@@ -108,7 +120,6 @@
 
       if (response.ok) {
         newCommentContent = '';
-        showCommentPreview = false;
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { error: string };
@@ -157,7 +168,6 @@
   const handleCommentReply = (commentId: string) => {
     replyingTo = commentId;
     replyContent = '';
-    showReplyPreview = false;
   };
 
   const submitReply = async () => {
@@ -181,7 +191,6 @@
       if (response.ok) {
         replyingTo = null;
         replyContent = '';
-        showReplyPreview = false;
         // Refresh comments by reloading the page
         window.location.reload();
       } else {
@@ -195,35 +204,32 @@
     }
   };
 
-  const handleCommentEdit = async (commentId: string) => {
+  const handleCommentEdit = async (commentId: string, newContent: string) => {
     if (!currentUserId) return;
 
     try {
-      // Find the comment to edit
-      const commentToEdit = localComments.find((c) => c.id === commentId);
-      if (!commentToEdit) return;
-
-      const newContent = prompt('Edit comment:', commentToEdit.content);
-      if (!newContent || newContent.trim() === commentToEdit.content) return;
-
       const response = await fetch(`${base}/api/comments/${commentId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content: newContent.trim() })
+        body: JSON.stringify({ content: newContent })
       });
 
       if (response.ok) {
-        // Refresh comments by reloading the page
-        window.location.reload();
+        // Update the comment in local state
+        localComments = localComments.map((comment) =>
+          comment.id === commentId 
+            ? { ...comment, content: newContent, updatedAt: new Date() }
+            : comment
+        );
       } else {
         const errorData = (await response.json()) as { error: string };
-        alert(errorData.error || 'Failed to edit comment');
+        throw new Error(errorData.error || 'Failed to edit comment');
       }
     } catch (error) {
       console.error('Error editing comment:', error);
-      alert('Network error. Please try again.');
+      throw error; // Re-throw so the component can handle it
     }
   };
 
@@ -248,12 +254,138 @@
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert('Network error. Please try again.');
+      alert(m.network_error_try_again());
+    }
+  };
+
+  // Post management functions
+  const togglePinPost = async () => {
+    if (!canManagePost) return;
+
+    try {
+      const response = await fetch(`${base}/api/posts/${post.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isPinned: !localPost.isPinned })
+      });
+
+      if (response.ok) {
+        localPost = { ...localPost, isPinned: !localPost.isPinned };
+        showManageMenu = false;
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        alert(errorData.error || 'Failed to update post');
+      }
+    } catch (error) {
+      console.error('Error updating post:', error);
+      alert(m.network_error_try_again());
+    }
+  };
+
+  const toggleLockPost = async () => {
+    if (!canManagePost) return;
+
+    try {
+      const response = await fetch(`${base}/api/posts/${post.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isLocked: !localPost.isLocked })
+      });
+
+      if (response.ok) {
+        localPost = { ...localPost, isLocked: !localPost.isLocked };
+        showManageMenu = false;
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        alert(errorData.error || 'Failed to update post');
+      }
+    } catch (error) {
+      console.error('Error updating post:', error);
+      alert(m.network_error_try_again());
+    }
+  };
+
+  const startEditingPost = () => {
+    if (!canEditPost) return;
+    isEditingPost = true;
+    editTitle = localPost.title;
+    editContent = localPost.content;
+    showManageMenu = false;
+  };
+
+  const cancelEditingPost = () => {
+    isEditingPost = false;
+    editTitle = localPost.title;
+    editContent = localPost.content;
+  };
+
+  const savePostEdit = async () => {
+    if (!canEditPost || !editTitle.trim() || !editContent.trim()) return;
+
+    isSavingPost = true;
+    try {
+      const response = await fetch(`${base}/api/posts/${post.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          content: editContent.trim()
+        })
+      });
+
+      if (response.ok) {
+        localPost = { 
+          ...localPost, 
+          title: editTitle.trim(), 
+          content: editContent.trim(),
+          updatedAt: new Date()
+        };
+        isEditingPost = false;
+        // Re-render content
+        content = await renderMarkdown(localPost.content);
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        alert(errorData.error || 'Failed to update post');
+      }
+    } catch (error) {
+      console.error('Error updating post:', error);
+      alert(m.network_error_try_again());
+    } finally {
+      isSavingPost = false;
+    }
+  };
+
+  const deletePost = async () => {
+    if (!canEditPost) return;
+
+    if (!confirm(m.confirm_delete_post())) return;
+
+    try {
+      const response = await fetch(`${base}/api/posts/${post.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Redirect back to posts list
+        window.location.href = backUrl;
+      } else {
+        const errorData = (await response.json()) as { error: string };
+        alert(errorData.error || 'Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert(m.network_error_try_again());
     }
   };
 
   onMount(async () => {
-    content = await renderMarkdown(post.content);
+    content = await renderMarkdown(localPost.content);
   });
 
   onDestroy(() => {
@@ -300,29 +432,114 @@
           </div>
 
           <!-- Post badges -->
+        <div class="flex items-center justify-between">
           <div class="flex gap-2">
-            {#if post.isPinned}
+            {#if localPost.isPinned}
               <div class="badge badge-success">
                 <i class="fa-solid fa-thumbtack mr-1"></i>
                 {m.pinned_post()}
               </div>
             {/if}
-            {#if post.isLocked}
+            {#if localPost.isLocked}
               <div class="badge badge-warning">
                 <i class="fa-solid fa-lock mr-1"></i>
                 {m.locked_post()}
               </div>
             {/if}
           </div>
+
+          <!-- Management menu -->
+          {#if currentUserId && (canManagePost || canEditPost)}
+            <details class="dropdown dropdown-end" bind:open={showManageMenu}>
+              <summary class="btn btn-ghost btn-circle btn-sm" aria-label={m.actions()}>
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </summary>
+              <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-56 p-2 shadow">
+                {#if canEditPost}
+                  <li>
+                    <button onclick={startEditingPost} class="text-info">
+                      <i class="fa-solid fa-edit"></i>
+                      {m.edit_post()}
+                    </button>
+                  </li>
+                  <li>
+                    <button onclick={deletePost} class="text-error">
+                      <i class="fa-solid fa-trash"></i>
+                      {m.delete_post()}
+                    </button>
+                  </li>
+                {/if}
+                {#if canManagePost}
+                  <li>
+                    <button onclick={togglePinPost} class="text-secondary">
+                      <i class="fa-solid fa-thumbtack"></i>
+                      {localPost.isPinned ? m.unpin_post() : m.pin_post()}
+                    </button>
+                  </li>
+                  <li>
+                    <button onclick={toggleLockPost} class="text-warning">
+                      <i class="fa-solid fa-lock"></i>
+                      {localPost.isLocked ? m.unlock_post() : m.lock_post()}
+                    </button>
+                  </li>
+                {/if}
+              </ul>
+            </details>
+          {/if}
         </div>
 
-        <h1 class="mb-4 text-3xl font-bold">{post.title}</h1>
+        <!-- Post title -->
+        {#if isEditingPost}
+          <div class="mb-4">
+            <input
+              type="text"
+              class="input input-bordered w-full text-3xl font-bold"
+              bind:value={editTitle}
+              disabled={isSavingPost}
+              maxlength="200"
+            />
+          </div>
+        {:else}
+          <h1 class="mb-4 text-3xl font-bold">{localPost.title}</h1>
+        {/if}
       </header>
 
       <!-- Post content -->
-      <div class="prose mb-6 max-w-none">
-        {@html content}
-      </div>
+      {#if isEditingPost}
+        <div class="mb-6">
+          <MarkdownEditor 
+            bind:value={editContent}
+            placeholder={m.post_content_placeholder()}
+            disabled={isSavingPost}
+            minHeight="min-h-48"
+          />
+          <div class="flex gap-2 mt-4">
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick={savePostEdit}
+              disabled={isSavingPost || !editTitle.trim() || !editContent.trim()}
+            >
+              {#if isSavingPost}
+                <span class="loading loading-spinner loading-sm"></span>
+              {/if}
+              {m.save_changes()}
+            </button>
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick={cancelEditingPost}
+              disabled={isSavingPost}
+            >
+              {m.cancel()}
+            </button>
+          </div>
+        </div>
+      {:else}
+        <div class="prose mb-6 max-w-none">
+          {@html content}
+        </div>
+      {/if}
 
       <!-- Voting section -->
       <div class="flex items-center justify-between pt-4">
@@ -332,7 +549,7 @@
             <button
               class="btn btn-ghost btn-sm {localUserVote === 'upvote' ? 'btn-success' : ''}"
               onclick={() => handleVote('upvote')}
-              disabled={!currentUserId || isVoting}
+              disabled={!currentUserId || isVoting || (localPost.isLocked && !canManagePost)}
               title={m.upvote()}
             >
               <i class="fa-solid fa-chevron-up"></i>
@@ -352,7 +569,7 @@
             <button
               class="btn btn-ghost btn-sm {localUserVote === 'downvote' ? 'btn-error' : ''}"
               onclick={() => handleVote('downvote')}
-              disabled={!currentUserId || isVoting}
+              disabled={!currentUserId || isVoting || (localPost.isLocked && !canManagePost)}
               title={m.downvote()}
             >
               <i class="fa-solid fa-chevron-down"></i>
@@ -384,7 +601,7 @@
       </h2>
 
       <!-- Add comment form -->
-      {#if currentUserId}
+      {#if currentUserId && (!localPost.isLocked || canManagePost)}
         <div class="bg-base-100 mb-6 rounded-lg p-4">
           {#if commentError}
             <div class="alert alert-error mb-4">
@@ -393,48 +610,14 @@
             </div>
           {/if}
 
-          <!-- Comment tabs -->
-          <div class="tabs tabs-boxed mb-3">
-            <button
-              class="tab {!showCommentPreview ? 'tab-active' : ''}"
-              onclick={() => (showCommentPreview = false)}
-            >
-              <i class="fa-solid fa-edit mr-2"></i>
-              {m.write()}
-            </button>
-            <button
-              class="tab {showCommentPreview ? 'tab-active' : ''}"
-              onclick={() => (showCommentPreview = true)}
-              disabled={!newCommentContent.trim()}
-            >
-              <i class="fa-solid fa-eye mr-2"></i>
-              {m.preview()}
-            </button>
-          </div>
+          <MarkdownEditor 
+            bind:value={newCommentContent}
+            placeholder={m.comment_placeholder()}
+            disabled={isSubmittingComment}
+            minHeight="min-h-[100px]"
+          />
 
-          <!-- Comment input area -->
-          {#if showCommentPreview}
-            <div class="bg-base-200 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4">
-              {#if newCommentContent.trim()}
-                {@html renderMarkdown(newCommentContent)}
-              {:else}
-                <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-              {/if}
-            </div>
-          {:else}
-            <textarea
-              placeholder={m.comment_placeholder()}
-              class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
-              bind:value={newCommentContent}
-              disabled={isSubmittingComment}
-            ></textarea>
-          {/if}
-
-          <div class="flex items-center justify-between">
-            <div class="text-base-content/60 text-xs">
-              <i class="fa-brands fa-markdown mr-1"></i>
-              {m.markdown_supported()}
-            </div>
+          <div class="flex justify-end mt-3">
             <button
               class="btn btn-primary btn-sm"
               onclick={handleCommentSubmit}
@@ -449,6 +632,11 @@
             </button>
           </div>
         </div>
+      {:else if currentUserId && localPost.isLocked}
+        <div class="bg-base-200 mb-6 rounded-lg p-4 text-center">
+          <i class="fa-solid fa-lock text-warning mb-2 text-2xl"></i>
+          <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
+        </div>
       {/if}
 
       <!-- Comments list -->
@@ -460,8 +648,8 @@
                 {comment}
                 {currentUserId}
                 canManage={false}
-                onVote={handleCommentVote}
-                onReply={handleCommentReply}
+                onVote={localPost.isLocked && !canManagePost ? undefined : handleCommentVote}
+                onReply={localPost.isLocked && !canManagePost ? undefined : handleCommentReply}
                 onEdit={handleCommentEdit}
                 onDelete={handleCommentDelete}
                 depth={0}
@@ -473,8 +661,8 @@
                   comment={reply}
                   {currentUserId}
                   canManage={false}
-                  onVote={handleCommentVote}
-                  onReply={handleCommentReply}
+                  onVote={localPost.isLocked && !canManagePost ? undefined : handleCommentVote}
+                  onReply={localPost.isLocked && !canManagePost ? undefined : handleCommentReply}
                   onEdit={handleCommentEdit}
                   onDelete={handleCommentDelete}
                   depth={1}
@@ -491,50 +679,14 @@
                     </div>
                   {/if}
 
-                  <!-- Reply tabs -->
-                  <div class="tabs tabs-boxed mb-3">
-                    <button
-                      class="tab {!showReplyPreview ? 'tab-active' : ''}"
-                      onclick={() => (showReplyPreview = false)}
-                    >
-                      <i class="fa-solid fa-edit mr-2"></i>
-                      {m.write()}
-                    </button>
-                    <button
-                      class="tab {showReplyPreview ? 'tab-active' : ''}"
-                      onclick={() => (showReplyPreview = true)}
-                      disabled={!replyContent.trim()}
-                    >
-                      <i class="fa-solid fa-eye mr-2"></i>
-                      {m.preview()}
-                    </button>
-                  </div>
+                  <MarkdownEditor 
+                    bind:value={replyContent}
+                    placeholder={m.reply_to_comment()}
+                    disabled={isSubmittingReply}
+                    minHeight="min-h-[100px]"
+                  />
 
-                  <!-- Reply input area -->
-                  {#if showReplyPreview}
-                    <div
-                      class="bg-base-300 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4"
-                    >
-                      {#if replyContent.trim()}
-                        {@html renderMarkdown(replyContent)}
-                      {:else}
-                        <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-                      {/if}
-                    </div>
-                  {:else}
-                    <textarea
-                      placeholder={m.reply_to_comment()}
-                      class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
-                      bind:value={replyContent}
-                      disabled={isSubmittingReply}
-                    ></textarea>
-                  {/if}
-
-                  <div class="flex items-center justify-between">
-                    <div class="text-base-content/60 text-xs">
-                      <i class="fa-brands fa-markdown mr-1"></i>
-                      {m.markdown_supported()}
-                    </div>
+                  <div class="flex items-center justify-between mt-3">
                     <div class="flex gap-2">
                       <button
                         class="btn btn-ghost btn-sm"

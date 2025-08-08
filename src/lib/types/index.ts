@@ -55,6 +55,12 @@ export interface University {
   avatarUrl?: string; // University avatar/logo URL
   description?: string; // University description
   website?: string; // Official website
+  // Settings
+  postReadability?: PostReadability; // Optional, defaults to PUBLIC
+  postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
+  // Legacy aliases for backward compatibility
+  discussionReadability?: PostReadability;
+  discussionWritability?: PostWritability;
   // Stats (calculated fields)
   studentsCount?: number;
   frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
@@ -131,18 +137,22 @@ export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'dr
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
 
-// Discussion permission enums
-export enum DiscussionReadability {
+// Post permission enums
+export enum PostReadability {
   PUBLIC = 0, // Anyone can read
   UNIV_MEMBERS = 1, // Only university members can read
   CLUB_MEMBERS = 2 // Only club members can read
 }
 
-export enum DiscussionWritability {
+export enum PostWritability {
   UNIV_MEMBERS = 0, // All university members can write
   CLUB_MEMBERS = 1, // Only club members can write
   ADMIN_AND_MODS = 2 // Only admins and moderators can write
 }
+
+// Legacy aliases for backward compatibility
+export const DiscussionReadability = PostReadability;
+export const DiscussionWritability = PostWritability;
 
 // User types and roles
 export type UserType =
@@ -165,8 +175,11 @@ export interface Club {
   website?: string;
   // Settings
   acceptJoinRequests: boolean;
-  discussionReadability: DiscussionReadability;
-  discussionWritability: DiscussionWritability;
+  postReadability: PostReadability;
+  postWritability: PostWritability;
+  // Legacy aliases for backward compatibility
+  discussionReadability?: PostReadability;
+  discussionWritability?: PostWritability;
   // Stats
   membersCount?: number;
   // Starred arcades (shop IDs)

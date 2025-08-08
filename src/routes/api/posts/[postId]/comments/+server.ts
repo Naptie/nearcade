@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type { Post, Comment } from '$lib/types';
+import type { Post, Comment, University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
+import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -34,6 +35,29 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Post not found' }, { status: 404 });
     }
 
+    // Check if post is locked and user has permission to comment
+    if (post.isLocked) {
+      let canInteract = false;
+
+      if (post.universityId) {
+        const university = await db.collection<University>('universities').findOne({ id: post.universityId });
+        if (university) {
+          const permissions = await checkUniversityPermission(session.user, university, client);
+          canInteract = permissions.canEdit;
+        }
+      } else if (post.clubId) {
+        const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+        if (club) {
+          const permissions = await checkClubPermission(session.user, club, client);
+          canInteract = permissions.canEdit;
+        }
+      }
+
+      if (!canInteract) {
+        return json({ error: 'Post is locked' }, { status: 403 });
+      }
+    }
+
     // If replying to a comment, check if parent comment exists
     if (parentCommentId) {
       const parentComment = await commentsCollection.findOne({ id: parentCommentId });
@@ -60,8 +84,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     await postsCollection.updateOne(
       { id: postId },
       {
-        $inc: { commentCount: 1 },
-        $set: { updatedAt: new Date() }
+        $inc: { commentCount: 1 }
       }
     );
 

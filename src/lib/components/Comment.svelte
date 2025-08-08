@@ -4,7 +4,6 @@
   import type { CommentWithAuthor } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
-  import { enhance } from '$app/forms';
   import { renderMarkdown } from '$lib/markdown';
   import { onMount } from 'svelte';
 
@@ -13,7 +12,7 @@
     currentUserId?: string;
     canManage?: boolean;
     onReply?: (commentId: string) => void;
-    onEdit?: (commentId: string) => void;
+    onEdit?: (commentId: string, newContent: string) => Promise<void>;
     onDelete?: (commentId: string) => void;
     onVote?: (commentId: string, voteType: 'upvote' | 'downvote') => void;
     isReplying?: boolean;
@@ -36,10 +35,12 @@
   let showMenu = $state(false);
   let isEditing = $state(false);
   let editContent = $state(comment.content);
+  let isSavingEdit = $state(false);
 
   const netVotes = $derived(comment.upvotes - comment.downvotes);
   const isOwnComment = $derived(currentUserId === comment.createdBy);
   const canEditOrDelete = $derived(isOwnComment || canManage);
+  const canReply = $derived(depth < maxDepth); // Limit reply depth
 
   // Limit nesting depth to avoid infinite nesting
   const maxDepth = 3;
@@ -74,6 +75,23 @@
       onDelete(comment.id);
     }
     showMenu = false;
+  };
+
+  const saveEdit = async () => {
+    if (!onEdit || !editContent.trim()) return;
+
+    isSavingEdit = true;
+    try {
+      await onEdit(comment.id, editContent.trim());
+      isEditing = false;
+      comment.content = editContent.trim();
+      // Re-render markdown content
+      content = await renderMarkdown(comment.content);
+    } catch (error) {
+      console.error('Failed to save comment edit:', error);
+    } finally {
+      isSavingEdit = false;
+    }
   };
 
   onMount(async () => {
@@ -112,12 +130,14 @@
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </summary>
             <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-48 p-2 shadow">
-              <li>
-                <button onclick={handleReply} class="text-primary">
-                  <i class="fa-solid fa-reply"></i>
-                  {m.reply()}
-                </button>
-              </li>
+              {#if canReply}
+                <li>
+                  <button onclick={handleReply} class="text-primary">
+                    <i class="fa-solid fa-reply"></i>
+                    {m.reply()}
+                  </button>
+                </li>
+              {/if}
               {#if canEditOrDelete}
                 <li>
                   <button onclick={startEditing} class="text-info">
@@ -139,36 +159,36 @@
 
       <!-- Content -->
       {#if isEditing}
-        <form
-          method="POST"
-          action="?/editComment"
-          use:enhance={() => {
-            return async ({ result }) => {
-              if (result.type === 'success') {
-                isEditing = false;
-              }
-            };
-          }}
-        >
-          <input type="hidden" name="commentId" value={comment.id} />
-          <div class="space-y-3">
-            <textarea
-              name="content"
-              bind:value={editContent}
-              class="textarea textarea-bordered min-h-[100px] w-full"
-              placeholder={m.comment_placeholder()}
-              required
-            ></textarea>
-            <div class="flex gap-2">
-              <button type="submit" class="btn btn-primary btn-sm">
-                {m.save()}
-              </button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick={cancelEditing}>
-                {m.cancel()}
-              </button>
-            </div>
+        <div class="space-y-3">
+          <textarea
+            bind:value={editContent}
+            class="textarea textarea-bordered min-h-[100px] w-full"
+            placeholder={m.comment_placeholder()}
+            required
+            disabled={isSavingEdit}
+          ></textarea>
+          <div class="flex gap-2">
+            <button 
+              type="button" 
+              class="btn btn-primary btn-sm"
+              onclick={saveEdit}
+              disabled={isSavingEdit || !editContent.trim()}
+            >
+              {#if isSavingEdit}
+                <span class="loading loading-spinner loading-xs"></span>
+              {/if}
+              {m.save()}
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-ghost btn-sm" 
+              onclick={cancelEditing}
+              disabled={isSavingEdit}
+            >
+              {m.cancel()}
+            </button>
           </div>
-        </form>
+        </div>
       {:else}
         <div class="prose prose-sm max-w-none">
           {@html content}
@@ -210,7 +230,7 @@
           </div>
 
           <!-- Reply button -->
-          {#if currentUserId && onReply}
+          {#if currentUserId && onReply && canReply}
             <button class="btn btn-ghost btn-xs" onclick={handleReply}>
               <i class="fa-solid fa-reply"></i>
               {m.reply()}

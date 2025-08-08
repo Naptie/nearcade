@@ -1,8 +1,7 @@
 <script lang="ts">
-  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import { base } from '$app/paths';
-  import { renderMarkdown } from '$lib/markdown';
+  import MarkdownEditor from './MarkdownEditor.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -20,17 +19,6 @@
   let content = $state('');
   let isSubmitting = $state(false);
   let error = $state('');
-  let preview = $state('');
-
-  $effect(() => {
-    if (!content.trim()) {
-      preview = '';
-    } else {
-      renderMarkdown(content).then((html) => {
-        preview = html;
-      });
-    }
-  });
 
   const reset = () => {
     title = '';
@@ -78,7 +66,7 @@
         error = errorData.error || 'Failed to create post';
       }
     } catch {
-      error = 'Network error. Please try again.';
+      error = m.network_error_try_again();
     } finally {
       isSubmitting = false;
     }
@@ -152,30 +140,13 @@
         </div>
 
         <!-- Content area -->
-        <div class="flex min-h-32 flex-col sm:flex-row">
-          <textarea
-            placeholder={m.post_content_placeholder()}
-            class="textarea textarea-bordered h-auto w-auto flex-1 resize-none rounded-2xl not-sm:rounded-b-none sm:rounded-r-none"
-            bind:value={content}
-            disabled={isSubmitting}
-            onkeydown={handleKeyDown}
-          ></textarea>
-          <div
-            class="bg-base-200 prose prose-sm h-auto flex-1 overflow-y-auto rounded-2xl px-4 py-2 not-sm:rounded-t-none sm:rounded-l-none"
-          >
-            {#if preview}
-              {@html preview}
-            {:else}
-              <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-            {/if}
-          </div>
-        </div>
-
-        <!-- Markdown hint -->
-        <div class="text-base-content/60 mt-2 text-xs">
-          <i class="fa-brands fa-markdown mr-1"></i>
-          {m.markdown_supported()}
-        </div>
+        <MarkdownEditor 
+          bind:value={content}
+          placeholder={m.post_content_placeholder()}
+          disabled={isSubmitting}
+          onKeyDown={handleKeyDown}
+          minHeight="min-h-32"
+        />
       </div>
 
       <!-- Footer -->

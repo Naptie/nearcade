@@ -2,11 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
-import type { Post, PostWithAuthor, University } from '$lib/types';
-import { postId } from '$lib/utils';
+import type { Post, PostWithAuthor, University, PostReadability, PostWritability } from '$lib/types';
+import { postId, checkUniversityPermission } from '$lib/utils';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
+    const session = await locals.auth();
     const universityId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
@@ -25,6 +26,23 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
     if (!university) {
       return json({ error: 'University not found' }, { status: 404 });
+    }
+
+    // Check post readability permissions
+    const postReadability = university.postReadability ?? PostReadability.PUBLIC;
+    let canReadPosts = true;
+
+    if (postReadability === PostReadability.UNIV_MEMBERS) {
+      if (!session?.user?.id) {
+        canReadPosts = false;
+      } else {
+        const permissions = await checkUniversityPermission(session.user, university, client);
+        canReadPosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+      }
+    }
+
+    if (!canReadPosts) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Get posts for this university
@@ -106,6 +124,22 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     });
     if (!university) {
       return json({ error: 'University not found' }, { status: 404 });
+    }
+
+    // Check post writability permissions
+    const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
+    let canWritePosts = false;
+
+    if (postWritability === PostWritability.UNIV_MEMBERS) {
+      const permissions = await checkUniversityPermission(session.user, university, client);
+      canWritePosts = permissions.canJoin <= 1; // Member or can join (meaning already member)
+    } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+      const permissions = await checkUniversityPermission(session.user, university, client);
+      canWritePosts = permissions.canEdit;
+    }
+
+    if (!canWritePosts) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Create new post
