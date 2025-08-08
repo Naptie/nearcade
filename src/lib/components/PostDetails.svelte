@@ -8,7 +8,7 @@
   import { base } from '$app/paths';
   import { renderMarkdown } from '$lib/markdown';
   import { onMount, onDestroy } from 'svelte';
-  import { navigating } from '$app/stores';
+  import { invalidateAll } from '$app/navigation';
 
   interface Props {
     post: PostWithAuthor;
@@ -109,8 +109,7 @@
       if (response.ok) {
         newCommentContent = '';
         showCommentPreview = false;
-        // Refresh comments by reloading the page
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json()) as { error: string };
         commentError = errorData.error || m.failed_to_post_comment();
@@ -124,7 +123,7 @@
 
   const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
     if (!currentUserId) return;
-    
+
     try {
       const response = await fetch(`${base}/api/comments/${commentId}/vote`, {
         method: 'POST',
@@ -140,10 +139,10 @@
           downvotes: number;
           userVote: 'upvote' | 'downvote' | null;
         };
-        
+
         // Update the specific comment in the comments array
-        localComments = localComments.map(comment => 
-          comment.id === commentId 
+        localComments = localComments.map((comment) =>
+          comment.id === commentId
             ? { ...comment, upvotes: result.upvotes, downvotes: result.downvotes }
             : comment
         );
@@ -198,10 +197,10 @@
 
   const handleCommentEdit = async (commentId: string) => {
     if (!currentUserId) return;
-    
+
     try {
       // Find the comment to edit
-      const commentToEdit = localComments.find(c => c.id === commentId);
+      const commentToEdit = localComments.find((c) => c.id === commentId);
       if (!commentToEdit) return;
 
       const newContent = prompt('Edit comment:', commentToEdit.content);
@@ -230,7 +229,7 @@
 
   const handleCommentDelete = async (commentId: string) => {
     if (!currentUserId) return;
-    
+
     if (!confirm(m.confirm_delete_comment())) return;
 
     try {
@@ -240,7 +239,9 @@
 
       if (response.ok) {
         // Remove comment from local state
-        localComments = localComments.filter(c => c.id !== commentId && c.parentCommentId !== commentId);
+        localComments = localComments.filter(
+          (c) => c.id !== commentId && c.parentCommentId !== commentId
+        );
       } else {
         const errorData = (await response.json()) as { error: string };
         alert(errorData.error || 'Failed to delete comment');
@@ -258,13 +259,6 @@
   onDestroy(() => {
     componentMounted = false;
   });
-
-  // Handle navigation away to prevent stale component display
-  $effect(() => {
-    if ($navigating) {
-      componentMounted = false;
-    }
-  });
 </script>
 
 <svelte:head>
@@ -273,307 +267,315 @@
 </svelte:head>
 
 {#if componentMounted}
-<div class="mx-auto max-w-4xl px-4 pt-20">
-  <!-- Back link -->
-  <div class="mb-6">
-    <a href={backUrl} class="hover:text-primary flex items-center gap-2 text-sm transition-colors">
-      <i class="fa-solid fa-arrow-left"></i>
-      {m.back_to_posts()}
-    </a>
-  </div>
+  <div class="mx-auto max-w-6xl px-4 pt-20 pb-4">
+    <!-- Back link -->
+    <div class="mb-6">
+      <a
+        href={backUrl}
+        class="hover:text-primary flex items-center gap-2 text-sm transition-colors"
+      >
+        <i class="fa-solid fa-arrow-left"></i>
+        {m.back_to_posts()}
+      </a>
+    </div>
 
-  <!-- Post -->
-  <article class="bg-base-100 rounded-lg p-6 shadow-md">
-    <!-- Post header -->
-    <header class="mb-6">
-      <div class="mb-4 flex items-start justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <UserAvatar user={post.author} size="md" showName={false} />
-          <div>
-            <div class="font-medium">
-              {post.author.displayName || post.author.name || m.anonymous_user()}
+    <!-- Post -->
+    <article class="bg-base-100 rounded-2xl p-6 shadow transition-shadow hover:shadow-xl">
+      <!-- Post header -->
+      <header class="mb-6">
+        <div class="mb-4 flex items-start justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <UserAvatar user={post.author} size="md" showName={false} />
+            <div>
+              <div class="font-medium">
+                {post.author.displayName || post.author.name || m.anonymous_user()}
+              </div>
+              <div class="text-base-content/60 text-sm">
+                {formatDistanceToNow(post.createdAt, { addSuffix: true })}
+                {#if post.updatedAt && post.updatedAt !== post.createdAt}
+                  <span class="ml-1">({m.edited()})</span>
+                {/if}
+              </div>
             </div>
-            <div class="text-base-content/60 text-sm">
-              {formatDistanceToNow(post.createdAt, { addSuffix: true })}
-              {#if post.updatedAt && post.updatedAt !== post.createdAt}
-                <span class="ml-1">({m.edited()})</span>
+          </div>
+
+          <!-- Post badges -->
+          <div class="flex gap-2">
+            {#if post.isPinned}
+              <div class="badge badge-success">
+                <i class="fa-solid fa-thumbtack mr-1"></i>
+                {m.pinned_post()}
+              </div>
+            {/if}
+            {#if post.isLocked}
+              <div class="badge badge-warning">
+                <i class="fa-solid fa-lock mr-1"></i>
+                {m.locked_post()}
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <h1 class="mb-4 text-3xl font-bold">{post.title}</h1>
+      </header>
+
+      <!-- Post content -->
+      <div class="prose mb-6 max-w-none">
+        {@html content}
+      </div>
+
+      <!-- Voting section -->
+      <div class="flex items-center justify-between pt-4">
+        <div class="flex items-center gap-4">
+          <!-- Vote buttons -->
+          <div class="flex items-center gap-2">
+            <button
+              class="btn btn-ghost btn-sm {localUserVote === 'upvote' ? 'btn-success' : ''}"
+              onclick={() => handleVote('upvote')}
+              disabled={!currentUserId || isVoting}
+              title={m.upvote()}
+            >
+              <i class="fa-solid fa-chevron-up"></i>
+              <span>{localUpvotes}</span>
+            </button>
+
+            <span
+              class="text-lg font-bold {netVotes > 0
+                ? 'text-success'
+                : netVotes < 0
+                  ? 'text-error'
+                  : 'text-base-content/60'}"
+            >
+              {netVotes > 0 ? '+' : ''}{netVotes}
+            </span>
+
+            <button
+              class="btn btn-ghost btn-sm {localUserVote === 'downvote' ? 'btn-error' : ''}"
+              onclick={() => handleVote('downvote')}
+              disabled={!currentUserId || isVoting}
+              title={m.downvote()}
+            >
+              <i class="fa-solid fa-chevron-down"></i>
+              <span>{localDownvotes}</span>
+            </button>
+          </div>
+
+          <!-- Comment count -->
+          <div class="text-base-content/60 flex items-center gap-1">
+            <i class="fa-solid fa-comments"></i>
+            <span>{localComments.length}</span>
+            <span>{m.comments().toLowerCase()}</span>
+          </div>
+        </div>
+
+        {#if !currentUserId}
+          <div class="text-base-content/60 text-sm">
+            {m.login_to_vote_and_comment()}
+          </div>
+        {/if}
+      </div>
+    </article>
+
+    <!-- Comments section -->
+    <section class="mt-8">
+      <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold">
+        <i class="fa-solid fa-comments"></i>
+        {m.comments()} ({localComments.length})
+      </h2>
+
+      <!-- Add comment form -->
+      {#if currentUserId}
+        <div class="bg-base-100 mb-6 rounded-lg p-4">
+          {#if commentError}
+            <div class="alert alert-error mb-4">
+              <i class="fa-solid fa-exclamation-triangle"></i>
+              <span>{commentError}</span>
+            </div>
+          {/if}
+
+          <!-- Comment tabs -->
+          <div class="tabs tabs-boxed mb-3">
+            <button
+              class="tab {!showCommentPreview ? 'tab-active' : ''}"
+              onclick={() => (showCommentPreview = false)}
+            >
+              <i class="fa-solid fa-edit mr-2"></i>
+              {m.write()}
+            </button>
+            <button
+              class="tab {showCommentPreview ? 'tab-active' : ''}"
+              onclick={() => (showCommentPreview = true)}
+              disabled={!newCommentContent.trim()}
+            >
+              <i class="fa-solid fa-eye mr-2"></i>
+              {m.preview()}
+            </button>
+          </div>
+
+          <!-- Comment input area -->
+          {#if showCommentPreview}
+            <div class="bg-base-200 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4">
+              {#if newCommentContent.trim()}
+                {@html renderMarkdown(newCommentContent)}
+              {:else}
+                <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
               {/if}
             </div>
+          {:else}
+            <textarea
+              placeholder={m.comment_placeholder()}
+              class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
+              bind:value={newCommentContent}
+              disabled={isSubmittingComment}
+            ></textarea>
+          {/if}
+
+          <div class="flex items-center justify-between">
+            <div class="text-base-content/60 text-xs">
+              <i class="fa-brands fa-markdown mr-1"></i>
+              {m.markdown_supported()}
+            </div>
+            <button
+              class="btn btn-primary btn-sm"
+              onclick={handleCommentSubmit}
+              disabled={isSubmittingComment || !newCommentContent.trim()}
+            >
+              {#if isSubmittingComment}
+                <span class="loading loading-spinner loading-sm"></span>
+              {:else}
+                <i class="fa-solid fa-paper-plane"></i>
+              {/if}
+              {m.post_comment()}
+            </button>
           </div>
-        </div>
-
-        <!-- Post badges -->
-        <div class="flex gap-2">
-          {#if post.isPinned}
-            <div class="badge badge-success">
-              <i class="fa-solid fa-thumbtack mr-1"></i>
-              {m.pinned_post()}
-            </div>
-          {/if}
-          {#if post.isLocked}
-            <div class="badge badge-warning">
-              <i class="fa-solid fa-lock mr-1"></i>
-              {m.locked_post()}
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      <h1 class="mb-4 text-3xl font-bold">{post.title}</h1>
-    </header>
-
-    <!-- Post content -->
-    <div class="prose mb-6 max-w-none">
-      {@html content}
-    </div>
-
-    <!-- Voting section -->
-    <div class="flex items-center justify-between border-t pt-4">
-      <div class="flex items-center gap-4">
-        <!-- Vote buttons -->
-        <div class="flex items-center gap-2">
-          <button
-            class="btn btn-ghost btn-sm {localUserVote === 'upvote' ? 'btn-success' : ''}"
-            onclick={() => handleVote('upvote')}
-            disabled={!currentUserId || isVoting}
-            title={m.upvote()}
-          >
-            <i class="fa-solid fa-chevron-up"></i>
-            <span>{localUpvotes}</span>
-          </button>
-
-          <span
-            class="text-lg font-bold {netVotes > 0
-              ? 'text-success'
-              : netVotes < 0
-                ? 'text-error'
-                : 'text-base-content/60'}"
-          >
-            {netVotes > 0 ? '+' : ''}{netVotes}
-          </span>
-
-          <button
-            class="btn btn-ghost btn-sm {localUserVote === 'downvote' ? 'btn-error' : ''}"
-            onclick={() => handleVote('downvote')}
-            disabled={!currentUserId || isVoting}
-            title={m.downvote()}
-          >
-            <i class="fa-solid fa-chevron-down"></i>
-            <span>{localDownvotes}</span>
-          </button>
-        </div>
-
-        <!-- Comment count -->
-        <div class="text-base-content/60 flex items-center gap-1">
-          <i class="fa-solid fa-comments"></i>
-          <span>{localComments.length}</span>
-          <span>{m.comments().toLowerCase()}</span>
-        </div>
-      </div>
-
-      {#if !currentUserId}
-        <div class="text-base-content/60 text-sm">
-          {m.login_to_vote_and_comment()}
         </div>
       {/if}
-    </div>
-  </article>
 
-  <!-- Comments section -->
-  <section class="mt-8">
-    <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold">
-      <i class="fa-solid fa-comments"></i>
-      {m.comments()} ({localComments.length})
-    </h2>
-
-    <!-- Add comment form -->
-    {#if currentUserId}
-      <div class="bg-base-100 mb-6 rounded-lg p-4">
-        {#if commentError}
-          <div class="alert alert-error mb-4">
-            <i class="fa-solid fa-exclamation-triangle"></i>
-            <span>{commentError}</span>
-          </div>
-        {/if}
-
-        <!-- Comment tabs -->
-        <div class="tabs tabs-boxed mb-3">
-          <button
-            class="tab {!showCommentPreview ? 'tab-active' : ''}"
-            onclick={() => (showCommentPreview = false)}
-          >
-            <i class="fa-solid fa-edit mr-2"></i>
-            {m.write()}
-          </button>
-          <button
-            class="tab {showCommentPreview ? 'tab-active' : ''}"
-            onclick={() => (showCommentPreview = true)}
-            disabled={!newCommentContent.trim()}
-          >
-            <i class="fa-solid fa-eye mr-2"></i>
-            {m.preview()}
-          </button>
-        </div>
-
-        <!-- Comment input area -->
-        {#if showCommentPreview}
-          <div class="bg-base-200 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4">
-            {#if newCommentContent.trim()}
-              {@html renderMarkdown(newCommentContent)}
-            {:else}
-              <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-            {/if}
-          </div>
-        {:else}
-          <textarea
-            placeholder={m.comment_placeholder()}
-            class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
-            bind:value={newCommentContent}
-            disabled={isSubmittingComment}
-          ></textarea>
-        {/if}
-
-        <div class="flex items-center justify-between">
-          <div class="text-base-content/60 text-xs">
-            <i class="fa-brands fa-markdown mr-1"></i>
-            {m.markdown_supported()}
-          </div>
-          <button
-            class="btn btn-primary btn-sm"
-            onclick={handleCommentSubmit}
-            disabled={isSubmittingComment || !newCommentContent.trim()}
-          >
-            {#if isSubmittingComment}
-              <span class="loading loading-spinner loading-sm"></span>
-            {:else}
-              <i class="fa-solid fa-paper-plane"></i>
-            {/if}
-            {m.post_comment()}
-          </button>
-        </div>
-      </div>
-    {/if}
-
-    <!-- Comments list -->
-    {#if localComments.length > 0}
-      <div class="space-y-1">
-        {#each localComments.filter(c => !c.parentCommentId) as comment (comment.id)}
-          <div>
-            <Comment
-              {comment}
-              {currentUserId}
-              canManage={false}
-              onVote={handleCommentVote}
-              onReply={handleCommentReply}
-              onEdit={handleCommentEdit}
-              onDelete={handleCommentDelete}
-              depth={0}
-            />
-            
-            <!-- Nested replies -->
-            {#each localComments.filter(c => c.parentCommentId === comment.id) as reply (reply.id)}
+      <!-- Comments list -->
+      {#if localComments.length > 0}
+        <div class="space-y-1">
+          {#each localComments.filter((c) => !c.parentCommentId) as comment (comment.id)}
+            <div>
               <Comment
-                comment={reply}
+                {comment}
                 {currentUserId}
                 canManage={false}
                 onVote={handleCommentVote}
                 onReply={handleCommentReply}
                 onEdit={handleCommentEdit}
                 onDelete={handleCommentDelete}
-                depth={1}
+                depth={0}
               />
-            {/each}
-            
-            <!-- Reply form -->
-            {#if replyingTo === comment.id}
-              <div class="bg-base-200 ml-8 mt-2 rounded-lg p-4">
-                {#if commentError}
-                  <div class="alert alert-error mb-4">
-                    <i class="fa-solid fa-exclamation-triangle"></i>
-                    <span>{commentError}</span>
-                  </div>
-                {/if}
 
-                <!-- Reply tabs -->
-                <div class="tabs tabs-boxed mb-3">
-                  <button
-                    class="tab {!showReplyPreview ? 'tab-active' : ''}"
-                    onclick={() => (showReplyPreview = false)}
-                  >
-                    <i class="fa-solid fa-edit mr-2"></i>
-                    {m.write()}
-                  </button>
-                  <button
-                    class="tab {showReplyPreview ? 'tab-active' : ''}"
-                    onclick={() => (showReplyPreview = true)}
-                    disabled={!replyContent.trim()}
-                  >
-                    <i class="fa-solid fa-eye mr-2"></i>
-                    {m.preview()}
-                  </button>
-                </div>
+              <!-- Nested replies -->
+              {#each localComments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
+                <Comment
+                  comment={reply}
+                  {currentUserId}
+                  canManage={false}
+                  onVote={handleCommentVote}
+                  onReply={handleCommentReply}
+                  onEdit={handleCommentEdit}
+                  onDelete={handleCommentDelete}
+                  depth={1}
+                />
+              {/each}
 
-                <!-- Reply input area -->
-                {#if showReplyPreview}
-                  <div class="bg-base-300 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4">
-                    {#if replyContent.trim()}
-                      {@html renderMarkdown(replyContent)}
-                    {:else}
-                      <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
-                    {/if}
-                  </div>
-                {:else}
-                  <textarea
-                    placeholder={m.reply_to_comment()}
-                    class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
-                    bind:value={replyContent}
-                    disabled={isSubmittingReply}
-                  ></textarea>
-                {/if}
+              <!-- Reply form -->
+              {#if replyingTo === comment.id}
+                <div class="bg-base-200 mt-2 ml-8 rounded-lg p-4">
+                  {#if commentError}
+                    <div class="alert alert-error mb-4">
+                      <i class="fa-solid fa-exclamation-triangle"></i>
+                      <span>{commentError}</span>
+                    </div>
+                  {/if}
 
-                <div class="flex items-center justify-between">
-                  <div class="text-base-content/60 text-xs">
-                    <i class="fa-brands fa-markdown mr-1"></i>
-                    {m.markdown_supported()}
-                  </div>
-                  <div class="flex gap-2">
+                  <!-- Reply tabs -->
+                  <div class="tabs tabs-boxed mb-3">
                     <button
-                      class="btn btn-ghost btn-sm"
-                      onclick={() => { replyingTo = null; replyContent = ''; }}
-                      disabled={isSubmittingReply}
+                      class="tab {!showReplyPreview ? 'tab-active' : ''}"
+                      onclick={() => (showReplyPreview = false)}
                     >
-                      {m.cancel()}
+                      <i class="fa-solid fa-edit mr-2"></i>
+                      {m.write()}
                     </button>
                     <button
-                      class="btn btn-primary btn-sm"
-                      onclick={submitReply}
-                      disabled={isSubmittingReply || !replyContent.trim()}
+                      class="tab {showReplyPreview ? 'tab-active' : ''}"
+                      onclick={() => (showReplyPreview = true)}
+                      disabled={!replyContent.trim()}
                     >
-                      {#if isSubmittingReply}
-                        <span class="loading loading-spinner loading-sm"></span>
+                      <i class="fa-solid fa-eye mr-2"></i>
+                      {m.preview()}
+                    </button>
+                  </div>
+
+                  <!-- Reply input area -->
+                  {#if showReplyPreview}
+                    <div
+                      class="bg-base-300 prose prose-sm mb-3 min-h-[100px] max-w-none rounded-lg p-4"
+                    >
+                      {#if replyContent.trim()}
+                        {@html renderMarkdown(replyContent)}
                       {:else}
-                        <i class="fa-solid fa-paper-plane"></i>
+                        <p class="text-base-content/60 italic">{m.nothing_to_preview()}</p>
                       {/if}
-                      {m.reply()}
-                    </button>
+                    </div>
+                  {:else}
+                    <textarea
+                      placeholder={m.reply_to_comment()}
+                      class="textarea textarea-bordered mb-3 min-h-[100px] w-full"
+                      bind:value={replyContent}
+                      disabled={isSubmittingReply}
+                    ></textarea>
+                  {/if}
+
+                  <div class="flex items-center justify-between">
+                    <div class="text-base-content/60 text-xs">
+                      <i class="fa-brands fa-markdown mr-1"></i>
+                      {m.markdown_supported()}
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        class="btn btn-ghost btn-sm"
+                        onclick={() => {
+                          replyingTo = null;
+                          replyContent = '';
+                        }}
+                        disabled={isSubmittingReply}
+                      >
+                        {m.cancel()}
+                      </button>
+                      <button
+                        class="btn btn-primary btn-sm"
+                        onclick={submitReply}
+                        disabled={isSubmittingReply || !replyContent.trim()}
+                      >
+                        {#if isSubmittingReply}
+                          <span class="loading loading-spinner loading-sm"></span>
+                        {:else}
+                          <i class="fa-solid fa-paper-plane"></i>
+                        {/if}
+                        {m.reply()}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="bg-base-100 rounded-lg p-8 text-center">
-        <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
-        <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
-        {#if currentUserId}
-          <p class="text-base-content/60">{m.be_first_to_comment()}</p>
-        {:else}
-          <p class="text-base-content/60">{m.login_to_comment()}</p>
-        {/if}
-      </div>
-    {/if}
-  </section>
-</div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="bg-base-100 rounded-lg p-8 text-center">
+          <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
+          <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
+          {#if currentUserId}
+            <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+          {:else}
+            <p class="text-base-content/60">{m.login_to_comment()}</p>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  </div>
 {/if}

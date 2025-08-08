@@ -107,47 +107,33 @@
 
         <!-- Menu -->
         {#if currentUserId}
-          <div class="dropdown dropdown-end">
-            <button
-              type="button"
-              tabindex="0"
-              class="btn btn-ghost btn-circle btn-xs"
-              onclick={() => (showMenu = !showMenu)}
-              onkeydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  showMenu = !showMenu;
-                }
-              }}
-              aria-label={m.actions()}
-            >
+          <details class="dropdown dropdown-end" bind:open={showMenu}>
+            <summary class="btn btn-ghost btn-circle btn-xs" aria-label={m.actions()}>
               <i class="fa-solid fa-ellipsis-vertical"></i>
-            </button>
-            {#if showMenu}
-              <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-48 p-2 shadow">
+            </summary>
+            <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-48 p-2 shadow">
+              <li>
+                <button onclick={handleReply} class="text-primary">
+                  <i class="fa-solid fa-reply"></i>
+                  {m.reply()}
+                </button>
+              </li>
+              {#if canEditOrDelete}
                 <li>
-                  <button onclick={handleReply} class="text-primary">
-                    <i class="fa-solid fa-reply"></i>
-                    {m.reply()}
+                  <button onclick={startEditing} class="text-info">
+                    <i class="fa-solid fa-edit"></i>
+                    {m.edit_comment()}
                   </button>
                 </li>
-                {#if canEditOrDelete}
-                  <li>
-                    <button onclick={startEditing} class="text-info">
-                      <i class="fa-solid fa-edit"></i>
-                      {m.edit_comment()}
-                    </button>
-                  </li>
-                  <li>
-                    <button onclick={handleDelete} class="text-error">
-                      <i class="fa-solid fa-trash"></i>
-                      {m.delete_comment()}
-                    </button>
-                  </li>
-                {/if}
-              </ul>
-            {/if}
-          </div>
+                <li>
+                  <button onclick={handleDelete} class="text-error">
+                    <i class="fa-solid fa-trash"></i>
+                    {m.delete_comment()}
+                  </button>
+                </li>
+              {/if}
+            </ul>
+          </details>
         {/if}
       </div>
 

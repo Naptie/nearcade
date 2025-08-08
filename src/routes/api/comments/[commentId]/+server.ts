@@ -81,10 +81,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 
     // Delete comment and all its replies
     const deleteResult = await commentsCollection.deleteMany({
-      $or: [
-        { id: commentId },
-        { parentCommentId: commentId }
-      ]
+      $or: [{ id: commentId }, { parentCommentId: commentId }]
     });
 
     // Update post comment count

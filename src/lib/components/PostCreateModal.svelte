@@ -27,7 +27,6 @@
       preview = '';
     } else {
       renderMarkdown(content).then((html) => {
-        console.log(html);
         preview = html;
       });
     }

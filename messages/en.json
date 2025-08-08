@@ -491,6 +491,8 @@
   "expired": "Expired",
   "expires": "Expires",
   "explore_nearby": "Explore Nearby",
+  "failed_to_load_more_posts": "Failed to load more posts",
+  "failed_to_post_comment": "Failed to post comment",
   "failed_to_update": "Failed to update. Please try again.",
   "feature_in_development": "This feature is under development...",
   "field_required": "This field is required",
@@ -642,6 +644,8 @@
   "nature_of_running": "Nature of Running",
   "nearby_arcades": "Nearby Arcades",
   "net_votes": "{count} votes",
+  "network_error_loading_posts": "Network error while loading posts",
+  "network_error_try_again": "Network error. Please try again.",
   "new": "New",
   "new_announcement": "New Announcement",
   "new_comment": "New Comment",
@@ -1027,9 +1031,5 @@
   "welcome": "Welcome",
   "write": "Write",
   "years_short": "y",
-  "yes": "Yes",
-  "failed_to_load_more_posts": "Failed to load more posts",
-  "network_error_loading_posts": "Network error while loading posts",
-  "network_error_try_again": "Network error. Please try again.",
-  "failed_to_post_comment": "Failed to post comment"
+  "yes": "Yes"
 }

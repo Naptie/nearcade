@@ -51,7 +51,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           commentId: commentId,
           userId: userId
         });
-        
+
         if (voteType === 'upvote') {
           upvoteDelta = -1;
         } else {
@@ -72,7 +72,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             }
           }
         );
-        
+
         if (voteType === 'upvote') {
           upvoteDelta = 1;
           downvoteDelta = -1;
@@ -91,9 +91,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         voteType: voteType,
         createdAt: new Date()
       };
-      
+
       await votesCollection.insertOne(newVote);
-      
+
       if (voteType === 'upvote') {
         upvoteDelta = 1;
       } else {
