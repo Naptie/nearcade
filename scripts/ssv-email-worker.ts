@@ -263,19 +263,19 @@ const processEmail = async (parsed: ParsedMail) => {
   }
 
   const body: string = parsed.text || parsed.html || '';
-  const lines = body.split('\n').map((l) => l.trim());
-  const univLine = lines.find((l) => l.startsWith('UNIV: '));
-  const userLine = lines.find((l) => l.startsWith('USER: '));
-  const hmacLine = lines.find((l) => l.startsWith('HMAC: '));
+  // Use regex to extract values regardless of whitespace, line breaks, or HTML tags
+  const univMatch = body.match(/UNIV:\s*(\d{10})/);
+  const userMatch = body.match(/USER:\s*(\d{24})/);
+  const hmacMatch = body.match(/HMAC:\s*([a-fA-F0-9]{64})/);
 
-  if (!univLine || !userLine) {
+  if (!univMatch || !userMatch) {
     console.log('[Parser] Ignoring email with body:', body);
     return;
   }
 
-  const universityId = univLine.slice(6).trim();
-  const userId = userLine.slice(6).trim();
-  const givenHmac = hmacLine ? hmacLine.slice(6).trim() : '';
+  const universityId = univMatch[1];
+  const userId = userMatch[1];
+  const givenHmac = hmacMatch ? hmacMatch[1] : '';
 
   const key = `nearcade:ssv:${universityId}:${userId}`;
   await ensureRedisConnected();
