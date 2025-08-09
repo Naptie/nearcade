@@ -374,51 +374,52 @@
 
       <!-- Club Info -->
       <div
-        class="flex-1 {data.club.backgroundColor
+        class="flex flex-1 flex-col items-center justify-between gap-2 sm:flex-row {data.club
+          .backgroundColor
           ? 'text-white'
           : 'text-base-content dark:text-white'}"
       >
-        <div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <div class="flex flex-col not-sm:text-center">
           <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
             {data.club.name}
           </h1>
 
-          <div class="flex items-center gap-2">
-            <!-- Join Button for eligible users -->
-            {#if data.user && data.userPermissions.canJoin === 2}
-              <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
-                <i class="fa-solid fa-plus"></i>
-                {m.join_club()}
-              </button>
-            {:else if data.userPermissions.canJoin === 1}
-              <div class="badge badge-warning">
-                <i class="fa-solid fa-clock"></i>
-                {m.join_request_sent()}
-              </div>
-            {/if}
-
-            <!-- Edit Club Button for privileged users -->
-            {#if userPrivileges.canEdit}
-              <a
-                href="{base}/clubs/{data.club.slug || data.club.id}/edit"
-                class="btn btn-circle btn-lg btn-ghost"
-                title="{m.edit()} {m.club()}"
-                aria-label="{m.edit()} {m.club()}"
-              >
-                <i class="fa-solid fa-edit"></i>
-              </a>
-            {/if}
-          </div>
+          {#if data.university}
+            <a
+              href="{base}/universities/{data.university.slug || data.university.id}"
+              class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
+            >
+              {data.university.name}
+            </a>
+          {/if}
         </div>
 
-        {#if data.university}
-          <a
-            href="{base}/universities/{data.university.slug || data.university.id}"
-            class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
-          >
-            {data.university.name}
-          </a>
-        {/if}
+        <div class="flex items-center gap-2">
+          <!-- Join Button for eligible users -->
+          {#if data.user && data.userPermissions.canJoin === 2}
+            <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
+              <i class="fa-solid fa-plus"></i>
+              {m.join_club()}
+            </button>
+          {:else if data.userPermissions.canJoin === 1}
+            <div class="badge badge-warning">
+              <i class="fa-solid fa-clock"></i>
+              {m.join_request_sent()}
+            </div>
+          {/if}
+
+          <!-- Edit Club Button for privileged users -->
+          {#if userPrivileges.canEdit}
+            <a
+              href="{base}/clubs/{data.club.slug || data.club.id}/edit"
+              class="btn btn-circle btn-lg btn-ghost"
+              title="{m.edit()} {m.club()}"
+              aria-label="{m.edit()} {m.club()}"
+            >
+              <i class="fa-solid fa-edit"></i>
+            </a>
+          {/if}
+        </div>
       </div>
     </div>
   </div>
@@ -535,7 +536,7 @@
 {/snippet}
 
 <!-- Main Content -->
-<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-7xl min-w-3xs px-4 py-8 sm:px-6 lg:px-8">
   <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
     {@render sidebar('not-md:hidden')}
     <!-- Main Content Area -->
@@ -579,11 +580,11 @@
                 </div>
                 {#if userPrivileges.canEdit}
                   <button
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary btn-sm btn-soft not-xs:btn-circle"
                     onclick={() => (showAddArcadeModal = true)}
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.add_arcade()}
+                    <span class="not-xs:hidden">{m.add_arcade()}</span>
                   </button>
                 {/if}
               </div>
@@ -698,11 +699,11 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <button
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                     onclick={() => (showInviteModal = true)}
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.invite_members()}
+                    <span class="not-xs:hidden">{m.invite_members()}</span>
                   </button>
                 {/if}
               </div>

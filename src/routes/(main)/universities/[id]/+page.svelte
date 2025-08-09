@@ -313,57 +313,57 @@
       {/if}
 
       <!-- University Info -->
-      <div class="flex-1">
-        <div
-          class="mb-2 flex flex-col items-center justify-between gap-3 sm:flex-row {data.university
-            .backgroundColor
-            ? 'text-white'
-            : 'text-base-content dark:text-white'}"
-        >
+      <div
+        class="flex flex-1 flex-col items-center justify-between gap-3 sm:flex-row {data.university
+          .backgroundColor
+          ? 'text-white'
+          : 'text-base-content dark:text-white'}"
+      >
+        <div class="flex flex-col gap-2 not-sm:items-center not-sm:text-center">
           <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
             {data.university.name}
           </h1>
 
-          <div class="flex items-center gap-2">
-            <!-- Join Button for eligible users -->
-            {#if data.user && data.userPermissions.canJoin > 0}
-              <a
-                href="{base}/universities/{data.university.slug || data.university.id}/verify"
-                class="btn btn-ghost"
-              >
-                {#if data.userPermissions.canJoin === 2}
-                  <i class="fa-solid fa-plus"></i>
-                  {m.verify_and_join()}
-                {:else}
-                  <i class="fa-solid fa-user-check"></i>
-                  {m.verify()}
-                {/if}
-              </a>
+          <div class="flex gap-1 text-nowrap">
+            {#if data.university.is985}
+              <span class="badge badge-primary badge-sm">{m.badge_985()}</span>
             {/if}
-
-            <!-- Edit University Button for privileged users -->
-            {#if userPrivileges.canEdit}
-              <a
-                href="{base}/universities/{data.university.slug || data.university.id}/edit"
-                class="btn btn-circle btn-lg btn-ghost"
-                title={m.edit_university_info()}
-                aria-label={m.edit_university_info()}
-              >
-                <i class="fa-solid fa-edit"></i>
-              </a>
+            {#if data.university.is211}
+              <span class="badge badge-secondary badge-sm">{m.badge_211()}</span>
+            {/if}
+            {#if data.university.isDoubleFirstClass}
+              <span class="badge badge-accent badge-sm">{m.badge_double_first_class()}</span>
             {/if}
           </div>
         </div>
 
-        <div class="flex gap-1 text-nowrap">
-          {#if data.university.is985}
-            <span class="badge badge-primary badge-sm">{m.badge_985()}</span>
+        <div class="flex items-center gap-2">
+          <!-- Join Button for eligible users -->
+          {#if data.user && data.userPermissions.canJoin > 0}
+            <a
+              href="{base}/universities/{data.university.slug || data.university.id}/verify"
+              class="btn btn-ghost"
+            >
+              {#if data.userPermissions.canJoin === 2}
+                <i class="fa-solid fa-plus"></i>
+                {m.verify_and_join()}
+              {:else}
+                <i class="fa-solid fa-user-check"></i>
+                {m.verify()}
+              {/if}
+            </a>
           {/if}
-          {#if data.university.is211}
-            <span class="badge badge-secondary badge-sm">{m.badge_211()}</span>
-          {/if}
-          {#if data.university.isDoubleFirstClass}
-            <span class="badge badge-accent badge-sm">{m.badge_double_first_class()}</span>
+
+          <!-- Edit University Button for privileged users -->
+          {#if userPrivileges.canEdit}
+            <a
+              href="{base}/universities/{data.university.slug || data.university.id}/edit"
+              class="btn btn-circle btn-lg btn-ghost"
+              title={m.edit_university_info()}
+              aria-label={m.edit_university_info()}
+            >
+              <i class="fa-solid fa-edit"></i>
+            </a>
           {/if}
         </div>
       </div>
@@ -494,7 +494,7 @@
 {/snippet}
 
 <!-- Main Content -->
-<div class="mx-auto max-w-7xl min-w-2xs px-4 py-8 sm:px-6 md:px-8">
+<div class="mx-auto max-w-7xl min-w-3xs px-4 py-8 sm:px-6 md:px-8">
   <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
     {@render sidebar('not-md:hidden')}
     <!-- Main Content Area -->
@@ -532,9 +532,12 @@
 
               <!-- Add Campus button for admins -->
               {#if userPrivileges.canManage}
-                <button class="btn btn-primary btn-soft btn-sm" onclick={openAddCampusModal}>
+                <button
+                  class="btn btn-primary not-xs:btn-circle btn-soft btn-sm"
+                  onclick={openAddCampusModal}
+                >
                   <i class="fa-solid fa-plus"></i>
-                  {m.add_campus()}
+                  <span class="not-xs:hidden">{m.add_campus()}</span>
                 </button>
               {/if}
             </div>
@@ -612,10 +615,10 @@
                 {#if userPrivileges.canManage}
                   <a
                     href="{base}/clubs/new?university={data.university.id}"
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.create_club()}
+                    <span class="not-xs:hidden">{m.create_club()}</span>
                   </a>
                 {/if}
               </div>
@@ -714,11 +717,11 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <button
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                     onclick={() => (showInviteModal = true)}
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.invite_members()}
+                    <span class="not-xs:hidden">{m.invite_members()}</span>
                   </button>
                 {/if}
               </div>
@@ -874,7 +877,7 @@
                 <i class="fa-solid fa-clock-rotate-left"></i>
                 {m.changelog()}
               </h3>
-              <div class="text-base-content/60 text-sm">
+              <div class="text-base-content/60 not-xs:hidden text-sm">
                 {m.track_university_profile_changes()}
               </div>
             </div>

@@ -99,9 +99,12 @@
       {m.posts()}
     </h3>
     {#if currentUserId && canCreatePost}
-      <button class="btn btn-primary btn-sm btn-soft" onclick={() => (showCreateModal = true)}>
+      <button
+        class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
+        onclick={() => (showCreateModal = true)}
+      >
         <i class="fa-solid fa-plus"></i>
-        {m.new_post()}
+        <span class="not-xs:hidden">{m.new_post()}</span>
       </button>
     {/if}
   </div>
