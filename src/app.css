@@ -29,7 +29,7 @@ code {
 }
 
 .prose pre code {
-  @apply !bg-transparent !p-0 text-sm text-base-content;
+  @apply text-base-content !bg-transparent !p-0 text-sm;
 }
 
 .not-md:prose-xs pre code {
