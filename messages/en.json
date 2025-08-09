@@ -48,8 +48,13 @@
   "admin_clubs": "Clubs",
   "admin_clubs_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} club",
         "countPlural=other": "{count} clubs"
@@ -157,8 +162,13 @@
   "admin_universities": "Universities",
   "admin_universities_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} university",
         "countPlural=other": "{count} universities"
@@ -241,8 +251,13 @@
   "campus_address": "Campus Address",
   "campus_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} campus",
         "countPlural=other": "{count} campuses"
@@ -304,8 +319,13 @@
   "cleared_value": "Cleared",
   "clicks": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} click",
         "countPlural=other": "{count} clicks"
@@ -321,8 +341,13 @@
   "club_background_color": "Club Background Color",
   "club_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} club",
         "countPlural=other": "{count} clubs"
@@ -346,8 +371,13 @@
   "clubs": "Clubs",
   "clubs_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} club available",
         "countPlural=other": "{count} clubs available"
@@ -424,8 +454,13 @@
   "discover_from": "Discover from",
   "dismiss_in": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Dismiss in the next {count} day",
         "countPlural=other": "Dismiss in the next {count} days"
@@ -499,8 +534,13 @@
   "form_validation_error": "Please fix the errors below",
   "found_shops_near": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Found {count} shop near {location}",
         "countPlural=other": "Found {count} shops near {location}"
@@ -609,8 +649,13 @@
   "member_count": "Member Count",
   "member_count_people": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} person",
         "countPlural=other": "{count} people"
@@ -750,8 +795,13 @@
   "route_guidance": "Route Guidance",
   "route_options": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} route option",
         "countPlural=other": "{count} route options"
@@ -785,6 +835,7 @@
   "select_on_map": "Select a location on the map",
   "select_type": "Select type...",
   "select_university": "Select University",
+  "send_to": "Send to",
   "set_to": "Set to",
   "settings": "Settings",
   "sharp_left": "Sharp left",
@@ -792,8 +843,13 @@
   "shop": "Shop",
   "shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} shop",
         "countPlural=other": "{count} shops"
@@ -826,8 +882,13 @@
   "starred_arcades_count": "Starred Arcades Count",
   "starred_arcades_count_shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} shop",
         "countPlural=other": "{count} shops"
@@ -838,8 +899,13 @@
   "starred_arcades_visibility": "Starred Arcades Visibility",
   "stations": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} station",
         "countPlural=other": "{count} stations"
@@ -851,8 +917,13 @@
   "step": "Step {step}",
   "stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} stop",
         "countPlural=other": "{count} stops"
@@ -908,8 +979,13 @@
   "universities": "Universities/Colleges",
   "universities_and_colleges_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} university or college available",
         "countPlural=other": "{count} universities and colleges available"
@@ -974,8 +1050,14 @@
   "username_too_long": "Username must be 30 characters or less",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
-      "selectors": ["current", "max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
+      "selectors": [
+        "current",
+        "max"
+      ],
       "match": {
         "max=0, current=1": "{current} use",
         "max=0, current=*": "{current} uses",
@@ -986,7 +1068,7 @@
   ],
   "validation_error": "Please check your input and try again",
   "verification_email_title": "Student Status Verification",
-  "verification_instruction": "Send an email to {email} with the following content using an email address ending with {suffix}",
+  "verification_instruction": "Send an email to {email} using an email address ending with {suffix}",
   "verified": "Verified",
   "verified_members": "Verified Members",
   "verified_student": "Verified Student",
@@ -999,8 +1081,13 @@
   "via_stop": "Via Stop",
   "via_stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Via {count} stop",
         "countPlural=other": "Via {count} stops"

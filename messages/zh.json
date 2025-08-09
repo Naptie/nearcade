@@ -695,6 +695,7 @@
   "select_on_map": "在地图上选择位置",
   "select_type": "选择类型",
   "select_university": "选择大学",
+  "send_to": "发至",
   "set_to": "设置为",
   "settings": "设置",
   "sharp_left": "急左转",
@@ -839,7 +840,10 @@
   "username_too_long": "用户名不能超过30个字符",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
@@ -848,7 +852,7 @@
   ],
   "validation_error": "请检查您的输入并重试",
   "verification_email_title": "在校生验证",
-  "verification_instruction": "使用以 {suffix} 结尾的电子邮件地址将包含以下内容的邮件发送到 {email}",
+  "verification_instruction": "使用以 {suffix} 结尾的电子邮件地址将以下邮件发送到 {email}",
   "verified": "已验证",
   "verified_members": "验证成员",
   "verified_student": "验证学生",

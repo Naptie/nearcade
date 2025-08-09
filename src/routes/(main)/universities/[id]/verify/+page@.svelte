@@ -23,7 +23,7 @@
   let title = $derived(`[nearcade] SSV ${m.verification_email_title()}`);
   let body = $derived(`UNIV: ${data.university.id}\nUSER: ${data.user.id}\nHMAC: ${data.hmac}`);
 
-  const targetEmail = 'verify@nearcade.phi.zone';
+  const sendTo = 'verify@nearcade.phi.zone';
 
   const copy = (content: string) => {
     if (copied === content) return; // Avoid redundant copy actions
@@ -74,7 +74,7 @@
       <p class="text-base-content/80">
         {@html m.verification_instruction({
           suffix: `<span class="text-success font-semibold">${domain}</span>`,
-          email: `<a href="mailto:${targetEmail}" class="link-accent transition-colors">${targetEmail}</a>`
+          email: `<a href="mailto:${sendTo}" class="link-accent transition-colors">${sendTo}</a>`
         })}
       </p>
     {/if}
@@ -89,6 +89,34 @@
           <span class="text-success text-2xl font-semibold">{data.verificationEmail}</span>
         </div>
       {:else}
+        <div class="flex flex-col">
+          <div class="flex items-center justify-between gap-1">
+            <span class="label">{m.send_to()}</span>
+            <button
+              class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
+              disabled={copied === sendTo}
+              onclick={() => copy(sendTo)}
+            >
+              {#if copied === sendTo}
+                <i class="fa-solid fa-check"></i>
+                <span class="not-lg:hidden">{m.copied()}</span>
+              {:else}
+                <i class="fa-solid fa-copy"></i>
+                <span class="not-lg:hidden">{m.copy()}</span>
+              {/if}
+            </button>
+          </div>
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <code
+            class="cursor-copy font-semibold break-all transition-colors"
+            class:hover:text-accent={copied !== sendTo}
+            class:text-success={copied === sendTo}
+            onmousedown={() => copy(sendTo)}
+            onmouseup={() => copy(sendTo)}
+          >
+            {sendTo}
+          </code>
+        </div>
         <div class="flex flex-col">
           <div class="flex items-center justify-between gap-1">
             <span class="label">{m.title()}</span>
@@ -108,7 +136,7 @@
           </div>
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
           <code
-            class="cursor-copy font-semibold break-all transition-colors"
+            class="cursor-copy font-bold break-all transition-colors"
             class:hover:text-accent={copied !== title}
             class:text-success={copied === title}
             onmousedown={() => copy(title)}
