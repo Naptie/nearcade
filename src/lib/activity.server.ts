@@ -1,14 +1,7 @@
 import type { MongoClient } from 'mongodb';
-import type {
-  Post,
-  PostVote,
-  Comment,
-  CommentVote,
-  ChangelogEntry,
-  University,
-  Club,
-  Activity
-} from './types';
+import type { Post, PostVote, Comment, CommentVote, ChangelogEntry, Activity } from './types';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * Fetch recent activities for a user
@@ -22,7 +15,8 @@ export async function getUserActivities(
   const activities: Activity[] = [];
 
   // Fetch posts
-  const posts = await db.collection<Post>('posts')
+  const posts = await db
+    .collection<Post>('posts')
     .aggregate([
       { $match: { createdBy: userId } },
       {
@@ -46,7 +40,7 @@ export async function getUserActivities(
     ])
     .toArray();
 
-  posts.forEach(post => {
+  posts.forEach((post: any) => {
     activities.push({
       id: post.id,
       type: 'post',
@@ -56,13 +50,14 @@ export async function getUserActivities(
       postId: post.id,
       universityId: post.universityId,
       clubId: post.clubId,
-      universityName: (post as any).university?.[0]?.name,
-      clubName: (post as any).club?.[0]?.name
+      universityName: post.university?.[0]?.name,
+      clubName: post.club?.[0]?.name
     });
   });
 
   // Fetch comments
-  const comments = await db.collection<Comment>('comments')
+  const comments = await db
+    .collection<Comment>('comments')
     .aggregate([
       { $match: { createdBy: userId } },
       {
@@ -94,8 +89,8 @@ export async function getUserActivities(
     ])
     .toArray();
 
-  comments.forEach(comment => {
-    const post = (comment as any).post?.[0];
+  comments.forEach((comment: any) => {
+    const post = comment.post?.[0];
     activities.push({
       id: comment.id,
       type: 'comment',
@@ -107,13 +102,14 @@ export async function getUserActivities(
       postId: post?.id,
       universityId: post?.universityId,
       clubId: post?.clubId,
-      universityName: (comment as any).university?.[0]?.name,
-      clubName: (comment as any).club?.[0]?.name
+      universityName: comment.university?.[0]?.name,
+      clubName: comment.club?.[0]?.name
     });
   });
 
   // Fetch post votes
-  const postVotes = await db.collection<PostVote>('post_votes')
+  const postVotes = await db
+    .collection<PostVote>('post_votes')
     .aggregate([
       { $match: { userId: userId } },
       {
@@ -145,8 +141,8 @@ export async function getUserActivities(
     ])
     .toArray();
 
-  postVotes.forEach(vote => {
-    const post = (vote as any).post?.[0];
+  postVotes.forEach((vote: any) => {
+    const post = vote.post?.[0];
     activities.push({
       id: vote.id,
       type: 'post_vote',
@@ -159,13 +155,14 @@ export async function getUserActivities(
       postId: vote.postId,
       universityId: post?.universityId,
       clubId: post?.clubId,
-      universityName: (vote as any).university?.[0]?.name,
-      clubName: (vote as any).club?.[0]?.name
+      universityName: vote.university?.[0]?.name,
+      clubName: vote.club?.[0]?.name
     });
   });
 
   // Fetch comment votes
-  const commentVotes = await db.collection<CommentVote>('comment_votes')
+  const commentVotes = await db
+    .collection<CommentVote>('comment_votes')
     .aggregate([
       { $match: { userId: userId } },
       {
@@ -213,9 +210,9 @@ export async function getUserActivities(
     ])
     .toArray();
 
-  commentVotes.forEach(vote => {
-    const post = (vote as any).post?.[0];
-    const commentAuthor = (vote as any).commentAuthor?.[0];
+  commentVotes.forEach((vote: any) => {
+    const post = vote.post?.[0];
+    const commentAuthor = vote.commentAuthor?.[0];
     activities.push({
       id: vote.id,
       type: 'comment_vote',
@@ -230,13 +227,14 @@ export async function getUserActivities(
       postId: post?.id,
       universityId: post?.universityId,
       clubId: post?.clubId,
-      universityName: (vote as any).university?.[0]?.name,
-      clubName: (vote as any).club?.[0]?.name
+      universityName: vote.university?.[0]?.name,
+      clubName: vote.club?.[0]?.name
     });
   });
 
   // Fetch changelog entries
-  const changelogEntries = await db.collection<ChangelogEntry>('changelog')
+  const changelogEntries = await db
+    .collection<ChangelogEntry>('changelog')
     .aggregate([
       { $match: { userId: userId } },
       {
@@ -260,10 +258,10 @@ export async function getUserActivities(
     ])
     .toArray();
 
-  changelogEntries.forEach(entry => {
-    const university = (entry as any).university?.[0];
-    const club = (entry as any).club?.[0];
-    
+  changelogEntries.forEach((entry: any) => {
+    const university = entry.university?.[0];
+    const club = entry.club?.[0];
+
     activities.push({
       id: entry.id,
       type: 'changelog',
@@ -273,6 +271,7 @@ export async function getUserActivities(
       changelogDescription: `${entry.fieldInfo.field} - ${entry.action}`,
       changelogTargetName: entry.type === 'university' ? university?.name : club?.name,
       changelogTargetId: entry.targetId,
+      changelogEntry: entry, // Store full entry for proper formatting
       universityId: entry.type === 'university' ? entry.targetId : undefined,
       clubId: entry.type === 'club' ? entry.targetId : undefined
     });
@@ -280,6 +279,6 @@ export async function getUserActivities(
 
   // Sort all activities by creation time (descending) and limit
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  
+
   return activities.slice(0, limit);
 }

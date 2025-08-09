@@ -410,7 +410,7 @@ export interface Activity {
   type: 'post' | 'comment' | 'post_vote' | 'comment_vote' | 'changelog';
   createdAt: Date;
   userId: string;
-  
+
   // Post activity
   postTitle?: string;
   postId?: string;
@@ -418,24 +418,25 @@ export interface Activity {
   clubId?: string;
   universityName?: string;
   clubName?: string;
-  
+
   // Comment activity
   commentContent?: string;
   commentId?: string;
   parentPostTitle?: string;
-  
+
   // Vote activity
   voteType?: 'upvote' | 'downvote';
   targetType?: 'post' | 'comment';
   targetTitle?: string;
   targetAuthorName?: string;
   targetId?: string;
-  
+
   // Changelog activity
   changelogAction?: string;
   changelogDescription?: string;
   changelogTargetName?: string;
   changelogTargetId?: string;
+  changelogEntry?: ChangelogEntry; // Store the full entry for proper formatting
 }
 
 export * from './amap';

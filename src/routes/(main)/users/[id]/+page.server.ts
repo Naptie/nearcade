@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
-import type { University, UniversityMember, Shop } from '$lib/types';
+import type { University, UniversityMember, Shop, Activity } from '$lib/types';
 import client from '$lib/db.server';
 import { toPlainArray } from '$lib/utils';
 import { getUserActivities } from '$lib/activity.server';
@@ -82,7 +82,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     // Get recent activities
-    let activities: any[] = [];
+    let activities: Activity[] = [];
     if ((isOwnProfile || user.isEmailPublic) && user.id) {
       try {
         activities = await getUserActivities(client, user.id, 15);
