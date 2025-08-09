@@ -265,8 +265,8 @@ const processEmail = async (parsed: ParsedMail) => {
   const body: string = parsed.text || parsed.html || '';
   // Use regex to extract values regardless of whitespace, line breaks, or HTML tags
   const univMatch = body.match(/UNIV:\s*(\d{10})/);
-  const userMatch = body.match(/USER:\s*(\d{24})/);
-  const hmacMatch = body.match(/HMAC:\s*([a-fA-F0-9]{64})/);
+  const userMatch = body.match(/USER:\s*(\w{24})/);
+  const hmacMatch = body.match(/HMAC:\s*(\w{64})/);
 
   if (!univMatch || !userMatch) {
     console.log('[Parser] Ignoring email with body:', body);
