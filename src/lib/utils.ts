@@ -705,7 +705,7 @@ export const canWriteUnivPosts = (
 
   if (postWritability === PostWritability.UNIV_MEMBERS) {
     canWritePosts = !!userPermissions.role;
-  } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+  } else if (postWritability === PostWritability.ADMINS_AND_MODS) {
     canWritePosts = userPermissions.canEdit;
   }
 
@@ -730,7 +730,7 @@ export const canWriteClubPosts = async (
       !!(await checkUniversityPermission(user, club.universityId, client)).role;
   } else if (postWritability === PostWritability.CLUB_MEMBERS) {
     canWritePosts = !!userPermissions.role;
-  } else if (postWritability === PostWritability.ADMIN_AND_MODS) {
+  } else if (postWritability === PostWritability.ADMINS_AND_MODS) {
     canWritePosts = userPermissions.canEdit;
   }
 
