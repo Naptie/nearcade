@@ -19,14 +19,14 @@
   let { data }: { data: PageData } = $props();
 
   const tabs = [
+    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
     { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
     { id: 'members', label: m.members(), icon: 'fa-users' },
-    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
-  // Initialize activeTab from URL hash or default to 'campuses'
+  // Initialize activeTab from URL hash or default to 'posts'
   const getInitialTab = () => {
     const hash = page.url.hash.substring(1);
     return (tabs.find((tab) => tab.id === hash) || tabs[0]).id;
@@ -515,7 +515,17 @@
 
       <!-- Tab Content -->
       <div class="bg-base-200 rounded-lg p-6">
-        {#if activeTab === 'campuses'}
+        {#if activeTab === 'posts'}
+          <PostsList
+            organizationType="university"
+            organizationId={data.university.id}
+            organizationName={data.university.name}
+            organizationSlug={data.university.slug}
+            currentUserId={data.user?.id}
+            canCreatePost={canWritePosts}
+            initialPosts={[]}
+          />
+        {:else if activeTab === 'campuses'}
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <h3 class="text-lg font-semibold">{m.campuses()}</h3>
@@ -857,16 +867,6 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'posts'}
-          <PostsList
-            organizationType="university"
-            organizationId={data.university.id}
-            organizationName={data.university.name}
-            organizationSlug={data.university.slug}
-            currentUserId={data.user?.id}
-            canCreatePost={canWritePosts}
-            initialPosts={[]}
-          />
         {:else if activeTab === 'changelog'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">

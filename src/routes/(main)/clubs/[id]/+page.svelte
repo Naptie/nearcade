@@ -11,24 +11,22 @@
   import { PAGINATION } from '$lib/constants';
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { canWriteClubPosts, formatDate, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
   const tabs = [
-    { id: 'members', label: m.members(), icon: 'fa-users' },
-    { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
+    { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
+    { id: 'members', label: m.members(), icon: 'fa-users' },
     { id: 'announcements', label: m.announcements(), icon: 'fa-bullhorn' }
   ];
 
-  // Initialize activeTab from URL hash or default to 'members'
+  // Initialize activeTab from URL hash or default to 'posts'
   const getInitialTab = () => {
-    if (browser) {
-      const hash = window.location.hash.substring(1);
-      return tabs.find((tab) => tab.id === hash)?.id || 'members';
-    }
-    return 'members';
+    const hash = page.url.hash.substring(1);
+    return (tabs.find((tab) => tab.id === hash) || tabs[0]).id;
   };
 
   let activeTab = $state(getInitialTab());
@@ -558,7 +556,136 @@
 
       <!-- Tab Content -->
       <div class="bg-base-200 rounded-lg p-6">
-        {#if activeTab === 'members'}
+        {#if activeTab === 'posts'}
+          <PostsList
+            organizationType="club"
+            organizationId={data.club.id}
+            organizationName={data.club.name}
+            organizationSlug={data.club.slug}
+            currentUserId={data.user?.id}
+            canCreatePost={canWritePosts}
+            initialPosts={[]}
+          />
+        {:else if activeTab === 'arcades'}
+          <div class="space-y-6">
+            <div class="flex items-center justify-between">
+              <h3 class="flex items-center gap-2 text-lg font-semibold">
+                <i class="fa-solid fa-gamepad"></i>
+                {m.starred_arcades()}
+              </h3>
+              <div class="flex items-center gap-3">
+                <div class="text-base-content/60 text-sm">
+                  {m.starred_arcades_count_shops({ count: data.club.starredArcades.length })}
+                </div>
+                {#if userPrivileges.canEdit}
+                  <button
+                    class="btn btn-primary btn-sm btn-soft"
+                    onclick={() => (showAddArcadeModal = true)}
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    {m.add_arcade()}
+                  </button>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Arcade List -->
+            <div class="bg-base-100 rounded-lg">
+              {#if displayedArcades && displayedArcades.length > 0}
+                <div class="divide-base-200 divide-y">
+                  {#each displayedArcades as shop (shop.id)}
+                    <div class="flex items-center justify-between p-4">
+                      <a
+                        href="https://map.bemanicn.com/shop/{shop.id}"
+                        target="_blank"
+                        class="group flex flex-1 items-center gap-3"
+                      >
+                        <div class="flex-1">
+                          <h4 class="group-hover:text-accent font-medium transition-colors">
+                            {shop.name}
+                          </h4>
+                          {#if shop.games && shop.games.length > 0}
+                            <div class="mt-1 flex flex-wrap gap-1">
+                              {#each shop.games.slice(0, 3) as game (game.id)}
+                                <span class="badge badge-xs badge-soft">
+                                  {game.name || `Game ${game.id}`}
+                                </span>
+                              {/each}
+                              {#if shop.games.length > 3}
+                                <span class="badge badge-xs badge-soft">
+                                  +{shop.games.length - 3}
+                                </span>
+                              {/if}
+                            </div>
+                          {/if}
+                        </div>
+                      </a>
+                      <div class="flex gap-2">
+                        <a
+                          href="{base}/discover?longitude={shop.location
+                            ?.coordinates[0]}&latitude={shop.location
+                            ?.coordinates[1]}&name={shop.name}&radius={radius}"
+                          target="_blank"
+                          class="btn btn-soft btn-circle btn-sm"
+                          title={m.explore_nearby()}
+                          aria-label={m.explore_nearby()}
+                        >
+                          <i class="fa-solid fa-map-location-dot"></i>
+                        </a>
+                        {#if userPrivileges.canEdit}
+                          <button
+                            class="btn btn-soft btn-circle btn-sm btn-error"
+                            onclick={() => handleArcadeAction('removeArcade', shop.id.toString())}
+                            title={m.remove_arcade()}
+                            aria-label={m.remove_arcade()}
+                          >
+                            <i class="fa-solid fa-trash"></i>
+                          </button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+
+                {#if hasMoreArcades}
+                  <div class="p-4 text-center">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      onclick={loadMoreArcades}
+                      disabled={isLoadingMoreArcades}
+                    >
+                      {#if isLoadingMoreArcades}
+                        <span class="loading loading-spinner loading-sm"></span>
+                        {m.loading()}
+                      {:else}
+                        {m.load_more()}
+                      {/if}
+                    </button>
+                  </div>
+                {/if}
+              {:else}
+                <div class="p-6">
+                  <div class="py-8 text-center">
+                    <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
+                    <h4 class="text-lg font-medium">{m.no_starred_arcades()}</h4>
+                    {#if userPrivileges.canEdit}
+                      <p class="text-base-content/60 mt-2 mb-4">
+                        {m.add_arcade_to_get_started()}
+                      </p>
+                      <button
+                        class="btn btn-primary btn-sm btn-soft"
+                        onclick={() => (showAddArcadeModal = true)}
+                      >
+                        <i class="fa-solid fa-plus"></i>
+                        {m.add_arcade()}
+                      </button>
+                    {/if}
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if activeTab === 'members'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
@@ -724,135 +851,6 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'arcades'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-gamepad"></i>
-                {m.starred_arcades()}
-              </h3>
-              <div class="flex items-center gap-3">
-                <div class="text-base-content/60 text-sm">
-                  {m.starred_arcades_count_shops({ count: data.club.starredArcades.length })}
-                </div>
-                {#if userPrivileges.canEdit}
-                  <button
-                    class="btn btn-primary btn-sm btn-soft"
-                    onclick={() => (showAddArcadeModal = true)}
-                  >
-                    <i class="fa-solid fa-plus"></i>
-                    {m.add_arcade()}
-                  </button>
-                {/if}
-              </div>
-            </div>
-
-            <!-- Arcade List -->
-            <div class="bg-base-100 rounded-lg">
-              {#if displayedArcades && displayedArcades.length > 0}
-                <div class="divide-base-200 divide-y">
-                  {#each displayedArcades as shop (shop.id)}
-                    <div class="flex items-center justify-between p-4">
-                      <a
-                        href="https://map.bemanicn.com/shop/{shop.id}"
-                        target="_blank"
-                        class="group flex flex-1 items-center gap-3"
-                      >
-                        <div class="flex-1">
-                          <h4 class="group-hover:text-accent font-medium transition-colors">
-                            {shop.name}
-                          </h4>
-                          {#if shop.games && shop.games.length > 0}
-                            <div class="mt-1 flex flex-wrap gap-1">
-                              {#each shop.games.slice(0, 3) as game (game.id)}
-                                <span class="badge badge-xs badge-soft">
-                                  {game.name || `Game ${game.id}`}
-                                </span>
-                              {/each}
-                              {#if shop.games.length > 3}
-                                <span class="badge badge-xs badge-soft">
-                                  +{shop.games.length - 3}
-                                </span>
-                              {/if}
-                            </div>
-                          {/if}
-                        </div>
-                      </a>
-                      <div class="flex gap-2">
-                        <a
-                          href="{base}/discover?longitude={shop.location
-                            ?.coordinates[0]}&latitude={shop.location
-                            ?.coordinates[1]}&name={shop.name}&radius={radius}"
-                          target="_blank"
-                          class="btn btn-soft btn-circle btn-sm"
-                          title={m.explore_nearby()}
-                          aria-label={m.explore_nearby()}
-                        >
-                          <i class="fa-solid fa-map-location-dot"></i>
-                        </a>
-                        {#if userPrivileges.canEdit}
-                          <button
-                            class="btn btn-soft btn-circle btn-sm btn-error"
-                            onclick={() => handleArcadeAction('removeArcade', shop.id.toString())}
-                            title={m.remove_arcade()}
-                            aria-label={m.remove_arcade()}
-                          >
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        {/if}
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-
-                {#if hasMoreArcades}
-                  <div class="p-4 text-center">
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      onclick={loadMoreArcades}
-                      disabled={isLoadingMoreArcades}
-                    >
-                      {#if isLoadingMoreArcades}
-                        <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading()}
-                      {:else}
-                        {m.load_more()}
-                      {/if}
-                    </button>
-                  </div>
-                {/if}
-              {:else}
-                <div class="p-6">
-                  <div class="py-8 text-center">
-                    <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
-                    <h4 class="text-lg font-medium">{m.no_starred_arcades()}</h4>
-                    {#if userPrivileges.canEdit}
-                      <p class="text-base-content/60 mt-2 mb-4">
-                        {m.add_arcade_to_get_started()}
-                      </p>
-                      <button
-                        class="btn btn-primary btn-sm btn-soft"
-                        onclick={() => (showAddArcadeModal = true)}
-                      >
-                        <i class="fa-solid fa-plus"></i>
-                        {m.add_arcade()}
-                      </button>
-                    {/if}
-                  </div>
-                </div>
-              {/if}
-            </div>
-          </div>
-        {:else if activeTab === 'posts'}
-          <PostsList
-            organizationType="club"
-            organizationId={data.club.id}
-            organizationName={data.club.name}
-            organizationSlug={data.club.slug}
-            currentUserId={data.user?.id}
-            canCreatePost={canWritePosts}
-            initialPosts={[]}
-          />
         {:else if activeTab === 'announcements'}
           <div class="py-12 text-center">
             <i class="fa-solid fa-bullhorn text-base-content/30 text-4xl"></i>
