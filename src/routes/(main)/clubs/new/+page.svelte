@@ -141,7 +141,7 @@
             name="description"
             bind:value={description}
             placeholder={m.enter_club_description()}
-            class="textarea textarea-bordered h-32 w-full"
+            class="textarea textarea-bordered h-32 w-full rounded-xl"
             maxlength="1000"
           ></textarea>
           <div class="label">

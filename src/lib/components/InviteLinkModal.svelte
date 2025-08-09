@@ -107,7 +107,10 @@
           <label class="label">
             <span class="label-text">{m.invite_description()}</span>
           </label>
-          <textarea class="textarea textarea-bordered w-full" bind:value={description} rows="3"
+          <textarea
+            class="textarea textarea-bordered w-full rounded-xl"
+            bind:value={description}
+            rows="3"
           ></textarea>
         </div>
 

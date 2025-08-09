@@ -58,7 +58,7 @@
           id="requestMessage"
           name="requestMessage"
           bind:value={requestMessage}
-          class="textarea textarea-bordered h-24 w-full"
+          class="textarea textarea-bordered h-24 w-full rounded-xl"
           placeholder={m.join_request_message_placeholder()}
         ></textarea>
       </div>

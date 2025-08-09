@@ -330,7 +330,7 @@
           name="description"
           bind:value={formData.description}
           placeholder={m.school_introduction()}
-          class="textarea textarea-bordered w-full"
+          class="textarea textarea-bordered w-full rounded-xl"
           rows="4"
           maxlength="2000"
         ></textarea>

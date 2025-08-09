@@ -336,7 +336,7 @@
               id="reviewNote"
               name="reviewNote"
               bind:value={reviewNote}
-              class="textarea textarea-bordered h-24 w-full"
+              class="textarea textarea-bordered h-24 w-full rounded-xl"
               placeholder={m.admin_add_note_decision()}
             ></textarea>
           </div>
