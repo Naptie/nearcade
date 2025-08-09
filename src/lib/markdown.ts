@@ -1,6 +1,6 @@
 import rehypeFormat from 'rehype-format';
 import rehypeRaw from 'rehype-raw';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeSanitize from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkDirective from 'remark-directive';
 import remarkFrontmatter from 'remark-frontmatter';
@@ -13,7 +13,12 @@ import { unified } from 'unified';
 import rehypeHighlight from 'rehype-highlight';
 import remarkBreaks from 'remark-breaks';
 
-const barebone = unified().use(remarkParse).use(remarkMath).use(remarkRehype).use(rehypeStringify);
+const barebone = unified()
+  .use(remarkParse)
+  .use(remarkMath)
+  .use(remarkRehype)
+  .use(rehypeSanitize)
+  .use(rehypeStringify);
 
 const processor = unified()
   .use(remarkParse)
@@ -23,24 +28,16 @@ const processor = unified()
   .use(remarkGfm)
   .use(remarkMath)
   .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeSanitize, {
-    ...defaultSchema,
-    attributes: {
-      ...defaultSchema.attributes,
-      a: [...(defaultSchema.attributes?.a || []), ...['target', 'rel']],
-      code: [...(defaultSchema.attributes?.code || []), ...['math-inline', 'math-display']],
-      img: [...(defaultSchema.attributes?.img || []), ...['alt', 'width', 'height', 'border']]
-    }
-  })
+  .use(rehypeRaw)
+  .use(rehypeFormat)
+  .use(rehypeSanitize)
+  .use(rehypeHighlight)
   .use(rehypeKatex, {
     strict: false,
     trust: false,
     macros: {},
     globalGroup: true
   })
-  .use(rehypeRaw)
-  .use(rehypeFormat)
-  .use(rehypeHighlight)
   .use(rehypeStringify);
 
 /**
