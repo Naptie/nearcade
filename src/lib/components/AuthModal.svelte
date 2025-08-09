@@ -6,7 +6,6 @@
   import { base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator } from '$lib/utils';
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
 
   interface Props {
     size?: string;
@@ -60,10 +59,18 @@
     }
   };
 
+  const login = () => {
+    dialogElement?.showModal();
+  };
+
   onMount(() => {
-    if (browser && page.url.searchParams.get('login') === '1') {
-      dialogElement?.showModal();
+    if (page.url.searchParams.get('login') === '1') {
+      login();
     }
+    window.addEventListener('nearcade-login', login);
+    return () => {
+      window.removeEventListener('nearcade-login', login);
+    };
   });
 </script>
 

@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
+  import ConfirmationModal from './ConfirmationModal.svelte';
 
   interface Shop {
     id: number;
@@ -21,6 +22,15 @@
     shops?: Shop[] | undefined;
     radius: number;
   } = $props();
+
+  let showRemoveConfirm = $state(false);
+
+  const confirmRemoveArcade = () => {
+    const form = document.getElementById(`removeArcadeForm-${shop.id}`) as HTMLFormElement;
+    if (form) {
+      form.requestSubmit();
+    }
+  };
 </script>
 
 <div class="group bg-base-100 flex items-center justify-between rounded-lg p-4">
@@ -71,23 +81,29 @@
         <i class="fa-solid fa-map-location-dot"></i>
       </a>
       {#if page.url.pathname.startsWith(`${base}/settings/`)}
-        <form method="POST" action="?/removeArcade" use:enhance>
+        <form id="removeArcadeForm-{shop.id}" method="POST" action="?/removeArcade" use:enhance>
           <input type="hidden" name="arcadeId" value={shop.id} />
-          <button
-            type="submit"
-            class="btn btn-soft btn-circle btn-error btn-sm"
-            title={m.remove_arcade()}
-            aria-label={m.remove_arcade()}
-            onclick={(e) => {
-              if (!confirm(m.confirm_remove_arcade())) {
-                e.preventDefault();
-              }
-            }}
-          >
-            <i class="fa-solid fa-trash"></i>
-          </button>
         </form>
+        <button
+          type="button"
+          class="btn btn-soft btn-circle btn-error btn-sm"
+          title={m.remove_arcade()}
+          aria-label={m.remove_arcade()}
+          onclick={() => {
+            showRemoveConfirm = true;
+          }}
+        >
+          <i class="fa-solid fa-trash"></i>
+        </button>
       {/if}
     </div>
   {/if}
 </div>
+
+<ConfirmationModal
+  bind:isOpen={showRemoveConfirm}
+  title={m.remove_arcade()}
+  message={m.confirm_remove_arcade()}
+  onConfirm={confirmRemoveArcade}
+  onCancel={() => {}}
+/>

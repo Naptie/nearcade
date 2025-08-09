@@ -1,6 +1,9 @@
+@import 'https://unpkg.com/katex@0.16.22/dist/katex.min.css';
 @import '@fontsource-variable/sora';
 @import '@fontsource-variable/noto-sans-sc';
+@import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
 
 @plugin 'daisyui' {
   themes:
@@ -12,16 +15,50 @@ body {
   font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
 }
 
-code {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    'Noto Sans SC Variable', monospace;
+code,
+.font-mono {
+  font-family: ui-monospace, 'JetBrains Mono Variable', 'Noto Sans SC Variable', monospace;
+}
+
+.stat {
+  --border: 0;
+}
+
+.prose pre {
+  @apply bg-base-200/50 rounded-xl;
+}
+
+.prose pre code {
+  @apply text-base-content !bg-transparent !p-0 text-sm;
+}
+
+.not-md:prose-xs pre code {
+  @apply text-xs;
+}
+
+.not-md:prose-sm pre code {
+  @apply not-md:text-xs;
+}
+
+.prose-sm pre code {
+  @apply text-xs;
 }
 
 .label-text-alt {
   @apply text-xs;
 }
 
-.stat {
-  --border: 0;
+.not-xs\:hidden {
+  @media (width < 20rem) {
+    display: none;
+  }
+}
+
+.not-xs\:btn-circle {
+  @media (width < 20rem) {
+    border-radius: calc(infinity * 1px);
+    padding-inline: calc(0.25rem /* 4px */ * 0) /* 0rem = 0px */;
+    width: var(--size);
+    height: var(--size);
+  }
 }

@@ -11,7 +11,7 @@
     getDisplayName,
     getUserTypeBadgeClass,
     getUserTypeLabel,
-    toPath
+    fromPath
   } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
@@ -97,7 +97,7 @@
 
     loadingUserDetails = true;
     try {
-      const response = await fetch(toPath(`/api/admin/users/${userId}`));
+      const response = await fetch(fromPath(`/api/admin/users/${userId}`));
       if (response.ok) {
         userDetails = await response.json();
       } else {

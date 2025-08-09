@@ -1,9 +1,16 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { Club, University, Shop, ClubMember, UniversityMember } from '$lib/types';
+import {
+  type Club,
+  type University,
+  type Shop,
+  type ClubMember,
+  type UniversityMember
+} from '$lib/types';
 import {
   getClubMembersWithUserData,
   checkClubPermission,
+  canWriteClubPosts,
   toPlainArray,
   toPlainObject
 } from '$lib/utils';
@@ -98,7 +105,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         totalMembers
       },
       user: session?.user || null,
-      userPermissions
+      userPermissions,
+      canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, client)
     };
   } catch (err) {
     console.error('Error loading club:', err);

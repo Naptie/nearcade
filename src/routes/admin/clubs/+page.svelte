@@ -225,55 +225,53 @@
 </div>
 
 <!-- Create Club Modal -->
-{#if showCreateModal}
-  <div class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="mb-4 text-lg font-bold">{m.add_club()}</h3>
-      <p class="text-base-content/60 mb-4 text-sm">
-        {m.admin_club_creation_info()}
-      </p>
+<div class="modal" class:modal-open={showCreateModal}>
+  <div class="modal-box">
+    <h3 class="mb-4 text-lg font-bold">{m.add_club()}</h3>
+    <p class="text-base-content/60 mb-4 text-sm">
+      {m.admin_club_creation_info()}
+    </p>
 
-      <div class="form-control w-full">
-        <label class="label" for="university-select">
-          <span class="label-text font-medium">{m.select_university()}</span>
-        </label>
-        <select
-          id="university-select"
-          class="select select-bordered w-full"
-          bind:value={selectedUniversity}
-        >
-          <option value="">{m.choose_university()}</option>
-          {#each data.universities || [] as university (university.id)}
-            <option value={university.id}>{university.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="modal-action">
-        <button class="btn btn-ghost" onclick={() => (showCreateModal = false)}>
-          {m.cancel()}
-        </button>
-        <a
-          href={selectedUniversity ? `${base}/clubs/new?university=${selectedUniversity}` : '#'}
-          class="btn btn-primary"
-          class:btn-disabled={!selectedUniversity}
-          onclick={() => {
-            if (selectedUniversity) {
-              showCreateModal = false;
-            }
-          }}
-        >
-          {m.continue()}
-        </a>
-      </div>
+    <div class="form-control w-full">
+      <label class="label" for="university-select">
+        <span class="label-text font-medium">{m.select_university()}</span>
+      </label>
+      <select
+        id="university-select"
+        class="select select-bordered w-full"
+        bind:value={selectedUniversity}
+      >
+        <option value="">{m.choose_university()}</option>
+        {#each data.universities || [] as university (university.id)}
+          <option value={university.id}>{university.name}</option>
+        {/each}
+      </select>
     </div>
-    <div
-      class="modal-backdrop"
-      onclick={() => (showCreateModal = false)}
-      onkeydown={(e) => e.key === 'Escape' && (showCreateModal = false)}
-      role="button"
-      tabindex="0"
-      aria-label={m.close_modal()}
-    ></div>
+
+    <div class="modal-action">
+      <button class="btn btn-ghost" onclick={() => (showCreateModal = false)}>
+        {m.cancel()}
+      </button>
+      <a
+        href={selectedUniversity ? `${base}/clubs/new?university=${selectedUniversity}` : '#'}
+        class="btn btn-primary"
+        class:btn-disabled={!selectedUniversity}
+        onclick={() => {
+          if (selectedUniversity) {
+            showCreateModal = false;
+          }
+        }}
+      >
+        {m.continue()}
+      </a>
+    </div>
   </div>
-{/if}
+  <div
+    class="modal-backdrop"
+    onclick={() => (showCreateModal = false)}
+    onkeydown={(e) => e.key === 'Escape' && (showCreateModal = false)}
+    role="button"
+    tabindex="0"
+    aria-label={m.close_modal()}
+  ></div>
+</div>

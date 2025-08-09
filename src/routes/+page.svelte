@@ -11,7 +11,7 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel, toPath } from '$lib/utils';
+  import { formatRegionLabel, fromPath } from '$lib/utils';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);
@@ -106,7 +106,7 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(toPath(`/api/universities?q=${encodeURIComponent(query)}`));
+      const response = await fetch(fromPath(`/api/universities?q=${encodeURIComponent(query)}`));
       const data = (await response.json()) as { universities: University[] };
 
       // Only update if this is still the latest request
@@ -426,7 +426,7 @@
                 {/if}
                 {#if universities.length > 0}
                   <div
-                    class="bg-base-100 border-base-300 h-[40vh] w-full overflow-y-auto rounded-lg border shadow-none transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+                    class="bg-base-100 border-base-300 max-h-[40vh] w-full overflow-y-auto rounded-lg border shadow-none transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
                   >
                     {#each universities as university (university.name)}
                       <div id={university.name} class="border-base-200 border-b last:border-b-0">
@@ -444,7 +444,7 @@
                               <a
                                 href="{base}/universities/{university.slug || university.id}"
                                 target="_blank"
-                                class="text-base-content link-accent text-base font-medium transition-colors"
+                                class="hover:text-accent text-base font-medium transition-colors"
                               >
                                 {university.name}
                               </a>
@@ -466,7 +466,7 @@
                               <a
                                 href="{base}/universities/{university.slug || university.id}"
                                 target="_blank"
-                                class="text-base-content link-accent text-base font-medium transition-colors"
+                                class="hover:text-accent text-base font-medium transition-colors"
                                 >{university.name}</a
                               >
                               <div class="text-base-content/60 text-sm">

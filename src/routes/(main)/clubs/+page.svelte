@@ -122,7 +122,7 @@
                 <div class="flex min-w-0 flex-1 items-center gap-3">
                   {#if club.avatarUrl || club.universityAvatarUrl}
                     <div class="avatar shrink-0">
-                      <div class="h-12 w-12 rounded-full bg-white">
+                      <div class="h-12 w-12 rounded-full" class:bg-white={!club.avatarUrl}>
                         <img
                           src={club.avatarUrl || club.universityAvatarUrl}
                           alt="{club.avatarUrl ? club.name : club.universityName} {m.logo()}"

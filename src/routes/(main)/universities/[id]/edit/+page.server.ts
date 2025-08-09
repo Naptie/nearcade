@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { University } from '$lib/types';
+import { PostReadability, PostWritability, type University } from '$lib/types';
 import { checkUniversityPermission, loginRedirect } from '$lib/utils';
 import { logUniversityChanges } from '$lib/changelog.server';
 import { base } from '$app/paths';
@@ -88,6 +88,8 @@ export const actions: Actions = {
       const is985 = formData.get('is985') === 'on';
       const is211 = formData.get('is211') === 'on';
       const isDoubleFirstClass = formData.get('isDoubleFirstClass') === 'on';
+      const postReadability = parseInt(formData.get('postReadability') as string);
+      const postWritability = parseInt(formData.get('postWritability') as string);
 
       // Check permissions using new system
       const permissions = await checkUniversityPermission(user, id, client);
@@ -139,6 +141,14 @@ export const actions: Actions = {
         }
       }
 
+      if (postReadability === PostReadability.CLUB_MEMBERS) {
+        errors.push('Invalid post readability setting');
+      }
+
+      if (postWritability === PostWritability.CLUB_MEMBERS) {
+        errors.push('Invalid post writability setting');
+      }
+
       if (errors.length > 0) {
         return fail(400, {
           message: 'Validation failed',
@@ -157,7 +167,9 @@ export const actions: Actions = {
             affiliation: affiliation?.trim() || '',
             is985,
             is211,
-            isDoubleFirstClass
+            isDoubleFirstClass,
+            postReadability,
+            postWritability
           }
         });
       }
@@ -191,15 +203,17 @@ export const actions: Actions = {
         name: name.trim(),
         type: type.trim(),
         affiliation: affiliation.trim(),
-        description: description?.trim() || null,
-        website: website?.trim() || null,
-        avatarUrl: avatarUrl?.trim() || null,
-        slug: slug?.trim() || null,
+        description: description?.trim() || undefined,
+        website: website?.trim() || undefined,
+        avatarUrl: avatarUrl?.trim() || undefined,
+        slug: slug?.trim() || undefined,
         majorCategory: majorCategory?.trim() || null,
         natureOfRunning: natureOfRunning?.trim() || null,
         is985,
         is211,
         isDoubleFirstClass,
+        postReadability,
+        postWritability,
         updatedAt: new Date()
       };
 
@@ -207,7 +221,7 @@ export const actions: Actions = {
       if (useCustomBackgroundColor && backgroundColor && backgroundColor.trim().length > 0) {
         updateData.backgroundColor = backgroundColor.trim();
       } else {
-        updateData.backgroundColor = null; // Reset if not using custom color
+        updateData.backgroundColor = undefined; // Reset if not using custom color
       }
 
       // Log changes to changelog

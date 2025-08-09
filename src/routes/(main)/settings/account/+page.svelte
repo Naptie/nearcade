@@ -104,7 +104,7 @@
               <div class="avatar {university.avatarUrl ? '' : 'avatar-placeholder'}">
                 <div
                   class="h-10 w-10 rounded-full {university.avatarUrl
-                    ? ''
+                    ? 'bg-white'
                     : 'bg-neutral text-neutral-content'}"
                 >
                   {#if university.avatarUrl}

@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { m } from '$lib/paraglide/messages';
-  import { base } from '$app/paths';
   import type { ChangelogEntry } from '$lib/types';
   import { formatChangelogDescription, getChangelogActionName } from '$lib/changelog';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { enUS, zhCN } from 'date-fns/locale';
+  import { fromPath } from '$lib/utils';
 
   // Create a wrapper for the messages to match our expected type
   const createMessagesWrapper = () => {
@@ -54,7 +54,7 @@
 
     try {
       const response = await fetch(
-        `${base}/api/universities/${universityId}/changelog?page=${page}&limit=${ITEMS_PER_PAGE}`
+        fromPath(`/api/universities/${universityId}/changelog?page=${page}&limit=${ITEMS_PER_PAGE}`)
       );
 
       if (!response.ok) {

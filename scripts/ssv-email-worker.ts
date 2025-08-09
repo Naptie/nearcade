@@ -104,8 +104,8 @@ const searchAsync = (imap: Imap, criteria: string[]): Promise<number[]> => {
   });
 };
 
-const parseEmail = (stream: Source): Promise<ParsedMail> => {
-  return simpleParser(stream);
+const parseEmail = async (stream: Source): Promise<ParsedMail> => {
+  return await simpleParser(stream);
 };
 
 const redis = createRedisClient({ url: REDIS_URI });
@@ -257,19 +257,25 @@ const startPolling = () => {
  */
 const processEmail = async (parsed: ParsedMail) => {
   const subject: string = parsed.subject || '';
-  if (!subject.startsWith('[nearcade] SSV ')) return;
+  if (!subject.startsWith('[nearcade] SSV ')) {
+    console.log('[Parser] Ignoring email with subject:', subject);
+    return;
+  }
 
-  const body: string = parsed.text || '';
-  const lines = body.split('\n').map((l) => l.trim());
-  const univLine = lines.find((l) => l.startsWith('UNIV: '));
-  const userLine = lines.find((l) => l.startsWith('USER: '));
-  const hmacLine = lines.find((l) => l.startsWith('HMAC: '));
+  const body: string = parsed.text || parsed.html || '';
+  // Use regex to extract values regardless of whitespace, line breaks, or HTML tags
+  const univMatch = body.match(/UNIV:\s*(\d{10})/);
+  const userMatch = body.match(/USER:\s*(\w{24})/);
+  const hmacMatch = body.match(/HMAC:\s*(\w{64})/);
 
-  if (!univLine || !userLine) return;
+  if (!univMatch || !userMatch) {
+    console.log('[Parser] Ignoring email with body:', body);
+    return;
+  }
 
-  const universityId = univLine.slice(6).trim();
-  const userId = userLine.slice(6).trim();
-  const givenHmac = hmacLine ? hmacLine.slice(6).trim() : '';
+  const universityId = univMatch[1];
+  const userId = userMatch[1];
+  const givenHmac = hmacMatch ? hmacMatch[1] : '';
 
   const key = `nearcade:ssv:${universityId}:${userId}`;
   await ensureRedisConnected();

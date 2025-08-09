@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
-  import { getDisplayName, toPath } from '$lib/utils';
+  import { getDisplayName, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -17,7 +17,7 @@
     messageType = '';
 
     try {
-      const response = await fetch(toPath(`/api/invites/${data.invite.code}/redeem`), {
+      const response = await fetch(fromPath(`/api/invites/${data.invite.code}/redeem`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -116,7 +116,8 @@
               <img
                 src={data.targetInfo.avatarUrl}
                 alt="{data.targetInfo.name} {m.logo()}"
-                class="h-16 w-16 rounded-full bg-white"
+                class="h-16 w-16 rounded-full"
+                class:bg-white={data.invite.type === 'university'}
               />
             {:else}
               <div class="bg-base-300 flex h-16 w-16 items-center justify-center rounded-full">

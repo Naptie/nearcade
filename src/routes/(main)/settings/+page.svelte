@@ -301,7 +301,7 @@
         bind:value={bio}
         oninput={() => validateField('bio', bio)}
         placeholder={m.tell_us_about_yourself()}
-        class="textarea textarea-bordered h-24 w-full"
+        class="textarea textarea-bordered h-24 w-full rounded-xl"
         class:textarea-error={hasError('bio')}
         maxlength="500"
       ></textarea>

@@ -7,27 +7,26 @@
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
   import JoinRequestModal from '$lib/components/JoinRequestModal.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import PostsList from '$lib/components/PostsList.svelte';
   import { PAGINATION } from '$lib/constants';
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
-  import { formatDate } from '$lib/utils';
+  import { page } from '$app/state';
+  import { formatDate, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
   const tabs = [
-    { id: 'members', label: m.members(), icon: 'fa-users' },
+    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
-    { id: 'discussions', label: m.discussions(), icon: 'fa-comments' },
+    { id: 'members', label: m.members(), icon: 'fa-users' },
     { id: 'announcements', label: m.announcements(), icon: 'fa-bullhorn' }
   ];
 
-  // Initialize activeTab from URL hash or default to 'members'
+  // Initialize activeTab from URL hash or default to 'posts'
   const getInitialTab = () => {
-    if (browser) {
-      const hash = window.location.hash.substring(1);
-      return tabs.find((tab) => tab.id === hash)?.id || 'members';
-    }
-    return 'members';
+    const hash = page.url.hash.substring(1);
+    return (tabs.find((tab) => tab.id === hash) || tabs[0]).id;
   };
 
   let activeTab = $state(getInitialTab());
@@ -69,7 +68,7 @@
 
   let radius = $state(10);
 
-  onMount(() => {
+  onMount(async () => {
     window.dispatchEvent(
       new CustomEvent('nearcade-org-background', {
         detail: { hasCustomBackground: !!data.club.backgroundColor }
@@ -117,7 +116,7 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        `${base}/api/clubs/${data.club.slug || data.club.id}/members?page=${nextPage}`
+        fromPath(`/api/clubs/${data.club.slug || data.club.id}/members?page=${nextPage}`)
       );
 
       if (response.ok) {
@@ -148,7 +147,7 @@
     try {
       const nextPage = currentArcadesPage + 1;
       const response = await fetch(
-        `${base}/api/clubs/${data.club.slug || data.club.id}/arcades?page=${nextPage}`
+        fromPath(`/api/clubs/${data.club.slug || data.club.id}/arcades?page=${nextPage}`)
       );
 
       if (response.ok) {
@@ -180,7 +179,7 @@
 
     isSearching = true;
     try {
-      const response = await fetch(`${base}/api/shops/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(fromPath(`/api/shops/search?q=${encodeURIComponent(query)}`));
       if (response.ok) {
         const results = (await response.json()) as { shops: Shop[] };
         searchResults = results.shops || [];
@@ -366,58 +365,59 @@
           <img
             src={data.club.avatarUrl || data.university?.avatarUrl}
             alt="{data.club.avatarUrl ? data.club.name : data.university?.name} {m.logo()}"
-            class="h-24 w-24 rounded-full bg-white shadow-lg sm:h-32 sm:w-32"
+            class="h-24 w-24 rounded-full shadow-lg sm:h-32 sm:w-32"
           />
         </div>
       {/if}
 
       <!-- Club Info -->
       <div
-        class="flex-1 {data.club.backgroundColor
+        class="flex flex-1 flex-col items-center justify-between gap-2 sm:flex-row {data.club
+          .backgroundColor
           ? 'text-white'
           : 'text-base-content dark:text-white'}"
       >
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-col not-sm:text-center">
           <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
             {data.club.name}
           </h1>
 
-          <div class="flex items-center gap-2">
-            <!-- Join Button for eligible users -->
-            {#if data.user && data.userPermissions.canJoin === 2}
-              <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
-                <i class="fa-solid fa-plus"></i>
-                {m.join_club()}
-              </button>
-            {:else if data.userPermissions.canJoin === 1}
-              <div class="badge badge-warning">
-                <i class="fa-solid fa-clock"></i>
-                {m.join_request_sent()}
-              </div>
-            {/if}
-
-            <!-- Edit Club Button for privileged users -->
-            {#if userPrivileges.canEdit}
-              <a
-                href="{base}/clubs/{data.club.slug || data.club.id}/edit"
-                class="btn btn-circle btn-lg btn-ghost"
-                title="{m.edit()} {m.club()}"
-                aria-label="{m.edit()} {m.club()}"
-              >
-                <i class="fa-solid fa-edit"></i>
-              </a>
-            {/if}
-          </div>
+          {#if data.university}
+            <a
+              href="{base}/universities/{data.university.slug || data.university.id}"
+              class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
+            >
+              {data.university.name}
+            </a>
+          {/if}
         </div>
 
-        {#if data.university}
-          <a
-            href="{base}/universities/{data.university.slug || data.university.id}"
-            class="link link-hover text-lg text-white/90"
-          >
-            {data.university.name}
-          </a>
-        {/if}
+        <div class="flex items-center gap-2">
+          <!-- Join Button for eligible users -->
+          {#if data.user && data.userPermissions.canJoin === 2}
+            <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
+              <i class="fa-solid fa-plus"></i>
+              {m.join_club()}
+            </button>
+          {:else if data.userPermissions.canJoin === 1}
+            <div class="badge badge-warning">
+              <i class="fa-solid fa-clock"></i>
+              {m.join_request_sent()}
+            </div>
+          {/if}
+
+          <!-- Edit Club Button for privileged users -->
+          {#if userPrivileges.canEdit}
+            <a
+              href="{base}/clubs/{data.club.slug || data.club.id}/edit"
+              class="btn btn-circle btn-lg btn-ghost"
+              title="{m.edit()} {m.club()}"
+              aria-label="{m.edit()} {m.club()}"
+            >
+              <i class="fa-solid fa-edit"></i>
+            </a>
+          {/if}
+        </div>
       </div>
     </div>
   </div>
@@ -534,7 +534,7 @@
 {/snippet}
 
 <!-- Main Content -->
-<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-7xl min-w-3xs px-4 py-8 sm:px-6 lg:px-8">
   <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
     {@render sidebar('not-md:hidden')}
     <!-- Main Content Area -->
@@ -555,7 +555,136 @@
 
       <!-- Tab Content -->
       <div class="bg-base-200 rounded-lg p-6">
-        {#if activeTab === 'members'}
+        {#if activeTab === 'posts'}
+          <PostsList
+            organizationType="club"
+            organizationId={data.club.id}
+            organizationName={data.club.name}
+            organizationSlug={data.club.slug}
+            currentUserId={data.user?.id}
+            canCreatePost={data.canWritePosts}
+            initialPosts={[]}
+          />
+        {:else if activeTab === 'arcades'}
+          <div class="space-y-6">
+            <div class="flex items-center justify-between">
+              <h3 class="flex items-center gap-2 text-lg font-semibold">
+                <i class="fa-solid fa-gamepad"></i>
+                {m.starred_arcades()}
+              </h3>
+              <div class="flex items-center gap-3">
+                <div class="text-base-content/60 text-sm">
+                  {m.starred_arcades_count_shops({ count: data.club.starredArcades.length })}
+                </div>
+                {#if userPrivileges.canEdit}
+                  <button
+                    class="btn btn-primary btn-sm btn-soft not-xs:btn-circle"
+                    onclick={() => (showAddArcadeModal = true)}
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="not-xs:hidden">{m.add_arcade()}</span>
+                  </button>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Arcade List -->
+            <div class="bg-base-100 rounded-lg">
+              {#if displayedArcades && displayedArcades.length > 0}
+                <div class="divide-base-200 divide-y">
+                  {#each displayedArcades as shop (shop.id)}
+                    <div class="flex items-center justify-between p-4">
+                      <a
+                        href="https://map.bemanicn.com/shop/{shop.id}"
+                        target="_blank"
+                        class="group flex flex-1 items-center gap-3"
+                      >
+                        <div class="flex-1">
+                          <h4 class="group-hover:text-accent font-medium transition-colors">
+                            {shop.name}
+                          </h4>
+                          {#if shop.games && shop.games.length > 0}
+                            <div class="mt-1 flex flex-wrap gap-1">
+                              {#each shop.games.slice(0, 3) as game (game.id)}
+                                <span class="badge badge-xs badge-soft">
+                                  {game.name || `Game ${game.id}`}
+                                </span>
+                              {/each}
+                              {#if shop.games.length > 3}
+                                <span class="badge badge-xs badge-soft">
+                                  +{shop.games.length - 3}
+                                </span>
+                              {/if}
+                            </div>
+                          {/if}
+                        </div>
+                      </a>
+                      <div class="flex gap-2">
+                        <a
+                          href="{base}/discover?longitude={shop.location
+                            ?.coordinates[0]}&latitude={shop.location
+                            ?.coordinates[1]}&name={shop.name}&radius={radius}"
+                          target="_blank"
+                          class="btn btn-soft btn-circle btn-sm"
+                          title={m.explore_nearby()}
+                          aria-label={m.explore_nearby()}
+                        >
+                          <i class="fa-solid fa-map-location-dot"></i>
+                        </a>
+                        {#if userPrivileges.canEdit}
+                          <button
+                            class="btn btn-soft btn-circle btn-sm btn-error"
+                            onclick={() => handleArcadeAction('removeArcade', shop.id.toString())}
+                            title={m.remove_arcade()}
+                            aria-label={m.remove_arcade()}
+                          >
+                            <i class="fa-solid fa-trash"></i>
+                          </button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+
+                {#if hasMoreArcades}
+                  <div class="p-4 text-center">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      onclick={loadMoreArcades}
+                      disabled={isLoadingMoreArcades}
+                    >
+                      {#if isLoadingMoreArcades}
+                        <span class="loading loading-spinner loading-sm"></span>
+                        {m.loading()}
+                      {:else}
+                        {m.load_more()}
+                      {/if}
+                    </button>
+                  </div>
+                {/if}
+              {:else}
+                <div class="p-6">
+                  <div class="py-8 text-center">
+                    <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
+                    <h4 class="text-lg font-medium">{m.no_starred_arcades()}</h4>
+                    {#if userPrivileges.canEdit}
+                      <p class="text-base-content/60 mt-2 mb-4">
+                        {m.add_arcade_to_get_started()}
+                      </p>
+                      <button
+                        class="btn btn-primary btn-sm btn-soft"
+                        onclick={() => (showAddArcadeModal = true)}
+                      >
+                        <i class="fa-solid fa-plus"></i>
+                        {m.add_arcade()}
+                      </button>
+                    {/if}
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if activeTab === 'members'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
@@ -568,11 +697,11 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <button
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                     onclick={() => (showInviteModal = true)}
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.invite_members()}
+                    <span class="not-xs:hidden">{m.invite_members()}</span>
                   </button>
                 {/if}
               </div>
@@ -583,12 +712,12 @@
               {#if displayedMembers && displayedMembers.length > 0}
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
-                    <div class="flex items-center justify-between p-4">
-                      <div>
+                    <div class="flex items-center justify-between gap-1 p-4">
+                      <div class="overflow-hidden">
                         <UserAvatar user={member.user} showName={true} size="md" />
                       </div>
 
-                      <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-1">
                         <!-- Member Type Badge -->
                         <div
                           class="badge {member.memberType === 'admin'
@@ -721,130 +850,6 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'arcades'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-gamepad"></i>
-                {m.starred_arcades()}
-              </h3>
-              <div class="flex items-center gap-3">
-                <div class="text-base-content/60 text-sm">
-                  {m.starred_arcades_count_shops({ count: data.club.starredArcades.length })}
-                </div>
-                {#if userPrivileges.canEdit}
-                  <button
-                    class="btn btn-primary btn-sm btn-soft"
-                    onclick={() => (showAddArcadeModal = true)}
-                  >
-                    <i class="fa-solid fa-plus"></i>
-                    {m.add_arcade()}
-                  </button>
-                {/if}
-              </div>
-            </div>
-
-            <!-- Arcade List -->
-            <div class="bg-base-100 rounded-lg">
-              {#if displayedArcades && displayedArcades.length > 0}
-                <div class="divide-base-200 divide-y">
-                  {#each displayedArcades as shop (shop.id)}
-                    <div class="flex items-center justify-between p-4">
-                      <a
-                        href="https://map.bemanicn.com/shop/{shop.id}"
-                        target="_blank"
-                        class="group flex flex-1 items-center gap-3"
-                      >
-                        <div class="flex-1">
-                          <h4 class="group-hover:text-accent font-medium transition-colors">
-                            {shop.name}
-                          </h4>
-                          {#if shop.games && shop.games.length > 0}
-                            <div class="mt-1 flex flex-wrap gap-1">
-                              {#each shop.games.slice(0, 3) as game (game.id)}
-                                <span class="badge badge-xs badge-soft">
-                                  {game.name || `Game ${game.id}`}
-                                </span>
-                              {/each}
-                              {#if shop.games.length > 3}
-                                <span class="badge badge-xs badge-soft">
-                                  +{shop.games.length - 3}
-                                </span>
-                              {/if}
-                            </div>
-                          {/if}
-                        </div>
-                      </a>
-                      <div class="flex gap-2">
-                        <a
-                          href="{base}/discover?longitude={shop.location
-                            ?.coordinates[0]}&latitude={shop.location
-                            ?.coordinates[1]}&name={shop.name}&radius={radius}"
-                          target="_blank"
-                          class="btn btn-soft btn-circle btn-sm"
-                          title={m.explore_nearby()}
-                          aria-label={m.explore_nearby()}
-                        >
-                          <i class="fa-solid fa-map-location-dot"></i>
-                        </a>
-                        {#if userPrivileges.canEdit}
-                          <button
-                            class="btn btn-soft btn-circle btn-sm btn-error"
-                            onclick={() => handleArcadeAction('removeArcade', shop.id.toString())}
-                            title={m.remove_arcade()}
-                            aria-label={m.remove_arcade()}
-                          >
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        {/if}
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-
-                {#if hasMoreArcades}
-                  <div class="p-4 text-center">
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      onclick={loadMoreArcades}
-                      disabled={isLoadingMoreArcades}
-                    >
-                      {#if isLoadingMoreArcades}
-                        <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading()}
-                      {:else}
-                        {m.load_more()}
-                      {/if}
-                    </button>
-                  </div>
-                {/if}
-              {:else}
-                <div class="p-6">
-                  <div class="py-8 text-center">
-                    <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
-                    <h4 class="text-lg font-medium">{m.no_starred_arcades()}</h4>
-                    {#if userPrivileges.canEdit}
-                      <p class="text-base-content/60 mt-2 mb-4">
-                        {m.add_arcade_to_get_started()}
-                      </p>
-                      <button
-                        class="btn btn-primary btn-sm btn-soft"
-                        onclick={() => (showAddArcadeModal = true)}
-                      >
-                        <i class="fa-solid fa-plus"></i>
-                        {m.add_arcade()}
-                      </button>
-                    {/if}
-                  </div>
-                </div>
-              {/if}
-            </div>
-          </div>
-        {:else if activeTab === 'discussions'}
-          <div class="py-12 text-center">
-            <i class="fa-solid fa-comments text-base-content/30 text-4xl"></i>
-            <p class="text-base-content/60 mt-4">{m.feature_in_development()}</p>
-          </div>
         {:else if activeTab === 'announcements'}
           <div class="py-12 text-center">
             <i class="fa-solid fa-bullhorn text-base-content/30 text-4xl"></i>
@@ -878,119 +883,117 @@
 />
 
 <!-- Add Arcade Modal -->
-{#if showAddArcadeModal}
-  <div class="modal modal-open">
-    <div class="modal-box max-w-4xl">
-      <div class="mb-6 flex items-center justify-between">
-        <h3 class="text-lg font-bold">
-          <i class="fa-solid fa-gamepad mr-2"></i>
-          {m.add_arcade()}
-        </h3>
+<div class="modal" class:modal-open={showAddArcadeModal}>
+  <div class="modal-box max-w-4xl">
+    <div class="mb-6 flex items-center justify-between">
+      <h3 class="text-lg font-bold">
+        <i class="fa-solid fa-gamepad mr-2"></i>
+        {m.add_arcade()}
+      </h3>
+      <button
+        class="btn btn-ghost btn-circle btn-sm"
+        onclick={() => {
+          showAddArcadeModal = false;
+          clearSearch();
+        }}
+        aria-label={m.close()}
+      >
+        <i class="fa-solid fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Search Section -->
+    <div class="mb-6">
+      <div class="mb-4 flex gap-2">
+        <div class="flex-1">
+          <input
+            type="text"
+            placeholder={m.search_arcades_placeholder()}
+            class="input input-bordered w-full"
+            bind:value={searchQuery}
+            oninput={handleSearchInput}
+          />
+        </div>
         <button
-          class="btn btn-ghost btn-circle btn-sm"
-          onclick={() => {
-            showAddArcadeModal = false;
-            clearSearch();
-          }}
-          aria-label={m.close()}
+          class="btn btn-ghost"
+          onclick={clearSearch}
+          disabled={!searchQuery}
+          aria-label={m.clear_search()}
         >
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
 
-      <!-- Search Section -->
-      <div class="mb-6">
-        <div class="mb-4 flex gap-2">
-          <div class="flex-1">
-            <input
-              type="text"
-              placeholder={m.search_arcades_placeholder()}
-              class="input input-bordered w-full"
-              bind:value={searchQuery}
-              oninput={handleSearchInput}
-            />
-          </div>
-          <button
-            class="btn btn-ghost"
-            onclick={clearSearch}
-            disabled={!searchQuery}
-            aria-label={m.clear_search()}
-          >
-            <i class="fa-solid fa-times"></i>
-          </button>
+      {#if isSearching}
+        <div class="flex items-center justify-center py-8">
+          <span class="loading loading-spinner loading-lg"></span>
         </div>
-
-        {#if isSearching}
-          <div class="flex items-center justify-center py-8">
-            <span class="loading loading-spinner loading-lg"></span>
-          </div>
-        {:else if searchResults.length > 0}
-          <div class="max-h-96 space-y-2 overflow-y-auto">
-            {#each searchResults as shop (shop.id)}
-              <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
-                <div class="flex-1">
-                  <h4 class="font-medium">{shop.name}</h4>
-                  <p class="text-base-content/60 text-sm">
-                    ID: {shop.id}
-                  </p>
-                  {#if shop.games && shop.games.length > 0}
-                    <div class="mt-1 flex flex-wrap gap-1">
-                      {#each shop.games.slice(0, 3) as game (game.id)}
-                        <span class="badge badge-xs badge-ghost">
-                          {game.name || `Game ${game.id}`}
-                        </span>
-                      {/each}
-                      {#if shop.games.length > 3}
-                        <span class="badge badge-xs badge-ghost">
-                          +{shop.games.length - 3} more
-                        </span>
-                      {/if}
-                    </div>
-                  {/if}
-                </div>
-                {#if !data.club.starredArcades.includes(shop.id.toString())}
-                  <button
-                    class="btn btn-primary btn-sm"
-                    onclick={() => {
-                      handleArcadeAction('addArcade', shop.id.toString());
-                      showAddArcadeModal = false;
-                      clearSearch();
-                    }}
-                  >
-                    <i class="fa-solid fa-plus"></i>
-                    {m.add()}
-                  </button>
-                {:else}
-                  <span class="badge badge-success">
-                    <i class="fa-solid fa-check mr-1"></i>
-                    {m.already_added()}
-                  </span>
+      {:else if searchResults.length > 0}
+        <div class="max-h-96 space-y-2 overflow-y-auto">
+          {#each searchResults as shop (shop.id)}
+            <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
+              <div class="flex-1">
+                <h4 class="font-medium">{shop.name}</h4>
+                <p class="text-base-content/60 text-sm">
+                  ID: {shop.id}
+                </p>
+                {#if shop.games && shop.games.length > 0}
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    {#each shop.games.slice(0, 3) as game (game.id)}
+                      <span class="badge badge-xs badge-ghost">
+                        {game.name || `Game ${game.id}`}
+                      </span>
+                    {/each}
+                    {#if shop.games.length > 3}
+                      <span class="badge badge-xs badge-ghost">
+                        +{shop.games.length - 3} more
+                      </span>
+                    {/if}
+                  </div>
                 {/if}
               </div>
-            {/each}
-          </div>
-        {:else if searchQuery && !isSearching}
-          <div class="text-base-content/60 py-8 text-center">
-            <i class="fa-solid fa-search mb-2 text-2xl"></i>
-            <p>{m.no_arcades_found()}</p>
-          </div>
-        {/if}
-      </div>
+              {#if !data.club.starredArcades.includes(shop.id.toString())}
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick={() => {
+                    handleArcadeAction('addArcade', shop.id.toString());
+                    showAddArcadeModal = false;
+                    clearSearch();
+                  }}
+                >
+                  <i class="fa-solid fa-plus"></i>
+                  {m.add()}
+                </button>
+              {:else}
+                <span class="badge badge-success">
+                  <i class="fa-solid fa-check mr-1"></i>
+                  {m.already_added()}
+                </span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else if searchQuery && !isSearching}
+        <div class="text-base-content/60 py-8 text-center">
+          <i class="fa-solid fa-search mb-2 text-2xl"></i>
+          <p>{m.no_arcades_found()}</p>
+        </div>
+      {/if}
+    </div>
 
-      <div class="modal-action">
-        <button
-          class="btn"
-          onclick={() => {
-            showAddArcadeModal = false;
-            clearSearch();
-          }}
-        >
-          {m.close()}
-        </button>
-      </div>
+    <div class="modal-action">
+      <button
+        class="btn"
+        onclick={() => {
+          showAddArcadeModal = false;
+          clearSearch();
+        }}
+      >
+        {m.close()}
+      </button>
     </div>
   </div>
-{/if}
+</div>
 
 <!-- Join Request Modal -->
 <JoinRequestModal

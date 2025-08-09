@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { DiscussionReadability, DiscussionWritability } from '$lib/types';
+  import { PostReadability, PostWritability } from '$lib/types';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData | null } = $props();
@@ -17,8 +17,8 @@
   let avatarUrl = $state('');
   let backgroundColor = $state('#3b82f6');
   let acceptJoinRequests = $state(true);
-  let discussionReadability = $state('public');
-  let discussionWritability = $state('all_members');
+  let postReadability = $state('public');
+  let postWritability = $state('all_members');
 
   // Auto-generate slug from name
   $effect(() => {
@@ -141,7 +141,7 @@
             name="description"
             bind:value={description}
             placeholder={m.enter_club_description()}
-            class="textarea textarea-bordered h-32 w-full"
+            class="textarea textarea-bordered h-32 w-full rounded-xl"
             maxlength="1000"
           ></textarea>
           <div class="label">
@@ -190,37 +190,38 @@
       <h2 class="mb-6 text-xl font-semibold">{m.club_settings()}</h2>
 
       <div class="space-y-6">
-        <!-- Discussion Readability -->
+        <!-- Post Readability -->
         <div class="form-control">
-          <label class="label" for="discussionReadability">
-            <span class="label-text">{m.discussion_readability()}</span>
+          <label class="label" for="postReadability">
+            <span class="label-text">{m.post_readability()}</span>
           </label>
           <select
-            id="discussionReadability"
-            name="discussionReadability"
-            bind:value={discussionReadability}
+            id="postReadability"
+            name="postReadability"
+            bind:value={postReadability}
             class="select select-bordered w-full"
           >
-            <option value={DiscussionReadability.PUBLIC}>{m.public()}</option>
-            <option value={DiscussionReadability.UNIV_MEMBERS}>{m.university_members()}</option>
-            <option value={DiscussionReadability.CLUB_MEMBERS}>{m.club_members()}</option>
+            <option value={PostReadability.PUBLIC}>{m.public()}</option>
+            <option value={PostReadability.UNIV_MEMBERS}>{m.university_members()}</option>
+            <option value={PostReadability.CLUB_MEMBERS}>{m.club_members()}</option>
           </select>
         </div>
 
-        <!-- Discussion Writability -->
+        <!-- Post Writability -->
         <div class="form-control">
-          <label class="label" for="discussionWritability">
-            <span class="label-text">{m.discussion_writability()}</span>
+          <label class="label" for="postWritability">
+            <span class="label-text">{m.post_writability()}</span>
           </label>
           <select
-            id="discussionWritability"
-            name="discussionWritability"
-            bind:value={discussionWritability}
+            id="postWritability"
+            name="postWritability"
+            bind:value={postWritability}
             class="select select-bordered w-full"
           >
-            <option value={DiscussionWritability.ADMIN_AND_MODS}>{m.admins_and_mods()}</option>
-            <option value={DiscussionWritability.UNIV_MEMBERS}>{m.university_members()}</option>
-            <option value={DiscussionWritability.CLUB_MEMBERS}>{m.club_members()}</option>
+            <option value={PostWritability.PUBLIC}>{m.public()}</option>
+            <option value={PostWritability.UNIV_MEMBERS}>{m.university_members()}</option>
+            <option value={PostWritability.CLUB_MEMBERS}>{m.club_members()}</option>
+            <option value={PostWritability.ADMINS_AND_MODS}>{m.admins_and_mods()}</option>
           </select>
         </div>
 

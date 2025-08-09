@@ -9,22 +9,24 @@
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ChangelogView from '$lib/components/ChangelogView.svelte';
+  import PostsList from '$lib/components/PostsList.svelte';
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
+  import { canWriteUnivPosts, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
   const tabs = [
+    { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
     { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
     { id: 'members', label: m.members(), icon: 'fa-users' },
-    { id: 'discussions', label: m.discussions(), icon: 'fa-comments' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
-  // Initialize activeTab from URL hash or default to 'campuses'
+  // Initialize activeTab from URL hash or default to 'posts'
   const getInitialTab = () => {
     const hash = page.url.hash.substring(1);
     return (tabs.find((tab) => tab.id === hash) || tabs[0]).id;
@@ -61,6 +63,9 @@
     if (!data.user) return { canEdit: false, canManage: false };
     return data.userPermissions;
   });
+
+  // Check if user can write posts based on university postWritability setting
+  let canWritePosts = $derived(canWriteUnivPosts(data.userPermissions, data.university));
 
   // Load search radius from localStorage
   onMount(() => {
@@ -130,7 +135,7 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        `${base}/api/universities/${data.university.id}/members?page=${nextPage}`
+        fromPath(`/api/universities/${data.university.id}/members?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
@@ -159,7 +164,7 @@
     try {
       const nextPage = currentClubsPage + 1;
       const response = await fetch(
-        `${base}/api/universities/${data.university.id}/clubs?page=${nextPage}`
+        fromPath(`/api/universities/${data.university.id}/clubs?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
@@ -308,56 +313,57 @@
       {/if}
 
       <!-- University Info -->
-      <div class="flex-1">
-        <div
-          class="mb-2 flex items-center justify-between gap-3 {data.university.backgroundColor
-            ? 'text-white'
-            : 'text-base-content dark:text-white'}"
-        >
+      <div
+        class="flex flex-1 flex-col items-center justify-between gap-3 sm:flex-row {data.university
+          .backgroundColor
+          ? 'text-white'
+          : 'text-base-content dark:text-white'}"
+      >
+        <div class="flex flex-col gap-2 not-sm:items-center not-sm:text-center">
           <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
             {data.university.name}
           </h1>
 
-          <div class="flex items-center gap-2">
-            <!-- Join Button for eligible users -->
-            {#if data.user && data.userPermissions.canJoin > 0}
-              <a
-                href="{base}/universities/{data.university.slug || data.university.id}/verify"
-                class="btn btn-ghost"
-              >
-                {#if data.userPermissions.canJoin === 2}
-                  <i class="fa-solid fa-plus"></i>
-                  {m.verify_and_join()}
-                {:else}
-                  <i class="fa-solid fa-user-check"></i>
-                  {m.verify()}
-                {/if}
-              </a>
+          <div class="flex gap-1 text-nowrap">
+            {#if data.university.is985}
+              <span class="badge badge-primary badge-sm">{m.badge_985()}</span>
             {/if}
-
-            <!-- Edit University Button for privileged users -->
-            {#if userPrivileges.canEdit}
-              <a
-                href="{base}/universities/{data.university.slug || data.university.id}/edit"
-                class="btn btn-circle btn-lg btn-ghost"
-                title={m.edit_university_info()}
-                aria-label={m.edit_university_info()}
-              >
-                <i class="fa-solid fa-edit"></i>
-              </a>
+            {#if data.university.is211}
+              <span class="badge badge-secondary badge-sm">{m.badge_211()}</span>
+            {/if}
+            {#if data.university.isDoubleFirstClass}
+              <span class="badge badge-accent badge-sm">{m.badge_double_first_class()}</span>
             {/if}
           </div>
         </div>
 
-        <div class="flex gap-1">
-          {#if data.university.is985}
-            <span class="badge badge-primary badge-sm">{m.badge_985()}</span>
+        <div class="flex items-center gap-2">
+          <!-- Join Button for eligible users -->
+          {#if data.user && data.userPermissions.canJoin > 0}
+            <a
+              href="{base}/universities/{data.university.slug || data.university.id}/verify"
+              class="btn btn-ghost"
+            >
+              {#if data.userPermissions.canJoin === 2}
+                <i class="fa-solid fa-plus"></i>
+                {m.verify_and_join()}
+              {:else}
+                <i class="fa-solid fa-user-check"></i>
+                {m.verify()}
+              {/if}
+            </a>
           {/if}
-          {#if data.university.is211}
-            <span class="badge badge-secondary badge-sm">{m.badge_211()}</span>
-          {/if}
-          {#if data.university.isDoubleFirstClass}
-            <span class="badge badge-accent badge-sm">{m.badge_double_first_class()}</span>
+
+          <!-- Edit University Button for privileged users -->
+          {#if userPrivileges.canEdit}
+            <a
+              href="{base}/universities/{data.university.slug || data.university.id}/edit"
+              class="btn btn-circle btn-lg btn-ghost"
+              title={m.edit_university_info()}
+              aria-label={m.edit_university_info()}
+            >
+              <i class="fa-solid fa-edit"></i>
+            </a>
           {/if}
         </div>
       </div>
@@ -488,7 +494,7 @@
 {/snippet}
 
 <!-- Main Content -->
-<div class="mx-auto max-w-7xl min-w-2xs px-4 py-8 sm:px-6 md:px-8">
+<div class="mx-auto max-w-7xl min-w-3xs px-4 py-8 sm:px-6 md:px-8">
   <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
     {@render sidebar('not-md:hidden')}
     <!-- Main Content Area -->
@@ -509,16 +515,29 @@
 
       <!-- Tab Content -->
       <div class="bg-base-200 rounded-lg p-6">
-        {#if activeTab === 'campuses'}
+        {#if activeTab === 'posts'}
+          <PostsList
+            organizationType="university"
+            organizationId={data.university.id}
+            organizationName={data.university.name}
+            organizationSlug={data.university.slug}
+            currentUserId={data.user?.id}
+            canCreatePost={canWritePosts}
+            initialPosts={[]}
+          />
+        {:else if activeTab === 'campuses'}
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <h3 class="text-lg font-semibold">{m.campuses()}</h3>
 
               <!-- Add Campus button for admins -->
               {#if userPrivileges.canManage}
-                <button class="btn btn-primary btn-soft btn-sm" onclick={openAddCampusModal}>
+                <button
+                  class="btn btn-primary not-xs:btn-circle btn-soft btn-sm"
+                  onclick={openAddCampusModal}
+                >
                   <i class="fa-solid fa-plus"></i>
-                  {m.add_campus()}
+                  <span class="not-xs:hidden">{m.add_campus()}</span>
                 </button>
               {/if}
             </div>
@@ -596,10 +615,10 @@
                 {#if userPrivileges.canManage}
                   <a
                     href="{base}/clubs/new?university={data.university.id}"
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.create_club()}
+                    <span class="not-xs:hidden">{m.create_club()}</span>
                   </a>
                 {/if}
               </div>
@@ -618,7 +637,7 @@
                         <div class="avatar {club.avatarUrl ? '' : 'avatar-placeholder'}">
                           <div
                             class="h-12 w-12 rounded-full {club.avatarUrl
-                              ? 'bg-white'
+                              ? ''
                               : 'bg-neutral text-neutral-content'}"
                           >
                             {#if club.avatarUrl}
@@ -698,11 +717,11 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <button
-                    class="btn btn-primary btn-sm btn-soft"
+                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                     onclick={() => (showInviteModal = true)}
                   >
                     <i class="fa-solid fa-plus"></i>
-                    {m.invite_members()}
+                    <span class="not-xs:hidden">{m.invite_members()}</span>
                   </button>
                 {/if}
               </div>
@@ -713,12 +732,12 @@
               {#if displayedMembers && displayedMembers.length > 0}
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
-                    <div class="flex items-center justify-between p-4">
-                      <div>
+                    <div class="flex items-center justify-between gap-1 p-4">
+                      <div class="overflow-hidden">
                         <UserAvatar user={member.user} showName={true} size="md" />
                       </div>
 
-                      <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-1">
                         <!-- Member Type Badge -->
                         <div
                           class="badge {member.memberType === 'admin'
@@ -851,29 +870,6 @@
               {/if}
             </div>
           </div>
-        {:else if activeTab === 'discussions'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-comments"></i>
-                {m.discussions()}
-              </h3>
-              <button class="btn btn-primary btn-sm btn-soft" disabled>
-                <i class="fa-solid fa-plus"></i>
-                {m.new_discussion()}
-              </button>
-            </div>
-
-            <!-- Discussion forum would go here -->
-            <div class="bg-base-100 rounded-lg p-6">
-              <div class="py-8 text-center">
-                <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
-                <h4 class="mb-2 text-lg font-medium">{m.discussion_forum()}</h4>
-                <p class="text-base-content/60 mb-4">{m.discussion_forum_description()}</p>
-                <div class="badge badge-info badge-soft">{m.coming_soon()}</div>
-              </div>
-            </div>
-          </div>
         {:else if activeTab === 'changelog'}
           <div class="space-y-6">
             <div class="flex items-center justify-between">
@@ -881,7 +877,7 @@
                 <i class="fa-solid fa-clock-rotate-left"></i>
                 {m.changelog()}
               </h3>
-              <div class="text-base-content/60 text-sm">
+              <div class="text-base-content/60 not-xs:hidden text-sm">
                 {m.track_university_profile_changes()}
               </div>
             </div>

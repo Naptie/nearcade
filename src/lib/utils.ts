@@ -1,19 +1,20 @@
 import { m } from './paraglide/messages';
 import { Database } from './db';
 import type { Collection, ObjectId } from 'mongodb';
-import type {
-  Shop,
-  Game,
-  TransportMethod,
-  TransportSearchResult,
-  CachedRouteData,
-  UniversityMember,
-  ClubMember,
-  ClubMemberWithUser,
-  UniversityMemberWithUser,
-  UserType,
-  Club,
-  University
+import {
+  type Shop,
+  type Game,
+  type TransportMethod,
+  type TransportSearchResult,
+  type CachedRouteData,
+  type UniversityMember,
+  type ClubMember,
+  type ClubMemberWithUser,
+  type UniversityMemberWithUser,
+  type UserType,
+  type Club,
+  type University,
+  PostWritability
 } from './types';
 import { ROUTE_CACHE_STORE } from './constants';
 import { env } from '$env/dynamic/public';
@@ -22,7 +23,7 @@ import type { MongoClient } from 'mongodb';
 import { page } from '$app/state';
 import type { User } from '@auth/sveltekit';
 import { redirect } from '@sveltejs/kit';
-import { nanoid } from 'nanoid';
+import { customAlphabet, nanoid } from 'nanoid';
 
 /**
  * Generates a valid and unique username based on input name
@@ -289,7 +290,7 @@ export const formatRegionLabel = (
   return province;
 };
 
-export const toPath = (path: string) => {
+export const fromPath = (path: string) => {
   path = ((p) => (p.startsWith('/') ? p : `/${p}`))(path.trim());
   return `${env.PUBLIC_API_BASE || `${page.url.origin}${base}`}${path}`;
 };
@@ -687,4 +688,51 @@ export const formatDateTime = (date?: Date | string | null): string => {
     date = new Date(date);
   }
   return date.toLocaleString();
+};
+
+export const postId = () => {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  return customAlphabet(alphabet, 21)();
+};
+
+export const canWriteUnivPosts = (
+  userPermissions: { role?: string; canEdit: boolean },
+  university: University
+) => {
+  const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
+  if (postWritability === PostWritability.PUBLIC) return true;
+  let canWritePosts = false;
+
+  if (postWritability === PostWritability.UNIV_MEMBERS) {
+    canWritePosts = userPermissions.canEdit || !!userPermissions.role;
+  } else if (postWritability === PostWritability.ADMINS_AND_MODS) {
+    canWritePosts = userPermissions.canEdit;
+  }
+
+  return canWritePosts;
+};
+
+export const canWriteClubPosts = async (
+  userPermissions: { role?: string; canEdit: boolean; canJoin: 0 | 1 | 2 },
+  club: Club,
+  user: User | undefined,
+  client: MongoClient
+) => {
+  if (!user) return false;
+  const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
+  if (postWritability === PostWritability.PUBLIC) return true;
+  let canWritePosts = false;
+
+  if (postWritability === PostWritability.UNIV_MEMBERS) {
+    canWritePosts =
+      !!userPermissions.role ||
+      userPermissions.canJoin > 0 ||
+      !!(await checkUniversityPermission(user, club.universityId, client)).role;
+  } else if (postWritability === PostWritability.CLUB_MEMBERS) {
+    canWritePosts = userPermissions.canEdit || !!userPermissions.role;
+  } else if (postWritability === PostWritability.ADMINS_AND_MODS) {
+    canWritePosts = userPermissions.canEdit;
+  }
+
+  return canWritePosts;
 };
