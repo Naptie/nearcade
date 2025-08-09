@@ -5,7 +5,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
-  import { renderMarkdown } from '$lib/markdown';
+  import { render } from '$lib/markdown';
   import { onMount } from 'svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName } from '$lib/utils';
@@ -96,7 +96,7 @@
       isEditing = false;
       comment.content = editContent.trim();
       // Re-render markdown content
-      content = await renderMarkdown(comment.content);
+      content = await render(comment.content);
     } catch (error) {
       console.error('Failed to save comment edit:', error);
     } finally {
@@ -105,7 +105,7 @@
   };
 
   onMount(async () => {
-    content = await renderMarkdown(comment.content);
+    content = await render(comment.content);
   });
 </script>
 

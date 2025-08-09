@@ -1,7 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import { renderMarkdown } from '$lib/markdown';
+  import { render } from '$lib/markdown';
 
   interface Props {
     value: string;
@@ -25,7 +25,7 @@
     if (!value.trim()) {
       preview = '';
     } else {
-      renderMarkdown(value).then((html) => {
+      render(value).then((html) => {
         preview = html;
       });
     }

@@ -4,7 +4,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
-  import { stripMarkdown } from '$lib/markdown';
+  import { strip } from '$lib/markdown';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
 
@@ -36,7 +36,7 @@
 
   onMount(() => {
     const maxLength = 500;
-    stripMarkdown(post.content).then((text) => {
+    strip(post.content).then((text) => {
       if (text.length <= maxLength) return text;
       truncatedContent = text.substring(0, maxLength) + '...';
     });

@@ -8,7 +8,7 @@
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
-  import { renderMarkdown } from '$lib/markdown';
+  import { render } from '$lib/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
   import { getDisplayName, fromPath } from '$lib/utils';
@@ -361,7 +361,7 @@
         };
         isEditingPost = false;
         // Re-render content
-        content = await renderMarkdown(localPost.content);
+        content = await render(localPost.content);
       } else {
         const errorData = (await response.json()) as { error: string };
         alert(errorData.error || 'Failed to update post');
@@ -399,7 +399,7 @@
   };
 
   onMount(async () => {
-    content = await renderMarkdown(localPost.content);
+    content = await render(localPost.content);
   });
 
   onDestroy(() => {

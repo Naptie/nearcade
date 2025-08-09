@@ -43,17 +43,17 @@ const processor = unified()
 /**
  * Convert markdown text to sanitized HTML
  */
-export async function renderMarkdown(markdown: string): Promise<string> {
-  if (!markdown) return '';
-  return String(await processor.process(markdown));
+export async function render(input: string): Promise<string> {
+  if (!input) return '';
+  return String(await processor.process(input));
 }
 
 /**
  * Strip HTML tags and return plain text
  */
-export async function stripMarkdown(markdown: string): Promise<string> {
-  if (!markdown) return '';
-  const html = String(await barebone.process(markdown));
+export async function strip(input: string): Promise<string> {
+  if (!input) return '';
+  const html = String(await barebone.process(input));
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return doc.body.textContent || '';
 }
