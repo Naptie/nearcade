@@ -481,6 +481,7 @@
   "invite_validity": "有效期",
   "is_open": "开放",
   "join_club": "加入社团",
+  "join_club_to_comment": "加入社团以发表评论",
   "join_request_message": "申请留言（可选）",
   "join_request_message_placeholder": "告诉社团管理员您为什么想加入...",
   "join_request_sent": "加入请求已发送",
@@ -840,10 +841,7 @@
   "username_too_long": "用户名不能超过30个字符",
   "uses": [
     {
-      "declarations": [
-        "input current",
-        "input max"
-      ],
+      "declarations": ["input current", "input max"],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
@@ -860,6 +858,7 @@
   "verified_students_only": "仅验证学生",
   "verify": "验证",
   "verify_and_join": "验证并加入",
+  "verify_and_join_university_to_comment": "验证并加入高校以发表评论",
   "verify_student": "验证学生",
   "verify_title": "验证『{university}』的在校生资格",
   "via_stop": "途经站点",

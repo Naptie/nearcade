@@ -55,7 +55,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
         const permissions = await checkClubPermission(session.user, club, client);
-        canComment = canWriteClubPosts(permissions, club);
+        canComment = await canWriteClubPosts(permissions, club, session.user, client);
       }
     }
 

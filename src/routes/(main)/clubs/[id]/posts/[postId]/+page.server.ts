@@ -120,6 +120,7 @@ export const load = (async ({ params, locals }) => {
   let canEdit = false;
   let canManage = false;
   let canComment = false;
+  let canJoin = false;
   if (session?.user) {
     const votesCollection = db.collection<PostVote>('post_votes');
     const vote = await votesCollection.findOne({
@@ -131,7 +132,8 @@ export const load = (async ({ params, locals }) => {
     const permissions = await checkClubPermission(session.user, club, client);
     canEdit = permissions.canEdit;
     canManage = permissions.canEdit; // Only canEdit users can manage posts
-    canComment = canWriteClubPosts(permissions, club);
+    canComment = await canWriteClubPosts(permissions, club, session.user, client);
+    canJoin = permissions.canJoin > 0;
   }
 
   return {
@@ -142,6 +144,7 @@ export const load = (async ({ params, locals }) => {
     canEdit,
     canManage,
     canComment,
+    canJoin,
     user: session?.user || null
   };
 }) satisfies PageServerLoad;

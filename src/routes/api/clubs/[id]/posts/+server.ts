@@ -3,7 +3,12 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
 import { type Post, type PostWithAuthor, type Club, PostReadability } from '$lib/types';
-import { postId, checkClubPermission, canWriteClubPosts } from '$lib/utils';
+import {
+  postId,
+  checkClubPermission,
+  canWriteClubPosts,
+  checkUniversityPermission
+} from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -44,7 +49,10 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
           canReadPosts = !!permissions.role;
         } else {
           // UNIV_MEMBERS - check if user is member of university
-          canReadPosts = permissions.canJoin > 0 || !!permissions.role;
+          canReadPosts =
+            !!permissions.role ||
+            permissions.canJoin > 0 ||
+            !!(await checkUniversityPermission(session.user, club.universityId, client)).role;
         }
       }
     }
@@ -137,7 +145,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check post writability permissions
     const permissions = await checkClubPermission(session.user, club, client);
 
-    if (!canWriteClubPosts(permissions, club)) {
+    if (!(await canWriteClubPosts(permissions, club, session.user, client))) {
       return json({ error: 'Permission denied' }, { status: 403 });
     }
 

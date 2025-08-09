@@ -1,7 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import type { PostWithAuthor, CommentWithAuthorAndVote } from '$lib/types';
+  import { type PostWithAuthor, type CommentWithAuthorAndVote, PostWritability } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
@@ -22,6 +22,8 @@
     organizationName: string;
     organizationSlug?: string;
     organizationId: string;
+    canJoinOrganization: boolean;
+    postWritability?: PostWritability;
     canManage?: boolean; // User can pin/unpin, lock/unlock posts
     canEdit?: boolean; // User can edit/delete posts
     canComment?: boolean; // User can comment on posts
@@ -36,6 +38,10 @@
     organizationName,
     organizationSlug,
     organizationId,
+    canJoinOrganization,
+    postWritability = organizationType === 'university'
+      ? PostWritability.UNIV_MEMBERS
+      : PostWritability.CLUB_MEMBERS,
     canManage = false,
     canEdit = false,
     canComment: canCommentGeneral = false
@@ -554,7 +560,7 @@
       {/if}
 
       <!-- Voting section -->
-      <div class="flex items-center justify-between pt-4">
+      <div class="flex items-center justify-between pt-4 not-sm:flex-col">
         <div class="flex items-center gap-4">
           <!-- Vote buttons -->
           <div class="flex items-center gap-2">
@@ -594,7 +600,7 @@
           </div>
 
           <!-- Comment count -->
-          <div class="text-base-content/60 flex items-center gap-1">
+          <div class="text-base-content/60 flex items-center gap-1 text-nowrap not-sm:hidden">
             <i class="fa-solid fa-comments"></i>
             <span>{comments.length}</span>
             <span>{m.comments().toLowerCase()}</span>
@@ -602,9 +608,14 @@
         </div>
 
         {#if !currentUserId}
-          <div class="text-base-content/60 text-sm">
+          <button
+            class="text-base-content/60 hover:text-accent link cursor-pointer text-sm transition-colors"
+            onclick={() => {
+              window.dispatchEvent(new CustomEvent('nearcade-login'));
+            }}
+          >
             {m.login_to_vote_and_comment()}
-          </div>
+          </button>
         {/if}
       </div>
     </article>
@@ -649,12 +660,26 @@
           </div>
         </div>
       {:else if currentUserId && (localPost.isLocked || !canComment)}
-        <div class="bg-base-200 mb-6 rounded-xl p-4 text-center">
+        <div class="bg-base-200 group mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
           {#if localPost.isLocked}
-            <i class="fa-solid fa-lock text-warning mb-2 text-2xl"></i>
+            <i class="fa-solid fa-lock text-warning text-2xl"></i>
             <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
+          {:else if canJoinOrganization && organizationType === 'university' && postWritability === PostWritability.UNIV_MEMBERS}
+            <i class="fa-solid fa-user-check text-warning text-2xl"></i>
+            <a
+              href="{base}/universities/{organizationSlug || organizationId}/verify"
+              class="text-base-content/60 group-hover:link-accent transition-colors"
+              >{m.verify_and_join_university_to_comment()}</a
+            >
+          {:else if canJoinOrganization && organizationType === 'club' && postWritability === PostWritability.CLUB_MEMBERS}
+            <i class="fa-solid fa-user-check text-warning text-2xl"></i>
+            <a
+              href="{base}/clubs/{organizationSlug || organizationId}"
+              class="text-base-content/60 group-hover:link-accent transition-colors"
+              >{m.join_club_to_comment()}</a
+            >
           {:else}
-            <i class="fa-solid fa-ban text-error mb-2 text-4xl"></i>
+            <i class="fa-solid fa-ban text-error text-4xl"></i>
             <p class="text-base-content/60">{m.no_comment_permission()}</p>
           {/if}
         </div>
@@ -668,7 +693,8 @@
               <Comment
                 {comment}
                 {currentUserId}
-                canManage={false}
+                canReply={canComment}
+                {canEdit}
                 onVote={canVote ? handleCommentVote : undefined}
                 onReply={canComment ? handleCommentReply : undefined}
                 onEdit={handleCommentEdit}
@@ -727,7 +753,8 @@
                 <Comment
                   comment={reply}
                   {currentUserId}
-                  canManage={false}
+                  canReply={canComment}
+                  {canEdit}
                   onVote={canVote ? handleCommentVote : undefined}
                   onReply={canComment ? handleCommentReply : undefined}
                   onEdit={handleCommentEdit}

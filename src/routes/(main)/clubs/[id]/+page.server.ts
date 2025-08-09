@@ -10,6 +10,7 @@ import {
 import {
   getClubMembersWithUserData,
   checkClubPermission,
+  canWriteClubPosts,
   toPlainArray,
   toPlainObject
 } from '$lib/utils';
@@ -104,7 +105,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         totalMembers
       },
       user: session?.user || null,
-      userPermissions
+      userPermissions,
+      canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, client)
     };
   } catch (err) {
     console.error('Error loading club:', err);

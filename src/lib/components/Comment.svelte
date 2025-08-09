@@ -14,7 +14,8 @@
   interface Props {
     comment: CommentWithAuthorAndVote;
     currentUserId?: string;
-    canManage?: boolean;
+    canReply?: boolean;
+    canEdit?: boolean;
     onReply?: (commentId: string) => void;
     onEdit?: (commentId: string, newContent: string) => Promise<void>;
     onDelete?: (commentId: string) => void;
@@ -25,7 +26,8 @@
   let {
     comment,
     currentUserId,
-    canManage = false,
+    canReply: canReplyGeneral = false,
+    canEdit = false,
     onReply,
     onEdit,
     onDelete,
@@ -45,8 +47,8 @@
 
   const netVotes = $derived(comment.upvotes - comment.downvotes);
   const isOwnComment = $derived(currentUserId === comment.createdBy);
-  const canEditOrDelete = $derived(isOwnComment || canManage);
-  const canReply = $derived(depth < maxDepth); // Limit reply depth
+  const canEditOrDelete = $derived(isOwnComment || canEdit);
+  const canReply = $derived(canReplyGeneral && depth < maxDepth);
 
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
 
@@ -135,7 +137,7 @@
         </div>
 
         <!-- Menu -->
-        {#if currentUserId}
+        {#if currentUserId && (canReply || canEditOrDelete)}
           <details class="dropdown dropdown-end" bind:open={showMenu}>
             <summary class="btn btn-ghost btn-circle btn-xs" aria-label={m.actions()}>
               <i class="fa-solid fa-ellipsis-vertical"></i>

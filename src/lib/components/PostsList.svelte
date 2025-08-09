@@ -28,8 +28,7 @@
   }: Props = $props();
 
   let posts = $state<PostWithAuthor[]>(initialPosts);
-  let isLoading = $state(false);
-  let isInitialFetchFinished = $state(false);
+  let isLoading = $state(true);
   let hasMore = $state(initialPosts.length >= PAGINATION.PAGE_SIZE);
   let currentPage = $state(1);
   let showCreateModal = $state(false);
@@ -59,7 +58,6 @@
       error = m.network_error_loading_posts();
     } finally {
       isLoading = false;
-      isInitialFetchFinished = true;
     }
   };
 
@@ -69,6 +67,7 @@
 
   const refreshPosts = async () => {
     try {
+      isLoading = true;
       const endpoint = fromPath(
         `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=1`
       );
@@ -83,6 +82,8 @@
       }
     } catch (err) {
       console.error('Error refreshing posts:', err);
+    } finally {
+      isLoading = false;
     }
   };
 
@@ -148,7 +149,11 @@
           {m.all_results_loaded()}
         </div>
       {/if}
-    {:else if isInitialFetchFinished}
+    {:else if isLoading}
+      <div class="flex flex-col items-center gap-2 py-4">
+        <span class="loading loading-spinner loading-xl"></span>
+      </div>
+    {:else}
       <!-- Empty state -->
       <div class="bg-base-100 rounded-lg p-8 text-center">
         <i class="fa-solid fa-comments text-base-content/30 mb-4 text-5xl"></i>
@@ -166,10 +171,6 @@
             {m.no_posts_created_yet()}
           </p>
         {/if}
-      </div>
-    {:else}
-      <div class="flex flex-col items-center gap-2 py-4">
-        <span class="loading loading-spinner loading-xl"></span>
       </div>
     {/if}
   </div>

@@ -12,7 +12,7 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { canWriteClubPosts, formatDate, fromPath } from '$lib/utils';
+  import { formatDate, fromPath } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -66,11 +66,9 @@
     return data.userPermissions;
   });
 
-  let canWritePosts = $derived(canWriteClubPosts(data.userPermissions, data.club));
-
   let radius = $state(10);
 
-  onMount(() => {
+  onMount(async () => {
     window.dispatchEvent(
       new CustomEvent('nearcade-org-background', {
         detail: { hasCustomBackground: !!data.club.backgroundColor }
@@ -564,7 +562,7 @@
             organizationName={data.club.name}
             organizationSlug={data.club.slug}
             currentUserId={data.user?.id}
-            canCreatePost={canWritePosts}
+            canCreatePost={data.canWritePosts}
             initialPosts={[]}
           />
         {:else if activeTab === 'arcades'}
