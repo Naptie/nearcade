@@ -13,6 +13,8 @@ import { unified } from 'unified';
 import rehypeHighlight from 'rehype-highlight';
 import remarkBreaks from 'remark-breaks';
 
+const barebone = unified().use(remarkParse).use(remarkMath).use(remarkRehype).use(rehypeStringify);
+
 const processor = unified()
   .use(remarkParse)
   .use(remarkBreaks)
@@ -53,7 +55,8 @@ export async function renderMarkdown(markdown: string): Promise<string> {
  * Strip HTML tags and return plain text
  */
 export async function stripMarkdown(markdown: string): Promise<string> {
-  const html = await renderMarkdown(markdown);
+  if (!markdown) return '';
+  const html = String(await barebone.process(markdown));
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return doc.body.textContent || '';
 }
