@@ -15,7 +15,8 @@ body {
   font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
 }
 
-code {
+code,
+.font-mono {
   font-family: ui-monospace, 'JetBrains Mono Variable', 'Noto Sans SC Variable', monospace;
 }
 
