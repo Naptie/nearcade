@@ -4,6 +4,24 @@ import type { Post, PostVote, Comment, CommentVote, ChangelogEntry, Activity } f
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
+ * User Activity Server Module
+ * 
+ * This module provides functionality to fetch and aggregate user activities from various
+ * collections in the MongoDB database. It combines posts, comments, votes, and changelog
+ * entries into a unified activity feed for display on user profiles.
+ * 
+ * Supported activity types:
+ * - Posts created by the user
+ * - Comments made by the user
+ * - Post votes (upvotes/downvotes) by the user
+ * - Comment votes by the user
+ * - Changelog entries created by the user when editing university/club information
+ * 
+ * All activities are sorted by creation time in descending order and include
+ * navigation links to the relevant content with proper highlighting support.
+ */
+
+/**
  * Fetch recent activities for a user
  */
 export async function getUserActivities(

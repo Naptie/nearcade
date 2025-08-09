@@ -20,11 +20,12 @@
       case 'comment':
         return 'fa-solid fa-comment';
       case 'post_vote':
-        return activity.voteType === 'upvote' ? 'fa-solid fa-thumbs-up' : 'fa-solid fa-thumbs-down';
       case 'comment_vote':
-        return activity.voteType === 'upvote' ? 'fa-solid fa-thumbs-up' : 'fa-solid fa-thumbs-down';
+        return activity.voteType === 'upvote'
+          ? 'fa-solid fa-thumbs-up text-success'
+          : 'fa-solid fa-thumbs-down text-error';
       case 'changelog':
-        return 'fa-solid fa-list-ul';
+        return 'fa-solid fa-list-ul text-info';
       default:
         return 'fa-solid fa-clock';
     }
