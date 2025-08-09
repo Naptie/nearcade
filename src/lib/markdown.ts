@@ -1,135 +1,52 @@
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import { markedHighlight } from 'marked-highlight';
-import hljs from 'highlight.js';
-import markedKatex from 'marked-katex-extension';
+import rehypeFormat from 'rehype-format';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeStringify from 'rehype-stringify';
+import remarkDirective from 'remark-directive';
+import remarkFrontmatter from 'remark-frontmatter';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import remarkParse from 'remark-parse';
+import remarkRehype from 'remark-rehype';
+import { unified } from 'unified';
+import rehypeHighlight from 'rehype-highlight';
+import remarkBreaks from 'remark-breaks';
 
-// Configure marked to use highlight.js for code highlighting
-marked.use(
-  markedHighlight({
-    emptyLangClass: 'hljs',
-    langPrefix: 'hljs language-',
-    highlight(code, lang) {
-      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-      return hljs.highlight(code, { language }).value;
+const processor = unified()
+  .use(remarkParse)
+  .use(remarkBreaks)
+  .use(remarkDirective)
+  .use(remarkFrontmatter)
+  .use(remarkGfm)
+  .use(remarkMath)
+  .use(remarkRehype, { allowDangerousHtml: true })
+  .use(rehypeSanitize, {
+    ...defaultSchema,
+    attributes: {
+      ...defaultSchema.attributes,
+      a: [...(defaultSchema.attributes?.a || []), ...['target', 'rel']],
+      code: [...(defaultSchema.attributes?.code || []), ...['math-inline', 'math-display']],
+      img: [...(defaultSchema.attributes?.img || []), ...['alt', 'width', 'height', 'border']]
     }
   })
-);
-
-// Configure marked to use KaTeX for LaTeX math rendering
-marked.use(
-  markedKatex({
-    throwOnError: false,
-    nonStandard: true,
-    output: 'html',
+  .use(rehypeKatex, {
     strict: false,
     trust: false,
     macros: {},
     globalGroup: true
   })
-);
-
-// Configure marked for safe HTML output
-marked.setOptions({
-  breaks: true,
-  gfm: true
-});
-
-// Custom renderer to handle links safely
-const renderer = new marked.Renderer();
-renderer.link = ({ href, title, text }) => {
-  // Make external links open in new tab and add security attributes
-  const isExternal = href && (href.startsWith('http://') || href.startsWith('https://'));
-  const target = isExternal ? ' target="_blank"' : '';
-  const rel = isExternal ? ' rel="noopener noreferrer"' : '';
-  const titleAttr = title ? ` title="${title}"` : '';
-  return `<a href="${href}"${target}${rel}${titleAttr}>${text}</a>`;
-};
-
-marked.use({ renderer });
+  .use(rehypeRaw)
+  .use(rehypeFormat)
+  .use(rehypeHighlight)
+  .use(rehypeStringify);
 
 /**
  * Convert markdown text to sanitized HTML
  */
 export async function renderMarkdown(markdown: string): Promise<string> {
   if (!markdown) return '';
-
-  const html = await marked(markdown);
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'p',
-      'br',
-      'strong',
-      'em',
-      'u',
-      's',
-      'code',
-      'pre',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'ul',
-      'ol',
-      'li',
-      'blockquote',
-      'a',
-      'img',
-      'span',
-      // KaTeX tags
-      'math',
-      'annotation',
-      'semantics',
-      'mrow',
-      'mfrac',
-      'msup',
-      'msub',
-      'msubsup',
-      'msqrt',
-      'mroot',
-      'mi',
-      'mn',
-      'mo',
-      'mtext',
-      'mspace',
-      'mover',
-      'munder',
-      'munderover',
-      'mtable',
-      'mtr',
-      'mtd',
-      'mstyle',
-      'mpadded',
-      'mphantom',
-      'mfenced',
-      'menclose'
-    ],
-    ALLOWED_ATTR: [
-      'href',
-      'target',
-      'rel',
-      'title',
-      'src',
-      'alt',
-      'width',
-      'height',
-      'class',
-      // KaTeX attributes
-      'aria-hidden',
-      'style',
-      'mathvariant',
-      'mathsize',
-      'mathcolor',
-      'mathbackground',
-      'displaystyle',
-      'scriptlevel',
-      'data-katex',
-      'data-katex-display'
-    ],
-    ALLOW_DATA_ATTR: false
-  });
+  return String(await processor.process(markdown));
 }
 
 /**

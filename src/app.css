@@ -20,14 +20,24 @@ code {
     'Noto Sans SC Variable', monospace;
 }
 
-.prose {
-  pre {
-    @apply bg-base-200/50;
-  }
+.prose pre {
+  @apply bg-base-200/50 rounded-xl;
 }
 
-.hljs {
+.prose pre code {
   @apply !bg-transparent !p-0 text-sm;
+}
+
+.not-md:prose-xs pre code {
+  @apply text-xs;
+}
+
+.not-md:prose-sm pre code {
+  @apply not-md:text-xs;
+}
+
+.prose-sm pre code {
+  @apply text-xs;
 }
 
 .label-text-alt {
