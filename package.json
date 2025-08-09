@@ -60,6 +60,7 @@
     "@amap/amap-jsapi-types": "^0.0.15",
     "@auth/mongodb-adapter": "^3.10.0",
     "@auth/sveltekit": "^1.10.0",
+    "@fontsource-variable/jetbrains-mono": "^5.2.6",
     "@fontsource-variable/noto-sans-sc": "^5.2.6",
     "@fontsource-variable/sora": "^5.2.6",
     "@fortawesome/fontawesome-free": "^6.7.2",

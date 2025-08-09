@@ -1,6 +1,7 @@
 @import 'https://unpkg.com/katex@0.16.22/dist/katex.min.css';
 @import '@fontsource-variable/sora';
 @import '@fontsource-variable/noto-sans-sc';
+@import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
@@ -15,9 +16,7 @@ body {
 }
 
 code {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    'Noto Sans SC Variable', monospace;
+  font-family: ui-monospace, 'JetBrains Mono Variable', 'Noto Sans SC Variable', monospace;
 }
 
 .stat {
