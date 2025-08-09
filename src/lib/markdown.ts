@@ -20,7 +20,7 @@ marked.use(
 marked.use(
   markedKatex({
     throwOnError: false,
-    displayMode: false,
+    nonStandard: true,
     output: 'html',
     strict: false,
     trust: false,
