@@ -404,6 +404,40 @@ export interface CommentVote {
   updatedAt?: Date;
 }
 
+// Activity types for recent activity feature
+export interface Activity {
+  id: string;
+  type: 'post' | 'comment' | 'post_vote' | 'comment_vote' | 'changelog';
+  createdAt: Date;
+  userId: string;
+  
+  // Post activity
+  postTitle?: string;
+  postId?: string;
+  universityId?: string;
+  clubId?: string;
+  universityName?: string;
+  clubName?: string;
+  
+  // Comment activity
+  commentContent?: string;
+  commentId?: string;
+  parentPostTitle?: string;
+  
+  // Vote activity
+  voteType?: 'upvote' | 'downvote';
+  targetType?: 'post' | 'comment';
+  targetTitle?: string;
+  targetAuthorName?: string;
+  targetId?: string;
+  
+  // Changelog activity
+  changelogAction?: string;
+  changelogDescription?: string;
+  changelogTargetName?: string;
+  changelogTargetId?: string;
+}
+
 export * from './amap';
 import type { TransportSearchResult } from './amap';
 

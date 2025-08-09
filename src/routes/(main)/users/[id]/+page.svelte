@@ -5,6 +5,7 @@
   import { getUserTypeBadgeClass, getUserTypeLabel } from '$lib/utils';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
+  import ActivityItem from '$lib/components/ActivityItem.svelte';
   import type { PageData } from './$types';
   import { formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
@@ -133,10 +134,18 @@
             <i class="fa-solid fa-clock-rotate-left"></i>
             {m.recent_activity()}
           </h3>
-          <div class="text-base-content/60 py-8 text-center">
-            <i class="fa-solid fa-clock-rotate-left mb-2 text-3xl"></i>
-            <p>{m.activity_log_feature_in_development()}</p>
-          </div>
+          {#if data.activities && data.activities.length > 0}
+            <div class="space-y-2">
+              {#each data.activities as activity (activity.id)}
+                <ActivityItem {activity} />
+              {/each}
+            </div>
+          {:else}
+            <div class="text-base-content/60 py-8 text-center">
+              <i class="fa-solid fa-clock-rotate-left mb-2 text-3xl"></i>
+              <p>{m.no_recent_activity()}</p>
+            </div>
+          {/if}
         </div>
 
         <!-- Frequenting Arcades -->

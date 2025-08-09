@@ -4,6 +4,7 @@ import type { User } from '@auth/sveltekit';
 import type { University, UniversityMember, Shop } from '$lib/types';
 import client from '$lib/db.server';
 import { toPlainArray } from '$lib/utils';
+import { getUserActivities } from '$lib/activity.server';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const session = await locals.auth();
@@ -80,6 +81,18 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       }
     }
 
+    // Get recent activities
+    let activities: any[] = [];
+    if ((isOwnProfile || user.isEmailPublic) && user.id) {
+      try {
+        activities = await getUserActivities(client, user.id, 15);
+      } catch (err) {
+        console.error('Error fetching user activities:', err);
+        // Don't fail the entire page load if activities fail
+        activities = [];
+      }
+    }
+
     return {
       user: {
         id: user.id,
@@ -100,7 +113,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       universityMembershipCount,
       clubMembershipCount,
       university,
-      isOwnProfile
+      isOwnProfile,
+      activities
     };
   } catch (err) {
     console.error('Error loading user profile:', err);

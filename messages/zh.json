@@ -17,7 +17,14 @@
   "actions": "操作",
   "active": "有效",
   "active_clubs": "活跃社团",
+  "activity_commented_on": "评论了",
+  "activity_contributed_to": "贡献了",
+  "activity_created_post": "发表了帖子",
+  "activity_downvoted_comment": "踩了 {authorName} 的评论",
+  "activity_downvoted_post": "踩了帖子",
   "activity_log_feature_in_development": "活动记录功能开发中...",
+  "activity_upvoted_comment": "赞了 {authorName} 的评论",
+  "activity_upvoted_post": "赞了帖子",
   "add": "添加",
   "add_arcade": "添加机厅",
   "add_arcade_to_get_started": "添加一个机厅来开始使用",
@@ -581,6 +588,7 @@
   "no_members_yet": "暂无成员",
   "no_posts_created_yet": "还没有帖子",
   "no_posts_yet": "暂无帖子",
+  "no_recent_activity": "无最近活动",
   "no_replies": "暂无回复",
   "no_shops_found": "在该区域未找到机厅。请尝试在其他位置搜索。",
   "no_starred_arcades": "无收藏机厅",
@@ -841,7 +849,10 @@
   "username_too_long": "用户名不能超过30个字符",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
