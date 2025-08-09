@@ -365,7 +365,7 @@
           <img
             src={data.club.avatarUrl || data.university?.avatarUrl}
             alt="{data.club.avatarUrl ? data.club.name : data.university?.name} {m.logo()}"
-            class="h-24 w-24 rounded-full bg-white shadow-lg sm:h-32 sm:w-32"
+            class="h-24 w-24 rounded-full shadow-lg sm:h-32 sm:w-32"
           />
         </div>
       {/if}

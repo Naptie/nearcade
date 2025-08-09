@@ -116,7 +116,8 @@
               <img
                 src={data.targetInfo.avatarUrl}
                 alt="{data.targetInfo.name} {m.logo()}"
-                class="h-16 w-16 rounded-full bg-white"
+                class="h-16 w-16 rounded-full"
+                class:bg-white={data.invite.type === 'university'}
               />
             {:else}
               <div class="bg-base-300 flex h-16 w-16 items-center justify-center rounded-full">

@@ -637,7 +637,7 @@
                         <div class="avatar {club.avatarUrl ? '' : 'avatar-placeholder'}">
                           <div
                             class="h-12 w-12 rounded-full {club.avatarUrl
-                              ? 'bg-white'
+                              ? ''
                               : 'bg-neutral text-neutral-content'}"
                           >
                             {#if club.avatarUrl}
