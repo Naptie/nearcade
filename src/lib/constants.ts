@@ -38,8 +38,8 @@ export const SELECTED_ROUTE_INDEX = 20000;
 export const ROUTE_INDEX = 10000;
 
 export enum ShopSource {
-  BEMANICN,
-  ZIV
+  BEMANICN = 'bemanicn',
+  ZIV = 'ziv'
 }
 
 export type GameKey = (typeof GAMES)[number]['key'];
