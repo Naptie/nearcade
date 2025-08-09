@@ -141,17 +141,11 @@ export const actions: Actions = {
         }
       }
 
-      if (
-        postReadability !== PostReadability.PUBLIC &&
-        postReadability !== PostReadability.UNIV_MEMBERS
-      ) {
+      if (postReadability === PostReadability.CLUB_MEMBERS) {
         errors.push('Invalid post readability setting');
       }
 
-      if (
-        postWritability !== PostWritability.ADMIN_AND_MODS &&
-        postWritability !== PostWritability.UNIV_MEMBERS
-      ) {
+      if (postWritability === PostWritability.CLUB_MEMBERS) {
         errors.push('Invalid post writability setting');
       }
 

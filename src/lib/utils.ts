@@ -700,6 +700,7 @@ export const canWriteUnivPosts = (
   university: University
 ) => {
   const postWritability = university.postWritability ?? PostWritability.UNIV_MEMBERS;
+  if (postWritability === PostWritability.PUBLIC) return true;
   let canWritePosts = false;
 
   if (postWritability === PostWritability.UNIV_MEMBERS) {
@@ -717,14 +718,16 @@ export const canWriteClubPosts = async (
   user: User | undefined,
   client: MongoClient
 ) => {
+  if (!user) return false;
   const postWritability = club.postWritability ?? PostWritability.CLUB_MEMBERS;
+  if (postWritability === PostWritability.PUBLIC) return true;
   let canWritePosts = false;
 
   if (postWritability === PostWritability.UNIV_MEMBERS) {
     canWritePosts =
       !!userPermissions.role ||
       userPermissions.canJoin > 0 ||
-      (!!user && !!(await checkUniversityPermission(user, club.universityId, client)).role);
+      !!(await checkUniversityPermission(user, club.universityId, client)).role;
   } else if (postWritability === PostWritability.CLUB_MEMBERS) {
     canWritePosts = !!userPermissions.role;
   } else if (postWritability === PostWritability.ADMIN_AND_MODS) {

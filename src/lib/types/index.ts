@@ -142,9 +142,10 @@ export enum PostReadability {
 }
 
 export enum PostWritability {
-  UNIV_MEMBERS = 0, // All university members can write
-  CLUB_MEMBERS = 1, // Only club members can write
-  ADMIN_AND_MODS = 2 // Only admins and moderators can write
+  PUBLIC = 0, // Anyone can write
+  UNIV_MEMBERS = 1, // All university members can write
+  CLUB_MEMBERS = 2, // Only club members can write
+  ADMIN_AND_MODS = 3 // Only admins and moderators can write
 }
 
 // User types and roles

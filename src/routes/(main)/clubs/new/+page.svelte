@@ -218,9 +218,10 @@
             bind:value={postWritability}
             class="select select-bordered w-full"
           >
-            <option value={PostWritability.ADMIN_AND_MODS}>{m.admins_and_mods()}</option>
+            <option value={PostWritability.PUBLIC}>{m.public()}</option>
             <option value={PostWritability.UNIV_MEMBERS}>{m.university_members()}</option>
             <option value={PostWritability.CLUB_MEMBERS}>{m.club_members()}</option>
+            <option value={PostWritability.ADMIN_AND_MODS}>{m.admins_and_mods()}</option>
           </select>
         </div>
 
