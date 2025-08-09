@@ -1,4 +1,4 @@
-@import 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css';
+@import 'https://unpkg.com/katex@0.16.22/dist/katex.min.css';
 @import '@fontsource-variable/sora';
 @import '@fontsource-variable/noto-sans-sc';
 @import 'tailwindcss';
