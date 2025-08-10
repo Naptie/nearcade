@@ -136,7 +136,8 @@
           <div class="text-base-content/60 py-8 text-center">
             <i class="fa-solid fa-exclamation-triangle text-error mb-2 text-3xl"></i>
             <p>{notificationsError}</p>
-            <button class="btn btn-sm btn-outline mt-4" onclick={() => loadNotifications()}>
+            <button class="btn btn-sm btn-soft mt-4" onclick={() => loadNotifications()}>
+              <i class="fa-solid fa-rotate"></i>
               {m.try_again()}
             </button>
           </div>
