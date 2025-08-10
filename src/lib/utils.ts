@@ -25,6 +25,16 @@ import type { User } from '@auth/sveltekit';
 import { redirect } from '@sveltejs/kit';
 import { customAlphabet, nanoid } from 'nanoid';
 
+const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+export const postId = () => {
+  return customAlphabet(alphabet, 14)();
+};
+
+export const commentId = () => {
+  return customAlphabet(alphabet, 18)();
+};
+
 /**
  * Generates a valid and unique username based on input name
  */
@@ -688,11 +698,6 @@ export const formatDateTime = (date?: Date | string | null): string => {
     date = new Date(date);
   }
   return date.toLocaleString();
-};
-
-export const postId = () => {
-  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  return customAlphabet(alphabet, 21)();
 };
 
 export const canWriteUnivPosts = (
