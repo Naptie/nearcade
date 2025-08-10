@@ -73,7 +73,11 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
 
           // Set default privacy settings
           dbUser.isEmailPublic = false;
+          dbUser.isActivityPublic = true;
+          dbUser.isFootprintPublic = false;
           dbUser.isUniversityPublic = true;
+          dbUser.isFrequentingArcadePublic = true;
+          dbUser.isStarredArcadePublic = true;
         }
         const { _id, email, ...rest } = dbUser;
         await usersCollection.updateOne(

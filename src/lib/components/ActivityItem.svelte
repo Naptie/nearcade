@@ -94,9 +94,7 @@
 
       case 'changelog':
         if (activity.universityId) {
-          return `${baseUrl}/universities/${activity.universityId}#changelog?entry=${activity.id}`;
-        } else if (activity.clubId) {
-          return `${baseUrl}/clubs/${activity.clubId}#changelog?entry=${activity.id}`;
+          return `${baseUrl}/universities/${activity.universityId}?entry=${activity.id}#changelog`;
         }
         return '#';
 

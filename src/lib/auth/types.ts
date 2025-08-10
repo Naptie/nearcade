@@ -13,6 +13,8 @@ declare module '@auth/sveltekit' {
     starredArcades?: number[];
     autoDiscoveryThreshold?: number; // Number of clicks before auto-adding to frequenting arcades
     isEmailPublic?: boolean;
+    isActivityPublic?: boolean;
+    isFootprintPublic?: boolean;
     isUniversityPublic?: boolean;
     isFrequentingArcadePublic?: boolean;
     isStarredArcadePublic?: boolean;

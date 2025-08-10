@@ -114,7 +114,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       clubMembershipCount,
       university,
       isOwnProfile,
-      activities
+      activities: toPlainArray(activities)
     };
   } catch (err) {
     console.error('Error loading user profile:', err);

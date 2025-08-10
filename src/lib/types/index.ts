@@ -1,3 +1,4 @@
+import type { ObjectId } from 'mongodb';
 import type { RADIUS_OPTIONS } from '../constants';
 
 export interface Location {
@@ -38,7 +39,7 @@ export interface Campus {
 }
 
 export interface University {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   name: string;
   slug?: string; // Customizable URL slug
@@ -158,7 +159,7 @@ export type UserType =
   | 'site_admin';
 
 export interface Club {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   universityId: string;
   name: string;
@@ -182,7 +183,7 @@ export interface Club {
 }
 
 export interface ClubMember {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   clubId: string;
   userId: string;
@@ -204,7 +205,7 @@ export interface ClubMemberWithUser extends ClubMember {
 }
 
 export interface InviteLink {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   code: string; // Unique invite code
   type: 'university' | 'club';
@@ -225,7 +226,7 @@ export interface InviteLink {
 }
 
 export interface UniversityMember {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   universityId: string;
   userId: string;
@@ -247,7 +248,7 @@ export interface UniversityMemberWithUser extends UniversityMember {
 }
 
 export interface JoinRequest {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   type: 'university' | 'club';
   targetId: string; // University ID or Club ID
@@ -283,7 +284,7 @@ export interface JoinRequestWithUser extends JoinRequest {
 }
 
 export interface Announcement {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   type: 'university' | 'club';
   targetId: string; // University ID or Club ID
@@ -299,7 +300,7 @@ export interface Announcement {
 }
 
 export interface ChangelogEntry {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   type: 'university' | 'club';
   targetId: string; // University ID or Club ID
@@ -324,7 +325,7 @@ export interface ChangelogEntry {
 
 // Posts feature types
 export interface Post {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   title: string;
   content: string; // Markdown content
@@ -357,7 +358,7 @@ export interface PostWithAuthor extends Post {
 }
 
 export interface PostVote {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   postId: string;
   userId: string;
@@ -367,7 +368,7 @@ export interface PostVote {
 }
 
 export interface Comment {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   postId: string;
   content: string; // Markdown content
@@ -395,7 +396,7 @@ export interface CommentWithAuthorAndVote extends Comment {
 }
 
 export interface CommentVote {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   commentId: string;
   userId: string;
@@ -406,6 +407,7 @@ export interface CommentVote {
 
 // Activity types for recent activity feature
 export interface Activity {
+  _id?: string | ObjectId;
   id: string;
   type: 'post' | 'comment' | 'post_vote' | 'comment_vote' | 'changelog';
   createdAt: Date;
