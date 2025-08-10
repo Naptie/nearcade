@@ -21,24 +21,24 @@
   let icon = $derived.by(() => {
     switch (activity.type) {
       case 'post':
-        return 'fa-solid fa-pen-to-square';
+        return 'fa-solid fa-pen-to-square text-info';
       case 'comment':
-        return 'fa-solid fa-comment';
+        return 'fa-solid fa-comment text-info';
       case 'reply':
-        return 'fa-solid fa-reply';
+        return 'fa-solid fa-reply text-info';
       case 'post_vote':
       case 'comment_vote':
         return activity.voteType === 'upvote'
           ? 'fa-solid fa-thumbs-up text-success'
           : 'fa-solid fa-thumbs-down text-error';
       case 'changelog':
-        return 'fa-solid fa-list-ul text-info';
+        return 'fa-solid fa-list-ul text-warning';
       case 'university_join':
         return 'fa-solid fa-graduation-cap text-primary';
       case 'club_join':
         return 'fa-solid fa-user-plus text-success';
       case 'club_create':
-        return 'fa-solid fa-users-gear text-primary';
+        return 'fa-solid fa-users text-primary';
       default:
         return 'fa-solid fa-clock';
     }

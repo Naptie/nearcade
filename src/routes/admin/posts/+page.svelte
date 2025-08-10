@@ -26,7 +26,7 @@
       case PostReadability.PUBLIC:
         return 'fa-solid fa-globe';
       case PostReadability.UNIV_MEMBERS:
-        return 'fa-solid fa-university';
+        return 'fa-solid fa-graduation-cap';
       case PostReadability.CLUB_MEMBERS:
         return 'fa-solid fa-users';
       default:
