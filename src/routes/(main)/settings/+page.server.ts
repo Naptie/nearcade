@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import client from '$lib/db.server';
-import type { NotificationType } from '$lib/auth/types';
+import type { NotificationType } from '$lib/types';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();

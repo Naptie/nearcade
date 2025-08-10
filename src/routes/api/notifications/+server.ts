@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     const readAfter = unreadOnly ? session.user.notificationReadAt : undefined;
     const notifications = await getUserNotifications(
       client,
-      session.user.id!,
+      session.user,
       readAfter,
       limit + 1,
       offset

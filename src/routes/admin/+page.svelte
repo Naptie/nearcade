@@ -129,10 +129,12 @@
     <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
       <h2 class="text-base-content mb-4 text-xl font-semibold">{m.admin_quick_actions()}</h2>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <a href="{base}/admin/users" class="btn btn-soft">
-          <i class="fa-solid fa-user mr-2"></i>
-          {m.admin_users()}
-        </a>
+        {#if data.user.userType === 'site_admin'}
+          <a href="{base}/admin/users" class="btn btn-soft">
+            <i class="fa-solid fa-user mr-2"></i>
+            {m.admin_users()}
+          </a>
+        {/if}
         <a href="{base}/admin/universities" class="btn btn-soft">
           <i class="fa-solid fa-graduation-cap mr-2"></i>
           {m.admin_universities()}

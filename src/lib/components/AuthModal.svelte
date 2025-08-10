@@ -163,9 +163,18 @@
               {m.admin_panel()}
             </a>
           {/if}
-          <a href="{base}/notifications" class="flex items-center gap-2">
-            <i class="fa-solid fa-bell"></i>
-            {m.notifications()}
+          <a href="{base}/notifications" class="group flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-bell"></i>
+              {m.notifications()}
+            </div>
+            {#if session.unreadNotifications > 0}
+              <span
+                class="badge badge-sm not-group-hover:badge-soft badge-primary transition-colors"
+              >
+                {session.unreadNotifications}
+              </span>
+            {/if}
           </a>
           <a href="{base}/settings" class="flex items-center gap-2">
             <i class="fa-solid fa-gear"></i>
