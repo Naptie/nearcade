@@ -14,6 +14,7 @@
   organizationName={data.club.name}
   organizationSlug={data.club.slug}
   organizationId={data.club.id}
+  organizationReadability={data.club.postReadability}
   canJoinOrganization={data.canJoin}
   postWritability={data.club.postWritability}
   canEdit={data.canEdit}

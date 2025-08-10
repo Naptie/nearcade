@@ -101,7 +101,7 @@
                       <div
                         class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-full"
                       >
-                        <i class="fa-solid fa-users-gear text-primary"></i>
+                        <i class="fa-solid fa-users text-primary"></i>
                       </div>
                     {/if}
                     <div class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors">
@@ -206,7 +206,7 @@
       {/if}
     {:else}
       <div class="py-12 text-center">
-        <i class="fa-solid fa-users-gear text-base-content/40 mb-4 text-4xl"></i>
+        <i class="fa-solid fa-users text-base-content/40 mb-4 text-4xl"></i>
         <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_clubs_found()}</h3>
         <p class="text-base-content/60">
           {data.search

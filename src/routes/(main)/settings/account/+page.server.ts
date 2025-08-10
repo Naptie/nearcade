@@ -1,7 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import type { Document } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
-import type { UniversityMember, University, Club } from '$lib/types';
+import type { UniversityMember, University, Club, ClubMember } from '$lib/types';
 import client from '$lib/db.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -118,13 +117,12 @@ export const actions: Actions = {
       }
 
       const db = client.db();
-      const usersCollection = db.collection('users');
+      const clubMembersCollection = db.collection<ClubMember>('club_members');
 
-      // Remove club from user's club list
-      await usersCollection.updateOne({ id: user.id }, {
-        $pull: { clubIds: clubId },
-        $set: { updatedAt: new Date() }
-      } as Document);
+      await clubMembersCollection.deleteOne({
+        clubId,
+        userId: user.id
+      });
 
       return { success: true, message: 'Left club successfully' };
     } catch (err) {

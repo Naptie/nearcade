@@ -2,12 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
 import type { Post, Comment, University, Club } from '$lib/types';
-import { nanoid } from 'nanoid';
 import {
   checkUniversityPermission,
   checkClubPermission,
   canWriteUnivPosts,
-  canWriteClubPosts
+  canWriteClubPosts,
+  commentId
 } from '$lib/utils';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
@@ -98,7 +98,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     // Create new comment
     const newComment: Comment = {
-      id: nanoid(),
+      id: commentId(),
       postId: postId,
       content: content.trim(),
       createdBy: session.user.id,

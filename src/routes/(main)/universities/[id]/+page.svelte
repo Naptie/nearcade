@@ -21,8 +21,8 @@
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
-    { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
-    { id: 'members', label: m.members(), icon: 'fa-users' },
+    { id: 'clubs', label: m.clubs(), icon: 'fa-users' },
+    { id: 'members', label: m.members(), icon: 'fa-user' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
@@ -253,15 +253,7 @@
 
   // Check what actions current user can perform on a university member
   const canManageMember = (member: UniversityMemberWithUser) => {
-    if (!userPrivileges.canManage)
-      return {
-        remove: false,
-        grantModerator: false,
-        revokeModerator: false,
-        grantAdmin: false,
-        transferAdmin: false
-      };
-    if (!member.user || member.user.id === data.user?._id)
+    if (!userPrivileges.canManage || !member.user || member.user.id === data.user?.id)
       return {
         remove: false,
         grantModerator: false,
@@ -521,7 +513,9 @@
             organizationId={data.university.id}
             organizationName={data.university.name}
             organizationSlug={data.university.slug}
+            organizationReadability={data.university.postReadability}
             currentUserId={data.user?.id}
+            canManage={userPrivileges.canManage}
             canCreatePost={canWritePosts}
             initialPosts={[]}
           />
@@ -604,7 +598,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users-gear"></i>
+                <i class="fa-solid fa-users"></i>
                 {m.clubs()}
               </h3>
               <div class="flex items-center gap-3">
@@ -681,7 +675,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users-gear text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_clubs_in_university()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">
@@ -708,7 +702,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users"></i>
+                <i class="fa-solid fa-user"></i>
                 {m.members()}
               </h3>
               <div class="flex items-center gap-3">
@@ -734,7 +728,7 @@
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between gap-1 p-4">
                       <div class="overflow-hidden">
-                        <UserAvatar user={member.user} showName={true} size="md" />
+                        <UserAvatar user={member.user} showName size="md" />
                       </div>
 
                       <div class="flex items-center gap-1">
@@ -754,7 +748,7 @@
                         </div>
 
                         <!-- Actions for privileged users -->
-                        {#if userPrivileges.canManage && member.user.id !== data.user?._id}
+                        {#if userPrivileges.canManage && member.user.id !== data.user?.id}
                           {@const memberActions = canManageMember(member)}
                           {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
                             <div class="dropdown dropdown-end">
@@ -851,7 +845,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">

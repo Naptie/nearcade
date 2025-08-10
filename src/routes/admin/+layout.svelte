@@ -39,22 +39,29 @@
     {
       id: 'users',
       label: m.admin_users(),
-      icon: 'fa-users',
+      icon: 'fa-user',
       href: `${base}/admin/users`,
       requiresSiteAdmin: true
     },
     {
       id: 'universities',
       label: m.admin_universities(),
-      icon: 'fa-building-columns',
+      icon: 'fa-graduation-cap',
       href: `${base}/admin/universities`,
       requiresSiteAdmin: false
     },
     {
       id: 'clubs',
       label: m.admin_clubs(),
-      icon: 'fa-users-gear',
+      icon: 'fa-users',
       href: `${base}/admin/clubs`,
+      requiresSiteAdmin: false
+    },
+    {
+      id: 'posts',
+      label: m.admin_posts(),
+      icon: 'fa-file-lines',
+      href: `${base}/admin/posts`,
       requiresSiteAdmin: false
     },
     {
@@ -76,7 +83,8 @@
       label: m.join_requests(),
       icon: 'fa-user-plus',
       href: `${base}/admin/join-requests`,
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      count: data.session?.pendingJoinRequests
     }
   ];
 
@@ -122,13 +130,23 @@
       {#each visibleItems as item (item.id)}
         <a
           href={item.href}
-          class="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors
+          class="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors
                 {currentPath === item.href
             ? 'bg-primary text-primary-content'
             : 'text-base-content hover:bg-base-200'}"
         >
-          <i class="fa-solid {item.icon} w-4"></i>
-          <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
+          <div class="flex items-center gap-3">
+            <i class="fa-solid {item.icon} w-4"></i>
+            <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
+          </div>
+          {#if item.count && item.count > 0}
+            <span
+              class="badge badge-sm badge-warning dark:not-group-hover:badge-soft transition"
+              class:opacity-0={currentPath === item.href}
+            >
+              {item.count}
+            </span>
+          {/if}
         </a>
       {/each}
     </nav>

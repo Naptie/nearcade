@@ -140,17 +140,28 @@
       }
     }}
   >
-    <FancyButton
-      class="rounded-full {klass}"
-      image={session.user?.image || ''}
-      text={getDisplayName(session.user)}
-      callback={() => {
-        open = !open;
-      }}
-    />
+    <div class="indicator group">
+      {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
+        <span
+          class="indicator-item status status-warning top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
+        ></span>
+      {:else if session.unreadNotifications > 0}
+        <span
+          class="indicator-item status status-success top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
+        ></span>
+      {/if}
+      <FancyButton
+        class="rounded-full {klass}"
+        image={session.user?.image || ''}
+        text={getDisplayName(session.user)}
+        callback={() => {
+          open = !open;
+        }}
+      />
+    </div>
     {#if open}
       <ul
-        class="text-base-content dropdown-content menu bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg"
+        class="text-base-content dropdown-content menu bg-base-200 rounded-box z-1 min-w-40 p-2 shadow-lg"
       >
         <li>
           <a href="{base}/users/@{session.user.name}" class="flex items-center gap-2">
@@ -158,11 +169,33 @@
             {m.my_profile()}
           </a>
           {#if isAdminOrModerator(session.user)}
-            <a href="{base}/admin" class="flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved"></i>
-              {m.admin_panel()}
+            <a href="{base}/admin" class="group flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved"></i>
+                {m.admin_panel()}
+              </div>
+              {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
+                <span
+                  class="badge badge-sm dark:not-group-hover:badge-soft badge-warning transition-colors"
+                >
+                  {session.pendingJoinRequests}
+                </span>
+              {/if}
             </a>
           {/if}
+          <a href="{base}/notifications" class="group flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-bell"></i>
+              {m.notifications()}
+            </div>
+            {#if session.unreadNotifications > 0}
+              <span
+                class="badge badge-sm dark:not-group-hover:badge-soft badge-primary transition-colors"
+              >
+                {session.unreadNotifications}
+              </span>
+            {/if}
+          </a>
           <a href="{base}/settings" class="flex items-center gap-2">
             <i class="fa-solid fa-gear"></i>
             {m.settings()}

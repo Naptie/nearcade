@@ -1,4 +1,5 @@
 import client from '$lib/db.server';
+import type { UniversityMember, ClubMember } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -11,35 +12,156 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   try {
     const db = client.db();
-
-    // Get basic statistics
-    const stats = {
-      totalUsers: await db.collection('users').countDocuments(),
-      totalUniversities: await db.collection('universities').countDocuments(),
-      totalClubs: await db.collection('clubs').countDocuments(),
-      totalShops: await db.collection('shops').countDocuments(),
-      totalInvites: await db.collection('invite_links').countDocuments(),
-      pendingJoinRequests: await db
-        .collection('join_requests')
-        .countDocuments({ status: 'pending' })
-    };
-
-    // Get recent activity (last 7 days)
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentActivity = {
-      newUsers: await db.collection('users').countDocuments({
-        joinedAt: { $gte: oneWeekAgo }
-      }),
-      newClubs: await db.collection('clubs').countDocuments({
-        createdAt: { $gte: oneWeekAgo }
-      }),
-      newInvites: await db.collection('invites').countDocuments({
-        createdAt: { $gte: oneWeekAgo }
-      }),
-      newJoinRequests: await db.collection('join_requests').countDocuments({
-        createdAt: { $gte: oneWeekAgo }
-      })
-    };
+
+    // Initialize stats and recent activity objects
+    let stats: Record<string, number> = {};
+    let recentActivity: Record<string, number> = {};
+
+    // For site admins, show all statistics
+    if (user.userType === 'site_admin') {
+      stats = {
+        totalUsers: await db.collection('users').countDocuments(),
+        totalUniversities: await db.collection('universities').countDocuments(),
+        totalClubs: await db.collection('clubs').countDocuments(),
+        totalPosts: await db.collection('posts').countDocuments(),
+        totalShops: await db.collection('shops').countDocuments(),
+        totalInvites: await db.collection('invite_links').countDocuments(),
+        pendingJoinRequests: await db
+          .collection('join_requests')
+          .countDocuments({ status: 'pending' })
+      };
+
+      recentActivity = {
+        newUsers: await db.collection('users').countDocuments({
+          joinedAt: { $gte: oneWeekAgo }
+        }),
+        newClubs: await db.collection('clubs').countDocuments({
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        newPosts: await db.collection('posts').countDocuments({
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        newInvites: await db.collection('invite_links').countDocuments({
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        newJoinRequests: await db.collection('join_requests').countDocuments({
+          createdAt: { $gte: oneWeekAgo }
+        })
+      };
+    } else {
+      // For non-site admins, apply scope-based filtering
+      // Get user's club/university memberships where they have admin/moderator role
+      const [clubMemberships, universityMemberships] = await Promise.all([
+        db
+          .collection<ClubMember>('club_members')
+          .find({
+            userId: user.id,
+            memberType: { $in: ['admin', 'moderator'] }
+          })
+          .toArray(),
+        db
+          .collection<UniversityMember>('university_members')
+          .find({
+            userId: user.id,
+            memberType: { $in: ['admin', 'moderator'] }
+          })
+          .toArray()
+      ]);
+
+      const managedClubIds = clubMemberships.map((m) => m.clubId);
+      const managedUniversityIds = universityMemberships.map((m) => m.universityId);
+
+      // Count universities user can manage
+      const universityFilter =
+        managedUniversityIds.length > 0
+          ? { id: { $in: managedUniversityIds } }
+          : { _nonExistentField: true }; // No results if no managed universities
+
+      // Count clubs user can manage
+      const clubFilter =
+        managedClubIds.length > 0 ? { id: { $in: managedClubIds } } : { _nonExistentField: true }; // No results if no managed clubs
+
+      // Build permission filter for invites and join requests
+      const permissionFilter = {
+        $or: [
+          ...(managedClubIds.length > 0
+            ? [{ type: 'club', targetId: { $in: managedClubIds } }]
+            : []),
+          ...(managedUniversityIds.length > 0
+            ? [{ type: 'university', targetId: { $in: managedUniversityIds } }]
+            : [])
+        ]
+      };
+
+      // Get scoped statistics
+      const inviteFilter =
+        permissionFilter.$or?.length > 0 ? permissionFilter : { _nonExistentField: true };
+      const joinRequestFilter = {
+        ...(permissionFilter.$or?.length > 0 ? permissionFilter : { _nonExistentField: true }),
+        status: 'pending'
+      };
+
+      // Build post filter for posts user can manage
+      const postOrConditions: object[] = [];
+      if (managedUniversityIds.length > 0) {
+        postOrConditions.push({ universityId: { $in: managedUniversityIds } });
+      }
+      if (managedClubIds.length > 0) {
+        postOrConditions.push({ clubId: { $in: managedClubIds } });
+      }
+      const postFilter =
+        postOrConditions.length > 0 ? { $or: postOrConditions } : { _nonExistentField: true };
+
+      const [
+        totalUniversities,
+        totalClubs,
+        totalPosts,
+        totalInvites,
+        pendingJoinRequests,
+        newClubs,
+        newPosts,
+        newInvites,
+        newJoinRequests
+      ] = await Promise.all([
+        db.collection('universities').countDocuments(universityFilter),
+        db.collection('clubs').countDocuments(clubFilter),
+        db.collection('posts').countDocuments(postFilter),
+        db.collection('invite_links').countDocuments(inviteFilter),
+        db.collection('join_requests').countDocuments(joinRequestFilter),
+        db.collection('clubs').countDocuments({
+          ...clubFilter,
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        db.collection('posts').countDocuments({
+          ...postFilter,
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        db.collection('invite_links').countDocuments({
+          ...inviteFilter,
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        db.collection('join_requests').countDocuments({
+          ...(permissionFilter.$or?.length > 0 ? permissionFilter : { _nonExistentField: true }),
+          createdAt: { $gte: oneWeekAgo }
+        })
+      ]);
+
+      stats = {
+        totalUniversities,
+        totalClubs,
+        totalPosts,
+        totalInvites,
+        pendingJoinRequests
+      };
+
+      recentActivity = {
+        newClubs,
+        newPosts,
+        newInvites,
+        newJoinRequests
+      };
+    }
 
     return {
       stats,

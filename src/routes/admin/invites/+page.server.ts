@@ -60,14 +60,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         .collection('club_members')
         .find({
           userId: session.user.id,
-          $or: [{ role: 'admin' }, { role: 'moderator' }]
+          $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
         })
         .toArray(),
       db
         .collection('university_members')
         .find({
           userId: session.user.id,
-          $or: [{ role: 'admin' }, { role: 'moderator' }]
+          $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
         })
         .toArray()
     ]);
@@ -234,12 +234,12 @@ export const actions: Actions = {
             (await db.collection('club_members').findOne({
               userId: session.user.id,
               clubId: invite.clubId,
-              $or: [{ role: 'admin' }, { role: 'moderator' }]
+              $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
             })) ||
             (await db.collection('university_members').findOne({
               userId: session.user.id,
               universityId: invite.universityId,
-              $or: [{ role: 'admin' }, { role: 'moderator' }]
+              $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
             }));
 
           if (!hasPermission) {

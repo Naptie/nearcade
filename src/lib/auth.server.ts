@@ -10,6 +10,7 @@ import { AUTH_QQ_PROXY } from '$env/static/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from './utils';
 import Phira from './auth/phira';
+import { countUserNotifications, countPendingJoinRequests } from './notifications.server';
 
 const config = { allowDangerousEmailAccountLinking: true };
 
@@ -73,7 +74,11 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
 
           // Set default privacy settings
           dbUser.isEmailPublic = false;
+          dbUser.isActivityPublic = true;
+          dbUser.isFootprintPublic = false;
           dbUser.isUniversityPublic = true;
+          dbUser.isFrequentingArcadePublic = true;
+          dbUser.isStarredArcadePublic = true;
         }
         const { _id, email, ...rest } = dbUser;
         await usersCollection.updateOne(
@@ -87,6 +92,8 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
           emailVerified: null,
           ...rest
         };
+        session.unreadNotifications = await countUserNotifications(client, user);
+        session.pendingJoinRequests = await countPendingJoinRequests(client, user);
       }
       return session;
     }

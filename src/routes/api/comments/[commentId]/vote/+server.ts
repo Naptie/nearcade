@@ -9,7 +9,7 @@ import {
   type University
 } from '$lib/types';
 import { nanoid } from 'nanoid';
-import { checkUniversityPermission } from '$lib/utils';
+import { checkUniversityPermission, getDefaultPostReadability } from '$lib/utils';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -55,7 +55,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const postReadability = university.postReadability ?? PostReadability.PUBLIC;
+        const postReadability = getDefaultPostReadability(university.postReadability);
         if (postReadability === PostReadability.UNIV_MEMBERS) {
           const { checkUniversityPermission } = await import('$lib/utils');
           const permissions = await checkUniversityPermission(session.user, university, client);
@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+        const postReadability = getDefaultPostReadability(club.postReadability);
         if (
           postReadability === PostReadability.CLUB_MEMBERS ||
           postReadability === PostReadability.UNIV_MEMBERS

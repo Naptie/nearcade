@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getUserTypeLabel } from '$lib/utils';
@@ -191,7 +191,7 @@
       </div>
     {:else}
       <div class="text-base-content/60 py-8 text-center">
-        <i class="fa-solid fa-users-gear mb-2 text-2xl"></i>
+        <i class="fa-solid fa-users mb-2 text-2xl"></i>
         <p>{m.not_member_of_any_clubs()}</p>
         <a href="{base}/clubs" class="btn btn-primary btn-sm mt-2">
           <i class="fa-solid fa-search"></i>
@@ -280,7 +280,7 @@
           leavingClubId = '';
           return async ({ result }) => {
             if (result.type === 'success') {
-              goto('/settings/account');
+              invalidateAll();
             }
           };
         }}

@@ -1,16 +1,23 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type {
-  Post,
-  PostWithAuthor,
-  PostVote,
-  Comment,
-  CommentWithAuthorAndVote,
-  University,
-  Club
+import {
+  type Post,
+  type PostWithAuthor,
+  type PostVote,
+  type Comment,
+  type CommentWithAuthorAndVote,
+  type University,
+  type Club,
+  PostReadability
 } from '$lib/types';
-import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
+import {
+  checkUniversityPermission,
+  checkClubPermission,
+  validatePostReadability,
+  canReadPost,
+  getDefaultPostReadability
+} from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -61,6 +68,18 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     }
 
     const post = postResult[0];
+
+    // Check if user can read this post based on its readability setting
+    const canRead = await canReadPost(
+      post.readability,
+      { universityId: post.universityId, clubId: post.clubId },
+      session?.user,
+      client
+    );
+
+    if (!canRead) {
+      return json({ error: 'Permission denied' }, { status: 403 });
+    }
 
     // Get comments for this post
     const comments = await commentsCollection
@@ -151,9 +170,10 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid post ID' }, { status: 400 });
     }
 
-    const { title, content, isPinned, isLocked } = (await request.json()) as {
+    const { title, content, readability, isPinned, isLocked } = (await request.json()) as {
       title?: string;
       content?: string;
+      readability?: PostReadability;
       isPinned?: boolean;
       isLocked?: boolean;
     };
@@ -170,6 +190,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Check permissions
     let canEdit = false;
     let canManage = false;
+    let orgReadability: PostReadability = PostReadability.PUBLIC;
 
     if (post.universityId) {
       const university = await db
@@ -179,6 +200,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         const permissions = await checkUniversityPermission(session.user, university, client);
         canEdit = permissions.canEdit;
         canManage = permissions.canEdit; // Only canEdit users can manage posts
+        orgReadability = getDefaultPostReadability(university.postReadability);
       }
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
@@ -186,6 +208,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         const permissions = await checkClubPermission(session.user, club, client);
         canEdit = permissions.canEdit;
         canManage = permissions.canEdit; // Only canEdit users can manage posts
+        orgReadability = getDefaultPostReadability(club.postReadability);
       }
     }
 
@@ -194,10 +217,26 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     const isManagementUpdate = isPinned !== undefined || isLocked !== undefined;
 
     // Check permissions for content updates (owner or canEdit)
-    if (isContentUpdate) {
+    if (isContentUpdate || readability !== undefined) {
       const isOwner = post.createdBy === session.user.id;
       if (!isOwner && !canEdit) {
         return json({ error: 'Permission denied' }, { status: 403 });
+      }
+    }
+
+    // Validate readability change if specified
+    if (readability !== undefined) {
+      const permissions = { canEdit, role: canEdit ? 'admin' : '' };
+
+      if (
+        !validatePostReadability(readability, orgReadability, permissions, session.user.userType)
+      ) {
+        return json(
+          {
+            error: 'Cannot set post readability more open than organization setting'
+          },
+          { status: 403 }
+        );
       }
     }
 
@@ -214,6 +253,9 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     }
     if (content !== undefined) {
       updateData.content = content;
+    }
+    if (readability !== undefined) {
+      updateData.readability = readability;
     }
     if (isPinned !== undefined) {
       updateData.isPinned = isPinned;

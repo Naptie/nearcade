@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import client from '$lib/db.server';
+import type { NotificationType } from '$lib/types';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -20,9 +21,12 @@ export const load: PageServerLoad = async ({ parent }) => {
       displayName: user.displayName,
       userType: user.userType,
       isEmailPublic: user.isEmailPublic,
+      isActivityPublic: user.isActivityPublic,
+      isFootprintPublic: user.isFootprintPublic,
       isUniversityPublic: user.isUniversityPublic,
       isFrequentingArcadePublic: user.isFrequentingArcadePublic,
-      isStarredArcadePublic: user.isStarredArcadePublic
+      isStarredArcadePublic: user.isStarredArcadePublic,
+      notificationTypes: user.notificationTypes
     }
   };
 };
@@ -42,9 +46,21 @@ export const actions: Actions = {
       const bio = formData.get('bio') as string;
       const username = formData.get('username') as string;
       const isEmailPublic = formData.get('isEmailPublic') === 'on';
+      const isActivityPublic = formData.get('isActivityPublic') === 'on';
+      const isFootprintPublic = formData.get('isFootprintPublic') === 'on';
       const isUniversityPublic = formData.get('isUniversityPublic') === 'on';
       const isFrequentingArcadePublic = formData.get('isFrequentingArcadePublic') === 'on';
       const isStarredArcadePublic = formData.get('isStarredArcadePublic') === 'on';
+
+      // Parse notification settings
+      const notificationTypes: NotificationType[] = [];
+      if (formData.get('notificationTypeComments') === 'on') notificationTypes.push('COMMENTS');
+      if (formData.get('notificationTypeReplies') === 'on') notificationTypes.push('REPLIES');
+      if (formData.get('notificationTypePostVotes') === 'on') notificationTypes.push('POST_VOTES');
+      if (formData.get('notificationTypeCommentVotes') === 'on')
+        notificationTypes.push('COMMENT_VOTES');
+      if (formData.get('notificationTypeJoinRequests') === 'on')
+        notificationTypes.push('JOIN_REQUESTS');
 
       // Field-specific validation errors
       const fieldErrors: Record<string, string> = {};
@@ -78,9 +94,12 @@ export const actions: Actions = {
             bio,
             username,
             isEmailPublic,
+            isActivityPublic,
+            isFootprintPublic,
             isUniversityPublic,
             isFrequentingArcadePublic,
-            isStarredArcadePublic
+            isStarredArcadePublic,
+            notificationTypes
           }
         });
       }
@@ -104,9 +123,12 @@ export const actions: Actions = {
               bio,
               username,
               isEmailPublic,
+              isActivityPublic,
+              isFootprintPublic,
               isUniversityPublic,
               isFrequentingArcadePublic,
-              isStarredArcadePublic
+              isStarredArcadePublic,
+              notificationTypes
             }
           });
         }
@@ -119,18 +141,24 @@ export const actions: Actions = {
         displayName?: string;
         bio: string;
         isEmailPublic: boolean;
+        isActivityPublic: boolean;
+        isFootprintPublic: boolean;
         isUniversityPublic: boolean;
         isFrequentingArcadePublic: boolean;
         isStarredArcadePublic: boolean;
+        notificationTypes: NotificationType[];
         updatedAt: Date;
         name?: string;
       } = {
         displayName: displayName?.trim() || undefined,
         bio: bio?.trim() || '',
         isEmailPublic,
+        isActivityPublic,
+        isFootprintPublic,
         isUniversityPublic,
         isFrequentingArcadePublic,
         isStarredArcadePublic,
+        notificationTypes,
         updatedAt: new Date()
       };
 

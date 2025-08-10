@@ -1,3 +1,4 @@
+import type { ObjectId } from 'mongodb';
 import type { RADIUS_OPTIONS } from '../constants';
 
 export interface Location {
@@ -38,7 +39,7 @@ export interface Campus {
 }
 
 export interface University {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   name: string;
   slug?: string; // Customizable URL slug
@@ -157,8 +158,15 @@ export type UserType =
   | 'club_moderator'
   | 'site_admin';
 
+export type NotificationType =
+  | 'COMMENTS'
+  | 'REPLIES'
+  | 'POST_VOTES'
+  | 'COMMENT_VOTES'
+  | 'JOIN_REQUESTS';
+
 export interface Club {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   universityId: string;
   name: string;
@@ -182,7 +190,7 @@ export interface Club {
 }
 
 export interface ClubMember {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   clubId: string;
   userId: string;
@@ -204,7 +212,7 @@ export interface ClubMemberWithUser extends ClubMember {
 }
 
 export interface InviteLink {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   code: string; // Unique invite code
   type: 'university' | 'club';
@@ -225,7 +233,7 @@ export interface InviteLink {
 }
 
 export interface UniversityMember {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   universityId: string;
   userId: string;
@@ -247,7 +255,7 @@ export interface UniversityMemberWithUser extends UniversityMember {
 }
 
 export interface JoinRequest {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   type: 'university' | 'club';
   targetId: string; // University ID or Club ID
@@ -283,7 +291,7 @@ export interface JoinRequestWithUser extends JoinRequest {
 }
 
 export interface Announcement {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   type: 'university' | 'club';
   targetId: string; // University ID or Club ID
@@ -299,7 +307,7 @@ export interface Announcement {
 }
 
 export interface ChangelogEntry {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   type: 'university' | 'club';
   targetId: string; // University ID or Club ID
@@ -322,9 +330,18 @@ export interface ChangelogEntry {
   createdAt: Date;
 }
 
+export interface ChangelogEntryWithUser extends ChangelogEntry {
+  user: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    image: string | null;
+  };
+}
+
 // Posts feature types
 export interface Post {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   title: string;
   content: string; // Markdown content
@@ -342,6 +359,8 @@ export interface Post {
   // Moderation
   isPinned: boolean;
   isLocked: boolean;
+  // Post visibility setting
+  readability: PostReadability; // Required - determines who can read this specific post
 }
 
 // Composite type with author data joined
@@ -357,7 +376,7 @@ export interface PostWithAuthor extends Post {
 }
 
 export interface PostVote {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   postId: string;
   userId: string;
@@ -367,7 +386,7 @@ export interface PostVote {
 }
 
 export interface Comment {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   postId: string;
   content: string; // Markdown content
@@ -395,13 +414,70 @@ export interface CommentWithAuthorAndVote extends Comment {
 }
 
 export interface CommentVote {
-  _id?: string;
+  _id?: string | ObjectId;
   id: string;
   commentId: string;
   userId: string;
   voteType: 'upvote' | 'downvote';
   createdAt: Date;
   updatedAt?: Date;
+}
+
+// Activity types for recent activity feature
+export interface Activity {
+  _id?: string | ObjectId;
+  id: string;
+  type:
+    | 'post'
+    | 'comment'
+    | 'reply'
+    | 'post_vote'
+    | 'comment_vote'
+    | 'changelog'
+    | 'university_join'
+    | 'club_join'
+    | 'club_create';
+  createdAt: Date;
+  userId: string;
+
+  // Post activity
+  postTitle?: string;
+  postId?: string;
+  universityId?: string;
+  clubId?: string;
+  universityName?: string;
+  clubName?: string;
+
+  // Comment activity
+  commentContent?: string;
+  commentId?: string;
+  parentCommentId?: string | null;
+  parentPostTitle?: string;
+
+  // Vote activity
+  voteType?: 'upvote' | 'downvote';
+  targetType?: 'post' | 'comment' | 'reply';
+  targetTitle?: string;
+  targetAuthorName?: string;
+  targetAuthorDisplayName?: string;
+  targetId?: string;
+
+  // Changelog activity
+  changelogAction?: string;
+  changelogDescription?: string;
+  changelogTargetName?: string;
+  changelogTargetId?: string;
+  changelogEntry?: ChangelogEntry; // Store the full entry for proper formatting
+
+  // Membership activity (university_join, club_join)
+  joinedUniversityId?: string;
+  joinedUniversityName?: string;
+  joinedClubId?: string;
+  joinedClubName?: string;
+
+  // Club creation activity (club_create)
+  createdClubId?: string;
+  createdClubName?: string;
 }
 
 export * from './amap';

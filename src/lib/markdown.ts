@@ -55,5 +55,6 @@ export async function strip(input: string): Promise<string> {
   if (!input) return '';
   const html = String(await barebone.process(input));
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || '';
+  console.log(doc.body.innerText);
+  return doc.body.innerText || '';
 }

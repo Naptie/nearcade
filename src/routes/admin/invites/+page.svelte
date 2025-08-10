@@ -186,7 +186,7 @@
                     {#if invite.club}
                       <div class="flex items-center gap-2">
                         <span class="not-xl:hidden">
-                          <i class="fa-solid fa-users-gear text-primary"></i>
+                          <i class="fa-solid fa-users text-primary"></i>
                         </span>
                         <a
                           href="{base}/clubs/{invite.club.id}"

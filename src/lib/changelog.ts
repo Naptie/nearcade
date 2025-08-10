@@ -1,12 +1,10 @@
+import type { m as mFunc } from './paraglide/messages';
 import type { ChangelogEntry } from './types';
-
-// Type for the messages object - keeping it simple since it's generated
-type MessagesObject = Record<string, (...args: unknown[]) => string>;
 
 /**
  * Get the internationalized field name for a changelog field
  */
-export const getChangelogFieldName = (field: string, m: MessagesObject): string => {
+export const getChangelogFieldName = (field: string, m: typeof mFunc): string => {
   const fieldMap: Record<string, string> = {
     name: m.changelog_field_name(),
     type: m.changelog_field_type(),
@@ -38,7 +36,7 @@ export const getChangelogFieldName = (field: string, m: MessagesObject): string 
  */
 export const getChangelogActionName = (
   action: ChangelogEntry['action'],
-  m: MessagesObject
+  m: typeof mFunc
 ): string => {
   const actionMap: Record<string, string> = {
     created: m.changelog_action_created(),
@@ -55,7 +53,7 @@ export const getChangelogActionName = (
 /**
  * Format a changelog entry description with proper internationalization
  */
-export const formatChangelogDescription = (entry: ChangelogEntry, m: MessagesObject): string => {
+export const formatChangelogDescription = (entry: ChangelogEntry, m: typeof mFunc): string => {
   const fieldName = getChangelogFieldName(entry.fieldInfo.field, m);
   const actionName = getChangelogActionName(entry.action, m);
 
@@ -112,7 +110,7 @@ export const formatChangelogDescription = (entry: ChangelogEntry, m: MessagesObj
 /**
  * Format a value for display based on field type
  */
-export const formatValue = (value: string, field: string, m: MessagesObject): string => {
+export const formatValue = (value: string, field: string, m: typeof mFunc): string => {
   // Handle boolean values
   if (field.startsWith('is')) {
     return value === 'true' ? m.yes() : m.no();

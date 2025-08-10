@@ -27,7 +27,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     // Check if viewing own profile
-    const isOwnProfile = session?.user?._id === user.id;
+    const isOwnProfile = session?.user?.id === user.id;
 
     // Get university info if user belongs to one
     let university: University | null = null;
@@ -62,7 +62,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     let frequentingArcades: Shop[] = [];
     let starredArcades: Shop[] = [];
 
-    if (isOwnProfile || user.isFrequentingArcadePublic) {
+    if (isOwnProfile || user.isFrequentingArcadePublic !== false) {
       const frequentingArcadeIds = user.frequentingArcades || [];
       if (frequentingArcadeIds.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
@@ -72,7 +72,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       }
     }
 
-    if (isOwnProfile || user.isStarredArcadePublic) {
+    if (isOwnProfile || user.isStarredArcadePublic !== false) {
       const starredArcadeIds = user.starredArcades || [];
       if (starredArcadeIds.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
@@ -93,7 +93,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         // Only show full data if viewing own profile or if public
         email: isOwnProfile || user.isEmailPublic ? user.email : null,
         frequentingArcades: toPlainArray(frequentingArcades),
-        starredArcades: toPlainArray(starredArcades)
+        starredArcades: toPlainArray(starredArcades),
+        isActivityPublic: user.isActivityPublic
       },
       frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,
       starredArcadesCount: user.starredArcades ? user.starredArcades.length : 0,
