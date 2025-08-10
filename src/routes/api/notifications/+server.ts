@@ -3,9 +3,8 @@ import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
 import { getUserNotifications, markNotificationsAsRead } from '$lib/notifications.server';
 
-export const GET: RequestHandler = async ({ params, url, locals }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
   const session = await locals.auth();
-  const { id } = params;
 
   if (!session?.user) {
     error(401, 'Unauthorized');
@@ -20,33 +19,18 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   }
 
   try {
-    const db = client.db();
-    const usersCollection = db.collection('users');
-
-    // Get user data
-    let user;
-    if (id.startsWith('@')) {
-      const username = id.slice(1);
-      user = await usersCollection.findOne({ name: username });
-    } else {
-      user = await usersCollection.findOne({ id });
-    }
-
-    if (!user) {
-      error(404, 'User not found');
-    }
-
-    // Check if viewing own notifications
-    if (session.user._id !== user.id) {
-      error(403, "Cannot access other user's notifications");
-    }
-
     // Calculate offset
     const offset = (page - 1) * limit;
 
     // Get notifications
-    const readAfter = unreadOnly ? user.notificationReadAt : undefined;
-    const notifications = await getUserNotifications(client, user.id, readAfter, limit + 1, offset);
+    const readAfter = unreadOnly ? session.user.notificationReadAt : undefined;
+    const notifications = await getUserNotifications(
+      client,
+      session.user.id!,
+      readAfter,
+      limit + 1,
+      offset
+    );
 
     // Check if there are more notifications
     const hasMore = notifications.length > limit;
@@ -69,41 +53,18 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   }
 };
 
-export const POST: RequestHandler = async ({ params, locals, request }) => {
+export const POST: RequestHandler = async ({ locals, request }) => {
   const session = await locals.auth();
-  const { id } = params;
 
   if (!session?.user) {
     error(401, 'Unauthorized');
   }
 
   try {
-    const { action } = await request.json();
+    const { action } = (await request.json()) as { action: string };
 
     if (action === 'markAsRead') {
-      const db = client.db();
-      const usersCollection = db.collection('users');
-
-      // Get user data
-      let user;
-      if (id.startsWith('@')) {
-        const username = id.slice(1);
-        user = await usersCollection.findOne({ name: username });
-      } else {
-        user = await usersCollection.findOne({ id });
-      }
-
-      if (!user) {
-        error(404, 'User not found');
-      }
-
-      // Check if viewing own notifications
-      if (session.user._id !== user.id) {
-        error(403, "Cannot access other user's notifications");
-      }
-
-      await markNotificationsAsRead(client, user.id);
-
+      await markNotificationsAsRead(client, session.user.id!);
       return json({ success: true });
     }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
@@ -7,6 +8,8 @@
   import UserAvatar from './UserAvatar.svelte';
   import { getDisplayName } from '$lib/utils';
   import type { Notification } from '$lib/notifications.server';
+  import { onMount } from 'svelte';
+  import { strip } from '$lib/markdown';
 
   interface Props {
     notification: Notification;
@@ -14,30 +17,24 @@
 
   let { notification }: Props = $props();
 
-  function getNotificationIcon(type: string): string {
-    switch (type) {
-      case 'COMMENTS':
-        return 'fa-solid fa-comment text-primary';
-      case 'REPLIES':
-        return 'fa-solid fa-reply text-info';
-      case 'POST_VOTES':
-        return notification.voteType === 'upvote'
-          ? 'fa-solid fa-thumbs-up text-success'
-          : 'fa-solid fa-thumbs-down text-error';
-      case 'COMMENT_VOTES':
-        return notification.voteType === 'upvote'
-          ? 'fa-solid fa-thumbs-up text-success'
-          : 'fa-solid fa-thumbs-down text-error';
-      default:
-        return 'fa-solid fa-bell';
-    }
-  }
+  let content = $state(notification.commentContent || '');
 
-  function getNotificationText(): string {
-    const actorName = getDisplayName({
-      name: notification.actorName,
-      displayName: notification.actorDisplayName
-    });
+  let context = $derived.by(() => {
+    if (notification.universityName) {
+      return notification.universityName;
+    } else if (notification.clubName) {
+      return notification.clubName;
+    }
+    return null;
+  });
+
+  let text = $derived.by(() => {
+    const actorName = `<a href="${base}/users/@${notification.actorName}" class="hover:text-accent transition-colors">${getDisplayName(
+      {
+        name: notification.actorName,
+        displayName: notification.actorDisplayName
+      }
+    )}</a>`;
 
     switch (notification.type) {
       case 'COMMENTS':
@@ -55,9 +52,9 @@
       default:
         return '';
     }
-  }
+  });
 
-  function getNotificationLink(): string {
+  let link = $derived.by(() => {
     const baseUrl = base || '';
 
     switch (notification.type) {
@@ -82,24 +79,33 @@
       default:
         return '#';
     }
-  }
+  });
 
-  function getTargetTitle(): string {
-    return notification.postTitle || '';
-  }
-
-  function getContextText(): string | null {
-    if (notification.universityName) {
-      return notification.universityName;
-    } else if (notification.clubName) {
-      return notification.clubName;
+  let icon = $derived.by(() => {
+    switch (notification.type) {
+      case 'COMMENTS':
+        return 'fa-solid fa-comment text-info';
+      case 'REPLIES':
+        return 'fa-solid fa-reply text-info';
+      case 'POST_VOTES':
+      case 'COMMENT_VOTES':
+        return notification.voteType === 'upvote'
+          ? 'fa-solid fa-thumbs-up text-success'
+          : 'fa-solid fa-thumbs-down text-error';
+      default:
+        return 'fa-solid fa-bell';
     }
-    return null;
-  }
+  });
+
+  onMount(async () => {
+    if ((notification.type === 'COMMENTS' || notification.type === 'REPLIES') && content) {
+      content = await strip(content);
+    }
+  });
 </script>
 
 <div
-  class="bg-base-100 hover:bg-base-200/50 flex items-start gap-3 rounded-lg p-3 transition-colors"
+  class="bg-base-100 hover:bg-base-200/50 flex items-center gap-3 rounded-lg p-3 transition-colors"
 >
   <!-- User Avatar -->
   <div class="flex-shrink-0">
@@ -118,36 +124,37 @@
     <div class="flex flex-col gap-1">
       <!-- Notification Description -->
       <div class="text-sm">
-        <span class="text-base-content/80">{getNotificationText()}</span>
-        <a
-          href={getNotificationLink()}
-          class="text-accent hover:text-accent/80 ml-1 font-medium transition-colors"
-        >
-          {getTargetTitle()}
+        <span class="text-base-content/80">{@html text}</span>
+        <a href={link} class="text-accent hover:text-accent/80 font-medium transition-colors">
+          {notification.postTitle || ''}
         </a>
       </div>
 
-      <!-- Context (University/Club) -->
-      {#if getContextText()}
-        <div class="text-base-content/60 text-xs">
-          <i class="fa-solid fa-building mr-1"></i>
-          {getContextText()}
+      <!-- Preview for Comments/Replies -->
+      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES') && content}
+        <div class="text-base-content/60 truncate text-xs italic">
+          "{content}"
         </div>
       {/if}
 
-      <!-- Preview for Comments/Replies -->
-      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES') && notification.commentContent}
-        <div class="text-base-content/60 truncate text-xs italic">
-          "{notification.commentContent}{notification.commentContent.length >= 100 ? '...' : ''}"
+      <!-- Context (University/Club) -->
+      {#if context}
+        <div class="text-base-content/60 flex items-center gap-1 text-xs">
+          {#if notification.universityId}
+            <i class="fa-solid fa-graduation-cap"></i>
+          {:else}
+            <i class="fa-solid fa-users"></i>
+          {/if}
+          {context}
         </div>
       {/if}
     </div>
   </div>
 
   <!-- Icon and Timestamp -->
-  <div class="flex flex-col items-end gap-2">
+  <div class="flex h-full flex-col items-end gap-1">
     <div class="flex-shrink-0">
-      <i class="{getNotificationIcon(notification.type)} text-base-content/60"></i>
+      <i class="{icon} text-base-content/60"></i>
     </div>
     <span class="text-base-content/50 text-xs">
       {formatDistanceToNow(new Date(notification.createdAt), {

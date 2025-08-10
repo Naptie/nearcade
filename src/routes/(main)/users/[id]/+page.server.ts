@@ -62,7 +62,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     let frequentingArcades: Shop[] = [];
     let starredArcades: Shop[] = [];
 
-    if (isOwnProfile || user.isFrequentingArcadePublic) {
+    if (isOwnProfile || user.isFrequentingArcadePublic !== false) {
       const frequentingArcadeIds = user.frequentingArcades || [];
       if (frequentingArcadeIds.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
@@ -72,16 +72,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       }
     }
 
-    if (isOwnProfile || user.isStarredArcadePublic) {
+    if (isOwnProfile || user.isStarredArcadePublic !== false) {
       const starredArcadeIds = user.starredArcades || [];
       if (starredArcadeIds.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
         starredArcades = await shopsCollection.find({ id: { $in: starredArcadeIds } }).toArray();
       }
     }
-
-    // Get recent activities - now handled by API endpoint
-    // const canViewActivities = isOwnProfile || user.isActivityPublic !== false;
 
     return {
       user: {

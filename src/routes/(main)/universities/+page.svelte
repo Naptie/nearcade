@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
   import { formatRegionLabel } from '$lib/utils';
@@ -24,7 +24,7 @@
   };
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams($page.url.searchParams);
+    const params = new URLSearchParams(page.url.searchParams);
     params.set('page', newPage.toString());
     goto(`${base}/universities?${params.toString()}`);
   };

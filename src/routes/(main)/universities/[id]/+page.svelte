@@ -21,8 +21,8 @@
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
-    { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
-    { id: 'members', label: m.members(), icon: 'fa-users' },
+    { id: 'clubs', label: m.clubs(), icon: 'fa-users' },
+    { id: 'members', label: m.members(), icon: 'fa-user' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
@@ -604,7 +604,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users-gear"></i>
+                <i class="fa-solid fa-users"></i>
                 {m.clubs()}
               </h3>
               <div class="flex items-center gap-3">
@@ -681,7 +681,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users-gear text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_clubs_in_university()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">
@@ -708,7 +708,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users"></i>
+                <i class="fa-solid fa-user"></i>
                 {m.members()}
               </h3>
               <div class="flex items-center gap-3">
@@ -851,7 +851,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">

@@ -163,6 +163,10 @@
               {m.admin_panel()}
             </a>
           {/if}
+          <a href="{base}/notifications" class="flex items-center gap-2">
+            <i class="fa-solid fa-bell"></i>
+            {m.notifications()}
+          </a>
           <a href="{base}/settings" class="flex items-center gap-2">
             <i class="fa-solid fa-gear"></i>
             {m.settings()}

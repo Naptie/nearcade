@@ -323,6 +323,15 @@ export interface ChangelogEntry {
   createdAt: Date;
 }
 
+export interface ChangelogEntryWithUser extends ChangelogEntry {
+  user: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    image: string | null;
+  };
+}
+
 // Posts feature types
 export interface Post {
   _id?: string | ObjectId;
@@ -424,7 +433,7 @@ export interface Activity {
   // Comment activity
   commentContent?: string;
   commentId?: string;
-  parentCommentId?: string;
+  parentCommentId?: string | null;
   parentPostTitle?: string;
 
   // Vote activity
@@ -432,6 +441,7 @@ export interface Activity {
   targetType?: 'post' | 'comment' | 'reply';
   targetTitle?: string;
   targetAuthorName?: string;
+  targetAuthorDisplayName?: string;
   targetId?: string;
 
   // Changelog activity

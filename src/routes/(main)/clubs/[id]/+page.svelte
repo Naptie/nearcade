@@ -19,7 +19,7 @@
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
-    { id: 'members', label: m.members(), icon: 'fa-users' },
+    { id: 'members', label: m.members(), icon: 'fa-user' },
     { id: 'announcements', label: m.announcements(), icon: 'fa-bullhorn' }
   ];
 
@@ -688,7 +688,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users"></i>
+                <i class="fa-solid fa-user"></i>
                 {m.members()}
               </h3>
               <div class="flex items-center gap-3">
@@ -831,7 +831,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">

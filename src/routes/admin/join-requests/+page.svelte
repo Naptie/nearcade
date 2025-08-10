@@ -156,7 +156,7 @@
                         </span>
                       {:else}
                         <span class="not-xl:hidden">
-                          <i class="fa-solid fa-users-gear text-primary"></i>
+                          <i class="fa-solid fa-users text-primary"></i>
                         </span>
                       {/if}
                       <a

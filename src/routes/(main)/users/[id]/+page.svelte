@@ -49,7 +49,12 @@
         throw new Error('Failed to load activities');
       }
 
-      const result = await response.json();
+      const result = (await response.json()) as {
+        activities: Activity[];
+        hasMore: boolean;
+        page: number;
+        limit: number;
+      };
 
       if (append) {
         activities = [...activities, ...result.activities];
@@ -94,9 +99,9 @@
 </svelte:head>
 
 <div class="bg-base-100 pt-12">
-  <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+  <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
     <!-- Profile Header -->
-    <div class="bg-base-200 mb-8 rounded-lg p-6">
+    <div class="bg-base-200 mb-8 rounded-xl p-6">
       <div class="flex flex-col items-center gap-6 sm:flex-row">
         <UserAvatar user={data.user} size="xl" />
 
@@ -187,7 +192,7 @@
       <!-- Main Content -->
       <div class="space-y-8 lg:col-span-2">
         <!-- Recent Activity -->
-        <div class="bg-base-200 rounded-lg p-6">
+        <div class="bg-base-200 rounded-xl p-6">
           <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
             <i class="fa-solid fa-clock-rotate-left"></i>
             {m.recent_activity()}
@@ -212,7 +217,7 @@
               </button>
             </div>
           {:else if activities.length > 0}
-            <div class="space-y-2">
+            <div class="space-y-3">
               {#each activities as activity (activity.id)}
                 <ActivityItem {activity} />
               {/each}
@@ -220,9 +225,9 @@
 
             <!-- Load More Button -->
             {#if hasMoreActivities}
-              <div class="mt-6 text-center">
+              <div class="mt-4 text-center">
                 <button
-                  class="btn btn-outline"
+                  class="btn btn-soft btn-sm"
                   onclick={loadMoreActivities}
                   disabled={isLoadingMoreActivities}
                 >
@@ -243,7 +248,7 @@
 
         <!-- Frequenting Arcades -->
         {#if (data.user.frequentingArcades && data.user.frequentingArcades.length > 0) || data.isOwnProfile}
-          <div class="bg-base-200 rounded-lg p-6">
+          <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
               <i class="fa-solid fa-clock"></i>
               {m.frequenting_arcades()}
@@ -273,7 +278,7 @@
 
         <!-- Starred Arcades -->
         {#if (data.user.starredArcades && data.user.starredArcades.length > 0) || data.isOwnProfile}
-          <div class="bg-base-200 rounded-lg p-6">
+          <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
               <i class="fa-solid fa-star"></i>
               {m.starred_arcades()}
@@ -305,8 +310,11 @@
       <!-- Sidebar -->
       <div class="space-y-6">
         <!-- Quick Stats -->
-        <div class="bg-base-200 rounded-lg p-4">
-          <h3 class="mb-3 font-semibold">{m.statistics()}</h3>
+        <div class="bg-base-200 rounded-xl p-6">
+          <h3 class="mb-3 flex items-center gap-2 font-semibold">
+            <i class="fa-solid fa-chart-line"></i>
+            {m.statistics()}
+          </h3>
           <div class="space-y-3">
             <div class="flex justify-between">
               <span class="text-base-content/70">{m.frequenting_arcades()}</span>
@@ -351,7 +359,7 @@
 
         <!-- Sidebar Frequenting Arcades -->
         {#if data.user.frequentingArcades && data.user.frequentingArcades.length > 0}
-          <div class="bg-base-200 rounded-lg p-4">
+          <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-3 flex items-center gap-2 font-semibold">
               <i class="fa-solid fa-clock"></i>
               {m.frequenting_arcades()}
@@ -373,7 +381,7 @@
 
         <!-- Sidebar Starred Arcades -->
         {#if data.user.starredArcades && data.user.starredArcades.length > 0}
-          <div class="bg-base-200 rounded-lg p-4">
+          <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-3 flex items-center gap-2 font-semibold">
               <i class="fa-solid fa-star"></i>
               {m.starred_arcades()}
@@ -393,12 +401,18 @@
 
         <!-- Contact Info -->
         {#if data.user.email && !data.user.email.endsWith('.nearcade')}
-          <div class="bg-base-200 rounded-lg p-4">
-            <h3 class="mb-3 font-semibold">{m.contact()}</h3>
+          <div class="bg-base-200 rounded-xl p-6">
+            <h3 class="mb-3 flex items-center gap-2 font-semibold">
+              <i class="fa-solid fa-envelope"></i>
+              {m.contact()}
+            </h3>
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-sm">
                 <i class="fa-solid fa-envelope text-base-content/50"></i>
-                <span class="break-all">{data.user.email}</span>
+                <a
+                  class="hover:text-accent break-all transition-colors"
+                  href="mailto:{data.user.email}">{data.user.email}</a
+                >
               </div>
             </div>
           </div>

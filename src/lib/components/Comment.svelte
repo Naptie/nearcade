@@ -10,7 +10,7 @@
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName } from '$lib/utils';
   import { base } from '$app/paths';
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
 
   interface Props {
     comment: CommentWithAuthorAndVote;
@@ -21,6 +21,7 @@
     onEdit?: (commentId: string, newContent: string) => Promise<void>;
     onDelete?: (commentId: string) => void;
     onVote?: (commentId: string, voteType: 'upvote' | 'downvote') => void;
+    isPostRendered: boolean;
     depth?: number;
   }
 
@@ -33,6 +34,7 @@
     onEdit,
     onDelete,
     onVote,
+    isPostRendered,
     depth = 0
   }: Props = $props();
 
@@ -42,6 +44,7 @@
   let editContent = $state(comment.content);
   let isSavingEdit = $state(false);
   let showDeleteConfirm = $state(false);
+  let showHighlight = $state(false);
   let commentElement: HTMLElement | undefined;
 
   // Limit nesting depth to avoid infinite nesting
@@ -55,7 +58,7 @@
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
 
   // Check if this comment is highlighted from query params
-  const isHighlighted = $derived($page.url.searchParams.get('comment') === comment.id);
+  const isHighlighted = $derived(page.url.searchParams.get('comment') === comment.id);
 
   const handleVote = (voteType: 'upvote' | 'downvote') => {
     if (onVote) {
@@ -111,15 +114,19 @@
 
   onMount(async () => {
     content = await render(comment.content);
+  });
 
-    // If this comment is highlighted, scroll to it and highlight it
-    if (isHighlighted && commentElement) {
-      commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Add temporary highlighting
-      commentElement.classList.add('bg-primary/20');
+  $effect(() => {
+    if (isPostRendered) {
       setTimeout(() => {
-        commentElement?.classList.remove('bg-primary/20');
-      }, 2000);
+        if (isHighlighted && commentElement) {
+          commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          showHighlight = true;
+          setTimeout(() => {
+            showHighlight = false;
+          }, 2000);
+        }
+      }, 1000);
     }
   });
 </script>
@@ -127,8 +134,8 @@
 <div class="comment {shouldIndent ? 'ml-8' : ''} {depth > maxDepth ? 'opacity-60' : ''}">
   <div
     bind:this={commentElement}
-    class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors {isHighlighted
-      ? 'bg-primary/10'
+    class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors {showHighlight
+      ? 'bg-primary/15'
       : ''}"
     id="comment-{comment.id}"
   >

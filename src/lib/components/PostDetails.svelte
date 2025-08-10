@@ -65,6 +65,7 @@
   let showDeletePostConfirm = $state(false);
   let showDeleteCommentConfirm = $state(false);
   let deletingCommentId = $state('');
+  let isPostRendered = $state(false);
 
   let netVotes = $derived(post.upvotes - post.downvotes);
   let isOwnPost = $derived(currentUserId === post.createdBy);
@@ -400,6 +401,7 @@
 
   onMount(async () => {
     content = await render(localPost.content);
+    isPostRendered = true;
   });
 
   onDestroy(() => {
@@ -699,6 +701,7 @@
                 onReply={canComment ? handleCommentReply : undefined}
                 onEdit={handleCommentEdit}
                 onDelete={handleCommentDelete}
+                {isPostRendered}
                 depth={0}
               />
 
@@ -759,6 +762,7 @@
                   onReply={canComment ? handleCommentReply : undefined}
                   onEdit={handleCommentEdit}
                   onDelete={handleCommentDelete}
+                  {isPostRendered}
                   depth={1}
                 />
               {/each}

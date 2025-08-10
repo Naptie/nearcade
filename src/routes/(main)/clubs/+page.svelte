@@ -187,7 +187,7 @@
     {:else}
       <!-- No Results -->
       <div class="py-12 text-center">
-        <i class="fa-solid fa-users-gear text-base-content/30 mb-4 text-5xl"></i>
+        <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
         <h3 class="mb-2 text-xl font-medium">{m.no_clubs_found()}</h3>
         <p class="text-base-content/60 mb-4">
           {#if data.query || data.selectedUniversityId}

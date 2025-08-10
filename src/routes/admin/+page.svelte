@@ -30,7 +30,7 @@
             <p class="text-base-content text-2xl font-bold">{data.stats.totalUsers}</p>
           </div>
           <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <i class="fa-solid fa-users text-lg text-blue-600"></i>
+            <i class="fa-solid fa-user text-lg text-blue-600"></i>
           </div>
         </div>
         {#if data.recentActivity}
@@ -49,7 +49,7 @@
             <p class="text-base-content text-2xl font-bold">{data.stats.totalUniversities}</p>
           </div>
           <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-            <i class="fa-solid fa-building-columns text-lg text-purple-600"></i>
+            <i class="fa-solid fa-graduation-cap text-lg text-purple-600"></i>
           </div>
         </div>
       </div>
@@ -62,7 +62,7 @@
             <p class="text-base-content text-2xl font-bold">{data.stats.totalClubs}</p>
           </div>
           <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <i class="fa-solid fa-users-gear text-lg text-green-600"></i>
+            <i class="fa-solid fa-users text-lg text-green-600"></i>
           </div>
         </div>
         {#if data.recentActivity}
@@ -130,15 +130,15 @@
       <h2 class="text-base-content mb-4 text-xl font-semibold">{m.admin_quick_actions()}</h2>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <a href="{base}/admin/users" class="btn btn-soft">
-          <i class="fa-solid fa-users mr-2"></i>
+          <i class="fa-solid fa-user mr-2"></i>
           {m.admin_users()}
         </a>
         <a href="{base}/admin/universities" class="btn btn-soft">
-          <i class="fa-solid fa-building-columns mr-2"></i>
+          <i class="fa-solid fa-graduation-cap mr-2"></i>
           {m.admin_universities()}
         </a>
         <a href="{base}/admin/clubs" class="btn btn-soft">
-          <i class="fa-solid fa-users-gear mr-2"></i>
+          <i class="fa-solid fa-users mr-2"></i>
           {m.admin_clubs()}
         </a>
         <a href="{base}/admin/join-requests" class="btn btn-soft">

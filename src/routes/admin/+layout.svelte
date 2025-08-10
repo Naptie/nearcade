@@ -39,21 +39,21 @@
     {
       id: 'users',
       label: m.admin_users(),
-      icon: 'fa-users',
+      icon: 'fa-user',
       href: `${base}/admin/users`,
       requiresSiteAdmin: true
     },
     {
       id: 'universities',
       label: m.admin_universities(),
-      icon: 'fa-building-columns',
+      icon: 'fa-graduation-cap',
       href: `${base}/admin/universities`,
       requiresSiteAdmin: false
     },
     {
       id: 'clubs',
       label: m.admin_clubs(),
-      icon: 'fa-users-gear',
+      icon: 'fa-users',
       href: `${base}/admin/clubs`,
       requiresSiteAdmin: false
     },

@@ -87,7 +87,7 @@
             <i
               class="fa-solid {data.invite.type === 'university'
                 ? 'fa-graduation-cap'
-                : 'fa-users-gear'} text-2xl"
+                : 'fa-users'} text-2xl"
             ></i>
           </div>
           <div>
@@ -124,7 +124,7 @@
                 <i
                   class="fa-solid {data.invite.type === 'university'
                     ? 'fa-graduation-cap'
-                    : 'fa-users-gear'} text-base-content/50 text-xl"
+                    : 'fa-users'} text-base-content/50 text-xl"
                 ></i>
               </div>
             {/if}

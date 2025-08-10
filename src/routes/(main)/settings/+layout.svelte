@@ -13,11 +13,6 @@
       exact: true
     },
     {
-      href: `${base}/settings/notifications`,
-      label: m.notifications(),
-      icon: 'fa-bell'
-    },
-    {
       href: `${base}/settings/frequenting-arcades`,
       label: m.frequenting_arcades(),
       icon: 'fa-clock'
@@ -52,7 +47,7 @@
       <!-- Sidebar Navigation -->
       <div class="lg:col-span-3">
         <div class="sticky top-4">
-          <div class="bg-base-200 rounded-lg p-4">
+          <div class="bg-base-200 rounded-xl p-4">
             <h2 class="mb-4 text-lg font-semibold">{m.settings()}</h2>
             <nav class="space-y-1">
               {#each navigationItems as item (item.href)}
@@ -74,7 +69,7 @@
 
       <!-- Main Content -->
       <div class="mt-8 lg:col-span-9 lg:mt-0">
-        <div class="bg-base-200 rounded-lg p-6">
+        <div class="bg-base-200 rounded-xl p-6">
           {@render children()}
         </div>
       </div>

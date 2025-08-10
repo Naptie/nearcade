@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import type { ChangelogEntry, University, Campus } from './types';
+import type { ChangelogEntry, University, Campus, ChangelogEntryWithUser } from './types';
 import { nanoid } from 'nanoid';
 
 interface ChangelogUser {
@@ -235,22 +235,57 @@ export const getChangelogEntries = async (
     limit?: number;
     offset?: number;
   } = {}
-): Promise<{ entries: ChangelogEntry[]; total: number }> => {
+): Promise<{ entries: ChangelogEntryWithUser[]; total: number }> => {
   const { limit = 50, offset = 0 } = options;
 
   const db = client.db();
   const changelogCollection = db.collection<ChangelogEntry>('changelog');
 
-  const [entries, total] = await Promise.all([
-    changelogCollection
-      .find({
+  const pipeline = [
+    {
+      $match: {
         type: 'university',
         targetId: universityId
-      })
-      .sort({ createdAt: -1 })
-      .skip(offset)
-      .limit(limit)
-      .toArray(),
+      }
+    },
+    { $sort: { createdAt: -1 } },
+    { $skip: offset },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: 'id',
+        as: 'user'
+      }
+    },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        id: 1,
+        type: 1,
+        targetId: 1,
+        action: 1,
+        fieldInfo: 1,
+        oldValue: 1,
+        newValue: 1,
+        metadata: 1,
+        userId: 1,
+        userName: 1,
+        userImage: 1,
+        createdAt: 1,
+        user: {
+          id: '$user.id',
+          name: '$user.name',
+          displayName: '$user.displayName',
+          image: '$user.image'
+        }
+      }
+    }
+  ];
+
+  const [entries, total] = await Promise.all([
+    changelogCollection.aggregate(pipeline).toArray() as Promise<ChangelogEntryWithUser[]>,
     changelogCollection.countDocuments({
       type: 'university',
       targetId: universityId

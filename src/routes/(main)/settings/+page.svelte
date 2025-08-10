@@ -16,10 +16,10 @@
   let username = $state(data.userProfile?.name || '');
   let isEmailPublic = $state(data.userProfile?.isEmailPublic || false);
   let isActivityPublic = $state(data.userProfile?.isActivityPublic !== false);
-  let isFootprintPublic = $state(data.userProfile?.isFootprintPublic !== false);
+  let isFootprintPublic = $state(data.userProfile?.isFootprintPublic || false);
   let isUniversityPublic = $state(data.userProfile?.isUniversityPublic !== false);
-  let isFrequentingArcadePublic = $state(data.userProfile?.isFrequentingArcadePublic || false);
-  let isStarredArcadePublic = $state(data.userProfile?.isStarredArcadePublic || false);
+  let isFrequentingArcadePublic = $state(data.userProfile?.isFrequentingArcadePublic !== false);
+  let isStarredArcadePublic = $state(data.userProfile?.isStarredArcadePublic !== false);
 
   // Notification settings
   let notificationTypeComments = $state(
@@ -359,6 +359,7 @@
     <div class="space-y-3">
       <!-- Notification Types -->
       <div class="form-control">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class="label">
           <span class="label-text">{m.notification_types()}</span>
         </label>

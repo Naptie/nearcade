@@ -10,6 +10,7 @@ import type {
   University
 } from './types';
 import type { User } from '@auth/sveltekit';
+import { getDisplayName } from './utils';
 
 /**
  * User Activity Server Module
@@ -157,9 +158,8 @@ export async function getUserActivities(
       universityName: comment.university?.[0]?.name,
       clubName: comment.club?.[0]?.name,
       // For replies, store the parent comment author in targetAuthorName (reusing this field)
-      targetAuthorName: isReply
-        ? parentCommentAuthor?.displayName || parentCommentAuthor?.name
-        : undefined
+      targetAuthorName: parentCommentAuthor?.name || undefined,
+      targetAuthorDisplayName: isReply ? getDisplayName(parentCommentAuthor) : undefined
     });
   });
 
@@ -287,7 +287,8 @@ export async function getUserActivities(
       targetType: isReplyVote ? 'reply' : 'comment',
       targetTitle: post?.title,
       targetId: vote.commentId,
-      targetAuthorName: commentAuthor?.displayName || commentAuthor?.name || undefined,
+      targetAuthorName: commentAuthor?.name || undefined,
+      targetAuthorDisplayName: getDisplayName(commentAuthor),
       commentId: vote.commentId,
       parentCommentId: comment?.parentCommentId,
       postId: post?.id,
@@ -319,27 +320,24 @@ export async function getUserActivities(
           as: 'club'
         }
       },
+      { $unwind: { path: '$university', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray()) as (ChangelogEntry & { university?: University[]; club?: Club[] })[];
+    .toArray()) as (ChangelogEntry & { university?: University; club?: Club })[];
 
   changelogEntries.forEach((entry) => {
-    const university = entry.university?.[0];
-    const club = entry.club?.[0];
-
     activities.push({
       id: entry.id,
       type: 'changelog',
       createdAt: entry.createdAt,
       userId: entry.userId,
-      changelogAction: entry.action,
-      changelogDescription: `${entry.fieldInfo.field} - ${entry.action}`,
-      changelogTargetName: entry.type === 'university' ? university?.name : club?.name,
-      changelogTargetId: entry.targetId,
       changelogEntry: entry, // Store full entry for proper formatting
       universityId: entry.type === 'university' ? entry.targetId : undefined,
-      clubId: entry.type === 'club' ? entry.targetId : undefined
+      universityName: entry.type === 'university' ? entry.university?.name : undefined,
+      clubId: entry.type === 'club' ? entry.targetId : undefined,
+      clubName: entry.type === 'club' ? entry.club?.name : undefined
     });
   });
 
