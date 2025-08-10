@@ -58,6 +58,13 @@
       requiresSiteAdmin: false
     },
     {
+      id: 'posts',
+      label: m.admin_posts(),
+      icon: 'fa-file-lines',
+      href: `${base}/admin/posts`,
+      requiresSiteAdmin: false
+    },
+    {
       id: 'shops',
       label: m.admin_shops(),
       icon: 'fa-gamepad',

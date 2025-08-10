@@ -2,27 +2,44 @@
   import { m } from '$lib/paraglide/messages';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { fromPath } from '$lib/utils';
+  import { PostReadability } from '$lib/types';
 
   interface Props {
     isOpen: boolean;
     organizationType: 'university' | 'club';
     organizationId: string;
     organizationName: string;
+    organizationReadability?: PostReadability;
+    userCanEditReadability?: boolean;
     onClose: () => void;
     onSuccess?: (postId: string) => void;
   }
 
-  let { isOpen, organizationType, organizationId, organizationName, onClose, onSuccess }: Props =
-    $props();
+  let { 
+    isOpen, 
+    organizationType, 
+    organizationId, 
+    organizationName, 
+    organizationReadability,
+    userCanEditReadability = false,
+    onClose, 
+    onSuccess 
+  }: Props = $props();
 
   let title = $state('');
   let content = $state('');
+  let readability = $state<PostReadability>(
+    organizationReadability ?? 
+    (organizationType === 'club' ? PostReadability.CLUB_MEMBERS : PostReadability.PUBLIC)
+  );
   let isSubmitting = $state(false);
   let error = $state('');
 
   const reset = () => {
     title = '';
     content = '';
+    readability = organizationReadability ?? 
+      (organizationType === 'club' ? PostReadability.CLUB_MEMBERS : PostReadability.PUBLIC);
     error = '';
     isSubmitting = false;
   };
@@ -52,7 +69,8 @@
         },
         body: JSON.stringify({
           title: title.trim(),
-          content: content.trim()
+          content: content.trim(),
+          readability
         })
       });
 
@@ -130,6 +148,42 @@
             {title.length}/200
           </span>
         </label>
+      </div>
+
+      <!-- Readability selection -->
+      <div class="form-control mb-4">
+        <label class="label" for="post-readability">
+          <span class="label-text">{m.post_visibility()}</span>
+        </label>
+        <select
+          id="post-readability"
+          class="select select-bordered"
+          bind:value={readability}
+          disabled={isSubmitting || !userCanEditReadability}
+        >
+          <option value={PostReadability.PUBLIC}>
+            <i class="fa-solid fa-globe"></i>
+            {m.post_readability_public()}
+          </option>
+          <option value={PostReadability.UNIV_MEMBERS}>
+            <i class="fa-solid fa-university"></i>
+            {m.post_readability_university_members()}
+          </option>
+          {#if organizationType === 'club'}
+            <option value={PostReadability.CLUB_MEMBERS}>
+              <i class="fa-solid fa-users"></i>
+              {m.post_readability_club_members()}
+            </option>
+          {/if}
+        </select>
+        {#if !userCanEditReadability}
+          <label class="label">
+            <span class="label-text-alt text-warning">
+              <i class="fa-solid fa-info-circle"></i>
+              {m.post_readability_limited_by_org()}
+            </span>
+          </label>
+        {/if}
       </div>
 
       <!-- Content area -->

@@ -3,7 +3,14 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
 import { type Post, type PostWithAuthor, type University, PostReadability } from '$lib/types';
-import { postId, checkUniversityPermission, canWriteUnivPosts } from '$lib/utils';
+import { 
+  postId, 
+  checkUniversityPermission, 
+  canWriteUnivPosts, 
+  getDefaultPostReadability,
+  validatePostReadability,
+  canReadPost
+} from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -28,26 +35,9 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       return json({ error: 'University not found' }, { status: 404 });
     }
 
-    // Check post readability permissions
-    const postReadability = university.postReadability ?? PostReadability.PUBLIC;
-    let canReadPosts = true;
-
-    if (postReadability === PostReadability.UNIV_MEMBERS) {
-      if (!session?.user?.id) {
-        canReadPosts = false;
-      } else {
-        const permissions = await checkUniversityPermission(session.user, university, client);
-        // For universities, user is member if role is not empty
-        canReadPosts = !!permissions.role;
-      }
-    }
-
-    if (!canReadPosts) {
-      return json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    // Get posts for this university
-    const posts = await postsCollection
+    // Check post readability permissions - now using post-level readability
+    // Get posts and filter based on individual post readability
+    const allPosts = await postsCollection
       .aggregate<PostWithAuthor>([
         {
           $match: { universityId: university.id }
@@ -76,16 +66,27 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
         },
         {
           $sort: { isPinned: -1, createdAt: -1 }
-        },
-        { $skip: skip },
-        { $limit: PAGINATION.PAGE_SIZE + 1 }
+        }
       ])
       .toArray();
 
-    const hasMore = posts.length > PAGINATION.PAGE_SIZE;
-    if (hasMore) {
-      posts.pop(); // Remove extra item used for hasMore check
+    // Filter posts based on readability permissions
+    const readablePosts: PostWithAuthor[] = [];
+    for (const post of allPosts) {
+      const canRead = await canReadPost(
+        post.readability,
+        { universityId: post.universityId, clubId: post.clubId },
+        session?.user,
+        client
+      );
+      if (canRead) {
+        readablePosts.push(post);
+      }
     }
+
+    // Apply pagination after filtering
+    const hasMore = readablePosts.length > skip + PAGINATION.PAGE_SIZE;
+    const posts = readablePosts.slice(skip, skip + PAGINATION.PAGE_SIZE);
 
     return json({
       posts,
@@ -110,7 +111,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid university ID' }, { status: 400 });
     }
 
-    const { title, content } = (await request.json()) as { title: string; content: string };
+    const { title, content, readability } = (await request.json()) as { 
+      title: string; 
+      content: string;
+      readability?: PostReadability;
+    };
     if (!title || !content) {
       return json({ error: 'Title and content are required' }, { status: 400 });
     }
@@ -134,6 +139,23 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Permission denied' }, { status: 403 });
     }
 
+    // Determine post readability
+    const orgReadability = university.postReadability ?? PostReadability.PUBLIC;
+    let postReadability: PostReadability;
+
+    if (readability !== undefined) {
+      // Validate if user can set this readability level
+      if (!validatePostReadability(readability, orgReadability, permissions, session.user.userType)) {
+        return json({ 
+          error: 'Cannot set post readability more open than organization setting' 
+        }, { status: 403 });
+      }
+      postReadability = readability;
+    } else {
+      // Use default readability
+      postReadability = getDefaultPostReadability(orgReadability, 'university');
+    }
+
     // Create new post
     const newPost: Post = {
       id: postId(),
@@ -146,7 +168,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       downvotes: 0,
       commentCount: 0,
       isPinned: false,
-      isLocked: false
+      isLocked: false,
+      readability: postReadability
     };
 
     await postsCollection.insertOne(newPost);

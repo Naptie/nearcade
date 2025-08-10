@@ -1,7 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import { type PostWithAuthor, type CommentWithAuthorAndVote, PostWritability } from '$lib/types';
+  import { type PostWithAuthor, type CommentWithAuthorAndVote, PostWritability, PostReadability } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
@@ -24,6 +24,8 @@
     organizationId: string;
     canJoinOrganization: boolean;
     postWritability?: PostWritability;
+    organizationReadability?: PostReadability;
+    userCanEditReadability?: boolean;
     canManage?: boolean; // User can pin/unpin, lock/unlock posts
     canEdit?: boolean; // User can edit/delete posts
     canComment?: boolean; // User can comment on posts
@@ -42,6 +44,8 @@
     postWritability = organizationType === 'university'
       ? PostWritability.UNIV_MEMBERS
       : PostWritability.CLUB_MEMBERS,
+    organizationReadability,
+    userCanEditReadability = false,
     canManage = false,
     canEdit = false,
     canComment: canCommentGeneral = false
@@ -61,6 +65,7 @@
   let isEditingPost = $state(false);
   let editTitle = $state(post.title);
   let editContent = $state(post.content);
+  let editReadability = $state(post.readability);
   let isSavingPost = $state(false);
   let showDeletePostConfirm = $state(false);
   let showDeleteCommentConfirm = $state(false);
@@ -328,6 +333,7 @@
     isEditingPost = true;
     editTitle = localPost.title;
     editContent = localPost.content;
+    editReadability = localPost.readability;
     showManageMenu = false;
   };
 
@@ -335,6 +341,7 @@
     isEditingPost = false;
     editTitle = localPost.title;
     editContent = localPost.content;
+    editReadability = localPost.readability;
   };
 
   const savePostEdit = async () => {
@@ -349,7 +356,8 @@
         },
         body: JSON.stringify({
           title: editTitle.trim(),
-          content: editContent.trim()
+          content: editContent.trim(),
+          readability: editReadability
         })
       });
 
@@ -358,6 +366,7 @@
           ...localPost,
           title: editTitle.trim(),
           content: editContent.trim(),
+          readability: editReadability,
           updatedAt: new Date()
         };
         isEditingPost = false;
@@ -518,6 +527,42 @@
               disabled={isSavingPost}
               maxlength="200"
             />
+          </div>
+          
+          <!-- Readability selection -->
+          <div class="form-control mb-4">
+            <label class="label" for="edit-post-readability">
+              <span class="label-text">{m.post_visibility()}</span>
+            </label>
+            <select
+              id="edit-post-readability"
+              class="select select-bordered"
+              bind:value={editReadability}
+              disabled={isSavingPost || !userCanEditReadability}
+            >
+              <option value={PostReadability.PUBLIC}>
+                <i class="fa-solid fa-globe"></i>
+                {m.post_readability_public()}
+              </option>
+              <option value={PostReadability.UNIV_MEMBERS}>
+                <i class="fa-solid fa-university"></i>
+                {m.post_readability_university_members()}
+              </option>
+              {#if organizationType === 'club'}
+                <option value={PostReadability.CLUB_MEMBERS}>
+                  <i class="fa-solid fa-users"></i>
+                  {m.post_readability_club_members()}
+                </option>
+              {/if}
+            </select>
+            {#if !userCanEditReadability}
+              <label class="label">
+                <span class="label-text-alt text-warning">
+                  <i class="fa-solid fa-info-circle"></i>
+                  {m.post_readability_limited_by_org()}
+                </span>
+              </label>
+            {/if}
           </div>
         {:else}
           <h1 class="mb-4 text-3xl font-bold md:text-4xl">{localPost.title}</h1>

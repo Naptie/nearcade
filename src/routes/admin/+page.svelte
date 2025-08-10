@@ -83,6 +83,27 @@
         </div>
       {/if}
 
+      <!-- Total Posts -->
+      {#if data.stats.totalPosts !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.admin_posts()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.totalPosts}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+              <i class="fa-solid fa-file-lines text-lg text-blue-600"></i>
+            </div>
+          </div>
+          {#if data.recentActivity?.newPosts !== undefined}
+            <div class="mt-4 flex items-center text-sm">
+              <span class="font-medium text-green-600">+{data.recentActivity.newPosts}</span>
+              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
       <!-- Total Shops (site admin only) -->
       {#if data.stats.totalShops !== undefined}
         <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">

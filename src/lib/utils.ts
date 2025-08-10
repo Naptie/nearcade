@@ -14,7 +14,8 @@ import {
   type UserType,
   type Club,
   type University,
-  PostWritability
+  PostWritability,
+  PostReadability
 } from './types';
 import { ROUTE_CACHE_STORE } from './constants';
 import { env } from '$env/dynamic/public';
@@ -740,4 +741,95 @@ export const canWriteClubPosts = async (
   }
 
   return canWritePosts;
+};
+
+/**
+ * Validates if a user can set a specific readability level for a post
+ * Regular users cannot set readability more open than the organization's postReadability setting
+ * Site admins and organization admins/mods can set any level
+ */
+export const validatePostReadability = (
+  requestedReadability: PostReadability,
+  organizationReadability: PostReadability,
+  userPermissions: { canEdit: boolean; role?: string },
+  userType?: string | null
+): boolean => {
+  // Site admins can set any readability level
+  if (userType === 'site_admin') {
+    return true;
+  }
+
+  // Organization admins and moderators can set any level within their org
+  if (userPermissions.canEdit) {
+    return true;
+  }
+
+  // Regular users cannot set readability more open (lower value) than org setting
+  return requestedReadability >= organizationReadability;
+};
+
+/**
+ * Gets the default readability level for a new post based on organization settings
+ */
+export const getDefaultPostReadability = (
+  organizationReadability: PostReadability,
+  organizationType: 'university' | 'club'
+): PostReadability => {
+  // For universities, default to org setting or PUBLIC
+  if (organizationType === 'university') {
+    return organizationReadability ?? PostReadability.PUBLIC;
+  }
+  
+  // For clubs, default to org setting or CLUB_MEMBERS
+  return organizationReadability ?? PostReadability.CLUB_MEMBERS;
+};
+
+/**
+ * Checks if a user can read a post based on its readability setting
+ */
+export const canReadPost = async (
+  postReadability: PostReadability,
+  post: { universityId?: string; clubId?: string },
+  user: User | undefined,
+  client: MongoClient
+): Promise<boolean> => {
+  // PUBLIC posts can be read by anyone
+  if (postReadability === PostReadability.PUBLIC) {
+    return true;
+  }
+
+  // If no user, can't read protected posts
+  if (!user?.id) {
+    return false;
+  }
+
+  // For UNIV_MEMBERS readability
+  if (postReadability === PostReadability.UNIV_MEMBERS) {
+    if (post.universityId) {
+      // Check if user is university member
+      const permissions = await checkUniversityPermission(user, post.universityId, client);
+      return !!permissions.role;
+    } else if (post.clubId) {
+      // For club posts with UNIV_MEMBERS readability, check university membership
+      const db = client.db();
+      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+      if (club) {
+        const permissions = await checkUniversityPermission(user, club.universityId, client);
+        return !!permissions.role;
+      }
+    }
+    return false;
+  }
+
+  // For CLUB_MEMBERS readability
+  if (postReadability === PostReadability.CLUB_MEMBERS) {
+    if (post.clubId) {
+      // Check if user is club member
+      const permissions = await checkClubPermission(user, post.clubId, client);
+      return !!permissions.role;
+    }
+    return false;
+  }
+
+  return false;
 };

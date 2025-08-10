@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ locals }) => {
         totalUsers: await db.collection('users').countDocuments(),
         totalUniversities: await db.collection('universities').countDocuments(),
         totalClubs: await db.collection('clubs').countDocuments(),
+        totalPosts: await db.collection('posts').countDocuments(),
         totalShops: await db.collection('shops').countDocuments(),
         totalInvites: await db.collection('invite_links').countDocuments(),
         pendingJoinRequests: await db
@@ -36,6 +37,9 @@ export const load: PageServerLoad = async ({ locals }) => {
           joinedAt: { $gte: oneWeekAgo }
         }),
         newClubs: await db.collection('clubs').countDocuments({
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        newPosts: await db.collection('posts').countDocuments({
           createdAt: { $gte: oneWeekAgo }
         }),
         newInvites: await db.collection('invite_links').countDocuments({
@@ -98,21 +102,40 @@ export const load: PageServerLoad = async ({ locals }) => {
         status: 'pending'
       };
 
+      // Build post filter for posts user can manage
+      const postOrConditions: object[] = [];
+      if (managedUniversityIds.length > 0) {
+        postOrConditions.push({ universityId: { $in: managedUniversityIds } });
+      }
+      if (managedClubIds.length > 0) {
+        postOrConditions.push({ clubId: { $in: managedClubIds } });
+      }
+      const postFilter = postOrConditions.length > 0 
+        ? { $or: postOrConditions } 
+        : { _nonExistentField: true };
+
       const [
         totalUniversities,
         totalClubs,
+        totalPosts,
         totalInvites,
         pendingJoinRequests,
         newClubs,
+        newPosts,
         newInvites,
         newJoinRequests
       ] = await Promise.all([
         db.collection('universities').countDocuments(universityFilter),
         db.collection('clubs').countDocuments(clubFilter),
+        db.collection('posts').countDocuments(postFilter),
         db.collection('invite_links').countDocuments(inviteFilter),
         db.collection('join_requests').countDocuments(joinRequestFilter),
         db.collection('clubs').countDocuments({
           ...clubFilter,
+          createdAt: { $gte: oneWeekAgo }
+        }),
+        db.collection('posts').countDocuments({
+          ...postFilter,
           createdAt: { $gte: oneWeekAgo }
         }),
         db.collection('invite_links').countDocuments({
@@ -128,12 +151,14 @@ export const load: PageServerLoad = async ({ locals }) => {
       stats = {
         totalUniversities,
         totalClubs,
+        totalPosts,
         totalInvites,
         pendingJoinRequests
       };
 
       recentActivity = {
         newClubs,
+        newPosts,
         newInvites,
         newJoinRequests
       };

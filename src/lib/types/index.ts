@@ -354,6 +354,8 @@ export interface Post {
   // Moderation
   isPinned: boolean;
   isLocked: boolean;
+  // Post visibility setting
+  readability: PostReadability; // Required - determines who can read this specific post
 }
 
 // Composite type with author data joined
