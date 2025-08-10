@@ -9,7 +9,8 @@ import type {
   Club,
   University,
   UniversityMember,
-  ClubMember
+  ClubMember,
+  PostReadability
 } from './types';
 import type { User } from '@auth/sveltekit';
 import { getDisplayName } from './utils';
@@ -53,6 +54,19 @@ export async function getUserActivities(
   // Check if university-related activities should be included (default: true)
   const includeUniversityActivities = user.isUniversityPublic !== false;
 
+  // Helper function to check if an activity involving a post should be included
+  // based on the user's privacy settings and post readability
+  const shouldIncludePostActivity = (post: Post | undefined): boolean => {
+    if (!post) return false;
+    
+    // If user allows university activities to be public, include all posts
+    if (includeUniversityActivities) return true;
+    
+    // If user has privacy enabled, only include PUBLIC posts
+    // This prevents leaking membership information through post interactions
+    return post.readability === PostReadability.PUBLIC;
+  };
+
   // Fetch posts
   const posts = (await db
     .collection<Post>('posts')
@@ -80,18 +94,21 @@ export async function getUserActivities(
     .toArray()) as (Post & { university?: University[]; club?: Club[] })[];
 
   posts.forEach((post) => {
-    activities.push({
-      id: post.id,
-      type: 'post',
-      createdAt: post.createdAt,
-      userId: post.createdBy,
-      postTitle: post.title,
-      postId: post.id,
-      universityId: post.universityId,
-      clubId: post.clubId,
-      universityName: post.university?.[0]?.name,
-      clubName: post.club?.[0]?.name
-    });
+    // Only include this post activity if it passes the privacy check
+    if (shouldIncludePostActivity(post)) {
+      activities.push({
+        id: post.id,
+        type: 'post',
+        createdAt: post.createdAt,
+        userId: post.createdBy,
+        postTitle: post.title,
+        postId: post.id,
+        universityId: post.universityId,
+        clubId: post.clubId,
+        universityName: post.university?.[0]?.name,
+        clubName: post.club?.[0]?.name
+      });
+    }
   });
 
   // Fetch comments
@@ -154,24 +171,28 @@ export async function getUserActivities(
     const post = comment.post?.[0];
     const parentCommentAuthor = comment.parentCommentAuthor?.[0];
     const isReply = !!comment.parentCommentId;
-    activities.push({
-      id: comment.id,
-      type: isReply ? 'reply' : 'comment',
-      createdAt: comment.createdAt,
-      userId: comment.createdBy,
-      commentContent: comment.content.substring(0, 100),
-      commentId: comment.id,
-      parentCommentId: comment.parentCommentId,
-      parentPostTitle: post?.title,
-      postId: post?.id,
-      universityId: post?.universityId,
-      clubId: post?.clubId,
-      universityName: comment.university?.[0]?.name,
-      clubName: comment.club?.[0]?.name,
-      // For replies, store the parent comment author in targetAuthorName (reusing this field)
-      targetAuthorName: parentCommentAuthor?.name || undefined,
-      targetAuthorDisplayName: isReply ? getDisplayName(parentCommentAuthor) : undefined
-    });
+    
+    // Only include this comment activity if the associated post passes the privacy check
+    if (shouldIncludePostActivity(post)) {
+      activities.push({
+        id: comment.id,
+        type: isReply ? 'reply' : 'comment',
+        createdAt: comment.createdAt,
+        userId: comment.createdBy,
+        commentContent: comment.content.substring(0, 100),
+        commentId: comment.id,
+        parentCommentId: comment.parentCommentId,
+        parentPostTitle: post?.title,
+        postId: post?.id,
+        universityId: post?.universityId,
+        clubId: post?.clubId,
+        universityName: comment.university?.[0]?.name,
+        clubName: comment.club?.[0]?.name,
+        // For replies, store the parent comment author in targetAuthorName (reusing this field)
+        targetAuthorName: parentCommentAuthor?.name || undefined,
+        targetAuthorDisplayName: isReply ? getDisplayName(parentCommentAuthor) : undefined
+      });
+    }
   });
 
   // Fetch post votes
@@ -210,21 +231,25 @@ export async function getUserActivities(
 
   postVotes.forEach((vote) => {
     const post = vote.post?.[0];
-    activities.push({
-      id: vote.id,
-      type: 'post_vote',
-      createdAt: vote.createdAt,
-      userId: vote.userId,
-      voteType: vote.voteType,
-      targetType: 'post',
-      targetTitle: post?.title,
-      targetId: vote.postId,
-      postId: vote.postId,
-      universityId: post?.universityId,
-      clubId: post?.clubId,
-      universityName: vote.university?.[0]?.name,
-      clubName: vote.club?.[0]?.name
-    });
+    
+    // Only include this post vote activity if the associated post passes the privacy check
+    if (shouldIncludePostActivity(post)) {
+      activities.push({
+        id: vote.id,
+        type: 'post_vote',
+        createdAt: vote.createdAt,
+        userId: vote.userId,
+        voteType: vote.voteType,
+        targetType: 'post',
+        targetTitle: post?.title,
+        targetId: vote.postId,
+        postId: vote.postId,
+        universityId: post?.universityId,
+        clubId: post?.clubId,
+        universityName: vote.university?.[0]?.name,
+        clubName: vote.club?.[0]?.name
+      });
+    }
   });
 
   // Fetch comment votes
@@ -289,25 +314,28 @@ export async function getUserActivities(
     const commentAuthor = vote.commentAuthor?.[0];
     const isReplyVote = !!comment?.parentCommentId;
 
-    activities.push({
-      id: vote.id,
-      type: 'comment_vote',
-      createdAt: vote.createdAt,
-      userId: vote.userId,
-      voteType: vote.voteType,
-      targetType: isReplyVote ? 'reply' : 'comment',
-      targetTitle: post?.title,
-      targetId: vote.commentId,
-      targetAuthorName: commentAuthor?.name || undefined,
-      targetAuthorDisplayName: getDisplayName(commentAuthor),
-      commentId: vote.commentId,
-      parentCommentId: comment?.parentCommentId,
-      postId: post?.id,
-      universityId: post?.universityId,
-      clubId: post?.clubId,
-      universityName: vote.university?.[0]?.name,
-      clubName: vote.club?.[0]?.name
-    });
+    // Only include this comment vote activity if the associated post passes the privacy check
+    if (shouldIncludePostActivity(post)) {
+      activities.push({
+        id: vote.id,
+        type: 'comment_vote',
+        createdAt: vote.createdAt,
+        userId: vote.userId,
+        voteType: vote.voteType,
+        targetType: isReplyVote ? 'reply' : 'comment',
+        targetTitle: post?.title,
+        targetId: vote.commentId,
+        targetAuthorName: commentAuthor?.name || undefined,
+        targetAuthorDisplayName: getDisplayName(commentAuthor),
+        commentId: vote.commentId,
+        parentCommentId: comment?.parentCommentId,
+        postId: post?.id,
+        universityId: post?.universityId,
+        clubId: post?.clubId,
+        universityName: vote.university?.[0]?.name,
+        clubName: vote.club?.[0]?.name
+      });
+    }
   });
 
   // Fetch changelog entries

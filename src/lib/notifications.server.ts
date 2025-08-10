@@ -7,14 +7,15 @@ import type {
   University,
   Club,
   ClubMember,
-  UniversityMember
+  UniversityMember,
+  JoinRequest
 } from './types';
 import type { User } from '@auth/sveltekit';
 
 export interface Notification {
   _id?: string;
   id: string;
-  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES';
+  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS';
   actorUserId: string;
   actorName: string;
   actorDisplayName?: string;
@@ -28,6 +29,12 @@ export interface Notification {
   commentId?: string;
   commentContent?: string;
   voteType?: 'upvote' | 'downvote';
+
+  // Join request details
+  joinRequestId?: string;
+  joinRequestStatus?: 'approved' | 'rejected';
+  joinRequestNote?: string;
+  joinRequestType?: 'university' | 'club';
 
   // Navigation
   universityId?: string;
@@ -65,7 +72,8 @@ export async function getUserNotifications(
     'COMMENTS',
     'REPLIES',
     'POST_VOTES',
-    'COMMENT_VOTES'
+    'COMMENT_VOTES',
+    'JOIN_REQUESTS'
   ];
 
   if (notificationTypes.length === 0) {
@@ -364,6 +372,80 @@ export async function getUserNotifications(
     });
   }
 
+  // Join request reviews
+  if (notificationTypes.includes('JOIN_REQUESTS')) {
+    const joinRequestReviews = (await db
+      .collection<JoinRequest>('join_requests')
+      .aggregate([
+        {
+          $match: {
+            userId: user.id,
+            status: { $in: ['approved', 'rejected'] },
+            reviewedAt: { $ne: null },
+            ...(readAfter ? { reviewedAt: { $gt: readAfter } } : {})
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'reviewedBy',
+            foreignField: 'id',
+            as: 'reviewer'
+          }
+        },
+        {
+          $lookup: {
+            from: 'universities',
+            localField: 'targetId',
+            foreignField: 'id',
+            as: 'university'
+          }
+        },
+        {
+          $lookup: {
+            from: 'clubs',
+            localField: 'targetId',
+            foreignField: 'id',
+            as: 'club'
+          }
+        },
+        { $sort: { reviewedAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (JoinRequest & {
+      reviewer?: User[];
+      university?: University[];
+      club?: Club[];
+    })[];
+
+    joinRequestReviews.forEach((joinRequest) => {
+      const reviewer = joinRequest.reviewer?.[0];
+      const university = joinRequest.university?.[0];
+      const club = joinRequest.club?.[0];
+
+      if (reviewer && joinRequest.reviewedAt) {
+        notifications.push({
+          id: `join-request-${joinRequest.id}`,
+          type: 'JOIN_REQUESTS',
+          actorUserId: reviewer.id || '',
+          actorName: reviewer.name || '',
+          actorDisplayName: reviewer.displayName || undefined,
+          actorImage: reviewer.image || undefined,
+          targetUserId: user.id || '',
+          createdAt: joinRequest.reviewedAt,
+          joinRequestId: joinRequest.id,
+          joinRequestStatus: joinRequest.status as 'approved' | 'rejected',
+          joinRequestNote: joinRequest.reviewNote || undefined,
+          joinRequestType: joinRequest.type,
+          universityId: joinRequest.type === 'university' ? joinRequest.targetId : club?.universityId,
+          clubId: joinRequest.type === 'club' ? joinRequest.targetId : undefined,
+          universityName: university?.name || (joinRequest.type === 'club' ? club?.universityId : undefined),
+          clubName: club?.name
+        });
+      }
+    });
+  }
+
   // Sort all notifications by creation time and apply pagination
   notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   return notifications.slice(offset, offset + limit);
@@ -399,7 +481,8 @@ export async function countUserNotifications(
     'COMMENTS',
     'REPLIES',
     'POST_VOTES',
-    'COMMENT_VOTES'
+    'COMMENT_VOTES',
+    'JOIN_REQUESTS'
   ];
 
   if (notificationTypes.length === 0) {
@@ -490,6 +573,16 @@ export async function countUserNotifications(
       ])
       .toArray();
     count += commentVotesCount[0]?.total || 0;
+  }
+
+  // JOIN_REQUESTS
+  if (notificationTypes.includes('JOIN_REQUESTS')) {
+    count += await db.collection<JoinRequest>('join_requests').countDocuments({
+      userId: user.id,
+      status: { $in: ['approved', 'rejected'] },
+      reviewedAt: { $ne: null },
+      ...(readAfter ? { reviewedAt: { $gt: readAfter } } : {})
+    });
   }
 
   return count;
