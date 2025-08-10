@@ -10,6 +10,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
+  import BackToTopButton from './BackToTopButton.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
@@ -423,6 +424,8 @@
   <title>{post.title} - {organizationName} - {m.app_name()}</title>
   <meta name="description" content={post.content.substring(0, 200)} />
 </svelte:head>
+
+<BackToTopButton />
 
 {#if componentMounted}
   <div class="mx-auto {isEditingPost ? 'max-w-full' : 'max-w-6xl'} pt-20 pb-4 sm:px-4">
