@@ -1,10 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
-import type { University, UniversityMember, Shop, Activity } from '$lib/types';
+import type { University, UniversityMember, Shop } from '$lib/types';
 import client from '$lib/db.server';
 import { toPlainArray } from '$lib/utils';
-import { getUserActivities } from '$lib/activity.server';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const session = await locals.auth();
@@ -81,17 +80,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       }
     }
 
-    // Get recent activities
-    let activities: Activity[] = [];
-    if ((isOwnProfile || user.isEmailPublic) && user.id) {
-      try {
-        activities = await getUserActivities(client, user.id, 15);
-      } catch (err) {
-        console.error('Error fetching user activities:', err);
-        // Don't fail the entire page load if activities fail
-        activities = [];
-      }
-    }
+    // Get recent activities - now handled by API endpoint
+    // const canViewActivities = isOwnProfile || user.isActivityPublic !== false;
 
     return {
       user: {
@@ -106,15 +96,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         // Only show full data if viewing own profile or if public
         email: isOwnProfile || user.isEmailPublic ? user.email : null,
         frequentingArcades: toPlainArray(frequentingArcades),
-        starredArcades: toPlainArray(starredArcades)
+        starredArcades: toPlainArray(starredArcades),
+        isActivityPublic: user.isActivityPublic
       },
       frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,
       starredArcadesCount: user.starredArcades ? user.starredArcades.length : 0,
       universityMembershipCount,
       clubMembershipCount,
       university,
-      isOwnProfile,
-      activities: toPlainArray(activities)
+      isOwnProfile
     };
   } catch (err) {
     console.error('Error loading user profile:', err);

@@ -8,6 +8,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { enUS, zhCN } from 'date-fns/locale';
   import { fromPath } from '$lib/utils';
+  import { page } from '$app/stores';
 
   // Create a wrapper for the messages to match our expected type
   const createMessagesWrapper = () => {
@@ -39,8 +40,12 @@
   let hasMore = $state(true);
   let currentPage = $state(1);
   let error = $state<string | null>(null);
+  let entryElements: Record<string, HTMLElement> = {};
 
   const ITEMS_PER_PAGE = 20;
+
+  // Get the highlighted entry ID from URL params
+  const highlightedEntryId = $derived($page.url.searchParams.get('entry'));
 
   const loadChangelogEntries = async (page = 1, append = false) => {
     const isInitialLoad = page === 1;
@@ -127,7 +132,19 @@
   };
 
   onMount(() => {
-    loadChangelogEntries();
+    loadChangelogEntries().then(() => {
+      // Handle highlighting of specific entry
+      if (highlightedEntryId && entryElements[highlightedEntryId]) {
+        setTimeout(() => {
+          const element = entryElements[highlightedEntryId];
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('bg-primary/20');
+          setTimeout(() => {
+            element.classList.remove('bg-primary/20');
+          }, 2000);
+        }, 100);
+      }
+    });
   });
 </script>
 
@@ -156,7 +173,13 @@
   {:else}
     <div class="divide-base-200 divide-y">
       {#each entries as entry (entry.id)}
-        <div class="hover:bg-base-50 p-4 transition-colors">
+        <div
+          bind:this={entryElements[entry.id]}
+          class="hover:bg-base-50 p-4 transition-colors {highlightedEntryId === entry.id
+            ? 'bg-primary/10'
+            : ''}"
+          id="entry-{entry.id}"
+        >
           <div class="flex gap-3">
             <!-- Action icon -->
             <div class="flex-shrink-0">

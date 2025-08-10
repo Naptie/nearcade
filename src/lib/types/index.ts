@@ -409,7 +409,7 @@ export interface CommentVote {
 export interface Activity {
   _id?: string | ObjectId;
   id: string;
-  type: 'post' | 'comment' | 'post_vote' | 'comment_vote' | 'changelog';
+  type: 'post' | 'comment' | 'reply' | 'post_vote' | 'comment_vote' | 'changelog';
   createdAt: Date;
   userId: string;
 
@@ -424,11 +424,12 @@ export interface Activity {
   // Comment activity
   commentContent?: string;
   commentId?: string;
+  parentCommentId?: string;
   parentPostTitle?: string;
 
   // Vote activity
   voteType?: 'upvote' | 'downvote';
-  targetType?: 'post' | 'comment';
+  targetType?: 'post' | 'comment' | 'reply';
   targetTitle?: string;
   targetAuthorName?: string;
   targetId?: string;

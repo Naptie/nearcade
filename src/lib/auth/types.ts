@@ -1,6 +1,8 @@
 import type { UserType } from '$lib/types';
 import type { ObjectId } from 'mongodb';
 
+export type NotificationType = 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES';
+
 declare module '@auth/sveltekit' {
   export interface User {
     _id?: string | ObjectId;
@@ -18,5 +20,7 @@ declare module '@auth/sveltekit' {
     isUniversityPublic?: boolean;
     isFrequentingArcadePublic?: boolean;
     isStarredArcadePublic?: boolean;
+    notificationReadAt?: Date;
+    notificationTypes?: NotificationType[];
   }
 }

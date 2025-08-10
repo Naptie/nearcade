@@ -7,6 +7,7 @@
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
   import type { PageData } from './$types';
+  import type { Activity } from '$lib/types';
   import { formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
   import { onMount } from 'svelte';
@@ -18,11 +19,68 @@
 
   let radius = $state(10);
 
+  // Activity loading state
+  let activities = $state<Activity[]>([]);
+  let isLoadingActivities = $state(true);
+  let isLoadingMoreActivities = $state(false);
+  let hasMoreActivities = $state(true);
+  let activitiesPage = $state(1);
+  let activitiesError = $state<string | null>(null);
+
+  // Check if can view activities
+  const canViewActivities = $derived(data.isOwnProfile || data.user.isActivityPublic !== false);
+
+  const loadActivities = async (page = 1, append = false) => {
+    if (!canViewActivities) return;
+
+    const isInitialLoad = page === 1;
+    if (isInitialLoad) {
+      isLoadingActivities = true;
+      activitiesError = null;
+    } else {
+      isLoadingMoreActivities = true;
+    }
+
+    try {
+      const userId = data.user.name ? `@${data.user.name}` : data.user.id;
+      const response = await fetch(`${base}/api/users/${userId}/activities?page=${page}&limit=20`);
+
+      if (!response.ok) {
+        throw new Error('Failed to load activities');
+      }
+
+      const result = await response.json();
+
+      if (append) {
+        activities = [...activities, ...result.activities];
+      } else {
+        activities = result.activities;
+      }
+
+      hasMoreActivities = result.hasMore;
+      activitiesPage = page;
+    } catch (err) {
+      console.error('Error loading activities:', err);
+      activitiesError = err instanceof Error ? err.message : 'Failed to load activities';
+    } finally {
+      isLoadingActivities = false;
+      isLoadingMoreActivities = false;
+    }
+  };
+
+  const loadMoreActivities = async () => {
+    if (!hasMoreActivities || isLoadingMoreActivities) return;
+    await loadActivities(activitiesPage + 1, true);
+  };
+
   onMount(() => {
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
       radius = parseInt(savedRadius);
     }
+
+    // Load activities when component mounts
+    loadActivities();
   });
 </script>
 
@@ -134,12 +192,47 @@
             <i class="fa-solid fa-clock-rotate-left"></i>
             {m.recent_activity()}
           </h3>
-          {#if data.activities && data.activities.length > 0}
+
+          {#if !canViewActivities}
+            <div class="text-base-content/60 py-8 text-center">
+              <i class="fa-solid fa-lock mb-2 text-3xl"></i>
+              <p>{m.activities_are_private()}</p>
+            </div>
+          {:else if isLoadingActivities}
+            <div class="text-base-content/60 py-8 text-center">
+              <span class="loading loading-spinner loading-lg"></span>
+              <p class="mt-2">{m.loading()}</p>
+            </div>
+          {:else if activitiesError}
+            <div class="text-base-content/60 py-8 text-center">
+              <i class="fa-solid fa-exclamation-triangle text-error mb-2 text-3xl"></i>
+              <p>{activitiesError}</p>
+              <button class="btn btn-sm btn-outline mt-4" onclick={() => loadActivities()}>
+                {m.try_again()}
+              </button>
+            </div>
+          {:else if activities.length > 0}
             <div class="space-y-2">
-              {#each data.activities as activity (activity.id)}
+              {#each activities as activity (activity.id)}
                 <ActivityItem {activity} />
               {/each}
             </div>
+
+            <!-- Load More Button -->
+            {#if hasMoreActivities}
+              <div class="mt-6 text-center">
+                <button
+                  class="btn btn-outline"
+                  onclick={loadMoreActivities}
+                  disabled={isLoadingMoreActivities}
+                >
+                  {#if isLoadingMoreActivities}
+                    <span class="loading loading-spinner loading-sm"></span>
+                  {/if}
+                  {m.load_more()}
+                </button>
+              </div>
+            {/if}
           {:else}
             <div class="text-base-content/60 py-8 text-center">
               <i class="fa-solid fa-clock-rotate-left mb-2 text-3xl"></i>

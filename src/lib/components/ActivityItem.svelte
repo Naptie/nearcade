@@ -19,6 +19,8 @@
         return 'fa-solid fa-pen-to-square';
       case 'comment':
         return 'fa-solid fa-comment';
+      case 'reply':
+        return 'fa-solid fa-reply';
       case 'post_vote':
       case 'comment_vote':
         return activity.voteType === 'upvote'
@@ -37,6 +39,10 @@
         return m.activity_created_post();
       case 'comment':
         return m.activity_commented_on();
+      case 'reply':
+        return m.activity_replied_to({
+          authorName: activity.targetAuthorName || m.anonymous_user()
+        });
       case 'post_vote':
         return activity.voteType === 'upvote'
           ? m.activity_upvoted_post()
@@ -69,6 +75,7 @@
         return '#';
 
       case 'comment':
+      case 'reply':
         if (activity.universityId) {
           return `${baseUrl}/universities/${activity.universityId}/posts/${activity.postId}?comment=${activity.commentId}`;
         } else if (activity.clubId) {
@@ -108,6 +115,7 @@
       case 'post':
         return activity.postTitle || '';
       case 'comment':
+      case 'reply':
         return activity.parentPostTitle || '';
       case 'post_vote':
       case 'comment_vote':
@@ -162,8 +170,8 @@
         </div>
       {/if}
 
-      <!-- Activity Preview for Comments -->
-      {#if activity.type === 'comment' && activity.commentContent}
+      <!-- Activity Preview for Comments and Replies -->
+      {#if (activity.type === 'comment' || activity.type === 'reply') && activity.commentContent}
         <div class="text-base-content/60 truncate text-xs italic">
           "{activity.commentContent}{activity.commentContent.length >= 100 ? '...' : ''}"
         </div>

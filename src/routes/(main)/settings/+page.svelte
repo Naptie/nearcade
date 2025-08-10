@@ -15,9 +15,33 @@
   let bio = $state(data.userProfile?.bio || '');
   let username = $state(data.userProfile?.name || '');
   let isEmailPublic = $state(data.userProfile?.isEmailPublic || false);
+  let isActivityPublic = $state(data.userProfile?.isActivityPublic !== false);
+  let isFootprintPublic = $state(data.userProfile?.isFootprintPublic !== false);
   let isUniversityPublic = $state(data.userProfile?.isUniversityPublic !== false);
   let isFrequentingArcadePublic = $state(data.userProfile?.isFrequentingArcadePublic || false);
   let isStarredArcadePublic = $state(data.userProfile?.isStarredArcadePublic || false);
+
+  // Notification settings
+  let notificationTypeComments = $state(
+    data.userProfile?.notificationTypes
+      ? data.userProfile.notificationTypes.includes('COMMENTS')
+      : true
+  );
+  let notificationTypeReplies = $state(
+    data.userProfile?.notificationTypes
+      ? data.userProfile.notificationTypes.includes('REPLIES')
+      : true
+  );
+  let notificationTypePostVotes = $state(
+    data.userProfile?.notificationTypes
+      ? data.userProfile.notificationTypes.includes('POST_VOTES')
+      : true
+  );
+  let notificationTypeCommentVotes = $state(
+    data.userProfile?.notificationTypes
+      ? data.userProfile.notificationTypes.includes('COMMENT_VOTES')
+      : true
+  );
 
   // Reset form data when form errors occur (preserve user input)
   $effect(() => {
@@ -27,17 +51,28 @@
         bio?: string;
         username?: string;
         isEmailPublic?: boolean;
+        isActivityPublic?: boolean;
+        isFootprintPublic?: boolean;
         isUniversityPublic?: boolean;
         isFrequentingArcadePublic?: boolean;
         isStarredArcadePublic?: boolean;
+        notificationTypes?: string[];
       };
       displayName = formData.displayName || '';
       bio = formData.bio || '';
       username = formData.username || '';
       isEmailPublic = formData.isEmailPublic || false;
+      isActivityPublic = formData.isActivityPublic !== false;
+      isFootprintPublic = formData.isFootprintPublic !== false;
       isUniversityPublic = formData.isUniversityPublic !== false;
       isFrequentingArcadePublic = formData.isFrequentingArcadePublic || false;
       isStarredArcadePublic = formData.isStarredArcadePublic || false;
+
+      const notificationTypes = formData.notificationTypes || [];
+      notificationTypeComments = notificationTypes.includes('COMMENTS');
+      notificationTypeReplies = notificationTypes.includes('REPLIES');
+      notificationTypePostVotes = notificationTypes.includes('POST_VOTES');
+      notificationTypeCommentVotes = notificationTypes.includes('COMMENT_VOTES');
     }
   });
 
@@ -319,9 +354,104 @@
       </div>
     </div>
 
+    <div class="divider">{m.notification_settings()}</div>
+
+    <div class="space-y-3">
+      <!-- Notification Types -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">{m.notification_types()}</span>
+        </label>
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <label class="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              name="notificationTypeComments"
+              class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+              bind:checked={notificationTypeComments}
+            />
+            <div>
+              <span class="text-base-content">{m.notification_comments()}</span>
+              <div class="text-base-content/60 text-xs">{m.notification_comments_desc()}</div>
+            </div>
+          </label>
+
+          <label class="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              name="notificationTypeReplies"
+              class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+              bind:checked={notificationTypeReplies}
+            />
+            <div>
+              <span class="text-base-content">{m.notification_replies()}</span>
+              <div class="text-base-content/60 text-xs">{m.notification_replies_desc()}</div>
+            </div>
+          </label>
+
+          <label class="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              name="notificationTypePostVotes"
+              class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+              bind:checked={notificationTypePostVotes}
+            />
+            <div>
+              <span class="text-base-content">{m.notification_post_votes()}</span>
+              <div class="text-base-content/60 text-xs">{m.notification_post_votes_desc()}</div>
+            </div>
+          </label>
+
+          <label class="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              name="notificationTypeCommentVotes"
+              class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+              bind:checked={notificationTypeCommentVotes}
+            />
+            <div>
+              <span class="text-base-content">{m.notification_comment_votes()}</span>
+              <div class="text-base-content/60 text-xs">{m.notification_comment_votes_desc()}</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
     <div class="divider">{m.privacy_settings()}</div>
 
     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <!-- Activity Visibility -->
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            name="isActivityPublic"
+            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+            bind:checked={isActivityPublic}
+          />
+          <div>
+            <span class="text-base-content">{m.activity_visibility()}</span>
+            <div class="text-base-content/60 text-xs">{m.activity_public()}</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Footprint Visibility -->
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            name="isFootprintPublic"
+            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+            bind:checked={isFootprintPublic}
+          />
+          <div>
+            <span class="text-base-content">{m.footprint_visibility()}</span>
+            <div class="text-base-content/60 text-xs">{m.footprint_public()}</div>
+          </div>
+        </label>
+      </div>
       <!-- Email Visibility -->
       <div class="form-control">
         <label class="label cursor-pointer justify-start gap-3">

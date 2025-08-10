@@ -10,6 +10,7 @@
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName } from '$lib/utils';
   import { base } from '$app/paths';
+  import { page } from '$app/stores';
 
   interface Props {
     comment: CommentWithAuthorAndVote;
@@ -41,6 +42,7 @@
   let editContent = $state(comment.content);
   let isSavingEdit = $state(false);
   let showDeleteConfirm = $state(false);
+  let commentElement: HTMLElement | undefined;
 
   // Limit nesting depth to avoid infinite nesting
   const maxDepth = 1;
@@ -51,6 +53,9 @@
   const canReply = $derived(canReplyGeneral && depth < maxDepth);
 
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
+
+  // Check if this comment is highlighted from query params
+  const isHighlighted = $derived($page.url.searchParams.get('comment') === comment.id);
 
   const handleVote = (voteType: 'upvote' | 'downvote') => {
     if (onVote) {
@@ -106,11 +111,27 @@
 
   onMount(async () => {
     content = await render(comment.content);
+
+    // If this comment is highlighted, scroll to it and highlight it
+    if (isHighlighted && commentElement) {
+      commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Add temporary highlighting
+      commentElement.classList.add('bg-primary/20');
+      setTimeout(() => {
+        commentElement?.classList.remove('bg-primary/20');
+      }, 2000);
+    }
   });
 </script>
 
 <div class="comment {shouldIndent ? 'ml-8' : ''} {depth > maxDepth ? 'opacity-60' : ''}">
-  <div class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors">
+  <div
+    bind:this={commentElement}
+    class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors {isHighlighted
+      ? 'bg-primary/10'
+      : ''}"
+    id="comment-{comment.id}"
+  >
     <!-- Avatar -->
     <div class="shrink-0">
       <UserAvatar user={comment.author} size="sm" showName={false} />

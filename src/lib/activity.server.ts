@@ -35,7 +35,8 @@ import type { User } from '@auth/sveltekit';
 export async function getUserActivities(
   client: MongoClient,
   userId: string,
-  limit: number = 20
+  limit: number = 20,
+  offset: number = 0
 ): Promise<Activity[]> {
   const db = client.db();
   const activities: Activity[] = [];
@@ -96,6 +97,22 @@ export async function getUserActivities(
       },
       {
         $lookup: {
+          from: 'comments',
+          localField: 'parentCommentId',
+          foreignField: 'id',
+          as: 'parentComment'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'parentComment.createdBy',
+          foreignField: 'id',
+          as: 'parentCommentAuthor'
+        }
+      },
+      {
+        $lookup: {
           from: 'universities',
           localField: 'post.universityId',
           foreignField: 'id',
@@ -113,23 +130,36 @@ export async function getUserActivities(
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray()) as (Comment & { post?: Post[]; university?: University[]; club?: Club[] })[];
+    .toArray()) as (Comment & {
+    post?: Post[];
+    parentComment?: Comment[];
+    parentCommentAuthor?: User[];
+    university?: University[];
+    club?: Club[];
+  })[];
 
   comments.forEach((comment) => {
     const post = comment.post?.[0];
+    const parentCommentAuthor = comment.parentCommentAuthor?.[0];
+    const isReply = !!comment.parentCommentId;
     activities.push({
       id: comment.id,
-      type: 'comment',
+      type: isReply ? 'reply' : 'comment',
       createdAt: comment.createdAt,
       userId: comment.createdBy,
       commentContent: comment.content.substring(0, 100),
       commentId: comment.id,
+      parentCommentId: comment.parentCommentId,
       parentPostTitle: post?.title,
       postId: post?.id,
       universityId: post?.universityId,
       clubId: post?.clubId,
       universityName: comment.university?.[0]?.name,
-      clubName: comment.club?.[0]?.name
+      clubName: comment.club?.[0]?.name,
+      // For replies, store the parent comment author in targetAuthorName (reusing this field)
+      targetAuthorName: isReply
+        ? parentCommentAuthor?.displayName || parentCommentAuthor?.name
+        : undefined
     });
   });
 
@@ -243,19 +273,23 @@ export async function getUserActivities(
   })[];
 
   commentVotes.forEach((vote) => {
+    const comment = vote.comment?.[0];
     const post = vote.post?.[0];
     const commentAuthor = vote.commentAuthor?.[0];
+    const isReplyVote = !!comment?.parentCommentId;
+
     activities.push({
       id: vote.id,
       type: 'comment_vote',
       createdAt: vote.createdAt,
       userId: vote.userId,
       voteType: vote.voteType,
-      targetType: 'comment',
+      targetType: isReplyVote ? 'reply' : 'comment',
       targetTitle: post?.title,
       targetId: vote.commentId,
       targetAuthorName: commentAuthor?.displayName || commentAuthor?.name || undefined,
       commentId: vote.commentId,
+      parentCommentId: comment?.parentCommentId,
       postId: post?.id,
       universityId: post?.universityId,
       clubId: post?.clubId,
@@ -309,8 +343,9 @@ export async function getUserActivities(
     });
   });
 
-  // Sort all activities by creation time (descending) and limit
+  // Sort all activities by creation time (descending) and apply pagination
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  return activities.slice(0, limit);
+  // Apply offset and limit
+  return activities.slice(offset, offset + limit);
 }
