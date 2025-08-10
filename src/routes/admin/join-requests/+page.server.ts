@@ -248,17 +248,6 @@ export const actions: Actions = {
           joinedAt: new Date()
         });
       } else if (joinRequest.type === 'club') {
-        const clubMembersCollection = db.collection('club_members');
-        await clubMembersCollection.insertOne({
-          id: nanoid(),
-          clubId: joinRequest.targetId,
-          userId: joinRequest.userId,
-          memberType: 'member',
-          joinedAt: new Date(),
-          invitedBy: null
-        });
-
-        // Automatically add user to hosting university if not already a member
         const clubsCollection = db.collection('clubs');
         const club = await clubsCollection.findOne({ id: joinRequest.targetId });
 
@@ -279,6 +268,16 @@ export const actions: Actions = {
             });
           }
         }
+
+        const clubMembersCollection = db.collection('club_members');
+        await clubMembersCollection.insertOne({
+          id: nanoid(),
+          clubId: joinRequest.targetId,
+          userId: joinRequest.userId,
+          memberType: 'member',
+          joinedAt: new Date(),
+          invitedBy: null
+        });
       }
 
       // Update join request status

@@ -132,16 +132,6 @@ export const POST: RequestHandler = async ({ params, locals }) => {
         message = 'Join request submitted successfully. Please wait for approval.';
       } else {
         // Add user directly as member
-        const member: Omit<ClubMember, '_id'> = {
-          id: nanoid(),
-          clubId: invite.targetId,
-          userId: userId,
-          memberType: 'member',
-          joinedAt: new Date(),
-          invitedBy: invite.createdBy
-        };
-
-        await clubMembersCollection.insertOne(member);
         message = 'Successfully joined club!';
 
         // Get club info to find university
@@ -168,6 +158,16 @@ export const POST: RequestHandler = async ({ params, locals }) => {
             message = 'Successfully joined club and the host university!';
           }
         }
+
+        const member: Omit<ClubMember, '_id'> = {
+          id: nanoid(),
+          clubId: invite.targetId,
+          userId: userId,
+          memberType: 'member',
+          joinedAt: new Date(),
+          invitedBy: invite.createdBy
+        };
+        await clubMembersCollection.insertOne(member);
       }
     }
 
