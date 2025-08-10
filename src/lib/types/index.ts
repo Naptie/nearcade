@@ -158,7 +158,12 @@ export type UserType =
   | 'club_moderator'
   | 'site_admin';
 
-export type NotificationType = 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS';
+export type NotificationType =
+  | 'COMMENTS'
+  | 'REPLIES'
+  | 'POST_VOTES'
+  | 'COMMENT_VOTES'
+  | 'JOIN_REQUESTS';
 
 export interface Club {
   _id?: string | ObjectId;

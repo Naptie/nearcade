@@ -1,21 +1,22 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type {
-  Post,
-  PostWithAuthor,
-  PostVote,
-  Comment,
-  CommentWithAuthorAndVote,
-  University,
-  Club,
+import {
+  type Post,
+  type PostWithAuthor,
+  type PostVote,
+  type Comment,
+  type CommentWithAuthorAndVote,
+  type University,
+  type Club,
   PostReadability
 } from '$lib/types';
-import { 
-  checkUniversityPermission, 
-  checkClubPermission, 
+import {
+  checkUniversityPermission,
+  checkClubPermission,
   validatePostReadability,
-  canReadPost
+  canReadPost,
+  getDefaultPostReadability
 } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
@@ -199,7 +200,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         const permissions = await checkUniversityPermission(session.user, university, client);
         canEdit = permissions.canEdit;
         canManage = permissions.canEdit; // Only canEdit users can manage posts
-        orgReadability = university.postReadability ?? PostReadability.PUBLIC;
+        orgReadability = getDefaultPostReadability(university.postReadability);
       }
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
@@ -207,16 +208,16 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         const permissions = await checkClubPermission(session.user, club, client);
         canEdit = permissions.canEdit;
         canManage = permissions.canEdit; // Only canEdit users can manage posts
-        orgReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+        orgReadability = getDefaultPostReadability(club.postReadability);
       }
     }
 
     // Determine what type of update this is
-    const isContentUpdate = title !== undefined || content !== undefined || readability !== undefined;
+    const isContentUpdate = title !== undefined || content !== undefined;
     const isManagementUpdate = isPinned !== undefined || isLocked !== undefined;
 
     // Check permissions for content updates (owner or canEdit)
-    if (isContentUpdate) {
+    if (isContentUpdate || readability !== undefined) {
       const isOwner = post.createdBy === session.user.id;
       if (!isOwner && !canEdit) {
         return json({ error: 'Permission denied' }, { status: 403 });
@@ -225,13 +226,17 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     // Validate readability change if specified
     if (readability !== undefined) {
-      const isOwner = post.createdBy === session.user.id;
       const permissions = { canEdit, role: canEdit ? 'admin' : '' };
-      
-      if (!validatePostReadability(readability, orgReadability, permissions, session.user.userType)) {
-        return json({ 
-          error: 'Cannot set post readability more open than organization setting' 
-        }, { status: 403 });
+
+      if (
+        !validatePostReadability(readability, orgReadability, permissions, session.user.userType)
+      ) {
+        return json(
+          {
+            error: 'Cannot set post readability more open than organization setting'
+          },
+          { status: 403 }
+        );
       }
     }
 

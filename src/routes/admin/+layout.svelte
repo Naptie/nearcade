@@ -141,7 +141,7 @@
           </div>
           {#if item.count && item.count > 0}
             <span
-              class="badge badge-sm badge-warning not-group-hover:badge-soft transition"
+              class="badge badge-sm badge-warning dark:not-group-hover:badge-soft transition"
               class:opacity-0={currentPath === item.href}
             >
               {item.count}

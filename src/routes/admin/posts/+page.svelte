@@ -1,23 +1,23 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { PostReadability } from '$lib/types';
   import type { PageData } from './$types';
+  import UserAvatar from '$lib/components/UserAvatar.svelte';
 
   let { data }: { data: PageData } = $props();
 
   const getReadabilityLabel = (readability: PostReadability) => {
     switch (readability) {
       case PostReadability.PUBLIC:
-        return m.post_readability_public();
+        return m.public();
       case PostReadability.UNIV_MEMBERS:
-        return m.post_readability_university_members();
+        return m.university_members();
       case PostReadability.CLUB_MEMBERS:
-        return m.post_readability_club_members();
+        return m.club_members();
       default:
-        return m.post_readability_public();
+        return m.public();
     }
   };
 
@@ -34,13 +34,6 @@
     }
   };
 
-  const navigateToPost = (post: any) => {
-    const orgPath = post.universityId 
-      ? `/universities/${post.universityId}`
-      : `/clubs/${post.clubId}`;
-    goto(`${base}${orgPath}/posts/${post.id}`);
-  };
-
   const loadMore = () => {
     if (data.hasMore) {
       const nextPage = (data.page || 1) + 1;
@@ -49,160 +42,153 @@
   };
 </script>
 
-<div class="container mx-auto px-4">
-  <div class="mb-6">
-    <h1 class="mb-2 text-3xl font-bold">{m.admin_posts_management()}</h1>
-    <p class="text-base-content/60">{m.admin_posts_description()}</p>
-    
-    {#if data.totalCount > 0}
-      <div class="mt-2 text-sm text-base-content/80">
-        {m.total_count()}: {data.totalCount}
-      </div>
-    {/if}
+<div class="min-w-3xs space-y-6">
+  <div class="not-sm:text-center">
+    <h1 class="text-base-content text-3xl font-bold">{m.admin_posts()}</h1>
+    <p class="text-base-content/60 mt-1">{m.admin_posts_description()}</p>
   </div>
 
-  {#if data.posts.length === 0}
-    <div class="text-center py-12">
-      <div class="text-6xl text-base-content/20 mb-4">
-        <i class="fa-solid fa-file-lines"></i>
+  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+    {#if data.posts.length === 0}
+      <div class="py-12 text-center">
+        <div class="text-base-content/20 mb-4 text-6xl">
+          <i class="fa-solid fa-file-lines"></i>
+        </div>
+        <h3 class="mb-2 text-xl font-semibold">{m.no_posts_found()}</h3>
+        <p class="text-base-content/60">{m.no_posts_found_description()}</p>
       </div>
-      <h3 class="text-xl font-semibold mb-2">{m.no_posts_found()}</h3>
-      <p class="text-base-content/60">{m.no_posts_found_description()}</p>
-    </div>
-  {:else}
-    <div class="overflow-x-auto">
-      <table class="table table-zebra w-full">
-        <thead>
-          <tr>
-            <th>{m.post_title()}</th>
-            <th>{m.author()}</th>
-            <th>{m.organization()}</th>
-            <th>{m.post_visibility()}</th>
-            <th>{m.stats()}</th>
-            <th>{m.created_at()}</th>
-            <th>{m.actions()}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each data.posts as post}
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="table w-full">
+          <thead>
             <tr>
-              <td>
-                <div class="flex items-start gap-3">
-                  <div class="flex flex-col gap-1">
-                    <button
-                      class="btn btn-link btn-sm h-auto min-h-0 p-0 text-left font-medium normal-case"
-                      onclick={() => navigateToPost(post)}
-                    >
-                      {post.title}
-                    </button>
-                    {#if post.isPinned}
-                      <span class="badge badge-warning badge-sm">
-                        <i class="fa-solid fa-thumbtack mr-1"></i>
-                        {m.pinned()}
-                      </span>
-                    {/if}
-                    {#if post.isLocked}
-                      <span class="badge badge-error badge-sm">
-                        <i class="fa-solid fa-lock mr-1"></i>
-                        {m.locked()}
-                      </span>
-                    {/if}
-                  </div>
-                </div>
-              </td>
-              
-              <td>
-                <div class="flex items-center gap-3">
-                  <div class="avatar">
-                    <div class="mask mask-circle h-8 w-8">
-                      <img
-                        src={post.author?.image || '/default-avatar.png'}
-                        alt={post.author?.name || 'User'}
-                        class="h-full w-full object-cover"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div class="font-medium">
-                      {post.author?.displayName || post.author?.name || 'Unknown'}
-                    </div>
-                    <div class="text-sm text-base-content/60">
-                      @{post.author?.id || 'unknown'}
-                    </div>
-                  </div>
-                </div>
-              </td>
-              
-              <td>
-                <div class="flex flex-col">
-                  {#if post.university}
-                    <span class="font-medium">{post.university.name}</span>
-                    <span class="text-sm text-base-content/60">
-                      <i class="fa-solid fa-university mr-1"></i>
-                      {m.university()}
-                    </span>
-                  {:else if post.club}
-                    <span class="font-medium">{post.club.name}</span>
-                    <span class="text-sm text-base-content/60">
-                      <i class="fa-solid fa-users mr-1"></i>
-                      {m.club()}
-                    </span>
-                  {/if}
-                </div>
-              </td>
-              
-              <td>
-                <span class="badge badge-outline gap-1">
-                  <i class="{getReadabilityIcon(post.readability)}"></i>
-                  {getReadabilityLabel(post.readability)}
-                </span>
-              </td>
-              
-              <td>
-                <div class="flex flex-col text-sm">
-                  <span>
-                    <i class="fa-solid fa-arrow-up text-success mr-1"></i>
-                    {post.upvotes}
-                    <i class="fa-solid fa-arrow-down text-error ml-2 mr-1"></i>
-                    {post.downvotes}
-                  </span>
-                  <span>
-                    <i class="fa-solid fa-comment mr-1"></i>
-                    {post.commentCount}
-                  </span>
-                </div>
-              </td>
-              
-              <td>
-                <div class="text-sm">
-                  {new Date(post.createdAt).toLocaleDateString()}
-                </div>
-              </td>
-              
-              <td>
-                <div class="flex gap-1">
-                  <button
-                    class="btn btn-ghost btn-sm"
-                    onclick={() => navigateToPost(post)}
-                    title={m.view_post()}
-                  >
-                    <i class="fa-solid fa-eye"></i>
-                  </button>
-                </div>
-              </td>
+              <th>{m.post_title()}</th>
+              <th>{m.posted_by()}</th>
+              <th class="not-md:hidden">{m.organization()}</th>
+              <th class="not-md:hidden">{m.post_visibility()}</th>
+              <th class="not-xs:hidden">{m.statistics()}</th>
+              <th class="not-lg:hidden">{m.created_at()}</th>
+              <th class="text-right">{m.actions()}</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#each data.posts as post (post.id)}
+              <tr>
+                <td>
+                  <div class="flex items-start gap-3">
+                    <div class="flex flex-col gap-1">
+                      <a
+                        class="hover:text-accent line-clamp-3 font-medium transition-colors"
+                        href="{base}{post.universityId
+                          ? `/universities/${post.universityId}`
+                          : `/clubs/${post.clubId}`}/posts/{post.id}"
+                      >
+                        {post.title}
+                      </a>
+                      {#if post.isPinned}
+                        <span class="badge badge-warning badge-sm">
+                          <i class="fa-solid fa-thumbtack mr-1"></i>
+                          {m.pinned()}
+                        </span>
+                      {/if}
+                      {#if post.isLocked}
+                        <span class="badge badge-error badge-sm">
+                          <i class="fa-solid fa-lock mr-1"></i>
+                          {m.locked()}
+                        </span>
+                      {/if}
+                    </div>
+                  </div>
+                </td>
 
-    {#if data.hasMore}
-      <div class="mt-6 text-center">
-        <button class="btn btn-outline" onclick={loadMore}>
-          <i class="fa-solid fa-chevron-down mr-2"></i>
-          {m.load_more()}
-        </button>
+                <td class="max-w-[28vw] sm:max-w-[15vw]">
+                  <UserAvatar user={post.author} size="sm" showName target="_blank" />
+                </td>
+
+                <td class="not-md:hidden">
+                  <div class="flex items-center gap-2">
+                    {#if post.university}
+                      <span class="not-xl:hidden">
+                        <i class="fa-solid fa-graduation-cap text-primary"></i>
+                      </span>
+                      <a
+                        class="hover:text-accent line-clamp-3 font-medium transition-colors"
+                        href="{base}/universities/{post.university.slug || post.university.id}"
+                      >
+                        {post.university.name}
+                      </a>
+                    {:else if post.club}
+                      <span class="not-xl:hidden">
+                        <i class="fa-solid fa-users text-primary"></i>
+                      </span>
+                      <a
+                        class="hover:text-accent line-clamp-3 font-medium transition-colors"
+                        href="{base}/clubs/{post.club.slug || post.club.id}"
+                      >
+                        {post.club.name}
+                      </a>
+                    {/if}
+                  </div>
+                </td>
+
+                <td class="not-md:hidden">
+                  <span class="badge badge-soft gap-1">
+                    <i class={getReadabilityIcon(post.readability)}></i>
+                    {getReadabilityLabel(post.readability)}
+                  </span>
+                </td>
+
+                <td class="not-xs:hidden">
+                  <div class="flex flex-row gap-2.5 text-sm">
+                    <span>
+                      <i class="fa-solid fa-caret-up text-success mr-0.5"></i>
+                      {post.upvotes}
+                    </span>
+                    <span>
+                      <i class="fa-solid fa-caret-down text-error mr-0.5"></i>
+                      {post.downvotes}
+                    </span>
+                    <span>
+                      <i class="fa-solid fa-comment mr-0.5"></i>
+                      {post.commentCount}
+                    </span>
+                  </div>
+                </td>
+
+                <td class="not-lg:hidden">
+                  <div class="text-sm">
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </div>
+                </td>
+
+                <td>
+                  <div class="flex justify-end gap-2">
+                    <a
+                      class="btn btn-ghost btn-sm"
+                      href="{base}{post.universityId
+                        ? `/universities/${post.universityId}`
+                        : `/clubs/${post.clubId}`}/posts/{post.id}"
+                      title={m.view()}
+                      aria-label={m.view()}
+                    >
+                      <i class="fa-solid fa-eye"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
+
+      {#if data.hasMore}
+        <div class="mt-6 text-center">
+          <button class="btn btn-soft" onclick={loadMore}>
+            <i class="fa-solid fa-chevron-down mr-2"></i>
+            {m.load_more()}
+          </button>
+        </div>
+      {/if}
     {/if}
-  {/if}
+  </div>
 </div>

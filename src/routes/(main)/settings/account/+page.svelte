@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getUserTypeLabel } from '$lib/utils';
@@ -280,7 +280,7 @@
           leavingClubId = '';
           return async ({ result }) => {
             if (result.type === 'success') {
-              goto('/settings/account');
+              invalidateAll();
             }
           };
         }}

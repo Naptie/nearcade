@@ -27,7 +27,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     // Check if viewing own profile
-    const isOwnProfile = session?.user?._id === user.id;
+    const isOwnProfile = session?.user?.id === user.id;
 
     // Get university info if user belongs to one
     let university: University | null = null;

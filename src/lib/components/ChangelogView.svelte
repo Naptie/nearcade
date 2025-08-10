@@ -26,7 +26,7 @@
   let entryElements: Record<string, HTMLElement> = {};
   let showHighlight = $state(false);
 
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 10;
 
   // Get the highlighted entry ID from URL params
   const highlightedEntryId = $derived(page.url.searchParams.get('entry'));

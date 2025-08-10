@@ -253,15 +253,7 @@
 
   // Check what actions current user can perform on a university member
   const canManageMember = (member: UniversityMemberWithUser) => {
-    if (!userPrivileges.canManage)
-      return {
-        remove: false,
-        grantModerator: false,
-        revokeModerator: false,
-        grantAdmin: false,
-        transferAdmin: false
-      };
-    if (!member.user || member.user.id === data.user?._id)
+    if (!userPrivileges.canManage || !member.user || member.user.id === data.user?.id)
       return {
         remove: false,
         grantModerator: false,
@@ -521,7 +513,9 @@
             organizationId={data.university.id}
             organizationName={data.university.name}
             organizationSlug={data.university.slug}
+            organizationReadability={data.university.postReadability}
             currentUserId={data.user?.id}
+            canManage={userPrivileges.canManage}
             canCreatePost={canWritePosts}
             initialPosts={[]}
           />
@@ -734,7 +728,7 @@
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between gap-1 p-4">
                       <div class="overflow-hidden">
-                        <UserAvatar user={member.user} showName={true} size="md" />
+                        <UserAvatar user={member.user} showName size="md" />
                       </div>
 
                       <div class="flex items-center gap-1">
@@ -754,7 +748,7 @@
                         </div>
 
                         <!-- Actions for privileged users -->
-                        {#if userPrivileges.canManage && member.user.id !== data.user?._id}
+                        {#if userPrivileges.canManage && member.user.id !== data.user?.id}
                           {@const memberActions = canManageMember(member)}
                           {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
                             <div class="dropdown dropdown-end">

@@ -17,7 +17,7 @@
 
   let { notification }: Props = $props();
 
-  let content = $state(notification.commentContent || '');
+  let content = $state(notification.content || '');
 
   let context = $derived.by(() => {
     if (notification.universityName) {
@@ -35,6 +35,11 @@
         displayName: notification.actorDisplayName
       }
     )}</a>`;
+    const organizationName = `<a href="${link}" class="link-accent transition-colors">${
+      notification.joinRequestType === 'university'
+        ? notification.universityName
+        : notification.clubName
+    }</a>`;
 
     switch (notification.type) {
       case 'COMMENTS':
@@ -49,6 +54,10 @@
         return notification.voteType === 'upvote'
           ? m.notification_user_upvoted_comment({ userName: actorName })
           : m.notification_user_downvoted_comment({ userName: actorName });
+      case 'JOIN_REQUESTS':
+        return notification.joinRequestStatus === 'approved'
+          ? m.notification_user_approved_join_request({ userName: actorName, organizationName })
+          : m.notification_user_rejected_join_request({ userName: actorName, organizationName });
       default:
         return '';
     }
@@ -77,6 +86,11 @@
         return '#';
 
       default:
+        if (notification.universityId) {
+          return `${baseUrl}/universities/${notification.universityId}`;
+        } else if (notification.clubId) {
+          return `${baseUrl}/clubs/${notification.clubId}`;
+        }
         return '#';
     }
   });
@@ -92,6 +106,10 @@
         return notification.voteType === 'upvote'
           ? 'fa-solid fa-thumbs-up text-success'
           : 'fa-solid fa-thumbs-down text-error';
+      case 'JOIN_REQUESTS':
+        return notification.joinRequestStatus === 'approved'
+          ? 'fa-solid fa-user-check text-success'
+          : 'fa-solid fa-user-xmark text-error';
       default:
         return 'fa-solid fa-bell';
     }
@@ -125,9 +143,11 @@
       <!-- Notification Description -->
       <div class="text-sm">
         <span class="text-base-content/80">{@html text}</span>
-        <a href={link} class="text-accent hover:text-accent/80 font-medium transition-colors">
-          {notification.postTitle || ''}
-        </a>
+        {#if notification.postTitle}
+          <a href={link} class="text-accent hover:text-accent/80 font-medium transition-colors">
+            {notification.postTitle}
+          </a>
+        {/if}
       </div>
 
       <!-- Preview for Comments/Replies -->

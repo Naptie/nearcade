@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     }
 
     // Check if viewing own profile or activities are public
-    const isOwnProfile = session?.user?._id === user.id;
+    const isOwnProfile = session?.user?.id === user.id;
     const canViewActivities = isOwnProfile || user.isActivityPublic !== false;
 
     if (!canViewActivities) {
@@ -43,7 +43,13 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     const offset = (page - 1) * limit;
 
     // Get activities with pagination
-    const activities = await getUserActivities(client, user.id, limit + 1, offset);
+    const activities = await getUserActivities(
+      client,
+      user.id,
+      isOwnProfile || session?.user?.userType === 'site_admin',
+      limit + 1,
+      offset
+    );
 
     // Check if there are more activities
     const hasMore = activities.length > limit;

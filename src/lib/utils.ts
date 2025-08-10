@@ -324,7 +324,7 @@ export const checkUniversityPermission = async (
   if (typeof university === 'string') {
     const universityDoc = await db
       .collection<University>('universities')
-      .findOne({ id: university });
+      .findOne({ $or: [{ id: university }, { slug: university }] });
     if (!universityDoc) {
       throw new Error(`University with ID ${university} not found`);
     }
@@ -772,18 +772,9 @@ export const validatePostReadability = (
  * Gets the default readability level for a new post based on organization settings
  */
 export const getDefaultPostReadability = (
-  organizationReadability: PostReadability,
-  organizationType: 'university' | 'club'
-): PostReadability => {
-  // For universities, default to org setting or PUBLIC
-  if (organizationType === 'university') {
-    return organizationReadability ?? PostReadability.PUBLIC;
-  }
-  
-  // For clubs, default to org setting or CLUB_MEMBERS
-  return organizationReadability ?? PostReadability.CLUB_MEMBERS;
-};
-
+  organizationReadability?: PostReadability
+): PostReadability =>
+  organizationReadability !== undefined ? organizationReadability : PostReadability.PUBLIC;
 /**
  * Checks if a user can read a post based on its readability setting
  */

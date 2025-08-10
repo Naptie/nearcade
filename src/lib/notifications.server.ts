@@ -22,18 +22,17 @@ export interface Notification {
   actorImage?: string;
   targetUserId: string;
   createdAt: Date;
+  content?: string;
 
   // Content details
   postId?: string;
   postTitle?: string;
   commentId?: string;
-  commentContent?: string;
   voteType?: 'upvote' | 'downvote';
 
   // Join request details
   joinRequestId?: string;
   joinRequestStatus?: 'approved' | 'rejected';
-  joinRequestNote?: string;
   joinRequestType?: 'university' | 'club';
 
   // Navigation
@@ -191,7 +190,7 @@ export async function getUserNotifications(
         postId: post.id,
         postTitle: post.title,
         commentId: comment.id,
-        commentContent: comment.content.substring(0, 100),
+        content: comment.content,
         universityId: post.universityId,
         clubId: post.clubId,
         universityName: comment.university?.[0]?.name,
@@ -361,7 +360,7 @@ export async function getUserNotifications(
           postId: post.id,
           postTitle: post.title,
           commentId: comment.id,
-          commentContent: comment.content.substring(0, 100),
+          content: comment.content,
           voteType: vote.voteType,
           universityId: post.universityId,
           clubId: post.clubId,
@@ -435,12 +434,12 @@ export async function getUserNotifications(
           createdAt: joinRequest.reviewedAt,
           joinRequestId: joinRequest.id,
           joinRequestStatus: joinRequest.status as 'approved' | 'rejected',
-          joinRequestNote: joinRequest.reviewNote || undefined,
+          content: joinRequest.reviewNote || undefined,
           joinRequestType: joinRequest.type,
-          universityId: joinRequest.type === 'university' ? joinRequest.targetId : club?.universityId,
+          universityId: joinRequest.type === 'university' ? joinRequest.targetId : undefined,
           clubId: joinRequest.type === 'club' ? joinRequest.targetId : undefined,
-          universityName: university?.name || (joinRequest.type === 'club' ? club?.universityId : undefined),
-          clubName: club?.name
+          universityName: joinRequest.type === 'university' ? university?.name : undefined,
+          clubName: joinRequest.type === 'club' ? club?.name : undefined
         });
       }
     });

@@ -1,15 +1,15 @@
 import type { MongoClient } from 'mongodb';
-import type {
-  Post,
-  PostVote,
-  Comment,
-  CommentVote,
-  ChangelogEntry,
-  Activity,
-  Club,
-  University,
-  UniversityMember,
-  ClubMember,
+import {
+  type Post,
+  type PostVote,
+  type Comment,
+  type CommentVote,
+  type ChangelogEntry,
+  type Activity,
+  type Club,
+  type University,
+  type UniversityMember,
+  type ClubMember,
   PostReadability
 } from './types';
 import type { User } from '@auth/sveltekit';
@@ -39,6 +39,7 @@ import { getDisplayName } from './utils';
 export async function getUserActivities(
   client: MongoClient,
   userId: string,
+  canViewAll = false,
   limit: number = 20,
   offset: number = 0
 ): Promise<Activity[]> {
@@ -52,16 +53,16 @@ export async function getUserActivities(
   }
 
   // Check if university-related activities should be included (default: true)
-  const includeUniversityActivities = user.isUniversityPublic !== false;
+  const includeUniversityActivities = canViewAll || user.isUniversityPublic !== false;
 
   // Helper function to check if an activity involving a post should be included
   // based on the user's privacy settings and post readability
   const shouldIncludePostActivity = (post: Post | undefined): boolean => {
     if (!post) return false;
-    
+
     // If user allows university activities to be public, include all posts
     if (includeUniversityActivities) return true;
-    
+
     // If user has privacy enabled, only include PUBLIC posts
     // This prevents leaking membership information through post interactions
     return post.readability === PostReadability.PUBLIC;
@@ -171,7 +172,7 @@ export async function getUserActivities(
     const post = comment.post?.[0];
     const parentCommentAuthor = comment.parentCommentAuthor?.[0];
     const isReply = !!comment.parentCommentId;
-    
+
     // Only include this comment activity if the associated post passes the privacy check
     if (shouldIncludePostActivity(post)) {
       activities.push({
@@ -179,7 +180,7 @@ export async function getUserActivities(
         type: isReply ? 'reply' : 'comment',
         createdAt: comment.createdAt,
         userId: comment.createdBy,
-        commentContent: comment.content.substring(0, 100),
+        commentContent: comment.content,
         commentId: comment.id,
         parentCommentId: comment.parentCommentId,
         parentPostTitle: post?.title,
@@ -231,7 +232,7 @@ export async function getUserActivities(
 
   postVotes.forEach((vote) => {
     const post = vote.post?.[0];
-    
+
     // Only include this post vote activity if the associated post passes the privacy check
     if (shouldIncludePostActivity(post)) {
       activities.push({

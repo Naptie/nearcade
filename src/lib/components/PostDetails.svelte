@@ -1,7 +1,12 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import { type PostWithAuthor, type CommentWithAuthorAndVote, PostWritability, PostReadability } from '$lib/types';
+  import {
+    type PostWithAuthor,
+    type CommentWithAuthorAndVote,
+    PostWritability,
+    PostReadability
+  } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
@@ -22,10 +27,9 @@
     organizationName: string;
     organizationSlug?: string;
     organizationId: string;
+    organizationReadability?: PostReadability;
     canJoinOrganization: boolean;
     postWritability?: PostWritability;
-    organizationReadability?: PostReadability;
-    userCanEditReadability?: boolean;
     canManage?: boolean; // User can pin/unpin, lock/unlock posts
     canEdit?: boolean; // User can edit/delete posts
     canComment?: boolean; // User can comment on posts
@@ -44,8 +48,7 @@
     postWritability = organizationType === 'university'
       ? PostWritability.UNIV_MEMBERS
       : PostWritability.CLUB_MEMBERS,
-    organizationReadability,
-    userCanEditReadability = false,
+    organizationReadability = PostReadability.PUBLIC,
     canManage = false,
     canEdit = false,
     canComment: canCommentGeneral = false
@@ -68,8 +71,6 @@
   let editReadability = $state(post.readability);
   let isSavingPost = $state(false);
   let showDeletePostConfirm = $state(false);
-  let showDeleteCommentConfirm = $state(false);
-  let deletingCommentId = $state('');
   let isPostRendered = $state(false);
 
   let netVotes = $derived(post.upvotes - post.downvotes);
@@ -94,6 +95,7 @@
     if (localPost.isLocked && !canManagePost) return false;
     return canCommentGeneral;
   });
+
   let backUrl = $derived.by(() => {
     const orgPath =
       organizationType === 'university'
@@ -101,6 +103,14 @@
         : `/clubs/${organizationSlug || organizationId}#posts`;
     return `${base}${orgPath}`;
   });
+
+  const readabilityOptions = [
+    { value: PostReadability.PUBLIC, label: m.post_readability_public() },
+    { value: PostReadability.UNIV_MEMBERS, label: m.post_readability_university_members() },
+    ...(organizationType === 'club'
+      ? [{ value: PostReadability.CLUB_MEMBERS, label: m.post_readability_club_members() }]
+      : [])
+  ];
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     if (!currentUserId || isVoting) return;
@@ -250,23 +260,14 @@
   const handleCommentDelete = async (commentId: string) => {
     if (!currentUserId) return;
 
-    deletingCommentId = commentId;
-    showDeleteCommentConfirm = true;
-  };
-
-  const confirmDeleteComment = async () => {
-    if (!deletingCommentId) return;
-
     try {
-      const response = await fetch(fromPath(`/api/comments/${deletingCommentId}`), {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
         method: 'DELETE'
       });
 
       if (response.ok) {
         // Remove comment from local state
-        comments = comments.filter(
-          (c) => c.id !== deletingCommentId && c.parentCommentId !== deletingCommentId
-        );
+        comments = comments.filter((c) => c.id !== commentId && c.parentCommentId !== commentId);
       } else {
         const errorData = (await response.json()) as { error: string };
         alert(errorData.error || 'Failed to delete comment');
@@ -437,7 +438,7 @@
     </div>
 
     <!-- Post -->
-    <article class="bg-base-100 rounded-2xl p-6 shadow transition-shadow hover:shadow-xl">
+    <article class="bg-base-100 group rounded-2xl p-6 shadow transition-shadow hover:shadow-xl">
       <!-- Post header -->
       <header class="mb-6">
         <div class="mb-4 flex items-start justify-between gap-4">
@@ -519,50 +520,39 @@
 
         <!-- Post title -->
         {#if isEditingPost}
-          <div class="mb-4">
-            <input
-              type="text"
-              class="input input-bordered w-full text-2xl font-bold"
-              bind:value={editTitle}
-              disabled={isSavingPost}
-              maxlength="200"
-            />
-          </div>
-          
-          <!-- Readability selection -->
-          <div class="form-control mb-4">
-            <label class="label" for="edit-post-readability">
-              <span class="label-text">{m.post_visibility()}</span>
-            </label>
-            <select
-              id="edit-post-readability"
-              class="select select-bordered"
-              bind:value={editReadability}
-              disabled={isSavingPost || !userCanEditReadability}
-            >
-              <option value={PostReadability.PUBLIC}>
-                <i class="fa-solid fa-globe"></i>
-                {m.post_readability_public()}
-              </option>
-              <option value={PostReadability.UNIV_MEMBERS}>
-                <i class="fa-solid fa-university"></i>
-                {m.post_readability_university_members()}
-              </option>
-              {#if organizationType === 'club'}
-                <option value={PostReadability.CLUB_MEMBERS}>
-                  <i class="fa-solid fa-users"></i>
-                  {m.post_readability_club_members()}
-                </option>
-              {/if}
-            </select>
-            {#if !userCanEditReadability}
-              <label class="label">
-                <span class="label-text-alt text-warning">
-                  <i class="fa-solid fa-info-circle"></i>
-                  {m.post_readability_limited_by_org()}
-                </span>
+          <div class="mb-4 flex gap-3">
+            <div class="form-control flex-1">
+              <label class="label" for="edit-post-title">
+                <span class="label-text">{m.post_title()}</span>
               </label>
-            {/if}
+              <input
+                id="edit-post-title"
+                type="text"
+                class="input input-bordered w-full text-2xl font-bold"
+                bind:value={editTitle}
+                disabled={isSavingPost}
+                maxlength="200"
+              />
+            </div>
+
+            <!-- Readability selection -->
+            <div class="form-control">
+              <label class="label" for="edit-post-readability">
+                <span class="label-text">{m.post_visibility()}</span>
+              </label>
+              <select
+                id="edit-post-readability"
+                class="select select-bordered"
+                bind:value={editReadability}
+                disabled={isSavingPost}
+              >
+                {#each readabilityOptions.filter((option) => canManage || option.value >= organizationReadability) as option (option.value)}
+                  <option value={option.value}>
+                    {option.label}
+                  </option>
+                {/each}
+              </select>
+            </div>
           </div>
         {:else}
           <h1 class="mb-4 text-3xl font-bold md:text-4xl">{localPost.title}</h1>
@@ -656,7 +646,7 @@
 
         {#if !currentUserId}
           <button
-            class="text-base-content/60 hover:text-accent link cursor-pointer text-sm transition-colors"
+            class="text-base-content/60 group-hover:link-accent cursor-pointer text-sm transition-colors"
             onclick={() => {
               window.dispatchEvent(new CustomEvent('nearcade-login'));
             }}
@@ -838,14 +828,4 @@
   message={m.confirm_delete_post()}
   onConfirm={confirmDeletePost}
   onCancel={() => {}}
-/>
-
-<ConfirmationModal
-  bind:isOpen={showDeleteCommentConfirm}
-  title={m.confirm_delete_comment_title()}
-  message={m.confirm_delete_comment()}
-  onConfirm={confirmDeleteComment}
-  onCancel={() => {
-    deletingCommentId = '';
-  }}
 />

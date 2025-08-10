@@ -59,6 +59,8 @@ export const actions: Actions = {
       if (formData.get('notificationTypePostVotes') === 'on') notificationTypes.push('POST_VOTES');
       if (formData.get('notificationTypeCommentVotes') === 'on')
         notificationTypes.push('COMMENT_VOTES');
+      if (formData.get('notificationTypeJoinRequests') === 'on')
+        notificationTypes.push('JOIN_REQUESTS');
 
       // Field-specific validation errors
       const fieldErrors: Record<string, string> = {};

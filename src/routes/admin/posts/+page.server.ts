@@ -1,6 +1,7 @@
 import client from '$lib/db.server';
 import type { PageServerLoad } from './$types';
-import type { Post, University, Club, UniversityMember, ClubMember } from '$lib/types';
+import type { UniversityMember, ClubMember } from '$lib/types';
+import { toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -111,7 +112,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     ];
 
     const [posts, totalCount] = await Promise.all([
-      db.collection('posts')
+      db
+        .collection('posts')
         .aggregate([
           ...postsAggregation,
           { $skip: skip },
@@ -127,7 +129,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     }
 
     return {
-      posts,
+      posts: toPlainArray(posts),
       totalCount,
       hasMore,
       page

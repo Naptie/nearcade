@@ -43,7 +43,7 @@
 
     try {
       const userId = data.user.name ? `@${data.user.name}` : data.user.id;
-      const response = await fetch(`${base}/api/users/${userId}/activities?page=${page}&limit=20`);
+      const response = await fetch(`${base}/api/users/${userId}/activities?page=${page}&limit=10`);
 
       if (!response.ok) {
         throw new Error('Failed to load activities');

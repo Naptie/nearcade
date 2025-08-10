@@ -7,7 +7,6 @@ import {
   postId,
   checkClubPermission,
   canWriteClubPosts,
-  checkUniversityPermission,
   getDefaultPostReadability,
   validatePostReadability,
   canReadPost
@@ -112,8 +111,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid club ID' }, { status: 400 });
     }
 
-    const { title, content, readability } = (await request.json()) as { 
-      title: string; 
+    const { title, content, readability } = (await request.json()) as {
+      title: string;
       content: string;
       readability?: PostReadability;
     };
@@ -141,7 +140,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Determine post readability
-    const orgReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+    const orgReadability = getDefaultPostReadability(club.postReadability);
     let postReadability: PostReadability;
 
     if (readability !== undefined) {
@@ -150,16 +149,21 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (readability === PostReadability.UNIV_MEMBERS) {
         // This is allowed for club posts - it means university members can read
         postReadability = readability;
-      } else if (!validatePostReadability(readability, orgReadability, permissions, session.user.userType)) {
-        return json({ 
-          error: 'Cannot set post readability more open than organization setting' 
-        }, { status: 403 });
+      } else if (
+        !validatePostReadability(readability, orgReadability, permissions, session.user.userType)
+      ) {
+        return json(
+          {
+            error: 'Cannot set post readability more open than organization setting'
+          },
+          { status: 403 }
+        );
       } else {
         postReadability = readability;
       }
     } else {
       // Use default readability
-      postReadability = getDefaultPostReadability(orgReadability, 'club');
+      postReadability = orgReadability;
     }
 
     // Create new post

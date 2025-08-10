@@ -3,10 +3,10 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import client from '$lib/db.server';
 import { type Post, type PostWithAuthor, type University, PostReadability } from '$lib/types';
-import { 
-  postId, 
-  checkUniversityPermission, 
-  canWriteUnivPosts, 
+import {
+  postId,
+  checkUniversityPermission,
+  canWriteUnivPosts,
   getDefaultPostReadability,
   validatePostReadability,
   canReadPost
@@ -111,8 +111,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid university ID' }, { status: 400 });
     }
 
-    const { title, content, readability } = (await request.json()) as { 
-      title: string; 
+    const { title, content, readability } = (await request.json()) as {
+      title: string;
       content: string;
       readability?: PostReadability;
     };
@@ -140,20 +140,25 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Determine post readability
-    const orgReadability = university.postReadability ?? PostReadability.PUBLIC;
+    const orgReadability = getDefaultPostReadability(university.postReadability);
     let postReadability: PostReadability;
 
     if (readability !== undefined) {
       // Validate if user can set this readability level
-      if (!validatePostReadability(readability, orgReadability, permissions, session.user.userType)) {
-        return json({ 
-          error: 'Cannot set post readability more open than organization setting' 
-        }, { status: 403 });
+      if (
+        !validatePostReadability(readability, orgReadability, permissions, session.user.userType)
+      ) {
+        return json(
+          {
+            error: 'Cannot set post readability more open than organization setting'
+          },
+          { status: 403 }
+        );
       }
       postReadability = readability;
     } else {
       // Use default readability
-      postReadability = getDefaultPostReadability(orgReadability, 'university');
+      postReadability = orgReadability;
     }
 
     // Create new post

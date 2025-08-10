@@ -42,6 +42,11 @@
       ? data.userProfile.notificationTypes.includes('COMMENT_VOTES')
       : true
   );
+  let notificationTypeJoinRequests = $state(
+    data.userProfile?.notificationTypes
+      ? data.userProfile.notificationTypes.includes('JOIN_REQUESTS')
+      : true
+  );
 
   // Reset form data when form errors occur (preserve user input)
   $effect(() => {
@@ -73,6 +78,7 @@
       notificationTypeReplies = notificationTypes.includes('REPLIES');
       notificationTypePostVotes = notificationTypes.includes('POST_VOTES');
       notificationTypeCommentVotes = notificationTypes.includes('COMMENT_VOTES');
+      notificationTypeJoinRequests = notificationTypes.includes('JOIN_REQUESTS');
     }
   });
 
@@ -413,6 +419,19 @@
             <div>
               <span class="text-base-content">{m.notification_comment_votes()}</span>
               <div class="text-base-content/60 text-xs">{m.notification_comment_votes_desc()}</div>
+            </div>
+          </label>
+
+          <label class="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              name="notificationTypeJoinRequests"
+              class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+              bind:checked={notificationTypeJoinRequests}
+            />
+            <div>
+              <span class="text-base-content">{m.notification_join_requests()}</span>
+              <div class="text-base-content/60 text-xs">{m.notification_join_requests_desc()}</div>
             </div>
           </label>
         </div>

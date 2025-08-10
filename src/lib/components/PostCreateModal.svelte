@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import MarkdownEditor from './MarkdownEditor.svelte';
-  import { fromPath } from '$lib/utils';
+  import { fromPath, getDefaultPostReadability } from '$lib/utils';
   import { PostReadability } from '$lib/types';
 
   interface Props {
@@ -9,37 +9,41 @@
     organizationType: 'university' | 'club';
     organizationId: string;
     organizationName: string;
-    organizationReadability?: PostReadability;
-    userCanEditReadability?: boolean;
+    organizationReadability: PostReadability;
+    canManage: boolean;
     onClose: () => void;
     onSuccess?: (postId: string) => void;
   }
 
-  let { 
-    isOpen, 
-    organizationType, 
-    organizationId, 
-    organizationName, 
+  let {
+    isOpen,
+    organizationType,
+    organizationId,
+    organizationName,
     organizationReadability,
-    userCanEditReadability = false,
-    onClose, 
-    onSuccess 
+    canManage,
+    onClose,
+    onSuccess
   }: Props = $props();
 
   let title = $state('');
   let content = $state('');
-  let readability = $state<PostReadability>(
-    organizationReadability ?? 
-    (organizationType === 'club' ? PostReadability.CLUB_MEMBERS : PostReadability.PUBLIC)
-  );
+  let readability = $state<PostReadability>(getDefaultPostReadability(organizationReadability));
   let isSubmitting = $state(false);
   let error = $state('');
+
+  const readabilityOptions = [
+    { value: PostReadability.PUBLIC, label: m.post_readability_public() },
+    { value: PostReadability.UNIV_MEMBERS, label: m.post_readability_university_members() },
+    ...(organizationType === 'club'
+      ? [{ value: PostReadability.CLUB_MEMBERS, label: m.post_readability_club_members() }]
+      : [])
+  ];
 
   const reset = () => {
     title = '';
     content = '';
-    readability = organizationReadability ?? 
-      (organizationType === 'club' ? PostReadability.CLUB_MEMBERS : PostReadability.PUBLIC);
+    readability = getDefaultPostReadability(organizationReadability);
     error = '';
     isSubmitting = false;
   };
@@ -129,61 +133,45 @@
 
     <!-- Form -->
     <div class="flex min-h-0 flex-1 flex-col">
-      <!-- Title input -->
-      <div class="form-control mb-4">
-        <label class="label" for="post-title">
-          <span class="label-text">{m.post_title()}</span>
-        </label>
-        <input
-          id="post-title"
-          type="text"
-          placeholder={m.post_title_placeholder()}
-          class="input input-bordered w-full"
-          bind:value={title}
-          disabled={isSubmitting}
-          maxlength="200"
-        />
-        <label class="label" for="post-title">
-          <span class="label-text-alt text-base-content/60">
-            {title.length}/200
-          </span>
-        </label>
-      </div>
-
-      <!-- Readability selection -->
-      <div class="form-control mb-4">
-        <label class="label" for="post-readability">
-          <span class="label-text">{m.post_visibility()}</span>
-        </label>
-        <select
-          id="post-readability"
-          class="select select-bordered"
-          bind:value={readability}
-          disabled={isSubmitting || !userCanEditReadability}
-        >
-          <option value={PostReadability.PUBLIC}>
-            <i class="fa-solid fa-globe"></i>
-            {m.post_readability_public()}
-          </option>
-          <option value={PostReadability.UNIV_MEMBERS}>
-            <i class="fa-solid fa-university"></i>
-            {m.post_readability_university_members()}
-          </option>
-          {#if organizationType === 'club'}
-            <option value={PostReadability.CLUB_MEMBERS}>
-              <i class="fa-solid fa-users"></i>
-              {m.post_readability_club_members()}
-            </option>
-          {/if}
-        </select>
-        {#if !userCanEditReadability}
-          <label class="label">
-            <span class="label-text-alt text-warning">
-              <i class="fa-solid fa-info-circle"></i>
-              {m.post_readability_limited_by_org()}
+      <div class="mb-4 flex gap-2">
+        <!-- Title input -->
+        <div class="form-control flex-1">
+          <label class="label" for="post-title">
+            <span class="label-text">{m.post_title()}</span>
+          </label>
+          <input
+            id="post-title"
+            type="text"
+            placeholder={m.post_title_placeholder()}
+            class="input input-bordered w-full"
+            bind:value={title}
+            disabled={isSubmitting}
+            maxlength="200"
+          />
+          <label class="label" for="post-title">
+            <span class="label-text-alt text-base-content/60">
+              {title.length}/200
             </span>
           </label>
-        {/if}
+        </div>
+        <!-- Readability selection -->
+        <div class="form-control">
+          <label class="label" for="post-readability">
+            <span class="label-text">{m.post_visibility()}</span>
+          </label>
+          <select
+            id="post-readability"
+            class="select select-bordered"
+            bind:value={readability}
+            disabled={isSubmitting}
+          >
+            {#each readabilityOptions.filter((option) => canManage || option.value >= organizationReadability) as option (option.value)}
+              <option value={option.value}>
+                {option.label}
+              </option>
+            {/each}
+          </select>
+        </div>
       </div>
 
       <!-- Content area -->

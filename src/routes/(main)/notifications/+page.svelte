@@ -4,11 +4,13 @@
   import { m } from '$lib/paraglide/messages';
   import NotificationItem from '$lib/components/NotificationItem.svelte';
   import type { Notification } from '$lib/notifications.server';
+  import { invalidateAll } from '$app/navigation';
 
   // Notification loading state
   let notifications = $state<Notification[]>([]);
   let isLoadingNotifications = $state(true);
   let isLoadingMore = $state(false);
+  let isSubmitting = $state(false);
   let hasMore = $state(true);
   let notificationsPage = $state(1);
   let notificationsError = $state<string | null>(null);
@@ -25,7 +27,7 @@
 
     try {
       const unreadParam = unreadOnly ? '&unreadOnly=true' : '';
-      const response = await fetch(`${base}/api/notifications?page=${page}&limit=20${unreadParam}`);
+      const response = await fetch(`${base}/api/notifications?page=${page}&limit=10${unreadParam}`);
 
       if (!response.ok) {
         throw new Error('Failed to load notifications');
@@ -62,6 +64,7 @@
 
   const markAsRead = async () => {
     try {
+      isSubmitting = true;
       const response = await fetch(`${base}/api/notifications`, {
         method: 'POST',
         headers: {
@@ -76,8 +79,11 @@
 
       // Reload notifications
       loadNotifications();
+      await invalidateAll();
     } catch (err) {
       console.error('Error marking notifications as read:', err);
+    } finally {
+      isSubmitting = false;
     }
   };
 
@@ -113,8 +119,16 @@
             </label>
           </div>
 
-          <button class="btn btn-primary btn-soft btn-sm" onclick={markAsRead}>
-            <i class="fa-solid fa-check"></i>
+          <button
+            class="btn btn-primary btn-soft btn-sm"
+            class:btn-disabled={isSubmitting}
+            onclick={markAsRead}
+          >
+            {#if isSubmitting}
+              <span class="loading loading-spinner loading-sm"></span>
+            {:else}
+              <i class="fa-solid fa-check"></i>
+            {/if}
             {m.mark_all_as_read()}
           </button>
         </div>

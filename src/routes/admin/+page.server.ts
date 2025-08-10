@@ -110,9 +110,8 @@ export const load: PageServerLoad = async ({ locals }) => {
       if (managedClubIds.length > 0) {
         postOrConditions.push({ clubId: { $in: managedClubIds } });
       }
-      const postFilter = postOrConditions.length > 0 
-        ? { $or: postOrConditions } 
-        : { _nonExistentField: true };
+      const postFilter =
+        postOrConditions.length > 0 ? { $or: postOrConditions } : { _nonExistentField: true };
 
       const [
         totalUniversities,

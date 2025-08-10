@@ -21,21 +21,12 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug
-    let university = (await universitiesCollection.findOne(
+    const university = (await universitiesCollection.findOne(
       {
-        id: id
+        $or: [{ id }, { slug: id }]
       },
       { projection: { _id: 0 } }
     )) as unknown as University | null;
-
-    if (!university) {
-      university = (await universitiesCollection.findOne(
-        {
-          slug: id
-        },
-        { projection: { _id: 0 } }
-      )) as unknown as University | null;
-    }
 
     if (!university) {
       error(404, 'University not found');
@@ -70,7 +61,7 @@ export const actions: Actions = {
     }
 
     const user = session.user;
-    const { id } = params;
+    let { id } = params;
 
     try {
       const formData = await request.formData();
@@ -179,13 +170,15 @@ export const actions: Actions = {
 
       // Get current university data for changelog comparison
       const currentUniversity = (await universitiesCollection.findOne(
-        { id },
+        { $or: [{ id }, { slug: id }] },
         { projection: { _id: 0 } }
       )) as unknown as University | null;
 
       if (!currentUniversity) {
         return fail(404, { message: 'University not found' });
       }
+
+      id = currentUniversity.id;
 
       // Check if slug is already taken (if provided and different from current)
       if (slug && slug.trim().length > 0) {

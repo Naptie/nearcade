@@ -144,7 +144,7 @@
               <tr class="hover">
                 <td class="max-w-[10vw]">
                   <div class="flex items-center gap-3">
-                    <UserAvatar user={request.user} target="_blank" showName={true} size="sm" />
+                    <UserAvatar user={request.user} target="_blank" showName size="sm" />
                   </div>
                 </td>
                 <td class="max-w-[10vw]">
@@ -206,7 +206,7 @@
                 </td>
                 <td class="max-w-[10vw] not-sm:hidden">
                   {#if request.reviewer}
-                    <UserAvatar user={request.reviewer} showName={true} size="xs" />
+                    <UserAvatar user={request.reviewer} showName size="xs" />
                   {:else}
                     <span class="text-base-content/40 text-sm italic">{m.none()}</span>
                   {/if}
@@ -295,7 +295,15 @@
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-3">
             <span class="font-medium">{m.admin_user_header()}</span>
-            <UserAvatar user={selectedRequest.user} target="_blank" showName={true} size="sm" />
+            <div>
+              <UserAvatar
+                user={selectedRequest.user}
+                target="_blank"
+                showName
+                align="right"
+                size="sm"
+              />
+            </div>
           </div>
           <div class="flex items-center justify-between gap-3">
             <span class="font-medium">{m.admin_target_header()}</span>
@@ -304,7 +312,7 @@
           {#if selectedRequest.requestMessage}
             <div class="flex items-center justify-between gap-3">
               <span class="font-medium">{m.admin_message_header()}</span>
-              <div class="bg-base-200 mt-1 rounded-md p-3 text-sm">
+              <div class="bg-base-200 mt-1 rounded-lg p-3 text-sm">
                 {selectedRequest.requestMessage}
               </div>
             </div>
