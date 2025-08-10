@@ -441,37 +441,6 @@
     <div class="divider">{m.privacy_settings()}</div>
 
     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <!-- Activity Visibility -->
-      <div class="form-control">
-        <label class="label cursor-pointer justify-start gap-3">
-          <input
-            type="checkbox"
-            name="isActivityPublic"
-            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
-            bind:checked={isActivityPublic}
-          />
-          <div>
-            <span class="text-base-content">{m.activity_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.activity_public()}</div>
-          </div>
-        </label>
-      </div>
-
-      <!-- Footprint Visibility -->
-      <div class="form-control">
-        <label class="label cursor-pointer justify-start gap-3">
-          <input
-            type="checkbox"
-            name="isFootprintPublic"
-            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
-            bind:checked={isFootprintPublic}
-          />
-          <div>
-            <span class="text-base-content">{m.footprint_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.footprint_public()}</div>
-          </div>
-        </label>
-      </div>
       <!-- Email Visibility -->
       <div class="form-control">
         <label class="label cursor-pointer justify-start gap-3">
@@ -500,6 +469,38 @@
           <div>
             <span class="text-base-content">{m.university_visibility()}</span>
             <div class="text-base-content/60 text-xs">{m.university_public()}</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Activity Visibility -->
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            name="isActivityPublic"
+            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+            bind:checked={isActivityPublic}
+          />
+          <div>
+            <span class="text-base-content">{m.activity_visibility()}</span>
+            <div class="text-base-content/60 text-xs">{m.activity_public()}</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Footprint Visibility -->
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            name="isFootprintPublic"
+            class="checkbox hover:checkbox-primary checked:checkbox-primary transition"
+            bind:checked={isFootprintPublic}
+          />
+          <div>
+            <span class="text-base-content">{m.footprint_visibility()}</span>
+            <div class="text-base-content/60 text-xs">{m.footprint_public()}</div>
           </div>
         </label>
       </div>
