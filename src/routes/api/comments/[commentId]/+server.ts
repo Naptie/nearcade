@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type { Comment, Post } from '$lib/types';
+import type { Comment, CommentVote, Post } from '$lib/types';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -83,6 +83,9 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     const deleteResult = await commentsCollection.deleteMany({
       $or: [{ id: commentId }, { parentCommentId: commentId }]
     });
+
+    // Delete votes on the comment
+    await db.collection<CommentVote>('comment_votes').deleteMany({ commentId });
 
     // Update post comment count
     await postsCollection.updateOne(
