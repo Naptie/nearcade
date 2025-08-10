@@ -92,22 +92,8 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
           emailVerified: null,
           ...rest
         };
-        session.unreadNotifications = await countUserNotifications(
-          client,
-          user,
-          user.notificationReadAt
-        );
-        
-        // Only count pending join requests if user has admin access
-        if ([
-          'site_admin',
-          'school_admin', 
-          'school_moderator',
-          'club_admin',
-          'club_moderator'
-        ].includes(user.userType || '')) {
-          session.pendingJoinRequests = await countPendingJoinRequests(client, user);
-        }
+        session.unreadNotifications = await countUserNotifications(client, user);
+        session.pendingJoinRequests = await countPendingJoinRequests(client, user);
       }
       return session;
     }

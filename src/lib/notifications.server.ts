@@ -1,5 +1,14 @@
 import type { MongoClient } from 'mongodb';
-import type { Post, Comment, PostVote, CommentVote, University, Club } from './types';
+import type {
+  Post,
+  Comment,
+  PostVote,
+  CommentVote,
+  University,
+  Club,
+  ClubMember,
+  UniversityMember
+} from './types';
 import type { User } from '@auth/sveltekit';
 
 export interface Notification {
@@ -366,7 +375,7 @@ export async function getUserNotifications(
 export async function countUserNotifications(
   client: MongoClient,
   user: User | string,
-  readAfter?: Date | string
+  readAfter: Date | string | undefined | null = null
 ): Promise<number> {
   const db = client.db();
 
@@ -376,6 +385,10 @@ export async function countUserNotifications(
       throw new Error('User not found');
     }
     user = dbUser;
+  }
+
+  if (readAfter === null) {
+    readAfter = user.notificationReadAt;
   }
 
   if (typeof readAfter === 'string') {
@@ -498,7 +511,7 @@ export async function markNotificationsAsRead(client: MongoClient, userId: strin
 export async function countPendingJoinRequests(
   client: MongoClient,
   user: User | string
-): Promise<number> {
+): Promise<number | undefined> {
   const db = client.db();
 
   if (typeof user === 'string') {
@@ -507,6 +520,13 @@ export async function countPendingJoinRequests(
       return 0;
     }
     user = dbUser;
+  }
+  if (
+    !['site_admin', 'school_admin', 'school_moderator', 'club_admin', 'club_moderator'].includes(
+      user.userType || ''
+    )
+  ) {
+    return undefined;
   }
 
   // Site admins can manage all join requests
@@ -518,14 +538,14 @@ export async function countPendingJoinRequests(
   // Get user's club/university memberships where they have admin/moderator role
   const [clubMemberships, universityMemberships] = await Promise.all([
     db
-      .collection('club_members')
+      .collection<ClubMember>('club_members')
       .find({
         userId: user.id,
         memberType: { $in: ['admin', 'moderator'] }
       })
       .toArray(),
     db
-      .collection('university_members')
+      .collection<UniversityMember>('university_members')
       .find({
         userId: user.id,
         memberType: { $in: ['admin', 'moderator'] }
@@ -533,14 +553,16 @@ export async function countPendingJoinRequests(
       .toArray()
   ]);
 
-  const managedClubIds = clubMemberships.map((m: any) => m.clubId);
-  const managedUniversityIds = universityMemberships.map((m: any) => m.universityId);
+  const managedClubIds = clubMemberships.map((m) => m.clubId);
+  const managedUniversityIds = universityMemberships.map((m) => m.universityId);
 
   // Build permission filter for join requests
   const permissionFilter = {
     $or: [
       ...(managedClubIds.length > 0 ? [{ type: 'club', targetId: { $in: managedClubIds } }] : []),
-      ...(managedUniversityIds.length > 0 ? [{ type: 'university', targetId: { $in: managedUniversityIds } }] : [])
+      ...(managedUniversityIds.length > 0
+        ? [{ type: 'university', targetId: { $in: managedUniversityIds } }]
+        : [])
     ]
   };
 

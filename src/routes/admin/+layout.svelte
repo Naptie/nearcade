@@ -123,7 +123,7 @@
       {#each visibleItems as item (item.id)}
         <a
           href={item.href}
-          class="flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors
+          class="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors
                 {currentPath === item.href
             ? 'bg-primary text-primary-content'
             : 'text-base-content hover:bg-base-200'}"
@@ -133,7 +133,10 @@
             <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
           </div>
           {#if item.count && item.count > 0}
-            <span class="badge badge-sm badge-warning">
+            <span
+              class="badge badge-sm badge-warning not-group-hover:badge-soft transition"
+              class:opacity-0={currentPath === item.href}
+            >
               {item.count}
             </span>
           {/if}

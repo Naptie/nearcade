@@ -163,7 +163,7 @@
                 <i class="fa-solid fa-shield-halved"></i>
                 {m.admin_panel()}
               </div>
-              {#if session.pendingJoinRequests > 0}
+              {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
                 <span
                   class="badge badge-sm not-group-hover:badge-soft badge-warning transition-colors"
                 >

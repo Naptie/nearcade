@@ -1,4 +1,5 @@
 import client from '$lib/db.server';
+import type { UniversityMember, ClubMember } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -49,14 +50,14 @@ export const load: PageServerLoad = async ({ locals }) => {
       // Get user's club/university memberships where they have admin/moderator role
       const [clubMemberships, universityMemberships] = await Promise.all([
         db
-          .collection('club_members')
+          .collection<ClubMember>('club_members')
           .find({
             userId: user.id,
             memberType: { $in: ['admin', 'moderator'] }
           })
           .toArray(),
         db
-          .collection('university_members')
+          .collection<UniversityMember>('university_members')
           .find({
             userId: user.id,
             memberType: { $in: ['admin', 'moderator'] }
@@ -64,29 +65,34 @@ export const load: PageServerLoad = async ({ locals }) => {
           .toArray()
       ]);
 
-      const managedClubIds = clubMemberships.map((m: any) => m.clubId);
-      const managedUniversityIds = universityMemberships.map((m: any) => m.universityId);
+      const managedClubIds = clubMemberships.map((m) => m.clubId);
+      const managedUniversityIds = universityMemberships.map((m) => m.universityId);
 
       // Count universities user can manage
-      const universityFilter = managedUniversityIds.length > 0 
-        ? { id: { $in: managedUniversityIds } } 
-        : { _nonExistentField: true }; // No results if no managed universities
+      const universityFilter =
+        managedUniversityIds.length > 0
+          ? { id: { $in: managedUniversityIds } }
+          : { _nonExistentField: true }; // No results if no managed universities
 
-      // Count clubs user can manage  
-      const clubFilter = managedClubIds.length > 0 
-        ? { id: { $in: managedClubIds } } 
-        : { _nonExistentField: true }; // No results if no managed clubs
+      // Count clubs user can manage
+      const clubFilter =
+        managedClubIds.length > 0 ? { id: { $in: managedClubIds } } : { _nonExistentField: true }; // No results if no managed clubs
 
       // Build permission filter for invites and join requests
       const permissionFilter = {
         $or: [
-          ...(managedClubIds.length > 0 ? [{ type: 'club', targetId: { $in: managedClubIds } }] : []),
-          ...(managedUniversityIds.length > 0 ? [{ type: 'university', targetId: { $in: managedUniversityIds } }] : [])
+          ...(managedClubIds.length > 0
+            ? [{ type: 'club', targetId: { $in: managedClubIds } }]
+            : []),
+          ...(managedUniversityIds.length > 0
+            ? [{ type: 'university', targetId: { $in: managedUniversityIds } }]
+            : [])
         ]
       };
 
       // Get scoped statistics
-      const inviteFilter = permissionFilter.$or?.length > 0 ? permissionFilter : { _nonExistentField: true };
+      const inviteFilter =
+        permissionFilter.$or?.length > 0 ? permissionFilter : { _nonExistentField: true };
       const joinRequestFilter = {
         ...(permissionFilter.$or?.length > 0 ? permissionFilter : { _nonExistentField: true }),
         status: 'pending'

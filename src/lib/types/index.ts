@@ -420,7 +420,16 @@ export interface CommentVote {
 export interface Activity {
   _id?: string | ObjectId;
   id: string;
-  type: 'post' | 'comment' | 'reply' | 'post_vote' | 'comment_vote' | 'changelog' | 'university_join' | 'club_join' | 'club_create';
+  type:
+    | 'post'
+    | 'comment'
+    | 'reply'
+    | 'post_vote'
+    | 'comment_vote'
+    | 'changelog'
+    | 'university_join'
+    | 'club_join'
+    | 'club_create';
   createdAt: Date;
   userId: string;
 

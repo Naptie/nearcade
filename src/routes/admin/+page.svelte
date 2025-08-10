@@ -21,7 +21,11 @@
 
   {#if data.stats}
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div
+      class="grid grid-cols-1 gap-6 md:grid-cols-2"
+      class:lg:grid-cols-3={data.stats.totalUsers !== undefined &&
+        data.stats.totalShops !== undefined}
+    >
       <!-- Total Users (site admin only) -->
       {#if data.stats.totalUsers !== undefined}
         <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
@@ -129,7 +133,8 @@
           </div>
           {#if data.recentActivity?.newJoinRequests !== undefined}
             <div class="mt-4 flex items-center text-sm">
-              <span class="font-medium text-yellow-600">+{data.recentActivity.newJoinRequests}</span>
+              <span class="font-medium text-yellow-600">+{data.recentActivity.newJoinRequests}</span
+              >
               <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
             </div>
           {/if}

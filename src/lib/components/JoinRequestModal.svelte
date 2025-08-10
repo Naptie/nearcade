@@ -69,7 +69,7 @@
         </button>
         <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
           {#if isSubmitting}
-            <span class="loading-spinner"></span>
+            <span class="loading loading-spinner loading-sm"></span>
           {:else}
             {m.join_club()}
           {/if}

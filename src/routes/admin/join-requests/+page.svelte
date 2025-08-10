@@ -351,7 +351,7 @@
               disabled={isSubmitting}
             >
               {#if isSubmitting}
-                <span class="loading-spinner"></span>
+                <span class="loading loading-spinner loading-sm"></span>
               {:else}
                 {reviewAction === 'approve' ? m.approve() : m.reject()}
               {/if}
