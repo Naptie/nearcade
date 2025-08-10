@@ -7,7 +7,9 @@ import type {
   ChangelogEntry,
   Activity,
   Club,
-  University
+  University,
+  UniversityMember,
+  ClubMember
 } from './types';
 import type { User } from '@auth/sveltekit';
 import { getDisplayName } from './utils';
@@ -41,6 +43,15 @@ export async function getUserActivities(
 ): Promise<Activity[]> {
   const db = client.db();
   const activities: Activity[] = [];
+
+  // Get user data to check privacy settings
+  const user = await db.collection<User>('users').findOne({ id: userId });
+  if (!user) {
+    return activities;
+  }
+
+  // Check if university-related activities should be included (default: true)
+  const includeUniversityActivities = user.isUniversityPublic !== false;
 
   // Fetch posts
   const posts = (await db
@@ -340,6 +351,117 @@ export async function getUserActivities(
       clubName: entry.type === 'club' ? entry.club?.name : undefined
     });
   });
+
+  // Fetch university membership activities (if privacy allows)
+  if (includeUniversityActivities) {
+    const universityMemberships = (await db
+      .collection<UniversityMember>('university_members')
+      .aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'universities',
+            localField: 'universityId',
+            foreignField: 'id',
+            as: 'university'
+          }
+        },
+        { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
+        { $sort: { joinedAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (UniversityMember & { university: University })[];
+
+    universityMemberships.forEach((membership) => {
+      activities.push({
+        id: `university-join-${membership.id}`,
+        type: 'university_join',
+        createdAt: membership.joinedAt,
+        userId: membership.userId,
+        joinedUniversityId: membership.universityId,
+        joinedUniversityName: membership.university.name,
+        universityId: membership.universityId,
+        universityName: membership.university.name
+      });
+    });
+
+    // Fetch club membership activities (if privacy allows)
+    const clubMemberships = (await db
+      .collection<ClubMember>('club_members')
+      .aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'clubs',
+            localField: 'clubId',
+            foreignField: 'id',
+            as: 'club'
+          }
+        },
+        {
+          $lookup: {
+            from: 'universities',
+            localField: 'club.universityId',
+            foreignField: 'id',
+            as: 'university'
+          }
+        },
+        { $unwind: { path: '$club', preserveNullAndEmptyArrays: false } },
+        { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
+        { $sort: { joinedAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (ClubMember & { club: Club; university: University })[];
+
+    clubMemberships.forEach((membership) => {
+      activities.push({
+        id: `club-join-${membership.id}`,
+        type: 'club_join',
+        createdAt: membership.joinedAt,
+        userId: membership.userId,
+        joinedClubId: membership.clubId,
+        joinedClubName: membership.club.name,
+        clubId: membership.clubId,
+        clubName: membership.club.name,
+        universityId: membership.club.universityId,
+        universityName: membership.university.name
+      });
+    });
+
+    // Fetch club creation activities (if privacy allows)
+    const createdClubs = (await db
+      .collection<Club>('clubs')
+      .aggregate([
+        { $match: { createdBy: userId } },
+        {
+          $lookup: {
+            from: 'universities',
+            localField: 'universityId',
+            foreignField: 'id',
+            as: 'university'
+          }
+        },
+        { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
+        { $sort: { createdAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (Club & { university: University })[];
+
+    createdClubs.forEach((club) => {
+      activities.push({
+        id: `club-create-${club.id}`,
+        type: 'club_create',
+        createdAt: club.createdAt || new Date(), // Fallback if createdAt is missing
+        userId: club.createdBy || userId,
+        createdClubId: club.id,
+        createdClubName: club.name,
+        clubId: club.id,
+        clubName: club.name,
+        universityId: club.universityId,
+        universityName: club.university.name
+      });
+    });
+  }
 
   // Sort all activities by creation time (descending) and apply pagination
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

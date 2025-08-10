@@ -10,7 +10,7 @@ import { AUTH_QQ_PROXY } from '$env/static/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from './utils';
 import Phira from './auth/phira';
-import { countUserNotifications } from './notifications.server';
+import { countUserNotifications, countPendingJoinRequests } from './notifications.server';
 
 const config = { allowDangerousEmailAccountLinking: true };
 
@@ -97,6 +97,17 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
           user,
           user.notificationReadAt
         );
+        
+        // Only count pending join requests if user has admin access
+        if ([
+          'site_admin',
+          'school_admin', 
+          'school_moderator',
+          'club_admin',
+          'club_moderator'
+        ].includes(user.userType || '')) {
+          session.pendingJoinRequests = await countPendingJoinRequests(client, user);
+        }
       }
       return session;
     }

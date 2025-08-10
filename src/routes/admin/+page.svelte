@@ -22,107 +22,119 @@
   {#if data.stats}
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      <!-- Total Users -->
-      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.admin_users()}</p>
-            <p class="text-base-content text-2xl font-bold">{data.stats.totalUsers}</p>
+      <!-- Total Users (site admin only) -->
+      {#if data.stats.totalUsers !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.admin_users()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.totalUsers}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+              <i class="fa-solid fa-user text-lg text-blue-600"></i>
+            </div>
           </div>
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-            <i class="fa-solid fa-user text-lg text-blue-600"></i>
-          </div>
+          {#if data.recentActivity?.newUsers !== undefined}
+            <div class="mt-4 flex items-center text-sm">
+              <span class="font-medium text-green-600">+{data.recentActivity.newUsers}</span>
+              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+            </div>
+          {/if}
         </div>
-        {#if data.recentActivity}
-          <div class="mt-4 flex items-center text-sm">
-            <span class="font-medium text-green-600">+{data.recentActivity.newUsers}</span>
-            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-          </div>
-        {/if}
-      </div>
+      {/if}
 
       <!-- Total Universities -->
-      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.admin_universities()}</p>
-            <p class="text-base-content text-2xl font-bold">{data.stats.totalUniversities}</p>
-          </div>
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-            <i class="fa-solid fa-graduation-cap text-lg text-purple-600"></i>
+      {#if data.stats.totalUniversities !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.admin_universities()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.totalUniversities}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+              <i class="fa-solid fa-graduation-cap text-lg text-purple-600"></i>
+            </div>
           </div>
         </div>
-      </div>
+      {/if}
 
       <!-- Total Clubs -->
-      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.admin_clubs()}</p>
-            <p class="text-base-content text-2xl font-bold">{data.stats.totalClubs}</p>
+      {#if data.stats.totalClubs !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.admin_clubs()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.totalClubs}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+              <i class="fa-solid fa-users text-lg text-green-600"></i>
+            </div>
           </div>
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <i class="fa-solid fa-users text-lg text-green-600"></i>
-          </div>
+          {#if data.recentActivity?.newClubs !== undefined}
+            <div class="mt-4 flex items-center text-sm">
+              <span class="font-medium text-green-600">+{data.recentActivity.newClubs}</span>
+              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+            </div>
+          {/if}
         </div>
-        {#if data.recentActivity}
-          <div class="mt-4 flex items-center text-sm">
-            <span class="font-medium text-green-600">+{data.recentActivity.newClubs}</span>
-            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-          </div>
-        {/if}
-      </div>
+      {/if}
 
-      <!-- Total Shops -->
-      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.admin_arcade_shops()}</p>
-            <p class="text-base-content text-2xl font-bold">{data.stats.totalShops}</p>
-          </div>
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-            <i class="fa-solid fa-gamepad text-lg text-orange-600"></i>
+      <!-- Total Shops (site admin only) -->
+      {#if data.stats.totalShops !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.admin_arcade_shops()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.totalShops}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
+              <i class="fa-solid fa-gamepad text-lg text-orange-600"></i>
+            </div>
           </div>
         </div>
-      </div>
+      {/if}
 
       <!-- Total Invites -->
-      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.admin_invites()}</p>
-            <p class="text-base-content text-2xl font-bold">{data.stats.totalInvites}</p>
+      {#if data.stats.totalInvites !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.admin_invites()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.totalInvites}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+              <i class="fa-solid fa-link text-lg text-indigo-600"></i>
+            </div>
           </div>
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-            <i class="fa-solid fa-link text-lg text-indigo-600"></i>
-          </div>
+          {#if data.recentActivity?.newInvites !== undefined}
+            <div class="mt-4 flex items-center text-sm">
+              <span class="font-medium text-green-600">+{data.recentActivity.newInvites}</span>
+              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+            </div>
+          {/if}
         </div>
-        {#if data.recentActivity}
-          <div class="mt-4 flex items-center text-sm">
-            <span class="font-medium text-green-600">+{data.recentActivity.newInvites}</span>
-            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-          </div>
-        {/if}
-      </div>
+      {/if}
 
       <!-- Pending Join Requests -->
-      <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-base-content/60 text-sm font-medium">{m.pending_requests()}</p>
-            <p class="text-base-content text-2xl font-bold">{data.stats.pendingJoinRequests}</p>
+      {#if data.stats.pendingJoinRequests !== undefined}
+        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-base-content/60 text-sm font-medium">{m.pending_requests()}</p>
+              <p class="text-base-content text-2xl font-bold">{data.stats.pendingJoinRequests}</p>
+            </div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
+              <i class="fa-solid fa-user-plus text-lg text-yellow-600"></i>
+            </div>
           </div>
-          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-            <i class="fa-solid fa-user-plus text-lg text-yellow-600"></i>
-          </div>
+          {#if data.recentActivity?.newJoinRequests !== undefined}
+            <div class="mt-4 flex items-center text-sm">
+              <span class="font-medium text-yellow-600">+{data.recentActivity.newJoinRequests}</span>
+              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
+            </div>
+          {/if}
         </div>
-        {#if data.recentActivity}
-          <div class="mt-4 flex items-center text-sm">
-            <span class="font-medium text-yellow-600">+{data.recentActivity.newJoinRequests}</span>
-            <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-          </div>
-        {/if}
-      </div>
+      {/if}
     </div>
 
     <!-- Quick Actions -->

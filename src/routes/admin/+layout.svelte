@@ -76,7 +76,8 @@
       label: m.join_requests(),
       icon: 'fa-user-plus',
       href: `${base}/admin/join-requests`,
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      count: data.session?.pendingJoinRequests
     }
   ];
 
@@ -122,13 +123,20 @@
       {#each visibleItems as item (item.id)}
         <a
           href={item.href}
-          class="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors
+          class="flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors
                 {currentPath === item.href
             ? 'bg-primary text-primary-content'
             : 'text-base-content hover:bg-base-200'}"
         >
-          <i class="fa-solid {item.icon} w-4"></i>
-          <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
+          <div class="flex items-center gap-3">
+            <i class="fa-solid {item.icon} w-4"></i>
+            <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
+          </div>
+          {#if item.count && item.count > 0}
+            <span class="badge badge-sm badge-warning">
+              {item.count}
+            </span>
+          {/if}
         </a>
       {/each}
     </nav>

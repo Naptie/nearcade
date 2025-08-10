@@ -158,9 +158,18 @@
             {m.my_profile()}
           </a>
           {#if isAdminOrModerator(session.user)}
-            <a href="{base}/admin" class="flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved"></i>
-              {m.admin_panel()}
+            <a href="{base}/admin" class="group flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved"></i>
+                {m.admin_panel()}
+              </div>
+              {#if session.pendingJoinRequests > 0}
+                <span
+                  class="badge badge-sm not-group-hover:badge-soft badge-warning transition-colors"
+                >
+                  {session.pendingJoinRequests}
+                </span>
+              {/if}
             </a>
           {/if}
           <a href="{base}/notifications" class="group flex items-center justify-between gap-2">

@@ -420,7 +420,7 @@ export interface CommentVote {
 export interface Activity {
   _id?: string | ObjectId;
   id: string;
-  type: 'post' | 'comment' | 'reply' | 'post_vote' | 'comment_vote' | 'changelog';
+  type: 'post' | 'comment' | 'reply' | 'post_vote' | 'comment_vote' | 'changelog' | 'university_join' | 'club_join' | 'club_create';
   createdAt: Date;
   userId: string;
 
@@ -452,6 +452,16 @@ export interface Activity {
   changelogTargetName?: string;
   changelogTargetId?: string;
   changelogEntry?: ChangelogEntry; // Store the full entry for proper formatting
+
+  // Membership activity (university_join, club_join)
+  joinedUniversityId?: string;
+  joinedUniversityName?: string;
+  joinedClubId?: string;
+  joinedClubName?: string;
+
+  // Club creation activity (club_create)
+  createdClubId?: string;
+  createdClubName?: string;
 }
 
 export * from './amap';

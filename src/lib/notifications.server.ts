@@ -491,3 +491,65 @@ export async function markNotificationsAsRead(client: MongoClient, userId: strin
     .collection('users')
     .updateOne({ id: userId }, { $set: { notificationReadAt: new Date() } });
 }
+
+/**
+ * Count pending join requests that a user can manage
+ */
+export async function countPendingJoinRequests(
+  client: MongoClient,
+  user: User | string
+): Promise<number> {
+  const db = client.db();
+
+  if (typeof user === 'string') {
+    const dbUser = await db.collection<User>('users').findOne({ id: user });
+    if (!dbUser) {
+      return 0;
+    }
+    user = dbUser;
+  }
+
+  // Site admins can manage all join requests
+  if (user.userType === 'site_admin') {
+    return await db.collection('join_requests').countDocuments({ status: 'pending' });
+  }
+
+  // For non-site admins, apply scope-based filtering
+  // Get user's club/university memberships where they have admin/moderator role
+  const [clubMemberships, universityMemberships] = await Promise.all([
+    db
+      .collection('club_members')
+      .find({
+        userId: user.id,
+        memberType: { $in: ['admin', 'moderator'] }
+      })
+      .toArray(),
+    db
+      .collection('university_members')
+      .find({
+        userId: user.id,
+        memberType: { $in: ['admin', 'moderator'] }
+      })
+      .toArray()
+  ]);
+
+  const managedClubIds = clubMemberships.map((m: any) => m.clubId);
+  const managedUniversityIds = universityMemberships.map((m: any) => m.universityId);
+
+  // Build permission filter for join requests
+  const permissionFilter = {
+    $or: [
+      ...(managedClubIds.length > 0 ? [{ type: 'club', targetId: { $in: managedClubIds } }] : []),
+      ...(managedUniversityIds.length > 0 ? [{ type: 'university', targetId: { $in: managedUniversityIds } }] : [])
+    ]
+  };
+
+  if (permissionFilter.$or?.length === 0) {
+    return 0; // User has no admin privileges
+  }
+
+  return await db.collection('join_requests').countDocuments({
+    status: 'pending',
+    ...permissionFilter
+  });
+}

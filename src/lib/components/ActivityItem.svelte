@@ -33,6 +33,12 @@
           : 'fa-solid fa-thumbs-down text-error';
       case 'changelog':
         return 'fa-solid fa-list-ul text-info';
+      case 'university_join':
+        return 'fa-solid fa-graduation-cap text-primary';
+      case 'club_join':
+        return 'fa-solid fa-user-plus text-success';
+      case 'club_create':
+        return 'fa-solid fa-users-gear text-primary';
       default:
         return 'fa-solid fa-clock';
     }
@@ -63,6 +69,12 @@
             });
       case 'changelog':
         return m.activity_contributed_to();
+      case 'university_join':
+        return m.activity_joined_university();
+      case 'club_join':
+        return m.activity_joined_club();
+      case 'club_create':
+        return m.activity_created_club();
       default:
         return '';
     }
@@ -111,6 +123,20 @@
         }
         return '#';
 
+      case 'university_join':
+        if (activity.joinedUniversityId) {
+          return `${baseUrl}/universities/${activity.joinedUniversityId}`;
+        }
+        return '#';
+
+      case 'club_join':
+      case 'club_create':
+        if (activity.clubId || activity.createdClubId) {
+          const clubId = activity.clubId || activity.createdClubId;
+          return `${baseUrl}/clubs/${clubId}`;
+        }
+        return '#';
+
       default:
         return '#';
     }
@@ -131,6 +157,12 @@
           return formatChangelogDescription(activity.changelogEntry, m);
         }
         return activity.changelogTargetName || '';
+      case 'university_join':
+        return activity.joinedUniversityName || '';
+      case 'club_join':
+        return activity.joinedClubName || '';
+      case 'club_create':
+        return activity.createdClubName || '';
       default:
         return '';
     }
