@@ -212,14 +212,19 @@
 
       <!-- Context (University/Club) -->
       {#if context}
-        <div class="text-base-content/60 text-xs">
+        <a
+          href={activity.universityId
+            ? `${base}/universities/${activity.universityId}`
+            : `${base}/clubs/${activity.clubId}`}
+          class="text-base-content/60 hover:text-accent flex w-fit items-center gap-1 text-xs transition-colors"
+        >
           {#if activity.universityId}
             <i class="fa-solid fa-graduation-cap"></i>
           {:else}
             <i class="fa-solid fa-users"></i>
           {/if}
           {context}
-        </div>
+        </a>
       {/if}
     </div>
   </div>
