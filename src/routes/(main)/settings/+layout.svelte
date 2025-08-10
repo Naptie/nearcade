@@ -13,6 +13,11 @@
       exact: true
     },
     {
+      href: `${base}/settings/notifications`,
+      label: m.notifications(),
+      icon: 'fa-bell'
+    },
+    {
       href: `${base}/settings/frequenting-arcades`,
       label: m.frequenting_arcades(),
       icon: 'fa-clock'
