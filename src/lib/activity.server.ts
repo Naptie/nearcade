@@ -1,22 +1,30 @@
 import type { MongoClient } from 'mongodb';
-import type { Post, PostVote, Comment, CommentVote, ChangelogEntry, Activity } from './types';
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type {
+  Post,
+  PostVote,
+  Comment,
+  CommentVote,
+  ChangelogEntry,
+  Activity,
+  Club,
+  University
+} from './types';
+import type { User } from '@auth/sveltekit';
 
 /**
  * User Activity Server Module
- * 
+ *
  * This module provides functionality to fetch and aggregate user activities from various
  * collections in the MongoDB database. It combines posts, comments, votes, and changelog
  * entries into a unified activity feed for display on user profiles.
- * 
+ *
  * Supported activity types:
  * - Posts created by the user
  * - Comments made by the user
  * - Post votes (upvotes/downvotes) by the user
  * - Comment votes by the user
  * - Changelog entries created by the user when editing university/club information
- * 
+ *
  * All activities are sorted by creation time in descending order and include
  * navigation links to the relevant content with proper highlighting support.
  */
@@ -33,7 +41,7 @@ export async function getUserActivities(
   const activities: Activity[] = [];
 
   // Fetch posts
-  const posts = await db
+  const posts = (await db
     .collection<Post>('posts')
     .aggregate([
       { $match: { createdBy: userId } },
@@ -56,9 +64,9 @@ export async function getUserActivities(
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray();
+    .toArray()) as (Post & { university?: University[]; club?: Club[] })[];
 
-  posts.forEach((post: any) => {
+  posts.forEach((post) => {
     activities.push({
       id: post.id,
       type: 'post',
@@ -74,7 +82,7 @@ export async function getUserActivities(
   });
 
   // Fetch comments
-  const comments = await db
+  const comments = (await db
     .collection<Comment>('comments')
     .aggregate([
       { $match: { createdBy: userId } },
@@ -105,9 +113,9 @@ export async function getUserActivities(
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray();
+    .toArray()) as (Comment & { post?: Post[]; university?: University[]; club?: Club[] })[];
 
-  comments.forEach((comment: any) => {
+  comments.forEach((comment) => {
     const post = comment.post?.[0];
     activities.push({
       id: comment.id,
@@ -126,7 +134,7 @@ export async function getUserActivities(
   });
 
   // Fetch post votes
-  const postVotes = await db
+  const postVotes = (await db
     .collection<PostVote>('post_votes')
     .aggregate([
       { $match: { userId: userId } },
@@ -157,9 +165,9 @@ export async function getUserActivities(
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray();
+    .toArray()) as (PostVote & { post?: Post[]; university?: University[]; club?: Club[] })[];
 
-  postVotes.forEach((vote: any) => {
+  postVotes.forEach((vote) => {
     const post = vote.post?.[0];
     activities.push({
       id: vote.id,
@@ -179,7 +187,7 @@ export async function getUserActivities(
   });
 
   // Fetch comment votes
-  const commentVotes = await db
+  const commentVotes = (await db
     .collection<CommentVote>('comment_votes')
     .aggregate([
       { $match: { userId: userId } },
@@ -226,9 +234,15 @@ export async function getUserActivities(
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray();
+    .toArray()) as (CommentVote & {
+    comment?: Comment[];
+    post?: Post[];
+    commentAuthor?: User[];
+    university?: University[];
+    club?: Club[];
+  })[];
 
-  commentVotes.forEach((vote: any) => {
+  commentVotes.forEach((vote) => {
     const post = vote.post?.[0];
     const commentAuthor = vote.commentAuthor?.[0];
     activities.push({
@@ -240,7 +254,7 @@ export async function getUserActivities(
       targetType: 'comment',
       targetTitle: post?.title,
       targetId: vote.commentId,
-      targetAuthorName: commentAuthor?.displayName || commentAuthor?.name,
+      targetAuthorName: commentAuthor?.displayName || commentAuthor?.name || undefined,
       commentId: vote.commentId,
       postId: post?.id,
       universityId: post?.universityId,
@@ -251,7 +265,7 @@ export async function getUserActivities(
   });
 
   // Fetch changelog entries
-  const changelogEntries = await db
+  const changelogEntries = (await db
     .collection<ChangelogEntry>('changelog')
     .aggregate([
       { $match: { userId: userId } },
@@ -274,9 +288,9 @@ export async function getUserActivities(
       { $sort: { createdAt: -1 } },
       { $limit: limit }
     ])
-    .toArray();
+    .toArray()) as (ChangelogEntry & { university?: University[]; club?: Club[] })[];
 
-  changelogEntries.forEach((entry: any) => {
+  changelogEntries.forEach((entry) => {
     const university = entry.university?.[0];
     const club = entry.club?.[0];
 
