@@ -58,9 +58,20 @@
 </script>
 
 <div class="min-w-3xs space-y-6">
-  <div class="not-sm:text-center">
-    <h1 class="text-base-content text-3xl font-bold">{m.admin_posts()}</h1>
-    <p class="text-base-content/60 mt-1">{m.admin_posts_description()}</p>
+  <!-- Page Header -->
+  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
+    <div class="not-sm:text-center">
+      <h1 class="text-base-content text-3xl font-bold">{m.admin_posts()}</h1>
+      <p class="text-base-content/60 mt-1">{m.admin_posts_description()}</p>
+    </div>
+
+    <!-- Post Statistics -->
+    <div class="stats shadow">
+      <div class="stat">
+        <div class="stat-title">{m.total_posts()}</div>
+        <div class="stat-value text-primary">{data.totalCount || 0}</div>
+      </div>
+    </div>
   </div>
 
   <!-- Search -->

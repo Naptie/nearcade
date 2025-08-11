@@ -54,7 +54,7 @@
     <!-- Shop Statistics -->
     <div class="stats shadow">
       <div class="stat">
-        <div class="stat-title">{m.admin_total_shops()}</div>
+        <div class="stat-title">{m.total_shops()}</div>
         <div class="stat-value text-primary">{data.shopStats?.total || 0}</div>
       </div>
     </div>
