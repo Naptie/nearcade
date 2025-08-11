@@ -175,8 +175,10 @@
         </div>
       {/if}
     </div>
-    {#if !data.verificationEmail}
-      <div class="flex items-center text-sm">
+    <div class="flex items-center text-sm">
+      {#if data.verificationEmail}
+        <span class="label">{m.verified_at()}: {formatDateTime(data.verifiedAt)}</span>
+      {:else}
         <span class="label">{m.expires()}: {formatDateTime(data.expires)}</span>
         <div class="divider divider-horizontal"></div>
         <div
@@ -201,8 +203,8 @@
             {/if}
           </span>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
   </div>
   <Footer />
 </div>

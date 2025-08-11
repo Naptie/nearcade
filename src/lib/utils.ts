@@ -317,6 +317,7 @@ export const checkUniversityPermission = async (
   canJoin: 0 | 1 | 2;
   role?: string;
   verificationEmail?: string;
+  verifiedAt?: Date;
 }> => {
   // Site admins always have full permission
   const db = client.db();
@@ -357,7 +358,8 @@ export const checkUniversityPermission = async (
     canManage: isAdmin,
     canJoin: eligibleForVerification ? 1 : 0,
     role: isSiteAdmin ? 'admin' : membership.memberType,
-    verificationEmail: membership.verificationEmail
+    verificationEmail: membership.verificationEmail,
+    verifiedAt: membership.verifiedAt
   };
 };
 
@@ -500,6 +502,11 @@ export const getUniversityMembersWithUserData = async (
     { $match: memberFilter },
     ...(options.sort ? [{ $sort: options.sort }] : []),
     ...(options.limit ? [{ $limit: options.limit }] : []),
+    {
+      $project: {
+        verificationEmail: 0
+      }
+    },
     {
       $lookup: {
         from: 'users',

@@ -297,24 +297,22 @@
       </div>
 
       <!-- Pagination -->
-      {#if data.hasMore}
-        <div class="border-base-300 border-t p-4">
-          <div class="flex justify-center gap-2">
-            {#if (data.currentPage || 1) > 1}
-              <a
-                href="?page={(data.currentPage || 1) - 1}{data.search
-                  ? `&search=${encodeURIComponent(data.search)}`
-                  : ''}{data.userType && data.userType !== 'all'
-                  ? `&userType=${data.userType}`
-                  : ''}"
-                class="btn btn-soft"
-              >
-                {m.previous_page()}
-              </a>
-            {/if}
-            <span class="btn btn-disabled btn-soft">
-              {m.page({ page: data.currentPage || 1 })}
-            </span>
+      <div class="border-base-300 border-t p-4">
+        <div class="flex justify-center gap-2">
+          {#if (data.currentPage || 1) > 1}
+            <a
+              href="?page={(data.currentPage || 1) - 1}{data.search
+                ? `&search=${encodeURIComponent(data.search)}`
+                : ''}{data.userType && data.userType !== 'all' ? `&userType=${data.userType}` : ''}"
+              class="btn btn-soft"
+            >
+              {m.previous_page()}
+            </a>
+          {/if}
+          <span class="btn btn-disabled btn-soft">
+            {m.page({ page: data.currentPage || 1 })}
+          </span>
+          {#if data.hasMore}
             <a
               href="?page={(data.currentPage || 1) + 1}{data.search
                 ? `&search=${encodeURIComponent(data.search)}`
@@ -323,9 +321,9 @@
             >
               {m.next_page()}
             </a>
-          </div>
+          {/if}
         </div>
-      {/if}
+      </div>
     {:else}
       <div class="py-12 text-center">
         <i class="fa-solid fa-user text-base-content/40 mb-4 text-4xl"></i>

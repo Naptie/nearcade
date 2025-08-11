@@ -15,6 +15,7 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { canWriteUnivPosts, fromPath } from '$lib/utils';
+  import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -727,8 +728,11 @@
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between gap-1 p-4">
-                      <div class="overflow-hidden">
+                      <div class="flex items-center gap-1 not-sm:overflow-hidden">
                         <UserAvatar user={member.user} showName size="md" />
+                        {#if member.verifiedAt}
+                          <VerifiedCheckMark class="tooltip-right text-sm" />
+                        {/if}
                       </div>
 
                       <div class="flex items-center gap-1">

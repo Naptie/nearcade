@@ -239,11 +239,12 @@ export interface UniversityMember {
   userId: string;
   memberType: 'student' | 'moderator' | 'admin';
   verificationEmail?: string;
+  verifiedAt?: Date;
   joinedAt: Date;
 }
 
 // Composite type with user data joined
-export interface UniversityMemberWithUser extends UniversityMember {
+export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verificationEmail'> {
   user: {
     id: string;
     name: string | null;

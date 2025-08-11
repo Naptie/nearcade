@@ -1046,6 +1046,7 @@
   "verification_email_title": "Student Status Verification",
   "verification_instruction": "Send an email to {email} using an email address ending with {suffix}",
   "verified": "Verified",
+  "verified_at": "Verified At",
   "verified_members": "Verified Members",
   "verified_student": "Verified Student",
   "verified_students": "Verified Students",

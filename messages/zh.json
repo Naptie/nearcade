@@ -908,6 +908,7 @@
   "verification_email_title": "在校生验证",
   "verification_instruction": "使用以 {suffix} 结尾的电子邮件地址将以下邮件发送到 {email}",
   "verified": "已验证",
+  "verified_at": "验证时间",
   "verified_members": "验证成员",
   "verified_student": "验证学生",
   "verified_students": "验证学生",

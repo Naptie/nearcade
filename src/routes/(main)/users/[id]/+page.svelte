@@ -12,6 +12,7 @@
   import { zhCN, enUS } from 'date-fns/locale';
   import { onMount } from 'svelte';
   import type { Shop } from '$lib/types';
+  import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -107,13 +108,13 @@
 
         <!-- User Info -->
         <div class="flex-1">
-          <div class="mb-2 flex items-center gap-3">
+          <div class="mb-2 flex flex-wrap items-center gap-3">
             <h1 class="text-2xl font-bold sm:text-3xl">
               {data.user.displayName ||
                 (() => (data.user.name ? `@${data.user.name}` : ''))() ||
                 m.anonymous_user()}
             </h1>
-            <span class="badge {getUserTypeBadgeClass(data.user.userType)}">
+            <span class="badge text-nowrap {getUserTypeBadgeClass(data.user.userType)}">
               {getUserTypeLabel(data.user.userType)}
             </span>
           </div>
@@ -123,15 +124,19 @@
           {/if}
 
           <!-- University Info -->
-          {#if data.university}
+          {#if data.universityMembership}
+            {@const university = data.universityMembership.university}
             <div class="mb-3 flex items-center gap-2">
               <i class="fa-solid fa-graduation-cap text-base-content/50"></i>
               <a
-                href="{base}/universities/{data.university.slug || data.university.id}"
+                href="{base}/universities/{university.slug || university.id}"
                 class="hover:text-accent text-base-content/80 transition-colors"
               >
-                {data.university.name}
+                {university.name}
               </a>
+              {#if data.universityMembership.verifiedAt}
+                <VerifiedCheckMark />
+              {/if}
             </div>
           {/if}
 

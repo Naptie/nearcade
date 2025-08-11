@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     // Check permissions for the current user
-    const { verificationEmail, ...userPermissions } = await checkUniversityPermission(
+    const { verificationEmail, verifiedAt, ...userPermissions } = await checkUniversityPermission(
       user,
       university,
       client
@@ -83,7 +83,8 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       hmac,
       expires,
       status,
-      verificationEmail
+      verificationEmail,
+      verifiedAt
     };
   } catch (err) {
     console.error('Error loading university:', err);
