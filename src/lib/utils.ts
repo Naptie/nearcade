@@ -366,7 +366,8 @@ export const checkUniversityPermission = async (
 export const checkClubPermission = async (
   user: User,
   club: Club | string,
-  client: MongoClient
+  client: MongoClient,
+  ignoreAcceptJoinRequestsSetting: boolean = false
 ): Promise<{ canEdit: boolean; canManage: boolean; canJoin: 0 | 1 | 2; role?: string }> => {
   const db = client.db();
   const clubMembersCollection = db.collection('club_members');
@@ -391,7 +392,7 @@ export const checkClubPermission = async (
 
   let canJoin: 0 | 1 | 2 = 0;
 
-  if (!membership && club?.acceptJoinRequests) {
+  if (!membership && (ignoreAcceptJoinRequestsSetting || club?.acceptJoinRequests)) {
     // Check if user is a member of the club's university
     const universityMembership = await universityMembersCollection.findOne({
       universityId: club.universityId,

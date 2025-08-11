@@ -59,14 +59,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           postReadability === PostReadability.CLUB_MEMBERS ||
           postReadability === PostReadability.UNIV_MEMBERS
         ) {
-          const permissions = await checkClubPermission(session.user, club, client);
+          const permissions = await checkClubPermission(session.user, club, client, true);
           if (postReadability === PostReadability.CLUB_MEMBERS) {
             canVote = !!permissions.role;
           } else {
-            canVote =
-              !!permissions.role ||
-              permissions.canJoin > 0 ||
-              !!(await checkUniversityPermission(session.user, club.universityId, client)).role;
+            canVote = !!permissions.role || permissions.canJoin > 0;
           }
         }
       }

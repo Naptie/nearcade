@@ -9,7 +9,7 @@ import {
   type University
 } from '$lib/types';
 import { nanoid } from 'nanoid';
-import { checkUniversityPermission, getDefaultPostReadability } from '$lib/utils';
+import { getDefaultPostReadability } from '$lib/utils';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -71,14 +71,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           postReadability === PostReadability.UNIV_MEMBERS
         ) {
           const { checkClubPermission } = await import('$lib/utils');
-          const permissions = await checkClubPermission(session.user, club, client);
+          const permissions = await checkClubPermission(session.user, club, client, true);
           if (postReadability === PostReadability.CLUB_MEMBERS) {
             canVote = !!permissions.role;
           } else {
-            canVote =
-              !!permissions.role ||
-              permissions.canJoin > 0 ||
-              !!(await checkUniversityPermission(session.user, club.universityId, client)).role;
+            canVote = !!permissions.role || permissions.canJoin > 0;
           }
         }
       }
