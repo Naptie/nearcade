@@ -12,12 +12,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   }
 
   try {
-    const db = client.db();
+    const search = url.searchParams.get('search') || '';
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = 20;
     const skip = (page - 1) * limit;
 
-    let postFilter: object = {};
+    const db = client.db();
+    let postFilter = {};
+
+    if (search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: 'i' };
+      postFilter = { $or: [{ title: searchRegex }, { content: searchRegex }] };
+    }
 
     // For non-site admins, apply scope-based filtering
     if (user.userType !== 'site_admin') {
@@ -58,7 +64,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         return { posts: [], totalCount: 0, hasMore: false };
       }
 
-      postFilter = { $or: orConditions };
+      postFilter = {
+        $and: [
+          {
+            $or: orConditions
+          },
+          postFilter
+        ]
+      };
     }
 
     // Get posts with author and organization info
@@ -130,6 +143,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
     return {
       posts: toPlainArray(posts),
+      search,
+      currentPage: page,
       totalCount,
       hasMore,
       page

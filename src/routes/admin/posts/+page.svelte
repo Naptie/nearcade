@@ -5,8 +5,12 @@
   import { PostReadability } from '$lib/types';
   import type { PageData } from './$types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import { page } from '$app/state';
 
   let { data }: { data: PageData } = $props();
+
+  let searchQuery = $state(data.search || '');
+  let searchTimeout: ReturnType<typeof setTimeout>;
 
   const getReadabilityLabel = (readability: PostReadability) => {
     switch (readability) {
@@ -34,11 +38,22 @@
     }
   };
 
-  const loadMore = () => {
-    if (data.hasMore) {
-      const nextPage = (data.page || 1) + 1;
-      goto(`${base}/admin/posts?page=${nextPage}`);
+  const handleSearchInput = () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      updateSearch();
+    }, 300);
+  };
+
+  const updateSearch = () => {
+    const url = new URL(page.url);
+    if (searchQuery.trim()) {
+      url.searchParams.set('search', searchQuery.trim());
+    } else {
+      url.searchParams.delete('search');
     }
+    url.searchParams.delete('page'); // Reset to first page
+    goto(url.toString());
   };
 </script>
 
@@ -46,6 +61,23 @@
   <div class="not-sm:text-center">
     <h1 class="text-base-content text-3xl font-bold">{m.admin_posts()}</h1>
     <p class="text-base-content/60 mt-1">{m.admin_posts_description()}</p>
+  </div>
+
+  <!-- Search -->
+  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
+    <div class="form-control">
+      <label class="label" for="search">
+        <span class="label-text font-medium">{m.search()}</span>
+      </label>
+      <input
+        id="search"
+        type="text"
+        class="input input-bordered w-full"
+        placeholder={m.admin_search_by_title_or_content()}
+        bind:value={searchQuery}
+        oninput={handleSearchInput}
+      />
+    </div>
   </div>
 
   <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
@@ -181,14 +213,34 @@
         </table>
       </div>
 
-      {#if data.hasMore}
-        <div class="mt-6 text-center">
-          <button class="btn btn-soft" onclick={loadMore}>
-            <i class="fa-solid fa-chevron-down mr-2"></i>
-            {m.load_more()}
-          </button>
+      <!-- Pagination -->
+      <div class="border-base-300 border-t p-4">
+        <div class="flex justify-center gap-2">
+          {#if (data.currentPage || 1) > 1}
+            <a
+              href="?page={(data.currentPage || 1) - 1}{data.search
+                ? `&search=${encodeURIComponent(data.search)}`
+                : ''}"
+              class="btn btn-soft"
+            >
+              {m.previous_page()}
+            </a>
+          {/if}
+          <span class="btn btn-disabled btn-soft">
+            {m.page({ page: data.currentPage || 1 })}
+          </span>
+          {#if data.hasMore}
+            <a
+              href="?page={(data.currentPage || 1) + 1}{data.search
+                ? `&search=${encodeURIComponent(data.search)}`
+                : ''}"
+              class="btn btn-soft"
+            >
+              {m.next_page()}
+            </a>
+          {/if}
         </div>
-      {/if}
+      </div>
     {/if}
   </div>
 </div>

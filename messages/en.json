@@ -157,6 +157,7 @@
   "admin_role": "Role",
   "admin_search_by_name": "Search by name...",
   "admin_search_by_name_email": "Search by name or email...",
+  "admin_search_by_title_or_content": "Search by title or content...",
   "admin_settings": "Settings",
   "admin_shop_delete_confirm": "Are you sure you want to delete this shop? This action cannot be undone.",
   "admin_shop_header": "Shop",

@@ -148,6 +148,7 @@
   "admin_role": "角色",
   "admin_search_by_name": "按名称搜索...",
   "admin_search_by_name_email": "按姓名或邮箱搜索...",
+  "admin_search_by_title_or_content": "按标题或内容搜索...",
   "admin_settings": "系统设置",
   "admin_shop_delete_confirm": "确定要删除此店铺吗？此操作无法撤销。",
   "admin_shop_header": "店铺",
