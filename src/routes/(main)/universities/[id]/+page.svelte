@@ -332,7 +332,7 @@
 
         <div class="flex items-center gap-2">
           <!-- Join Button for eligible users -->
-          {#if data.user && data.userPermissions.canJoin > 0}
+          {#if data.user && data.userPermissions.canJoin > 0 && !data.userPermissions.verificationEmail}
             <a
               href="{base}/universities/{data.university.slug || data.university.id}/verify"
               class="btn btn-ghost"
@@ -731,7 +731,12 @@
                       <div class="flex items-center gap-1 not-sm:overflow-hidden">
                         <UserAvatar user={member.user} showName size="md" />
                         {#if member.verifiedAt}
-                          <VerifiedCheckMark class="tooltip-right text-sm" />
+                          <VerifiedCheckMark
+                            href={member.userId === data.user?.id
+                              ? `${base}/universities/${data.university.slug || data.university.id}/verify`
+                              : ''}
+                            class="tooltip-right text-sm"
+                          />
                         {/if}
                       </div>
 

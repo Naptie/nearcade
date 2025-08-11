@@ -46,6 +46,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       canManage: boolean;
       canJoin: 0 | 1 | 2;
       role?: string;
+      verificationEmail?: string;
+      verifiedAt?: Date;
     } = {
       canEdit: false,
       canManage: false,

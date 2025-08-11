@@ -126,16 +126,17 @@
           <!-- University Info -->
           {#if data.universityMembership}
             {@const university = data.universityMembership.university}
+            {@const universityLink = `${base}/universities/${university.slug || university.id}`}
             <div class="mb-3 flex items-center gap-2">
               <i class="fa-solid fa-graduation-cap text-base-content/50"></i>
               <a
-                href="{base}/universities/{university.slug || university.id}"
+                href={universityLink}
                 class="hover:text-accent text-base-content/80 transition-colors"
               >
                 {university.name}
               </a>
               {#if data.universityMembership.verifiedAt}
-                <VerifiedCheckMark />
+                <VerifiedCheckMark href={data.isOwnProfile ? `${universityLink}/verify` : ''} />
               {/if}
             </div>
           {/if}
