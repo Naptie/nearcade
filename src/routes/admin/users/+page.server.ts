@@ -79,7 +79,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           clubsCount: { $size: '$clubMemberships' }
         }
       },
-      { $sort: { createdAt: -1 } },
+      { $sort: { joinedAt: -1 } },
       { $skip: skip },
       { $limit: limit + 1 } // Fetch one extra to check if there are more
     ])
