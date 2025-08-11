@@ -339,48 +339,6 @@ export async function getUserActivities(
     }
   });
 
-  // Fetch changelog entries
-  const changelogEntries = (await db
-    .collection<ChangelogEntry>('changelog')
-    .aggregate([
-      { $match: { userId: userId } },
-      {
-        $lookup: {
-          from: 'universities',
-          localField: 'targetId',
-          foreignField: 'id',
-          as: 'university'
-        }
-      },
-      {
-        $lookup: {
-          from: 'clubs',
-          localField: 'targetId',
-          foreignField: 'id',
-          as: 'club'
-        }
-      },
-      { $unwind: { path: '$university', preserveNullAndEmptyArrays: true } },
-      { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
-      { $sort: { createdAt: -1 } },
-      { $limit: limit }
-    ])
-    .toArray()) as (ChangelogEntry & { university?: University; club?: Club })[];
-
-  changelogEntries.forEach((entry) => {
-    activities.push({
-      id: entry.id,
-      type: 'changelog',
-      createdAt: entry.createdAt,
-      userId: entry.userId,
-      changelogEntry: entry, // Store full entry for proper formatting
-      universityId: entry.type === 'university' ? entry.targetId : undefined,
-      universityName: entry.type === 'university' ? entry.university?.name : undefined,
-      clubId: entry.type === 'club' ? entry.targetId : undefined,
-      clubName: entry.type === 'club' ? entry.club?.name : undefined
-    });
-  });
-
   // Fetch university membership activities (if privacy allows)
   if (includeUniversityActivities) {
     const universityMemberships = (await db
@@ -488,6 +446,48 @@ export async function getUserActivities(
         clubName: club.name,
         universityId: club.universityId,
         universityName: club.university.name
+      });
+    });
+
+    // Fetch changelog entries (if privacy allows)
+    const changelogEntries = (await db
+      .collection<ChangelogEntry>('changelog')
+      .aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'universities',
+            localField: 'targetId',
+            foreignField: 'id',
+            as: 'university'
+          }
+        },
+        {
+          $lookup: {
+            from: 'clubs',
+            localField: 'targetId',
+            foreignField: 'id',
+            as: 'club'
+          }
+        },
+        { $unwind: { path: '$university', preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
+        { $sort: { createdAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (ChangelogEntry & { university?: University; club?: Club })[];
+
+    changelogEntries.forEach((entry) => {
+      activities.push({
+        id: entry.id,
+        type: 'changelog',
+        createdAt: entry.createdAt,
+        userId: entry.userId,
+        changelogEntry: entry, // Store full entry for proper formatting
+        universityId: entry.type === 'university' ? entry.targetId : undefined,
+        universityName: entry.type === 'university' ? entry.university?.name : undefined,
+        clubId: entry.type === 'club' ? entry.targetId : undefined,
+        clubName: entry.type === 'club' ? entry.club?.name : undefined
       });
     });
   }
