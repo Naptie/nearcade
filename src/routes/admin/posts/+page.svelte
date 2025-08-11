@@ -57,6 +57,10 @@
   };
 </script>
 
+<svelte:head>
+  <title>{m.admin_posts()} - {m.admin_panel()} - {m.app_name()}</title>
+</svelte:head>
+
 <div class="min-w-3xs space-y-6">
   <!-- Page Header -->
   <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
