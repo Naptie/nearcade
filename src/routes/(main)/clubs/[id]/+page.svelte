@@ -19,8 +19,7 @@
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
-    { id: 'members', label: m.members(), icon: 'fa-user' },
-    { id: 'announcements', label: m.announcements(), icon: 'fa-bullhorn' }
+    { id: 'members', label: m.members(), icon: 'fa-user' }
   ];
 
   // Initialize activeTab from URL hash or default to 'posts'
@@ -843,11 +842,6 @@
                 </div>
               {/if}
             </div>
-          </div>
-        {:else if activeTab === 'announcements'}
-          <div class="py-12 text-center">
-            <i class="fa-solid fa-bullhorn text-base-content/30 text-4xl"></i>
-            <p class="text-base-content/60 mt-4">{m.feature_in_development()}</p>
           </div>
         {/if}
       </div>

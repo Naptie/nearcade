@@ -180,7 +180,7 @@
 
       <div class="form-control">
         <label class="label" for="userType">
-          <span class="label-text font-medium">{m.admin_user_type_filter()}</span>
+          <span class="label-text font-medium">{m.user_type()}</span>
         </label>
         <select
           id="userType"

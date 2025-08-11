@@ -291,22 +291,6 @@ export interface JoinRequestWithUser extends JoinRequest {
   };
 }
 
-export interface Announcement {
-  _id?: string | ObjectId;
-  id: string;
-  type: 'university' | 'club';
-  targetId: string; // University ID or Club ID
-  title: string;
-  content: string;
-  authorId: string;
-  authorName?: string | null;
-  authorImage?: string | null;
-  isPinned: boolean;
-  isImportant: boolean; // For highlighting important announcements
-  createdAt: Date;
-  updatedAt?: Date;
-}
-
 export interface ChangelogEntry {
   _id?: string | ObjectId;
   id: string;
