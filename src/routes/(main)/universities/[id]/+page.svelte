@@ -16,6 +16,7 @@
   import { onMount } from 'svelte';
   import { canWriteUnivPosts, fromPath } from '$lib/utils';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
+  import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 
@@ -237,8 +238,7 @@
       });
 
       if (response.ok) {
-        // Refresh the page data
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
           message: string;

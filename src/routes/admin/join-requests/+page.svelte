@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
@@ -328,7 +328,7 @@
               isSubmitting = false;
               if (result.type === 'success') {
                 closeReviewModal();
-                window.location.reload();
+                invalidateAll();
               }
             };
           }}

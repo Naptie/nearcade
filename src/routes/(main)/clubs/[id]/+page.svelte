@@ -13,6 +13,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { formatDate, fromPath } from '$lib/utils';
+  import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 
@@ -226,8 +227,7 @@
       });
 
       if (response.ok) {
-        // Refresh the page to update the arcade list
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
           message: string;
@@ -291,7 +291,7 @@
       });
 
       if (response.ok) {
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
           message: string;
@@ -989,7 +989,6 @@
   clubId={data.club.id}
   clubName={data.club.name}
   onSuccess={() => {
-    // Reload the page to update join request status
-    window.location.reload();
+    invalidateAll();
   }}
 />
