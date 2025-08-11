@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import type { Comment, CommentVote, Post } from '$lib/types';
+import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
+import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -75,8 +76,32 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       return json({ error: 'Comment not found' }, { status: 404 });
     }
 
-    if (comment.createdBy !== session.user.id) {
-      return json({ error: 'You can only delete your own comments' }, { status: 403 });
+    // Check permissions (owner or canEdit)
+    let canDelete = false;
+    const isOwner = comment.createdBy === session.user.id;
+    const post = await postsCollection.findOne({ id: comment.postId });
+    if (!post) {
+      return json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    if (post.universityId) {
+      const university = await db
+        .collection<University>('universities')
+        .findOne({ id: post.universityId });
+      if (university) {
+        const permissions = await checkUniversityPermission(session.user, university, client);
+        canDelete = isOwner || permissions.canEdit;
+      }
+    } else if (post.clubId) {
+      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+      if (club) {
+        const permissions = await checkClubPermission(session.user, club, client);
+        canDelete = isOwner || permissions.canEdit;
+      }
+    }
+
+    if (!canDelete) {
+      return json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Delete comment and all its replies

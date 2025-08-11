@@ -52,7 +52,7 @@
 
   const netVotes = $derived(comment.upvotes - comment.downvotes);
   const isOwnComment = $derived(currentUserId === comment.createdBy);
-  const canEditOrDelete = $derived(isOwnComment || canEdit);
+  const canDelete = $derived(isOwnComment || canEdit);
   const canReply = $derived(canReplyGeneral && depth < maxDepth);
 
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
@@ -165,7 +165,7 @@
         </div>
 
         <!-- Menu -->
-        {#if currentUserId && (canReply || canEditOrDelete)}
+        {#if currentUserId && (canReply || canDelete || isOwnComment)}
           <details class="dropdown dropdown-end" bind:open={showMenu}>
             <summary class="btn btn-ghost btn-circle btn-xs" aria-label={m.actions()}>
               <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -179,13 +179,15 @@
                   </button>
                 </li>
               {/if}
-              {#if canEditOrDelete}
+              {#if isOwnComment}
                 <li>
                   <button onclick={startEditing} class="text-info">
                     <i class="fa-solid fa-edit"></i>
                     {m.edit_comment()}
                   </button>
                 </li>
+              {/if}
+              {#if canDelete}
                 <li>
                   <button onclick={handleDelete} class="text-error">
                     <i class="fa-solid fa-trash"></i>
