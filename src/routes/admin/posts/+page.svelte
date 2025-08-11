@@ -106,45 +106,45 @@
           <thead>
             <tr>
               <th>{m.post_title()}</th>
-              <th>{m.posted_by()}</th>
+              <th class="not-xs:hidden">{m.posted_by()}</th>
               <th class="not-md:hidden">{m.organization()}</th>
               <th class="not-md:hidden">{m.post_visibility()}</th>
-              <th class="not-xs:hidden">{m.statistics()}</th>
+              <th>{m.statistics()}</th>
               <th class="not-lg:hidden">{m.created_at()}</th>
-              <th class="text-right">{m.actions()}</th>
+              <th class="text-right not-lg:hidden">{m.actions()}</th>
             </tr>
           </thead>
           <tbody>
             {#each data.posts as post (post.id)}
               <tr>
                 <td>
-                  <div class="flex items-start gap-3">
-                    <div class="flex flex-col gap-1">
-                      <a
-                        class="hover:text-accent line-clamp-3 font-medium transition-colors"
-                        href="{base}{post.universityId
-                          ? `/universities/${post.universityId}`
-                          : `/clubs/${post.clubId}`}/posts/{post.id}"
-                      >
-                        {post.title}
-                      </a>
+                  <div class="flex flex-col gap-1 overflow-hidden">
+                    <a
+                      class="hover:text-accent line-clamp-2 font-medium transition-colors"
+                      href="{base}{post.universityId
+                        ? `/universities/${post.universityId}`
+                        : `/clubs/${post.clubId}`}/posts/{post.id}"
+                    >
+                      {post.title}
+                    </a>
+                    <div class="flex items-center gap-1">
                       {#if post.isPinned}
-                        <span class="badge badge-warning badge-sm">
-                          <i class="fa-solid fa-thumbtack mr-1"></i>
-                          {m.pinned()}
+                        <span class="btn btn-circle btn-soft btn-info badge-sm pointer-events-none">
+                          <i class="fa-solid fa-thumbtack"></i>
                         </span>
                       {/if}
                       {#if post.isLocked}
-                        <span class="badge badge-error badge-sm">
-                          <i class="fa-solid fa-lock mr-1"></i>
-                          {m.locked()}
+                        <span
+                          class="btn btn-circle btn-soft btn-warning badge-sm pointer-events-none"
+                        >
+                          <i class="fa-solid fa-lock"></i>
                         </span>
                       {/if}
                     </div>
                   </div>
                 </td>
 
-                <td class="max-w-[28vw] sm:max-w-[15vw]">
+                <td class="not-xs:hidden max-w-[25vw] sm:max-w-[15vw]">
                   <UserAvatar user={post.author} size="sm" showName target="_blank" />
                 </td>
 
@@ -175,14 +175,14 @@
                 </td>
 
                 <td class="not-md:hidden">
-                  <span class="badge badge-soft gap-1">
+                  <span class="badge badge-soft gap-1 text-nowrap">
                     <i class={getReadabilityIcon(post.readability)}></i>
                     {getReadabilityLabel(post.readability)}
                   </span>
                 </td>
 
-                <td class="not-xs:hidden">
-                  <div class="flex flex-row gap-2.5 text-sm">
+                <td>
+                  <div class="flex flex-row text-sm sm:gap-2.5">
                     <span>
                       <i class="fa-solid fa-caret-up text-success mr-0.5"></i>
                       {post.upvotes}
@@ -204,7 +204,7 @@
                   </div>
                 </td>
 
-                <td>
+                <td class="not-lg:hidden">
                   <div class="flex justify-end gap-2">
                     <a
                       class="btn btn-ghost btn-sm"
