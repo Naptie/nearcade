@@ -18,7 +18,6 @@ declare module '@auth/sveltekit' {
     isUniversityPublic?: boolean;
     isFrequentingArcadePublic?: boolean;
     isStarredArcadePublic?: boolean;
-    notificationReadAt?: Date;
     notificationTypes?: NotificationType[];
   }
 

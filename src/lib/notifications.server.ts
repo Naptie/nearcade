@@ -63,14 +63,124 @@ export const notify = async (
     // Store in database
     await notificationsCollection.insertOne(fullNotification);
 
-    // TODO: Send PWA notification
-    // This would require implementing service worker communication
-    // For now, we'll just log it
-    console.log(`Notification sent to ${notification.targetUserId}: ${notification.type}`);
+    // Send PWA notification
+    await sendPushNotification(fullNotification);
   } catch (error) {
     console.error('Failed to send notification:', error);
   }
 };
+
+/**
+ * Send push notification to user's device
+ */
+async function sendPushNotification(notification: Notification): Promise<void> {
+  // Generate notification content based on type
+  const { title, body } = generateNotificationContent(notification);
+
+  // Prepare notification data for client navigation
+  const notificationData = {
+    postId: notification.postId,
+    commentId: notification.commentId,
+    universityId: notification.universityId,
+    clubId: notification.clubId
+  };
+
+  // In a real implementation, you would:
+  // 1. Get user's push subscription from database
+  // 2. Use a push service like Firebase Cloud Messaging or Web Push
+  // 3. Send the notification to the user's subscribed devices
+
+  // For now, we'll use a simulated approach
+  // This would be replaced with actual push service integration
+  const pushPayload = {
+    title,
+    body,
+    data: notificationData,
+    tag: `notification-${notification.type}-${notification.id}`
+  };
+
+  console.log(`PWA Push notification would be sent:`, pushPayload);
+
+  // TODO: Implement actual push notification sending
+  // Example using web-push library:
+  /*
+  const webpush = require('web-push');
+  const subscription = await getUserPushSubscription(notification.targetUserId);
+  if (subscription) {
+    await webpush.sendNotification(subscription, JSON.stringify(pushPayload));
+  }
+  */
+}
+
+/**
+ * Generate notification title and body content for display
+ */
+function generateNotificationContent(notification: Notification): { title: string; body: string } {
+  const actorDisplayName = notification.actorDisplayName || notification.actorName;
+
+  let title = 'nearcade';
+  let body = '';
+
+  switch (notification.type) {
+    case 'COMMENTS':
+      title = 'New Comment';
+      body = `${actorDisplayName} commented on your post`;
+      if (notification.postTitle) {
+        body += `: ${notification.postTitle}`;
+      }
+      if (notification.content) {
+        body += `: ${notification.content.substring(0, 100)}${notification.content.length > 100 ? '...' : ''}`;
+      }
+      break;
+
+    case 'REPLIES':
+      title = 'New Reply';
+      body = `${actorDisplayName} replied to your comment`;
+      if (notification.postTitle) {
+        body += ` on "${notification.postTitle}"`;
+      }
+      if (notification.content) {
+        body += `: ${notification.content.substring(0, 100)}${notification.content.length > 100 ? '...' : ''}`;
+      }
+      break;
+
+    case 'POST_VOTES':
+      title = notification.voteType === 'upvote' ? 'Post Upvoted' : 'Post Downvoted';
+      body = `${actorDisplayName} ${notification.voteType === 'upvote' ? 'upvoted' : 'downvoted'} your post`;
+      if (notification.postTitle) {
+        body += `: ${notification.postTitle}`;
+      }
+      break;
+
+    case 'COMMENT_VOTES':
+      title = notification.voteType === 'upvote' ? 'Comment Upvoted' : 'Comment Downvoted';
+      body = `${actorDisplayName} ${notification.voteType === 'upvote' ? 'upvoted' : 'downvoted'} your comment`;
+      if (notification.postTitle) {
+        body += ` on "${notification.postTitle}"`;
+      }
+      break;
+
+    case 'JOIN_REQUESTS':
+      title =
+        notification.joinRequestStatus === 'approved'
+          ? 'Join Request Approved'
+          : 'Join Request Rejected';
+      const targetName =
+        notification.joinRequestType === 'university'
+          ? notification.universityName
+          : notification.clubName;
+      body = `Your request to join ${targetName} was ${notification.joinRequestStatus}`;
+      if (notification.content) {
+        body += `: ${notification.content}`;
+      }
+      break;
+
+    default:
+      body = 'You have a new notification';
+  }
+
+  return { title, body };
+}
 
 /**
  * Get notifications for a user using MongoDB aggregation
@@ -481,140 +591,19 @@ export const getUserNotifications = async (
 };
 
 /**
- * Count notifications for a user using MongoDB aggregation
+ * Count unread notifications for a user
  */
-export const countUserNotifications = async (
+export const countUnreadNotifications = async (
   client: MongoClient,
-  user: User | string,
-  readAfter: Date | string | undefined | null = null
+  userId: string
 ): Promise<number> => {
   const db = client.db();
+  const notificationsCollection = db.collection<Notification>('notifications');
 
-  if (typeof user === 'string') {
-    const dbUser = await db.collection<User>('users').findOne({ id: user });
-    if (!dbUser) {
-      throw new Error('User not found');
-    }
-    user = dbUser;
-  }
-
-  if (readAfter === null) {
-    readAfter = user.notificationReadAt;
-  }
-
-  if (typeof readAfter === 'string') {
-    readAfter = new Date(readAfter);
-  }
-
-  const notificationTypes = user?.notificationTypes || [
-    'COMMENTS',
-    'REPLIES',
-    'POST_VOTES',
-    'COMMENT_VOTES',
-    'JOIN_REQUESTS'
-  ];
-
-  if (notificationTypes.length === 0) {
-    return 0;
-  }
-
-  let count = 0;
-
-  // COMMENTS
-  if (notificationTypes.includes('COMMENTS')) {
-    const userPosts = await db.collection<Post>('posts').find({ createdBy: user.id }).toArray();
-    const postIds = userPosts.map((p) => p.id);
-
-    if (postIds.length > 0) {
-      count += await db.collection<Comment>('comments').countDocuments({
-        postId: { $in: postIds },
-        createdBy: { $ne: user.id },
-        parentCommentId: null,
-        ...(readAfter ? { createdAt: { $gt: readAfter } } : {})
-      });
-    }
-  }
-
-  // REPLIES
-  if (notificationTypes.includes('REPLIES')) {
-    const userComments = await db
-      .collection<Comment>('comments')
-      .find({ createdBy: user.id })
-      .toArray();
-    const commentIds = userComments.map((c) => c.id);
-
-    if (commentIds.length > 0) {
-      count += await db.collection<Comment>('comments').countDocuments({
-        parentCommentId: { $in: commentIds },
-        createdBy: { $ne: user.id },
-        ...(readAfter ? { createdAt: { $gt: readAfter } } : {})
-      });
-    }
-  }
-
-  // POST_VOTES
-  if (notificationTypes.includes('POST_VOTES')) {
-    const postVotesCount = await db
-      .collection<PostVote>('post_votes')
-      .aggregate([
-        {
-          $lookup: {
-            from: 'posts',
-            localField: 'postId',
-            foreignField: 'id',
-            as: 'post'
-          }
-        },
-        {
-          $match: {
-            'post.createdBy': user.id,
-            userId: { $ne: user.id },
-            ...(readAfter ? { createdAt: { $gt: readAfter } } : {})
-          }
-        },
-        { $count: 'total' }
-      ])
-      .toArray();
-    count += postVotesCount[0]?.total || 0;
-  }
-
-  // COMMENT_VOTES
-  if (notificationTypes.includes('COMMENT_VOTES')) {
-    const commentVotesCount = await db
-      .collection<CommentVote>('comment_votes')
-      .aggregate([
-        {
-          $lookup: {
-            from: 'comments',
-            localField: 'commentId',
-            foreignField: 'id',
-            as: 'comment'
-          }
-        },
-        {
-          $match: {
-            'comment.createdBy': user.id,
-            userId: { $ne: user.id },
-            ...(readAfter ? { createdAt: { $gt: readAfter } } : {})
-          }
-        },
-        { $count: 'total' }
-      ])
-      .toArray();
-    count += commentVotesCount[0]?.total || 0;
-  }
-
-  // JOIN_REQUESTS
-  if (notificationTypes.includes('JOIN_REQUESTS')) {
-    count += await db.collection<JoinRequest>('join_requests').countDocuments({
-      userId: user.id,
-      status: { $in: ['approved', 'rejected'] },
-      reviewedAt: { $ne: null },
-      ...(readAfter ? { reviewedAt: { $gt: readAfter } } : {})
-    });
-  }
-
-  return count;
+  return await notificationsCollection.countDocuments({
+    targetUserId: userId,
+    readAt: null
+  });
 };
 
 /**
@@ -622,12 +611,23 @@ export const countUserNotifications = async (
  */
 export const markNotificationsAsRead = async (
   client: MongoClient,
-  userId: string
+  userId: string,
+  notificationIds?: string[]
 ): Promise<void> => {
   const db = client.db();
-  await db
-    .collection('users')
-    .updateOne({ id: userId }, { $set: { notificationReadAt: new Date() } });
+  const notificationsCollection = db.collection<Notification>('notifications');
+
+  const filter: any = {
+    targetUserId: userId,
+    readAt: null // Only mark unread notifications
+  };
+
+  // If specific notification IDs provided, only mark those
+  if (notificationIds && notificationIds.length > 0) {
+    filter.id = { $in: notificationIds };
+  }
+
+  await notificationsCollection.updateMany(filter, { $set: { readAt: new Date() } });
 };
 
 /**

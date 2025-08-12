@@ -1,7 +1,8 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import { getUserNotifications, markNotificationsAsRead } from '$lib/notifications.server';
+import { markNotificationsAsRead } from '$lib/notifications.server';
+import type { Notification } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const session = await locals.auth();
@@ -22,15 +23,24 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     // Calculate offset
     const offset = (page - 1) * limit;
 
-    // Get notifications
-    const readAfter = unreadOnly ? session.user.notificationReadAt : undefined;
-    const notifications = await getUserNotifications(
-      client,
-      session.user,
-      readAfter,
-      limit + 1,
-      offset
-    );
+    // Build the query filter
+    const filter: any = { targetUserId: session.user.id };
+
+    // Add unread filter if requested
+    if (unreadOnly) {
+      filter.readAt = null;
+    }
+
+    // Get notifications directly from the notifications collection
+    const db = client.db();
+    const notificationsCollection = db.collection<Notification>('notifications');
+
+    const notifications = await notificationsCollection
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(offset)
+      .limit(limit + 1)
+      .toArray();
 
     // Check if there are more notifications
     const hasMore = notifications.length > limit;

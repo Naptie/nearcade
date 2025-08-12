@@ -10,7 +10,7 @@ import { env } from '$env/dynamic/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from './utils';
 import Phira from './auth/phira';
-import { countUserNotifications, countPendingJoinRequests } from './notifications.server';
+import { countUnreadNotifications, countPendingJoinRequests } from './notifications.server';
 
 const config = { allowDangerousEmailAccountLinking: true };
 
@@ -92,7 +92,7 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
           emailVerified: null,
           ...rest
         };
-        session.unreadNotifications = await countUserNotifications(client, user);
+        session.unreadNotifications = await countUnreadNotifications(client, userId);
         session.pendingJoinRequests = await countPendingJoinRequests(client, user);
       }
       return session;

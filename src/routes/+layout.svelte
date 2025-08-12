@@ -10,6 +10,8 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
+  import { pushNotificationManager } from '$lib/push-notifications.client.js';
+  import { browser } from '$app/environment';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -45,6 +47,13 @@
     setHighlightTheme();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', setHighlightTheme);
+
+    // Initialize push notifications for logged-in users
+    if (browser && data.session?.user) {
+      pushNotificationManager.init().catch((error) => {
+        console.error('Failed to initialize push notifications:', error);
+      });
+    }
 
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
       serviceHost: fromPath('/_AMapService')

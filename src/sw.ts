@@ -42,3 +42,86 @@ setDefaultHandler(new NetworkFirst());
 
 self.skipWaiting();
 clientsClaim();
+
+// Push notification handling
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let data;
+  try {
+    data = event.data.json();
+  } catch (error) {
+    console.error('Failed to parse push notification data:', error);
+    return;
+  }
+
+  const title = data.title || 'nearcade';
+  const options: NotificationOptions = {
+    body: data.body || '',
+    icon: '/logo-192.webp',
+    badge: '/logo-192.webp',
+    data: data.data || {},
+    tag: data.tag || `notification-${Date.now()}`,
+    requireInteraction: false,
+    silent: false
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const data = event.notification.data;
+  let url = '/';
+
+  // Generate URL based on notification data
+  if (data.postId) {
+    if (data.universityId) {
+      url = `/universities/${data.universityId}/posts/${data.postId}`;
+      if (data.commentId) {
+        url += `?comment=${data.commentId}`;
+      }
+    } else if (data.clubId) {
+      url = `/clubs/${data.clubId}/posts/${data.postId}`;
+      if (data.commentId) {
+        url += `?comment=${data.commentId}`;
+      }
+    }
+  } else if (data.universityId) {
+    url = `/universities/${data.universityId}`;
+  } else if (data.clubId) {
+    url = `/clubs/${data.clubId}`;
+  } else if (data.url) {
+    url = data.url;
+  }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Check if there's already a window/tab open
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.focus();
+          client.postMessage({ type: 'NAVIGATE', url });
+          return;
+        }
+      }
+
+      // No existing window, open a new one
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url);
+      }
+    })
+  );
+});
+
+// Handle background sync for notifications
+self.addEventListener('sync', (event: SyncEvent) => {
+  if (event.tag === 'background-sync-notifications') {
+    event.waitUntil(
+      // This could be used for offline notification queuing
+      Promise.resolve()
+    );
+  }
+});
