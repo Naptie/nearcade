@@ -196,7 +196,6 @@
   "auto_discovery_threshold": "Auto-Discovery Threshold",
   "auto_discovery_threshold_description": "Number of times you need to click 'Details' or 'Route' on an arcade before it's automatically added to your frequenting list",
   "auto_join_club": "Auto Join Club",
-  "auto_verify": "Auto Verify School Identity",
   "avatar": "avatar",
   "avatar_logo_placeholder": "https://example.com/logo.png",
   "avatar_url": "Avatar URL",
