@@ -2,7 +2,7 @@
 
 [中文](README.md) | **English**
 
-A modern web application that helps gamers discover arcade gaming venues. Find the best spots to play popular rhythm games like maimai DX, CHUNITHM, SOUND VOLTEX, and more!
+A modern web application that helps gamers discover arcade gaming venues and connect with local communities. Find the best spots to play popular rhythm games, join university clubs, and engage in discussions.
 
 Please join the following QQ group for discussions.
 
@@ -12,19 +12,32 @@ Please join the following QQ group for discussions.
 
 ### 🎯 Location-Based Discovery
 
-- **My Location**: Use GPS to find arcades near your current position
-- **University Search**: Search for arcades near specific universities and campuses
-- **Map Selection**: Pick any location on an interactive map
-- **Customizable Radius**: Search within 1~30 km radius
+- **My Location**: Use GPS to find arcades near your current position.
+- **University Search**: Search for arcades near specific universities and campuses.
+- **Map Selection**: Pick any location on an interactive map.
+- **Customizable Radius**: Search within a 1~30 km radius.
 
 ### 🏆 Campus Rankings
 
-- Compare universities by arcade density and machine availability
-- Metrics include shop count, total machines, and area density (machines per km²)
-- Game-specific rankings for popular titles
-- Daily data updates with 24-hour cache refresh
+- Compare universities by arcade density and machine availability.
+- Metrics include shop count, total machines, and area density.
+- Game-specific rankings for popular titles.
+- Daily data updates with 24-hour cache refresh.
 
-### 🎮 Game Support
+### 💬 Community & Social
+
+- **User Accounts**: Sign up with QQ, Phira, Osu!, GitHub, Discord, or Microsoft Account.
+- **User Profiles**: Public profiles with activity feeds and privacy settings.
+- **University Clubs**: Create and join clubs, participate in club-specific discussions.
+- **Community Posts**: Share updates, ask questions, and comment on posts in a Markdown-enabled forum.
+- **Notifications**: Get notified about new comments, replies, and club activities.
+
+### 🖥️ Cross-Platform
+
+- **Web Application**: Fully-featured web app accessible from any modern browser.
+- **Desktop App**: Native desktop application for Windows, macOS, and Linux powered by Tauri.
+
+### 🎮 Supported Games
 
 - maimai DX
 - CHUNITHM
@@ -36,37 +49,42 @@ Please join the following QQ group for discussions.
 
 ### Frontend Framework
 
-- **SvelteKit**: Full-stack framework with SSR/SPA capabilities
-- **Svelte 5**: Latest version with enhanced reactivity system
-- **TypeScript**: Type-safe development throughout
+- **SvelteKit**: Full-stack framework with SSR/SPA capabilities.
+- **Svelte 5**: Latest version with an enhanced reactivity system.
+- **TypeScript**: Type-safe development throughout.
 
 ### Styling & UI
 
-- **Tailwind CSS 4.0**: Utility-first CSS framework
-- **daisyUI**: Semantic component classes for Tailwind
-- **Font Awesome**: Comprehensive icon library
+- **Tailwind CSS 4.0**: Utility-first CSS framework.
+- **daisyUI**: Semantic component classes for Tailwind.
+- **Font Awesome**: Comprehensive icon library.
 
 ### Backend & Database
 
-- **MongoDB**: Document database for storing arcade and university data
-- **Server-side API**: RESTful endpoints built with SvelteKit
+- **MongoDB**: Primary database for all application data.
+- **Auth.js (SvelteKitAuth)**: Handles user authentication and sessions.
+- **Server-side API**: RESTful endpoints built with SvelteKit.
 
 ### Maps & Location Services
 
-- **高德地图 (AMap) & 腾讯地图 (Tencent Maps)**: Mapping service integration
-- **Geolocation API**: Browser-based location detection
+- **高德地图 (AMap) & 腾讯地图 (Tencent Maps)**: Mapping service integration.
+- **Geolocation API**: Browser-based location detection.
+
+### Cross-Platform Development
+
+- **Tauri**: Framework for building native desktop applications with web technologies.
 
 ### Internationalization
 
-- **Paraglide.js**: Type-safe i18n solution
-- **Message-based Translation**: Structured translation system
+- **Paraglide.js**: Type-safe i18n solution.
+- **Message-based Translation**: Structured translation system.
 
 ### Development Tools
 
-- **Vite**: Fast build tool and development server
-- **ESLint**: Code linting with Svelte-specific rules
-- **Prettier**: Code formatting with plugin support
-- **pnpm**: Fast, disk space efficient package manager
+- **Vite**: Fast build tool and development server.
+- **ESLint**: Code linting with Svelte-specific rules.
+- **Prettier**: Code formatting with plugin support.
+- **pnpm**: Fast, disk space efficient package manager.
 
 ## 🚀 Getting Started
 
@@ -77,117 +95,106 @@ Please join the following QQ group for discussions.
 - MongoDB instance
 - AMap JS API key & secret
 - Tencent Maps API key
-- Sentry
+- Sentry DSN (optional)
+- OAuth credentials for providers you want to support (GitHub, Discord, etc.)
 
 ### Installation
 
-1. **Clone the repository:**
+1.  **Clone the repository:**
 
-   ```bash
-   git clone https://github.com/Naptie/nearcade.git
-   cd nearcade
-   ```
+    ```bash
+    git clone https://github.com/Naptie/nearcade.git
+    cd nearcade
+    ```
 
-2. **Install dependencies:**
+2.  **Install dependencies:**
 
-   ```bash
-   pnpm install
-   ```
+    ```bash
+    pnpm install
+    ```
 
-3. **Set up environment variables:**
+3.  **Set up environment variables:**
 
-   Create a `.env` file in the root directory:
+    Create a `.env` file in the root directory. See `.env.example` for a full list of variables.
 
-   ```env
-   PUBLIC_AMAP_KEY = "your_key"
-   PUBLIC_QQMAP_KEY = "your_key"
-   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
+    **Core Configuration:**
+    ```env
+    # Map Services
+    PUBLIC_AMAP_KEY = "your_amap_key"
+    PUBLIC_QQMAP_KEY = "your_qqmap_key"
+    AMAP_SECRET = "your_amap_secret"
 
-   AMAP_SECRET = "your_secret"
-   MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
-   ```
+    # Database
+    MONGODB_URI = "mongodb://localhost:27017/nearcade"
 
-   Additionally, if you need to generate a static build, set the `PUBLIC_API_BASE` environment variable (and delete all `+page.server.ts` files); if you want to publish a Sentry release or upload source maps to Sentry, set the `SENTRY_AUTH_TOKEN` environment variable.
+    # Auth Secret (generate a random string)
+    AUTH_SECRET="your_random_auth_secret"
+    ```
 
-4. **Start development server:**
+    **Authentication Providers (add as needed):**
+    ```env
+    # GitHub
+    AUTH_GITHUB_ID="your_github_oauth_id"
+    AUTH_GITHUB_SECRET="your_github_oauth_secret"
 
-   ```bash
-   pnpm dev
-   ```
+    # Discord
+    AUTH_DISCORD_ID="your_discord_oauth_id"
+    AUTH_DISCORD_SECRET="your_discord_oauth_secret"
 
-5. **Open your browser:**
-   Navigate to `http://localhost:5173`
+    # QQ
+    AUTH_QQ_ID="your_qq_oauth_id"
+    AUTH_QQ_SECRET="your_qq_oauth_secret"
+    AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # Optional redirect proxy
+    ```
+
+4.  **Start development server:**
+
+    ```bash
+    pnpm dev
+    ```
+
+5.  **Open your browser:**
+    Navigate to `http://localhost:5173`
 
 ### Building for Production
 
 ```bash
-# Build the application
+# Build the web application
 pnpm build
 
 # Preview the production build
 pnpm preview
 ```
 
-### Deploy to Cloudflare Workers
+### Building the Desktop App
 
+To build the Tauri desktop application, run:
 ```bash
-ADAPTER=cloudflare pnpm cf-deploy
+pnpm tauri build
 ```
 
 ## 🚢 Running with Docker
 
 ### Prerequisites
 
-- **Docker** installed on your machine (follow the [installation guide](https://docs.docker.com/get-docker/)).
-- **Docker Compose** (for multi-container setups, if needed).
+- **Docker** and **Docker Compose** installed on your machine.
 
 ### Step-by-Step Guide
 
-1. **Clone the repository:**
+1.  **Clone the repository and navigate into it.**
 
-   ```bash
-   git clone https://github.com/Naptie/nearcade.git
-   cd nearcade
-   ```
+2.  **Set up environment variables:**
+    Create a `.env` file as described in the "Getting Started" section.
 
-2. **Build the Docker images:**
+3.  **Build and start the services:**
+    ```bash
+    docker-compose up --build
+    ```
 
-   Make sure that both `Dockerfile` and `docker-compose.yml` are in the root directory of your project.
-
-   ```bash
-   docker-compose build
-   ```
-
-3. **Set up environment variables:**
-
-   Ensure that you have the required environment variables set. You can create a `.env` file in the root of your project directory with the following content:
-
-   ```env
-   PUBLIC_AMAP_KEY = "your_key"
-   PUBLIC_QQMAP_KEY = "your_key"
-   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
-
-   AMAP_SECRET = "your_secret"
-   MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
-   ```
-
-   **Note:** If you're using Docker Compose to run the app and MongoDB together, you may need to modify `MONGODB_URI` to point to the MongoDB container instead of `localhost`.
-
-4. **Start the application using Docker Compose:**
-
-   ```bash
-   docker-compose up
-   ```
-
-   This will start both the application and any dependencies, like MongoDB, that you have defined in your `docker-compose.yml` file.
-
-5. **Access the application:**
-
-   Once the containers are up and running, navigate to `http://localhost:3000` in your browser to view the application.
+4.  **Access the application:**
+    Once the containers are running, navigate to `http://localhost:3000` in your browser.
 
 ### Stopping the Docker Containers
-
-To stop the Docker containers, run:
 
 ```bash
 docker-compose down
@@ -201,10 +208,10 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 
 ### Development Guidelines
 
-- Follow TypeScript best practices
-- Use Prettier for code formatting
-- Write meaningful commit messages
-- Test your changes thoroughly
+- Follow TypeScript best practices.
+- Use Prettier for code formatting.
+- Write meaningful commit messages.
+- Test your changes thoroughly.
 
 ## ⭐ Stargazers Over Time
 
