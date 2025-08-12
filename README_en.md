@@ -2,7 +2,7 @@
 
 [中文](README.md) | **English**
 
-A modern web application that helps gamers discover arcade gaming venues and connect with local communities. Find the best spots to play popular rhythm games, join university clubs, and engage in discussions.
+A modern web application that helps gamers discover arcade gaming venues and connect with communities. Find the best spots to play popular rhythm games, join university clubs, and engage in discussions.
 
 Please join the following QQ group for discussions.
 
@@ -26,10 +26,10 @@ Please join the following QQ group for discussions.
 
 ### 💬 Community & Social
 
-- **User Accounts**: Sign up with QQ, Phira, Osu!, GitHub, Discord, or Microsoft Account.
+- **User Accounts**: Sign up with QQ, Phira, osu!, GitHub, Discord, or Microsoft Account.
 - **User Profiles**: Public profiles with activity feeds and privacy settings.
 - **University Clubs**: Create and join clubs, participate in club-specific discussions.
-- **Community Posts**: Share updates, ask questions, and comment on posts in a Markdown-enabled forum.
+- **Community Posts**: Share updates, ask questions, and comment on posts in a Markdown-enabled forum with LaTeX math support.
 - **Notifications**: Get notified about new comments, replies, and club activities.
 
 ### 🖥️ Cross-Platform
@@ -96,7 +96,7 @@ Please join the following QQ group for discussions.
 - AMap JS API key & secret
 - Tencent Maps API key
 - Sentry DSN (optional)
-- OAuth credentials for providers you want to support (GitHub, Discord, etc.)
+- Credentials for OAuth providers (including GitHub, Microsoft Entra ID, Discord, osu!, Phira, and QQ)
 
 ### Installation
 
@@ -118,6 +118,7 @@ Please join the following QQ group for discussions.
     Create a `.env` file in the root directory. See `.env.example` for a full list of variables.
 
     **Core Configuration:**
+
     ```env
     # Map Services
     PUBLIC_AMAP_KEY = "your_amap_key"
@@ -125,26 +126,50 @@ Please join the following QQ group for discussions.
     AMAP_SECRET = "your_amap_secret"
 
     # Database
-    MONGODB_URI = "mongodb://localhost:27017/nearcade"
+    MONGODB_URI="mongodb://localhost:27017/?dbName=nearcade"
 
     # Auth Secret (generate a random string)
     AUTH_SECRET="your_random_auth_secret"
     ```
 
-    **Authentication Providers (add as needed):**
+    **Authentication Providers:**
+
     ```env
     # GitHub
     AUTH_GITHUB_ID="your_github_oauth_id"
     AUTH_GITHUB_SECRET="your_github_oauth_secret"
 
+    # Microsoft
+    AUTH_MICROSOFT_ENTRA_ID_ID = "your_microsoft_entra_id_id"
+    AUTH_MICROSOFT_ENTRA_ID_SECRET = "your_microsoft_entra_id_secret"
+    AUTH_MICROSOFT_ENTRA_ID_ISSUER = "your_microsoft_entra_id_issuer"
+
     # Discord
     AUTH_DISCORD_ID="your_discord_oauth_id"
     AUTH_DISCORD_SECRET="your_discord_oauth_secret"
+
+    # osu!
+    AUTH_OSU_ID = "your_osu_oauth_id"
+    AUTH_OSU_SECRET = "your_osu_oauth_secret"
+
+    # Phira
+    AUTH_PHIRA_ID = "your_phira_oauth_id"
+    AUTH_PHIRA_SECRET = "your_phira_oauth_secret"
 
     # QQ
     AUTH_QQ_ID="your_qq_oauth_id"
     AUTH_QQ_SECRET="your_qq_oauth_secret"
     AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # Optional redirect proxy
+    ```
+
+    **IMAP and Redis (For Student Status Verification):**
+
+    ```env
+    IMAP_HOST = "imap.example.com"
+    IMAP_PORT = "993"
+    IMAP_USER = "your_imap_user@example.com"
+    IMAP_PASSWORD = "your_imap_password"
+    REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
 4.  **Start development server:**
@@ -169,6 +194,7 @@ pnpm preview
 ### Building the Desktop App
 
 To build the Tauri desktop application, run:
+
 ```bash
 pnpm tauri build
 ```
@@ -187,6 +213,7 @@ pnpm tauri build
     Create a `.env` file as described in the "Getting Started" section.
 
 3.  **Build and start the services:**
+
     ```bash
     docker-compose up --build
     ```

@@ -6,7 +6,7 @@ import Osu from '@auth/sveltekit/providers/osu';
 import client from './db.server';
 import Discord from '@auth/sveltekit/providers/discord';
 import QQ from './auth/qq';
-import { AUTH_QQ_PROXY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from './utils';
 import Phira from './auth/phira';
@@ -18,7 +18,7 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
   providers: [
     QQ({
       ...config,
-      redirectProxyUrl: AUTH_QQ_PROXY
+      ...(env.AUTH_QQ_PROXY ? { redirectProxyUrl: env.AUTH_QQ_PROXY } : {})
     }),
     GitHub(config),
     MicrosoftEntraID(config),

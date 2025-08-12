@@ -2,9 +2,9 @@
 
 **中文** | [English](README_en.md)
 
-一个现代化的 Web 应用程序，旨在帮助游戏玩家发现街机游戏场所并与本地社群建立联系。在这里，您可以找到玩 maimai DX、CHUNITHM、SOUND VOLTEX 等流行节奏游戏的最佳地点，加入大学社团，并参与社区讨论。
+一个帮助玩家寻找机厅并与社群建立联系的网站。在这里，不仅可以找到距您最近的机厅，还可以加入高校社团、参与社区讨论。
 
-欢迎加入 QQ 群进行交流。
+有关网站的问题答疑、数据纠正、功能建议等请加入 QQ 群进行交流。
 
 <img src="static/group-chat-qq.jpg" alt="nearcade QQ 交流群二维码" width="350"/>
 
@@ -26,10 +26,10 @@
 
 ### 💬 社区与社交
 
-- **用户账户**: 支持使用 QQ、Phira、Osu!、GitHub、Discord 或微软账户注册。
+- **用户账户**: 支持使用 QQ、Phira、osu!、GitHub、Discord 或微软账户注册。
 - **用户资料**: 公开的个人主页，包含动态、隐私设置等。
 - **大学社团**: 创建和加入大学社团，参与社团内部的讨论。
-- **社区帖子**: 在支持 Markdown 的论坛中分享动态、提出问题和评论。
+- **社区帖子**: 在支持 Markdown 与 LaTeX 的论坛中分享动态、提出问题和评论。
 - **通知系统**: 获取关于新评论、回复和社团活动的通知。
 
 ### 🖥️ 跨平台支持
@@ -96,7 +96,7 @@
 - 高德地图 JS API 密钥和秘密
 - 腾讯地图 API 密钥
 - Sentry DSN (可选)
-- 您希望支持的 OAuth 提供商的凭据 (GitHub, Discord 等)
+- OAuth 提供商的凭据 (包括 GitHub, Microsoft Entra ID, Discord, osu!, Phira, QQ)
 
 ### 安装步骤
 
@@ -115,9 +115,10 @@
 
 3.  **设置环境变量:**
 
-    在项目根目录创建一个 `.env` 文件。完整的变量列表请参考 `.env.example`。
+    在项目根目录创建一个 `.env` 文件。
 
     **核心配置:**
+
     ```env
     # 地图服务
     PUBLIC_AMAP_KEY="your_amap_key"
@@ -125,26 +126,50 @@
     AMAP_SECRET="your_amap_secret"
 
     # 数据库
-    MONGODB_URI="mongodb://localhost:27017/nearcade"
+    MONGODB_URI="mongodb://localhost:27017/?dbName=nearcade"
 
     # Auth 密钥 (生成一个随机字符串)
     AUTH_SECRET="your_random_auth_secret"
     ```
 
-    **认证提供商 (按需添加):**
+    **认证提供商:**
+
     ```env
     # GitHub
     AUTH_GITHUB_ID="your_github_oauth_id"
     AUTH_GITHUB_SECRET="your_github_oauth_secret"
 
+    # Microsoft
+    AUTH_MICROSOFT_ENTRA_ID_ID = "your_microsoft_entra_id_id"
+    AUTH_MICROSOFT_ENTRA_ID_SECRET = "your_microsoft_entra_id_secret"
+    AUTH_MICROSOFT_ENTRA_ID_ISSUER = "your_microsoft_entra_id_issuer"
+
     # Discord
     AUTH_DISCORD_ID="your_discord_oauth_id"
     AUTH_DISCORD_SECRET="your_discord_oauth_secret"
+
+    # osu!
+    AUTH_OSU_ID = "your_osu_oauth_id"
+    AUTH_OSU_SECRET = "your_osu_oauth_secret"
+
+    # Phira
+    AUTH_PHIRA_ID = "your_phira_oauth_id"
+    AUTH_PHIRA_SECRET = "your_phira_oauth_secret"
 
     # QQ
     AUTH_QQ_ID="your_qq_oauth_id"
     AUTH_QQ_SECRET="your_qq_oauth_secret"
     AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # 可选的重定向代理
+    ```
+
+    **IMAP 与 Redis 配置 (用于在校生资格验证):**
+
+    ```env
+    IMAP_HOST = "imap.example.com"
+    IMAP_PORT = "993"
+    IMAP_USER = "your_imap_user@example.com"
+    IMAP_PASSWORD = "your_imap_password"
+    REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
 4.  **启动开发服务器:**
@@ -169,6 +194,7 @@ pnpm preview
 ### 构建桌面应用
 
 要构建 Tauri 桌面应用，请运行:
+
 ```bash
 pnpm tauri build
 ```
@@ -187,6 +213,7 @@ pnpm tauri build
     按照“开始使用”部分的说明创建 `.env` 文件。
 
 3.  **构建并启动服务:**
+
     ```bash
     docker-compose up --build
     ```
@@ -204,7 +231,7 @@ docker-compose down
 
 ## 🤝 参与贡献
 
-我们欢迎各种形式的贡献！欢迎提交 Issues 和 Pull Requests。
+我们欢迎各种形式的贡献！欢迎提交 issues 和 pull requests。
 
 ### 开发准则
 
@@ -213,7 +240,7 @@ docker-compose down
 - 编写有意义的提交信息。
 - 充分测试您的更改。
 
-## ⭐ Stargazers 随时间变化
+## ⭐ 星标历史
 
 [![Stargazers over time](https://starchart.cc/Naptie/nearcade.svg?variant=adaptive)](https://starchart.cc/Naptie/nearcade)
 
