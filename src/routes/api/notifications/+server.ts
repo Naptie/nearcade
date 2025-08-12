@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     const offset = (page - 1) * limit;
 
     // Build the query filter
-    const filter: any = { targetUserId: session.user.id };
+    const filter: Record<string, unknown> = { targetUserId: session.user.id };
 
     // Add unread filter if requested
     if (unreadOnly) {

@@ -160,7 +160,7 @@ function generateNotificationContent(notification: Notification): { title: strin
       }
       break;
 
-    case 'JOIN_REQUESTS':
+    case 'JOIN_REQUESTS': {
       title =
         notification.joinRequestStatus === 'approved'
           ? 'Join Request Approved'
@@ -174,6 +174,7 @@ function generateNotificationContent(notification: Notification): { title: strin
         body += `: ${notification.content}`;
       }
       break;
+    }
 
     default:
       body = 'You have a new notification';
@@ -617,7 +618,7 @@ export const markNotificationsAsRead = async (
   const db = client.db();
   const notificationsCollection = db.collection<Notification>('notifications');
 
-  const filter: any = {
+  const filter: Record<string, unknown> = {
     targetUserId: userId,
     readAt: null // Only mark unread notifications
   };

@@ -2,7 +2,7 @@
   import { onMount, setContext } from 'svelte';
   import '../app.css';
   import '@fortawesome/fontawesome-free/css/all.min.css';
-  import { PUBLIC_AMAP_KEY } from '$env/static/public';
+  import { PUBLIC_AMAP_KEY, PUBLIC_FIREBASE_VAPID_KEY } from '$env/static/public';
   import type { AMapContext } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
@@ -12,6 +12,18 @@
   import { base } from '$app/paths';
   import { pushNotificationManager } from '$lib/push-notifications.client.js';
   import { browser } from '$app/environment';
+  import { getAnalytics } from 'firebase/analytics';
+  import { initializeApp } from 'firebase/app';
+  import {
+    PUBLIC_FIREBASE_API_KEY,
+    PUBLIC_FIREBASE_APP_ID,
+    PUBLIC_FIREBASE_AUTH_DOMAIN,
+    PUBLIC_FIREBASE_MEASUREMENT_ID,
+    PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    PUBLIC_FIREBASE_PROJECT_ID,
+    PUBLIC_FIREBASE_STORAGE_BUCKET
+  } from '$env/static/public';
+  import { getMessaging, getToken } from 'firebase/messaging';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -74,6 +86,19 @@
       console.error('Failed to load AMap:', error);
       amapError = error instanceof Error ? error.message : 'Failed to load AMap';
     }
+
+    const firebaseConfig = {
+      apiKey: PUBLIC_FIREBASE_API_KEY,
+      authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: PUBLIC_FIREBASE_APP_ID,
+      measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
+    };
+    const app = initializeApp(firebaseConfig);
+    const messaging = getMessaging(app);
+    getToken(messaging, { vapidKey: PUBLIC_FIREBASE_VAPID_KEY });
 
     let redirect = page.url.searchParams.get('redirect');
     if (data.session?.user) {

@@ -117,9 +117,15 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // Handle background sync for notifications
-self.addEventListener('sync', (event: SyncEvent) => {
-  if (event.tag === 'background-sync-notifications') {
-    event.waitUntil(
+// Add minimal SyncEvent type declaration if not present
+interface SyncEvent extends ExtendableEvent {
+  readonly tag: string;
+}
+
+self.addEventListener('sync', (event) => {
+  const syncEvent = event as SyncEvent;
+  if (syncEvent.tag === 'background-sync-notifications') {
+    syncEvent.waitUntil(
       // This could be used for offline notification queuing
       Promise.resolve()
     );

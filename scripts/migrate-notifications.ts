@@ -9,9 +9,15 @@ import { MongoClient } from 'mongodb';
 import { nanoid } from 'nanoid';
 import type { User } from '@auth/sveltekit';
 import type { Notification } from '../src/lib/types';
+import dotenv from 'dotenv';
 
 // Import the old getUserNotifications function temporarily for migration
 import { getUserNotifications } from '../src/lib/notifications.server';
+
+if (!('MONGODB_URI' in process.env)) {
+  // Load environment variables for local development
+  dotenv.config();
+}
 
 // Configuration
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/nearcade';
@@ -121,16 +127,12 @@ async function migrateNotifications() {
 }
 
 // Run the migration
-if (require.main === module) {
-  migrateNotifications()
-    .then(() => {
-      console.log('Migration script completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('Migration script failed:', error);
-      process.exit(1);
-    });
-}
-
-export { migrateNotifications };
+migrateNotifications()
+  .then(() => {
+    console.log('Migration script completed successfully');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('Migration script failed:', error);
+    process.exit(1);
+  });

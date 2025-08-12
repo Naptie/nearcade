@@ -18,7 +18,6 @@
     "ssv-poll": "tsx ./scripts/ssv-email-worker.ts",
     "calc-uni-stats": "tsx ./scripts/update-university-stats.ts",
     "migrate-notifications": "tsx ./scripts/migrate-notifications.ts",
-    "test-notifications": "tsx ./scripts/test-notifications.ts",
     "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
@@ -77,6 +76,7 @@
     "crypto-js": "^4.2.0",
     "daisyui": "^5.0.46",
     "date-fns": "^4.1.0",
+    "firebase": "^12.1.0",
     "mailparser": "^3.7.4",
     "mongodb": "^6.17.0",
     "nanoid": "^5.1.5",
@@ -101,8 +101,10 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@firebase/util",
       "@tailwindcss/oxide",
       "esbuild",
+      "protobufjs",
       "workerd"
     ]
   },
