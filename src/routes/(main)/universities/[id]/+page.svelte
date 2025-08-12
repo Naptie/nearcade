@@ -91,7 +91,6 @@
         const hash = window.location.hash.substring(1);
         const validTab = tabs.find((tab) => tab.id === hash);
         if (validTab) {
-          console.log(114514);
           activeTab = validTab.id;
         }
       };
