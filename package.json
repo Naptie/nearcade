@@ -18,6 +18,7 @@
     "ssv-poll": "tsx ./scripts/ssv-email-worker.ts",
     "calc-uni-stats": "tsx ./scripts/update-university-stats.ts",
     "migrate-notifications": "tsx ./scripts/migrate-notifications.ts",
+    "test-notifications": "tsx ./scripts/test-notifications.ts",
     "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
