@@ -19,10 +19,10 @@ import { nanoid } from 'nanoid';
  * This function handles both storing the notification in the database
  * and sending PWA notifications to the user
  */
-export async function notify(
+export const notify = async (
   client: MongoClient,
   notification: Omit<Notification, 'id' | 'createdAt'>
-): Promise<void> {
+): Promise<void> => {
   const db = client.db();
   const notificationsCollection = db.collection<Notification>('notifications');
 
@@ -70,18 +70,18 @@ export async function notify(
   } catch (error) {
     console.error('Failed to send notification:', error);
   }
-}
+};
 
 /**
  * Get notifications for a user using MongoDB aggregation
  */
-export async function getUserNotifications(
+export const getUserNotifications = async (
   client: MongoClient,
   user: User | string,
   readAfter?: Date | string,
   limit: number = 20,
   offset: number = 0
-): Promise<Notification[]> {
+): Promise<Notification[]> => {
   const db = client.db();
   const notifications: Notification[] = [];
 
@@ -478,16 +478,16 @@ export async function getUserNotifications(
   // Sort all notifications by creation time and apply pagination
   notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   return notifications.slice(offset, offset + limit);
-}
+};
 
 /**
  * Count notifications for a user using MongoDB aggregation
  */
-export async function countUserNotifications(
+export const countUserNotifications = async (
   client: MongoClient,
   user: User | string,
   readAfter: Date | string | undefined | null = null
-): Promise<number> {
+): Promise<number> => {
   const db = client.db();
 
   if (typeof user === 'string') {
@@ -615,25 +615,28 @@ export async function countUserNotifications(
   }
 
   return count;
-}
+};
 
 /**
  * Mark notifications as read for a user
  */
-export async function markNotificationsAsRead(client: MongoClient, userId: string): Promise<void> {
+export const markNotificationsAsRead = async (
+  client: MongoClient,
+  userId: string
+): Promise<void> => {
   const db = client.db();
   await db
     .collection('users')
     .updateOne({ id: userId }, { $set: { notificationReadAt: new Date() } });
-}
+};
 
 /**
  * Count pending join requests that a user can manage
  */
-export async function countPendingJoinRequests(
+export const countPendingJoinRequests = async (
   client: MongoClient,
   user: User | string
-): Promise<number | undefined> {
+): Promise<number | undefined> => {
   const db = client.db();
 
   if (typeof user === 'string') {
@@ -696,4 +699,4 @@ export async function countPendingJoinRequests(
     status: 'pending',
     ...permissionFilter
   });
-}
+};
