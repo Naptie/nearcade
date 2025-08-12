@@ -39,11 +39,11 @@
 
 ### 🎮 支持的游戏
 
-- maimai DX
-- CHUNITHM
-- 太鼓の達人
-- SOUND VOLTEX
-- WACCA
+- 舞萌DX
+- 中二节奏
+- 太鼓之达人
+- 音律炫动
+- 华卡音舞
 
 ## 🛠️ 技术栈
 
