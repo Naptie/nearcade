@@ -832,3 +832,8 @@ export const canReadPost = async (
 
   return false;
 };
+
+export const isStandalone = () => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(display-mode: standalone)').matches;
+};

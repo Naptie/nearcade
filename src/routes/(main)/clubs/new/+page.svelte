@@ -3,6 +3,7 @@
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
+  import { isStandalone } from '$lib/utils';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData | null } = $props();
@@ -34,7 +35,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.create_club()} - {m.app_name()}</title>
+  <title>{m.create_club()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
   <meta name="description" content={m.create_club()} />
 </svelte:head>
 

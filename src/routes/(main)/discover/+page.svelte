@@ -18,7 +18,8 @@
     getCachedRouteData,
     setCachedRouteData,
     clearRouteCache,
-    convertPath
+    convertPath,
+    isStandalone
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { base } from '$app/paths';
@@ -744,7 +745,7 @@
       ? m.arcades_near({
           name: data.location.name
         })
-      : m.nearby_arcades()} - {m.app_name()}
+      : m.nearby_arcades()}{isStandalone() ? '' : ` - ${m.app_name()}`}
   </title>
 </svelte:head>
 

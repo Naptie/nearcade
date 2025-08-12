@@ -4,7 +4,7 @@
   import { enhance } from '$app/forms';
   import type { Shop } from '$lib/types';
   import type { PageData } from './$types';
-  import { fromPath } from '$lib/utils';
+  import { fromPath, isStandalone } from '$lib/utils';
   import { onMount } from 'svelte';
 
   let { data }: { data: PageData } = $props();
@@ -70,7 +70,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.frequenting_arcades()} - {m.app_name()}</title>
+  <title>{m.frequenting_arcades()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

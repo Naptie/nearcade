@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import type { PageData } from './$types';
-  import { formatDate } from '$lib/utils';
+  import { formatDate, isStandalone } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_clubs()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{m.admin_clubs()} - {m.admin_panel()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="space-y-6">

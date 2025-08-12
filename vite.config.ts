@@ -78,12 +78,13 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#ffffff',
-        theme_color: '#ffffff',
+        background_color: '#1B1717',
+        theme_color: '#1B1717',
         lang: 'en',
         icons: [
-          // NOTE: For best installability provide 192x192 and 512x512 icons in /static
-          { src: 'favicon.png', sizes: '128x128', type: 'image/png' }
+          { src: 'logo-192.webp', sizes: '192x192', type: 'image/webp' },
+          { src: 'logo-256.webp', sizes: '256x256', type: 'image/webp' },
+          { src: 'logo-512.webp', sizes: '512x512', type: 'image/webp' }
         ]
       }
     })

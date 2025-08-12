@@ -1,7 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistance, formatRegionLabel, parseRelativeTime, fromPath } from '$lib/utils';
+  import {
+    formatDistance,
+    formatRegionLabel,
+    parseRelativeTime,
+    fromPath,
+    isStandalone
+  } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
     UniversityRankingData,
@@ -191,7 +197,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.campus_rankings()} - {m.app_name()}</title>
+  <title>{m.campus_rankings()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="container mx-auto pt-20 sm:px-4">

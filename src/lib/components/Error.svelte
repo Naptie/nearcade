@@ -4,6 +4,7 @@
   import { GITHUB_LINK } from '$lib';
   import Footer from '$lib/components/Footer.svelte';
   import { m } from '$lib/paraglide/messages';
+  import { isStandalone } from '$lib/utils';
 
   let { status, errorMessage }: { status: number; errorMessage: string } = $props();
 
@@ -78,7 +79,7 @@
 </script>
 
 <svelte:head>
-  <title>{errorContent.title} - {m.app_name()}</title>
+  <title>{errorContent.title}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="w-full max-w-md">

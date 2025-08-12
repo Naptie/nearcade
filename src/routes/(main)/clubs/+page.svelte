@@ -5,6 +5,7 @@
   import type { PageData } from './$types';
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
+  import { isStandalone } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -45,7 +46,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.browse_clubs()} - {m.app_name()}</title>
+  <title>{m.browse_clubs()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
   <meta name="description" content={m.browse_search_clubs()} />
 </svelte:head>
 

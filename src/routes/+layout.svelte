@@ -9,6 +9,7 @@
   import { fromPath } from '$lib/utils';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -81,6 +82,11 @@
     };
   });
 </script>
+
+<svelte:head>
+  <link rel="manifest" href="{base}/manifest.webmanifest" crossorigin="use-credentials" />
+  <meta name="theme-color" content="#1B1717" />
+</svelte:head>
 
 {@render children()}
 

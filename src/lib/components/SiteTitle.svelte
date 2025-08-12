@@ -5,7 +5,7 @@
   let { class: klass = '' } = $props();
 
   let appName = m.app_name();
-  let midIndex = Math.floor(appName.length / 2);
+  let midIndex = Math.ceil(appName.length / 2);
   let firstPart = appName.slice(0, midIndex);
   let secondPart = appName.slice(midIndex);
 </script>

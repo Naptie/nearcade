@@ -5,6 +5,7 @@
   import { base } from '$app/paths';
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
+  import { isStandalone } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -40,7 +41,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_shops()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{m.admin_shops()} - {m.admin_panel()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">

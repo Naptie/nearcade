@@ -5,6 +5,7 @@
   import NotificationItem from '$lib/components/NotificationItem.svelte';
   import type { Notification } from '$lib/notifications.server';
   import { invalidateAll } from '$app/navigation';
+  import { isStandalone } from '$lib/utils';
 
   // Notification loading state
   let notifications = $state<Notification[]>([]);
@@ -98,7 +99,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.notifications()} - {m.app_name()}</title>
+  <title>{m.notifications()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="pt-12">

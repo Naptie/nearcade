@@ -7,7 +7,7 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
   import type { JoinRequestWithUser } from '$lib/types';
-  import { formatDateTime } from '$lib/utils';
+  import { formatDateTime, isStandalone } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -72,7 +72,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.join_requests()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{m.join_requests()} - {m.admin_panel()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">

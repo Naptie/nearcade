@@ -5,6 +5,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import type { PageData } from './$types';
+  import { isStandalone } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -31,7 +32,9 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_universities()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title
+    >{m.admin_universities()} - {m.admin_panel()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title
+  >
 </svelte:head>
 
 <div class="space-y-6">

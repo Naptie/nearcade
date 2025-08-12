@@ -14,7 +14,7 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { canWriteUnivPosts, fromPath } from '$lib/utils';
+  import { canWriteUnivPosts, fromPath, isStandalone } from '$lib/utils';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
 
@@ -281,7 +281,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.university.name} - {m.app_name()}</title>
+  <title>{data.university.name}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
   <meta name="description" content={data.university.description || data.university.name} />
 </svelte:head>
 

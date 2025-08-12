@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
-  import { getDisplayName, fromPath } from '$lib/utils';
+  import { getDisplayName, fromPath, isStandalone } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -73,7 +73,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.invite_link()} - {m.app_name()}</title>
+  <title>{m.invite_link()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
 </svelte:head>
 
 <div class="bg-base-100 flex min-h-screen items-center justify-center p-4">
