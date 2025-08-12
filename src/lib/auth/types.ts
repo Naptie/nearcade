@@ -19,6 +19,8 @@ declare module '@auth/sveltekit' {
     isFrequentingArcadePublic?: boolean;
     isStarredArcadePublic?: boolean;
     notificationTypes?: NotificationType[];
+    fcmTokens?: string[]; // Firebase Cloud Messaging tokens
+    fcmTokenUpdatedAt?: Date; // Last time FCM tokens were updated
   }
 
   export interface Session {

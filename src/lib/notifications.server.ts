@@ -13,6 +13,7 @@ import type {
 } from './types';
 import type { User } from '@auth/sveltekit';
 import { nanoid } from 'nanoid';
+import { sendFCMNotification } from './fcm-notifications.server';
 
 /**
  * Sends an active notification to a user
@@ -63,125 +64,12 @@ export const notify = async (
     // Store in database
     await notificationsCollection.insertOne(fullNotification);
 
-    // Send PWA notification
-    await sendPushNotification(fullNotification);
+    // Send FCM notification
+    await sendFCMNotification(client, fullNotification);
   } catch (error) {
     console.error('Failed to send notification:', error);
   }
 };
-
-/**
- * Send push notification to user's device
- */
-async function sendPushNotification(notification: Notification): Promise<void> {
-  // Generate notification content based on type
-  const { title, body } = generateNotificationContent(notification);
-
-  // Prepare notification data for client navigation
-  const notificationData = {
-    postId: notification.postId,
-    commentId: notification.commentId,
-    universityId: notification.universityId,
-    clubId: notification.clubId
-  };
-
-  // In a real implementation, you would:
-  // 1. Get user's push subscription from database
-  // 2. Use a push service like Firebase Cloud Messaging or Web Push
-  // 3. Send the notification to the user's subscribed devices
-
-  // For now, we'll use a simulated approach
-  // This would be replaced with actual push service integration
-  const pushPayload = {
-    title,
-    body,
-    data: notificationData,
-    tag: `notification-${notification.type}-${notification.id}`
-  };
-
-  console.log(`PWA Push notification would be sent:`, pushPayload);
-
-  // TODO: Implement actual push notification sending
-  // Example using web-push library:
-  /*
-  const webpush = require('web-push');
-  const subscription = await getUserPushSubscription(notification.targetUserId);
-  if (subscription) {
-    await webpush.sendNotification(subscription, JSON.stringify(pushPayload));
-  }
-  */
-}
-
-/**
- * Generate notification title and body content for display
- */
-function generateNotificationContent(notification: Notification): { title: string; body: string } {
-  const actorDisplayName = notification.actorDisplayName || notification.actorName;
-
-  let title = 'nearcade';
-  let body = '';
-
-  switch (notification.type) {
-    case 'COMMENTS':
-      title = 'New Comment';
-      body = `${actorDisplayName} commented on your post`;
-      if (notification.postTitle) {
-        body += `: ${notification.postTitle}`;
-      }
-      if (notification.content) {
-        body += `: ${notification.content.substring(0, 100)}${notification.content.length > 100 ? '...' : ''}`;
-      }
-      break;
-
-    case 'REPLIES':
-      title = 'New Reply';
-      body = `${actorDisplayName} replied to your comment`;
-      if (notification.postTitle) {
-        body += ` on "${notification.postTitle}"`;
-      }
-      if (notification.content) {
-        body += `: ${notification.content.substring(0, 100)}${notification.content.length > 100 ? '...' : ''}`;
-      }
-      break;
-
-    case 'POST_VOTES':
-      title = notification.voteType === 'upvote' ? 'Post Upvoted' : 'Post Downvoted';
-      body = `${actorDisplayName} ${notification.voteType === 'upvote' ? 'upvoted' : 'downvoted'} your post`;
-      if (notification.postTitle) {
-        body += `: ${notification.postTitle}`;
-      }
-      break;
-
-    case 'COMMENT_VOTES':
-      title = notification.voteType === 'upvote' ? 'Comment Upvoted' : 'Comment Downvoted';
-      body = `${actorDisplayName} ${notification.voteType === 'upvote' ? 'upvoted' : 'downvoted'} your comment`;
-      if (notification.postTitle) {
-        body += ` on "${notification.postTitle}"`;
-      }
-      break;
-
-    case 'JOIN_REQUESTS': {
-      title =
-        notification.joinRequestStatus === 'approved'
-          ? 'Join Request Approved'
-          : 'Join Request Rejected';
-      const targetName =
-        notification.joinRequestType === 'university'
-          ? notification.universityName
-          : notification.clubName;
-      body = `Your request to join ${targetName} was ${notification.joinRequestStatus}`;
-      if (notification.content) {
-        body += `: ${notification.content}`;
-      }
-      break;
-    }
-
-    default:
-      body = 'You have a new notification';
-  }
-
-  return { title, body };
-}
 
 /**
  * Get notifications for a user using MongoDB aggregation

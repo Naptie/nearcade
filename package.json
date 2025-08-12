@@ -77,6 +77,7 @@
     "daisyui": "^5.0.46",
     "date-fns": "^4.1.0",
     "firebase": "^12.1.0",
+    "firebase-admin": "^13.4.0",
     "mailparser": "^3.7.4",
     "mongodb": "^6.17.0",
     "nanoid": "^5.1.5",

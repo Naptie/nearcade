@@ -62,7 +62,7 @@
 
     // Initialize push notifications for logged-in users
     if (browser && data.session?.user) {
-      pushNotificationManager.init().catch((error) => {
+      initializePushNotifications().catch((error) => {
         console.error('Failed to initialize push notifications:', error);
       });
     }
@@ -87,19 +87,6 @@
       amapError = error instanceof Error ? error.message : 'Failed to load AMap';
     }
 
-    const firebaseConfig = {
-      apiKey: PUBLIC_FIREBASE_API_KEY,
-      authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: PUBLIC_FIREBASE_APP_ID,
-      measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
-    };
-    const app = initializeApp(firebaseConfig);
-    const messaging = getMessaging(app);
-    getToken(messaging, { vapidKey: PUBLIC_FIREBASE_VAPID_KEY });
-
     let redirect = page.url.searchParams.get('redirect');
     if (data.session?.user) {
       redirect ??= localStorage.getItem('nearcade-redirect');
@@ -115,6 +102,55 @@
       media.removeEventListener('change', setHighlightTheme);
     };
   });
+
+  const initializePushNotifications = async () => {
+    if (!data.session?.user) return;
+
+    try {
+      const firebaseConfig = {
+        apiKey: PUBLIC_FIREBASE_API_KEY,
+        authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: PUBLIC_FIREBASE_APP_ID,
+        measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
+      };
+
+      const app = initializeApp(firebaseConfig);
+      
+      // Initialize analytics if available
+      if (typeof window !== 'undefined' && PUBLIC_FIREBASE_MEASUREMENT_ID) {
+        getAnalytics(app);
+      }
+
+      const messaging = getMessaging(app);
+
+      // Request permission and get token
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        try {
+          const token = await getToken(messaging, { vapidKey: PUBLIC_FIREBASE_VAPID_KEY });
+          if (token) {
+            // Store token on server
+            await fetch(`${base}/api/fcm-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token, action: 'store' })
+            });
+            console.log('FCM token registered:', token);
+          }
+        } catch (error) {
+          console.error('Failed to get FCM token:', error);
+        }
+      }
+
+      // Initialize push notification manager
+      pushNotificationManager.init();
+    } catch (error) {
+      console.error('Failed to initialize Firebase:', error);
+    }
+  };
 </script>
 
 <svelte:head>

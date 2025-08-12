@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// Custom Service Worker (injectManifest) for nearcade
+// Custom Service Worker (injectManifest) for nearcade with FCM support
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, setDefaultHandler } from 'workbox-routing';
@@ -40,8 +40,59 @@ registerRoute(
 
 setDefaultHandler(new NetworkFirst());
 
-self.skipWaiting();
-clientsClaim();
+// Firebase messaging configuration
+const firebaseConfig = {
+  // These will be injected at build time or retrieved from a configuration endpoint
+  apiKey: 'placeholder',
+  authDomain: 'placeholder',
+  projectId: 'placeholder',
+  storageBucket: 'placeholder',
+  messagingSenderId: 'placeholder',
+  appId: 'placeholder'
+};
+
+// Initialize Firebase in service worker
+let messaging: unknown = null;
+
+// Import Firebase messaging in service worker
+importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
+
+// Initialize Firebase
+// In a production environment, you would get the config from environment variables
+try {
+  // @ts-expect-error Firebase globals are loaded dynamically via importScripts
+  if (typeof firebase !== 'undefined') {
+    // @ts-expect-error Firebase globals are loaded dynamically via importScripts  
+    firebase.initializeApp(firebaseConfig);
+    // @ts-expect-error Firebase globals are loaded dynamically via importScripts
+    messaging = firebase.messaging();
+    
+    // Handle background messages
+    messaging.onBackgroundMessage((payload: unknown) => {
+      console.log('Received background message:', payload);
+      
+      // Type assertion for payload structure
+      const notificationPayload = payload as {
+        notification?: { title?: string; body?: string };
+        data?: { tag?: string };
+      };
+      
+      const notificationTitle = notificationPayload.notification?.title || 'nearcade';
+      const notificationOptions = {
+        body: notificationPayload.notification?.body || '',
+        icon: '/logo-192.webp',
+        badge: '/logo-192.webp',
+        data: notificationPayload.data || {},
+        tag: notificationPayload.data?.tag || `notification-${Date.now()}`
+      };
+
+      return self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+  }
+} catch (error) {
+  console.log('Firebase initialization skipped in development:', error);
+}
 
 // Push notification handling
 self.addEventListener('push', (event) => {
@@ -131,3 +182,6 @@ self.addEventListener('sync', (event) => {
     );
   }
 });
+
+self.skipWaiting();
+clientsClaim();
