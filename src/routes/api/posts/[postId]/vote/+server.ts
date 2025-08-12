@@ -9,6 +9,7 @@ import {
   checkClubPermission,
   getDefaultPostReadability
 } from '$lib/utils';
+import { notify } from '$lib/notifications.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -154,6 +155,28 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         upvoteDelta = 1;
       } else {
         downvoteDelta = 1;
+      }
+
+      // Send notification for new votes (only notify post author)
+      try {
+        if (post.createdBy !== session.user.id) {
+          await notify(client, {
+            type: 'POST_VOTES',
+            actorUserId: session.user.id,
+            actorName: session.user.name || '',
+            actorDisplayName: session.user.displayName || undefined,
+            actorImage: session.user.image || undefined,
+            targetUserId: post.createdBy,
+            postId: post.id,
+            postTitle: post.title,
+            voteType: voteType,
+            universityId: post.universityId,
+            clubId: post.clubId
+          });
+        }
+      } catch (notificationError) {
+        // Don't fail the vote if notification fails
+        console.error('Failed to send vote notification:', notificationError);
       }
     }
 

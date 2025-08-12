@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import NotificationItem from '$lib/components/NotificationItem.svelte';
-  import type { Notification } from '$lib/notifications.server';
+  import type { Notification } from '$lib/types';
   import { invalidateAll } from '$app/navigation';
   import { buildPageTitle } from '$lib/utils';
 

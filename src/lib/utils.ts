@@ -845,7 +845,7 @@ export const isStandalone = () => {
  */
 export const buildPageTitle = (...parts: string[]): string => {
   const filteredParts = parts.filter(Boolean); // Remove empty strings
-  
+
   if (isStandalone()) {
     // In standalone mode, return parts in original order
     return filteredParts.join(' - ');

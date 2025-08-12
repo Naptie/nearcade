@@ -7,7 +7,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import UserAvatar from './UserAvatar.svelte';
   import { getDisplayName } from '$lib/utils';
-  import type { Notification } from '$lib/notifications.server';
+  import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
   import { strip } from '$lib/markdown';
 
