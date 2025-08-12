@@ -45,17 +45,6 @@
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', setHighlightTheme);
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('SW registered: ', registration);
-        })
-        .catch((registrationError) => {
-          console.log('SW registration failed: ', registrationError);
-        });
-    }
-
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
       serviceHost: fromPath('/_AMapService')
     };
