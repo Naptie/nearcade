@@ -4,7 +4,7 @@
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
-  import { buildPageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -28,7 +28,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(`${m.edit()} ${m.club()}`, data.club.name)}</title>
+  <title>{pageTitle(`${m.edit()} ${m.club()}`, data.club.name)}</title>
   <meta name="description" content="{m.edit()} {m.club()} - {data.club.name}" />
 </svelte:head>
 

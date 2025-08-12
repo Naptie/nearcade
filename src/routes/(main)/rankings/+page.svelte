@@ -6,7 +6,7 @@
     formatRegionLabel,
     parseRelativeTime,
     fromPath,
-    buildPageTitle
+    pageTitle
   } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
@@ -197,7 +197,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.campus_rankings())}</title>
+  <title>{pageTitle(m.campus_rankings())}</title>
 </svelte:head>
 
 <div class="container mx-auto pt-20 sm:px-4">

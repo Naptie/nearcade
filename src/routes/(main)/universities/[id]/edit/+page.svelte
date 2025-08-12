@@ -5,7 +5,7 @@
   import type { PageData } from './$types';
   import { base } from '$app/paths';
   import { PostReadability, PostWritability } from '$lib/types';
-  import { buildPageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -41,7 +41,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.edit_university_info(), data.university.name)}</title>
+  <title>{pageTitle(m.edit_university_info(), data.university.name)}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-8 pt-20 sm:px-6 lg:px-8">

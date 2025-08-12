@@ -12,7 +12,7 @@
     getUserTypeBadgeClass,
     getUserTypeLabel,
     fromPath,
-    buildPageTitle
+    pageTitle
   } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
@@ -140,7 +140,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.admin_users(), m.admin_panel())}</title>
+  <title>{pageTitle(m.admin_users(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="space-y-6">

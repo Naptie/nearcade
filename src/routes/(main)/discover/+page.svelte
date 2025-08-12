@@ -19,7 +19,7 @@
     setCachedRouteData,
     clearRouteCache,
     convertPath,
-    buildPageTitle
+    pageTitle
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { base } from '$app/paths';
@@ -741,7 +741,7 @@
 
 <svelte:head>
   <title>
-    {buildPageTitle(
+    {pageTitle(
       data.location.name
         ? m.arcades_near({
             name: data.location.name

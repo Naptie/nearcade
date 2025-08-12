@@ -12,7 +12,7 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { formatDate, fromPath, buildPageTitle } from '$lib/utils';
+  import { formatDate, fromPath, pageTitle } from '$lib/utils';
   import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
@@ -335,7 +335,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(data.club.name)}</title>
+  <title>{pageTitle(data.club.name)}</title>
   <meta
     name="description"
     content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}

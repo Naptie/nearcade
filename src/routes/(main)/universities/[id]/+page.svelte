@@ -14,7 +14,7 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { canWriteUnivPosts, fromPath, buildPageTitle } from '$lib/utils';
+  import { canWriteUnivPosts, fromPath, pageTitle } from '$lib/utils';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
 
@@ -281,7 +281,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(data.university.name)}</title>
+  <title>{pageTitle(data.university.name)}</title>
   <meta name="description" content={data.university.description || data.university.name} />
 </svelte:head>
 

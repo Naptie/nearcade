@@ -840,18 +840,15 @@ export const isStandalone = () => {
 
 /**
  * Builds a page title with proper ordering for PWA standalone mode
- * In standalone mode: returns parts in original order (A - B - C)
+ * In standalone mode: returns parts in original reverse order (C - B - A)
  * In browser mode: returns parts in reverse order with app name (C - B - A - {appName})
  */
-export const buildPageTitle = (...parts: string[]): string => {
+export const pageTitle = (...parts: string[]): string => {
   const filteredParts = parts.filter(Boolean); // Remove empty strings
 
   if (isStandalone()) {
-    // In standalone mode, return parts in original order
-    return filteredParts.join(' - ');
+    return [...filteredParts].reverse().join(' - ');
   } else {
-    // In browser mode, reverse parts and add app name
-    const reversedParts = [...filteredParts].reverse();
-    return `${reversedParts.join(' - ')} - ${m.app_name()}`;
+    return `${filteredParts.join(' - ')} - ${m.app_name()}`;
   }
 };

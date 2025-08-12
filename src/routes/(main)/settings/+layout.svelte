@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
-  import { buildPageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -39,7 +39,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.settings())}</title>
+  <title>{pageTitle(m.settings())}</title>
 </svelte:head>
 
 <div class="pt-12">

@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
-  import { getDisplayName, fromPath, buildPageTitle } from '$lib/utils';
+  import { getDisplayName, fromPath, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -73,7 +73,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.invite_link())}</title>
+  <title>{pageTitle(m.invite_link())}</title>
 </svelte:head>
 
 <div class="bg-base-100 flex min-h-screen items-center justify-center p-4">

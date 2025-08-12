@@ -5,7 +5,7 @@
   import NotificationItem from '$lib/components/NotificationItem.svelte';
   import type { Notification } from '$lib/types';
   import { invalidateAll } from '$app/navigation';
-  import { buildPageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
 
   // Notification loading state
   let notifications = $state<Notification[]>([]);
@@ -100,7 +100,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.notifications())}</title>
+  <title>{pageTitle(m.notifications())}</title>
 </svelte:head>
 
 <div class="pt-12">

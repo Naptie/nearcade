@@ -5,7 +5,7 @@
   import type { PageData } from './$types';
   import { base } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
-  import { buildPageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -46,7 +46,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.browse_clubs())}</title>
+  <title>{pageTitle(m.browse_clubs())}</title>
   <meta name="description" content={m.browse_search_clubs()} />
 </svelte:head>
 

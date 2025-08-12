@@ -6,7 +6,7 @@
   import type { PageData } from './$types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { page } from '$app/state';
-  import { buildPageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -59,7 +59,7 @@
 </script>
 
 <svelte:head>
-  <title>{buildPageTitle(m.admin_posts(), m.admin_panel())}</title>
+  <title>{pageTitle(m.admin_posts(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">
