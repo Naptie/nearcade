@@ -27,8 +27,9 @@
     }
 
     try {
-      const unreadParam = unreadOnly ? '&unreadOnly=true' : '';
-      const response = await fetch(`${base}/api/notifications?page=${page}&limit=10${unreadParam}`);
+      const response = await fetch(
+        `${base}/api/notifications?page=${page}&limit=10${unreadOnly ? '&unreadOnly=true' : ''}`
+      );
 
       if (!response.ok) {
         throw new Error('Failed to load notifications');
