@@ -4,7 +4,7 @@
   import type { PageData } from './$types';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
-  import { formatDateTime, isStandalone } from '$lib/utils';
+  import { formatDateTime, buildPageTitle } from '$lib/utils';
   import { onMount } from 'svelte';
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
@@ -54,8 +54,10 @@
 
 <svelte:head>
   <title
-    >{data.userPermissions.canJoin === 2 ? m.verify_and_join() : m.verify()} - {data.university
-      .name}{isStandalone() ? '' : ` - ${m.app_name()}`}</title
+    >{buildPageTitle(
+      data.userPermissions.canJoin === 2 ? m.verify_and_join() : m.verify(),
+      data.university.name
+    )}</title
   >
 </svelte:head>
 

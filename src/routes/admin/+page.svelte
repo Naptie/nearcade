@@ -1,14 +1,14 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { isStandalone } from '$lib/utils';
+  import { buildPageTitle } from '$lib/utils';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-  <title>{m.admin_dashboard()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{buildPageTitle(m.admin_dashboard())}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">

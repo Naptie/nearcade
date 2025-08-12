@@ -17,7 +17,7 @@
   import { render } from '$lib/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
-  import { getDisplayName, fromPath, isStandalone } from '$lib/utils';
+  import { getDisplayName, fromPath, buildPageTitle } from '$lib/utils';
 
   interface Props {
     post: PostWithAuthor;
@@ -421,7 +421,7 @@
 </script>
 
 <svelte:head>
-  <title>{post.title} - {organizationName}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{buildPageTitle(post.title, organizationName)}</title>
   <meta name="description" content={post.content.substring(0, 200)} />
 </svelte:head>
 

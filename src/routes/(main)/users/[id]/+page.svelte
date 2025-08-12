@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { getUserTypeBadgeClass, getUserTypeLabel, isStandalone } from '$lib/utils';
+  import { getUserTypeBadgeClass, getUserTypeLabel, buildPageTitle } from '$lib/utils';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
@@ -92,10 +92,12 @@
 
 <svelte:head>
   <title
-    >{data.user.displayName ||
-      (() => (data.user.name ? `@${data.user.name}` : ''))() ||
-      m.anonymous_user()} -
-    {m.profile()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title
+    >{buildPageTitle(
+      data.user.displayName ||
+        (() => (data.user.name ? `@${data.user.name}` : ''))() ||
+        m.anonymous_user(),
+      m.profile()
+    )}</title
   >
 </svelte:head>
 

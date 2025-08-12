@@ -5,7 +5,7 @@
   import type { PageData } from './$types';
   import { base } from '$app/paths';
   import { PostReadability, PostWritability } from '$lib/types';
-  import { isStandalone } from '$lib/utils';
+  import { buildPageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -41,11 +41,7 @@
 </script>
 
 <svelte:head>
-  <title
-    >{m.edit_university_info()} - {data.university.name}{isStandalone()
-      ? ''
-      : ` - ${m.app_name()}`}</title
-  >
+  <title>{buildPageTitle(m.edit_university_info(), data.university.name)}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-8 pt-20 sm:px-6 lg:px-8">
