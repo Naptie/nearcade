@@ -5,7 +5,7 @@ import { checkUniversityPermission, checkClubPermission, toPlainArray } from '$l
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import client from '$lib/db.server';
-import { notify } from '$lib/notifications.server';
+import { notify } from '$lib/notifications/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -308,7 +308,7 @@ export const actions: Actions = {
           organizationName = club?.name || 'Club';
         }
 
-        await notify(client, {
+        await notify({
           type: 'JOIN_REQUESTS',
           actorUserId: session.user.id,
           actorName: session.user.name || '',
@@ -412,7 +412,7 @@ export const actions: Actions = {
           organizationName = club?.name || 'Club';
         }
 
-        await notify(client, {
+        await notify({
           type: 'JOIN_REQUESTS',
           actorUserId: session.user.id,
           actorName: session.user.name || '',

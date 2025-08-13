@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import { storeFCMToken, removeFCMToken } from '$lib/fcm-notifications.server';
+import { storeFCMToken, removeFCMToken } from '$lib/notifications/fcm.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = await locals.auth();

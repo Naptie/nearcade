@@ -9,7 +9,7 @@ import {
   canWriteClubPosts,
   commentId
 } from '$lib/utils';
-import { notify } from '$lib/notifications.server';
+import { notify } from '$lib/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -125,7 +125,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         // This is a reply - notify the parent comment author
         const parentComment = await commentsCollection.findOne({ id: parentCommentId });
         if (parentComment && parentComment.createdBy !== session.user.id) {
-          await notify(client, {
+          await notify({
             type: 'REPLIES',
             actorUserId: session.user.id,
             actorName: session.user.name || '',
@@ -143,7 +143,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       } else {
         // This is a direct comment on a post - notify the post author
         if (post.createdBy !== session.user.id) {
-          await notify(client, {
+          await notify({
             type: 'COMMENTS',
             actorUserId: session.user.id,
             actorName: session.user.name || '',

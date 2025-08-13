@@ -12,7 +12,7 @@ import type { Notification } from '../src/lib/types';
 import dotenv from 'dotenv';
 
 // Import the old getUserNotifications function temporarily for migration
-import { getUserNotifications } from '../src/lib/notifications.server';
+import { getUserNotifications } from '../src/lib/notifications/index.server';
 
 if (!('MONGODB_URI' in process.env)) {
   // Load environment variables for local development

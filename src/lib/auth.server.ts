@@ -10,7 +10,7 @@ import { env } from '$env/dynamic/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from './utils';
 import Phira from './auth/phira';
-import { countUnreadNotifications, countPendingJoinRequests } from './notifications.server';
+import { countUnreadNotifications, countPendingJoinRequests } from './notifications/index.server';
 
 const config = { allowDangerousEmailAccountLinking: true };
 

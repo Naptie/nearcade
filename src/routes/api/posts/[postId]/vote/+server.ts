@@ -9,7 +9,7 @@ import {
   checkClubPermission,
   getDefaultPostReadability
 } from '$lib/utils';
-import { notify } from '$lib/notifications.server';
+import { notify } from '$lib/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -161,7 +161,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Send notification for new votes (only notify post author)
     try {
       if (post.createdBy !== session.user.id) {
-        await notify(client, {
+        await notify({
           type: 'POST_VOTES',
           actorUserId: session.user.id,
           actorName: session.user.name || '',

@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db.server';
-import { markNotificationsAsRead } from '$lib/notifications.server';
+import { markNotificationsAsRead } from '$lib/notifications/index.server';
 import type { Notification } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {

@@ -3,13 +3,11 @@
  */
 import type { MongoClient } from 'mongodb';
 import type { Notification } from '$lib/types';
-import {
-  generateFCMNotificationContent,
-  generateNotificationData
-} from './fcm-notifications.client';
+import { generateFCMNotificationContent, generateNotificationData } from './fcm.client';
 import type { User } from '@auth/sveltekit';
-import { getMessaging } from 'firebase-admin/messaging';
-import app from './firebase.server';
+import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
+import app from '../firebase.server';
+import client from '$lib/db.server';
 
 /**
  * Get user's FCM tokens from database
@@ -35,15 +33,14 @@ async function getUserFCMTokens(client: MongoClient, userId: string): Promise<st
  * Send FCM notification to user
  */
 export async function sendFCMNotification(
-  client: MongoClient,
   notification: Notification
-): Promise<void> {
+): Promise<{ success: boolean; response: BatchResponse | undefined }> {
   try {
     // Get user's FCM tokens
     const tokens = await getUserFCMTokens(client, notification.targetUserId);
     if (tokens.length === 0) {
       console.log(`No FCM tokens found for user ${notification.targetUserId}`);
-      return;
+      return { success: true, response: undefined };
     }
 
     // Generate notification content
@@ -91,7 +88,6 @@ export async function sendFCMNotification(
 
     // Send the message
     const response = await getMessaging(app).sendEachForMulticast(message);
-    console.log(response, response.responses, response.responses[0].error);
 
     console.log(
       `FCM notification sent: ${response.successCount} successful, ${response.failureCount} failed`
@@ -108,8 +104,11 @@ export async function sendFCMNotification(
         // TODO: Remove failed tokens from user document
       }
     }
+
+    return { success: true, response };
   } catch (error) {
     console.error('Failed to send FCM notification:', error);
+    return { success: false, response: undefined };
   }
 }
 

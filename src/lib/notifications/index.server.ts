@@ -10,10 +10,13 @@ import type {
   UniversityMember,
   JoinRequest,
   Notification
-} from './types';
+} from '../types';
 import type { User } from '@auth/sveltekit';
 import { nanoid } from 'nanoid';
-import { sendFCMNotification } from './fcm-notifications.server';
+import { sendFCMNotification } from './fcm.server';
+import { SSC_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
+import client from '$lib/db.server';
 
 /**
  * Sends an active notification to a user
@@ -21,7 +24,6 @@ import { sendFCMNotification } from './fcm-notifications.server';
  * and sending PWA notifications to the user
  */
 export const notify = async (
-  client: MongoClient,
   notification: Omit<Notification, 'id' | 'createdAt'>
 ): Promise<void> => {
   const db = client.db();
@@ -65,9 +67,24 @@ export const notify = async (
     await notificationsCollection.insertOne(fullNotification);
 
     // Send FCM notification
-    await sendFCMNotification(client, fullNotification);
+    await notifyFCM(fullNotification);
   } catch (error) {
     console.error('Failed to send notification:', error);
+  }
+};
+
+const notifyFCM = async (notification: Notification) => {
+  if (!env.FCM_PROXY) {
+    return sendFCMNotification(notification);
+  } else {
+    await fetch(env.FCM_PROXY, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: SSC_SECRET
+      },
+      body: JSON.stringify(notification)
+    });
   }
 };
 
