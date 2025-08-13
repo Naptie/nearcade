@@ -1,5 +1,17 @@
 /// <reference lib="webworker" />
 // Custom Service Worker (injectManifest) for nearcade with FCM support
+import {
+  PUBLIC_FIREBASE_API_KEY,
+  PUBLIC_FIREBASE_AUTH_DOMAIN,
+  PUBLIC_FIREBASE_PROJECT_ID,
+  PUBLIC_FIREBASE_STORAGE_BUCKET,
+  PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  PUBLIC_FIREBASE_APP_ID,
+  PUBLIC_FIREBASE_MEASUREMENT_ID
+} from '$env/static/public';
+import { initializeApp } from 'firebase/app';
+import { getMessaging, onMessage } from 'firebase/messaging';
+import { onBackgroundMessage } from 'firebase/messaging/sw';
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, setDefaultHandler } from 'workbox-routing';
@@ -42,54 +54,47 @@ setDefaultHandler(new NetworkFirst());
 
 // Firebase messaging configuration
 const firebaseConfig = {
-  apiKey: process.env.PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.PUBLIC_FIREBASE_MEASUREMENT_ID
+  apiKey: PUBLIC_FIREBASE_API_KEY,
+  authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: PUBLIC_FIREBASE_APP_ID,
+  measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
 };
-
-// Initialize Firebase in service worker
-let messaging = null;
-
-// Import Firebase messaging in service worker
-importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
 
 // Initialize Firebase
 // In a production environment, you would get the config from environment variables
 try {
-  // @ts-expect-error Firebase globals are loaded dynamically via importScripts
-  if (typeof firebase !== 'undefined') {
-    // @ts-expect-error Firebase globals are loaded dynamically via importScripts
-    firebase.initializeApp(firebaseConfig);
-    // @ts-expect-error Firebase globals are loaded dynamically via importScripts
-    messaging = firebase.messaging();
+  const firebaseApp = initializeApp(firebaseConfig);
 
-    // Handle background messages
-    messaging.onBackgroundMessage((payload: unknown) => {
-      console.log('Received background message:', payload);
+  // Handle background messages
+  const messaging = getMessaging(firebaseApp);
 
-      // Type assertion for payload structure
-      const notificationPayload = payload as {
-        notification?: { title?: string; body?: string };
-        data?: { tag?: string };
-      };
+  onMessage(messaging, (payload: unknown) => {
+    console.log('Received foreground message:', payload);
+  });
 
-      const notificationTitle = notificationPayload.notification?.title || 'nearcade';
-      const notificationOptions = {
-        body: notificationPayload.notification?.body || '',
-        icon: '/logo-192.webp',
-        badge: '/logo-192.webp',
-        data: notificationPayload.data || {},
-        tag: notificationPayload.data?.tag || `notification-${Date.now()}`
-      };
+  onBackgroundMessage(messaging, (payload: unknown) => {
+    console.log('Received background message:', payload);
 
-      return self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-  }
+    // Type assertion for payload structure
+    const notificationPayload = payload as {
+      notification?: { title?: string; body?: string };
+      data?: { tag?: string };
+    };
+
+    const notificationTitle = notificationPayload.notification?.title || 'nearcade';
+    const notificationOptions = {
+      body: notificationPayload.notification?.body || '',
+      icon: '/logo-192.webp',
+      badge: '/logo-192.webp',
+      data: notificationPayload.data || {},
+      tag: notificationPayload.data?.tag || `notification-${Date.now()}`
+    };
+
+    return self.registration.showNotification(notificationTitle, notificationOptions);
+  });
 } catch (error) {
   console.log('Firebase initialization skipped in development:', error);
 }

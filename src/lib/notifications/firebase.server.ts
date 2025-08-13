@@ -7,7 +7,6 @@ const initialize = () => {
   if (!env.GSAK_BASE64) return null;
   const decoded = Buffer.from(env.GSAK_BASE64, 'base64').toString('utf8');
   const serviceAccount = JSON.parse(decoded);
-  console.log(serviceAccount);
   return initializeApp({
     credential: cert(serviceAccount)
   });

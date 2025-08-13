@@ -77,7 +77,7 @@ const notifyFCM = async (notification: Notification) => {
   if (!env.FCM_PROXY) {
     return sendFCMNotification(notification);
   } else {
-    await fetch(env.FCM_PROXY, {
+    const response = await fetch(env.FCM_PROXY, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,6 +85,7 @@ const notifyFCM = async (notification: Notification) => {
       },
       body: JSON.stringify(notification)
     });
+    console.log(response.status, await response.text());
   }
 };
 
