@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { applicationDefault, initializeApp, type App } from 'firebase-admin/app';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 if (!('GOOGLE_APPLICATION_CREDENTIALS' in process.env)) {
   // Load environment variables for local development
@@ -25,6 +26,8 @@ if (process.env.NODE_ENV === 'development') {
   app = globalWithFirebase._firebaseApp;
 } else {
   const envVar = process.env.GSAK_BASE64;
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
   const filePath = path.join(__dirname, 'google-sak.json');
 
   if (envVar) {
