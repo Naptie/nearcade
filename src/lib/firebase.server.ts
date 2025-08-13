@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import { applicationDefault, initializeApp, type App } from 'firebase-admin/app';
+import fs from 'fs';
+import path from 'path';
 
 if (!('GOOGLE_APPLICATION_CREDENTIALS' in process.env)) {
   // Load environment variables for local development
@@ -22,7 +24,16 @@ if (process.env.NODE_ENV === 'development') {
   }
   app = globalWithFirebase._firebaseApp;
 } else {
-  // In production mode, it's best to not use a global variable.
+  const envVar = process.env.GSAK_BASE64;
+  const filePath = path.join(__dirname, 'google-sak.json');
+
+  if (envVar) {
+    if (!fs.existsSync(filePath)) {
+      const decoded = Buffer.from(envVar, 'base64').toString('utf8');
+      fs.writeFileSync(filePath, decoded, { encoding: 'utf8' });
+      console.log('Created google-sak.json.');
+    }
+  }
   app = initializeApp({
     credential: applicationDefault()
   });
