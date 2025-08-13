@@ -122,7 +122,9 @@
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         try {
-          const registration = await navigator.serviceWorker.register(`${base}/sw.js`);
+          // Detect service worker file based on environment
+          const swPath = import.meta.env.DEV ? `${base}/dev-sw.js?dev-sw` : `${base}/sw.js`;
+          const registration = await navigator.serviceWorker.register(swPath);
           const token = await getToken(messaging, {
             vapidKey: PUBLIC_FIREBASE_VAPID_KEY,
             serviceWorkerRegistration: registration
