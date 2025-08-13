@@ -6,7 +6,7 @@ import type { Notification } from '$lib/types';
 import { generateFCMNotificationContent, generateNotificationData } from './fcm.client';
 import type { User } from '@auth/sveltekit';
 import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
-import app from '../firebase.server';
+import app from './firebase.server';
 import client from '$lib/db.server';
 
 /**
@@ -35,6 +35,7 @@ async function getUserFCMTokens(client: MongoClient, userId: string): Promise<st
 export async function sendFCMNotification(
   notification: Notification
 ): Promise<{ success: boolean; response: BatchResponse | undefined }> {
+  if (!app) return { success: false, response: undefined };
   try {
     // Get user's FCM tokens
     const tokens = await getUserFCMTokens(client, notification.targetUserId);
