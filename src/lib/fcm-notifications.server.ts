@@ -3,40 +3,13 @@
  */
 import type { MongoClient } from 'mongodb';
 import type { Notification } from '$lib/types';
-import { generateFCMNotificationContent, generateNotificationData } from './fcm-notifications.client';
-
-// Firebase Admin SDK initialization
-let admin: typeof import('firebase-admin') | null = null;
-let messaging: import('firebase-admin/messaging').Messaging | null = null;
-
-/**
- * Initialize Firebase Admin SDK
- */
-async function initializeFirebaseAdmin() {
-  if (admin && messaging) {
-    return messaging;
-  }
-
-  try {
-    admin = await import('firebase-admin');
-    
-    // Check if Firebase app is already initialized
-    if (admin.apps.length === 0) {
-      // In production, you would use service account credentials
-      // For now, we'll use the default credentials if available
-      admin.initializeApp({
-        // credential: admin.credential.cert(serviceAccount),
-        // In a real deployment, you would set this up with proper credentials
-      });
-    }
-
-    messaging = admin.messaging();
-    return messaging;
-  } catch (error) {
-    console.warn('Firebase Admin SDK not properly configured:', error);
-    return null;
-  }
-}
+import {
+  generateFCMNotificationContent,
+  generateNotificationData
+} from './fcm-notifications.client';
+import type { User } from '@auth/sveltekit';
+import { getMessaging } from 'firebase-admin/messaging';
+import app from './firebase.server';
 
 /**
  * Get user's FCM tokens from database
@@ -44,14 +17,18 @@ async function initializeFirebaseAdmin() {
 async function getUserFCMTokens(client: MongoClient, userId: string): Promise<string[]> {
   const db = client.db();
   const usersCollection = db.collection('users');
-  
+
   const user = await usersCollection.findOne({ id: userId });
   if (!user?.fcmTokens) {
     return [];
   }
-  
+
   // Filter out any invalid/expired tokens (in a real implementation, you'd clean these up)
-  return Array.isArray(user.fcmTokens) ? user.fcmTokens.filter((token: unknown): token is string => typeof token === 'string' && token.length > 0) : [];
+  return Array.isArray(user.fcmTokens)
+    ? user.fcmTokens.filter(
+        (token: unknown): token is string => typeof token === 'string' && token.length > 0
+      )
+    : [];
 }
 
 /**
@@ -62,12 +39,6 @@ export async function sendFCMNotification(
   notification: Notification
 ): Promise<void> {
   try {
-    const messaging = await initializeFirebaseAdmin();
-    if (!messaging) {
-      console.warn('Firebase Admin SDK not available, skipping FCM notification');
-      return;
-    }
-
     // Get user's FCM tokens
     const tokens = await getUserFCMTokens(client, notification.targetUserId);
     if (tokens.length === 0) {
@@ -107,7 +78,7 @@ export async function sendFCMNotification(
       },
       webpush: {
         headers: {
-          'TTL': '86400'
+          TTL: '86400'
         },
         notification: {
           icon: '/logo-192.webp',
@@ -119,16 +90,19 @@ export async function sendFCMNotification(
     };
 
     // Send the message
-    const response = await messaging.sendEachForMulticast(message);
-    
-    console.log(`FCM notification sent: ${response.successCount} successful, ${response.failureCount} failed`);
-    
+    const response = await getMessaging(app).sendEachForMulticast(message);
+    console.log(response, response.responses, response.responses[0].error);
+
+    console.log(
+      `FCM notification sent: ${response.successCount} successful, ${response.failureCount} failed`
+    );
+
     // Clean up failed tokens (in a real implementation)
     if (response.failureCount > 0) {
       const failedTokens = response.responses
-        .map((resp, idx) => resp.success ? null : tokens[idx])
+        .map((resp, idx) => (resp.success ? null : tokens[idx]))
         .filter((token): token is string => token !== null);
-      
+
       if (failedTokens.length > 0) {
         console.log('Failed FCM tokens to clean up:', failedTokens);
         // TODO: Remove failed tokens from user document
@@ -148,13 +122,12 @@ export async function storeFCMToken(
   token: string
 ): Promise<void> {
   const db = client.db();
-  const usersCollection = db.collection('users');
+  const usersCollection = db.collection<User>('users');
 
   await usersCollection.updateOne(
     { id: userId },
     {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      $addToSet: { fcmTokens: token } as any,
+      $addToSet: { fcmTokens: token },
       $set: { fcmTokenUpdatedAt: new Date() }
     }
   );
@@ -169,13 +142,12 @@ export async function removeFCMToken(
   token: string
 ): Promise<void> {
   const db = client.db();
-  const usersCollection = db.collection('users');
+  const usersCollection = db.collection<User>('users');
 
   await usersCollection.updateOne(
     { id: userId },
     {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      $pull: { fcmTokens: token } as any,
+      $pull: { fcmTokens: token },
       $set: { fcmTokenUpdatedAt: new Date() }
     }
   );

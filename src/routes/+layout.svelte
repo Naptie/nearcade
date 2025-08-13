@@ -10,9 +10,7 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { pushNotificationManager } from '$lib/push-notifications.client.js';
   import { browser } from '$app/environment';
-  import { getAnalytics } from 'firebase/analytics';
   import { initializeApp } from 'firebase/app';
   import {
     PUBLIC_FIREBASE_API_KEY,
@@ -23,7 +21,7 @@
     PUBLIC_FIREBASE_PROJECT_ID,
     PUBLIC_FIREBASE_STORAGE_BUCKET
   } from '$env/static/public';
-  import { getMessaging, getToken } from 'firebase/messaging';
+  import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -118,12 +116,6 @@
       };
 
       const app = initializeApp(firebaseConfig);
-      
-      // Initialize analytics if available
-      if (typeof window !== 'undefined' && PUBLIC_FIREBASE_MEASUREMENT_ID) {
-        getAnalytics(app);
-      }
-
       const messaging = getMessaging(app);
 
       // Request permission and get token
@@ -139,14 +131,32 @@
               body: JSON.stringify({ token, action: 'store' })
             });
             console.log('FCM token registered:', token);
+
+            // Listen for foreground messages
+            onMessage(messaging, (payload) => {
+              console.log('Message received in foreground:', payload);
+
+              // Update unread count
+              // unreadNotifications = unreadNotifications + 1;
+
+              // Show notification if supported
+              if (Notification.permission === 'granted') {
+                const notificationTitle = payload.notification?.title || 'nearcade';
+                const notificationOptions = {
+                  body: payload.notification?.body || '',
+                  icon: '/logo-192.webp',
+                  badge: '/logo-192.webp',
+                  tag: payload.data?.tag || `notification-${Date.now()}`
+                };
+
+                new Notification(notificationTitle, notificationOptions);
+              }
+            });
           }
         } catch (error) {
           console.error('Failed to get FCM token:', error);
         }
       }
-
-      // Initialize push notification manager
-      pushNotificationManager.init();
     } catch (error) {
       console.error('Failed to initialize Firebase:', error);
     }

@@ -1,5 +1,14 @@
 /// <reference lib="webworker" />
 // Custom Service Worker (injectManifest) for nearcade with FCM support
+import {
+  PUBLIC_FIREBASE_API_KEY,
+  PUBLIC_FIREBASE_AUTH_DOMAIN,
+  PUBLIC_FIREBASE_PROJECT_ID,
+  PUBLIC_FIREBASE_STORAGE_BUCKET,
+  PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  PUBLIC_FIREBASE_APP_ID,
+  PUBLIC_FIREBASE_MEASUREMENT_ID
+} from '$env/static/public';
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, setDefaultHandler } from 'workbox-routing';
@@ -42,17 +51,17 @@ setDefaultHandler(new NetworkFirst());
 
 // Firebase messaging configuration
 const firebaseConfig = {
-  // These will be injected at build time or retrieved from a configuration endpoint
-  apiKey: 'placeholder',
-  authDomain: 'placeholder',
-  projectId: 'placeholder',
-  storageBucket: 'placeholder',
-  messagingSenderId: 'placeholder',
-  appId: 'placeholder'
+  apiKey: PUBLIC_FIREBASE_API_KEY,
+  authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: PUBLIC_FIREBASE_APP_ID,
+  measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase in service worker
-let messaging: unknown = null;
+let messaging = null;
 
 // Import Firebase messaging in service worker
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
@@ -63,21 +72,21 @@ importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-com
 try {
   // @ts-expect-error Firebase globals are loaded dynamically via importScripts
   if (typeof firebase !== 'undefined') {
-    // @ts-expect-error Firebase globals are loaded dynamically via importScripts  
+    // @ts-expect-error Firebase globals are loaded dynamically via importScripts
     firebase.initializeApp(firebaseConfig);
     // @ts-expect-error Firebase globals are loaded dynamically via importScripts
     messaging = firebase.messaging();
-    
+
     // Handle background messages
     messaging.onBackgroundMessage((payload: unknown) => {
       console.log('Received background message:', payload);
-      
+
       // Type assertion for payload structure
       const notificationPayload = payload as {
         notification?: { title?: string; body?: string };
         data?: { tag?: string };
       };
-      
+
       const notificationTitle = notificationPayload.notification?.title || 'nearcade';
       const notificationOptions = {
         body: notificationPayload.notification?.body || '',

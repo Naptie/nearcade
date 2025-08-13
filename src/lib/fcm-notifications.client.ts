@@ -19,7 +19,7 @@ export function generateFCMNotificationContent(notification: Notification): FCMN
     displayName: notification.actorDisplayName
   });
 
-  const targetName = 
+  const targetName =
     notification.postTitle ??
     (notification.joinRequestType === 'university'
       ? notification.universityName

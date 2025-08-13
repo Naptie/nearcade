@@ -11,7 +11,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
-    const { token, action } = (await request.json()) as { token: string; action: 'store' | 'remove' };
+    const { token, action } = (await request.json()) as {
+      token: string;
+      action: 'store' | 'remove';
+    };
 
     if (!token || !action) {
       error(400, 'Missing token or action');

@@ -6,8 +6,6 @@
   import { base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator } from '$lib/utils';
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
-  import { getMessaging, onMessage } from 'firebase/messaging';
 
   interface Props {
     size?: string;
@@ -16,7 +14,7 @@
 
   let { size = 'lg', class: klass = '' }: Props = $props();
 
-  let session = $derived(page.data.session);
+  let session = $state(page.data.session);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
   let unreadNotifications = $state(session?.unreadNotifications || 0);
@@ -72,66 +70,10 @@
     }
     window.addEventListener('nearcade-login', login);
 
-    // Initialize FCM for logged-in users
-    if (browser && session?.user) {
-      initializeFCM();
-    }
-
     return () => {
       window.removeEventListener('nearcade-login', login);
     };
   });
-
-  const initializeFCM = async () => {
-    try {
-      const { initializeApp } = await import('firebase/app');
-      const {
-        PUBLIC_FIREBASE_API_KEY,
-        PUBLIC_FIREBASE_AUTH_DOMAIN,
-        PUBLIC_FIREBASE_PROJECT_ID,
-        PUBLIC_FIREBASE_STORAGE_BUCKET,
-        PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-        PUBLIC_FIREBASE_APP_ID,
-        PUBLIC_FIREBASE_MEASUREMENT_ID
-      } = await import('$env/static/public');
-
-      const firebaseConfig = {
-        apiKey: PUBLIC_FIREBASE_API_KEY,
-        authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
-        projectId: PUBLIC_FIREBASE_PROJECT_ID,
-        storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-        appId: PUBLIC_FIREBASE_APP_ID,
-        measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const messaging = getMessaging(app);
-
-      // Listen for foreground messages
-      onMessage(messaging, (payload) => {
-        console.log('Message received in foreground:', payload);
-        
-        // Update unread count
-        unreadNotifications = unreadNotifications + 1;
-        
-        // Show notification if supported
-        if (Notification.permission === 'granted') {
-          const notificationTitle = payload.notification?.title || 'nearcade';
-          const notificationOptions = {
-            body: payload.notification?.body || '',
-            icon: '/logo-192.webp',
-            badge: '/logo-192.webp',
-            tag: payload.data?.tag || `notification-${Date.now()}`
-          };
-          
-          new Notification(notificationTitle, notificationOptions);
-        }
-      });
-    } catch (error) {
-      console.error('Failed to initialize FCM:', error);
-    }
-  };
 
   // Update unreadNotifications when session changes
   $effect(() => {
