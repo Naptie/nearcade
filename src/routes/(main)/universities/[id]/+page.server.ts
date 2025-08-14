@@ -150,7 +150,7 @@ export const actions: Actions = {
       };
 
       await universitiesCollection.updateOne({ id: universityId }, {
-        $push: { campuses: newCampus }
+        $addToSet: { campuses: newCampus }
       } as object);
 
       // Log campus addition to changelog
