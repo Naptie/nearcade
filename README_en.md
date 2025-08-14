@@ -32,11 +32,6 @@ Please join the following QQ group for discussions.
 - **Community Posts**: Share updates, ask questions, and comment on posts in a Markdown-enabled forum with LaTeX math support.
 - **Notifications**: Get notified about new comments, replies, and club activities.
 
-### 🖥️ Cross-Platform
-
-- **Web Application**: Fully-featured web app accessible from any modern browser.
-- **Desktop App**: Native desktop application for Windows, macOS, and Linux powered by Tauri.
-
 ### 🎮 Supported Games
 
 - maimai DX
@@ -69,10 +64,6 @@ Please join the following QQ group for discussions.
 
 - **高德地图 (AMap) & 腾讯地图 (Tencent Maps)**: Mapping service integration.
 - **Geolocation API**: Browser-based location detection.
-
-### Cross-Platform Development
-
-- **Tauri**: Framework for building native desktop applications with web technologies.
 
 ### Internationalization
 
@@ -189,14 +180,6 @@ pnpm build
 
 # Preview the production build
 pnpm preview
-```
-
-### Building the Desktop App
-
-To build the Tauri desktop application, run:
-
-```bash
-pnpm tauri build
 ```
 
 ## 🚢 Running with Docker

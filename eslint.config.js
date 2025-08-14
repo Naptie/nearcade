@@ -38,8 +38,5 @@ export default ts.config(
     rules: {
       '@typescript-eslint/no-require-imports': 'off'
     }
-  },
-  {
-    ignores: ['src-tauri/**']
   }
 );
