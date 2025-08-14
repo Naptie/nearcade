@@ -1,6 +1,5 @@
 /// <reference lib="webworker" />
 // Custom Service Worker (injectManifest) for nearcade with FCM support
-import { strip } from '$lib/markdown';
 import { getNotificationLink, getNotificationTitle } from '$lib/notifications/index.client';
 import type { Notification, WindowMessage } from '$lib/types';
 // import { initializeApp } from 'firebase/app';
@@ -143,7 +142,7 @@ self.addEventListener('push', (event) => {
 
       const title = getNotificationTitle(data.data);
       const options: NotificationOptions = {
-        body: await strip(data.data.content || data.notification.body),
+        body: data.data.content || data.notification.body,
         icon: data.notification.icon || `${base}//logo-192.webp`,
         badge: data.notification.badge || `${base}//logo-192.webp`,
         data: data.data || {},
