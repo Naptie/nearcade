@@ -75,7 +75,7 @@ export const notify = async (
 
 const notifyFCM = async (notification: Notification) => {
   if (!env.FCM_PROXY) {
-    return sendFCMNotification(notification);
+    await sendFCMNotification(notification);
   } else {
     const response = await fetch(env.FCM_PROXY, {
       method: 'POST',

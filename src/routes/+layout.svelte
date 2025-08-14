@@ -3,12 +3,12 @@
   import '../app.css';
   import '@fortawesome/fontawesome-free/css/all.min.css';
   import { PUBLIC_AMAP_KEY, PUBLIC_FIREBASE_VAPID_KEY } from '$env/static/public';
-  import type { AMapContext } from '$lib/types';
+  import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import { fromPath } from '$lib/utils';
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { browser } from '$app/environment';
   import { initializeApp } from 'firebase/app';
@@ -53,10 +53,21 @@
       : 'https://unpkg.com/highlight.js/styles/github.css';
   };
 
+  const handleWindowMessage = (event: { data: WindowMessage | undefined }) => {
+    const msg = event.data;
+    if (msg?.type === 'NAVIGATE' && msg.payload) {
+      goto(msg.payload);
+    } else if (msg?.type === 'INVALIDATE') {
+      invalidateAll();
+    }
+  };
+
   onMount(() => {
     setHighlightTheme();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', setHighlightTheme);
+
+    window.addEventListener('message', handleWindowMessage);
 
     // Initialize push notifications for logged-in users
     if (browser && data.session?.user) {
@@ -104,6 +115,7 @@
 
     return () => {
       media.removeEventListener('change', setHighlightTheme);
+      window.removeEventListener('message', handleWindowMessage);
     };
   });
 
@@ -146,25 +158,25 @@
             console.log('FCM token registered:', token);
 
             // Listen for foreground messages
-            onMessage(messaging, (payload) => {
-              console.log('Message received in foreground:', payload);
+            // onMessage(messaging, (payload) => {
+            //   console.log('Message received in foreground:', payload);
 
-              // Update unread count
-              // unreadNotifications = unreadNotifications + 1;
+            //   // Update unread count
+            //   // unreadNotifications = unreadNotifications + 1;
 
-              // Show notification if supported
-              if (Notification.permission === 'granted') {
-                const notificationTitle = payload.notification?.title || 'nearcade';
-                const notificationOptions = {
-                  body: payload.notification?.body || '',
-                  icon: `${base}/logo-192.webp`,
-                  badge: `${base}/logo-192.webp`,
-                  tag: payload.data?.tag || `notification-${Date.now()}`
-                };
+            //   // Show notification if supported
+            //   if (Notification.permission === 'granted') {
+            //     const notificationTitle = payload.notification?.title || 'nearcade';
+            //     const notificationOptions = {
+            //       body: payload.notification?.body || '',
+            //       icon: `${base}/logo-192.webp`,
+            //       badge: `${base}/logo-192.webp`,
+            //       tag: payload.data?.tag || `notification-${Date.now()}`
+            //     };
 
-                new Notification(notificationTitle, notificationOptions);
-              }
-            });
+            //     new Notification(notificationTitle, notificationOptions);
+            //   }
+            // });
           }
         } catch (error) {
           console.error('Failed to get FCM token:', error);

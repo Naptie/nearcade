@@ -8,6 +8,7 @@ import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
 import app from './firebase.server';
 import client from '$lib/db.server';
 import { getNotificationTitle } from './index.client';
+import { strip } from '$lib/markdown';
 
 /**
  * Get user's FCM tokens from database
@@ -48,7 +49,7 @@ export async function sendFCMNotification(
     const message = {
       notification: {
         title: getNotificationTitle(notification),
-        body: notification.content || ''
+        body: await strip(notification.content || '')
       },
       data: Object.fromEntries(
         Object.entries(notification).map(([key, value]) => [key, String(value)])

@@ -511,3 +511,8 @@ export interface RouteGuidanceState {
   shopId: number | null;
   selectedRouteIndex: number;
 }
+
+export interface WindowMessage {
+  type: 'NAVIGATE' | 'INVALIDATE';
+  payload?: string;
+}

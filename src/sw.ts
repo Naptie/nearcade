@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 // Custom Service Worker (injectManifest) for nearcade with FCM support
 import { getNotificationLink, getNotificationTitle } from '$lib/notifications/index.client';
-import type { Notification } from '$lib/types';
+import type { Notification, WindowMessage } from '$lib/types';
 // import { initializeApp } from 'firebase/app';
 // import { getMessaging, onMessage } from 'firebase/messaging';
 // import { onBackgroundMessage } from 'firebase/messaging/sw';
@@ -99,6 +99,20 @@ setDefaultHandler(new NetworkFirst());
 // }
 
 // Push notification handling
+const postMessage = async (message: WindowMessage, focus = false) => {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clients) {
+    if (client.url.includes(self.location.origin)) {
+      client.postMessage(message);
+      if (focus && 'focus' in client) {
+        await client.focus();
+      }
+      return true;
+    }
+  }
+  return false;
+};
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -124,7 +138,7 @@ self.addEventListener('push', (event) => {
 
   const title = getNotificationTitle(data.data);
   const options: NotificationOptions = {
-    body: data.data.content || data.notification.body,
+    body: data.notification.body || data.data.content,
     icon: data.notification.icon || `${base}//logo-192.webp`,
     badge: data.notification.badge || `${base}//logo-192.webp`,
     data: data.data || {},
@@ -133,7 +147,12 @@ self.addEventListener('push', (event) => {
     silent: false
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      await postMessage({ type: 'INVALIDATE' });
+      await self.registration.showNotification(title, options);
+    })()
+  );
 });
 
 // Handle notification clicks
@@ -144,21 +163,12 @@ self.addEventListener('notificationclick', (event) => {
   const url = getNotificationLink(data, base, `${base}/notifications`);
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      // Check if there's already a window/tab open
-      for (const client of clients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.focus();
-          client.postMessage({ type: 'NAVIGATE', url });
-          return;
-        }
-      }
-
-      // No existing window, open a new one
-      if (self.clients.openWindow) {
+    (async () => {
+      const found = await postMessage({ type: 'NAVIGATE', payload: url }, true);
+      if (!found && self.clients.openWindow) {
         return self.clients.openWindow(url);
       }
-    })
+    })()
   );
 });
 
