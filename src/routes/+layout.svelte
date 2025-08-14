@@ -60,9 +60,15 @@
 
     // Initialize push notifications for logged-in users
     if (browser && data.session?.user) {
-      initializePushNotifications().catch((error) => {
-        console.error('Failed to initialize push notifications:', error);
-      });
+      const onFirstInteraction = () => {
+        initializePushNotifications().catch((error) => {
+          console.error('Failed to initialize push notifications:', error);
+        });
+        window.removeEventListener('pointerdown', onFirstInteraction, true);
+        window.removeEventListener('keydown', onFirstInteraction, true);
+      };
+      window.addEventListener('pointerdown', onFirstInteraction, true);
+      window.addEventListener('keydown', onFirstInteraction, true);
     }
 
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {

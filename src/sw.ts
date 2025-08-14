@@ -44,20 +44,16 @@ registerRoute(
 setDefaultHandler(new NetworkFirst());
 
 // Firebase messaging configuration
-// Note: Firebase config should be injected from environment variables at build time
-// For now using empty config - this will be replaced with actual values in production
 const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
-  measurementId: ''
+  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
+  authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.PUBLIC_FIREBASE_APP_ID,
+  measurementId: import.meta.env.PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase only if config is available
-// In a production environment, you would get the config from environment variables
 try {
   // Only initialize if we have a valid Firebase config
   if (firebaseConfig.apiKey && firebaseConfig.projectId) {

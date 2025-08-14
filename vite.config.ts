@@ -101,5 +101,6 @@ export default defineConfig({
       }
     },
     sourcemap: true
-  }
+  },
+  envPrefix: 'PUBLIC_'
 });
