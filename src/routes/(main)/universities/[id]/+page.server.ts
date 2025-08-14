@@ -150,7 +150,7 @@ export const actions: Actions = {
       };
 
       await universitiesCollection.updateOne({ id: universityId }, {
-        $push: { campuses: newCampus }
+        $addToSet: { campuses: newCampus }
       } as object);
 
       // Log campus addition to changelog
@@ -305,7 +305,13 @@ export const actions: Actions = {
       await universitiesCollection.updateOne({ id: universityId }, {
         $pull: { campuses: { id: campusId } }
       } as object);
+      const updateResult = await universitiesCollection.updateOne({ id: universityId }, {
+        $pull: { campuses: { id: campusId } }
+      } as object);
 
+      if (updateResult.modifiedCount === 0) {
+        return fail(404, { message: 'Campus not found or already deleted' });
+      }
       // Log campus deletion to changelog
       await logCampusChanges(client, universityId, 'campus_deleted', campusToDelete, {
         id: user.id!,
