@@ -17,7 +17,6 @@
   let session = $derived(page.data.session);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
-  let unreadNotifications = $state(0);
 
   const providers = [
     { name: 'QQ', icon: 'fa-qq' },
@@ -73,13 +72,6 @@
     return () => {
       window.removeEventListener('nearcade-login', login);
     };
-  });
-
-  // Update unreadNotifications when session changes
-  $effect(() => {
-    if (session?.unreadNotifications !== undefined) {
-      unreadNotifications = session.unreadNotifications;
-    }
   });
 </script>
 
@@ -154,7 +146,7 @@
         <span
           class="indicator-item status status-warning top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
         ></span>
-      {:else if unreadNotifications > 0}
+      {:else if session.unreadNotifications > 0}
         <span
           class="indicator-item status status-success top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
         ></span>
@@ -197,11 +189,11 @@
               <i class="fa-solid fa-bell"></i>
               {m.notifications()}
             </div>
-            {#if unreadNotifications > 0}
+            {#if session.unreadNotifications > 0}
               <span
                 class="badge badge-sm dark:not-group-hover:badge-soft badge-primary transition-colors"
               >
-                {unreadNotifications}
+                {session.unreadNotifications}
               </span>
             {/if}
           </a>
