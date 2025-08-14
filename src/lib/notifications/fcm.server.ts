@@ -47,9 +47,6 @@ export async function sendFCMNotification(
     // Prepare FCM message
     const message = {
       notification: {
-        icon: notification.actorImage,
-        badge: notification.actorImage,
-        tag: `notification-${notification.type}-${notification.id}`,
         title: getNotificationTitle(notification),
         body: notification.content || ''
       },
@@ -72,6 +69,11 @@ export async function sendFCMNotification(
       webpush: {
         headers: {
           TTL: '86400'
+        },
+        notification: {
+          icon: notification.actorImage,
+          badge: notification.actorImage,
+          tag: `notification-${notification.type}-${notification.id}`
         }
       },
       tokens
