@@ -6,6 +6,7 @@
   import { base } from '$app/paths';
   import { formatRegionLabel, pageTitle } from '$lib/utils';
   import { PAGINATION } from '$lib/constants';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data }: { data: PageData } = $props();
 
@@ -15,7 +16,7 @@
   const handleSearch = async (event: Event) => {
     event.preventDefault();
     isSearching = true;
-    const params = new URLSearchParams();
+    const params = new SvelteURLSearchParams();
     if (searchQuery.trim()) {
       params.set('q', searchQuery.trim());
     }
@@ -24,7 +25,7 @@
   };
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new SvelteURLSearchParams(page.url.searchParams);
     params.set('page', newPage.toString());
     goto(`${base}/universities?${params.toString()}`);
   };
