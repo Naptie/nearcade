@@ -99,18 +99,23 @@ setDefaultHandler(new NetworkFirst());
 // }
 
 // Push notification handling
-const postMessage = async (message: WindowMessage, focus = false) => {
+const postMessage = async (message: WindowMessage, { focus = false, once = true } = {}) => {
   const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  let success = false;
   for (const client of clients) {
     if (client.url.includes(self.location.origin)) {
       client.postMessage(message);
       if (focus && 'focus' in client) {
         await client.focus();
       }
-      return true;
+      if (once) {
+        return true;
+      } else {
+        success = true;
+      }
     }
   }
-  return false;
+  return success;
 };
 
 self.addEventListener('push', (event) => {
@@ -138,7 +143,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      await postMessage({ type: 'INVALIDATE' });
+      await postMessage({ type: 'INVALIDATE' }, { once: false });
 
       const title = getNotificationTitle(data.data);
       const options: NotificationOptions = {
@@ -165,7 +170,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
-      const found = await postMessage({ type: 'NAVIGATE', payload: url }, true);
+      const found = await postMessage({ type: 'NAVIGATE', payload: url }, { focus: true });
       if (!found && self.clients.openWindow) {
         return self.clients.openWindow(url);
       }
