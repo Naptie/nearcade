@@ -23,9 +23,9 @@ export const load: PageServerLoad = async ({ parent }) => {
     // Get arcade details if there are any
     let frequentingArcades: Shop[] = [];
     if (frequentingArcadeIds.length > 0) {
-      frequentingArcades = (await shopsCollection
+      frequentingArcades = await shopsCollection
         .find({ id: { $in: frequentingArcadeIds } })
-        .toArray()) as never;
+        .toArray();
     }
 
     return {
