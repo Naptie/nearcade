@@ -53,10 +53,11 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = parseInt(formData.get('arcadeId') as string);
+      const arcadeIdRaw = formData.get('arcadeId');
+      const arcadeId = parseInt(arcadeIdRaw as string, 10);
 
-      if (!arcadeId) {
-        return fail(400, { message: 'Arcade ID is required' });
+      if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
+        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
       }
 
       const db = client.db();
@@ -96,10 +97,11 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = parseInt(formData.get('arcadeId') as string);
+      const arcadeIdRaw = formData.get('arcadeId');
+      const arcadeId = parseInt(arcadeIdRaw as string, 10);
 
-      if (!arcadeId) {
-        return fail(400, { message: 'Arcade ID is required' });
+      if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
+        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
       }
 
       const db = client.db();
