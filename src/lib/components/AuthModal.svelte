@@ -68,6 +68,7 @@
       login();
     }
     window.addEventListener('nearcade-login', login);
+
     return () => {
       window.removeEventListener('nearcade-login', login);
     };

@@ -10,6 +10,7 @@ import {
 } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { getDefaultPostReadability } from '$lib/utils';
+import { notify } from '$lib/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -179,6 +180,30 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         downvoteDelta = 1;
       }
       newUserVote = voteType;
+
+      // Send notification for new comment votes
+      try {
+        if (comment.createdBy !== session.user.id) {
+          await notify({
+            type: 'COMMENT_VOTES',
+            actorUserId: session.user.id,
+            actorName: session.user.name || '',
+            actorDisplayName: session.user.displayName || undefined,
+            actorImage: session.user.image || undefined,
+            targetUserId: comment.createdBy,
+            content: comment.content.substring(0, 200),
+            postId: comment.postId,
+            postTitle: post?.title,
+            commentId: comment.id,
+            voteType: voteType,
+            universityId: post?.universityId,
+            clubId: post?.clubId
+          });
+        }
+      } catch (notificationError) {
+        // Don't fail the vote if notification fails
+        console.error('Failed to send comment vote notification:', notificationError);
+      }
     }
 
     // Update comment vote counts

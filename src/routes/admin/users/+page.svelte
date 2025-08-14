@@ -12,7 +12,7 @@
     getUserTypeBadgeClass,
     getUserTypeLabel,
     fromPath,
-    isStandalone
+    pageTitle
   } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
@@ -140,7 +140,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_users()} - {m.admin_panel()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{pageTitle(m.admin_users(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="space-y-6">

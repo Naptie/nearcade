@@ -7,9 +7,10 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import UserAvatar from './UserAvatar.svelte';
   import { getDisplayName } from '$lib/utils';
-  import type { Notification } from '$lib/notifications.server';
+  import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
   import { strip } from '$lib/markdown';
+  import { getNotificationLink } from '$lib/notifications/index.client';
 
   interface Props {
     notification: Notification;
@@ -35,65 +36,36 @@
         displayName: notification.actorDisplayName
       }
     )}</a>`;
-    const organizationName = `<a href="${link}" class="link-accent transition-colors">${
-      notification.joinRequestType === 'university'
+    const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${
+      notification.postTitle ??
+      (notification.joinRequestType === 'university'
         ? notification.universityName
-        : notification.clubName
+        : notification.clubName)
     }</a>`;
 
     switch (notification.type) {
       case 'COMMENTS':
-        return m.notification_user_commented({ userName: actorName });
+        return m.notification_user_commented({ userName: actorName, targetName });
       case 'REPLIES':
-        return m.notification_user_replied({ userName: actorName });
+        return m.notification_user_replied({ userName: actorName, targetName });
       case 'POST_VOTES':
         return notification.voteType === 'upvote'
-          ? m.notification_user_upvoted_post({ userName: actorName })
-          : m.notification_user_downvoted_post({ userName: actorName });
+          ? m.notification_user_upvoted_post({ userName: actorName, targetName })
+          : m.notification_user_downvoted_post({ userName: actorName, targetName });
       case 'COMMENT_VOTES':
         return notification.voteType === 'upvote'
-          ? m.notification_user_upvoted_comment({ userName: actorName })
-          : m.notification_user_downvoted_comment({ userName: actorName });
+          ? m.notification_user_upvoted_comment({ userName: actorName, targetName })
+          : m.notification_user_downvoted_comment({ userName: actorName, targetName });
       case 'JOIN_REQUESTS':
         return notification.joinRequestStatus === 'approved'
-          ? m.notification_user_approved_join_request({ userName: actorName, organizationName })
-          : m.notification_user_rejected_join_request({ userName: actorName, organizationName });
+          ? m.notification_user_approved_join_request({ userName: actorName, targetName })
+          : m.notification_user_rejected_join_request({ userName: actorName, targetName });
       default:
         return '';
     }
   });
 
-  let link = $derived.by(() => {
-    const baseUrl = base || '';
-
-    switch (notification.type) {
-      case 'COMMENTS':
-      case 'REPLIES':
-      case 'COMMENT_VOTES':
-        if (notification.universityId) {
-          return `${baseUrl}/universities/${notification.universityId}/posts/${notification.postId}?comment=${notification.commentId}`;
-        } else if (notification.clubId) {
-          return `${baseUrl}/clubs/${notification.clubId}/posts/${notification.postId}?comment=${notification.commentId}`;
-        }
-        return '#';
-
-      case 'POST_VOTES':
-        if (notification.universityId) {
-          return `${baseUrl}/universities/${notification.universityId}/posts/${notification.postId}`;
-        } else if (notification.clubId) {
-          return `${baseUrl}/clubs/${notification.clubId}/posts/${notification.postId}`;
-        }
-        return '#';
-
-      default:
-        if (notification.universityId) {
-          return `${baseUrl}/universities/${notification.universityId}`;
-        } else if (notification.clubId) {
-          return `${baseUrl}/clubs/${notification.clubId}`;
-        }
-        return '#';
-    }
-  });
+  let link = $derived(getNotificationLink(notification, base));
 
   let icon = $derived.by(() => {
     switch (notification.type) {
@@ -141,13 +113,8 @@
   <div class="min-w-0 flex-1">
     <div class="flex flex-col gap-1">
       <!-- Notification Description -->
-      <div class="text-sm">
-        <span class="text-base-content/80">{@html text}</span>
-        {#if notification.postTitle}
-          <a href={link} class="text-accent hover:text-accent/80 font-medium transition-colors">
-            {notification.postTitle}
-          </a>
-        {/if}
+      <div class="text-base-content/80 text-sm">
+        {@html text}
       </div>
 
       <!-- Preview for Comments/Replies -->

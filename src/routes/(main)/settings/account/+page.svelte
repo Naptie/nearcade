@@ -3,7 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { formatDate, getUserTypeLabel, isStandalone } from '$lib/utils';
+  import { formatDate, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { signOut } from '@auth/sveltekit/client';
   import type { PageData } from './$types';
 
@@ -27,7 +27,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.account_settings()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{pageTitle(m.account_settings())}</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

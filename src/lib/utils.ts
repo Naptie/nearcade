@@ -837,3 +837,18 @@ export const isStandalone = () => {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(display-mode: standalone)').matches;
 };
+
+/**
+ * Builds a page title with proper ordering for PWA standalone mode
+ * In standalone mode: returns parts in original reverse order (C - B - A)
+ * In browser mode: returns parts in reverse order with app name (C - B - A - {appName})
+ */
+export const pageTitle = (...parts: string[]): string => {
+  const filteredParts = parts.filter(Boolean); // Remove empty strings
+
+  if (isStandalone()) {
+    return [...filteredParts].reverse().join(' - ');
+  } else {
+    return `${filteredParts.join(' - ')} - ${m.app_name()}`;
+  }
+};

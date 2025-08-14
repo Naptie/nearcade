@@ -5,6 +5,7 @@ import { checkUniversityPermission, checkClubPermission, toPlainArray } from '$l
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import client from '$lib/db.server';
+import { notify } from '$lib/notifications/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -293,6 +294,41 @@ export const actions: Actions = {
         }
       );
 
+      // Send notification to the requester
+      try {
+        // Get organization info for the notification
+        let organizationName = '';
+        if (joinRequest.type === 'university') {
+          const university = await db
+            .collection('universities')
+            .findOne({ id: joinRequest.targetId });
+          organizationName = university?.name || 'University';
+        } else {
+          const club = await db.collection('clubs').findOne({ id: joinRequest.targetId });
+          organizationName = club?.name || 'Club';
+        }
+
+        await notify({
+          type: 'JOIN_REQUESTS',
+          actorUserId: session.user.id,
+          actorName: session.user.name || '',
+          actorDisplayName: session.user.displayName || undefined,
+          actorImage: session.user.image || undefined,
+          targetUserId: joinRequest.userId,
+          content: reviewNote || undefined,
+          joinRequestId: joinRequest.id,
+          joinRequestStatus: 'approved',
+          joinRequestType: joinRequest.type,
+          universityId: joinRequest.type === 'university' ? joinRequest.targetId : undefined,
+          clubId: joinRequest.type === 'club' ? joinRequest.targetId : undefined,
+          universityName: joinRequest.type === 'university' ? organizationName : undefined,
+          clubName: joinRequest.type === 'club' ? organizationName : undefined
+        });
+      } catch (notificationError) {
+        // Don't fail the approval if notification fails
+        console.error('Failed to send approval notification:', notificationError);
+      }
+
       return { success: true, message: 'Join request approved successfully' };
     } catch (err) {
       console.error('Error approving join request:', err);
@@ -361,6 +397,41 @@ export const actions: Actions = {
           }
         }
       );
+
+      // Send notification to the requester
+      try {
+        // Get organization info for the notification
+        let organizationName = '';
+        if (joinRequest.type === 'university') {
+          const university = await db
+            .collection('universities')
+            .findOne({ id: joinRequest.targetId });
+          organizationName = university?.name || 'University';
+        } else {
+          const club = await db.collection('clubs').findOne({ id: joinRequest.targetId });
+          organizationName = club?.name || 'Club';
+        }
+
+        await notify({
+          type: 'JOIN_REQUESTS',
+          actorUserId: session.user.id,
+          actorName: session.user.name || '',
+          actorDisplayName: session.user.displayName || undefined,
+          actorImage: session.user.image || undefined,
+          targetUserId: joinRequest.userId,
+          content: reviewNote || undefined,
+          joinRequestId: joinRequest.id,
+          joinRequestStatus: 'rejected',
+          joinRequestType: joinRequest.type,
+          universityId: joinRequest.type === 'university' ? joinRequest.targetId : undefined,
+          clubId: joinRequest.type === 'club' ? joinRequest.targetId : undefined,
+          universityName: joinRequest.type === 'university' ? organizationName : undefined,
+          clubName: joinRequest.type === 'club' ? organizationName : undefined
+        });
+      } catch (notificationError) {
+        // Don't fail the rejection if notification fails
+        console.error('Failed to send rejection notification:', notificationError);
+      }
 
       return { success: true, message: 'Join request rejected successfully' };
     } catch (err) {

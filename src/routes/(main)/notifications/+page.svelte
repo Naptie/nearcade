@@ -3,9 +3,9 @@
   import { base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import NotificationItem from '$lib/components/NotificationItem.svelte';
-  import type { Notification } from '$lib/notifications.server';
+  import type { Notification } from '$lib/types';
   import { invalidateAll } from '$app/navigation';
-  import { isStandalone } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
 
   // Notification loading state
   let notifications = $state<Notification[]>([]);
@@ -27,8 +27,9 @@
     }
 
     try {
-      const unreadParam = unreadOnly ? '&unreadOnly=true' : '';
-      const response = await fetch(`${base}/api/notifications?page=${page}&limit=10${unreadParam}`);
+      const response = await fetch(
+        `${base}/api/notifications?page=${page}&limit=10${unreadOnly ? '&unreadOnly=true' : ''}`
+      );
 
       if (!response.ok) {
         throw new Error('Failed to load notifications');
@@ -99,7 +100,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.notifications()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{pageTitle(m.notifications())}</title>
 </svelte:head>
 
 <div class="pt-12">

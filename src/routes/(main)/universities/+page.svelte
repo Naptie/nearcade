@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
-  import { formatRegionLabel, isStandalone } from '$lib/utils';
+  import { formatRegionLabel, pageTitle } from '$lib/utils';
   import { PAGINATION } from '$lib/constants';
 
   let { data }: { data: PageData } = $props();
@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.browse_universities()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{pageTitle(m.browse_universities())}</title>
   <meta name="description" content={m.browse_search_universities()} />
 </svelte:head>
 

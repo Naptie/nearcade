@@ -2,7 +2,7 @@
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { Shop } from '$lib/types';
-  import { fromPath, isStandalone } from '$lib/utils';
+  import { fromPath, pageTitle } from '$lib/utils';
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
 
@@ -64,7 +64,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.starred_arcades()}{isStandalone() ? '' : ` - ${m.app_name()}`}</title>
+  <title>{pageTitle(m.starred_arcades())}</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

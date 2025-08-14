@@ -465,6 +465,38 @@ export interface Activity {
   createdClubName?: string;
 }
 
+// Notification types for active notification system
+export interface Notification {
+  _id?: string | ObjectId;
+  id: string;
+  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS';
+  actorUserId: string;
+  actorName: string;
+  actorDisplayName?: string;
+  actorImage?: string;
+  targetUserId: string;
+  createdAt: Date;
+  readAt?: Date | null;
+  content?: string;
+
+  // Content details
+  postId?: string;
+  postTitle?: string;
+  commentId?: string;
+  voteType?: 'upvote' | 'downvote';
+
+  // Join request details
+  joinRequestId?: string;
+  joinRequestStatus?: 'approved' | 'rejected';
+  joinRequestType?: 'university' | 'club';
+
+  // Navigation
+  universityId?: string;
+  clubId?: string;
+  universityName?: string;
+  clubName?: string;
+}
+
 export * from './amap';
 import type { TransportSearchResult } from './amap';
 
@@ -478,4 +510,9 @@ export interface RouteGuidanceState {
   isOpen: boolean;
   shopId: number | null;
   selectedRouteIndex: number;
+}
+
+export interface WindowMessage {
+  type: 'NAVIGATE' | 'INVALIDATE';
+  payload?: string;
 }
