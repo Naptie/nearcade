@@ -16,6 +16,8 @@ declare let self: ServiceWorkerGlobalScope & {
 
 type RouteContext = { url: URL; request: Request };
 
+const base = import.meta.env.PATH_BASE || '';
+
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 registerRoute(
@@ -80,8 +82,8 @@ setDefaultHandler(new NetworkFirst());
 //       const notificationTitle = notificationPayload.notification?.title || 'nearcade';
 //       const notificationOptions = {
 //         body: notificationPayload.notification?.body || '',
-//         icon: '/logo-192.webp',
-//         badge: '/logo-192.webp',
+//         icon: `${base}/logo-192.webp`,
+//         badge: `${base}/logo-192.webp`,
 //         data: notificationPayload.data || {},
 //         tag: notificationPayload.data?.tag || `notification-${Date.now()}`
 //       };
@@ -123,8 +125,8 @@ self.addEventListener('push', (event) => {
   const title = getNotificationTitle(data.data);
   const options: NotificationOptions = {
     body: data.data.content || data.notification.body,
-    icon: data.notification.icon || '/logo-192.webp',
-    badge: data.notification.badge || '/logo-192.webp',
+    icon: data.notification.icon || `${base}//logo-192.webp`,
+    badge: data.notification.badge || `${base}//logo-192.webp`,
     data: data.data || {},
     tag: data.notification.tag || `notification-${Date.now()}`,
     requireInteraction: false,
@@ -139,7 +141,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const data = event.notification.data;
-  const url = getNotificationLink(data.data, import.meta.env.PATH_BASE || '', '/notifications');
+  const url = getNotificationLink(data, base, `${base}/notifications`);
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
