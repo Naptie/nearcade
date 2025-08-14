@@ -1,0 +1,14 @@
+diff --git a/dist/compiler/runtime/get-locale.js b/dist/compiler/runtime/get-locale.js
+index 996f127dc1f5fc287a9e4d1f27086dcb050304c5..b2e03f19e51d88c7b9ef5a4081976e319e2e9792 100644
+--- a/dist/compiler/runtime/get-locale.js
++++ b/dist/compiler/runtime/get-locale.js
+@@ -64,7 +64,8 @@ export let getLocale = () => {
+         }
+         else if (TREE_SHAKE_LOCAL_STORAGE_STRATEGY_USED &&
+             strat === "localStorage" &&
+-            !isServer) {
++            !isServer &&
++            typeof localStorage !== "undefined") {
+             locale = localStorage.getItem(localStorageKey) ?? undefined;
+         }
+         else if (isCustomStrategy(strat) && customClientStrategies.has(strat)) {

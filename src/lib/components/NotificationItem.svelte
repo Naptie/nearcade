@@ -10,6 +10,7 @@
   import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
   import { strip } from '$lib/markdown';
+  import { getNotificationLink } from '$lib/notifications/index.client';
 
   interface Props {
     notification: Notification;
@@ -64,37 +65,7 @@
     }
   });
 
-  let link = $derived.by(() => {
-    const baseUrl = base || '';
-
-    switch (notification.type) {
-      case 'COMMENTS':
-      case 'REPLIES':
-      case 'COMMENT_VOTES':
-        if (notification.universityId) {
-          return `${baseUrl}/universities/${notification.universityId}/posts/${notification.postId}?comment=${notification.commentId}`;
-        } else if (notification.clubId) {
-          return `${baseUrl}/clubs/${notification.clubId}/posts/${notification.postId}?comment=${notification.commentId}`;
-        }
-        return '#';
-
-      case 'POST_VOTES':
-        if (notification.universityId) {
-          return `${baseUrl}/universities/${notification.universityId}/posts/${notification.postId}`;
-        } else if (notification.clubId) {
-          return `${baseUrl}/clubs/${notification.clubId}/posts/${notification.postId}`;
-        }
-        return '#';
-
-      default:
-        if (notification.universityId) {
-          return `${baseUrl}/universities/${notification.universityId}`;
-        } else if (notification.clubId) {
-          return `${baseUrl}/clubs/${notification.clubId}`;
-        }
-        return '#';
-    }
-  });
+  let link = $derived(getNotificationLink(notification, base));
 
   let icon = $derived.by(() => {
     switch (notification.type) {

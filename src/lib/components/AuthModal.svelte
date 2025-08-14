@@ -14,10 +14,10 @@
 
   let { size = 'lg', class: klass = '' }: Props = $props();
 
-  let session = $state(page.data.session);
+  let session = $derived(page.data.session);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
-  let unreadNotifications = $state(session?.unreadNotifications || 0);
+  let unreadNotifications = $state(0);
 
   const providers = [
     { name: 'QQ', icon: 'fa-qq' },

@@ -130,7 +130,8 @@
         try {
           // Detect service worker file based on environment
           const swPath = import.meta.env.DEV ? `${base}/dev-sw.js?dev-sw` : `${base}/sw.js`;
-          const registration = await navigator.serviceWorker.register(swPath);
+          await navigator.serviceWorker.register(swPath);
+          const registration = await navigator.serviceWorker.ready;
           const token = await getToken(messaging, {
             vapidKey: PUBLIC_FIREBASE_VAPID_KEY,
             serviceWorkerRegistration: registration

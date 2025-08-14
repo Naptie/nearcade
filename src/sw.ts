@@ -1,8 +1,10 @@
 /// <reference lib="webworker" />
 // Custom Service Worker (injectManifest) for nearcade with FCM support
-import { initializeApp } from 'firebase/app';
-import { getMessaging, onMessage } from 'firebase/messaging';
-import { onBackgroundMessage } from 'firebase/messaging/sw';
+import { getNotificationLink, getNotificationTitle } from '$lib/notifications/index.client';
+import type { Notification } from '$lib/types';
+// import { initializeApp } from 'firebase/app';
+// import { getMessaging, onMessage } from 'firebase/messaging';
+// import { onBackgroundMessage } from 'firebase/messaging/sw';
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, setDefaultHandler } from 'workbox-routing';
@@ -44,60 +46,73 @@ registerRoute(
 setDefaultHandler(new NetworkFirst());
 
 // Firebase messaging configuration
-const firebaseConfig = {
-  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
-  authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.PUBLIC_FIREBASE_APP_ID,
-  measurementId: import.meta.env.PUBLIC_FIREBASE_MEASUREMENT_ID
-};
+// const firebaseConfig = {
+//   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
+//   authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
+//   projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID,
+//   storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+//   appId: import.meta.env.PUBLIC_FIREBASE_APP_ID,
+//   measurementId: import.meta.env.PUBLIC_FIREBASE_MEASUREMENT_ID
+// };
 
-try {
-  // Only initialize if we have a valid Firebase config
-  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
-    const firebaseApp = initializeApp(firebaseConfig);
+// try {
+//   // Only initialize if serviceWorker is available
+//   if ('serviceWorker' in navigator) {
+//     const firebaseApp = initializeApp(firebaseConfig);
 
-    // Handle background messages
-    const messaging = getMessaging(firebaseApp);
+//     // Handle background messages
+//     const messaging = getMessaging(firebaseApp);
 
-    onMessage(messaging, (payload: unknown) => {
-      console.log('Received foreground message:', payload);
-    });
+//     onMessage(messaging, (payload: unknown) => {
+//       console.log('Received foreground message:', payload);
+//     });
 
-    onBackgroundMessage(messaging, (payload: unknown) => {
-      console.log('Received background message:', payload);
+//     onBackgroundMessage(messaging, (payload: unknown) => {
+//       console.log('Received background message:', payload);
 
-      // Type assertion for payload structure
-      const notificationPayload = payload as {
-        notification?: { title?: string; body?: string };
-        data?: { tag?: string };
-      };
+//       // Type assertion for payload structure
+//       const notificationPayload = payload as {
+//         notification?: { title?: string; body?: string };
+//         data?: { tag?: string };
+//       };
 
-      const notificationTitle = notificationPayload.notification?.title || 'nearcade';
-      const notificationOptions = {
-        body: notificationPayload.notification?.body || '',
-        icon: '/logo-192.webp',
-        badge: '/logo-192.webp',
-        data: notificationPayload.data || {},
-        tag: notificationPayload.data?.tag || `notification-${Date.now()}`
-      };
+//       const notificationTitle = notificationPayload.notification?.title || 'nearcade';
+//       const notificationOptions = {
+//         body: notificationPayload.notification?.body || '',
+//         icon: '/logo-192.webp',
+//         badge: '/logo-192.webp',
+//         data: notificationPayload.data || {},
+//         tag: notificationPayload.data?.tag || `notification-${Date.now()}`
+//       };
 
-      return self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-  } else {
-    console.log('Firebase configuration not available, skipping initialization');
-  }
-} catch (error) {
-  console.log('Firebase initialization skipped:', error);
-}
+//       return self.registration.showNotification(notificationTitle, notificationOptions);
+//     });
+//     console.log('Firebase messaging initialized successfully');
+//   } else {
+//     console.log('serviceWorker not available, skipping initialization');
+//   }
+// } catch (error) {
+//   console.log('Firebase initialization skipped:', error);
+// }
 
 // Push notification handling
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
-  let data;
+  let data: {
+    data: Notification;
+    fcmMessageId: string;
+    from: string;
+    notification: {
+      icon: string;
+      badge: string;
+      title: string;
+      body: string;
+      tag: string;
+    };
+    priority: 'high' | 'normal' | 'low';
+  };
   try {
     data = event.data.json();
   } catch (error) {
@@ -105,13 +120,13 @@ self.addEventListener('push', (event) => {
     return;
   }
 
-  const title = data.title || 'nearcade';
+  const title = getNotificationTitle(data.data);
   const options: NotificationOptions = {
-    body: data.body || '',
-    icon: '/logo-192.webp',
-    badge: '/logo-192.webp',
+    body: data.data.content || data.notification.body,
+    icon: data.notification.icon || '/logo-192.webp',
+    badge: data.notification.badge || '/logo-192.webp',
     data: data.data || {},
-    tag: data.tag || `notification-${Date.now()}`,
+    tag: data.notification.tag || `notification-${Date.now()}`,
     requireInteraction: false,
     silent: false
   };
@@ -124,28 +139,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const data = event.notification.data;
-  let url = '/';
-
-  // Generate URL based on notification data
-  if (data.postId) {
-    if (data.universityId) {
-      url = `/universities/${data.universityId}/posts/${data.postId}`;
-      if (data.commentId) {
-        url += `?comment=${data.commentId}`;
-      }
-    } else if (data.clubId) {
-      url = `/clubs/${data.clubId}/posts/${data.postId}`;
-      if (data.commentId) {
-        url += `?comment=${data.commentId}`;
-      }
-    }
-  } else if (data.universityId) {
-    url = `/universities/${data.universityId}`;
-  } else if (data.clubId) {
-    url = `/clubs/${data.clubId}`;
-  } else if (data.url) {
-    url = data.url;
-  }
+  const url = getNotificationLink(data.data, import.meta.env.PATH_BASE || '', '/notifications');
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

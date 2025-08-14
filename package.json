@@ -107,7 +107,10 @@
       "esbuild",
       "protobufjs",
       "workerd"
-    ]
+    ],
+    "patchedDependencies": {
+      "@inlang/paraglide-js": "patches/@inlang__paraglide-js.patch"
+    }
   },
   "packageManager": "pnpm@10.14.0"
 }

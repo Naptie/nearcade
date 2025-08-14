@@ -3,11 +3,11 @@
  */
 import type { MongoClient } from 'mongodb';
 import type { Notification } from '$lib/types';
-import { generateFCMNotificationContent } from './fcm.client';
 import type { User } from '@auth/sveltekit';
 import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
 import app from './firebase.server';
 import client from '$lib/db.server';
+import { getNotificationTitle } from './index.client';
 
 /**
  * Get user's FCM tokens from database
@@ -44,23 +44,18 @@ export async function sendFCMNotification(
       return { success: true, response: undefined };
     }
 
-    // Generate notification content
-    const { title, body } = generateFCMNotificationContent(notification);
-
     // Prepare FCM message
     const message = {
       notification: {
-        title,
-        body
+        icon: notification.actorImage,
+        badge: notification.actorImage,
+        tag: `notification-${notification.type}-${notification.id}`,
+        title: getNotificationTitle(notification),
+        body: notification.content || ''
       },
-      data: {
-        notificationId: notification.id,
-        type: notification.type,
-        postId: notification.postId || '',
-        commentId: notification.commentId || '',
-        universityId: notification.universityId || '',
-        clubId: notification.clubId || ''
-      },
+      data: Object.fromEntries(
+        Object.entries(notification).map(([key, value]) => [key, String(value)])
+      ),
       android: {
         notification: {
           icon: 'ic_notification',
@@ -77,11 +72,6 @@ export async function sendFCMNotification(
       webpush: {
         headers: {
           TTL: '86400'
-        },
-        notification: {
-          icon: '/logo-192.webp',
-          badge: '/logo-192.webp',
-          tag: `notification-${notification.type}-${notification.id}`
         }
       },
       tokens
