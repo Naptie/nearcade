@@ -2,16 +2,16 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import { env } from '$env/dynamic/public';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
+  import AuthModal from '$lib/components/AuthModal.svelte';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel } from '$lib/utils';
+  import { formatRegionLabel, fromPath } from '$lib/utils';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);
@@ -106,9 +106,7 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(
-        `${env.PUBLIC_API_BASE || base}/api/universities?q=${encodeURIComponent(query)}`
-      );
+      const response = await fetch(fromPath(`/api/universities?q=${encodeURIComponent(query)}`));
       const data = (await response.json()) as { universities: University[] };
 
       // Only update if this is still the latest request
@@ -236,7 +234,7 @@
 </script>
 
 <svelte:head>
-  <title>nearcade</title>
+  <title>{m.app_name()}</title>
 </svelte:head>
 
 <div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">
@@ -250,7 +248,12 @@
       btnCls="not-sm:hidden"
       text={m.donate()}
     />
-    <FancyButton href="{base}/rankings" class="fa-solid fa-trophy fa-lg" text={m.campus_rankings()} />
+    <FancyButton
+      href="{base}/rankings"
+      class="fa-solid fa-trophy fa-lg"
+      text={m.campus_rankings()}
+    />
+    <AuthModal size="lg" />
   </div>
 
   <div class="hero-content my-10 text-center">
@@ -273,17 +276,25 @@
             <i class="fa-solid fa-angle-down fa-sm"></i>
           </span>
         </button>
-        <a
-          href={GITHUB_LINK}
-          target="_blank"
-          class="btn btn-outline hover:bg-primary hover:text-primary-content gap-2 py-5 sm:px-6 dark:hover:bg-white dark:hover:text-black"
-        >
-          {m.github()}
-          <i class="fa-brands fa-github fa-xl"></i>
-        </a>
+        <div class="join">
+          <a
+            href="{base}/universities"
+            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
+          >
+            {m.find_university()}
+            <i class="fa-solid fa-graduation-cap fa-lg"></i>
+          </a>
+          <a
+            href="{base}/clubs"
+            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
+          >
+            {m.find_clubs()}
+            <i class="fa-solid fa-users fa-lg"></i>
+          </a>
+        </div>
       </div>
       <div
-        class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition collapse -mt-5 h-0 rounded-xl border backdrop-blur-2xl transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
+        class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
         class:collapse-open={showCollapse}
         class:min-h-fit={showCollapse}
         class:h-full={showCollapse}
@@ -415,7 +426,7 @@
                 {/if}
                 {#if universities.length > 0}
                   <div
-                    class="bg-base-100 h-[40vh] w-full overflow-y-auto rounded-lg border transition hover:shadow dark:border-neutral-700 dark:shadow-neutral-700/70"
+                    class="bg-base-100 border-base-300 max-h-[40vh] w-full overflow-y-auto rounded-lg border shadow-none transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
                   >
                     {#each universities as university (university.name)}
                       <div id={university.name} class="border-base-200 border-b last:border-b-0">
@@ -423,10 +434,20 @@
                           {@const campus = university.campuses[0]}
                           <button
                             class="hover:bg-base-200 flex w-full items-center justify-between p-3 text-left transition-colors"
-                            onclick={() => selectUniversity(university, university.campuses[0])}
+                            onclick={(e) => {
+                              // Prevent button action if <a> was clicked
+                              if ((e.target as Element).closest('a')) return;
+                              selectUniversity(university, university.campuses[0]);
+                            }}
                           >
                             <div>
-                              <div class="text-base font-medium">{university.name}</div>
+                              <a
+                                href="{base}/universities/{university.slug || university.id}"
+                                target="_blank"
+                                class="hover:text-accent text-base font-medium transition-colors"
+                              >
+                                {university.name}
+                              </a>
                               <div class="text-base-content/60 text-sm">
                                 {university.type} · {university.majorCategory} ·
                                 <span class="not-sm:hidden">
@@ -442,7 +463,12 @@
                         {:else}
                           <div class="p-3">
                             <div>
-                              <div class="text-base font-medium">{university.name}</div>
+                              <a
+                                href="{base}/universities/{university.slug || university.id}"
+                                target="_blank"
+                                class="hover:text-accent text-base font-medium transition-colors"
+                                >{university.name}</a
+                              >
                               <div class="text-base-content/60 text-sm">
                                 {university.type} · {university.majorCategory} ·
                                 {m.campus_count({
@@ -488,7 +514,7 @@
                   id="mapPage"
                   frameborder="0"
                   bind:this={mapIframe}
-                  title="Map Location Picker"
+                  title={m.map_location_picker()}
                   class="h-[80vh] w-[75vw] min-w-full rounded-xl border sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
                   src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_QQMAP_KEY}&referer=nearcade"
                 >
@@ -515,11 +541,17 @@
     </div>
   </div>
   <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+    <FancyButton
+      href={GITHUB_LINK}
+      target="_blank"
+      class="fa-brands fa-github fa-lg"
+      text="GitHub"
+    />
     <SocialMediaModal
       name="QQ"
       class="fa-brands fa-qq fa-lg"
       description={m.qq_description()}
-      image="/group-chat-qq.jpg"
+      image="{base}/group-chat-qq.jpg"
     />
   </div>
 </div>
@@ -530,7 +562,7 @@
     left: 0;
   }
   .collapse-transition {
-    transition-property: grid-template-rows, height, opacity, border-color, shadow, margin-top;
+    transition-property: grid-template-rows, height, opacity, border-color, box-shadow, margin-top;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 300ms, 300ms, 300ms, 150ms, 150ms, 300ms;
   }

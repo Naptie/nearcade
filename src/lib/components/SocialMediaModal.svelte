@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
   import FancyButton from './FancyButton.svelte';
 
   interface Props {
@@ -50,7 +51,7 @@
         onclick={() => {
           dialogElement?.close();
         }}
-        aria-label="Close modal"
+        aria-label={m.close_modal()}
       >
         <i class="fa-solid fa-xmark fa-lg"></i>
       </button>
@@ -66,7 +67,7 @@
           <div class="mb-6 flex justify-center">
             <img
               src={image}
-              alt="Image for social media {name}"
+              alt="{m.image_for_social_media()} {name}"
               class="max-h-[50vh] w-fit rounded-xl object-contain shadow-lg"
             />
           </div>

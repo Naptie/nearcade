@@ -597,19 +597,19 @@
             <!-- Route Summary -->
             <div class="mb-4 grid grid-cols-2 gap-4">
               {#if 'cost' in selectedRoute && selectedRoute.cost > 0}
-                <div class="stat bg-base-200/50 rounded-lg p-3" style="--border: 0">
+                <div class="stat bg-base-200/50 rounded-lg p-3">
                   <div class="stat-title text-xs">{m.cost()}</div>
                   <div class="stat-value text-lg text-wrap">
                     {m.cost_cny({ cost: selectedRoute.cost })}
                   </div>
                 </div>
               {:else}
-                <div class="stat bg-base-200/50 rounded-lg p-3" style="--border: 0">
+                <div class="stat bg-base-200/50 rounded-lg p-3">
                   <div class="stat-title text-xs">{m.travel_time()}</div>
                   <div class="stat-value text-lg text-wrap">{formatTime(selectedRoute.time)}</div>
                 </div>
               {/if}
-              <div class="stat bg-base-200/50 rounded-lg p-3" style="--border: 0">
+              <div class="stat bg-base-200/50 rounded-lg p-3">
                 <div class="stat-title text-xs">{m.total_distance()}</div>
                 <div class="stat-value text-lg text-wrap">
                   {formatDistance(selectedRoute.distance / 1000, 2)}

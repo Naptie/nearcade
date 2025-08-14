@@ -1,0 +1,45 @@
+name: Update University Stats
+run-name: Update university statistics
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  # Allows this workflow to be called from another workflow
+  workflow_call:
+    secrets:
+      MONGODB_URI:
+        required: true
+
+jobs:
+  update-university-stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile Paraglide messages
+        run: pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
+
+      - name: Run the university stats update script
+        run: pnpm exec tsx ./scripts/update-university-stats.ts
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}

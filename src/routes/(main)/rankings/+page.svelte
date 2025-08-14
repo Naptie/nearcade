@@ -1,7 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistance, formatRegionLabel, parseRelativeTime } from '$lib/utils';
+  import {
+    formatDistance,
+    formatRegionLabel,
+    parseRelativeTime,
+    fromPath,
+    pageTitle
+  } from '$lib/utils';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
     UniversityRankingData,
@@ -12,7 +18,6 @@
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
-  import { env } from '$env/dynamic/public';
   import { base } from '$app/paths';
 
   let { data } = $props();
@@ -78,10 +83,7 @@
       isLoadingMore = true;
       try {
         // Fetch next page via API using cursor-based pagination
-        const apiUrl = new URL(
-          `${env.PUBLIC_API_BASE || base}/api/rankings`,
-          window.location.origin
-        );
+        const apiUrl = new URL(fromPath('/api/rankings'), window.location.origin);
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('radius', radiusFilter.toString());
         apiUrl.searchParams.set('after', nextCursor);
@@ -195,7 +197,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.campus_rankings()} - nearcade</title>
+  <title>{pageTitle(m.campus_rankings())}</title>
 </svelte:head>
 
 <div class="container mx-auto pt-20 sm:px-4">
@@ -284,7 +286,12 @@
                 <td class="transition-opacity duration-200" class:opacity-50={isLoading}>
                   <div class="flex flex-col gap-1">
                     <div>
-                      <span class="pr-1 font-semibold">{ranking.universityName}</span>
+                      <a
+                        href="{base}/universities/{ranking.id.split('_')[0]}"
+                        target="_blank"
+                        class="text-base-content link-accent pr-1 font-semibold transition-colors"
+                        >{ranking.universityName}</a
+                      >
                       <span class="font-light text-current/70">{ranking.campusName}</span>
                     </div>
                     <div class="flex flex-wrap items-center space-x-1.5">
@@ -321,7 +328,7 @@
                       <div class="flex flex-wrap text-xs opacity-70 sm:text-sm">
                         <div id="school-hover-details-{index}">{ranking.type}</div>
                         <div class="whitespace-pre">{divider}</div>
-                        <div class="tooltip tooltip-bottom" data-tip={m.affiliation()}>
+                        <div class="tooltip tooltip-bottom" data-tip={m.governing_body()}>
                           {ranking.affiliation}
                         </div>
                       </div>

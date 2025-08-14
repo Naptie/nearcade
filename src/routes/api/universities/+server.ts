@@ -1,17 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { MONGODB_URI } from '$env/static/private';
 import { error } from '@sveltejs/kit';
-import { MongoClient } from 'mongodb';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
-
-let client: MongoClient | undefined;
-let clientPromise: Promise<MongoClient>;
-
-if (!client) {
-  client = new MongoClient(MONGODB_URI);
-  clientPromise = client.connect();
-}
+import client from '$lib/db.server';
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q');
@@ -21,8 +12,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   try {
-    const mongoClient = await clientPromise;
-    const db = mongoClient.db();
+    const db = client.db();
     const universitiesCollection = db.collection('universities');
 
     let universities: University[];
@@ -63,7 +53,7 @@ export const GET: RequestHandler = async ({ url }) => {
         err &&
         typeof err === 'object' &&
         'code' in err &&
-        err.code !== 31082 /* SearchNotEnabled */
+        err.code !== 6047401 /* SearchNotEnabled */
       ) {
         // If the error is not related to the index not existing, rethrow it
         throw err;
@@ -82,6 +72,6 @@ export const GET: RequestHandler = async ({ url }) => {
     return json({ universities });
   } catch (err) {
     console.error('Error searching universities:', err);
-    throw error(500, 'Failed to search universities');
+    error(500, 'Failed to search universities');
   }
 };

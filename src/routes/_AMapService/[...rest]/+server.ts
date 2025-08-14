@@ -6,7 +6,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
   try {
     // Check if the secret is configured
     if (!AMAP_SECRET) {
-      throw error(500, 'AMap secret not configured');
+      error(500, 'AMap secret not configured');
     }
 
     const pathname = url.pathname.replace(`${base}/_AMapService`, '');
@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     });
 
     if (!response.ok) {
-      throw error(response.status, `AMap API request failed: ${response.statusText}`);
+      error(response.status, `AMap API request failed: ${response.statusText}`);
     }
 
     // Get the response data
@@ -58,6 +58,6 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     }
 
     // Otherwise, return a generic server error
-    throw error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

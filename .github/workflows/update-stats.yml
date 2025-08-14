@@ -1,0 +1,20 @@
+name: Update Stats
+run-name: Trigger stats update
+
+on:
+  # Runs at 4:00 UTC every day
+  schedule:
+    - cron: '0 4 * * *'
+
+  workflow_dispatch:
+
+jobs:
+  trigger-university-stats-update:
+    uses: ./.github/workflows/update-university-stats.yml
+    secrets:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+  trigger-rankings-update:
+    uses: ./.github/workflows/update-rankings.yml
+    secrets:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}

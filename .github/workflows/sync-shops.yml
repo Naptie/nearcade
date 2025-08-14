@@ -1,5 +1,5 @@
 name: Sync Shops
-run-name: Synchronize shops data and trigger rankings update
+run-name: Synchronize shops data
 
 on:
   schedule:
@@ -23,7 +23,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10.13.1'
+          version: '10.14.0'
           run_install: false
 
       - name: Set up Node.js
@@ -56,10 +56,3 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
-
-  trigger-rankings-update:
-    needs: sync-shops
-    # This job calls the reusable workflow
-    uses: ./.github/workflows/update-rankings.yml
-    secrets:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}

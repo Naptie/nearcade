@@ -1,0 +1,37 @@
+import { json } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import type { University } from '$lib/types';
+import client from '$lib/db.server';
+
+export const GET: RequestHandler = async ({ params }) => {
+  const { id } = params;
+
+  try {
+    const db = client.db();
+    const universitiesCollection = db.collection('universities');
+
+    // Try to find university by ID first, then by slug
+    let university = (await universitiesCollection.findOne({
+      id: id
+    })) as unknown as University | null;
+
+    if (!university) {
+      university = (await universitiesCollection.findOne({
+        slug: id
+      })) as unknown as University | null;
+    }
+
+    if (!university) {
+      error(404, 'University not found');
+    }
+
+    return json({ university });
+  } catch (err) {
+    console.error('Error loading university:', err);
+    if (err && typeof err === 'object' && 'status' in err) {
+      throw err;
+    }
+    error(500, 'Failed to load university data');
+  }
+};

@@ -8,6 +8,6 @@ export const GET: RequestHandler = async ({ url }) => {
     return json(resp);
   } catch (err) {
     console.error('Error getting shops:', err);
-    throw error(500, 'Failed to get nearby shops');
+    error(500, 'Failed to get nearby shops');
   }
 };
