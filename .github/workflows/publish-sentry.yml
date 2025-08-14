@@ -62,6 +62,7 @@ jobs:
           PUBLIC_FIREBASE_APP_ID: ${{ vars.PUBLIC_FIREBASE_APP_ID }}
           PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.PUBLIC_FIREBASE_MEASUREMENT_ID }}
           PUBLIC_FIREBASE_VAPID_KEY: ${{ vars.PUBLIC_FIREBASE_VAPID_KEY }}
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
           AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
