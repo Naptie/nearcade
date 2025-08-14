@@ -3,7 +3,7 @@
  */
 import type { MongoClient } from 'mongodb';
 import type { Notification } from '$lib/types';
-import { generateFCMNotificationContent, generateNotificationData } from './fcm.client';
+import { generateFCMNotificationContent } from './fcm.client';
 import type { User } from '@auth/sveltekit';
 import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
 import app from './firebase.server';
@@ -46,7 +46,6 @@ export async function sendFCMNotification(
 
     // Generate notification content
     const { title, body } = generateFCMNotificationContent(notification);
-    const data = generateNotificationData(notification);
 
     // Prepare FCM message
     const message = {
@@ -55,11 +54,12 @@ export async function sendFCMNotification(
         body
       },
       data: {
-        ...Object.fromEntries(
-          Object.entries(data).map(([key, value]) => [key, value?.toString() || ''])
-        ),
         notificationId: notification.id,
-        type: notification.type
+        type: notification.type,
+        postId: notification.postId || '',
+        commentId: notification.commentId || '',
+        universityId: notification.universityId || '',
+        clubId: notification.clubId || ''
       },
       android: {
         notification: {
@@ -94,7 +94,7 @@ export async function sendFCMNotification(
       `FCM notification sent: ${response.successCount} successful, ${response.failureCount} failed`
     );
 
-    // Clean up failed tokens (in a real implementation)
+    // Clean up failed tokens
     if (response.failureCount > 0) {
       const failedTokens = response.responses
         .map((resp, idx) => (resp.success ? null : tokens[idx]))
@@ -102,7 +102,9 @@ export async function sendFCMNotification(
 
       if (failedTokens.length > 0) {
         console.log('Failed FCM tokens to clean up:', failedTokens);
-        // TODO: Remove failed tokens from user document
+        failedTokens.forEach(async (token) => {
+          await removeFCMToken(client, notification.targetUserId, token);
+        });
       }
     }
 

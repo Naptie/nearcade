@@ -84,17 +84,6 @@ export function generateFCMNotificationContent(notification: Notification): FCMN
       body = 'You have a new notification';
   }
 
+  console.log(title, body);
   return { title, body };
-}
-
-/**
- * Generate notification data for navigation
- */
-export function generateNotificationData(notification: Notification) {
-  return {
-    postId: notification.postId,
-    commentId: notification.commentId,
-    universityId: notification.universityId,
-    clubId: notification.clubId
-  };
 }
