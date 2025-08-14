@@ -21,7 +21,7 @@
     PUBLIC_FIREBASE_PROJECT_ID,
     PUBLIC_FIREBASE_STORAGE_BUCKET
   } from '$env/static/public';
-  import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+  import { getMessaging, getToken } from 'firebase/messaging';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -66,8 +66,6 @@
     setHighlightTheme();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', setHighlightTheme);
-
-    window.addEventListener('message', handleWindowMessage);
 
     // Initialize push notifications for logged-in users
     if (browser && data.session?.user) {
@@ -115,7 +113,7 @@
 
     return () => {
       media.removeEventListener('change', setHighlightTheme);
-      window.removeEventListener('message', handleWindowMessage);
+      navigator.serviceWorker.removeEventListener('message', handleWindowMessage);
     };
   });
 
@@ -144,13 +142,14 @@
           const swPath = import.meta.env.DEV ? `${base}/dev-sw.js?dev-sw` : `${base}/sw.js`;
           await navigator.serviceWorker.register(swPath);
           const registration = await navigator.serviceWorker.ready;
+          navigator.serviceWorker.addEventListener('message', handleWindowMessage);
           const token = await getToken(messaging, {
             vapidKey: PUBLIC_FIREBASE_VAPID_KEY,
             serviceWorkerRegistration: registration
           });
           if (token) {
             // Store token on server
-            await fetch(`${base}/api/fcm-token`, {
+            await fetch(`${base}/api/notifications/fcm/token`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ token, action: 'store' })
