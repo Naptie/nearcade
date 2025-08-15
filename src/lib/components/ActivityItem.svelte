@@ -9,6 +9,7 @@
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
+  import { getDisplayName } from '$lib/utils';
 
   interface Props {
     activity: Activity;
@@ -45,36 +46,48 @@
   });
 
   let text = $derived.by(() => {
-    const authorName = `<a href="${base}/users/@${activity.targetAuthorName}" class="hover:text-accent transition-colors">${activity.targetAuthorDisplayName}</a>`;
+    const authorName = `<a href="${base}/users/@${activity.targetAuthorName}" class="hover:text-accent transition-colors">${getDisplayName(
+      {
+        name: activity.targetAuthorName,
+        displayName: activity.targetAuthorDisplayName
+      }
+    )}</a>`;
+    const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${
+      target
+    }</a>`;
+
     switch (activity.type) {
       case 'post':
-        return m.activity_created_post();
+        return m.activity_created_post({ targetName });
       case 'comment':
-        return m.activity_commented_on();
+        return m.activity_commented_on({ targetName });
       case 'reply':
         return m.activity_replied_to({
-          authorName
+          authorName,
+          targetName
         });
       case 'post_vote':
         return activity.voteType === 'upvote'
-          ? m.activity_upvoted_post()
-          : m.activity_downvoted_post();
+          ? m.activity_upvoted_post({ targetName })
+          : m.activity_downvoted_post({ targetName });
       case 'comment_vote':
         return activity.voteType === 'upvote'
           ? m.activity_upvoted_comment({
-              authorName
+              authorName,
+              targetName
             })
           : m.activity_downvoted_comment({
-              authorName
+              authorName,
+              targetName
             });
       case 'changelog':
-        return m.activity_contributed_to();
+        return m.activity_contributed_to({ targetName });
       case 'university_join':
-        return m.activity_joined_university();
+        return m.activity_joined_university({ targetName });
       case 'club_join':
-        return m.activity_joined_club();
+        return m.activity_joined_club({ targetName });
       case 'club_create':
-        return m.activity_created_club();
+        return m.activity_created_club({ targetName });
       default:
         return '';
     }
@@ -196,11 +209,8 @@
   <div class="min-w-0 flex-1">
     <div class="flex flex-col gap-1">
       <!-- Activity Description -->
-      <div class="text-sm">
-        <span class="text-base-content/80">{@html text}</span>
-        <a href={link} class="text-accent hover:text-accent/80 font-medium transition-colors">
-          {target}
-        </a>
+      <div class="text-base-content/80 text-sm">
+        {@html text}
       </div>
 
       <!-- Activity Preview for Comments and Replies -->
