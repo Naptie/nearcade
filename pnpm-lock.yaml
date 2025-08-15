@@ -8,6 +8,9 @@ patchedDependencies:
   '@inlang/paraglide-js':
     hash: a62c6872f9e91935ce5b8cd605822d9412b9d009b47da15ba8eb914e328a82a5
     path: patches/@inlang__paraglide-js.patch
+  firebase:
+    hash: afe84e8a333e2972705260532fd082c7a1453702eed2558bb0a1cbf4e0df807d
+    path: patches/firebase.patch
 
 importers:
 
@@ -54,7 +57,7 @@ importers:
         version: 4.1.0
       firebase:
         specifier: ^12.1.0
-        version: 12.1.0
+        version: 12.1.0(patch_hash=afe84e8a333e2972705260532fd082c7a1453702eed2558bb0a1cbf4e0df807d)
       firebase-admin:
         specifier: ^13.4.0
         version: 13.4.0
@@ -9123,7 +9126,7 @@ snapshots:
       - encoding
       - supports-color
 
-  firebase@12.1.0:
+  firebase@12.1.0(patch_hash=afe84e8a333e2972705260532fd082c7a1453702eed2558bb0a1cbf4e0df807d):
     dependencies:
       '@firebase/ai': 2.1.0(@firebase/app-types@0.9.3)(@firebase/app@0.14.1)
       '@firebase/analytics': 0.10.18(@firebase/app@0.14.1)
