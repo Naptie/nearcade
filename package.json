@@ -108,7 +108,8 @@
       "workerd"
     ],
     "patchedDependencies": {
-      "@inlang/paraglide-js": "patches/@inlang__paraglide-js.patch"
+      "@inlang/paraglide-js": "patches/@inlang__paraglide-js.patch",
+      "firebase": "patches/firebase.patch"
     }
   },
   "packageManager": "pnpm@10.14.0"
