@@ -1,5 +1,5 @@
-name: Sentry Publish
-run-name: Publish to Sentry
+name: Publish
+run-name: Publish to LeanCloud and Sentry
 on:
   push:
     branches:
@@ -10,11 +10,12 @@ on:
       - 'project.inlang/**'
       - 'src/**'
       - 'static/**'
+      - 'leanengine.yaml'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'svelte.config.js'
       - 'vite.config.ts'
-      - '.github/workflows/publish-sentry.yml'
+      - '.github/workflows/publish.yml'
   workflow_dispatch:
 
 defaults:
@@ -22,8 +23,8 @@ defaults:
     shell: bash
 
 jobs:
-  publish-sentry:
-    name: Publish to Sentry
+  build:
+    name: Build Application
     runs-on: ubuntu-22.04
     if: github.event_name == 'push'
     steps:
@@ -82,6 +83,59 @@ jobs:
           AUTH_QQ_PROXY: ${{ secrets.AUTH_QQ_PROXY }}
           REDIS_URI: ${{ secrets.REDIS_URI }}
           GSAK_BASE64: ${{ secrets.GSAK_BASE64 }}
+          FCM_PROXY: ${{ secrets.FCM_PROXY }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: build/
+          retention-days: 1
+
+  leancloud-publish:
+    name: Publish to LeanCloud
+    runs-on: ubuntu-22.04
+    needs: build
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare LeanCloud CLI
+        run: |
+          wget ${{ vars.LC_CLI_DOWNLOAD }} -O /tmp/lc-cli
+          chmod +x /tmp/lc-cli
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-files
+          path: build/
+
+      - name: Deploy to LeanCloud
+        run: |
+          /tmp/lc-cli login ${{ secrets.LC_LOGIN }}
+          /tmp/lc-cli switch ${{ secrets.LC_SWITCH }}
+          /tmp/lc-cli deploy --prod
+
+  sentry-publish:
+    name: Publish to Sentry
+    runs-on: ubuntu-22.04
+    needs: build
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-files
+          path: build/
 
       - name: Create Sentry release
         uses: getsentry/action-release@v1

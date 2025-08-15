@@ -1,12 +1,6 @@
 runtime: nodejs
-install: npm install
-build: |
-  if [ -z "$REDIS_URI" ]; then
-    export REDIS_URI="$REDIS_URL_main"
-  fi
-  npm run prepare
-  npm run build
+install: npm install tsx
+build: echo ''
 run: |
   HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity node build &
   npm run ssv-poll
-exposeEnvironmentsOnBuild: true
