@@ -105,8 +105,8 @@ jobs:
 
       - name: Prepare LeanCloud CLI
         run: |
-          wget ${{ vars.LC_CLI_DOWNLOAD }} -O /tmp/lc-cli
-          chmod +x /tmp/lc-cli
+          wget ${{ vars.LC_CLI_DOWNLOAD }} -O /tmp/${{ vars.LC_EXE }}
+          chmod +x /tmp/${{ vars.LC_EXE }}
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -116,9 +116,9 @@ jobs:
 
       - name: Deploy to LeanCloud
         run: |
-          /tmp/lc-cli login ${{ secrets.LC_LOGIN }}
-          /tmp/lc-cli switch ${{ secrets.LC_SWITCH }}
-          /tmp/lc-cli deploy --prod
+          /tmp/${{ vars.LC_EXE }} login ${{ secrets.LC_LOGIN }}
+          /tmp/${{ vars.LC_EXE }} switch ${{ secrets.LC_SWITCH }}
+          /tmp/${{ vars.LC_EXE }} deploy --prod
 
   sentry-publish:
     name: Publish to Sentry
