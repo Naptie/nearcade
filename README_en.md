@@ -116,6 +116,9 @@ Please join the following QQ group for discussions.
     PUBLIC_QQMAP_KEY = "your_qqmap_key"
     AMAP_SECRET = "your_amap_secret"
 
+    # Server-to-Server Communication Secret (generate a random string)
+    SSC_SECRET="your_ssc_secret"
+
     # Database
     MONGODB_URI="mongodb://localhost:27017/?dbName=nearcade"
 
@@ -161,6 +164,18 @@ Please join the following QQ group for discussions.
     IMAP_USER = "your_imap_user@example.com"
     IMAP_PASSWORD = "your_imap_password"
     REDIS_URI = "redis://username:password@127.0.0.1:6379"
+    ```
+
+    **Firebase Cloud Messaging:**
+
+    ```env
+    # Setup either of the following variables
+
+    # Google Service Account JSON (use Base64 encoding)
+    GSAK_BASE64="your_base64_content"
+
+    # Firebase Cloud Messaging Proxy
+    FCM_PROXY="https://example.com/api/notifications/fcm/send"
     ```
 
 4.  **Start development server:**

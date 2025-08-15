@@ -116,6 +116,9 @@
     PUBLIC_QQMAP_KEY="your_qqmap_key"
     AMAP_SECRET="your_amap_secret"
 
+    # 服务器间通讯密钥 (生成一个随机字符串)
+    SSC_SECRET="your_ssc_secret"
+
     # 数据库
     MONGODB_URI="mongodb://localhost:27017/?dbName=nearcade"
 
@@ -161,6 +164,18 @@
     IMAP_USER = "your_imap_user@example.com"
     IMAP_PASSWORD = "your_imap_password"
     REDIS_URI = "redis://username:password@127.0.0.1:6379"
+    ```
+
+    **Firebase Cloud Messaging 配置:**
+
+    ```env
+    # 以下变量二选一
+
+    # Google 服务账号 JSON (使用 Base64 编码)
+    GSAK_BASE64="your_base64_content"
+
+    # Firebase Cloud Messaging 代理
+    FCM_PROXY="https://example.com/api/notifications/fcm/send"
     ```
 
 4.  **启动开发服务器:**
