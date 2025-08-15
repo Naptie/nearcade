@@ -1,5 +1,5 @@
-import type { m as mFunc } from './paraglide/messages';
-import type { ChangelogEntry } from './types';
+import type { m as mFunc } from '$lib/paraglide/messages';
+import type { ChangelogEntry } from '$lib/types';
 
 /**
  * Get the internationalized field name for a changelog field

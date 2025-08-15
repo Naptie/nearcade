@@ -3,14 +3,17 @@ import { SvelteKitAuth, type User } from '@auth/sveltekit';
 import GitHub from '@auth/sveltekit/providers/github';
 import MicrosoftEntraID from '@auth/sveltekit/providers/microsoft-entra-id';
 import Osu from '@auth/sveltekit/providers/osu';
-import client from './db.server';
+import client from '$lib/db/index.server';
 import Discord from '@auth/sveltekit/providers/discord';
-import QQ from './auth/qq';
+import QQ from './qq';
 import { env } from '$env/dynamic/private';
 import { ObjectId } from 'mongodb';
-import { generateValidUsername } from './utils';
-import Phira from './auth/phira';
-import { countUnreadNotifications, countPendingJoinRequests } from './notifications/index.server';
+import { generateValidUsername } from '$lib/utils';
+import Phira from './phira';
+import {
+  countUnreadNotifications,
+  countPendingJoinRequests
+} from '$lib/notifications/index.server';
 
 const config = { allowDangerousEmailAccountLinking: true };
 

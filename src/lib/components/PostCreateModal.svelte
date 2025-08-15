@@ -1,7 +1,8 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import MarkdownEditor from './MarkdownEditor.svelte';
-  import { fromPath, getDefaultPostReadability } from '$lib/utils';
+  import { getDefaultPostReadability } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { PostReadability } from '$lib/types';
 
   interface Props {

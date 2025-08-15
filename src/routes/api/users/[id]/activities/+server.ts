@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db.server';
-import { getUserActivities } from '$lib/activity.server';
+import client from '$lib/db/index.server';
+import { getUserActivities } from '$lib/utils/activity.server';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   const session = await locals.auth();

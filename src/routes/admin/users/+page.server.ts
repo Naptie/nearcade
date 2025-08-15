@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { toPlainArray, updateUserType } from '$lib/utils';
 import type { User } from '@auth/sveltekit';
 import { nanoid } from 'nanoid';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();

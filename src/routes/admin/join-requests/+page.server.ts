@@ -4,7 +4,7 @@ import type { JoinRequestWithUser } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import { notify } from '$lib/notifications/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {

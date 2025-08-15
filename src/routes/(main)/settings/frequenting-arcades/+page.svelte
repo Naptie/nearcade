@@ -4,7 +4,8 @@
   import { enhance } from '$app/forms';
   import type { Shop } from '$lib/types';
   import type { PageData } from './$types';
-  import { fromPath, pageTitle } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { onMount } from 'svelte';
 
   let { data }: { data: PageData } = $props();

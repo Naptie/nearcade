@@ -3,8 +3,8 @@ import type { PageServerLoad, Actions } from './$types';
 import type { University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { base } from '$app/paths';
-import { loginRedirect } from '$lib/utils';
-import client from '$lib/db.server';
+import { loginRedirect } from '$lib/utils/scoped';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = await locals.auth();

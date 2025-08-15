@@ -14,10 +14,11 @@
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
-  import { render } from '$lib/markdown';
+  import { render } from '$lib/utils/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
-  import { getDisplayName, fromPath, pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
 
   interface Props {
     post: PostWithAuthor;

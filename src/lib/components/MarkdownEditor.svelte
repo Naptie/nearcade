@@ -1,7 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import { render } from '$lib/markdown';
+  import { render } from '$lib/utils/markdown';
 
   interface Props {
     value: string;

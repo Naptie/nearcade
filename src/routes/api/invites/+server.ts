@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { InviteLink } from '$lib/types';
 import { nanoid } from 'nanoid';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 interface CreateInviteRequest {
   type: 'university' | 'club';

@@ -12,7 +12,8 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { formatDate, fromPath, pageTitle } from '$lib/utils';
+  import { formatDate, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();

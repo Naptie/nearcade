@@ -6,7 +6,7 @@
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
-  import { fromPath } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { page } from '$app/state';
   import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';

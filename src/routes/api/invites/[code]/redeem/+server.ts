@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { InviteLink, UniversityMember, ClubMember, JoinRequest } from '$lib/types';
 import { nanoid } from 'nanoid';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
   const { code } = params;

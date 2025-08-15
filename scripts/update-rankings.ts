@@ -6,9 +6,9 @@ import type {
   RankingMetrics,
   SortCriteria,
   Location
-} from '../src/lib/types/index.js';
-import { calculateDistance, getGameMachineCount, calculateAreaDensity } from '../src/lib/utils.js';
-import { GAMES, RADIUS_OPTIONS } from '../src/lib/constants.js';
+} from '../src/lib/types';
+import { calculateDistance, getGameMachineCount, calculateAreaDensity } from '../src/lib/utils';
+import { GAMES, RADIUS_OPTIONS } from '../src/lib/constants';
 
 import dotenv from 'dotenv';
 

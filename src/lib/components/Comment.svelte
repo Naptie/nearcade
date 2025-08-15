@@ -5,7 +5,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
-  import { render } from '$lib/markdown';
+  import { render } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName } from '$lib/utils';

@@ -1,8 +1,9 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
-import { checkClubPermission, loginRedirect, toPlainObject } from '$lib/utils';
-import client from '$lib/db.server';
+import { checkClubPermission, toPlainObject } from '$lib/utils';
+import { loginRedirect } from '$lib/utils/scoped';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;

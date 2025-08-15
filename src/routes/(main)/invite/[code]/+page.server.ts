@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { InviteLink, University, Club } from '$lib/types';
-import { loginRedirect } from '$lib/utils';
-import client from '$lib/db.server';
+import { loginRedirect } from '$lib/utils/scoped';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { code } = params;

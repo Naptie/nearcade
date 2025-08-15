@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');

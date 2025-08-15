@@ -5,7 +5,7 @@
   import PostCreateModal from './PostCreateModal.svelte';
   import { PAGINATION } from '$lib/constants';
   import { onMount } from 'svelte';
-  import { fromPath } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
 
   interface Props {
     organizationType: 'university' | 'club';

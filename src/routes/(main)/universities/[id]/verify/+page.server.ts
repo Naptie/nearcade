@@ -1,9 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
-import { checkUniversityPermission, loginRedirect } from '$lib/utils';
+import { checkUniversityPermission } from '$lib/utils';
+import { loginRedirect } from '$lib/utils/scoped';
 import { base } from '$app/paths';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import { AUTH_SECRET, REDIS_URI } from '$env/static/private';
 import { createHmac } from 'crypto';
 import { createClient } from 'redis';

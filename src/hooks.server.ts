@@ -2,7 +2,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
-import { handle as handleAuth } from '$lib/auth.server';
+import { handle as handleAuth } from '$lib/auth/index.server';
 import { env } from '$env/dynamic/public';
 
 const reportError: HandleServerError = ({ status, error }) => {

@@ -9,7 +9,7 @@
   import { getDisplayName } from '$lib/utils';
   import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
-  import { strip } from '$lib/markdown';
+  import { strip } from '$lib/utils/markdown';
   import { getNotificationLink } from '$lib/notifications/index.client';
 
   interface Props {

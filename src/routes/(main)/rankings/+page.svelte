@@ -1,13 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import {
-    formatDistance,
-    formatRegionLabel,
-    parseRelativeTime,
-    fromPath,
-    pageTitle
-  } from '$lib/utils';
+  import { formatDistance, formatRegionLabel, parseRelativeTime, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
     UniversityRankingData,

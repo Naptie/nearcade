@@ -6,7 +6,7 @@ import type { Notification } from '$lib/types';
 import type { User } from '@auth/sveltekit';
 import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
 import app from './firebase.server';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import { getNotificationTitle } from './index.client';
 
 /**

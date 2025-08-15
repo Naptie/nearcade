@@ -1,4 +1,4 @@
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import type { PageServerLoad } from './$types';
 import type { UniversityMember, ClubMember } from '$lib/types';
 import { toPlainArray } from '$lib/utils';

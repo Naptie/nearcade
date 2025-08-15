@@ -1,7 +1,7 @@
 // routeCacheDB.ts
 // Handles route cache storage using IndexedDB
 
-import { ROUTE_CACHE_EXPIRY_HOURS } from './constants';
+import { ROUTE_CACHE_EXPIRY_HOURS } from '$lib/constants';
 
 const DB_NAME = 'nearcade';
 const DB_VERSION = 1;

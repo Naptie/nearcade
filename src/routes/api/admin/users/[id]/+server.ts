@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { toPlainArray } from '$lib/utils';
 import type { ClubMember, Club, University, UniversityMember } from '$lib/types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   const session = await locals.auth();

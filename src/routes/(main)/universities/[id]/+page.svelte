@@ -14,7 +14,8 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { canWriteUnivPosts, fromPath, pageTitle } from '$lib/utils';
+  import { canWriteUnivPosts, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
 

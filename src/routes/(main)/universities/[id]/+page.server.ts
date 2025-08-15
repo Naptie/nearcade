@@ -9,9 +9,9 @@ import {
   updateUserType
 } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-import { logCampusChanges } from '$lib/changelog.server';
+import { logCampusChanges } from '$lib/utils/changelog.server';
 import { nanoid } from 'nanoid';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;

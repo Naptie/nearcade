@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import {
   type Post,
   type PostWithAuthor,

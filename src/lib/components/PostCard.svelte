@@ -4,7 +4,7 @@
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { base } from '$app/paths';
-  import { strip } from '$lib/markdown';
+  import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { getDisplayName } from '$lib/utils';

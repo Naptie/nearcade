@@ -2,12 +2,13 @@
   import { onMount } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import type { ChangelogEntry, ChangelogEntryWithUser } from '$lib/types';
-  import { formatChangelogDescription, getChangelogActionName } from '$lib/changelog';
+  import { formatChangelogDescription, getChangelogActionName } from '$lib/utils/changelog';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { enUS, zhCN } from 'date-fns/locale';
-  import { fromPath, getDisplayName } from '$lib/utils';
+  import { getDisplayName } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { page } from '$app/state';
   import { base } from '$app/paths';
 

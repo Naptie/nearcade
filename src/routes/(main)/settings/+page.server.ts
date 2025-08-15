@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
 
 export const load: PageServerLoad = async ({ parent }) => {

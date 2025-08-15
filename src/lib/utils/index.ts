@@ -1,6 +1,6 @@
-import { m } from './paraglide/messages';
-import { Database } from './db';
-import type { Collection, ObjectId } from 'mongodb';
+import { m } from '$lib/paraglide/messages';
+import { Database } from '$lib/db/index.client';
+import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
   type Game,
@@ -16,14 +16,9 @@ import {
   type University,
   PostWritability,
   PostReadability
-} from './types';
-import { ROUTE_CACHE_STORE } from './constants';
-import { env } from '$env/dynamic/public';
-import { base } from '$app/paths';
-import type { MongoClient } from 'mongodb';
-import { page } from '$app/state';
+} from '$lib/types';
+import { ROUTE_CACHE_STORE } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
-import { redirect } from '@sveltejs/kit';
 import { customAlphabet, nanoid } from 'nanoid';
 
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -299,11 +294,6 @@ export const formatRegionLabel = (
     return `${province}${divider}${city}`;
   }
   return province;
-};
-
-export const fromPath = (path: string) => {
-  path = ((p) => (p.startsWith('/') ? p : `/${p}`))(path.trim());
-  return `${env.PUBLIC_API_BASE || `${page.url.origin}${base}`}${path}`;
 };
 
 // Permission utilities
@@ -687,10 +677,6 @@ export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
 
 export const toPlainArray = <T extends { _id?: string | ObjectId } | null>(docs: T[]) => {
   return docs.map(toPlainObject);
-};
-
-export const loginRedirect = (url: URL) => {
-  throw redirect(302, `${base}/?login=1&redirect=${encodeURIComponent(url.toString())}`);
 };
 
 export const formatDate = (date?: Date | string | null): string => {

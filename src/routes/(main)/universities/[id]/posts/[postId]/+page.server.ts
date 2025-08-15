@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import {
   type University,
   type Post,

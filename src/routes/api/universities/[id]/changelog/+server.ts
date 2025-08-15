@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getChangelogEntries } from '$lib/changelog.server';
-import client from '$lib/db.server';
+import { getChangelogEntries } from '$lib/utils/changelog.server';
+import client from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   const { id } = params;

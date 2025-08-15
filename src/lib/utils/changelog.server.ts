@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import type { ChangelogEntry, University, Campus, ChangelogEntryWithUser } from './types';
+import type { ChangelogEntry, University, Campus, ChangelogEntryWithUser } from '$lib/types';
 import { nanoid } from 'nanoid';
 
 interface ChangelogUser {

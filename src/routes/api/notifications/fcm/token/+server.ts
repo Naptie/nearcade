@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import { storeFCMToken, removeFCMToken } from '$lib/notifications/fcm.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {

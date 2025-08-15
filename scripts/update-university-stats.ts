@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import type { University, UniversityMember, Club } from '../src/lib/types/index.js';
+import type { University, UniversityMember, Club } from '../src/lib/types';
 import dotenv from 'dotenv';
 
 if (!('MONGODB_URI' in process.env)) {

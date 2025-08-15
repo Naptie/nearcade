@@ -11,9 +11,9 @@ import {
   type UniversityMember,
   type ClubMember,
   PostReadability
-} from './types';
+} from '$lib/types';
 import type { User } from '@auth/sveltekit';
-import { getDisplayName } from './utils';
+import { getDisplayName } from '.';
 
 /**
  * User Activity Server Module

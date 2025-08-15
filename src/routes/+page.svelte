@@ -11,7 +11,8 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel, fromPath } from '$lib/utils';
+  import { formatRegionLabel } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);

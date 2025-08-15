@@ -3,7 +3,8 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { base } from '$app/paths';
-  import { getDisplayName, fromPath, pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
 
   let { data }: { data: PageData } = $props();
 

@@ -5,9 +5,9 @@
   import { formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { formatChangelogDescription } from '$lib/changelog';
+  import { formatChangelogDescription } from '$lib/utils/changelog';
   import type { Activity } from '$lib/types';
-  import { strip } from '$lib/markdown';
+  import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
 
   interface Props {
