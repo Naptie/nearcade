@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { browser } from '$app/environment';
   import type { PageData } from './$types';
   import InviteLinkModal from '$lib/components/InviteLinkModal.svelte';
@@ -376,7 +376,9 @@
 
           {#if data.university}
             <a
-              href="{base}/universities/{data.university.slug || data.university.id}"
+              href={resolve('/(main)/universities/[id]', {
+                id: data.university.slug || data.university.id
+              })}
               class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
             >
               {data.university.name}
@@ -401,7 +403,7 @@
           <!-- Edit Club Button for privileged users -->
           {#if userPrivileges.canEdit}
             <a
-              href="{base}/clubs/{data.club.slug || data.club.id}/edit"
+              href={resolve('/(main)/clubs/[id]/edit', { id: data.club.slug || data.club.id })}
               class="btn btn-circle btn-lg btn-ghost"
               title="{m.edit()} {m.club()}"
               aria-label="{m.edit()} {m.club()}"
@@ -615,7 +617,7 @@
                       </a>
                       <div class="flex gap-2">
                         <a
-                          href="{base}/discover?longitude={shop.location
+                          href="{resolve('/(main)/discover')}?longitude={shop.location
                             ?.coordinates[0]}&latitude={shop.location
                             ?.coordinates[1]}&name={shop.name}&radius={radius}"
                           target="_blank"

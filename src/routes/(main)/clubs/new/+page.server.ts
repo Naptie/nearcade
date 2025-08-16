@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
-import { base } from '$app/paths';
+import { resolve } from '$app/paths';
 import { loginRedirect } from '$lib/utils/scoped';
 import client from '$lib/db/index.server';
 
@@ -128,6 +128,6 @@ export const actions: Actions = {
       return fail(500, { message: 'Failed to create club' });
     }
 
-    redirect(302, `${base}/clubs/${slug}`);
+    redirect(302, resolve('/(main)/clubs/[id]', { id: slug }));
   }
 };

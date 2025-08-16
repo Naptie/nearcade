@@ -1,5 +1,5 @@
 import { env } from '$env/dynamic/public';
-import { base } from '$app/paths';
+import { resolve, base } from '$app/paths';
 import { page } from '$app/state';
 import { redirect } from '@sveltejs/kit';
 
@@ -9,5 +9,5 @@ export const fromPath = (path: string) => {
 };
 
 export const loginRedirect = (url: URL) => {
-  throw redirect(302, `${base}/?login=1&redirect=${encodeURIComponent(url.toString())}`);
+  throw redirect(302, resolve('/') + `?login=1&redirect=${encodeURIComponent(url.toString())}`);
 };

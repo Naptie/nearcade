@@ -5,7 +5,7 @@
   import { m } from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import AuthModal from '$lib/components/AuthModal.svelte';
   import { beforeNavigate } from '$app/navigation';
 
@@ -65,12 +65,12 @@
         text={m.donate()}
       />
       <FancyButton
-        href="{base}/rankings"
+        href={resolve('/(main)/rankings')}
         class="fa-solid fa-trophy fa-lg text-shadow"
         text={m.campus_rankings()}
       />
       <FancyButton
-        href="{base}/"
+        href={resolve('/')}
         class="fa-solid fa-home fa-lg text-shadow"
         btnCls="not-sm:hidden"
         text={m.home()}

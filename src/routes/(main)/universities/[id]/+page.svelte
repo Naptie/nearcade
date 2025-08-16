@@ -10,7 +10,7 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ChangelogView from '$lib/components/ChangelogView.svelte';
   import PostsList from '$lib/components/PostsList.svelte';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
@@ -334,7 +334,9 @@
           <!-- Join Button for eligible users -->
           {#if data.user && data.userPermissions.canJoin > 0 && !data.userPermissions.verificationEmail}
             <a
-              href="{base}/universities/{data.university.slug || data.university.id}/verify"
+              href={resolve('/(main)/universities/[id]/verify', {
+                id: data.university.slug || data.university.id
+              })}
               class="btn btn-ghost"
             >
               {#if data.userPermissions.canJoin === 2}
@@ -350,7 +352,9 @@
           <!-- Edit University Button for privileged users -->
           {#if userPrivileges.canEdit}
             <a
-              href="{base}/universities/{data.university.slug || data.university.id}/edit"
+              href={resolve('/(main)/universities/[id]/edit', {
+                id: data.university.slug || data.university.id
+              })}
               class="btn btn-circle btn-lg btn-ghost"
               title={m.edit_university_info()}
               aria-label={m.edit_university_info()}
@@ -554,7 +558,7 @@
                       {#if campus.location}
                         <a
                           class="btn not-md:btn-circle btn-soft btn-sm"
-                          href="{base}/discover?latitude={campus.location
+                          href="{resolve('/(main)/discover')}?latitude={campus.location
                             .coordinates[1]}&longitude={campus.location
                             .coordinates[0]}&radius={searchRadius}&name={encodeURIComponent(
                             `${data.university.name}${campus.name ? ` (${campus.name})` : ''}`
@@ -609,7 +613,7 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <a
-                    href="{base}/clubs/new?university={data.university.id}"
+                    href="{resolve('/(main)/clubs/new')}?university={data.university.id}"
                     class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                   >
                     <i class="fa-solid fa-plus"></i>
@@ -625,7 +629,7 @@
                 <div class="divide-base-200 divide-y">
                   {#each displayedClubs as club (club.id)}
                     <a
-                      href="{base}/clubs/{club.slug || club.id}"
+                      href={resolve('/(main)/clubs/[id]', { id: club.slug || club.id })}
                       class="group flex items-center justify-between p-4"
                     >
                       <div class="flex items-center gap-3">
@@ -683,7 +687,7 @@
                         {m.create_club_to_get_started()}
                       </p>
                       <a
-                        href="{base}/clubs/new?university={data.university.id}"
+                        href="{resolve('/(main)/clubs/new')}?university={data.university.id}"
                         class="btn btn-primary btn-sm btn-soft"
                       >
                         <i class="fa-solid fa-plus"></i>
@@ -733,7 +737,9 @@
                         {#if member.verifiedAt}
                           <VerifiedCheckMark
                             href={member.userId === data.user?.id
-                              ? `${base}/universities/${data.university.slug || data.university.id}/verify`
+                              ? resolve('/(main)/universities/[id]/verify', {
+                                  id: data.university.slug || data.university.id
+                                })
                               : ''}
                             class="tooltip-right text-sm"
                           />

@@ -7,7 +7,7 @@
   import { formatDateTime, pageTitle } from '$lib/utils';
   import { onMount } from 'svelte';
   import { invalidateAll } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
 
   let { data }: { data: PageData } = $props();
 
@@ -69,7 +69,7 @@
   <div class="flex flex-col items-center gap-2 text-center">
     <h1 class="text-4xl font-bold">
       {@html m.verify_title({
-        university: `<a href="${base}/universities/${data.university.slug || data.university.id}" class="hover:text-accent transition-colors">${data.university.name}</a>`
+        university: `<a href="${resolve('/(main)/universities/[id]', { id: data.university.slug || data.university.id })}" class="hover:text-accent transition-colors">${data.university.name}</a>`
       })}
     </h1>
     {#if !data.verificationEmail}

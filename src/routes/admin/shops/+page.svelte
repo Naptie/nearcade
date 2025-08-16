@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
   import { pageTitle } from '$lib/utils';
@@ -139,8 +139,9 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/discover?longitude={shop.location?.coordinates[0]}&latitude={shop
-                        .location?.coordinates[1]}&name={shop.name}&radius={radius}"
+                      href="{resolve('/(main)/discover')}?longitude={shop.location
+                        ?.coordinates[0]}&latitude={shop.location
+                        ?.coordinates[1]}&name={shop.name}&radius={radius}"
                       target="_blank"
                       class="btn btn-soft btn-sm"
                       title={m.explore_nearby()}
@@ -191,12 +192,12 @@
         <p class="text-base-content/60">
           {data.search ? m.admin_no_shops_found_search() : m.admin_no_shops_found_empty()}
         </p>
-        {#if !data.search}
-          <a href="{base}/shops/new" class="btn btn-primary mt-4">
+        <!-- {#if !data.search}
+          <a href={resolve('/(main)/shops/new')} class="btn btn-primary mt-4">
             <i class="fa-solid fa-plus"></i>
             {m.admin_add_shop()}
           </a>
-        {/if}
+        {/if} -->
       </div>
     {/if}
   </div>

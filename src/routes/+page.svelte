@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve, base } from '$app/paths';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
   import AuthModal from '$lib/components/AuthModal.svelte';
@@ -216,7 +216,8 @@
       }
     }
     goto(
-      `${base}/discover?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
+      resolve('/(main)/discover') +
+        `?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
     );
   };
 
@@ -250,7 +251,7 @@
       text={m.donate()}
     />
     <FancyButton
-      href="{base}/rankings"
+      href={resolve('/(main)/rankings')}
       class="fa-solid fa-trophy fa-lg"
       text={m.campus_rankings()}
     />
@@ -279,14 +280,14 @@
         </button>
         <div class="join">
           <a
-            href="{base}/universities"
+            href={resolve('/(main)/universities')}
             class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
           >
             {m.find_university()}
             <i class="fa-solid fa-graduation-cap fa-lg"></i>
           </a>
           <a
-            href="{base}/clubs"
+            href={resolve('/(main)/clubs')}
             class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
           >
             {m.find_clubs()}
@@ -443,7 +444,9 @@
                           >
                             <div>
                               <a
-                                href="{base}/universities/{university.slug || university.id}"
+                                href={resolve('/(main)/universities/[id]', {
+                                  id: university.slug || university.id
+                                })}
                                 target="_blank"
                                 class="hover:text-accent text-base font-medium transition-colors"
                               >
@@ -465,7 +468,9 @@
                           <div class="p-3">
                             <div>
                               <a
-                                href="{base}/universities/{university.slug || university.id}"
+                                href={resolve('/(main)/universities/[id]', {
+                                  id: university.slug || university.id
+                                })}
                                 target="_blank"
                                 class="hover:text-accent text-base font-medium transition-colors"
                                 >{university.name}</a

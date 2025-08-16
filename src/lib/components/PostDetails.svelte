@@ -13,7 +13,7 @@
   import BackToTopButton from './BackToTopButton.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { render } from '$lib/utils/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
@@ -99,11 +99,13 @@
   });
 
   let backUrl = $derived.by(() => {
-    const orgPath =
-      organizationType === 'university'
-        ? `/universities/${organizationSlug || organizationId}#posts`
-        : `/clubs/${organizationSlug || organizationId}#posts`;
-    return `${base}${orgPath}`;
+    if (organizationType === 'university') {
+      return (
+        resolve('/(main)/universities/[id]', { id: organizationSlug || organizationId }) + '#posts'
+      );
+    } else {
+      return resolve('/(main)/clubs/[id]', { id: organizationSlug || organizationId }) + '#posts';
+    }
   });
 
   const readabilityOptions = [
@@ -450,7 +452,7 @@
             <UserAvatar user={post.author} size="md" showName={false} />
             <div>
               <a
-                href="{base}/users/@{post.author.name}"
+                href={resolve('/(main)/users/[id]', { id: '@' + post.author.name })}
                 class="hover:text-accent font-medium transition-colors"
               >
                 {getDisplayName(post.author)}
@@ -708,14 +710,16 @@
           {:else if canJoinOrganization && organizationType === 'university' && postWritability === PostWritability.UNIV_MEMBERS}
             <i class="fa-solid fa-user-check text-warning text-2xl"></i>
             <a
-              href="{base}/universities/{organizationSlug || organizationId}/verify"
+              href={resolve('/(main)/universities/[id]/verify', {
+                id: organizationSlug || organizationId
+              })}
               class="text-base-content/60 group-hover:link-accent transition-colors"
               >{m.verify_and_join_university_to_comment()}</a
             >
           {:else if canJoinOrganization && organizationType === 'club' && postWritability === PostWritability.CLUB_MEMBERS}
             <i class="fa-solid fa-user-check text-warning text-2xl"></i>
             <a
-              href="{base}/clubs/{organizationSlug || organizationId}"
+              href={resolve('/(main)/clubs/[id]', { id: organizationSlug || organizationId })}
               class="text-base-content/60 group-hover:link-accent transition-colors"
               >{m.join_club_to_comment()}</a
             >

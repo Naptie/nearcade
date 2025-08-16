@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import AuthModal from '$lib/components/AuthModal.svelte';
@@ -33,56 +33,56 @@
       id: 'dashboard',
       label: m.admin_dashboard(),
       icon: 'fa-chart-line',
-      href: `${base}/admin`,
+      href: resolve('/admin'),
       requiresSiteAdmin: false
     },
     {
       id: 'users',
       label: m.admin_users(),
       icon: 'fa-user',
-      href: `${base}/admin/users`,
+      href: resolve('/admin/users'),
       requiresSiteAdmin: true
     },
     {
       id: 'universities',
       label: m.admin_universities(),
       icon: 'fa-graduation-cap',
-      href: `${base}/admin/universities`,
+      href: resolve('/admin/universities'),
       requiresSiteAdmin: false
     },
     {
       id: 'clubs',
       label: m.admin_clubs(),
       icon: 'fa-users',
-      href: `${base}/admin/clubs`,
+      href: resolve('/admin/clubs'),
       requiresSiteAdmin: false
     },
     {
       id: 'posts',
       label: m.admin_posts(),
       icon: 'fa-file-lines',
-      href: `${base}/admin/posts`,
+      href: resolve('/admin/posts'),
       requiresSiteAdmin: false
     },
     {
       id: 'shops',
       label: m.admin_shops(),
       icon: 'fa-gamepad',
-      href: `${base}/admin/shops`,
+      href: resolve('/admin/shops'),
       requiresSiteAdmin: true
     },
     {
       id: 'invites',
       label: m.admin_invites(),
       icon: 'fa-link',
-      href: `${base}/admin/invites`,
+      href: resolve('/admin/invites'),
       requiresSiteAdmin: false
     },
     {
       id: 'join-requests',
       label: m.join_requests(),
       icon: 'fa-user-plus',
-      href: `${base}/admin/join-requests`,
+      href: resolve('/admin/join-requests'),
       requiresSiteAdmin: false,
       count: data.session?.pendingJoinRequests
     }

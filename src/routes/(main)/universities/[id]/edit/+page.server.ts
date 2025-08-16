@@ -4,7 +4,7 @@ import { PostReadability, PostWritability, type University } from '$lib/types';
 import { checkUniversityPermission } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import { logUniversityChanges } from '$lib/utils/changelog.server';
-import { base } from '$app/paths';
+import { resolve } from '$app/paths';
 import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
@@ -227,7 +227,7 @@ export const actions: Actions = {
 
       await universitiesCollection.updateOne({ id }, { $set: updateData });
 
-      redirect(302, `${base}/universities/${id}`);
+      redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {
       if (err && typeof err === 'object' && 'status' in err && 'location' in err) {
         throw err; // Re-throw redirect

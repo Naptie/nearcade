@@ -9,7 +9,7 @@
   import { onMount } from 'svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName } from '$lib/utils';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
 
   interface Props {
@@ -149,7 +149,7 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
           <a
-            href="{base}/users/@{comment.author.name}"
+            href={resolve('/(main)/users/[id]', { id: '@' + comment.author.name })}
             class="hover:text-accent font-medium transition-colors"
           >
             {getDisplayName(comment.author)}

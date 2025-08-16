@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto, invalidateAll } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
   import type { JoinRequestWithUser } from '$lib/types';
@@ -160,9 +160,13 @@
                         </span>
                       {/if}
                       <a
-                        href="{base}/{request.type === 'university'
-                          ? 'universities'
-                          : 'clubs'}/{request.target.slug || request.target.id}"
+                        href={request.type === 'university'
+                          ? resolve('/(main)/universities/[id]', {
+                              id: (request.target.slug || request.target.id) as string
+                            })
+                          : resolve('/(main)/clubs/[id]', {
+                              id: (request.target.slug || request.target.id) as string
+                            })}
                         target="_blank"
                         class="hover:text-accent line-clamp-3 font-medium transition-colors"
                       >

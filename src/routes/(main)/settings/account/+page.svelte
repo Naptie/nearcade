@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { signOut } from '@auth/sveltekit/client';
@@ -98,7 +98,7 @@
         {#each data.universities as university (university.id)}
           <div class="bg-base-100 flex items-center justify-between rounded-lg p-4">
             <a
-              href="{base}/universities/{university.slug || university.id}"
+              href={resolve('/(main)/universities/[id]', { id: university.slug || university.id })}
               class="group flex cursor-pointer items-center gap-3"
             >
               <div class="avatar {university.avatarUrl ? '' : 'avatar-placeholder'}">
@@ -134,7 +134,7 @@
       <div class="text-base-content/60 py-8 text-center">
         <i class="fa-solid fa-graduation-cap mb-2 text-2xl"></i>
         <p>{m.not_associated_with_university()}</p>
-        <a href="{base}/universities" class="btn btn-primary btn-sm mt-2">
+        <a href={resolve('/(main)/universities')} class="btn btn-primary btn-sm mt-2">
           <i class="fa-solid fa-search"></i>
           {m.find_university()}
         </a>
@@ -166,13 +166,18 @@
               </div>
               <div>
                 <h3 class="font-medium">
-                  <a href="{base}/clubs/{club.id}" class="hover:text-accent transition-colors">
+                  <a
+                    href={resolve('/(main)/clubs/[id]', { id: club.id })}
+                    class="hover:text-accent transition-colors"
+                  >
                     {club.name}
                   </a>
                 </h3>
                 {#if club.university}
                   <a
-                    href="{base}/universities/{club.university.slug || club.university.id}"
+                    href={resolve('/(main)/universities/[id]', {
+                      id: club.university.slug || club.university.id
+                    })}
                     class="hover:text-accent text-base-content/60 text-sm transition-colors"
                     >{club.university.name}</a
                   >
@@ -193,7 +198,7 @@
       <div class="text-base-content/60 py-8 text-center">
         <i class="fa-solid fa-users mb-2 text-2xl"></i>
         <p>{m.not_member_of_any_clubs()}</p>
-        <a href="{base}/clubs" class="btn btn-primary btn-sm mt-2">
+        <a href={resolve('/(main)/clubs')} class="btn btn-primary btn-sm mt-2">
           <i class="fa-solid fa-search"></i>
           {m.find_clubs()}
         </a>
@@ -314,7 +319,7 @@
           showDeleteConfirm = false;
           return async ({ result }) => {
             if (result.type === 'success') {
-              await signOut({ redirectTo: `${base}/` });
+              await signOut({ redirectTo: resolve('/') });
             }
           };
         }}

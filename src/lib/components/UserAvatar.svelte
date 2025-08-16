@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName } from '$lib/utils';
 
@@ -158,7 +158,7 @@
 
 {#if target !== null}
   <a
-    href="{base}/users/@{user.name}"
+    href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
     {target}
     class="group flex items-center {gapClasses[size]} {className}"
     class:w-full={showName}

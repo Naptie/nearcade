@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
 
@@ -36,7 +36,7 @@
   let useCustomBackgroundColor = $state(!!data.university.backgroundColor);
 
   const handleCancel = () => {
-    goto(`${base}/universities/${data.university.slug || data.university.id}`);
+    goto(resolve('/(main)/universities/[id]', { id: data.university.slug || data.university.id }));
   };
 </script>
 

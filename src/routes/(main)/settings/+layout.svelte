@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
@@ -8,23 +8,23 @@
 
   const navigationItems = [
     {
-      href: `${base}/settings`,
+      href: resolve('/(main)/settings'),
       label: m.personal_settings(),
       icon: 'fa-user',
       exact: true
     },
     {
-      href: `${base}/settings/frequenting-arcades`,
+      href: resolve('/(main)/settings/frequenting-arcades'),
       label: m.frequenting_arcades(),
       icon: 'fa-clock'
     },
     {
-      href: `${base}/settings/starred-arcades`,
+      href: resolve('/(main)/settings/starred-arcades'),
       label: m.starred_arcades(),
       icon: 'fa-star'
     },
     {
-      href: `${base}/settings/account`,
+      href: resolve('/(main)/settings/account'),
       label: m.account_settings(),
       icon: 'fa-cog'
     }

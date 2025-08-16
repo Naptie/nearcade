@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import type { PageData } from './$types';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { pageTitle } from '$lib/utils';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -24,14 +24,14 @@
     if (selectedUniversityId) {
       params.set('university', selectedUniversityId);
     }
-    await goto(`${base}/clubs?${params.toString()}`);
+    await goto(resolve('/(main)/clubs') + `?${params.toString()}`);
     isSearching = false;
   };
 
   const handlePageChange = (newPage: number) => {
     const params = new SvelteURLSearchParams(page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`${base}/clubs?${params.toString()}`);
+    goto(resolve('/(main)/clubs') + `?${params.toString()}`);
   };
 
   const handleUniversityFilter = () => {
@@ -42,7 +42,7 @@
       params.delete('university');
     }
     params.delete('page'); // Reset to first page
-    goto(`${base}/clubs?${params.toString()}`);
+    goto(resolve('/(main)/clubs') + `?${params.toString()}`);
   };
 </script>
 
@@ -115,7 +115,7 @@
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.clubs as club (club.id)}
           <a
-            href="{base}/clubs/{club.slug || club.id}"
+            href={resolve('/(main)/clubs/[id]', { id: club.slug || club.id })}
             class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
           >
             <div class="card-body p-6">

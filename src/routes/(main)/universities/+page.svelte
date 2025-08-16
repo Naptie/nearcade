@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import type { PageData } from './$types';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { formatRegionLabel, pageTitle } from '$lib/utils';
   import { PAGINATION } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -20,14 +20,14 @@
     if (searchQuery.trim()) {
       params.set('q', searchQuery.trim());
     }
-    await goto(`${base}/universities?${params.toString()}`);
+    await goto(resolve('/(main)/universities') + `?${params.toString()}`);
     isSearching = false;
   };
 
   const handlePageChange = (newPage: number) => {
     const params = new SvelteURLSearchParams(page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`${base}/universities?${params.toString()}`);
+    goto(resolve('/(main)/universities') + `?${params.toString()}`);
   };
 </script>
 
@@ -88,7 +88,7 @@
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.universities as university (university.id)}
           <a
-            href="{base}/universities/{university.slug || university.id}"
+            href={resolve('/(main)/universities/[id]', { id: university.slug || university.id })}
             class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
           >
             <div class="card-body p-6">

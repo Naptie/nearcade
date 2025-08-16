@@ -3,7 +3,7 @@
   import type { PostWithAuthor } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
@@ -29,10 +29,17 @@
 
   let netVotes = $derived(post.upvotes - post.downvotes);
   let postDetailUrl = $derived.by(() => {
-    const orgPath = post.universityId
-      ? `/universities/${organizationSlug || post.universityId}`
-      : `/clubs/${organizationSlug || post.clubId}`;
-    return `${base}${orgPath}/posts/${post.id}`;
+    if (post.universityId) {
+      return resolve('/(main)/universities/[id]/posts/[postId]', {
+        id: organizationSlug || post.universityId,
+        postId: post.id
+      });
+    } else {
+      return resolve('/(main)/clubs/[id]/posts/[postId]', {
+        id: organizationSlug || post.clubId || '',
+        postId: post.id
+      });
+    }
   });
 
   onMount(() => {
@@ -63,8 +70,10 @@
                   e.preventDefault();
                   goto(
                     organizationType === 'university'
-                      ? `${base}/universities/${organizationSlug || post.universityId}`
-                      : `${base}/clubs/${organizationSlug || post.clubId}`
+                      ? resolve('/(main)/universities/[id]', {
+                          id: organizationSlug || post.universityId || ''
+                        })
+                      : resolve('/(main)/clubs/[id]', { id: organizationSlug || post.clubId || '' })
                   );
                 }}
               >

@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { formatDate, pageTitle } from '$lib/utils';
 
@@ -87,7 +87,7 @@
               <tr class="hover">
                 <td class="max-w-[20vw]">
                   <a
-                    href="{base}/clubs/{club.id}"
+                    href={resolve('/(main)/clubs/[id]', { id: club.id })}
                     target="_blank"
                     class="group flex items-center gap-3"
                   >
@@ -119,7 +119,7 @@
                 <td>
                   {#if club.university}
                     <a
-                      href="{base}/universities/{club.university.id}"
+                      href={resolve('/(main)/universities/[id]', { id: club.university.id })}
                       class="hover:text-accent line-clamp-2 transition-colors"
                     >
                       {club.university.name}
@@ -150,7 +150,7 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/clubs/{club.id}/edit"
+                      href={resolve('/(main)/clubs/[id]/edit', { id: club.id })}
                       target="_blank"
                       class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
@@ -253,7 +253,9 @@
         {m.cancel()}
       </button>
       <a
-        href={selectedUniversity ? `${base}/clubs/new?university=${selectedUniversity}` : '#'}
+        href={selectedUniversity
+          ? resolve('/(main)/clubs/new') + `?university=${selectedUniversity}`
+          : '#'}
         class="btn btn-primary"
         class:btn-disabled={!selectedUniversity}
         onclick={() => {

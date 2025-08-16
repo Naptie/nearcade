@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { GITHUB_LINK } from '$lib';
   import Footer from '$lib/components/Footer.svelte';
   import { m } from '$lib/paraglide/messages';
@@ -65,7 +65,7 @@
   let errorContent = $derived(getErrorContent(status));
 
   const goHome = () => {
-    goto(`${base}/`);
+    goto(resolve('/'));
   };
 
   const tryAgain = () => {

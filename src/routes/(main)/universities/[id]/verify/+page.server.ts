@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { checkUniversityPermission } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
-import { base } from '$app/paths';
+import { resolve } from '$app/paths';
 import client from '$lib/db/index.server';
 import { AUTH_SECRET, REDIS_URI } from '$env/static/private';
 import { createHmac } from 'crypto';
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     );
 
     if (!userPermissions.canJoin) {
-      redirect(302, `${base}/universities/${university.slug || university.id}`);
+      redirect(302, resolve('/(main)/universities/[id]', { id: university.slug || university.id }));
     }
 
     const today = new Date();

@@ -1,6 +1,6 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
-  import { base } from '$app/paths';
+  import { resolve, base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
@@ -30,7 +30,7 @@
   });
 
   let text = $derived.by(() => {
-    const actorName = `<a href="${base}/users/@${notification.actorName}" class="hover:text-accent transition-colors">${getDisplayName(
+    const actorName = `<a href="${resolve('/(main)/users/[id]', { id: '@' + notification.actorName })}" class="hover:text-accent transition-colors">${getDisplayName(
       {
         name: notification.actorName,
         displayName: notification.actorDisplayName
@@ -128,8 +128,8 @@
       {#if context}
         <a
           href={notification.universityId
-            ? `${base}/universities/${notification.universityId}`
-            : `${base}/clubs/${notification.clubId}`}
+            ? resolve('/(main)/universities/[id]', { id: notification.universityId })
+            : resolve('/(main)/clubs/[id]', { id: notification.clubId || '' })}
           class="text-base-content/60 hover:text-accent flex w-fit items-center gap-1 text-xs transition-colors"
         >
           {#if notification.universityId}

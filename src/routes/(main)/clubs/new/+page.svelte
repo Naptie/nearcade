@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
@@ -248,7 +248,10 @@
 
     <!-- Submit Button -->
     <div class="flex justify-end gap-4">
-      <a href="{base}/universities/{data.university?.id}" class="btn btn-ghost">
+      <a
+        href={resolve('/(main)/universities/[id]', { id: data.university?.id || '' })}
+        class="btn btn-ghost"
+      >
         {m.cancel()}
       </a>
       <button type="submit" class="btn btn-primary" disabled={isSubmitting}>

@@ -22,7 +22,7 @@
     pageTitle
   } from '$lib/utils';
   import { browser } from '$app/environment';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import RouteGuidance from '$lib/components/RouteGuidance.svelte';
   import {
     SELECTED_ROUTE_INDEX,
@@ -108,10 +108,13 @@
         const formData = new FormData();
         formData.append('arcadeId', shop.id.toString());
 
-        const response = await fetch(`${base}/settings/frequenting-arcades?/addArcade`, {
-          method: 'POST',
-          body: formData
-        });
+        const response = await fetch(
+          resolve('/(main)/settings/frequenting-arcades') + '?/addArcade',
+          {
+            method: 'POST',
+            body: formData
+          }
+        );
 
         if (response.ok) {
           // Reset click count for this shop since it's now been added

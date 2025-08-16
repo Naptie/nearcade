@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { getDisplayName, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
 
@@ -33,7 +33,11 @@
         // Redirect after a delay
         setTimeout(() => {
           goto(
-            `${base}/${data.invite.type === 'university' ? 'universities' : 'clubs'}/${data.targetInfo.slug || data.targetInfo.id}`
+            data.invite.type === 'university'
+              ? resolve('/(main)/universities/[id]', {
+                  id: data.targetInfo.slug || data.targetInfo.id
+                })
+              : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })
           );
         }, 2000);
       } else {
@@ -108,8 +112,11 @@
         <!-- Target Info -->
         <div class="mb-6">
           <a
-            href="{base}/{data.invite.type === 'university' ? 'universities' : 'clubs'}/{data
-              .targetInfo.slug || data.targetInfo.id}"
+            href={data.invite.type === 'university'
+              ? resolve('/(main)/universities/[id]', {
+                  id: data.targetInfo.slug || data.targetInfo.id
+                })
+              : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })}
             target="_blank"
             class="group mb-4 flex items-center gap-4"
           >

@@ -9,7 +9,7 @@
   import { fromPath } from '$lib/utils/scoped';
   import { page } from '$app/state';
   import { goto, invalidateAll } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve, base } from '$app/paths';
   import { browser } from '$app/environment';
   import { initializeApp } from 'firebase/app';
   import {
@@ -149,7 +149,7 @@
           });
           if (token) {
             // Store token on server
-            await fetch(`${base}/api/notifications/fcm/token`, {
+            await fetch(resolve('/api/notifications/fcm/token'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ token, action: 'store' })

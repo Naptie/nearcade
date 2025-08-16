@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import { getDisplayName, getUserTypeBadgeClass, getUserTypeLabel, pageTitle } from '$lib/utils';
@@ -44,7 +44,11 @@
 
     try {
       const userId = data.user.name ? `@${data.user.name}` : data.user.id;
-      const response = await fetch(`${base}/api/users/${userId}/activities?page=${page}&limit=10`);
+      const response = await fetch(
+        resolve('/api/users/[id]/activities', {
+          id: userId || ''
+        }) + `?page=${page}&limit=10`
+      );
 
       if (!response.ok) {
         throw new Error('Failed to load activities');
@@ -121,7 +125,9 @@
           <!-- University Info -->
           {#if data.universityMembership}
             {@const university = data.universityMembership.university}
-            {@const universityLink = `${base}/universities/${university.slug || university.id}`}
+            {@const universityLink = resolve('/(main)/universities/[id]', {
+              id: university.slug || university.id
+            })}
             <div class="mb-3 flex items-center gap-2">
               <i class="fa-solid fa-graduation-cap text-base-content/50"></i>
               <a
@@ -179,7 +185,7 @@
         <!-- Edit Button (if own profile) -->
         {#if data.isOwnProfile}
           <div class="shrink-0">
-            <a href="{base}/settings" class="btn btn-sm btn-soft">
+            <a href={resolve('/(main)/settings')} class="btn btn-sm btn-soft">
               <i class="fa-solid fa-edit"></i>
               {m.edit()}
             </a>
@@ -266,7 +272,7 @@
                 <p>{m.no_frequenting_arcades()}</p>
                 {#if data.isOwnProfile}
                   <a
-                    href="{base}/settings/frequenting-arcades"
+                    href={resolve('/(main)/settings/frequenting-arcades')}
                     class="hover:text-accent mt-2 text-sm transition-colors"
                   >
                     {m.add_arcade_to_get_started()}
@@ -296,7 +302,7 @@
                 <p>{m.no_starred_arcades()}</p>
                 {#if data.isOwnProfile}
                   <a
-                    href="{base}/settings/starred-arcades"
+                    href={resolve('/(main)/settings/starred-arcades')}
                     class="hover:text-accent mt-2 text-sm transition-colors"
                   >
                     {m.add_arcade_to_get_started()}
@@ -346,8 +352,9 @@
               {shop.name}
             </a>
             <a
-              href="{base}/discover?longitude={shop.location?.coordinates[0]}&latitude={shop
-                .location?.coordinates[1]}&name={shop.name}&radius={radius}"
+              href="{resolve('/(main)/discover')}?longitude={shop.location
+                ?.coordinates[0]}&latitude={shop.location
+                ?.coordinates[1]}&name={shop.name}&radius={radius}"
               target="_blank"
               class="btn btn-ghost btn-circle btn-xs"
               title={m.explore_nearby()}

@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { pageTitle } from '$lib/utils';
 
@@ -84,7 +84,9 @@
               <tr class="hover">
                 <td class="max-w-[20vw]">
                   <a
-                    href="{base}/universities/{university.slug || university.id}"
+                    href={resolve('/(main)/universities/[id]', {
+                      id: university.slug || university.id
+                    })}
                     target="_blank"
                     class="group flex items-center gap-3"
                   >
@@ -131,7 +133,9 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/universities/{university.slug || university.id}/edit"
+                      href={resolve('/(main)/universities/[id]/edit', {
+                        id: university.slug || university.id
+                      })}
                       target="_blank"
                       class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
@@ -198,12 +202,12 @@
             ? 'No universities found matching your search criteria.'
             : 'No universities found that you can manage.'}
         </p>
-        {#if !data.search}
-          <a href="{base}/universities/new" class="btn btn-primary mt-4">
+        <!-- {#if !data.search}
+          <a href={resolve('/(main)/universities/new')} class="btn btn-primary mt-4">
             <i class="fa-solid fa-plus"></i>
             Add University
           </a>
-        {/if}
+        {/if} -->
       </div>
     {/if}
   </div>

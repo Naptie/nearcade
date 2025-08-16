@@ -10,7 +10,7 @@
   import { getDisplayName } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { page } from '$app/state';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
 
   interface Props {
     universityId: string;
@@ -189,7 +189,9 @@
                       size="sm"
                     />
                     <a
-                      href="{base}/users/{entry.user.name ? `@${entry.user.name}` : entry.userId}"
+                      href={resolve('/(main)/users/[id]', {
+                        id: entry.user.name ? '@' + entry.user.name : entry.userId
+                      })}
                       class="hover:text-accent text-sm font-medium transition-colors"
                     >
                       {getDisplayName(entry.user) || entry.userName || m.unknown_user()}

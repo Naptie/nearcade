@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
@@ -79,7 +79,7 @@
       return async ({ result }) => {
         isSubmitting = false;
         if (result.type === 'success') {
-          goto(`${base}/clubs/${slug}`);
+          goto(resolve('/(main)/clubs/[id]', { id: slug }));
         } else if (result.type === 'failure') {
           errors = (result.data?.errors as string[]) || [];
 
@@ -313,7 +313,10 @@
 
     <!-- Submit Button -->
     <div class="flex justify-end gap-4">
-      <a href="{base}/clubs/{data.club.slug || data.club.id}" class="btn btn-ghost">
+      <a
+        href={resolve('/(main)/clubs/[id]', { id: data.club.slug || data.club.id })}
+        class="btn btn-ghost"
+      >
         {m.cancel()}
       </a>
       <button type="submit" class="btn btn-primary" disabled={isSubmitting}>

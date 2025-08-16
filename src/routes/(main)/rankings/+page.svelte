@@ -13,7 +13,7 @@
   import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
 
   let { data } = $props();
 
@@ -282,7 +282,9 @@
                   <div class="flex flex-col gap-1">
                     <div>
                       <a
-                        href="{base}/universities/{ranking.id.split('_')[0]}"
+                        href={resolve('/(main)/universities/[id]', {
+                          id: ranking.id.split('_')[0]
+                        })}
                         target="_blank"
                         class="text-base-content link-accent pr-1 font-semibold transition-colors"
                         >{ranking.universityName}</a
@@ -408,7 +410,7 @@
                   <div class="flex justify-center">
                     <a
                       class="btn btn-ghost btn-sm"
-                      href="{base}/discover?latitude={ranking.location
+                      href="{resolve('/(main)/discover')}?latitude={ranking.location
                         .coordinates[1]}&longitude={ranking.location
                         .coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName

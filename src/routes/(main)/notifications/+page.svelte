@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import NotificationItem from '$lib/components/NotificationItem.svelte';
   import type { Notification } from '$lib/types';
@@ -28,7 +28,8 @@
 
     try {
       const response = await fetch(
-        `${base}/api/notifications?page=${page}&limit=10${unreadOnly ? '&unreadOnly=true' : ''}`
+        resolve('/api/notifications') +
+          `?page=${page}&limit=10${unreadOnly ? '&unreadOnly=true' : ''}`
       );
 
       if (!response.ok) {
@@ -67,7 +68,7 @@
   const markAsRead = async () => {
     try {
       isSubmitting = true;
-      const response = await fetch(`${base}/api/notifications`, {
+      const response = await fetch(resolve('/api/notifications'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

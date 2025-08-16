@@ -1,6 +1,6 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
@@ -46,12 +46,12 @@
   });
 
   let text = $derived.by(() => {
-    const authorName = `<a href="${base}/users/@${activity.targetAuthorName}" class="hover:text-accent transition-colors">${getDisplayName(
-      {
-        name: activity.targetAuthorName,
-        displayName: activity.targetAuthorDisplayName
-      }
-    )}</a>`;
+    const authorName = `<a href="${resolve('/(main)/users/[id]', {
+      id: `@${activity.targetAuthorName}`
+    })}" class="hover:text-accent transition-colors">${getDisplayName({
+      name: activity.targetAuthorName,
+      displayName: activity.targetAuthorDisplayName
+    })}</a>`;
     const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${
       target
     }</a>`;
@@ -94,59 +94,97 @@
   });
 
   let link = $derived.by(() => {
-    const baseUrl = base || '';
-
     switch (activity.type) {
       case 'post':
         if (activity.universityId) {
-          return `${baseUrl}/universities/${activity.universityId}/posts/${activity.postId}`;
+          return resolve('/(main)/universities/[id]/posts/[postId]', {
+            id: activity.universityId,
+            postId: activity.postId || ''
+          });
         } else if (activity.clubId) {
-          return `${baseUrl}/clubs/${activity.clubId}/posts/${activity.postId}`;
+          return resolve('/(main)/clubs/[id]/posts/[postId]', {
+            id: activity.clubId,
+            postId: activity.postId || ''
+          });
         }
         return '#';
 
       case 'comment':
       case 'reply':
         if (activity.universityId) {
-          return `${baseUrl}/universities/${activity.universityId}/posts/${activity.postId}?comment=${activity.commentId}`;
+          return (
+            resolve('/(main)/universities/[id]/posts/[postId]', {
+              id: activity.universityId,
+              postId: activity.postId || ''
+            }) + `?comment=${activity.commentId}`
+          );
         } else if (activity.clubId) {
-          return `${baseUrl}/clubs/${activity.clubId}/posts/${activity.postId}?comment=${activity.commentId}`;
+          return (
+            resolve('/(main)/clubs/[id]/posts/[postId]', {
+              id: activity.clubId,
+              postId: activity.postId || ''
+            }) + `?comment=${activity.commentId}`
+          );
         }
         return '#';
 
       case 'post_vote':
         if (activity.universityId) {
-          return `${baseUrl}/universities/${activity.universityId}/posts/${activity.postId}`;
+          return resolve('/(main)/universities/[id]/posts/[postId]', {
+            id: activity.universityId,
+            postId: activity.postId || ''
+          });
         } else if (activity.clubId) {
-          return `${baseUrl}/clubs/${activity.clubId}/posts/${activity.postId}`;
+          return resolve('/(main)/clubs/[id]/posts/[postId]', {
+            id: activity.clubId,
+            postId: activity.postId || ''
+          });
         }
         return '#';
 
       case 'comment_vote':
         if (activity.universityId) {
-          return `${baseUrl}/universities/${activity.universityId}/posts/${activity.postId}?comment=${activity.commentId}`;
+          return (
+            resolve('/(main)/universities/[id]/posts/[postId]', {
+              id: activity.universityId,
+              postId: activity.postId || ''
+            }) + `?comment=${activity.commentId}`
+          );
         } else if (activity.clubId) {
-          return `${baseUrl}/clubs/${activity.clubId}/posts/${activity.postId}?comment=${activity.commentId}`;
+          return (
+            resolve('/(main)/clubs/[id]/posts/[postId]', {
+              id: activity.clubId,
+              postId: activity.postId || ''
+            }) + `?comment=${activity.commentId}`
+          );
         }
         return '#';
 
       case 'changelog':
         if (activity.universityId) {
-          return `${baseUrl}/universities/${activity.universityId}?entry=${activity.id}#changelog`;
+          return (
+            resolve('/(main)/universities/[id]', {
+              id: activity.universityId
+            }) + `?entry=${activity.id}#changelog`
+          );
         }
         return '#';
 
       case 'university_join':
         if (activity.joinedUniversityId) {
-          return `${baseUrl}/universities/${activity.joinedUniversityId}`;
+          return resolve('/(main)/universities/[id]', {
+            id: activity.joinedUniversityId
+          });
         }
         return '#';
 
       case 'club_join':
       case 'club_create':
         if (activity.clubId || activity.createdClubId) {
-          const clubId = activity.clubId || activity.createdClubId;
-          return `${baseUrl}/clubs/${clubId}`;
+          const clubId = activity.clubId || activity.createdClubId || '';
+          return resolve('/(main)/clubs/[id]', {
+            id: clubId
+          });
         }
         return '#';
 
@@ -224,8 +262,8 @@
       {#if context}
         <a
           href={activity.universityId
-            ? `${base}/universities/${activity.universityId}`
-            : `${base}/clubs/${activity.clubId}`}
+            ? resolve('/(main)/universities/[id]', { id: activity.universityId })
+            : resolve('/(main)/clubs/[id]', { id: activity.clubId || '' })}
           class="text-base-content/60 hover:text-accent flex w-fit items-center gap-1 text-xs transition-colors"
         >
           {#if activity.universityId}

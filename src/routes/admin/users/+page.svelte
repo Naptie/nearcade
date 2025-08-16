@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import {
     formatDate,
@@ -221,7 +221,7 @@
                   <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
                     <UserAvatar {user} size="md" target="_blank" />
                     <a
-                      href="{base}/users/@{user.name}"
+                      href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
                       target="_blank"
                       class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors"
                     >

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { PostReadability } from '$lib/types';
   import type { PageData } from './$types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -126,9 +126,15 @@
                   <div class="flex flex-col gap-1 overflow-hidden">
                     <a
                       class="hover:text-accent line-clamp-2 font-medium transition-colors"
-                      href="{base}{post.universityId
-                        ? `/universities/${post.universityId}`
-                        : `/clubs/${post.clubId}`}/posts/{post.id}"
+                      href={post.universityId
+                        ? resolve('/(main)/universities/[id]/posts/[postId]', {
+                            id: post.universityId,
+                            postId: post.id
+                          })
+                        : resolve('/(main)/clubs/[id]/posts/[postId]', {
+                            id: post.clubId || '',
+                            postId: post.id
+                          })}
                     >
                       {post.title}
                     </a>
@@ -161,7 +167,9 @@
                       </span>
                       <a
                         class="hover:text-accent line-clamp-3 font-medium transition-colors"
-                        href="{base}/universities/{post.university.slug || post.university.id}"
+                        href={resolve('/(main)/universities/[id]', {
+                          id: post.university.slug || post.university.id
+                        })}
                       >
                         {post.university.name}
                       </a>
@@ -171,7 +179,7 @@
                       </span>
                       <a
                         class="hover:text-accent line-clamp-3 font-medium transition-colors"
-                        href="{base}/clubs/{post.club.slug || post.club.id}"
+                        href={resolve('/(main)/clubs/[id]', { id: post.club.slug || post.club.id })}
                       >
                         {post.club.name}
                       </a>
@@ -213,9 +221,15 @@
                   <div class="flex justify-end gap-2">
                     <a
                       class="btn btn-ghost btn-sm"
-                      href="{base}{post.universityId
-                        ? `/universities/${post.universityId}`
-                        : `/clubs/${post.clubId}`}/posts/{post.id}"
+                      href={post.universityId
+                        ? resolve('/(main)/universities/[id]/posts/[postId]', {
+                            id: post.universityId,
+                            postId: post.id
+                          })
+                        : resolve('/(main)/clubs/[id]/posts/[postId]', {
+                            id: post.clubId || '',
+                            postId: post.id
+                          })}
                       title={m.view()}
                       aria-label={m.view()}
                     >
