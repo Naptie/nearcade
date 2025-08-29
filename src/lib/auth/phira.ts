@@ -32,7 +32,7 @@ const Phira = <P extends PhiraProfile>(options: OAuthUserConfig<P>): OAuth2Confi
     clientSecret,
 
     authorization: {
-      url: `https://phira.moe/oauth`,
+      url: 'https://phira.moe/oauth',
       params: {
         scope: '1'
       }
