@@ -109,9 +109,7 @@
         <div class="flex-1">
           <div class="mb-2 flex flex-wrap items-center gap-3">
             <h1 class="text-2xl font-bold sm:text-3xl">
-              {data.user.displayName ||
-                (() => (data.user.name ? `@${data.user.name}` : ''))() ||
-                m.anonymous_user()}
+              {getDisplayName(data.user)}
             </h1>
             <span class="badge text-nowrap {getUserTypeBadgeClass(data.user.userType)}">
               {getUserTypeLabel(data.user.userType)}
