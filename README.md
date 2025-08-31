@@ -178,6 +178,8 @@
     FCM_PROXY="https://example.com/api/notifications/fcm/send"
     ```
 
+    其中，有关 Firebase Cloud Messaging 代理，请参考[该终结点](src/routes/api/notifications/fcm/send/+server.ts)。
+
 4.  **启动开发服务器:**
 
     ```bash

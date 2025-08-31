@@ -178,6 +178,8 @@ Please join the following QQ group for discussions.
     FCM_PROXY="https://example.com/api/notifications/fcm/send"
     ```
 
+    For Firebase Cloud Messaging proxy setup, please refer to [this endpoint](src/routes/api/notifications/fcm/send/+server.ts).
+
 4.  **Start development server:**
 
     ```bash
