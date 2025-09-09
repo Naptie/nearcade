@@ -195,26 +195,36 @@
     }
   };
 
-  const go = (convert: boolean = true) => {
+  const go = async (convert: boolean = true) => {
     isLoading = true;
+
     if (convert) {
-      if (amap) {
-        amap.convertFrom(
-          [location.longitude, location.latitude],
-          'gps',
-          (status: string, result: { info: string; locations: { lat: number; lng: number }[] }) => {
-            if (status === 'complete' && result.info === 'ok') {
-              location.latitude = result.locations[0].lat;
-              location.longitude = result.locations[0].lng;
-            } else {
-              console.error('AMap conversion failed:', status, result);
+      if (amap && location.latitude !== undefined && location.longitude !== undefined) {
+        await new Promise<void>((resolve, reject) => {
+          amap!.convertFrom(
+            [location.longitude, location.latitude],
+            'gps',
+            (
+              status: string,
+              response: { info: string; locations: { lat: number; lng: number }[] }
+            ) => {
+              if (status === 'complete' && response.info === 'ok') {
+                const result = response.locations[0];
+                location.latitude = result.lat;
+                location.longitude = result.lng;
+                resolve();
+              } else {
+                console.error('AMap conversion failed:', status, response);
+                reject(new Error('AMap conversion failed'));
+              }
             }
-          }
-        );
+          );
+        });
       } else {
-        console.warn('AMap not available, skipping conversion');
+        console.warn('AMap not available or location not set, skipping conversion');
       }
     }
+
     goto(
       resolve('/(main)/discover') +
         `?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
