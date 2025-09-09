@@ -207,7 +207,7 @@
           <thead>
             <tr>
               <th>{m.admin_user_header()}</th>
-              <th class="not-xs:hidden">{m.admin_type_header()}</th>
+              <th class="not-ss:hidden">{m.admin_type_header()}</th>
               <th>{m.admin_associations_header()}</th>
               <th class="not-sm:hidden">{m.admin_last_active_header()}</th>
               <th class="not-md:hidden">{m.admin_joined_header()}</th>
@@ -236,7 +236,7 @@
                     </a>
                   </div>
                 </td>
-                <td class="not-xs:hidden">
+                <td class="not-ss:hidden">
                   <div class="badge badge-sm text-nowrap {getUserTypeBadgeClass(user.userType)}">
                     {getUserTypeLabel(user.userType)}
                   </div>
@@ -642,11 +642,3 @@
     aria-label={m.close_modal()}
   ></div>
 </div>
-
-<style>
-  .not-xs\:hidden {
-    @media (width < 35rem) {
-      display: none;
-    }
-  }
-</style>

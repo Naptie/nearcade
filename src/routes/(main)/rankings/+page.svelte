@@ -195,12 +195,12 @@
   <title>{pageTitle(m.campus_rankings())}</title>
 </svelte:head>
 
-<div class="container mx-auto pt-20 sm:px-4">
-  <div class="mb-6 flex flex-col items-center justify-between gap-4 md:flex-row">
+<div class="mx-auto pt-20 sm:container sm:px-4">
+  <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-4 not-sm:px-2">
     <div class="grow">
-      <div class="mb-2 flex items-center gap-4 not-md:justify-center">
+      <div class="not-xs:justify-center mb-2 flex items-center gap-4">
         <h1 class="text-3xl font-bold">{m.campus_rankings()}</h1>
-        <div class="hidden items-center gap-2 whitespace-nowrap md:flex">
+        <div class="hidden items-center gap-2 whitespace-nowrap sm:flex">
           {#if data.stale}
             <div class="badge badge-warning badge-sm">
               <i class="fas fa-clock"></i>
@@ -299,17 +299,17 @@
                         {formatRegionLabel(ranking, false, divider)}
                       </div>
                       {#if ranking.is985}
-                        <div class="badge badge-soft badge-primary badge-xs">
+                        <div class="badge badge-soft badge-primary badge-xs text-nowrap">
                           {m.badge_985()}
                         </div>
                       {/if}
                       {#if ranking.is211}
-                        <div class="badge badge-soft badge-secondary badge-xs">
+                        <div class="badge badge-soft badge-secondary badge-xs text-nowrap">
                           {m.badge_211()}
                         </div>
                       {/if}
                       {#if ranking.isDoubleFirstClass}
-                        <div class="badge badge-soft badge-accent badge-xs">
+                        <div class="badge badge-soft badge-accent badge-xs text-nowrap">
                           {m.badge_double_first_class()}
                         </div>
                       {/if}
@@ -454,11 +454,5 @@
     position: sticky;
     top: 0;
     z-index: 10;
-  }
-
-  .xs\:w-28 {
-    @media (width >= 25rem && width < 40rem) {
-      width: calc(var(--spacing) * 28);
-    }
   }
 </style>

@@ -754,9 +754,9 @@
   </title>
 </svelte:head>
 
-<div class="container mx-auto pt-20 sm:px-4">
-  <div class="mb-6 flex flex-col items-center justify-between gap-2 sm:flex-row">
-    <div class="not-sm:text-center">
+<div class="mx-auto pt-20 sm:container sm:px-4">
+  <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
+    <div class="not-xs:text-center">
       <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>
       <p class="text-base-content/70">
         {m.found_shops_near({
@@ -857,7 +857,7 @@
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
                     <div
-                      class="hidden text-sm opacity-50 not-dark:items-center not-dark:gap-1 sm:not-dark:inline-flex sm:dark:block"
+                      class="xs:not-dark:inline-flex xs:dark:block hidden text-sm opacity-50 not-dark:items-center not-dark:gap-1"
                     >
                       {#if transportMethod}
                         {@const hasTravelData = travelData[shop.id] !== undefined}

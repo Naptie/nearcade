@@ -224,21 +224,6 @@
 {/if}
 
 <style>
-  .not-2xs\:hidden {
-    @media not (width >= 18rem) {
-      display: none;
-    }
-  }
-
-  .not-2xs\:btn-circle {
-    @media not (width >= 18rem) {
-      border-radius: calc(infinity * 1px);
-      padding-inline: 0;
-      width: var(--size);
-      height: var(--size);
-    }
-  }
-
   .btn-t {
     transition-property:
       color, background-color, border-color, box-shadow, --tw-gradient-from, --tw-gradient-via,
