@@ -30,7 +30,7 @@
   <title>{pageTitle(m.account_settings())}</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
+<div class="mx-auto px-4 py-8 sm:container">
   <div class="mb-6">
     <h1 class="mb-2 text-3xl font-bold">{m.account_settings()}</h1>
     <p class="text-base-content/70">
@@ -64,7 +64,7 @@
           <div>
             <h3 class="font-medium">@{profile.name}</h3>
             {#if profile.email && !profile.email.endsWith('.nearcade')}
-              <p class="text-base-content/60 text-sm">{profile.email}</p>
+              <p class="text-base-content/60 truncate text-sm">{profile.email}</p>
             {/if}
             <p class="text-base-content/50 text-xs">{getUserTypeLabel(profile.userType)}</p>
           </div>
@@ -72,15 +72,15 @@
 
         <!-- Account Details -->
         <div class="space-y-3">
-          <div class="flex justify-between">
+          <div class="ss:flex-row flex flex-col justify-between">
             <span class="text-base-content/70">{m.user_id()}</span>
             <span class="font-mono text-sm">{profile.id}</span>
           </div>
-          <div class="flex justify-between">
+          <div class="ss:flex-row flex flex-col justify-between">
             <span class="text-base-content/70">{m.account_created()}</span>
             <span>{formatDate(profile.joinedAt)}</span>
           </div>
-          <div class="flex justify-between">
+          <div class="ss:flex-row flex flex-col justify-between">
             <span class="text-base-content/70">{m.last_active()}</span>
             <span>{formatDate(profile.lastActiveAt)}</span>
           </div>
@@ -121,11 +121,12 @@
               </div>
             </a>
             <button
-              class="btn btn-outline btn-error btn-sm"
+              class="btn btn-soft btn-error btn-sm"
               onclick={() => confirmLeaveUniversity(university.id)}
+              aria-label={m.leave_university()}
             >
               <i class="fa-solid fa-sign-out-alt"></i>
-              {m.leave_university()}
+              <span class="not-ss:hidden">{m.leave_university()}</span>
             </button>
           </div>
         {/each}
@@ -185,11 +186,12 @@
               </div>
             </div>
             <button
-              class="btn btn-outline btn-error btn-sm"
+              class="btn btn-soft btn-error btn-sm"
               onclick={() => confirmLeaveClub(club.id)}
+              aria-label={m.leave_club()}
             >
               <i class="fa-solid fa-sign-out-alt"></i>
-              {m.leave_club()}
+              <span class="not-ss:hidden">{m.leave_club()}</span>
             </button>
           </div>
         {/each}

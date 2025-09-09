@@ -6,6 +6,6 @@
   let errorMessage = $derived(page.error?.message || '');
 </script>
 
-<div class="container mx-auto flex min-h-screen items-center justify-center py-20 sm:px-4">
+<div class="mx-auto flex min-h-screen items-center justify-center py-20 sm:container sm:px-4">
   <Error {status} {errorMessage} />
 </div>

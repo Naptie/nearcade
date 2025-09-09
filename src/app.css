@@ -51,5 +51,5 @@ code,
 }
 
 .label-text-alt {
-  @apply text-xs;
+  @apply text-xs text-wrap;
 }

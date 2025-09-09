@@ -99,7 +99,7 @@
 </svelte:head>
 
 <div class="bg-base-100 pt-12">
-  <div class="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+  <div class="mx-auto px-4 py-8 sm:container sm:px-6 lg:px-8">
     <!-- Profile Header -->
     <div class="bg-base-200 mb-8 rounded-xl p-6">
       <div class="flex flex-col items-center gap-6 sm:flex-row">

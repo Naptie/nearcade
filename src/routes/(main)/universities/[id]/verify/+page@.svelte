@@ -64,7 +64,7 @@
 <NavigationBar />
 
 <div
-  class="container mx-auto flex min-h-screen flex-col items-center justify-center gap-6 py-20 sm:px-4"
+  class="mx-auto flex min-h-screen flex-col items-center justify-center gap-6 py-20 sm:container sm:px-4"
 >
   <div class="flex flex-col items-center gap-2 text-center">
     <h1 class="text-4xl font-bold">

@@ -216,7 +216,7 @@
   <!-- User Avatar & Basic Info -->
   {#if data.userProfile}
     <div class="bg-base-100 rounded-lg p-6">
-      <div class="flex items-center gap-6">
+      <div class="xs:flex-row xs:gap-6 flex flex-col items-center gap-4">
         <div class="avatar">
           <div class="h-20 w-20 rounded-full">
             {#if data.userProfile.image}
@@ -378,8 +378,10 @@
               bind:checked={notificationTypeComments}
             />
             <div>
-              <span class="text-base-content">{m.notification_comments()}</span>
-              <div class="text-base-content/60 text-xs">{m.notification_comments_desc()}</div>
+              <span class="text-base-content text-wrap">{m.notification_comments()}</span>
+              <div class="text-base-content/60 text-xs text-wrap">
+                {m.notification_comments_desc()}
+              </div>
             </div>
           </label>
 
@@ -391,8 +393,10 @@
               bind:checked={notificationTypeReplies}
             />
             <div>
-              <span class="text-base-content">{m.notification_replies()}</span>
-              <div class="text-base-content/60 text-xs">{m.notification_replies_desc()}</div>
+              <span class="text-base-content text-wrap">{m.notification_replies()}</span>
+              <div class="text-base-content/60 text-xs text-wrap">
+                {m.notification_replies_desc()}
+              </div>
             </div>
           </label>
 
@@ -404,8 +408,10 @@
               bind:checked={notificationTypePostVotes}
             />
             <div>
-              <span class="text-base-content">{m.notification_post_votes()}</span>
-              <div class="text-base-content/60 text-xs">{m.notification_post_votes_desc()}</div>
+              <span class="text-base-content text-wrap">{m.notification_post_votes()}</span>
+              <div class="text-base-content/60 text-xs text-wrap">
+                {m.notification_post_votes_desc()}
+              </div>
             </div>
           </label>
 
@@ -417,8 +423,10 @@
               bind:checked={notificationTypeCommentVotes}
             />
             <div>
-              <span class="text-base-content">{m.notification_comment_votes()}</span>
-              <div class="text-base-content/60 text-xs">{m.notification_comment_votes_desc()}</div>
+              <span class="text-base-content text-wrap">{m.notification_comment_votes()}</span>
+              <div class="text-base-content/60 text-xs text-wrap">
+                {m.notification_comment_votes_desc()}
+              </div>
             </div>
           </label>
 
@@ -430,8 +438,10 @@
               bind:checked={notificationTypeJoinRequests}
             />
             <div>
-              <span class="text-base-content">{m.notification_join_requests()}</span>
-              <div class="text-base-content/60 text-xs">{m.notification_join_requests_desc()}</div>
+              <span class="text-base-content text-wrap">{m.notification_join_requests()}</span>
+              <div class="text-base-content/60 text-xs text-wrap">
+                {m.notification_join_requests_desc()}
+              </div>
             </div>
           </label>
         </div>
@@ -451,8 +461,8 @@
             bind:checked={isEmailPublic}
           />
           <div>
-            <span class="text-base-content">{m.email_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.email_public()}</div>
+            <span class="text-base-content text-wrap">{m.email_visibility()}</span>
+            <div class="text-base-content/60 text-xs text-wrap">{m.email_public()}</div>
           </div>
         </label>
       </div>
@@ -467,8 +477,8 @@
             bind:checked={isUniversityPublic}
           />
           <div>
-            <span class="text-base-content">{m.university_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.university_public()}</div>
+            <span class="text-base-content text-wrap">{m.university_visibility()}</span>
+            <div class="text-base-content/60 text-xs text-wrap">{m.university_public()}</div>
           </div>
         </label>
       </div>
@@ -483,8 +493,8 @@
             bind:checked={isActivityPublic}
           />
           <div>
-            <span class="text-base-content">{m.activity_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.activity_public()}</div>
+            <span class="text-base-content text-wrap">{m.activity_visibility()}</span>
+            <div class="text-base-content/60 text-xs text-wrap">{m.activity_public()}</div>
           </div>
         </label>
       </div>
@@ -499,8 +509,8 @@
             bind:checked={isFootprintPublic}
           />
           <div>
-            <span class="text-base-content">{m.footprint_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.footprint_public()}</div>
+            <span class="text-base-content text-wrap">{m.footprint_visibility()}</span>
+            <div class="text-base-content/60 text-xs text-wrap">{m.footprint_public()}</div>
           </div>
         </label>
       </div>
@@ -515,8 +525,10 @@
             bind:checked={isFrequentingArcadePublic}
           />
           <div>
-            <span class="text-base-content">{m.frequenting_arcades_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.frequenting_arcades_public()}</div>
+            <span class="text-base-content text-wrap">{m.frequenting_arcades_visibility()}</span>
+            <div class="text-base-content/60 text-xs text-wrap">
+              {m.frequenting_arcades_public()}
+            </div>
           </div>
         </label>
       </div>
@@ -531,8 +543,8 @@
             bind:checked={isStarredArcadePublic}
           />
           <div>
-            <span class="text-base-content">{m.starred_arcades_visibility()}</span>
-            <div class="text-base-content/60 text-xs">{m.starred_arcades_public()}</div>
+            <span class="text-base-content text-wrap">{m.starred_arcades_visibility()}</span>
+            <div class="text-base-content/60 text-xs text-wrap">{m.starred_arcades_public()}</div>
           </div>
         </label>
       </div>

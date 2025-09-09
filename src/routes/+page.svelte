@@ -257,7 +257,6 @@
         window.dispatchEvent(new CustomEvent('nearcade-donate'));
       }}
       class="fa-solid fa-heart fa-lg"
-      btnCls="not-sm:hidden"
       text={m.donate()}
     />
     <FancyButton
