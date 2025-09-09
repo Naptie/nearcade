@@ -14,7 +14,7 @@ import {
   toPlainArray,
   toPlainObject
 } from '$lib/utils';
-import { PAGINATION } from '$lib/constants';
+import { PAGINATION, ShopSource } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import client from '$lib/db/index.server';
 
@@ -79,14 +79,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     let starredArcades: Shop[] = [];
     if (club.starredArcades && club.starredArcades.length > 0) {
       // Convert string IDs to numbers for shop queries
-      const arcadeIds = club.starredArcades
-        .map((id: string) => parseInt(id))
-        .filter((id) => !isNaN(id));
+      const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade.id));
 
-      if (arcadeIds.length > 0) {
+      if (arcades.length > 0) {
         starredArcades = toPlainArray(
           await shopsCollection
-            .find({ id: { $in: arcadeIds } })
+            .find({
+              $and: [
+                { id: { $in: arcades.map((arcade) => arcade.id) } },
+                { source: { $in: arcades.map((arcade) => arcade.source) } }
+              ]
+            })
             .limit(PAGINATION.PAGE_SIZE)
             .toArray()
         );
@@ -343,10 +346,16 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = formData.get('arcadeId') as string;
+      const arcadeSource = formData.get('arcadeSource') as ShopSource;
+      const arcadeIdRaw = formData.get('arcadeId') as string;
+      const arcadeId = parseInt(arcadeIdRaw, 10);
       const clubId = formData.get('clubId') as string;
 
-      if (!arcadeId || !clubId) {
+      if (!arcadeSource) {
+        return fail(400, { message: 'Arcade source is required' });
+      }
+
+      if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
         return fail(400, { message: 'Arcade ID and Club ID are required' });
       }
 
@@ -357,11 +366,14 @@ export const actions: Actions = {
       }
 
       const db = client.db();
-      const clubsCollection = db.collection('clubs');
-      const shopsCollection = db.collection('shops');
+      const clubsCollection = db.collection<Club>('clubs');
+      const shopsCollection = db.collection<Shop>('shops');
 
       // Check if arcade exists
-      const arcade = await shopsCollection.findOne({ id: parseInt(arcadeId) });
+      const arcade = await shopsCollection.findOne({
+        id: arcadeId,
+        source: arcadeSource
+      });
       if (!arcade) {
         return fail(404, { message: 'Arcade not found' });
       }
@@ -370,7 +382,7 @@ export const actions: Actions = {
       await clubsCollection.updateOne(
         { id: clubId },
         {
-          $addToSet: { starredArcades: arcadeId },
+          $addToSet: { starredArcades: { id: arcadeId, source: arcadeSource } },
           $set: { updatedAt: new Date() }
         }
       );

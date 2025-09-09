@@ -11,6 +11,7 @@
     name: string;
     location: Location;
     games: Game[];
+    source: string;
   }
 
   let {
@@ -26,7 +27,9 @@
   let showRemoveConfirm = $state(false);
 
   const confirmRemoveArcade = () => {
-    const form = document.getElementById(`removeArcadeForm-${shop.id}`) as HTMLFormElement;
+    const form = document.getElementById(
+      `removeArcadeForm-${shop.source}-${shop.id}`
+    ) as HTMLFormElement;
     if (form) {
       form.requestSubmit();
     }
@@ -53,6 +56,7 @@
   </a>
   {#if shops !== undefined}
     <form method="POST" action="?/addArcade" use:enhance>
+      <input type="hidden" name="arcadeSource" value={shop.source} />
       <input type="hidden" name="arcadeId" value={shop.id} />
       <button
         type="submit"

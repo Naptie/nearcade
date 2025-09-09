@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import type {
     Game,
     AMapContext,
@@ -19,7 +20,8 @@
     setCachedRouteData,
     clearRouteCache,
     convertPath,
-    pageTitle
+    pageTitle,
+    sanitizeHTML
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -43,17 +45,17 @@
   let amapError = $derived(amapContext?.error ?? null);
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
   let map: AMap.Map | undefined = $state(undefined);
-  let markers: Record<number, { marker: AMap.Marker; zIndex: number }> = $state({});
+  let markers: Record<string, { marker: AMap.Marker; zIndex: number }> = $state({});
 
-  let hoveredShopId: number | null = $state(null);
-  let selectedShopId: number | null = $state(null);
-  let highlightedShopId: number | null = $state(null);
+  let hoveredShopId: string | null = $state(null);
+  let selectedShopId: string | null = $state(null);
+  let highlightedShopId: string | null = $state(null);
   let highlightedShopIdTimeout: ReturnType<typeof setTimeout> | null = $state(null);
   let darkMode = $derived(browser ? isDarkMode() : undefined);
   let transportMethod = $state<TransportMethod>(undefined); // 'transit', 'walking', 'riding', 'driving'
   let travelData = $state<
     Record<
-      number,
+      string,
       {
         time: number;
         distance: number;
@@ -71,19 +73,21 @@
   let cachedRoutes = $state<Record<string, CachedRouteData>>({}); // cacheKey -> cached route data
   let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
 
+  let costs: Record<string, Record<string, { preview: string; full: string }>> = $state({});
+
   // Auto-discovery functionality
   let user = $derived(data.session?.user);
   let autoDiscoveryThreshold = $derived(user?.autoDiscoveryThreshold ?? 3); // Default to 3 clicks
-  let shopClickCounts = $state<Record<number, number>>({});
+  let shopClickCounts = $state<Record<string, number>>({});
 
   // Load shop click counts from localStorage on mount
   $effect(() => {
     if (browser) {
-      const newCounts: Record<number, number> = {};
+      const newCounts: Record<string, number> = {};
       data.shops.forEach((shop) => {
-        const stored = localStorage.getItem(`nearcade-shop-${shop.id}-count`);
+        const stored = localStorage.getItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
         if (stored) {
-          newCounts[shop.id] = parseInt(stored, 10) || 0;
+          newCounts[`${shop.source}-${shop.id}`] = parseInt(stored, 10) || 0;
         }
       });
       shopClickCounts = newCounts;
@@ -94,18 +98,24 @@
   const handleShopClick = async (shop: Shop) => {
     if (!browser || !user) return;
 
-    const currentCount = shopClickCounts[shop.id] || 0;
+    const currentCount = shopClickCounts[`${shop.source}-${shop.id}`] || 0;
     const newCount = currentCount + 1;
 
     // Update localStorage and state
-    localStorage.setItem(`nearcade-shop-${shop.id}-count`, newCount.toString());
-    shopClickCounts = { ...shopClickCounts, [shop.id]: newCount };
+    localStorage.setItem(`nearcade-shop-${shop.source}-${shop.id}-count`, newCount.toString());
+    shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: newCount };
 
     // Check if threshold is reached and user isn't already frequenting this arcade
-    if (newCount >= autoDiscoveryThreshold && !user.frequentingArcades?.includes(shop.id)) {
+    if (
+      newCount >= autoDiscoveryThreshold &&
+      !user.frequentingArcades?.some(
+        (arcade) => arcade.id === shop.id && arcade.source === shop.source
+      )
+    ) {
       try {
         // Submit form to add arcade automatically
         const formData = new FormData();
+        formData.append('arcadeSource', shop.source);
         formData.append('arcadeId', shop.id.toString());
 
         const response = await fetch(
@@ -118,8 +128,8 @@
 
         if (response.ok) {
           // Reset click count for this shop since it's now been added
-          localStorage.removeItem(`nearcade-shop-${shop.id}-count`);
-          shopClickCounts = { ...shopClickCounts, [shop.id]: 0 };
+          localStorage.removeItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
+          shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: 0 };
 
           // Optionally show a notification
           console.log(`Auto-added ${shop.name} to your frequenting arcades!`);
@@ -182,28 +192,43 @@
     return browser && screenWidth < 768;
   });
 
-  const getAMapLink = (shop: Shop | undefined) => {
+  const getRouteLink = (shop: Shop | undefined) => {
     if (!data || !shop) return '';
+    const useGoogleMaps = shop.source === 'ziv';
     const origin = data.location;
-    const from = `${origin.longitude},${origin.latitude},${origin.name}`;
+    const from = useGoogleMaps
+      ? `${origin.latitude},${origin.longitude}`
+      : `${origin.longitude},${origin.latitude},${origin.name}`;
     const destination = shop.location;
-    const to = `${destination.coordinates[0]},${destination.coordinates[1]},${shop.name}`;
+    const to = useGoogleMaps
+      ? `${destination.coordinates[1]},${destination.coordinates[0]}`
+      : `${destination.coordinates[0]},${destination.coordinates[1]},${shop.name}`;
     const mode =
       transportMethod === 'walking'
-        ? 'walk'
+        ? useGoogleMaps
+          ? 'walking'
+          : 'walk'
         : transportMethod === 'riding'
-          ? 'ride'
+          ? useGoogleMaps
+            ? 'bicycling'
+            : 'ride'
           : transportMethod === 'driving'
-            ? 'car'
-            : 'bus';
-    return `https://uri.amap.com/navigation?from=${from}&to=${to}&mode=${mode}&src=nearcade&callnative=1`;
+            ? useGoogleMaps
+              ? 'driving'
+              : 'car'
+            : useGoogleMaps
+              ? 'transit'
+              : 'bus';
+    return useGoogleMaps
+      ? `https://www.google.com/maps/dir/?api=1&origin=${from}&destination=${to}&travelmode=${mode}`
+      : `https://uri.amap.com/navigation?from=${from}&to=${to}&mode=${mode}&src=nearcade&callnative=1`;
   };
 
-  let amapLink = $derived.by(
-    () => getAMapLink(data.shops.find((s) => s.id === routeGuidance.shopId)) || ''
+  let routeLink = $derived.by(
+    () => getRouteLink(data.shops.find((s) => `${s.source}-${s.id}` === routeGuidance.shopId)) || ''
   );
 
-  const getRouteOptions = (id: number): Partial<AMap.PolylineOptions> => {
+  const getRouteOptions = (id: string): Partial<AMap.PolylineOptions> => {
     const isSelected = selectedShopId === id;
     const isHovered = hoveredShopId === id;
     const hasGuidanceOpen = routeGuidance.isOpen && routeGuidance.shopId === id;
@@ -300,24 +325,24 @@
 
           const routeLine = new amap.Polyline({
             path: path,
-            ...getRouteOptions(shop.id)
+            ...getRouteOptions(`${shop.source}-${shop.id}`)
           });
 
           routeLine.on('mouseover', () => {
-            hoveredShopId = shop.id;
+            hoveredShopId = `${shop.source}-${shop.id}`;
           });
           routeLine.on('mouseout', () => {
-            if (hoveredShopId === shop.id) {
+            if (hoveredShopId === `${shop.source}-${shop.id}`) {
               hoveredShopId = null;
             }
           });
           routeLine.on('click', () => {
-            selectedShopId = shop.id;
+            selectedShopId = `${shop.source}-${shop.id}`;
             showRouteGuidance();
           });
 
           map?.add(routeLine);
-          travelData[shop.id] = {
+          travelData[`${shop.source}-${shop.id}`] = {
             time: selectedRoute.time ?? 0,
             distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
             path,
@@ -329,7 +354,7 @@
         const cacheKey = generateRouteCacheKey(
           data.location.latitude,
           data.location.longitude,
-          shop.id,
+          `${shop.source}-${shop.id}`,
           method
         );
 
@@ -378,13 +403,16 @@
                 }, 1000); // Wait 1 second before retry
               } else {
                 console.error(result);
-                travelData[shop.id] = null;
+                travelData[`${shop.source}-${shop.id}`] = null;
                 resolve();
               }
             });
           } catch (error) {
-            console.error(`Error calculating travel data for shop ${shop.id}:`, error);
-            travelData[shop.id] = null;
+            console.error(
+              `Error calculating travel data for shop ${shop.source}-${shop.id}:`,
+              error
+            );
+            travelData[`${shop.source}-${shop.id}`] = null;
             resolve();
           }
         });
@@ -394,8 +422,8 @@
     // Process shops sequentially to avoid rate limiting
     // Process selected shop first if exists, then process remaining shops
     for (const shop of [
-      ...data.shops.filter((shop) => shop.id === selectedShopId),
-      ...data.shops.filter((shop) => shop.id !== selectedShopId)
+      ...data.shops.filter((shop) => `${shop.source}-${shop.id}` === selectedShopId),
+      ...data.shops.filter((shop) => `${shop.source}-${shop.id}` !== selectedShopId)
     ]) {
       await processShop(shop);
     }
@@ -437,6 +465,19 @@
       screenWidth = window.innerWidth;
       window.addEventListener('resize', handleResize);
       window.addEventListener('amap-loaded', assignAMap);
+
+      Promise.all(
+        data.shops.flatMap((shop) => {
+          costs[`${shop.source}-${shop.id}`] = {};
+          shop.games.map(async (game) => {
+            costs[`${shop.source}-${shop.id}`][game.id] = {
+              preview: await sanitizeHTML(game.cost.substring(0, 30)),
+              full: await sanitizeHTML(game.cost)
+            };
+          });
+        })
+      );
+
       return () => {
         window.removeEventListener('resize', handleResize);
         window.removeEventListener('amap-loaded', assignAMap);
@@ -483,7 +524,7 @@
           const marker = new amap!.Marker({
             position: shop.location.coordinates,
             title: shop.name,
-            content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
+            content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
             offset: new amap!.Pixel(-7.03, -20),
             label: {
               content: shop.name,
@@ -493,19 +534,19 @@
             zIndex
           });
 
-          markers[shop.id] = { marker, zIndex };
+          markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
 
           marker.on('mouseover', () => {
-            hoveredShopId = shop.id;
+            hoveredShopId = `${shop.source}-${shop.id}`;
           });
           marker.on('mouseout', () => {
-            if (hoveredShopId === shop.id) {
+            if (hoveredShopId === `${shop.source}-${shop.id}`) {
               hoveredShopId = null;
             }
           });
           marker.on('click', () => {
-            selectedShopId = shop.id;
-            highlightedShopId = shop.id;
+            selectedShopId = `${shop.source}-${shop.id}`;
+            highlightedShopId = `${shop.source}-${shop.id}`;
             if (highlightedShopIdTimeout) {
               clearTimeout(highlightedShopIdTimeout);
             }
@@ -514,7 +555,7 @@
                 highlightedShopId = null;
               }, 3000);
             }
-            const shopElement = document.getElementById(`shop-${shop.id}`);
+            const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
             if (shopElement && !(isMobile && routeGuidance.isOpen)) {
               shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
@@ -553,10 +594,9 @@
 
   $effect(() => {
     Object.keys(travelData).forEach((shopId) => {
-      const id = Number(shopId);
-      const data = travelData[id];
+      const data = travelData[shopId];
       if (!data) return;
-      data.route.setOptions(getRouteOptions(id));
+      data.route.setOptions(getRouteOptions(shopId));
     });
   });
 
@@ -581,7 +621,7 @@
         } else {
           map?.setZoomAndCenter(
             15,
-            data.shops.find((e) => e.id === selectedShopId)!.location.coordinates
+            data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId)!.location.coordinates
           );
         }
       });
@@ -624,22 +664,24 @@
     const hovered = hoveredShopId;
     untrack(() => {
       data.shops.forEach((shop) => {
-        markers[shop.id]?.marker.setzIndex(
-          shop.id === selected
+        markers[`${shop.source}-${shop.id}`]?.marker.setzIndex(
+          `${shop.source}-${shop.id}` === selected
             ? SELECTED_SHOP_INDEX
-            : shop.id === hovered
+            : `${shop.source}-${shop.id}` === hovered
               ? HOVERED_SHOP_INDEX
-              : markers[shop.id].zIndex
+              : markers[`${shop.source}-${shop.id}`].zIndex
         );
-        const element = document.querySelector(`#shop-marker-${shop.id}`) as HTMLElement | null;
+        const element = document.querySelector(
+          `#shop-marker-${shop.source}-${shop.id}`
+        ) as HTMLElement | null;
         if (element) {
           element.className = element.className.replace(
             /text-error|text-warning dark:text-info|text-info dark:text-success/g,
             ''
           );
-          if (selected === shop.id) {
+          if (selected === `${shop.source}-${shop.id}`) {
             element.classList.add('text-error');
-          } else if (hovered === shop.id) {
+          } else if (hovered === `${shop.source}-${shop.id}`) {
             element.classList.add('text-warning');
             element.classList.add('dark:text-info');
           } else {
@@ -680,13 +722,15 @@
 
 <RouteGuidance
   bind:isOpen={routeGuidance.isOpen}
-  shop={routeGuidance.shopId ? data.shops.find((s) => s.id === routeGuidance.shopId) : null}
+  shop={routeGuidance.shopId
+    ? data.shops.find((s) => `${s.source}-${s.id}` === routeGuidance.shopId)
+    : null}
   selectedRouteIndex={routeGuidance.selectedRouteIndex}
   routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
   isLoading={!!routeGuidance.shopId && !travelData[routeGuidance.shopId]}
   {map}
   {amap}
-  {amapLink}
+  amapLink={routeLink}
   onClose={() => {
     routeGuidance.isOpen = false;
   }}
@@ -829,25 +873,26 @@
           </tr>
         </thead>
         <tbody>
-          {#each sortedShops as shop (shop.id)}
+          {#each sortedShops as shop, i (i)}
             <tr
               id="shop-{shop.id}"
-              class="cursor-pointer transition-all select-none {highlightedShopId === shop.id
+              class="cursor-pointer transition-all select-none {highlightedShopId ===
+              `${shop.source}-${shop.id}`
                 ? 'bg-accent/8'
-                : hoveredShopId === shop.id
+                : hoveredShopId === `${shop.source}-${shop.id}`
                   ? 'bg-base-300/30'
                   : ''}"
               onmouseenter={() => {
-                hoveredShopId = shop.id;
+                hoveredShopId = `${shop.source}-${shop.id}`;
               }}
               onmouseleave={() => {
-                if (hoveredShopId === shop.id) {
+                if (hoveredShopId === `${shop.source}-${shop.id}`) {
                   hoveredShopId = null;
                 }
               }}
               onclick={(event) => {
                 if ((event.target as Element)?.closest('button, a')) return;
-                selectedShopId = shop.id;
+                selectedShopId = `${shop.source}-${shop.id}`;
                 if (!(isMobile && routeGuidance.isOpen))
                   amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
@@ -860,9 +905,11 @@
                       class="xs:not-dark:inline-flex xs:dark:block hidden text-sm opacity-50 not-dark:items-center not-dark:gap-1"
                     >
                       {#if transportMethod}
-                        {@const hasTravelData = travelData[shop.id] !== undefined}
-                        {@const distance = travelData[shop.id]?.distance ?? shop.distance}
-                        <span>ID: {shop.id}</span>
+                        {@const hasTravelData =
+                          travelData[`${shop.source}-${shop.id}`] !== undefined}
+                        {@const distance =
+                          travelData[`${shop.source}-${shop.id}`]?.distance ?? shop.distance}
+                        <span>{shop.source.toUpperCase()} · {shop.id}</span>
                         <span class="not-dark:hidden"> · </span>
                         <span
                           class="not-dark:badge not-dark:badge-sm not-dark:badge-soft whitespace-nowrap {!hasTravelData
@@ -876,7 +923,7 @@
                           {formatDistance(distance, 2)}
                         </span>
                       {:else}
-                        ID: {shop.id}
+                        {shop.source.toUpperCase()} · {shop.id}
                       {/if}
                     </div>
                   </div>
@@ -884,7 +931,7 @@
               </td>
               <td class="text-center">
                 {#if transportMethod}
-                  {#if travelData[shop.id] === undefined}
+                  {#if travelData[`${shop.source}-${shop.id}`] === undefined}
                     <span class="loading loading-spinner loading-sm"></span>
                   {:else}
                     <div
@@ -892,13 +939,15 @@
                         shop.id
                       ] === null
                         ? 'badge-neutral'
-                        : travelData[shop.id]!.time < Math.max(avgTravelTime / 1.5, 1200)
+                        : travelData[`${shop.source}-${shop.id}`]!.time <
+                            Math.max(avgTravelTime / 1.5, 1200)
                           ? 'badge-success'
-                          : travelData[shop.id]!.time < Math.max(avgTravelTime * 1.5, 2400)
+                          : travelData[`${shop.source}-${shop.id}`]!.time <
+                              Math.max(avgTravelTime * 1.5, 2400)
                             ? 'badge-warning'
                             : 'badge-error'}"
                     >
-                      {formatTime(travelData[shop.id]?.time)}
+                      {formatTime(travelData[`${shop.source}-${shop.id}`]?.time)}
                     </div>
                   {/if}
                 {:else}
@@ -918,15 +967,31 @@
                 {@const game = findGame(shop.games, gameInfo.id)}
                 <td class="text-center">
                   {#if game}
+                    {@const id = `${shop.source}-${shop.id}`}
                     <div class="flex items-center justify-center gap-3">
                       <div class="text-accent flex items-center gap-1 text-sm">
                         <i class="fas fa-desktop"></i>
                         {game.quantity}
                       </div>
-                      <div class="text-warning flex items-center gap-1 text-sm">
-                        <i class="fa-solid fa-coins"></i>
-                        {game.cost}
-                      </div>
+                      {#if costs[id] && costs[id][game.id]}
+                        {@const cost = costs[id][game.id]}
+                        {#if cost.full === cost.preview}
+                          <div class="text-warning flex items-center gap-1 text-sm">
+                            <i class="fa-solid fa-coins"></i>
+                            {@html cost.full}
+                          </div>
+                        {:else}
+                          <div class="tooltip">
+                            <div class="tooltip-content">
+                              {@html cost.full}
+                            </div>
+                            <div class="text-warning flex items-center gap-1 text-sm">
+                              <i class="fa-solid fa-coins"></i>
+                              {@html cost.preview.substring(0, 25)}...
+                            </div>
+                          </div>
+                        {/if}
+                      {/if}
                     </div>
                   {:else}
                     <div class="text-base-content/40 text-xl">—</div>
@@ -937,7 +1002,9 @@
                 <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
                     class="btn btn-ghost btn-sm text-nowrap"
-                    href="https://map.bemanicn.com/shop/{shop.id}"
+                    href="{shop.source === 'ziv'
+                      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+                      : 'https://map.bemanicn.com/shop/'}{shop.id}"
                     target="_blank"
                     onclick={() => handleShopClick(shop)}
                   >
@@ -946,7 +1013,7 @@
                   </a>
                   <a
                     class="btn btn-ghost btn-sm text-nowrap"
-                    href={getAMapLink(shop)}
+                    href={getRouteLink(shop)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onclick={() => handleShopClick(shop)}

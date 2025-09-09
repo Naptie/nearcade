@@ -63,7 +63,7 @@ export interface University {
   postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
   // Stats (calculated fields)
   studentsCount?: number;
-  frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
+  frequentingArcades?: { id: number; source: ShopSource }[]; // List of arcade IDs frequented by at least 2 university members
   clubsCount?: number;
   // Timestamps
   createdAt?: Date;
@@ -183,8 +183,8 @@ export interface Club {
   postWritability: PostWritability;
   // Stats
   membersCount?: number;
-  // Starred arcades (shop IDs)
-  starredArcades: string[];
+  // Starred arcades
+  starredArcades: { id: number; source: ShopSource }[];
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
@@ -510,7 +510,7 @@ export interface CachedRouteData {
 
 export interface RouteGuidanceState {
   isOpen: boolean;
-  shopId: number | null;
+  shopId: string | null;
   selectedRouteIndex: number;
 }
 

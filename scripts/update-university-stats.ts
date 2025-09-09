@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb';
-import type { University, UniversityMember, Club } from '../src/lib/types';
 import dotenv from 'dotenv';
+import { ShopSource } from '../src/lib/constants';
+import type { University, UniversityMember, Club } from '../src/lib/types';
 
 if (!('MONGODB_URI' in process.env)) {
   // Load environment variables for local development
@@ -16,7 +17,7 @@ if (!MONGODB_URI) {
 
 interface UniversityStats {
   studentsCount: number;
-  frequentingArcades: number[];
+  frequentingArcades: { id: number; source: ShopSource }[];
   clubsCount: number;
 }
 
@@ -69,11 +70,14 @@ const calculateUniversityStats = async (
     .toArray();
 
   // Count how many times each arcade appears in user lists
-  const arcadeFrequency = new Map<number, number>();
+  const arcadeFrequency = new Map<{ id: number; source: ShopSource }, number>();
   usersWithArcades.forEach((user) => {
     if (user.frequentingArcades && Array.isArray(user.frequentingArcades)) {
-      user.frequentingArcades.forEach((arcadeId: number) => {
-        arcadeFrequency.set(arcadeId, (arcadeFrequency.get(arcadeId) || 0) + 1);
+      user.frequentingArcades.forEach((arcade) => {
+        arcadeFrequency.set(
+          { id: arcade.id, source: arcade.source },
+          (arcadeFrequency.get({ id: arcade.id, source: arcade.source }) || 0) + 1
+        );
       });
     }
   });
@@ -82,7 +86,7 @@ const calculateUniversityStats = async (
   const frequentingArcades = Array.from(arcadeFrequency.entries())
     .filter(([, count]) => count >= 2)
     .map(([arcadeId]) => arcadeId)
-    .sort((a, b) => a - b); // Sort for consistency
+    .sort((a, b) => a.id - b.id); // Sort for consistency
 
   return {
     studentsCount,

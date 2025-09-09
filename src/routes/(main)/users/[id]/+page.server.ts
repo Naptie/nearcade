@@ -86,20 +86,32 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     let starredArcades: Shop[] = [];
 
     if (canViewAll || user.isFrequentingArcadePublic !== false) {
-      const frequentingArcadeIds = user.frequentingArcades || [];
-      if (frequentingArcadeIds.length > 0) {
+      const frequentingArcadeIdentifiers = user.frequentingArcades || [];
+      if (frequentingArcadeIdentifiers.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
         frequentingArcades = await shopsCollection
-          .find({ id: { $in: frequentingArcadeIds } })
+          .find({
+            $and: [
+              { id: { $in: frequentingArcadeIdentifiers.map((id) => id.id) } },
+              { source: { $in: frequentingArcadeIdentifiers.map((id) => id.source) } }
+            ]
+          })
           .toArray();
       }
     }
 
     if (canViewAll || user.isStarredArcadePublic !== false) {
-      const starredArcadeIds = user.starredArcades || [];
-      if (starredArcadeIds.length > 0) {
+      const starredArcadeIdentifiers = user.starredArcades || [];
+      if (starredArcadeIdentifiers.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
-        starredArcades = await shopsCollection.find({ id: { $in: starredArcadeIds } }).toArray();
+        starredArcades = await shopsCollection
+          .find({
+            $and: [
+              { id: { $in: starredArcadeIdentifiers.map((id) => id.id) } },
+              { source: { $in: starredArcadeIdentifiers.map((id) => id.source) } }
+            ]
+          })
+          .toArray();
       }
     }
 

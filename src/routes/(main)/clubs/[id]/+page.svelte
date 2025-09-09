@@ -214,12 +214,13 @@
   };
 
   // Handle arcade management actions
-  const handleArcadeAction = async (action: string, arcadeId: string) => {
+  const handleArcadeAction = async (action: string, arcadeSource: string, arcadeId: number) => {
     if (!arcadeId) return;
 
     const formData = new FormData();
     formData.append('clubId', data.club.id);
-    formData.append('arcadeId', arcadeId);
+    formData.append('arcadeId', arcadeId.toString());
+    formData.append('arcadeSource', arcadeSource);
 
     try {
       const response = await fetch(`?/${action}`, {
@@ -630,7 +631,7 @@
                         {#if userPrivileges.canEdit}
                           <button
                             class="btn btn-soft btn-circle btn-sm btn-error"
-                            onclick={() => handleArcadeAction('removeArcade', shop.id.toString())}
+                            onclick={() => handleArcadeAction('removeArcade', shop.source, shop.id)}
                             title={m.remove_arcade()}
                             aria-label={m.remove_arcade()}
                           >
@@ -943,11 +944,11 @@
                   </div>
                 {/if}
               </div>
-              {#if !data.club.starredArcades.includes(shop.id.toString())}
+              {#if !data.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
                 <button
                   class="btn btn-primary btn-sm"
                   onclick={() => {
-                    handleArcadeAction('addArcade', shop.id.toString());
+                    handleArcadeAction('addArcade', shop.source, shop.id);
                     showAddArcadeModal = false;
                     clearSearch();
                   }}

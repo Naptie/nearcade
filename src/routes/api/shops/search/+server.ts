@@ -61,7 +61,8 @@ export const GET: RequestHandler = async ({ url }) => {
         name: shop.name,
         address: shop.address || '',
         location: shop.location,
-        games: shop.games || []
+        games: shop.games || [],
+        source: shop.source
       }))
     });
   } catch (error) {

@@ -1,3 +1,4 @@
+import type { ShopSource } from '$lib/constants';
 import type { NotificationType, UserType } from '$lib/types';
 import type { ObjectId } from 'mongodb';
 
@@ -9,8 +10,8 @@ declare module '@auth/sveltekit' {
     bio?: string | null;
     joinedAt?: Date;
     lastActiveAt?: Date;
-    frequentingArcades?: number[];
-    starredArcades?: number[];
+    frequentingArcades?: { id: number; source: ShopSource }[];
+    starredArcades?: { id: number; source: ShopSource }[];
     autoDiscoveryThreshold?: number; // Number of clicks before auto-adding to frequenting arcades
     isEmailPublic?: boolean;
     isActivityPublic?: boolean;
