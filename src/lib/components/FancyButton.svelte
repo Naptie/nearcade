@@ -142,7 +142,7 @@
 >
   {#if image || !klass.includes('fa-')}
     <div bind:this={iconElement} class="avatar icon {image ? '' : 'avatar-placeholder'}">
-      <div class="w-5 lg:w-7 {klass} {image ? '' : 'bg-neutral text-neutral-content'}">
+      <div class="w-5.5 lg:w-7 {klass} {image ? '' : 'bg-neutral text-neutral-content'}">
         {#if image}
           <img src={image} alt={m.icon()} />
         {:else if text}

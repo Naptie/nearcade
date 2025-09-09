@@ -4,6 +4,3 @@ pnpm-lock.yaml
 yarn.lock
 bun.lock
 bun.lockb
-
-# Tauri
-src-tauri

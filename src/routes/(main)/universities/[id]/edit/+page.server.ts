@@ -1,10 +1,11 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { PostReadability, PostWritability, type University } from '$lib/types';
-import { checkUniversityPermission, loginRedirect } from '$lib/utils';
-import { logUniversityChanges } from '$lib/changelog.server';
-import { base } from '$app/paths';
-import client from '$lib/db.server';
+import { checkUniversityPermission } from '$lib/utils';
+import { loginRedirect } from '$lib/utils/scoped';
+import { logUniversityChanges } from '$lib/utils/changelog.server';
+import { resolve } from '$app/paths';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -21,21 +22,12 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug
-    let university = (await universitiesCollection.findOne(
+    const university = (await universitiesCollection.findOne(
       {
-        id: id
+        $or: [{ id }, { slug: id }]
       },
       { projection: { _id: 0 } }
     )) as unknown as University | null;
-
-    if (!university) {
-      university = (await universitiesCollection.findOne(
-        {
-          slug: id
-        },
-        { projection: { _id: 0 } }
-      )) as unknown as University | null;
-    }
 
     if (!university) {
       error(404, 'University not found');
@@ -70,7 +62,7 @@ export const actions: Actions = {
     }
 
     const user = session.user;
-    const { id } = params;
+    let { id } = params;
 
     try {
       const formData = await request.formData();
@@ -179,13 +171,15 @@ export const actions: Actions = {
 
       // Get current university data for changelog comparison
       const currentUniversity = (await universitiesCollection.findOne(
-        { id },
+        { $or: [{ id }, { slug: id }] },
         { projection: { _id: 0 } }
       )) as unknown as University | null;
 
       if (!currentUniversity) {
         return fail(404, { message: 'University not found' });
       }
+
+      id = currentUniversity.id;
 
       // Check if slug is already taken (if provided and different from current)
       if (slug && slug.trim().length > 0) {
@@ -233,7 +227,7 @@ export const actions: Actions = {
 
       await universitiesCollection.updateOne({ id }, { $set: updateData });
 
-      redirect(302, `${base}/universities/${id}`);
+      redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {
       if (err && typeof err === 'object' && 'status' in err && 'location' in err) {
         throw err; // Re-throw redirect

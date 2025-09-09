@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params }) => {
   const { id } = params;

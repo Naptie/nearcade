@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import AuthModal from '$lib/components/AuthModal.svelte';
@@ -33,50 +33,58 @@
       id: 'dashboard',
       label: m.admin_dashboard(),
       icon: 'fa-chart-line',
-      href: `${base}/admin`,
+      href: resolve('/admin'),
       requiresSiteAdmin: false
     },
     {
       id: 'users',
       label: m.admin_users(),
-      icon: 'fa-users',
-      href: `${base}/admin/users`,
+      icon: 'fa-user',
+      href: resolve('/admin/users'),
       requiresSiteAdmin: true
     },
     {
       id: 'universities',
       label: m.admin_universities(),
-      icon: 'fa-building-columns',
-      href: `${base}/admin/universities`,
+      icon: 'fa-graduation-cap',
+      href: resolve('/admin/universities'),
       requiresSiteAdmin: false
     },
     {
       id: 'clubs',
       label: m.admin_clubs(),
-      icon: 'fa-users-gear',
-      href: `${base}/admin/clubs`,
+      icon: 'fa-users',
+      href: resolve('/admin/clubs'),
+      requiresSiteAdmin: false
+    },
+    {
+      id: 'posts',
+      label: m.admin_posts(),
+      icon: 'fa-file-lines',
+      href: resolve('/admin/posts'),
       requiresSiteAdmin: false
     },
     {
       id: 'shops',
       label: m.admin_shops(),
       icon: 'fa-gamepad',
-      href: `${base}/admin/shops`,
+      href: resolve('/admin/shops'),
       requiresSiteAdmin: true
     },
     {
       id: 'invites',
       label: m.admin_invites(),
       icon: 'fa-link',
-      href: `${base}/admin/invites`,
+      href: resolve('/admin/invites'),
       requiresSiteAdmin: false
     },
     {
       id: 'join-requests',
       label: m.join_requests(),
       icon: 'fa-user-plus',
-      href: `${base}/admin/join-requests`,
-      requiresSiteAdmin: false
+      href: resolve('/admin/join-requests'),
+      requiresSiteAdmin: false,
+      count: data.session?.pendingJoinRequests
     }
   ];
 
@@ -122,13 +130,23 @@
       {#each visibleItems as item (item.id)}
         <a
           href={item.href}
-          class="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors
+          class="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors
                 {currentPath === item.href
             ? 'bg-primary text-primary-content'
             : 'text-base-content hover:bg-base-200'}"
         >
-          <i class="fa-solid {item.icon} w-4"></i>
-          <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
+          <div class="flex items-center gap-3">
+            <i class="fa-solid {item.icon} w-4"></i>
+            <span class="w-[calc(100%-1rem)] truncate text-sm font-medium">{item.label}</span>
+          </div>
+          {#if item.count && item.count > 0}
+            <span
+              class="badge badge-sm badge-warning dark:not-group-hover:badge-soft transition"
+              class:opacity-0={currentPath === item.href}
+            >
+              {item.count}
+            </span>
+          {/if}
         </a>
       {/each}
     </nav>

@@ -1,31 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { m } from '$lib/paraglide/messages';
-  import type { ChangelogEntry } from '$lib/types';
-  import { formatChangelogDescription, getChangelogActionName } from '$lib/changelog';
+  import type { ChangelogEntry, ChangelogEntryWithUser } from '$lib/types';
+  import { formatChangelogDescription, getChangelogActionName } from '$lib/utils/changelog';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { enUS, zhCN } from 'date-fns/locale';
-  import { fromPath } from '$lib/utils';
-
-  // Create a wrapper for the messages to match our expected type
-  const createMessagesWrapper = () => {
-    return new Proxy(
-      {},
-      {
-        get(target, prop) {
-          return (...args: never[]) => {
-            const messageFunc = (m as Record<string, (...args: never[]) => string>)[prop as string];
-            if (typeof messageFunc === 'function') {
-              return messageFunc(...args);
-            }
-            return String(prop);
-          };
-        }
-      }
-    );
-  };
+  import { getDisplayName } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
+  import { page } from '$app/state';
+  import { resolve } from '$app/paths';
 
   interface Props {
     universityId: string;
@@ -33,14 +18,19 @@
 
   let { universityId }: Props = $props();
 
-  let entries = $state<ChangelogEntry[]>([]);
+  let entries = $state<ChangelogEntryWithUser[]>([]);
   let isLoading = $state(true);
   let isLoadingMore = $state(false);
   let hasMore = $state(true);
   let currentPage = $state(1);
   let error = $state<string | null>(null);
+  let entryElements: Record<string, HTMLElement> = {};
+  let showHighlight = $state(false);
 
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 10;
+
+  // Get the highlighted entry ID from URL params
+  const highlightedEntryId = $derived(page.url.searchParams.get('entry'));
 
   const loadChangelogEntries = async (page = 1, append = false) => {
     const isInitialLoad = page === 1;
@@ -62,7 +52,7 @@
       }
 
       const data = (await response.json()) as {
-        entries: ChangelogEntry[];
+        entries: ChangelogEntryWithUser[];
         hasMore: boolean;
         total: number;
         page: number;
@@ -127,7 +117,19 @@
   };
 
   onMount(() => {
-    loadChangelogEntries();
+    loadChangelogEntries().then(() => {
+      // Handle highlighting of specific entry
+      if (highlightedEntryId && entryElements[highlightedEntryId]) {
+        setTimeout(() => {
+          const element = entryElements[highlightedEntryId];
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          showHighlight = true;
+          setTimeout(() => {
+            showHighlight = false;
+          }, 2000);
+        }, 100);
+      }
+    });
   });
 </script>
 
@@ -156,7 +158,14 @@
   {:else}
     <div class="divide-base-200 divide-y">
       {#each entries as entry (entry.id)}
-        <div class="hover:bg-base-50 p-4 transition-colors">
+        <div
+          bind:this={entryElements[entry.id]}
+          class="hover:bg-base-50 p-4 transition-colors {highlightedEntryId === entry.id &&
+          showHighlight
+            ? 'bg-primary/15'
+            : ''}"
+          id="entry-{entry.id}"
+        >
           <div class="flex gap-3">
             <!-- Action icon -->
             <div class="flex-shrink-0">
@@ -172,28 +181,33 @@
                   <!-- User info -->
                   <div class="mb-1 flex items-center gap-2">
                     <UserAvatar
-                      user={{
+                      user={entry.user || {
                         image: entry.userImage,
                         name: entry.userName,
                         displayName: entry.userName
                       }}
                       size="sm"
                     />
-                    <span class="text-sm font-medium">
-                      {entry.userName || m.unknown_user()}
-                    </span>
+                    <a
+                      href={resolve('/(main)/users/[id]', {
+                        id: entry.user.name ? '@' + entry.user.name : entry.userId
+                      })}
+                      class="hover:text-accent text-sm font-medium transition-colors"
+                    >
+                      {getDisplayName(entry.user) || entry.userName || m.unknown_user()}
+                    </a>
                     <span
                       class="badge badge-soft badge-sm not-sm:hidden {getActionBadgeClass(
                         entry.action
                       )}"
                     >
-                      {getChangelogActionName(entry.action, createMessagesWrapper())}
+                      {getChangelogActionName(entry.action, m)}
                     </span>
                   </div>
 
                   <!-- Change description -->
                   <div class="text-base-content/80 text-sm">
-                    {formatChangelogDescription(entry, createMessagesWrapper())}
+                    {formatChangelogDescription(entry, m)}
                   </div>
 
                   <!-- Campus context for campus changes -->

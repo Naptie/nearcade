@@ -1,9 +1,10 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { GITHUB_LINK } from '$lib';
   import Footer from '$lib/components/Footer.svelte';
   import { m } from '$lib/paraglide/messages';
+  import { pageTitle } from '$lib/utils';
 
   let { status, errorMessage }: { status: number; errorMessage: string } = $props();
 
@@ -64,7 +65,7 @@
   let errorContent = $derived(getErrorContent(status));
 
   const goHome = () => {
-    goto(`${base}/`);
+    goto(resolve('/'));
   };
 
   const tryAgain = () => {
@@ -78,7 +79,7 @@
 </script>
 
 <svelte:head>
-  <title>{errorContent.title} - {m.app_name()}</title>
+  <title>{pageTitle(errorContent.title)}</title>
 </svelte:head>
 
 <div class="w-full max-w-md">

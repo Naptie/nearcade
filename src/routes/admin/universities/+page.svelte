@@ -3,8 +3,9 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
+  import { pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -31,7 +32,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_universities()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{pageTitle(m.admin_universities(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -83,7 +84,9 @@
               <tr class="hover">
                 <td class="max-w-[20vw]">
                   <a
-                    href="{base}/universities/{university.slug || university.id}"
+                    href={resolve('/(main)/universities/[id]', {
+                      id: university.slug || university.id
+                    })}
                     target="_blank"
                     class="group flex items-center gap-3"
                   >
@@ -130,7 +133,9 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/universities/{university.slug || university.id}/edit"
+                      href={resolve('/(main)/universities/[id]/edit', {
+                        id: university.slug || university.id
+                      })}
                       target="_blank"
                       class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
@@ -159,22 +164,22 @@
       </div>
 
       <!-- Pagination -->
-      {#if data.hasMore}
-        <div class="border-base-300 border-t p-4">
-          <div class="flex justify-center gap-2">
-            {#if (data.currentPage || 1) > 1}
-              <a
-                href="?page={(data.currentPage || 1) - 1}{data.search
-                  ? `&search=${encodeURIComponent(data.search)}`
-                  : ''}"
-                class="btn btn-soft"
-              >
-                {m.previous_page()}
-              </a>
-            {/if}
-            <span class="btn btn-disabled btn-soft">
-              {m.page({ page: data.currentPage || 1 })}
-            </span>
+      <div class="border-base-300 border-t p-4">
+        <div class="flex justify-center gap-2">
+          {#if (data.currentPage || 1) > 1}
+            <a
+              href="?page={(data.currentPage || 1) - 1}{data.search
+                ? `&search=${encodeURIComponent(data.search)}`
+                : ''}"
+              class="btn btn-soft"
+            >
+              {m.previous_page()}
+            </a>
+          {/if}
+          <span class="btn btn-disabled btn-soft">
+            {m.page({ page: data.currentPage || 1 })}
+          </span>
+          {#if data.hasMore}
             <a
               href="?page={(data.currentPage || 1) + 1}{data.search
                 ? `&search=${encodeURIComponent(data.search)}`
@@ -183,9 +188,9 @@
             >
               {m.next_page()}
             </a>
-          </div>
+          {/if}
         </div>
-      {/if}
+      </div>
     {:else}
       <div class="py-12 text-center">
         <i class="fa-solid fa-graduation-cap text-base-content/40 mb-4 text-4xl"></i>
@@ -197,12 +202,12 @@
             ? 'No universities found matching your search criteria.'
             : 'No universities found that you can manage.'}
         </p>
-        {#if !data.search}
-          <a href="{base}/universities/new" class="btn btn-primary mt-4">
+        <!-- {#if !data.search}
+          <a href={resolve('/(main)/universities/new')} class="btn btn-primary mt-4">
             <i class="fa-solid fa-plus"></i>
             Add University
           </a>
-        {/if}
+        {/if} -->
       </div>
     {/if}
   </div>

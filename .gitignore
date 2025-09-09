@@ -27,3 +27,6 @@ src/lib/paraglide
 src/paraglide
 
 .vercel
+.leancloud
+google-sak.json
+deploy.sh

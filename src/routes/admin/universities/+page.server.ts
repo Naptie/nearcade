@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { University } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     // Get user's university affiliations
     const userMembership = await db.collection('university_members').findOne({
       userId: session.user.id,
-      $or: [{ role: 'admin' }, { role: 'moderator' }]
+      $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
     });
 
     if (userMembership) {

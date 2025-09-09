@@ -2,9 +2,10 @@
   import { m } from '$lib/paraglide/messages';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
+  import { pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -40,7 +41,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_shops()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{pageTitle(m.admin_shops(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">
@@ -54,7 +55,7 @@
     <!-- Shop Statistics -->
     <div class="stats shadow">
       <div class="stat">
-        <div class="stat-title">{m.admin_total_shops()}</div>
+        <div class="stat-title">{m.total_shops()}</div>
         <div class="stat-value text-primary">{data.shopStats?.total || 0}</div>
       </div>
     </div>
@@ -138,8 +139,9 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/discover?longitude={shop.location?.coordinates[0]}&latitude={shop
-                        .location?.coordinates[1]}&name={shop.name}&radius={radius}"
+                      href="{resolve('/(main)/discover')}?longitude={shop.location
+                        ?.coordinates[0]}&latitude={shop.location
+                        ?.coordinates[1]}&name={shop.name}&radius={radius}"
                       target="_blank"
                       class="btn btn-soft btn-sm"
                       title={m.explore_nearby()}
@@ -156,22 +158,22 @@
       </div>
 
       <!-- Pagination -->
-      {#if data.hasMore}
-        <div class="border-base-300 border-t p-4">
-          <div class="flex justify-center gap-2">
-            {#if (data.currentPage || 1) > 1}
-              <a
-                href="?page={(data.currentPage || 1) - 1}{data.search
-                  ? `&search=${encodeURIComponent(data.search)}`
-                  : ''}"
-                class="btn btn-soft"
-              >
-                {m.previous_page()}
-              </a>
-            {/if}
-            <span class="btn btn-disabled btn-soft">
-              {m.page({ page: data.currentPage || 1 })}
-            </span>
+      <div class="border-base-300 border-t p-4">
+        <div class="flex justify-center gap-2">
+          {#if (data.currentPage || 1) > 1}
+            <a
+              href="?page={(data.currentPage || 1) - 1}{data.search
+                ? `&search=${encodeURIComponent(data.search)}`
+                : ''}"
+              class="btn btn-soft"
+            >
+              {m.previous_page()}
+            </a>
+          {/if}
+          <span class="btn btn-disabled btn-soft">
+            {m.page({ page: data.currentPage || 1 })}
+          </span>
+          {#if data.hasMore}
             <a
               href="?page={(data.currentPage || 1) + 1}{data.search
                 ? `&search=${encodeURIComponent(data.search)}`
@@ -180,9 +182,9 @@
             >
               {m.next_page()}
             </a>
-          </div>
+          {/if}
         </div>
-      {/if}
+      </div>
     {:else}
       <div class="py-12 text-center">
         <i class="fa-solid fa-gamepad text-base-content/40 mb-4 text-4xl"></i>
@@ -190,12 +192,12 @@
         <p class="text-base-content/60">
           {data.search ? m.admin_no_shops_found_search() : m.admin_no_shops_found_empty()}
         </p>
-        {#if !data.search}
-          <a href="{base}/shops/new" class="btn btn-primary mt-4">
+        <!-- {#if !data.search}
+          <a href={resolve('/(main)/shops/new')} class="btn btn-primary mt-4">
             <i class="fa-solid fa-plus"></i>
             {m.admin_add_shop()}
           </a>
-        {/if}
+        {/if} -->
       </div>
     {/if}
   </div>

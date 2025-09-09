@@ -2,7 +2,8 @@
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { Shop } from '$lib/types';
-  import { fromPath } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
 
@@ -64,10 +65,10 @@
 </script>
 
 <svelte:head>
-  <title>{m.starred_arcades()} - {m.app_name()}</title>
+  <title>{pageTitle(m.starred_arcades())}</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
+<div class="mx-auto px-4 py-8 sm:container">
   <div class="mb-6">
     <h1 class="mb-2 text-3xl font-bold">{m.starred_arcades()}</h1>
     <p class="text-base-content/70">

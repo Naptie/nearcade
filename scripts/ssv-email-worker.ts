@@ -337,18 +337,19 @@ const processEmail = async (parsed: ParsedMail) => {
   if (existing) {
     await collection.updateOne(
       { universityId, userId },
-      { $set: { verificationEmail: senderAddress } }
+      { $set: { verificationEmail: senderAddress, verifiedAt: new Date() } }
     );
   } else {
     const memberCount = await collection.countDocuments({ universityId });
-
+    const date = new Date();
     await collection.insertOne({
       id: nanoid(),
       universityId,
       userId,
       memberType: memberCount < 2 ? 'admin' : 'student',
       verificationEmail: senderAddress,
-      joinedAt: new Date()
+      verifiedAt: date,
+      joinedAt: date
     });
 
     await updateUserType(userId);

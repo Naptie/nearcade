@@ -2,13 +2,35 @@ import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
-import { PUBLIC_SENTRY_DSN } from '$env/static/public';
-import { handle as handleAuth } from '$lib/auth.server';
+import { handle as handleAuth } from '$lib/auth/index.server';
+import { env } from '$env/dynamic/public';
 
-Sentry.init({
-  dsn: PUBLIC_SENTRY_DSN,
-  tracesSampleRate: 1
-});
+const reportError: HandleServerError = ({ status, error }) => {
+  if (status === 404) {
+    return {
+      message: '',
+      code: ''
+    };
+  }
+  console.error(error);
+  return {
+    message: 'An unexpected error occurred. Please try again later.',
+    code: 'INTERNAL_ERROR'
+  };
+};
+
+let sentryHandle: Handle | undefined = undefined;
+let sentryHandleError: HandleServerError | undefined = undefined;
+
+if (env.PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: env.PUBLIC_SENTRY_DSN,
+    tracesSampleRate: 1
+  });
+
+  sentryHandle = Sentry.sentryHandle();
+  sentryHandleError = Sentry.handleErrorWithSentry(reportError);
+}
 
 const handleParaglide: Handle = ({ event, resolve }) =>
   paraglideMiddleware(event.request, ({ request, locale }) => {
@@ -31,22 +53,10 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = sequence(
-  Sentry.sentryHandle(),
+  ...(sentryHandle ? [sentryHandle] : []),
   handleParaglide,
   handleHeaders,
   handleAuth
 );
 
-export const handleError: HandleServerError = Sentry.handleErrorWithSentry(({ status, error }) => {
-  if (status === 404) {
-    return {
-      message: '',
-      code: ''
-    };
-  }
-  console.error(error);
-  return {
-    message: 'An unexpected error occurred. Please try again later.',
-    code: 'INTERNAL_ERROR'
-  };
-});
+export const handleError: HandleServerError = sentryHandleError ?? reportError;

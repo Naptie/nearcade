@@ -3,8 +3,10 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import type { PageData } from './$types';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
+  import { pageTitle } from '$lib/utils';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data }: { data: PageData } = $props();
 
@@ -15,37 +17,37 @@
   const handleSearch = async (event: Event) => {
     event.preventDefault();
     isSearching = true;
-    const params = new URLSearchParams();
+    const params = new SvelteURLSearchParams();
     if (searchQuery.trim()) {
       params.set('q', searchQuery.trim());
     }
     if (selectedUniversityId) {
       params.set('university', selectedUniversityId);
     }
-    await goto(`${base}/clubs?${params.toString()}`);
+    await goto(resolve('/(main)/clubs') + `?${params.toString()}`);
     isSearching = false;
   };
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new SvelteURLSearchParams(page.url.searchParams);
     params.set('page', newPage.toString());
-    goto(`${base}/clubs?${params.toString()}`);
+    goto(resolve('/(main)/clubs') + `?${params.toString()}`);
   };
 
   const handleUniversityFilter = () => {
-    const params = new URLSearchParams(page.url.searchParams);
+    const params = new SvelteURLSearchParams(page.url.searchParams);
     if (selectedUniversityId) {
       params.set('university', selectedUniversityId);
     } else {
       params.delete('university');
     }
     params.delete('page'); // Reset to first page
-    goto(`${base}/clubs?${params.toString()}`);
+    goto(resolve('/(main)/clubs') + `?${params.toString()}`);
   };
 </script>
 
 <svelte:head>
-  <title>{m.browse_clubs()} - {m.app_name()}</title>
+  <title>{pageTitle(m.browse_clubs())}</title>
   <meta name="description" content={m.browse_search_clubs()} />
 </svelte:head>
 
@@ -113,7 +115,7 @@
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.clubs as club (club.id)}
           <a
-            href="{base}/clubs/{club.slug || club.id}"
+            href={resolve('/(main)/clubs/[id]', { id: club.slug || club.id })}
             class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
           >
             <div class="card-body p-6">
@@ -187,7 +189,7 @@
     {:else}
       <!-- No Results -->
       <div class="py-12 text-center">
-        <i class="fa-solid fa-users-gear text-base-content/30 mb-4 text-5xl"></i>
+        <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
         <h3 class="mb-2 text-xl font-medium">{m.no_clubs_found()}</h3>
         <p class="text-base-content/60 mb-4">
           {#if data.query || data.selectedUniversityId}

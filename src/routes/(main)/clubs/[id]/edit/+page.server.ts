@@ -1,8 +1,9 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
-import { checkClubPermission, loginRedirect, toPlainObject } from '$lib/utils';
-import client from '$lib/db.server';
+import { checkClubPermission, toPlainObject } from '$lib/utils';
+import { loginRedirect } from '$lib/utils/scoped';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -17,15 +18,9 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     const clubsCollection = db.collection<Club>('clubs');
 
     // Try to find club by ID first, then by slug
-    let club = await clubsCollection.findOne({
-      id: id
+    const club = await clubsCollection.findOne({
+      $or: [{ id }, { slug: id }]
     });
-
-    if (!club) {
-      club = await clubsCollection.findOne({
-        slug: id
-      });
-    }
 
     if (!club) {
       error(404, 'Club not found');
@@ -52,7 +47,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 export const actions: Actions = {
   default: async ({ request, params, locals }) => {
-    const { id } = params;
+    let { id } = params;
     const session = await locals.auth();
 
     if (!session || !session.user) {
@@ -153,15 +148,9 @@ export const actions: Actions = {
       const clubsCollection = db.collection<Club>('clubs');
 
       // Get current club
-      let club = await clubsCollection.findOne({
-        id: id
+      const club = await clubsCollection.findOne({
+        $or: [{ id }, { slug: id }]
       });
-
-      if (!club) {
-        club = await clubsCollection.findOne({
-          slug: id
-        });
-      }
 
       if (!club) {
         return fail(404, { message: 'Club not found' });
@@ -171,11 +160,13 @@ export const actions: Actions = {
         return fail(403, { message: 'You do not have permission to edit this club' });
       }
 
+      id = club.id;
+
       // Check if slug is unique (excluding current club)
       if (slug !== club.slug) {
         const existingClub = await clubsCollection.findOne({
           slug,
-          id: { $ne: club.id }
+          id: { $ne: id }
         });
         if (existingClub) {
           return fail(400, { message: 'This slug is already taken' });
@@ -202,7 +193,7 @@ export const actions: Actions = {
         updateData.backgroundColor = undefined;
       }
 
-      await clubsCollection.updateOne({ id: club.id }, { $set: updateData });
+      await clubsCollection.updateOne({ id }, { $set: updateData });
 
       return {
         success: true,

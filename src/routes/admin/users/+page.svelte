@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import {
     formatDate,
@@ -11,8 +11,9 @@
     getDisplayName,
     getUserTypeBadgeClass,
     getUserTypeLabel,
-    fromPath
+    pageTitle
   } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import type { User } from '@auth/sveltekit';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -139,7 +140,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_users()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{pageTitle(m.admin_users(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -180,7 +181,7 @@
 
       <div class="form-control">
         <label class="label" for="userType">
-          <span class="label-text font-medium">{m.admin_user_type_filter()}</span>
+          <span class="label-text font-medium">{m.user_type()}</span>
         </label>
         <select
           id="userType"
@@ -206,7 +207,7 @@
           <thead>
             <tr>
               <th>{m.admin_user_header()}</th>
-              <th class="not-xs:hidden">{m.admin_type_header()}</th>
+              <th class="not-ss:hidden">{m.admin_type_header()}</th>
               <th>{m.admin_associations_header()}</th>
               <th class="not-sm:hidden">{m.admin_last_active_header()}</th>
               <th class="not-md:hidden">{m.admin_joined_header()}</th>
@@ -220,7 +221,7 @@
                   <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
                     <UserAvatar {user} size="md" target="_blank" />
                     <a
-                      href="{base}/users/@{user.name}"
+                      href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
                       target="_blank"
                       class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors"
                     >
@@ -235,7 +236,7 @@
                     </a>
                   </div>
                 </td>
-                <td class="not-xs:hidden">
+                <td class="not-ss:hidden">
                   <div class="badge badge-sm text-nowrap {getUserTypeBadgeClass(user.userType)}">
                     {getUserTypeLabel(user.userType)}
                   </div>
@@ -297,24 +298,22 @@
       </div>
 
       <!-- Pagination -->
-      {#if data.hasMore}
-        <div class="border-base-300 border-t p-4">
-          <div class="flex justify-center gap-2">
-            {#if (data.currentPage || 1) > 1}
-              <a
-                href="?page={(data.currentPage || 1) - 1}{data.search
-                  ? `&search=${encodeURIComponent(data.search)}`
-                  : ''}{data.userType && data.userType !== 'all'
-                  ? `&userType=${data.userType}`
-                  : ''}"
-                class="btn btn-soft"
-              >
-                {m.previous_page()}
-              </a>
-            {/if}
-            <span class="btn btn-disabled btn-soft">
-              {m.page({ page: data.currentPage || 1 })}
-            </span>
+      <div class="border-base-300 border-t p-4">
+        <div class="flex justify-center gap-2">
+          {#if (data.currentPage || 1) > 1}
+            <a
+              href="?page={(data.currentPage || 1) - 1}{data.search
+                ? `&search=${encodeURIComponent(data.search)}`
+                : ''}{data.userType && data.userType !== 'all' ? `&userType=${data.userType}` : ''}"
+              class="btn btn-soft"
+            >
+              {m.previous_page()}
+            </a>
+          {/if}
+          <span class="btn btn-disabled btn-soft">
+            {m.page({ page: data.currentPage || 1 })}
+          </span>
+          {#if data.hasMore}
             <a
               href="?page={(data.currentPage || 1) + 1}{data.search
                 ? `&search=${encodeURIComponent(data.search)}`
@@ -323,12 +322,12 @@
             >
               {m.next_page()}
             </a>
-          </div>
+          {/if}
         </div>
-      {/if}
+      </div>
     {:else}
       <div class="py-12 text-center">
-        <i class="fa-solid fa-users text-base-content/40 mb-4 text-4xl"></i>
+        <i class="fa-solid fa-user text-base-content/40 mb-4 text-4xl"></i>
         <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_users_found()}</h3>
         <p class="text-base-content/60">
           {data.search ? m.admin_no_users_search_results() : m.admin_no_users_available()}
@@ -643,11 +642,3 @@
     aria-label={m.close_modal()}
   ></div>
 </div>
-
-<style>
-  .not-xs\:hidden {
-    @media (width < 35rem) {
-      display: none;
-    }
-  }
-</style>

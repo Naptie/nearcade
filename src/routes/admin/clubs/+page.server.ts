@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import type { Club, University } from '$lib/types';
 import { checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();

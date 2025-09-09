@@ -3,9 +3,9 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
-  import { formatDate } from '$lib/utils';
+  import { formatDate, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_clubs()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{pageTitle(m.admin_clubs(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -87,7 +87,7 @@
               <tr class="hover">
                 <td class="max-w-[20vw]">
                   <a
-                    href="{base}/clubs/{club.id}"
+                    href={resolve('/(main)/clubs/[id]', { id: club.id })}
                     target="_blank"
                     class="group flex items-center gap-3"
                   >
@@ -101,7 +101,7 @@
                       <div
                         class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-full"
                       >
-                        <i class="fa-solid fa-users-gear text-primary"></i>
+                        <i class="fa-solid fa-users text-primary"></i>
                       </div>
                     {/if}
                     <div class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors">
@@ -119,7 +119,7 @@
                 <td>
                   {#if club.university}
                     <a
-                      href="{base}/universities/{club.university.id}"
+                      href={resolve('/(main)/universities/[id]', { id: club.university.id })}
                       class="hover:text-accent line-clamp-2 transition-colors"
                     >
                       {club.university.name}
@@ -150,7 +150,7 @@
                 <td>
                   <div class="flex justify-end gap-2">
                     <a
-                      href="{base}/clubs/{club.id}/edit"
+                      href={resolve('/(main)/clubs/[id]/edit', { id: club.id })}
                       target="_blank"
                       class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
@@ -206,7 +206,7 @@
       {/if}
     {:else}
       <div class="py-12 text-center">
-        <i class="fa-solid fa-users-gear text-base-content/40 mb-4 text-4xl"></i>
+        <i class="fa-solid fa-users text-base-content/40 mb-4 text-4xl"></i>
         <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_clubs_found()}</h3>
         <p class="text-base-content/60">
           {data.search
@@ -253,7 +253,9 @@
         {m.cancel()}
       </button>
       <a
-        href={selectedUniversity ? `${base}/clubs/new?university=${selectedUniversity}` : '#'}
+        href={selectedUniversity
+          ? resolve('/(main)/clubs/new') + `?university=${selectedUniversity}`
+          : '#'}
         class="btn btn-primary"
         class:btn-disabled={!selectedUniversity}
         onclick={() => {

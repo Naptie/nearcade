@@ -11,6 +11,12 @@
     forest --prefersdark;
 }
 
+@theme {
+  --breakpoint-2xs: 15rem;
+  --breakpoint-xs: 20rem;
+  --breakpoint-ss: 30rem;
+}
+
 body {
   font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
 }
@@ -45,20 +51,5 @@ code,
 }
 
 .label-text-alt {
-  @apply text-xs;
-}
-
-.not-xs\:hidden {
-  @media (width < 20rem) {
-    display: none;
-  }
-}
-
-.not-xs\:btn-circle {
-  @media (width < 20rem) {
-    border-radius: calc(infinity * 1px);
-    padding-inline: calc(0.25rem /* 4px */ * 0) /* 0rem = 0px */;
-    width: var(--size);
-    height: var(--size);
-  }
+  @apply text-xs text-wrap;
 }

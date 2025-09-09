@@ -1,0 +1,146 @@
+name: Publish
+run-name: Publish to LeanCloud and Sentry
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'messages/**'
+      - 'patches/**'
+      - 'project.inlang/**'
+      - 'src/**'
+      - 'static/**'
+      - 'leanengine.yaml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'svelte.config.js'
+      - 'vite.config.ts'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Create build
+        run: pnpm build
+        env:
+          ADAPTER: node
+          PUBLIC_API_BASE: ${{ vars.PUBLIC_API_BASE }}
+          PUBLIC_AMAP_KEY: ${{ vars.PUBLIC_AMAP_KEY }}
+          PUBLIC_QQMAP_KEY: ${{ vars.PUBLIC_QQMAP_KEY }}
+          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+          PUBLIC_FIREBASE_API_KEY: ${{ vars.PUBLIC_FIREBASE_API_KEY }}
+          PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.PUBLIC_FIREBASE_PROJECT_ID }}
+          PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          PUBLIC_FIREBASE_APP_ID: ${{ vars.PUBLIC_FIREBASE_APP_ID }}
+          PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          PUBLIC_FIREBASE_VAPID_KEY: ${{ vars.PUBLIC_FIREBASE_VAPID_KEY }}
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+          AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_GITHUB_ID: ${{ secrets.AUTH_GITHUB_ID }}
+          AUTH_GITHUB_SECRET: ${{ secrets.AUTH_GITHUB_SECRET }}
+          AUTH_MICROSOFT_ENTRA_ID_ID: ${{ secrets.AUTH_MICROSOFT_ENTRA_ID_ID }}
+          AUTH_MICROSOFT_ENTRA_ID_SECRET: ${{ secrets.AUTH_MICROSOFT_ENTRA_ID_SECRET }}
+          AUTH_MICROSOFT_ENTRA_ID_ISSUER: ${{ secrets.AUTH_MICROSOFT_ENTRA_ID_ISSUER }}
+          AUTH_DISCORD_ID: ${{ secrets.AUTH_DISCORD_ID }}
+          AUTH_DISCORD_SECRET: ${{ secrets.AUTH_DISCORD_SECRET }}
+          AUTH_OSU_ID: ${{ secrets.AUTH_OSU_ID }}
+          AUTH_OSU_SECRET: ${{ secrets.AUTH_OSU_SECRET }}
+          AUTH_PHIRA_ID: ${{ secrets.AUTH_PHIRA_ID }}
+          AUTH_PHIRA_SECRET: ${{ secrets.AUTH_PHIRA_SECRET }}
+          AUTH_QQ_ID: ${{ secrets.AUTH_QQ_ID }}
+          AUTH_QQ_SECRET: ${{ secrets.AUTH_QQ_SECRET }}
+          AUTH_QQ_PROXY: ${{ secrets.AUTH_QQ_PROXY }}
+          REDIS_URI: ${{ secrets.REDIS_URI }}
+          GSAK_BASE64: ${{ secrets.GSAK_BASE64 }}
+          FCM_PROXY: ${{ secrets.FCM_PROXY }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: build/
+          retention-days: 1
+
+  leancloud-publish:
+    name: Publish to LeanCloud
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare LeanCloud CLI
+        run: |
+          wget ${{ vars.LC_CLI_DOWNLOAD }} -O /tmp/${{ vars.LC_EXE }}
+          chmod +x /tmp/${{ vars.LC_EXE }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-files
+          path: build/
+
+      - name: Deploy to LeanCloud
+        run: |
+          /tmp/${{ vars.LC_EXE }} login ${{ secrets.LC_LOGIN }}
+          /tmp/${{ vars.LC_EXE }} switch ${{ secrets.LC_SWITCH }}
+          /tmp/${{ vars.LC_EXE }} deploy --prod
+
+  sentry-publish:
+    name: Publish to Sentry
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-files
+          path: build/
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: phizone
+          SENTRY_PROJECT: nearcade
+        with:
+          environment: production
+          sourcemaps: './build'

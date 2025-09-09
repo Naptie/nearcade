@@ -1,11 +1,12 @@
 import type { PageServerLoad } from './$types';
-import client from '$lib/db.server';
-import type {
-  University,
-  Post,
-  PostWithAuthor,
-  CommentWithAuthorAndVote,
-  PostVote
+import client from '$lib/db/index.server';
+import {
+  type University,
+  type Post,
+  type PostWithAuthor,
+  type CommentWithAuthorAndVote,
+  type PostVote,
+  PostReadability
 } from '$lib/types';
 import { error } from '@sveltejs/kit';
 import {
@@ -32,14 +33,42 @@ export const load = (async ({ params, locals }) => {
     throw error(404, 'University not found');
   }
 
+  const session = await locals.auth();
+  const match: Record<string, unknown> = {
+    id: postId,
+    universityId: university.id,
+    readability: PostReadability.PUBLIC
+  };
+
+  let userVote = null;
+  let canEdit = false;
+  let canManage = false;
+  let canComment = false;
+  let canJoin = false;
+  if (session?.user) {
+    const votesCollection = db.collection<PostVote>('post_votes');
+    const vote = await votesCollection.findOne({
+      postId: postId,
+      userId: session.user.id
+    });
+    userVote = vote ? vote.voteType : null;
+
+    const permissions = await checkUniversityPermission(session.user, university, client);
+    canEdit = permissions.canEdit;
+    canManage = permissions.canEdit; // Only canEdit users can manage posts
+    canComment = canWriteUnivPosts(permissions, university);
+    canJoin = permissions.canJoin > 0;
+
+    if (permissions.role) {
+      delete match.readability;
+    }
+  }
+
   // Get post with author
   const postResult = await postsCollection
     .aggregate<PostWithAuthor>([
       {
-        $match: {
-          id: postId,
-          universityId: university.id
-        }
+        $match: match
       },
       {
         $lookup: {
@@ -71,7 +100,6 @@ export const load = (async ({ params, locals }) => {
   }
 
   const post = postResult[0];
-  const session = await locals.auth();
 
   // Get comments with authors
   const comments = await commentsCollection
@@ -126,26 +154,6 @@ export const load = (async ({ params, locals }) => {
       }
     ])
     .toArray();
-
-  let userVote = null;
-  let canEdit = false;
-  let canManage = false;
-  let canComment = false;
-  let canJoin = false;
-  if (session?.user) {
-    const votesCollection = db.collection<PostVote>('post_votes');
-    const vote = await votesCollection.findOne({
-      postId: postId,
-      userId: session.user.id
-    });
-    userVote = vote ? vote.voteType : null;
-
-    const permissions = await checkUniversityPermission(session.user, university, client);
-    canEdit = permissions.canEdit;
-    canManage = permissions.canEdit; // Only canEdit users can manage posts
-    canComment = canWriteUnivPosts(permissions, university);
-    canJoin = permissions.canJoin > 0;
-  }
 
   return {
     university: toPlainObject(university),

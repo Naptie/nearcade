@@ -34,6 +34,9 @@ export default ts.config(
     }
   },
   {
-    ignores: ['src-tauri/**']
+    files: ['**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
+    }
   }
 );

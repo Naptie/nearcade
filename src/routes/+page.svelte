@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve, base } from '$app/paths';
   import { PUBLIC_QQMAP_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
   import AuthModal from '$lib/components/AuthModal.svelte';
@@ -11,7 +11,8 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel, fromPath } from '$lib/utils';
+  import { formatRegionLabel } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
 
   let showCollapse = $state(false);
@@ -194,28 +195,39 @@
     }
   };
 
-  const go = (convert: boolean = true) => {
+  const go = async (convert: boolean = true) => {
     isLoading = true;
+
     if (convert) {
-      if (amap) {
-        amap.convertFrom(
-          [location.longitude, location.latitude],
-          'gps',
-          (status: string, result: { info: string; locations: { lat: number; lng: number }[] }) => {
-            if (status === 'complete' && result.info === 'ok') {
-              location.latitude = result.locations[0].lat;
-              location.longitude = result.locations[0].lng;
-            } else {
-              console.error('AMap conversion failed:', status, result);
+      if (amap && location.latitude !== undefined && location.longitude !== undefined) {
+        await new Promise<void>((resolve, reject) => {
+          amap!.convertFrom(
+            [location.longitude, location.latitude],
+            'gps',
+            (
+              status: string,
+              response: { info: string; locations: { lat: number; lng: number }[] }
+            ) => {
+              if (status === 'complete' && response.info === 'ok') {
+                const result = response.locations[0];
+                location.latitude = result.lat;
+                location.longitude = result.lng;
+                resolve();
+              } else {
+                console.error('AMap conversion failed:', status, response);
+                reject(new Error('AMap conversion failed'));
+              }
             }
-          }
-        );
+          );
+        });
       } else {
-        console.warn('AMap not available, skipping conversion');
+        console.warn('AMap not available or location not set, skipping conversion');
       }
     }
+
     goto(
-      `${base}/discover?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
+      resolve('/(main)/discover') +
+        `?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
     );
   };
 
@@ -245,11 +257,10 @@
         window.dispatchEvent(new CustomEvent('nearcade-donate'));
       }}
       class="fa-solid fa-heart fa-lg"
-      btnCls="not-sm:hidden"
       text={m.donate()}
     />
     <FancyButton
-      href="{base}/rankings"
+      href={resolve('/(main)/rankings')}
       class="fa-solid fa-trophy fa-lg"
       text={m.campus_rankings()}
     />
@@ -278,14 +289,14 @@
         </button>
         <div class="join">
           <a
-            href="{base}/universities"
+            href={resolve('/(main)/universities')}
             class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
           >
             {m.find_university()}
             <i class="fa-solid fa-graduation-cap fa-lg"></i>
           </a>
           <a
-            href="{base}/clubs"
+            href={resolve('/(main)/clubs')}
             class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
           >
             {m.find_clubs()}
@@ -442,7 +453,9 @@
                           >
                             <div>
                               <a
-                                href="{base}/universities/{university.slug || university.id}"
+                                href={resolve('/(main)/universities/[id]', {
+                                  id: university.slug || university.id
+                                })}
                                 target="_blank"
                                 class="hover:text-accent text-base font-medium transition-colors"
                               >
@@ -464,7 +477,9 @@
                           <div class="p-3">
                             <div>
                               <a
-                                href="{base}/universities/{university.slug || university.id}"
+                                href={resolve('/(main)/universities/[id]', {
+                                  id: university.slug || university.id
+                                })}
                                 target="_blank"
                                 class="hover:text-accent text-base font-medium transition-colors"
                                 >{university.name}</a

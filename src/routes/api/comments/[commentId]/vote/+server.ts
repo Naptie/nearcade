@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import {
   PostReadability,
   type Club,
@@ -9,7 +9,8 @@ import {
   type University
 } from '$lib/types';
 import { nanoid } from 'nanoid';
-import { checkUniversityPermission } from '$lib/utils';
+import { getDefaultPostReadability } from '$lib/utils';
+import { notify } from '$lib/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -55,7 +56,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const postReadability = university.postReadability ?? PostReadability.PUBLIC;
+        const postReadability = getDefaultPostReadability(university.postReadability);
         if (postReadability === PostReadability.UNIV_MEMBERS) {
           const { checkUniversityPermission } = await import('$lib/utils');
           const permissions = await checkUniversityPermission(session.user, university, client);
@@ -65,20 +66,17 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const postReadability = club.postReadability ?? PostReadability.CLUB_MEMBERS;
+        const postReadability = getDefaultPostReadability(club.postReadability);
         if (
           postReadability === PostReadability.CLUB_MEMBERS ||
           postReadability === PostReadability.UNIV_MEMBERS
         ) {
           const { checkClubPermission } = await import('$lib/utils');
-          const permissions = await checkClubPermission(session.user, club, client);
+          const permissions = await checkClubPermission(session.user, club, client, true);
           if (postReadability === PostReadability.CLUB_MEMBERS) {
             canVote = !!permissions.role;
           } else {
-            canVote =
-              !!permissions.role ||
-              permissions.canJoin > 0 ||
-              !!(await checkUniversityPermission(session.user, club.universityId, client)).role;
+            canVote = !!permissions.role || permissions.canJoin > 0;
           }
         }
       }
@@ -182,6 +180,30 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         downvoteDelta = 1;
       }
       newUserVote = voteType;
+
+      // Send notification for new comment votes
+      try {
+        if (comment.createdBy !== session.user.id) {
+          await notify({
+            type: 'COMMENT_VOTES',
+            actorUserId: session.user.id,
+            actorName: session.user.name || '',
+            actorDisplayName: session.user.displayName || undefined,
+            actorImage: session.user.image || undefined,
+            targetUserId: comment.createdBy,
+            content: comment.content.substring(0, 200),
+            postId: comment.postId,
+            postTitle: post?.title,
+            commentId: comment.id,
+            voteType: voteType,
+            universityId: post?.universityId,
+            clubId: post?.clubId
+          });
+        }
+      } catch (notificationError) {
+        // Don't fail the vote if notification fails
+        console.error('Failed to send comment vote notification:', notificationError);
+      }
     }
 
     // Update comment vote counts

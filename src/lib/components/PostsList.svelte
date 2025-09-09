@@ -1,18 +1,20 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import type { PostWithAuthor } from '$lib/types';
+  import { PostReadability, type PostWithAuthor } from '$lib/types';
   import PostCard from './PostCard.svelte';
   import PostCreateModal from './PostCreateModal.svelte';
   import { PAGINATION } from '$lib/constants';
   import { onMount } from 'svelte';
-  import { fromPath } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
 
   interface Props {
     organizationType: 'university' | 'club';
     organizationId: string;
     organizationName: string;
     organizationSlug?: string;
+    organizationReadability?: PostReadability;
     currentUserId?: string;
+    canManage: boolean;
     canCreatePost: boolean;
     initialPosts?: PostWithAuthor[];
   }
@@ -22,7 +24,9 @@
     organizationId,
     organizationName,
     organizationSlug,
+    organizationReadability,
     currentUserId,
+    canManage,
     canCreatePost,
     initialPosts = []
   }: Props = $props();
@@ -119,7 +123,7 @@
   {/if}
 
   <!-- Posts container -->
-  <div class="space-y-4">
+  <div class="flex flex-col gap-4">
     {#if posts.length > 0}
       <!-- Posts list -->
       {#each posts as post (post.id)}
@@ -182,6 +186,8 @@
   {organizationType}
   {organizationId}
   {organizationName}
+  organizationReadability={organizationReadability || PostReadability.PUBLIC}
+  {canManage}
   onClose={() => (showCreateModal = false)}
   onSuccess={handlePostCreated}
 />

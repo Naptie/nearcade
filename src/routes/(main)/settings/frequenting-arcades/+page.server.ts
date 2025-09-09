@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { Shop } from '$lib/types';
 import type { User } from '@auth/sveltekit';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -23,9 +23,9 @@ export const load: PageServerLoad = async ({ parent }) => {
     // Get arcade details if there are any
     let frequentingArcades: Shop[] = [];
     if (frequentingArcadeIds.length > 0) {
-      frequentingArcades = (await shopsCollection
+      frequentingArcades = await shopsCollection
         .find({ id: { $in: frequentingArcadeIds } })
-        .toArray()) as never;
+        .toArray();
     }
 
     return {
@@ -56,10 +56,11 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = parseInt(formData.get('arcadeId') as string);
+      const arcadeIdRaw = formData.get('arcadeId');
+      const arcadeId = parseInt(arcadeIdRaw as string, 10);
 
-      if (!arcadeId) {
-        return fail(400, { message: 'Arcade ID is required' });
+      if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
+        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
       }
 
       const db = client.db();
@@ -99,10 +100,11 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = parseInt(formData.get('arcadeId') as string);
+      const arcadeIdRaw = formData.get('arcadeId');
+      const arcadeId = parseInt(arcadeIdRaw as string, 10);
 
-      if (!arcadeId) {
-        return fail(400, { message: 'Arcade ID is required' });
+      if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
+        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
       }
 
       const db = client.db();

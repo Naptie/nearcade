@@ -10,19 +10,22 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ChangelogView from '$lib/components/ChangelogView.svelte';
   import PostsList from '$lib/components/PostsList.svelte';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { canWriteUnivPosts, fromPath } from '$lib/utils';
+  import { canWriteUnivPosts, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
+  import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
+  import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
-    { id: 'clubs', label: m.clubs(), icon: 'fa-users-gear' },
-    { id: 'members', label: m.members(), icon: 'fa-users' },
+    { id: 'clubs', label: m.clubs(), icon: 'fa-users' },
+    { id: 'members', label: m.members(), icon: 'fa-user' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
 
@@ -89,7 +92,6 @@
         const hash = window.location.hash.substring(1);
         const validTab = tabs.find((tab) => tab.id === hash);
         if (validTab) {
-          console.log(114514);
           activeTab = validTab.id;
         }
       };
@@ -236,8 +238,7 @@
       });
 
       if (response.ok) {
-        // Refresh the page data
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
           message: string;
@@ -253,15 +254,7 @@
 
   // Check what actions current user can perform on a university member
   const canManageMember = (member: UniversityMemberWithUser) => {
-    if (!userPrivileges.canManage)
-      return {
-        remove: false,
-        grantModerator: false,
-        revokeModerator: false,
-        grantAdmin: false,
-        transferAdmin: false
-      };
-    if (!member.user || member.user.id === data.user?._id)
+    if (!userPrivileges.canManage || !member.user || member.user.id === data.user?.id)
       return {
         remove: false,
         grantModerator: false,
@@ -289,7 +282,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.university.name} - {m.app_name()}</title>
+  <title>{pageTitle(data.university.name)}</title>
   <meta name="description" content={data.university.description || data.university.name} />
 </svelte:head>
 
@@ -339,9 +332,11 @@
 
         <div class="flex items-center gap-2">
           <!-- Join Button for eligible users -->
-          {#if data.user && data.userPermissions.canJoin > 0}
+          {#if data.user && data.userPermissions.canJoin > 0 && !data.userPermissions.verificationEmail}
             <a
-              href="{base}/universities/{data.university.slug || data.university.id}/verify"
+              href={resolve('/(main)/universities/[id]/verify', {
+                id: data.university.slug || data.university.id
+              })}
               class="btn btn-ghost"
             >
               {#if data.userPermissions.canJoin === 2}
@@ -357,7 +352,9 @@
           <!-- Edit University Button for privileged users -->
           {#if userPrivileges.canEdit}
             <a
-              href="{base}/universities/{data.university.slug || data.university.id}/edit"
+              href={resolve('/(main)/universities/[id]/edit', {
+                id: data.university.slug || data.university.id
+              })}
               class="btn btn-circle btn-lg btn-ghost"
               title={m.edit_university_info()}
               aria-label={m.edit_university_info()}
@@ -521,7 +518,9 @@
             organizationId={data.university.id}
             organizationName={data.university.name}
             organizationSlug={data.university.slug}
+            organizationReadability={data.university.postReadability}
             currentUserId={data.user?.id}
+            canManage={userPrivileges.canManage}
             canCreatePost={canWritePosts}
             initialPosts={[]}
           />
@@ -559,7 +558,7 @@
                       {#if campus.location}
                         <a
                           class="btn not-md:btn-circle btn-soft btn-sm"
-                          href="{base}/discover?latitude={campus.location
+                          href="{resolve('/(main)/discover')}?latitude={campus.location
                             .coordinates[1]}&longitude={campus.location
                             .coordinates[0]}&radius={searchRadius}&name={encodeURIComponent(
                             `${data.university.name}${campus.name ? ` (${campus.name})` : ''}`
@@ -604,7 +603,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users-gear"></i>
+                <i class="fa-solid fa-users"></i>
                 {m.clubs()}
               </h3>
               <div class="flex items-center gap-3">
@@ -614,7 +613,7 @@
                 </div>
                 {#if userPrivileges.canManage}
                   <a
-                    href="{base}/clubs/new?university={data.university.id}"
+                    href="{resolve('/(main)/clubs/new')}?university={data.university.id}"
                     class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                   >
                     <i class="fa-solid fa-plus"></i>
@@ -630,7 +629,7 @@
                 <div class="divide-base-200 divide-y">
                   {#each displayedClubs as club (club.id)}
                     <a
-                      href="{base}/clubs/{club.slug || club.id}"
+                      href={resolve('/(main)/clubs/[id]', { id: club.slug || club.id })}
                       class="group flex items-center justify-between p-4"
                     >
                       <div class="flex items-center gap-3">
@@ -681,14 +680,14 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users-gear text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_clubs_in_university()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">
                         {m.create_club_to_get_started()}
                       </p>
                       <a
-                        href="{base}/clubs/new?university={data.university.id}"
+                        href="{resolve('/(main)/clubs/new')}?university={data.university.id}"
                         class="btn btn-primary btn-sm btn-soft"
                       >
                         <i class="fa-solid fa-plus"></i>
@@ -708,7 +707,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users"></i>
+                <i class="fa-solid fa-user"></i>
                 {m.members()}
               </h3>
               <div class="flex items-center gap-3">
@@ -733,8 +732,18 @@
                 <div class="divide-base-200 divide-y">
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between gap-1 p-4">
-                      <div class="overflow-hidden">
-                        <UserAvatar user={member.user} showName={true} size="md" />
+                      <div class="flex items-center gap-1 not-sm:overflow-hidden">
+                        <UserAvatar user={member.user} showName size="md" />
+                        {#if member.verifiedAt}
+                          <VerifiedCheckMark
+                            href={member.userId === data.user?.id
+                              ? resolve('/(main)/universities/[id]/verify', {
+                                  id: data.university.slug || data.university.id
+                                })
+                              : ''}
+                            class="tooltip-right text-sm"
+                          />
+                        {/if}
                       </div>
 
                       <div class="flex items-center gap-1">
@@ -754,7 +763,7 @@
                         </div>
 
                         <!-- Actions for privileged users -->
-                        {#if userPrivileges.canManage && member.user.id !== data.user?._id}
+                        {#if userPrivileges.canManage && member.user.id !== data.user?.id}
                           {@const memberActions = canManageMember(member)}
                           {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
                             <div class="dropdown dropdown-end">
@@ -851,7 +860,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">

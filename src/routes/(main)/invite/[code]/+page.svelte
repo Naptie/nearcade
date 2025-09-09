@@ -2,8 +2,9 @@
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
-  import { base } from '$app/paths';
-  import { getDisplayName, fromPath } from '$lib/utils';
+  import { resolve } from '$app/paths';
+  import { getDisplayName, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
 
   let { data }: { data: PageData } = $props();
 
@@ -32,7 +33,11 @@
         // Redirect after a delay
         setTimeout(() => {
           goto(
-            `${base}/${data.invite.type === 'university' ? 'universities' : 'clubs'}/${data.targetInfo.slug || data.targetInfo.id}`
+            data.invite.type === 'university'
+              ? resolve('/(main)/universities/[id]', {
+                  id: data.targetInfo.slug || data.targetInfo.id
+                })
+              : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })
           );
         }, 2000);
       } else {
@@ -73,7 +78,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.invite_link()} - {m.app_name()}</title>
+  <title>{pageTitle(m.invite_link())}</title>
 </svelte:head>
 
 <div class="bg-base-100 flex min-h-screen items-center justify-center p-4">
@@ -87,7 +92,7 @@
             <i
               class="fa-solid {data.invite.type === 'university'
                 ? 'fa-graduation-cap'
-                : 'fa-users-gear'} text-2xl"
+                : 'fa-users'} text-2xl"
             ></i>
           </div>
           <div>
@@ -107,8 +112,11 @@
         <!-- Target Info -->
         <div class="mb-6">
           <a
-            href="{base}/{data.invite.type === 'university' ? 'universities' : 'clubs'}/{data
-              .targetInfo.slug || data.targetInfo.id}"
+            href={data.invite.type === 'university'
+              ? resolve('/(main)/universities/[id]', {
+                  id: data.targetInfo.slug || data.targetInfo.id
+                })
+              : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })}
             target="_blank"
             class="group mb-4 flex items-center gap-4"
           >
@@ -124,7 +132,7 @@
                 <i
                   class="fa-solid {data.invite.type === 'university'
                     ? 'fa-graduation-cap'
-                    : 'fa-users-gear'} text-base-content/50 text-xl"
+                    : 'fa-users'} text-base-content/50 text-xl"
                 ></i>
               </div>
             {/if}

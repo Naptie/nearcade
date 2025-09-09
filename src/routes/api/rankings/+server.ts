@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 interface CacheMetadata {
   _id: string;

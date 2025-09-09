@@ -1,6 +1,6 @@
 import { PAGINATION } from '$lib/constants';
 import type { SortCriteria, RadiusFilter, UniversityRankingResponse } from '$lib/types';
-import { fromPath } from '$lib/utils';
+import { fromPath } from '$lib/utils/scoped';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, url }) => {

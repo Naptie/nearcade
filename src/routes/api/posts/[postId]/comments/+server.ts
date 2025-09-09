@@ -1,14 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import type { Post, Comment, University, Club } from '$lib/types';
-import { nanoid } from 'nanoid';
 import {
   checkUniversityPermission,
   checkClubPermission,
   canWriteUnivPosts,
-  canWriteClubPosts
+  canWriteClubPosts,
+  commentId
 } from '$lib/utils';
+import { notify } from '$lib/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -98,7 +99,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     // Create new comment
     const newComment: Comment = {
-      id: nanoid(),
+      id: commentId(),
       postId: postId,
       content: content.trim(),
       createdBy: session.user.id,
@@ -117,6 +118,51 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         $inc: { commentCount: 1 }
       }
     );
+
+    // Send notification to relevant users
+    try {
+      if (parentCommentId) {
+        // This is a reply - notify the parent comment author
+        const parentComment = await commentsCollection.findOne({ id: parentCommentId });
+        if (parentComment && parentComment.createdBy !== session.user.id) {
+          await notify({
+            type: 'REPLIES',
+            actorUserId: session.user.id,
+            actorName: session.user.name || '',
+            actorDisplayName: session.user.displayName || undefined,
+            actorImage: session.user.image || undefined,
+            targetUserId: parentComment.createdBy,
+            content: content.substring(0, 200), // Truncate long content
+            postId: post.id,
+            postTitle: post.title,
+            commentId: newComment.id,
+            universityId: post.universityId,
+            clubId: post.clubId
+          });
+        }
+      } else {
+        // This is a direct comment on a post - notify the post author
+        if (post.createdBy !== session.user.id) {
+          await notify({
+            type: 'COMMENTS',
+            actorUserId: session.user.id,
+            actorName: session.user.name || '',
+            actorDisplayName: session.user.displayName || undefined,
+            actorImage: session.user.image || undefined,
+            targetUserId: post.createdBy,
+            content: content.substring(0, 200), // Truncate long content
+            postId: post.id,
+            postTitle: post.title,
+            commentId: newComment.id,
+            universityId: post.universityId,
+            clubId: post.clubId
+          });
+        }
+      }
+    } catch (notificationError) {
+      // Don't fail the comment creation if notification fails
+      console.error('Failed to send comment notification:', notificationError);
+    }
 
     return json(
       {

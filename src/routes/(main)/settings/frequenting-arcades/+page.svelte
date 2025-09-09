@@ -4,7 +4,8 @@
   import { enhance } from '$app/forms';
   import type { Shop } from '$lib/types';
   import type { PageData } from './$types';
-  import { fromPath } from '$lib/utils';
+  import { pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
   import { onMount } from 'svelte';
 
   let { data }: { data: PageData } = $props();
@@ -70,10 +71,10 @@
 </script>
 
 <svelte:head>
-  <title>{m.frequenting_arcades()} - {m.app_name()}</title>
+  <title>{pageTitle(m.frequenting_arcades())}</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
+<div class="mx-auto px-4 py-8 sm:container">
   <div class="mb-6">
     <h1 class="mb-2 text-3xl font-bold">{m.frequenting_arcades()}</h1>
     <p class="text-base-content/70">

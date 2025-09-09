@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { browser } from '$app/environment';
   import type { PageData } from './$types';
   import InviteLinkModal from '$lib/components/InviteLinkModal.svelte';
@@ -12,15 +12,16 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { formatDate, fromPath } from '$lib/utils';
+  import { formatDate, pageTitle } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
+  import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
-    { id: 'members', label: m.members(), icon: 'fa-users' },
-    { id: 'announcements', label: m.announcements(), icon: 'fa-bullhorn' }
+    { id: 'members', label: m.members(), icon: 'fa-user' }
   ];
 
   // Initialize activeTab from URL hash or default to 'posts'
@@ -227,8 +228,7 @@
       });
 
       if (response.ok) {
-        // Refresh the page to update the arcade list
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
           message: string;
@@ -292,7 +292,7 @@
       });
 
       if (response.ok) {
-        window.location.reload();
+        invalidateAll();
       } else {
         const errorData = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
           message: string;
@@ -308,15 +308,7 @@
 
   // Check what actions current user can perform on a member
   const canManageMember = (member: ClubMemberWithUser) => {
-    if (!userPrivileges.canManage)
-      return {
-        remove: false,
-        grantModerator: false,
-        revokeModerator: false,
-        grantAdmin: false,
-        transferAdmin: false
-      };
-    if (!member.user || member.user.id === data.user?._id)
+    if (!userPrivileges.canManage || !member.user || member.user.id === data.user?.id)
       return {
         remove: false,
         grantModerator: false,
@@ -344,7 +336,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.club.name} - {m.app_name()}</title>
+  <title>{pageTitle(data.club.name)}</title>
   <meta
     name="description"
     content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
@@ -384,7 +376,9 @@
 
           {#if data.university}
             <a
-              href="{base}/universities/{data.university.slug || data.university.id}"
+              href={resolve('/(main)/universities/[id]', {
+                id: data.university.slug || data.university.id
+              })}
               class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
             >
               {data.university.name}
@@ -409,7 +403,7 @@
           <!-- Edit Club Button for privileged users -->
           {#if userPrivileges.canEdit}
             <a
-              href="{base}/clubs/{data.club.slug || data.club.id}/edit"
+              href={resolve('/(main)/clubs/[id]/edit', { id: data.club.slug || data.club.id })}
               class="btn btn-circle btn-lg btn-ghost"
               title="{m.edit()} {m.club()}"
               aria-label="{m.edit()} {m.club()}"
@@ -561,6 +555,8 @@
             organizationId={data.club.id}
             organizationName={data.club.name}
             organizationSlug={data.club.slug}
+            organizationReadability={data.club.postReadability}
+            canManage={userPrivileges.canManage}
             currentUserId={data.user?.id}
             canCreatePost={data.canWritePosts}
             initialPosts={[]}
@@ -621,7 +617,7 @@
                       </a>
                       <div class="flex gap-2">
                         <a
-                          href="{base}/discover?longitude={shop.location
+                          href="{resolve('/(main)/discover')}?longitude={shop.location
                             ?.coordinates[0]}&latitude={shop.location
                             ?.coordinates[1]}&name={shop.name}&radius={radius}"
                           target="_blank"
@@ -688,7 +684,7 @@
           <div class="space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-users"></i>
+                <i class="fa-solid fa-user"></i>
                 {m.members()}
               </h3>
               <div class="flex items-center gap-3">
@@ -714,7 +710,7 @@
                   {#each displayedMembers as member (member.userId)}
                     <div class="flex items-center justify-between gap-1 p-4">
                       <div class="overflow-hidden">
-                        <UserAvatar user={member.user} showName={true} size="md" />
+                        <UserAvatar user={member.user} showName size="md" />
                       </div>
 
                       <div class="flex items-center gap-1">
@@ -734,7 +730,7 @@
                         </div>
 
                         <!-- Actions for privileged users -->
-                        {#if userPrivileges.canManage && member.user?.id !== data.user?._id}
+                        {#if userPrivileges.canManage && member.user?.id !== data.user?.id}
                           {@const memberActions = canManageMember(member)}
                           {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
                             <div class="dropdown dropdown-end">
@@ -831,7 +827,7 @@
               {:else}
                 <div class="p-6">
                   <div class="py-8 text-center">
-                    <i class="fa-solid fa-users text-base-content/30 mb-4 text-5xl"></i>
+                    <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
                     <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
                     {#if userPrivileges.canManage}
                       <p class="text-base-content/60 mt-2 mb-4">
@@ -849,11 +845,6 @@
                 </div>
               {/if}
             </div>
-          </div>
-        {:else if activeTab === 'announcements'}
-          <div class="py-12 text-center">
-            <i class="fa-solid fa-bullhorn text-base-content/30 text-4xl"></i>
-            <p class="text-base-content/60 mt-4">{m.feature_in_development()}</p>
           </div>
         {/if}
       </div>
@@ -1001,7 +992,6 @@
   clubId={data.club.id}
   clubName={data.club.name}
   onSuccess={() => {
-    // Reload the page to update join request status
-    window.location.reload();
+    invalidateAll();
   }}
 />

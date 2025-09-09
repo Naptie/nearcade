@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import type { Club, ClubMember, UniversityMember } from '$lib/types';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { goto, invalidateAll } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { formatDate, getUserTypeLabel } from '$lib/utils';
+  import { formatDate, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { signOut } from '@auth/sveltekit/client';
   import type { PageData } from './$types';
 
@@ -27,10 +27,10 @@
 </script>
 
 <svelte:head>
-  <title>{m.account_settings()} - {m.app_name()}</title>
+  <title>{pageTitle(m.account_settings())}</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
+<div class="mx-auto px-4 py-8 sm:container">
   <div class="mb-6">
     <h1 class="mb-2 text-3xl font-bold">{m.account_settings()}</h1>
     <p class="text-base-content/70">
@@ -64,7 +64,7 @@
           <div>
             <h3 class="font-medium">@{profile.name}</h3>
             {#if profile.email && !profile.email.endsWith('.nearcade')}
-              <p class="text-base-content/60 text-sm">{profile.email}</p>
+              <p class="text-base-content/60 truncate text-sm">{profile.email}</p>
             {/if}
             <p class="text-base-content/50 text-xs">{getUserTypeLabel(profile.userType)}</p>
           </div>
@@ -72,15 +72,15 @@
 
         <!-- Account Details -->
         <div class="space-y-3">
-          <div class="flex justify-between">
+          <div class="ss:flex-row flex flex-col justify-between">
             <span class="text-base-content/70">{m.user_id()}</span>
             <span class="font-mono text-sm">{profile.id}</span>
           </div>
-          <div class="flex justify-between">
+          <div class="ss:flex-row flex flex-col justify-between">
             <span class="text-base-content/70">{m.account_created()}</span>
             <span>{formatDate(profile.joinedAt)}</span>
           </div>
-          <div class="flex justify-between">
+          <div class="ss:flex-row flex flex-col justify-between">
             <span class="text-base-content/70">{m.last_active()}</span>
             <span>{formatDate(profile.lastActiveAt)}</span>
           </div>
@@ -98,7 +98,7 @@
         {#each data.universities as university (university.id)}
           <div class="bg-base-100 flex items-center justify-between rounded-lg p-4">
             <a
-              href="{base}/universities/{university.slug || university.id}"
+              href={resolve('/(main)/universities/[id]', { id: university.slug || university.id })}
               class="group flex cursor-pointer items-center gap-3"
             >
               <div class="avatar {university.avatarUrl ? '' : 'avatar-placeholder'}">
@@ -121,11 +121,12 @@
               </div>
             </a>
             <button
-              class="btn btn-outline btn-error btn-sm"
+              class="btn btn-soft btn-error btn-sm"
               onclick={() => confirmLeaveUniversity(university.id)}
+              aria-label={m.leave_university()}
             >
               <i class="fa-solid fa-sign-out-alt"></i>
-              {m.leave_university()}
+              <span class="not-ss:hidden">{m.leave_university()}</span>
             </button>
           </div>
         {/each}
@@ -134,7 +135,7 @@
       <div class="text-base-content/60 py-8 text-center">
         <i class="fa-solid fa-graduation-cap mb-2 text-2xl"></i>
         <p>{m.not_associated_with_university()}</p>
-        <a href="{base}/universities" class="btn btn-primary btn-sm mt-2">
+        <a href={resolve('/(main)/universities')} class="btn btn-primary btn-sm mt-2">
           <i class="fa-solid fa-search"></i>
           {m.find_university()}
         </a>
@@ -166,13 +167,18 @@
               </div>
               <div>
                 <h3 class="font-medium">
-                  <a href="{base}/clubs/{club.id}" class="hover:text-accent transition-colors">
+                  <a
+                    href={resolve('/(main)/clubs/[id]', { id: club.id })}
+                    class="hover:text-accent transition-colors"
+                  >
                     {club.name}
                   </a>
                 </h3>
                 {#if club.university}
                   <a
-                    href="{base}/universities/{club.university.slug || club.university.id}"
+                    href={resolve('/(main)/universities/[id]', {
+                      id: club.university.slug || club.university.id
+                    })}
                     class="hover:text-accent text-base-content/60 text-sm transition-colors"
                     >{club.university.name}</a
                   >
@@ -180,20 +186,21 @@
               </div>
             </div>
             <button
-              class="btn btn-outline btn-error btn-sm"
+              class="btn btn-soft btn-error btn-sm"
               onclick={() => confirmLeaveClub(club.id)}
+              aria-label={m.leave_club()}
             >
               <i class="fa-solid fa-sign-out-alt"></i>
-              {m.leave_club()}
+              <span class="not-ss:hidden">{m.leave_club()}</span>
             </button>
           </div>
         {/each}
       </div>
     {:else}
       <div class="text-base-content/60 py-8 text-center">
-        <i class="fa-solid fa-users-gear mb-2 text-2xl"></i>
+        <i class="fa-solid fa-users mb-2 text-2xl"></i>
         <p>{m.not_member_of_any_clubs()}</p>
-        <a href="{base}/clubs" class="btn btn-primary btn-sm mt-2">
+        <a href={resolve('/(main)/clubs')} class="btn btn-primary btn-sm mt-2">
           <i class="fa-solid fa-search"></i>
           {m.find_clubs()}
         </a>
@@ -280,7 +287,7 @@
           leavingClubId = '';
           return async ({ result }) => {
             if (result.type === 'success') {
-              goto('/settings/account');
+              invalidateAll();
             }
           };
         }}
@@ -314,7 +321,7 @@
           showDeleteConfirm = false;
           return async ({ result }) => {
             if (result.type === 'success') {
-              await signOut({ redirectTo: `${base}/` });
+              await signOut({ redirectTo: resolve('/') });
             }
           };
         }}

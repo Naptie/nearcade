@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {

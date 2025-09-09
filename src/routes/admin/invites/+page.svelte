@@ -3,10 +3,10 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve, base } from '$app/paths';
   import type { PageData } from './$types';
   import type { InviteLink } from '$lib/types';
-  import { formatDateTime, getDisplayName } from '$lib/utils';
+  import { formatDateTime, getDisplayName, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -84,7 +84,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_invites()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{pageTitle(m.admin_invites(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">
@@ -186,10 +186,10 @@
                     {#if invite.club}
                       <div class="flex items-center gap-2">
                         <span class="not-xl:hidden">
-                          <i class="fa-solid fa-users-gear text-primary"></i>
+                          <i class="fa-solid fa-users text-primary"></i>
                         </span>
                         <a
-                          href="{base}/clubs/{invite.club.id}"
+                          href={resolve('/(main)/clubs/[id]', { id: invite.club.id })}
                           target="_blank"
                           class="hover:text-accent line-clamp-2 font-medium transition-colors"
                         >
@@ -202,7 +202,7 @@
                           <i class="fa-solid fa-graduation-cap text-primary"></i>
                         </span>
                         <a
-                          href="{base}/universities/{invite.university.id}"
+                          href={resolve('/(main)/universities/[id]', { id: invite.university.id })}
                           target="_blank"
                           class="hover:text-accent line-clamp-2 font-medium transition-colors"
                         >
@@ -216,7 +216,7 @@
                 </td>
                 <td class="max-w-[10vw] truncate not-sm:hidden">
                   <a
-                    href="{base}/users/{invite.creator?.id}"
+                    href={resolve('/(main)/users/[id]', { id: invite.creator?.id || '' })}
                     target="_blank"
                     class="hover:text-accent text-sm transition-colors"
                     title={getDisplayName(invite.creator)}

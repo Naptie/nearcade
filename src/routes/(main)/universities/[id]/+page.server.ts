@@ -9,9 +9,9 @@ import {
   updateUserType
 } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-import { logCampusChanges } from '$lib/changelog.server';
+import { logCampusChanges } from '$lib/utils/changelog.server';
 import { nanoid } from 'nanoid';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -46,6 +46,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       canManage: boolean;
       canJoin: 0 | 1 | 2;
       role?: string;
+      verificationEmail?: string;
+      verifiedAt?: Date;
     } = {
       canEdit: false,
       canManage: false,
@@ -148,7 +150,7 @@ export const actions: Actions = {
       };
 
       await universitiesCollection.updateOne({ id: universityId }, {
-        $push: { campuses: newCampus }
+        $addToSet: { campuses: newCampus }
       } as object);
 
       // Log campus addition to changelog
@@ -303,7 +305,13 @@ export const actions: Actions = {
       await universitiesCollection.updateOne({ id: universityId }, {
         $pull: { campuses: { id: campusId } }
       } as object);
+      const updateResult = await universitiesCollection.updateOne({ id: universityId }, {
+        $pull: { campuses: { id: campusId } }
+      } as object);
 
+      if (updateResult.modifiedCount === 0) {
+        return fail(404, { message: 'Campus not found or already deleted' });
+      }
       // Log campus deletion to changelog
       await logCampusChanges(client, universityId, 'campus_deleted', campusToDelete, {
         id: user.id!,

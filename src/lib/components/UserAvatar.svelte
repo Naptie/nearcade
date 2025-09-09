@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName } from '$lib/utils';
 
@@ -11,14 +11,18 @@
       lastActiveAt?: Date | string | null;
     };
     showName?: boolean;
+    indicator?: string;
+    align?: 'left' | 'right';
     size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-    target?: '_blank' | '_self';
+    target?: '_blank' | '_self' | null;
     class?: string;
   }
 
   let {
     user,
     showName = false,
+    indicator,
+    align = 'left',
     size = 'md',
     target = '_self',
     class: className = ''
@@ -39,6 +43,14 @@
     md: 'gap-3',
     lg: 'gap-4',
     xl: 'gap-5'
+  };
+
+  const indicatorSizeClasses = {
+    xs: 'h-2 w-2 -right-0.5 -top-0.5',
+    sm: 'h-2.5 w-2.5 -right-0.25 -top-0.25',
+    md: 'h-3 w-3 right-0 top-0',
+    lg: 'h-4 w-4 right-0.5 top-0.5',
+    xl: 'w-4 h-4 sm:w-6 sm:h-6 right-1 top-1'
   };
 
   const statusSizeClasses = {
@@ -66,46 +78,58 @@
   };
 </script>
 
-<a
-  href="{base}/users/@{user.name}"
-  {target}
-  class="group flex items-center {gapClasses[size]} {className}"
-  class:w-full={showName}
->
-  <!-- Avatar -->
-  <div class="relative shrink-0">
-    <div class="avatar {user.image ? '' : 'placeholder'}">
-      <div
-        class="rounded-full {avatarSizeClasses[size]} {user.image
-          ? ''
-          : 'bg-neutral text-neutral-content'}"
-      >
-        {#if user.image}
-          <img src={user.image} alt="{getDisplayName(user)} {m.avatar()}" />
-        {:else}
-          <span class={textSizeClasses[size]}>
-            {getInitials(user)}
-          </span>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Online indicator -->
-    {#if user.lastActiveAt}
-      {@const isOnline = Date.now() - new Date(user.lastActiveAt).getTime() < 2 * 60 * 1000}
-      {#if isOnline}
+{#snippet content()}
+  {#snippet avatar()}
+    <!-- Avatar -->
+    <div class="relative shrink-0">
+      <div class="avatar {user.image ? '' : 'placeholder'}">
         <div
-          class="border-base-200 absolute rounded-full border-2 bg-green-500 {statusSizeClasses[
+          class="rounded-full {avatarSizeClasses[size]} {user.image
+            ? ''
+            : 'bg-neutral text-neutral-content'}"
+        >
+          {#if user.image}
+            <img src={user.image} alt="{getDisplayName(user)} {m.avatar()}" />
+          {:else}
+            <span class={textSizeClasses[size]}>
+              {getInitials(user)}
+            </span>
+          {/if}
+        </div>
+      </div>
+
+      {#if indicator}
+        <div
+          class="border-base-200 absolute rounded-full border-2 {indicator} {indicatorSizeClasses[
             size
           ]}"
         ></div>
       {/if}
-    {/if}
-  </div>
+
+      <!-- Online indicator -->
+      {#if user.lastActiveAt}
+        {@const isOnline = Date.now() - new Date(user.lastActiveAt).getTime() < 2 * 60 * 1000}
+        {#if isOnline}
+          <div
+            class="border-base-200 absolute rounded-full border-2 bg-green-500 {statusSizeClasses[
+              size
+            ]}"
+          ></div>
+        {/if}
+      {/if}
+    </div>
+  {/snippet}
+
+  {#if align === 'left'}
+    {@render avatar()}
+  {/if}
 
   <!-- Name (if showName is true) -->
   {#if showName}
-    <div class="group-hover:text-accent min-w-0 flex-1 transition-colors">
+    <div
+      class="group-hover:text-accent min-w-0 flex-1 transition-colors"
+      class:text-right={align === 'right'}
+    >
       {#if user.displayName}
         <div class="truncate font-medium">
           {user.displayName}
@@ -126,4 +150,23 @@
       {/if}
     </div>
   {/if}
-</a>
+
+  {#if align === 'right'}
+    {@render avatar()}
+  {/if}
+{/snippet}
+
+{#if target !== null}
+  <a
+    href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
+    {target}
+    class="group flex items-center {gapClasses[size]} {className}"
+    class:w-full={showName}
+  >
+    {@render content()}
+  </a>
+{:else}
+  <div class="group flex items-center {gapClasses[size]} {className}" class:w-full={showName}>
+    {@render content()}
+  </div>
+{/if}

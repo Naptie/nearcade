@@ -1,29 +1,30 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
+  import { pageTitle } from '$lib/utils';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 
   const navigationItems = [
     {
-      href: `${base}/settings`,
+      href: resolve('/(main)/settings'),
       label: m.personal_settings(),
       icon: 'fa-user',
       exact: true
     },
     {
-      href: `${base}/settings/frequenting-arcades`,
+      href: resolve('/(main)/settings/frequenting-arcades'),
       label: m.frequenting_arcades(),
       icon: 'fa-clock'
     },
     {
-      href: `${base}/settings/starred-arcades`,
+      href: resolve('/(main)/settings/starred-arcades'),
       label: m.starred_arcades(),
       icon: 'fa-star'
     },
     {
-      href: `${base}/settings/account`,
+      href: resolve('/(main)/settings/account'),
       label: m.account_settings(),
       icon: 'fa-cog'
     }
@@ -38,7 +39,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.settings()} - {m.app_name()}</title>
+  <title>{pageTitle(m.settings())}</title>
 </svelte:head>
 
 <div class="pt-12">
@@ -47,7 +48,7 @@
       <!-- Sidebar Navigation -->
       <div class="lg:col-span-3">
         <div class="sticky top-4">
-          <div class="bg-base-200 rounded-lg p-4">
+          <div class="bg-base-200 rounded-xl p-4">
             <h2 class="mb-4 text-lg font-semibold">{m.settings()}</h2>
             <nav class="space-y-1">
               {#each navigationItems as item (item.href)}
@@ -69,7 +70,7 @@
 
       <!-- Main Content -->
       <div class="mt-8 lg:col-span-9 lg:mt-0">
-        <div class="bg-base-200 rounded-lg p-6">
+        <div class="bg-base-200 rounded-xl p-6">
           {@render children()}
         </div>
       </div>

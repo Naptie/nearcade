@@ -4,10 +4,10 @@
   import type { PageData } from './$types';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
-  import { formatDateTime } from '$lib/utils';
+  import { formatDateTime, pageTitle } from '$lib/utils';
   import { onMount } from 'svelte';
   import { invalidateAll } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
 
   let { data }: { data: PageData } = $props();
 
@@ -54,20 +54,22 @@
 
 <svelte:head>
   <title
-    >{data.userPermissions.canJoin === 2 ? m.verify_and_join() : m.verify()} - {data.university
-      .name} - {m.app_name()}</title
+    >{pageTitle(
+      data.userPermissions.canJoin === 2 ? m.verify_and_join() : m.verify(),
+      data.university.name
+    )}</title
   >
 </svelte:head>
 
 <NavigationBar />
 
 <div
-  class="container mx-auto flex min-h-screen flex-col items-center justify-center gap-6 py-20 sm:px-4"
+  class="mx-auto flex min-h-screen flex-col items-center justify-center gap-6 py-20 sm:container sm:px-4"
 >
   <div class="flex flex-col items-center gap-2 text-center">
     <h1 class="text-4xl font-bold">
       {@html m.verify_title({
-        university: `<a href="${base}/universities/${data.university.slug || data.university.id}" class="hover:text-accent transition-colors">${data.university.name}</a>`
+        university: `<a href="${resolve('/(main)/universities/[id]', { id: data.university.slug || data.university.id })}" class="hover:text-accent transition-colors">${data.university.name}</a>`
       })}
     </h1>
     {#if !data.verificationEmail}
@@ -175,8 +177,10 @@
         </div>
       {/if}
     </div>
-    {#if !data.verificationEmail}
-      <div class="flex items-center text-sm">
+    <div class="flex items-center text-sm">
+      {#if data.verificationEmail}
+        <span class="label">{m.verified_at()}: {formatDateTime(data.verifiedAt)}</span>
+      {:else}
         <span class="label">{m.expires()}: {formatDateTime(data.expires)}</span>
         <div class="divider divider-horizontal"></div>
         <div
@@ -201,8 +205,8 @@
             {/if}
           </span>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
   </div>
   <Footer />
 </div>

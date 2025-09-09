@@ -2,12 +2,12 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
-  import { base } from '$app/paths';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
   import type { JoinRequestWithUser } from '$lib/types';
-  import { formatDateTime } from '$lib/utils';
+  import { formatDateTime, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -72,7 +72,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.join_requests()} - {m.admin_panel()} - {m.app_name()}</title>
+  <title>{pageTitle(m.join_requests(), m.admin_panel())}</title>
 </svelte:head>
 
 <div class="min-w-3xs space-y-6">
@@ -144,7 +144,7 @@
               <tr class="hover">
                 <td class="max-w-[10vw]">
                   <div class="flex items-center gap-3">
-                    <UserAvatar user={request.user} target="_blank" showName={true} size="sm" />
+                    <UserAvatar user={request.user} target="_blank" showName size="sm" />
                   </div>
                 </td>
                 <td class="max-w-[10vw]">
@@ -156,13 +156,17 @@
                         </span>
                       {:else}
                         <span class="not-xl:hidden">
-                          <i class="fa-solid fa-users-gear text-primary"></i>
+                          <i class="fa-solid fa-users text-primary"></i>
                         </span>
                       {/if}
                       <a
-                        href="{base}/{request.type === 'university'
-                          ? 'universities'
-                          : 'clubs'}/{request.target.slug || request.target.id}"
+                        href={request.type === 'university'
+                          ? resolve('/(main)/universities/[id]', {
+                              id: (request.target.slug || request.target.id) as string
+                            })
+                          : resolve('/(main)/clubs/[id]', {
+                              id: (request.target.slug || request.target.id) as string
+                            })}
                         target="_blank"
                         class="hover:text-accent line-clamp-3 font-medium transition-colors"
                       >
@@ -206,7 +210,7 @@
                 </td>
                 <td class="max-w-[10vw] not-sm:hidden">
                   {#if request.reviewer}
-                    <UserAvatar user={request.reviewer} showName={true} size="xs" />
+                    <UserAvatar user={request.reviewer} showName size="xs" />
                   {:else}
                     <span class="text-base-content/40 text-sm italic">{m.none()}</span>
                   {/if}
@@ -295,7 +299,15 @@
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-3">
             <span class="font-medium">{m.admin_user_header()}</span>
-            <UserAvatar user={selectedRequest.user} target="_blank" showName={true} size="sm" />
+            <div>
+              <UserAvatar
+                user={selectedRequest.user}
+                target="_blank"
+                showName
+                align="right"
+                size="sm"
+              />
+            </div>
           </div>
           <div class="flex items-center justify-between gap-3">
             <span class="font-medium">{m.admin_target_header()}</span>
@@ -304,7 +316,7 @@
           {#if selectedRequest.requestMessage}
             <div class="flex items-center justify-between gap-3">
               <span class="font-medium">{m.admin_message_header()}</span>
-              <div class="bg-base-200 mt-1 rounded-md p-3 text-sm">
+              <div class="bg-base-200 mt-1 rounded-lg p-3 text-sm">
                 {selectedRequest.requestMessage}
               </div>
             </div>
@@ -320,7 +332,7 @@
               isSubmitting = false;
               if (result.type === 'success') {
                 closeReviewModal();
-                window.location.reload();
+                invalidateAll();
               }
             };
           }}
@@ -351,7 +363,7 @@
               disabled={isSubmitting}
             >
               {#if isSubmitting}
-                <span class="loading-spinner"></span>
+                <span class="loading loading-spinner loading-sm"></span>
               {:else}
                 {reviewAction === 'approve' ? m.approve() : m.reject()}
               {/if}

@@ -1,4 +1,4 @@
-import { loginRedirect } from '$lib/utils';
+import { loginRedirect } from '$lib/utils/scoped';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals, url }) => {

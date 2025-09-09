@@ -1,9 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
-import { checkUniversityPermission, loginRedirect } from '$lib/utils';
-import { base } from '$app/paths';
-import client from '$lib/db.server';
+import { checkUniversityPermission } from '$lib/utils';
+import { loginRedirect } from '$lib/utils/scoped';
+import { resolve } from '$app/paths';
+import client from '$lib/db/index.server';
 import { AUTH_SECRET, REDIS_URI } from '$env/static/private';
 import { createHmac } from 'crypto';
 import { createClient } from 'redis';
@@ -44,14 +45,14 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     // Check permissions for the current user
-    const { verificationEmail, ...userPermissions } = await checkUniversityPermission(
+    const { verificationEmail, verifiedAt, ...userPermissions } = await checkUniversityPermission(
       user,
       university,
       client
     );
 
     if (!userPermissions.canJoin) {
-      redirect(302, `${base}/universities/${university.slug || university.id}`);
+      redirect(302, resolve('/(main)/universities/[id]', { id: university.slug || university.id }));
     }
 
     const today = new Date();
@@ -83,7 +84,8 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       hmac,
       expires,
       status,
-      verificationEmail
+      verificationEmail,
+      verifiedAt
     };
   } catch (err) {
     console.error('Error loading university:', err);

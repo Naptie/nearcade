@@ -2,27 +2,35 @@
 
 **中文** | [English](README_en.md)
 
-一个帮你快速查找任意位置附近的机厅的网站。
+一个帮助玩家寻找机厅并与社群建立联系的网站。在这里，不仅可以找到距您最近的机厅，还可以加入高校社团、参与社区讨论。
 
-有关网站的问题答疑、数据纠正、功能建议等请加入以下 QQ 群进行讨论。
+有关网站的问题答疑、数据纠正、功能建议等请加入 QQ 群进行交流。
 
-<img src="static/group-chat-qq.jpg" alt="nearcade QQ群二维码" width="350"/>
+<img src="static/group-chat-qq.jpg" alt="nearcade QQ 交流群二维码" width="350"/>
 
-## ✨ 功能特色
+## ✨ 功能特性
 
-### 🎯 附近探索
+### 🎯 基于位置的发现
 
-- **我的位置**：基于当前位置查找附近的机厅
-- **高校搜索**：搜索特定高校校园附近的机厅
-- **地图选址**：在交互式地图上选择任意位置
-- **自定义半径**：在 1~30 km 半径内搜索
+- **我的位置**: 使用 GPS 查找您当前位置附近的街机厅。
+- **高校搜索**: 搜索特定高校和校区附近的街机厅。
+- **地图选点**: 在交互式地图上选择任意位置。
+- **自定义半径**: 在 1 至 30 公里的半径内进行搜索。
 
-### 🏆 高校排行榜
+### 🏆 校园排行
 
-- 根据校园周围的机厅/机台覆盖情况对高校进行排名
-- 指标包括店铺数量、总机台数和区域密度（每平方公里机台数）
-- 特定游戏机台数量的专项排名
-- 每日数据更新，24 小时缓存刷新
+- 按街机密度和机台可用性对高校进行排名。
+- 指标包括店铺数量、总机台数和区域密度。
+- 提供流行游戏的专项排名。
+- 数据每日更新，并有 24 小时缓存刷新机制。
+
+### 💬 社区与社交
+
+- **用户账户**: 支持使用 QQ、Phira、osu!、GitHub、Discord 或微软账户注册。
+- **用户资料**: 公开的个人主页，包含动态、隐私设置等。
+- **高校社团**: 创建和加入高校社团，参与社团内部的讨论。
+- **社区帖子**: 在支持 Markdown 与 LaTeX 的论坛中分享动态、提出问题和评论。
+- **通知系统**: 获取关于新评论、回复和社团活动的通知。
 
 ### 🎮 支持的游戏
 
@@ -36,158 +44,184 @@
 
 ### 前端框架
 
-- **SvelteKit**：具有 SSR/SPA 功能的全栈框架
-- **Svelte 5**：具有增强响应式系统的最新版本
-- **TypeScript**：提供全程类型安全的开发体验
+- **SvelteKit**: 全栈框架，支持 SSR/SPA。
+- **Svelte 5**: 最新版本，拥有增强的响应式系统。
+- **TypeScript**: 全程提供类型安全。
 
-### 样式和 UI
+### 样式与界面
 
-- **Tailwind CSS 4.0**：实用程序优先的 CSS 框架
-- **daisyUI**：Tailwind 的语义化组件类
-- **Font Awesome**：庞大而全面的图标库
+- **Tailwind CSS 4.0**: 工具优先的 CSS 框架。
+- **daisyUI**: 用于 Tailwind 的语义化组件库。
+- **Font Awesome**: 全面的图标库。
 
-### 后端和数据库
+### 后端与数据库
 
-- **MongoDB**：用于存储机厅和高校数据的非 SQL 数据库
-- **服务端 API**：使用 SvelteKit 构建的 RESTful API 端点
+- **MongoDB**: 应用主数据库。
+- **Auth.js (SvelteKitAuth)**: 处理用户认证和会话。
+- **服务端 API**: 基于 SvelteKit 构建的 RESTful 端点。
 
-### 地图和位置服务
+### 地图与定位服务
 
-- **高德地图和腾讯地图**：地图服务集成
-- **地理位置 API**：基于浏览器的位置检测
+- **高德地图 & 腾讯地图**: 地图服务集成。
+- **Geolocation API**: 基于浏览器的定位检测。
 
 ### 国际化
 
-- **Paraglide.js**：类型安全的国际化（i18n）解决方案
-- **基于消息的翻译**：结构化翻译系统
+- **Paraglide.js**: 类型安全的 i18n 解决方案。
+- **基于消息的翻译**: 结构化的翻译体系。
 
 ### 开发工具
 
-- **Vite**：快速构建工具和开发服务器
-- **ESLint**：带有 Svelte 特定规则的代码检查
-- **Prettier**：带插件支持的代码格式化
-- **pnpm**：快速且节省磁盘空间的包管理器
+- **Vite**: 高性能的构建工具和开发服务器。
+- **ESLint**: Svelte 特定的代码检查规则。
+- **Prettier**: 支持插件的代码格式化工具。
+- **pnpm**: 快速、高效的包管理器。
 
-## 🚀 本地构建
+## 🚀 开始使用
 
-### 前置要求
+### 环境要求
 
 - Node.js 18+
-- pnpm（推荐）或 npm
+- pnpm (推荐) 或 npm
 - MongoDB 实例
-- 高德地图 JS API key 与 secret
-- 腾讯地图 API key
-- Sentry
+- 高德地图 JS API 密钥和秘密
+- 腾讯地图 API 密钥
+- Sentry DSN (可选)
+- OAuth 提供商的凭据 (包括 GitHub, Microsoft Entra ID, Discord, osu!, Phira, QQ)
 
-### 安装
+### 安装步骤
 
-1. **克隆仓库：**
+1.  **克隆仓库:**
 
-   ```bash
-   git clone https://github.com/Naptie/nearcade.git
-   cd nearcade
-   ```
+    ```bash
+    git clone https://github.com/Naptie/nearcade.git
+    cd nearcade
+    ```
 
-2. **安装依赖：**
+2.  **安装依赖:**
 
-   ```bash
-   pnpm install
-   ```
+    ```bash
+    pnpm install
+    ```
 
-3. **设置环境变量：**
+3.  **设置环境变量:**
 
-   在根目录创建 `.env` 文件：
+    在项目根目录创建一个 `.env` 文件。
 
-   ```env
-   PUBLIC_AMAP_KEY = "your_key"
-   PUBLIC_QQMAP_KEY = "your_key"
-   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
+    **核心配置:**
 
-   AMAP_SECRET = "your_secret"
-   MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
-   ```
+    ```env
+    # 地图服务
+    PUBLIC_AMAP_KEY="your_amap_key"
+    PUBLIC_QQMAP_KEY="your_qqmap_key"
+    AMAP_SECRET="your_amap_secret"
 
-   此外，如果需要生成静态构建，请设置环境变量 `PUBLIC_API_BASE`（并删除所有 `+page.server.ts` 文件）；如果需要发布 Sentry release 或上传 source maps 至 Sentry，请设置环境变量 `SENTRY_AUTH_TOKEN`。
+    # 服务器间通讯密钥 (生成一个随机字符串)
+    SSC_SECRET="your_ssc_secret"
 
-4. **启动开发服务器：**
+    # 数据库
+    MONGODB_URI="mongodb://localhost:27017/?dbName=nearcade"
 
-   ```bash
-   pnpm dev
-   ```
+    # Auth 密钥 (生成一个随机字符串)
+    AUTH_SECRET="your_random_auth_secret"
+    ```
 
-5. **打开浏览器：**
-   导航到 `http://localhost:5173`
+    **认证提供商:**
 
-### 生产构建
+    ```env
+    # GitHub
+    AUTH_GITHUB_ID="your_github_oauth_id"
+    AUTH_GITHUB_SECRET="your_github_oauth_secret"
+
+    # Microsoft
+    AUTH_MICROSOFT_ENTRA_ID_ID = "your_microsoft_entra_id_id"
+    AUTH_MICROSOFT_ENTRA_ID_SECRET = "your_microsoft_entra_id_secret"
+    AUTH_MICROSOFT_ENTRA_ID_ISSUER = "your_microsoft_entra_id_issuer"
+
+    # Discord
+    AUTH_DISCORD_ID="your_discord_oauth_id"
+    AUTH_DISCORD_SECRET="your_discord_oauth_secret"
+
+    # osu!
+    AUTH_OSU_ID = "your_osu_oauth_id"
+    AUTH_OSU_SECRET = "your_osu_oauth_secret"
+
+    # Phira
+    AUTH_PHIRA_ID = "your_phira_oauth_id"
+    AUTH_PHIRA_SECRET = "your_phira_oauth_secret"
+
+    # QQ
+    AUTH_QQ_ID="your_qq_oauth_id"
+    AUTH_QQ_SECRET="your_qq_oauth_secret"
+    AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # 可选的重定向代理
+    ```
+
+    **IMAP 与 Redis 配置 (用于在校生资格验证):**
+
+    ```env
+    IMAP_HOST = "imap.example.com"
+    IMAP_PORT = "993"
+    IMAP_USER = "your_imap_user@example.com"
+    IMAP_PASSWORD = "your_imap_password"
+    REDIS_URI = "redis://username:password@127.0.0.1:6379"
+    ```
+
+    **Firebase Cloud Messaging 配置:**
+
+    ```env
+    # 以下变量二选一
+
+    # Google 服务账号 JSON (使用 Base64 编码)
+    GSAK_BASE64="your_base64_content"
+
+    # Firebase Cloud Messaging 代理
+    FCM_PROXY="https://example.com/api/notifications/fcm/send"
+    ```
+
+    其中，有关 Firebase Cloud Messaging 代理，请参考[该终结点](src/routes/api/notifications/fcm/send/+server.ts)。
+
+4.  **启动开发服务器:**
+
+    ```bash
+    pnpm dev
+    ```
+
+5.  **打开浏览器:**
+    访问 `http://localhost:5173`
+
+### 构建生产版本
 
 ```bash
-# 构建应用
+# 构建 Web 应用
 pnpm build
 
-# 预览生产构建
+# 预览生产版本
 pnpm preview
-```
-
-### 部署到 Cloudflare Workers
-
-```bash
-ADAPTER=cloudflare pnpm cf-deploy
 ```
 
 ## 🚢 使用 Docker 运行
 
-### 前置要求
+### 环境要求
 
-- **Docker** 已安装在您的机器上（按照[安装指南](https://docs.docker.com/get-docker/)）。
-- **Docker Compose**（用于多容器设置，如果需要）。
+- 已安装 **Docker** 和 **Docker Compose**。
 
-### 分步指南
+### 操作指南
 
-1. **克隆仓库：**
+1.  **克隆仓库并进入项目目录。**
 
-   ```bash
-   git clone https://github.com/Naptie/nearcade.git
-   cd nearcade
-   ```
+2.  **设置环境变量:**
+    按照“开始使用”部分的说明创建 `.env` 文件。
 
-2. **构建 Docker 镜像：**
+3.  **构建并启动服务:**
 
-   确保 `Dockerfile` 和 `docker-compose.yml` 都在项目的根目录中。
+    ```bash
+    docker-compose up --build
+    ```
 
-   ```bash
-   docker-compose build
-   ```
-
-3. **设置环境变量：**
-
-   确保您已设置所需的环境变量。您可以在项目根目录创建 `.env` 文件，内容如下：
-
-   ```env
-   PUBLIC_AMAP_KEY = "your_key"
-   PUBLIC_QQMAP_KEY = "your_key"
-   PUBLIC_SENTRY_DSN = "https://example.ingest.de.sentry.io/"
-
-   AMAP_SECRET = "your_secret"
-   MONGODB_URI = "mongodb://localhost:27017/?dbName=nearcade"
-   ```
-
-   **注意：** 如果您使用 Docker Compose 同时运行应用和 MongoDB，您可能需要修改 `MONGODB_URI` 以指向 MongoDB 容器而不是 `localhost`。
-
-4. **使用 Docker Compose 启动应用：**
-
-   ```bash
-   docker-compose up
-   ```
-
-   这将启动应用程序和您在 `docker-compose.yml` 文件中定义的任何依赖项，如 MongoDB。
-
-5. **访问应用：**
-
-   容器启动运行后，在浏览器中导航到 `http://localhost:3000` 查看应用。
+4.  **访问应用:**
+    容器启动后，在浏览器中访问 `http://localhost:3000`。
 
 ### 停止 Docker 容器
-
-要停止 Docker 容器，运行：
 
 ```bash
 docker-compose down
@@ -195,24 +229,24 @@ docker-compose down
 
 ---
 
-## 🤝 贡献
+## 🤝 参与贡献
 
-我们欢迎贡献！请随时提交 issue 和 pull request。
+我们欢迎各种形式的贡献！欢迎提交 issues 和 pull requests。
 
-### 开发指南
+### 开发准则
 
-- 遵循 TypeScript 最佳实践
-- 使用 Prettier 进行代码格式化
-- 编写有意义的提交消息
-- 彻底测试您的更改
+- 遵循 TypeScript 最佳实践。
+- 使用 Prettier 进行代码格式化。
+- 编写有意义的提交信息。
+- 充分测试您的更改。
 
 ## ⭐ 星标历史
 
 [![Stargazers over time](https://starchart.cc/Naptie/nearcade.svg?variant=adaptive)](https://starchart.cc/Naptie/nearcade)
 
-## 📄 许可证
+## 📄 开源许可
 
-本开源项目遵循 [Mozilla 公共许可证 2.0](LICENSE)。
+本项目基于 [Mozilla Public License 2.0](LICENSE) 开源。
 
 ## 🙏 致谢
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import type { InviteLink } from '$lib/types';
-  import { fromPath } from '$lib/utils';
+  import { fromPath } from '$lib/utils/scoped';
 
   let { isOpen = $bindable(false), type = 'university', targetId = '', targetName = '' } = $props();
 

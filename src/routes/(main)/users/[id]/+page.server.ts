@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
 import type { University, UniversityMember, Shop } from '$lib/types';
-import client from '$lib/db.server';
+import client from '$lib/db/index.server';
 import { toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -26,11 +26,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       error(404, 'User not found');
     }
 
-    // Check if viewing own profile
-    const isOwnProfile = session?.user?._id === user.id;
+    const canViewAll = session?.user?.id === user.id || session?.user?.userType === 'site_admin';
 
-    // Get university info if user belongs to one
-    let university: University | null = null;
+    // Get university info if user belongs to one, using aggregation for efficiency
+    let universityMembership: {
+      verifiedAt?: Date;
+      joinedAt: Date;
+      university: Pick<University, 'id' | 'slug' | 'name'>;
+    } | null = null;
     const universityMembersCollection = db.collection<UniversityMember>('university_members');
     const universityMembershipCount = await universityMembersCollection.countDocuments({
       userId: user.id
@@ -39,22 +42,42 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       userId: user.id
     });
 
-    if (isOwnProfile || user.isUniversityPublic) {
-      const membership = await universityMembersCollection.findOne(
+    if (canViewAll || user.isUniversityPublic) {
+      const pipeline = [
+        { $match: { userId: user.id } },
+        { $sort: { joinedAt: -1 } },
+        { $limit: 1 },
         {
-          userId: user.id
+          $lookup: {
+            from: 'universities',
+            localField: 'universityId',
+            foreignField: 'id',
+            as: 'university'
+          }
         },
-        { sort: { joinedAt: -1 } }
-      );
+        { $unwind: '$university' },
+        {
+          $project: {
+            verifiedAt: 1,
+            joinedAt: 1,
+            'university.id': 1,
+            'university.slug': 1,
+            'university.name': 1
+          }
+        }
+      ];
 
-      if (membership) {
-        const universitiesCollection = db.collection<University>('universities');
-        university = await universitiesCollection.findOne(
-          {
-            id: membership?.universityId
-          },
-          { projection: { _id: 0 } }
-        );
+      const result = await universityMembersCollection.aggregate(pipeline).toArray();
+      if (result.length > 0 && result[0].university) {
+        universityMembership = {
+          verifiedAt: result[0].verifiedAt,
+          joinedAt: result[0].joinedAt,
+          university: {
+            id: result[0].university.id,
+            slug: result[0].university.slug,
+            name: result[0].university.name
+          }
+        };
       }
     }
 
@@ -62,7 +85,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     let frequentingArcades: Shop[] = [];
     let starredArcades: Shop[] = [];
 
-    if (isOwnProfile || user.isFrequentingArcadePublic) {
+    if (canViewAll || user.isFrequentingArcadePublic !== false) {
       const frequentingArcadeIds = user.frequentingArcades || [];
       if (frequentingArcadeIds.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
@@ -72,7 +95,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       }
     }
 
-    if (isOwnProfile || user.isStarredArcadePublic) {
+    if (canViewAll || user.isStarredArcadePublic !== false) {
       const starredArcadeIds = user.starredArcades || [];
       if (starredArcadeIds.length > 0) {
         const shopsCollection = db.collection<Shop>('shops');
@@ -90,17 +113,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         userType: user.userType,
         joinedAt: user.joinedAt,
         lastActiveAt: user.lastActiveAt,
-        // Only show full data if viewing own profile or if public
-        email: isOwnProfile || user.isEmailPublic ? user.email : null,
+        email: canViewAll || user.isEmailPublic ? user.email : null,
         frequentingArcades: toPlainArray(frequentingArcades),
-        starredArcades: toPlainArray(starredArcades)
+        starredArcades: toPlainArray(starredArcades),
+        isActivityPublic: user.isActivityPublic
       },
       frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,
       starredArcadesCount: user.starredArcades ? user.starredArcades.length : 0,
       universityMembershipCount,
       clubMembershipCount,
-      university,
-      isOwnProfile
+      universityMembership,
+      isOwnProfile: session?.user?.id === user.id
     };
   } catch (err) {
     console.error('Error loading user profile:', err);

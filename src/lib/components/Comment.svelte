@@ -5,11 +5,12 @@
   import UserAvatar from './UserAvatar.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
-  import { render } from '$lib/markdown';
+  import { render } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName } from '$lib/utils';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
+  import { page } from '$app/state';
 
   interface Props {
     comment: CommentWithAuthorAndVote;
@@ -20,6 +21,7 @@
     onEdit?: (commentId: string, newContent: string) => Promise<void>;
     onDelete?: (commentId: string) => void;
     onVote?: (commentId: string, voteType: 'upvote' | 'downvote') => void;
+    isPostRendered: boolean;
     depth?: number;
   }
 
@@ -32,6 +34,7 @@
     onEdit,
     onDelete,
     onVote,
+    isPostRendered,
     depth = 0
   }: Props = $props();
 
@@ -41,16 +44,21 @@
   let editContent = $state(comment.content);
   let isSavingEdit = $state(false);
   let showDeleteConfirm = $state(false);
+  let showHighlight = $state(false);
+  let commentElement: HTMLElement | undefined;
 
   // Limit nesting depth to avoid infinite nesting
   const maxDepth = 1;
 
   const netVotes = $derived(comment.upvotes - comment.downvotes);
   const isOwnComment = $derived(currentUserId === comment.createdBy);
-  const canEditOrDelete = $derived(isOwnComment || canEdit);
+  const canDelete = $derived(isOwnComment || canEdit);
   const canReply = $derived(canReplyGeneral && depth < maxDepth);
 
   const shouldIndent = $derived(depth > 0 && depth <= maxDepth);
+
+  // Check if this comment is highlighted from query params
+  const isHighlighted = $derived(page.url.searchParams.get('comment') === comment.id);
 
   const handleVote = (voteType: 'upvote' | 'downvote') => {
     if (onVote) {
@@ -107,10 +115,30 @@
   onMount(async () => {
     content = await render(comment.content);
   });
+
+  $effect(() => {
+    if (isPostRendered) {
+      setTimeout(() => {
+        if (isHighlighted && commentElement) {
+          commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          showHighlight = true;
+          setTimeout(() => {
+            showHighlight = false;
+          }, 2000);
+        }
+      }, 1000);
+    }
+  });
 </script>
 
 <div class="comment {shouldIndent ? 'ml-8' : ''} {depth > maxDepth ? 'opacity-60' : ''}">
-  <div class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors">
+  <div
+    bind:this={commentElement}
+    class="hover:bg-base-300/50 flex gap-3 rounded-xl p-3 transition-colors {showHighlight
+      ? 'bg-primary/15'
+      : ''}"
+    id="comment-{comment.id}"
+  >
     <!-- Avatar -->
     <div class="shrink-0">
       <UserAvatar user={comment.author} size="sm" showName={false} />
@@ -121,7 +149,7 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
           <a
-            href="{base}/users/@{comment.author.name}"
+            href={resolve('/(main)/users/[id]', { id: '@' + comment.author.name })}
             class="hover:text-accent font-medium transition-colors"
           >
             {getDisplayName(comment.author)}
@@ -137,7 +165,7 @@
         </div>
 
         <!-- Menu -->
-        {#if currentUserId && (canReply || canEditOrDelete)}
+        {#if currentUserId && (canReply || canDelete || isOwnComment)}
           <details class="dropdown dropdown-end" bind:open={showMenu}>
             <summary class="btn btn-ghost btn-circle btn-xs" aria-label={m.actions()}>
               <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -151,13 +179,15 @@
                   </button>
                 </li>
               {/if}
-              {#if canEditOrDelete}
+              {#if isOwnComment}
                 <li>
                   <button onclick={startEditing} class="text-info">
                     <i class="fa-solid fa-edit"></i>
                     {m.edit_comment()}
                   </button>
                 </li>
+              {/if}
+              {#if canDelete}
                 <li>
                   <button onclick={handleDelete} class="text-error">
                     <i class="fa-solid fa-trash"></i>

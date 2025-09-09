@@ -3,7 +3,7 @@
   import FancyButton from './FancyButton.svelte';
   import { page } from '$app/state';
   import { signOut } from '@auth/sveltekit/client';
-  import { base } from '$app/paths';
+  import { resolve, base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator } from '$lib/utils';
   import { onMount } from 'svelte';
 
@@ -68,6 +68,7 @@
       login();
     }
     window.addEventListener('nearcade-login', login);
+
     return () => {
       window.removeEventListener('nearcade-login', login);
     };
@@ -104,7 +105,7 @@
         <h3 class="mb-4 text-lg font-bold">{m.sign_in()}</h3>
         <div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
           {#each providers as provider (provider.id)}
-            <form method="POST" action="{base}/session/signin">
+            <form method="POST" action={resolve('/session/signin')}>
               <input type="hidden" name="providerId" value={provider.id} />
               <button
                 type="submit"
@@ -140,30 +141,69 @@
       }
     }}
   >
-    <FancyButton
-      class="rounded-full {klass}"
-      image={session.user?.image || ''}
-      text={getDisplayName(session.user)}
-      callback={() => {
-        open = !open;
-      }}
-    />
+    <div class="indicator group">
+      {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
+        <span
+          class="indicator-item status status-warning top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
+        ></span>
+      {:else if session.unreadNotifications > 0}
+        <span
+          class="indicator-item status status-success top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
+        ></span>
+      {/if}
+      <FancyButton
+        class="rounded-full {klass}"
+        image={session.user?.image || ''}
+        text={getDisplayName(session.user)}
+        callback={() => {
+          open = !open;
+        }}
+      />
+    </div>
     {#if open}
       <ul
-        class="text-base-content dropdown-content menu bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg"
+        class="text-base-content dropdown-content menu bg-base-200 rounded-box z-1 min-w-40 p-2 shadow-lg"
       >
         <li>
-          <a href="{base}/users/@{session.user.name}" class="flex items-center gap-2">
+          <a
+            href={resolve('/(main)/users/[id]', { id: '@' + session.user.name })}
+            class="flex items-center gap-2"
+          >
             <i class="fa-solid fa-user"></i>
             {m.my_profile()}
           </a>
           {#if isAdminOrModerator(session.user)}
-            <a href="{base}/admin" class="flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved"></i>
-              {m.admin_panel()}
+            <a href={resolve('/admin')} class="group flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved"></i>
+                {m.admin_panel()}
+              </div>
+              {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
+                <span
+                  class="badge badge-sm dark:not-group-hover:badge-soft badge-warning transition-colors"
+                >
+                  {session.pendingJoinRequests}
+                </span>
+              {/if}
             </a>
           {/if}
-          <a href="{base}/settings" class="flex items-center gap-2">
+          <a
+            href={resolve('/(main)/notifications')}
+            class="group flex items-center justify-between gap-2"
+          >
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-bell"></i>
+              {m.notifications()}
+            </div>
+            {#if session.unreadNotifications > 0}
+              <span
+                class="badge badge-sm dark:not-group-hover:badge-soft badge-primary transition-colors"
+              >
+                {session.unreadNotifications}
+              </span>
+            {/if}
+          </a>
+          <a href={resolve('/(main)/settings')} class="flex items-center gap-2">
             <i class="fa-solid fa-gear"></i>
             {m.settings()}
           </a>
@@ -184,21 +224,6 @@
 {/if}
 
 <style>
-  .not-2xs\:hidden {
-    @media not (width >= 18rem) {
-      display: none;
-    }
-  }
-
-  .not-2xs\:btn-circle {
-    @media not (width >= 18rem) {
-      border-radius: calc(infinity * 1px);
-      padding-inline: 0;
-      width: var(--size);
-      height: var(--size);
-    }
-  }
-
   .btn-t {
     transition-property:
       color, background-color, border-color, box-shadow, --tw-gradient-from, --tw-gradient-via,

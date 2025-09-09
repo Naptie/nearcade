@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
@@ -71,8 +71,8 @@
   {:else}
     <div class="flex gap-2">
       <a
-        href="{base}/discover?longitude={shop.location?.coordinates[0]}&latitude={shop.location
-          ?.coordinates[1]}&name={shop.name}&radius={radius}"
+        href="{resolve('/(main)/discover')}?longitude={shop.location?.coordinates[0]}&latitude={shop
+          .location?.coordinates[1]}&name={shop.name}&radius={radius}"
         target="_blank"
         class="btn btn-soft btn-circle btn-sm"
         title={m.explore_nearby()}
@@ -80,7 +80,7 @@
       >
         <i class="fa-solid fa-map-location-dot"></i>
       </a>
-      {#if page.url.pathname.startsWith(`${base}/settings/`)}
+      {#if page.url.pathname.startsWith(resolve('/(main)/settings') + '/')}
         <form id="removeArcadeForm-{shop.id}" method="POST" action="?/removeArcade" use:enhance>
           <input type="hidden" name="arcadeId" value={shop.id} />
         </form>
