@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  sync-shops:
+  sync-bemanicn:
     runs-on: windows-latest
 
     steps:
@@ -56,3 +56,40 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
+
+  sync-ziv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout scraper repository
+        uses: actions/checkout@v4
+        with:
+          repository: KXCVZNMX/ziv-scraper
+          path: scraper
+          token: ${{ secrets.ZS_PAT }}
+          fetch-depth: 1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.15.0'
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+          cache-dependency-path: scraper/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+        working-directory: scraper
+
+      - name: Build and run the scraper
+        run: |
+          pnpm build
+          pnpm start
+        working-directory: scraper
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
