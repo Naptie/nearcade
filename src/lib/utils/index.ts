@@ -850,5 +850,6 @@ const processor = unified()
 
 export const sanitizeHTML = async (input: string) => {
   if (!input) return '';
-  return String(await processor.process(input));
+  const sanitized = String(await processor.process(input));
+  return sanitized.replace(/<br>(?:\r?\n)*<br>/g, '<br>');
 };
