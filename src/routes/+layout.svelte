@@ -96,7 +96,7 @@
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
       serviceHost: fromPath('/_AMapService')
     };
-    
+
     // Load AMap by default
     try {
       import('@amap/amap-jsapi-loader').then((loader) => {
@@ -118,11 +118,13 @@
     // Function to load Google Maps when needed
     const loadGoogleMaps = () => {
       if (googleMaps || !PUBLIC_GOOGLE_MAPS_API_KEY) return Promise.resolve();
-      
+
       return new Promise<void>((resolve, reject) => {
         if (window.google?.maps) {
           googleMaps = window.google.maps;
-          window.dispatchEvent(new CustomEvent('googlemaps-loaded', { detail: window.google.maps }));
+          window.dispatchEvent(
+            new CustomEvent('googlemaps-loaded', { detail: window.google.maps })
+          );
           resolve();
           return;
         }
@@ -131,25 +133,27 @@
         script.src = `https://maps.googleapis.com/maps/api/js?key=${PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
-        
-        // @ts-ignore
+
+        // @ts-expect-error - Global callback for Google Maps
         window.initGoogleMaps = () => {
           googleMaps = window.google.maps;
-          window.dispatchEvent(new CustomEvent('googlemaps-loaded', { detail: window.google.maps }));
+          window.dispatchEvent(
+            new CustomEvent('googlemaps-loaded', { detail: window.google.maps })
+          );
           resolve();
         };
-        
+
         script.onerror = () => {
           googleMapsError = 'Failed to load Google Maps API';
           reject(new Error('Failed to load Google Maps API'));
         };
-        
+
         document.head.appendChild(script);
       });
     };
 
     // Expose loadGoogleMaps globally for components to use
-    (window as any).loadGoogleMaps = loadGoogleMaps;
+    (window as { loadGoogleMaps?: () => Promise<void> }).loadGoogleMaps = loadGoogleMaps;
 
     let redirect = page.url.searchParams.get('redirect');
     if (data.session?.user) {

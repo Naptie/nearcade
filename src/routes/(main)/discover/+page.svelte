@@ -42,7 +42,9 @@
   let screenWidth = $state(0);
 
   // Determine if all shops are from 'ziv' source to enable Google Maps
-  const shouldUseGoogleMaps = $derived(data.shops.length > 0 && data.shops.every(shop => shop.source === 'ziv'));
+  const shouldUseGoogleMaps = $derived(
+    data.shops.length > 0 && data.shops.every((shop) => shop.source === 'ziv')
+  );
 
   const amapContext = getContext<AMapContext>('amap');
   const googleMapsContext = getContext<GoogleMapsContext>('googlemaps');
@@ -50,10 +52,10 @@
   let amapError = $derived(amapContext?.error ?? null);
   let googleMaps = $derived(googleMapsContext?.googleMaps);
   let googleMapsError = $derived(googleMapsContext?.error ?? null);
-  
+
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
-  let map: any = $state(undefined); // AMap.Map | google.maps.Map
-  let markers: Record<string, { marker: any; zIndex: number }> = $state({}); // AMap.Marker | google.maps.Marker
+  let map: unknown = $state(undefined); // AMap.Map | google.maps.Map
+  let markers: Record<string, { marker: unknown; zIndex: number }> = $state({}); // AMap.Marker | google.maps.Marker
 
   let hoveredShopId: string | null = $state(null);
   let selectedShopId: string | null = $state(null);
@@ -480,10 +482,15 @@
       window.addEventListener('googlemaps-loaded', assignGoogleMaps);
 
       // Load Google Maps if needed
-      if (shouldUseGoogleMaps && typeof (window as any).loadGoogleMaps === 'function') {
-        (window as any).loadGoogleMaps().catch((error: Error) => {
-          console.error('Failed to load Google Maps:', error);
-        });
+      if (
+        shouldUseGoogleMaps &&
+        typeof (window as { loadGoogleMaps?: () => Promise<void> }).loadGoogleMaps === 'function'
+      ) {
+        (window as { loadGoogleMaps: () => Promise<void> })
+          .loadGoogleMaps()
+          .catch((error: Error) => {
+            console.error('Failed to load Google Maps:', error);
+          });
       }
 
       Promise.all(
@@ -508,107 +515,109 @@
 
   $effect(() => {
     if (!amapContainer || !data || darkMode === undefined) return;
-    
+
     if (shouldUseGoogleMaps && googleMaps) {
       // Initialize Google Maps
       untrack(() => {
         if (!googleMaps) return;
-        
+
         const googleMap = new googleMaps.Map(amapContainer!, {
           zoom: 10,
           center: { lat: data.location.latitude, lng: data.location.longitude },
-          styles: darkMode ? [
-            { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-            { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-            { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-            {
-              featureType: "administrative.locality",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#d59563" }],
-            },
-            {
-              featureType: "poi",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#d59563" }],
-            },
-            {
-              featureType: "poi.park",
-              elementType: "geometry",
-              stylers: [{ color: "#263c3f" }],
-            },
-            {
-              featureType: "poi.park",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#6b9a76" }],
-            },
-            {
-              featureType: "road",
-              elementType: "geometry",
-              stylers: [{ color: "#38414e" }],
-            },
-            {
-              featureType: "road",
-              elementType: "geometry.stroke",
-              stylers: [{ color: "#212a37" }],
-            },
-            {
-              featureType: "road",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#9ca5b3" }],
-            },
-            {
-              featureType: "road.highway",
-              elementType: "geometry",
-              stylers: [{ color: "#746855" }],
-            },
-            {
-              featureType: "road.highway",
-              elementType: "geometry.stroke",
-              stylers: [{ color: "#1f2835" }],
-            },
-            {
-              featureType: "road.highway",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#f3d19c" }],
-            },
-            {
-              featureType: "transit",
-              elementType: "geometry",
-              stylers: [{ color: "#2f3948" }],
-            },
-            {
-              featureType: "transit.station",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#d59563" }],
-            },
-            {
-              featureType: "water",
-              elementType: "geometry",
-              stylers: [{ color: "#17263c" }],
-            },
-            {
-              featureType: "water",
-              elementType: "labels.text.fill",
-              stylers: [{ color: "#515c6d" }],
-            },
-            {
-              featureType: "water",
-              elementType: "labels.text.stroke",
-              stylers: [{ color: "#17263c" }],
-            },
-          ] : undefined
+          styles: darkMode
+            ? [
+                { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+                { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+                { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+                {
+                  featureType: 'administrative.locality',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#d59563' }]
+                },
+                {
+                  featureType: 'poi',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#d59563' }]
+                },
+                {
+                  featureType: 'poi.park',
+                  elementType: 'geometry',
+                  stylers: [{ color: '#263c3f' }]
+                },
+                {
+                  featureType: 'poi.park',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#6b9a76' }]
+                },
+                {
+                  featureType: 'road',
+                  elementType: 'geometry',
+                  stylers: [{ color: '#38414e' }]
+                },
+                {
+                  featureType: 'road',
+                  elementType: 'geometry.stroke',
+                  stylers: [{ color: '#212a37' }]
+                },
+                {
+                  featureType: 'road',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#9ca5b3' }]
+                },
+                {
+                  featureType: 'road.highway',
+                  elementType: 'geometry',
+                  stylers: [{ color: '#746855' }]
+                },
+                {
+                  featureType: 'road.highway',
+                  elementType: 'geometry.stroke',
+                  stylers: [{ color: '#1f2835' }]
+                },
+                {
+                  featureType: 'road.highway',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#f3d19c' }]
+                },
+                {
+                  featureType: 'transit',
+                  elementType: 'geometry',
+                  stylers: [{ color: '#2f3948' }]
+                },
+                {
+                  featureType: 'transit.station',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#d59563' }]
+                },
+                {
+                  featureType: 'water',
+                  elementType: 'geometry',
+                  stylers: [{ color: '#17263c' }]
+                },
+                {
+                  featureType: 'water',
+                  elementType: 'labels.text.fill',
+                  stylers: [{ color: '#515c6d' }]
+                },
+                {
+                  featureType: 'water',
+                  elementType: 'labels.text.stroke',
+                  stylers: [{ color: '#17263c' }]
+                }
+              ]
+            : undefined
         });
-        
+
         map = googleMap;
 
         // Create origin marker
         const originIcon = {
-          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-          fillColor: "#f43f5e",
+          path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+          fillColor: '#f43f5e',
           fillOpacity: 1,
           strokeWeight: 2,
-          strokeColor: "#ffffff",
-          scale: 1.5,
+          strokeColor: '#ffffff',
+          scale: 1.5
         };
 
         const originMarker = new googleMaps.Marker({
@@ -642,12 +651,12 @@
               Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
 
             const shopIcon = {
-              path: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
-              fillColor: darkMode ? "#10b981" : "#0891b2",
+              path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+              fillColor: darkMode ? '#10b981' : '#0891b2',
               fillOpacity: 1,
               strokeWeight: 2,
-              strokeColor: "#ffffff",
-              scale: 1.2,
+              strokeColor: '#ffffff',
+              scale: 1.2
             };
 
             const marker = new googleMaps.Marker({
@@ -668,26 +677,26 @@
             marker.addListener('mouseover', () => {
               hoveredShopId = `${shop.source}-${shop.id}`;
             });
-            
+
             marker.addListener('mouseout', () => {
               if (hoveredShopId === `${shop.source}-${shop.id}`) {
                 hoveredShopId = null;
               }
             });
-            
+
             marker.addListener('click', () => {
               selectedShopId = `${shop.source}-${shop.id}`;
               highlightedShopId = `${shop.source}-${shop.id}`;
               infoWindow.open(googleMap, marker);
-              
+
               if (highlightedShopIdTimeout) {
                 clearTimeout(highlightedShopIdTimeout);
               }
-              
+
               highlightedShopIdTimeout = setTimeout(() => {
                 highlightedShopId = null;
               }, 3000);
-              
+
               const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
               if (shopElement && !(isMobile && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -803,9 +812,10 @@
       });
       return () => {
         Object.keys(travelData).forEach((shopId) => {
-        if (route && map && map.remove) {
-          map.remove(route);
-        }
+          const route = travelData[shopId]?.route;
+          if (route && map && (map as { remove?: (route: unknown) => void }).remove) {
+            (map as { remove: (route: unknown) => void }).remove(route);
+          }
         });
       };
     } else {
@@ -840,9 +850,9 @@
           const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
           if (shop && map) {
             map.setZoom(15);
-            map.setCenter({ 
-              lat: shop.location.coordinates[1], 
-              lng: shop.location.coordinates[0] 
+            map.setCenter({
+              lat: shop.location.coordinates[1],
+              lng: shop.location.coordinates[0]
             });
           }
         } else {
@@ -863,7 +873,12 @@
   });
 
   $effect(() => {
-    if (transportMethod && selectedShopId && travelData[selectedShopId]?.routeData && !shouldUseGoogleMaps) {
+    if (
+      transportMethod &&
+      selectedShopId &&
+      travelData[selectedShopId]?.routeData &&
+      !shouldUseGoogleMaps
+    ) {
       const selected = selectedShopId;
       untrack(() => {
         const result = travelData[selected]?.routeData;
@@ -907,34 +922,38 @@
           const marker = markerData.marker;
           const isSelected = markerId === selected;
           const isHovered = markerId === hovered;
-          
+
           const shopIcon = {
-            path: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
-            fillColor: isSelected ? "#ef4444" : isHovered ? "#f59e0b" : (darkMode ? "#10b981" : "#0891b2"),
+            path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+            fillColor: isSelected
+              ? '#ef4444'
+              : isHovered
+                ? '#f59e0b'
+                : darkMode
+                  ? '#10b981'
+                  : '#0891b2',
             fillOpacity: 1,
             strokeWeight: 2,
-            strokeColor: "#ffffff",
-            scale: isSelected ? 1.5 : isHovered ? 1.3 : 1.2,
+            strokeColor: '#ffffff',
+            scale: isSelected ? 1.5 : isHovered ? 1.3 : 1.2
           };
-          
+
           if (marker.setIcon) marker.setIcon(shopIcon);
-          if (marker.setZIndex) marker.setZIndex(
-            isSelected
-              ? SELECTED_SHOP_INDEX
-              : isHovered
-                ? HOVERED_SHOP_INDEX
-                : markerData.zIndex
-          );
+          if (marker.setZIndex)
+            marker.setZIndex(
+              isSelected ? SELECTED_SHOP_INDEX : isHovered ? HOVERED_SHOP_INDEX : markerData.zIndex
+            );
         } else {
           // Handle AMap marker styling (existing code)
           const marker = markerData.marker;
-          if (marker.setzIndex) marker.setzIndex(
-            markerId === selected
-              ? SELECTED_SHOP_INDEX
-              : markerId === hovered
-                ? HOVERED_SHOP_INDEX
-                : markerData.zIndex
-          );
+          if (marker.setzIndex)
+            marker.setzIndex(
+              markerId === selected
+                ? SELECTED_SHOP_INDEX
+                : markerId === hovered
+                  ? HOVERED_SHOP_INDEX
+                  : markerData.zIndex
+            );
           const element = document.querySelector(
             `#shop-marker-${shop.source}-${shop.id}`
           ) as HTMLElement | null;
@@ -1121,7 +1140,8 @@
   {/if}
   <div
     id="amap-container"
-    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {(shouldUseGoogleMaps && !googleMaps) || (!shouldUseGoogleMaps && !amap)
+    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {(shouldUseGoogleMaps && !googleMaps) ||
+    (!shouldUseGoogleMaps && !amap)
       ? 'bg-base-200 animate-pulse opacity-50'
       : ''}"
     bind:this={amapContainer}
