@@ -798,7 +798,7 @@
   </title>
 </svelte:head>
 
-<div class="mx-auto pt-20 sm:container sm:px-4">
+<div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
   <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
     <div class="not-xs:text-center">
       <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>

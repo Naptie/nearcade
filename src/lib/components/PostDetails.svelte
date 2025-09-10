@@ -431,7 +431,7 @@
 <BackToTopButton />
 
 {#if componentMounted}
-  <div class="mx-auto {isEditingPost ? 'max-w-full' : 'max-w-6xl'} pt-20 pb-4 sm:px-4">
+  <div class="mx-auto {isEditingPost ? 'max-w-full' : 'max-w-6xl'} pt-20 pb-5 sm:px-4">
     <!-- Back link -->
     <div class="mb-6 not-sm:px-4">
       <a
