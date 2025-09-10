@@ -876,7 +876,7 @@
           {#each sortedShops as shop, i (i)}
             <tr
               id="shop-{shop.id}"
-              class="cursor-pointer transition-all select-none {highlightedShopId ===
+              class="group cursor-pointer transition-all select-none {highlightedShopId ===
               `${shop.source}-${shop.id}`
                 ? 'bg-accent/8'
                 : hoveredShopId === `${shop.source}-${shop.id}`
@@ -969,14 +969,18 @@
                   {#if game}
                     {@const id = `${shop.source}-${shop.id}`}
                     <div class="flex items-center justify-center gap-3">
-                      <div class="text-accent flex items-center gap-1 text-sm">
+                      <div
+                        class="group-hover:text-accent flex items-center gap-1 text-sm transition-colors"
+                      >
                         <i class="fas fa-desktop"></i>
                         {game.quantity}
                       </div>
                       {#if costs[id] && costs[id][game.id]}
                         {@const cost = costs[id][game.id]}
                         {#if cost.full === cost.preview}
-                          <div class="text-warning flex items-center gap-1 text-sm">
+                          <div
+                            class="group-hover:text-warning flex items-center gap-1 text-sm transition-colors"
+                          >
                             <i class="fa-solid fa-coins"></i>
                             {@html cost.full}
                           </div>
@@ -985,7 +989,9 @@
                             <div class="tooltip-content">
                               {@html cost.full}
                             </div>
-                            <div class="text-warning flex items-center gap-1 text-sm">
+                            <div
+                              class="group-hover:text-warning flex items-center gap-1 text-sm transition-colors"
+                            >
                               <i class="fa-solid fa-coins"></i>
                               {@html cost.preview.substring(0, 25)}...
                             </div>
