@@ -3,6 +3,7 @@
   import type {
     Game,
     AMapContext,
+    GoogleMapsContext,
     Shop,
     TransportMethod,
     TransportSearchResult,
@@ -40,12 +41,19 @@
 
   let screenWidth = $state(0);
 
+  // Determine if all shops are from 'ziv' source to enable Google Maps
+  const shouldUseGoogleMaps = $derived(data.shops.length > 0 && data.shops.every(shop => shop.source === 'ziv'));
+
   const amapContext = getContext<AMapContext>('amap');
+  const googleMapsContext = getContext<GoogleMapsContext>('googlemaps');
   let amap = $derived(amapContext?.amap);
   let amapError = $derived(amapContext?.error ?? null);
+  let googleMaps = $derived(googleMapsContext?.googleMaps);
+  let googleMapsError = $derived(googleMapsContext?.error ?? null);
+  
   let amapContainer: HTMLDivElement | undefined = $state(undefined);
-  let map: AMap.Map | undefined = $state(undefined);
-  let markers: Record<string, { marker: AMap.Marker; zIndex: number }> = $state({});
+  let map: any = $state(undefined); // AMap.Map | google.maps.Map
+  let markers: Record<string, { marker: any; zIndex: number }> = $state({}); // AMap.Marker | google.maps.Marker
 
   let hoveredShopId: string | null = $state(null);
   let selectedShopId: string | null = $state(null);
@@ -460,11 +468,23 @@
     amap = event.detail;
   };
 
+  const assignGoogleMaps = (event: CustomEventInit<typeof google.maps>) => {
+    googleMaps = event.detail;
+  };
+
   onMount(() => {
     if (browser) {
       screenWidth = window.innerWidth;
       window.addEventListener('resize', handleResize);
       window.addEventListener('amap-loaded', assignAMap);
+      window.addEventListener('googlemaps-loaded', assignGoogleMaps);
+
+      // Load Google Maps if needed
+      if (shouldUseGoogleMaps && typeof (window as any).loadGoogleMaps === 'function') {
+        (window as any).loadGoogleMaps().catch((error: Error) => {
+          console.error('Failed to load Google Maps:', error);
+        });
+      }
 
       Promise.all(
         data.shops.flatMap((shop) => {
@@ -481,110 +501,311 @@
       return () => {
         window.removeEventListener('resize', handleResize);
         window.removeEventListener('amap-loaded', assignAMap);
+        window.removeEventListener('googlemaps-loaded', assignGoogleMaps);
       };
     }
   });
 
   $effect(() => {
-    if (!amap || !amapContainer || !data || darkMode === undefined) return;
-    untrack(() => {
-      if (!amap) return;
-      map = new amap.Map(amapContainer!.id, {
-        zoom: 10,
-        center: [data.location.longitude, data.location.latitude],
-        mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
-        viewMode: '2D'
-      });
-
-      const origin = new amap.Marker({
-        position: [data.location.longitude, data.location.latitude],
-        title: m.origin(),
-        content: '<i class="fa-solid fa-location-crosshairs fa-lg"></i>',
-        offset: new amap.Pixel(-9.375, -10),
-        label: {
-          content: m.origin(),
-          offset: new amap.Pixel(2, -5),
-          direction: 'right'
-        },
-        zIndex: ORIGIN_INDEX
-      });
-      origin.setMap(map);
-      if (data.shops.length > 0) {
-        data.shops.forEach((shop) => {
-          const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
-          const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
-          const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
-          const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
-
-          const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
-          const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
-          const zIndex =
-            Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
-
-          const marker = new amap!.Marker({
-            position: shop.location.coordinates,
-            title: shop.name,
-            content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
-            offset: new amap!.Pixel(-7.03, -20),
-            label: {
-              content: shop.name,
-              offset: new amap!.Pixel(2, -5),
-              direction: 'right'
+    if (!amapContainer || !data || darkMode === undefined) return;
+    
+    if (shouldUseGoogleMaps && googleMaps) {
+      // Initialize Google Maps
+      untrack(() => {
+        if (!googleMaps) return;
+        
+        const googleMap = new googleMaps.Map(amapContainer!, {
+          zoom: 10,
+          center: { lat: data.location.latitude, lng: data.location.longitude },
+          styles: darkMode ? [
+            { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+            { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+            { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+            {
+              featureType: "administrative.locality",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#d59563" }],
             },
-            zIndex
-          });
+            {
+              featureType: "poi",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#d59563" }],
+            },
+            {
+              featureType: "poi.park",
+              elementType: "geometry",
+              stylers: [{ color: "#263c3f" }],
+            },
+            {
+              featureType: "poi.park",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#6b9a76" }],
+            },
+            {
+              featureType: "road",
+              elementType: "geometry",
+              stylers: [{ color: "#38414e" }],
+            },
+            {
+              featureType: "road",
+              elementType: "geometry.stroke",
+              stylers: [{ color: "#212a37" }],
+            },
+            {
+              featureType: "road",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#9ca5b3" }],
+            },
+            {
+              featureType: "road.highway",
+              elementType: "geometry",
+              stylers: [{ color: "#746855" }],
+            },
+            {
+              featureType: "road.highway",
+              elementType: "geometry.stroke",
+              stylers: [{ color: "#1f2835" }],
+            },
+            {
+              featureType: "road.highway",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#f3d19c" }],
+            },
+            {
+              featureType: "transit",
+              elementType: "geometry",
+              stylers: [{ color: "#2f3948" }],
+            },
+            {
+              featureType: "transit.station",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#d59563" }],
+            },
+            {
+              featureType: "water",
+              elementType: "geometry",
+              stylers: [{ color: "#17263c" }],
+            },
+            {
+              featureType: "water",
+              elementType: "labels.text.fill",
+              stylers: [{ color: "#515c6d" }],
+            },
+            {
+              featureType: "water",
+              elementType: "labels.text.stroke",
+              stylers: [{ color: "#17263c" }],
+            },
+          ] : undefined
+        });
+        
+        map = googleMap;
 
-          markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+        // Create origin marker
+        const originIcon = {
+          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+          fillColor: "#f43f5e",
+          fillOpacity: 1,
+          strokeWeight: 2,
+          strokeColor: "#ffffff",
+          scale: 1.5,
+        };
 
-          marker.on('mouseover', () => {
-            hoveredShopId = `${shop.source}-${shop.id}`;
-          });
-          marker.on('mouseout', () => {
-            if (hoveredShopId === `${shop.source}-${shop.id}`) {
-              hoveredShopId = null;
-            }
-          });
-          marker.on('click', () => {
-            selectedShopId = `${shop.source}-${shop.id}`;
-            highlightedShopId = `${shop.source}-${shop.id}`;
-            if (highlightedShopIdTimeout) {
-              clearTimeout(highlightedShopIdTimeout);
-            }
-            if (!routeGuidance.isOpen) {
+        const originMarker = new googleMaps.Marker({
+          position: { lat: data.location.latitude, lng: data.location.longitude },
+          map: googleMap,
+          title: m.origin(),
+          icon: originIcon,
+          zIndex: ORIGIN_INDEX
+        });
+
+        // Create info window for origin
+        const originInfoWindow = new googleMaps.InfoWindow({
+          content: `<div class="text-sm font-medium">${m.origin()}</div>`
+        });
+
+        originMarker.addListener('click', () => {
+          originInfoWindow.open(googleMap, originMarker);
+        });
+
+        // Create shop markers
+        if (data.shops.length > 0) {
+          data.shops.forEach((shop) => {
+            const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
+            const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
+            const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
+            const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+
+            const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
+            const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
+            const zIndex =
+              Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
+
+            const shopIcon = {
+              path: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+              fillColor: darkMode ? "#10b981" : "#0891b2",
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: "#ffffff",
+              scale: 1.2,
+            };
+
+            const marker = new googleMaps.Marker({
+              position: { lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] },
+              map: googleMap,
+              title: shop.name,
+              icon: shopIcon,
+              zIndex
+            });
+
+            markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+
+            // Create info window for shop
+            const infoWindow = new googleMaps.InfoWindow({
+              content: `<div class="text-sm font-medium">${shop.name}</div>`
+            });
+
+            marker.addListener('mouseover', () => {
+              hoveredShopId = `${shop.source}-${shop.id}`;
+            });
+            
+            marker.addListener('mouseout', () => {
+              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+                hoveredShopId = null;
+              }
+            });
+            
+            marker.addListener('click', () => {
+              selectedShopId = `${shop.source}-${shop.id}`;
+              highlightedShopId = `${shop.source}-${shop.id}`;
+              infoWindow.open(googleMap, marker);
+              
+              if (highlightedShopIdTimeout) {
+                clearTimeout(highlightedShopIdTimeout);
+              }
+              
               highlightedShopIdTimeout = setTimeout(() => {
                 highlightedShopId = null;
               }, 3000);
-            }
-            const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
-            if (shopElement && !(isMobile && routeGuidance.isOpen)) {
-              shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+              
+              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              if (shopElement && !(isMobile && routeGuidance.isOpen)) {
+                shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            });
           });
-          marker.setMap(map);
+
+          // Fit bounds to show all markers
+          const bounds = new googleMaps.LatLngBounds();
+          bounds.extend({ lat: data.location.latitude, lng: data.location.longitude });
+          data.shops.forEach((shop) => {
+            bounds.extend({ lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] });
+          });
+          googleMap.fitBounds(bounds);
+        }
+      });
+    } else if (!shouldUseGoogleMaps && amap) {
+      // Initialize AMap (existing code)
+      untrack(() => {
+        if (!amap) return;
+        map = new amap.Map('amap-container', {
+          zoom: 10,
+          center: [data.location.longitude, data.location.latitude],
+          mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
+          viewMode: '2D'
         });
 
-        map.setFitView();
-      }
-    });
+        const origin = new amap.Marker({
+          position: [data.location.longitude, data.location.latitude],
+          title: m.origin(),
+          content: '<i class="fa-solid fa-location-crosshairs fa-lg"></i>',
+          offset: new amap.Pixel(-9.375, -10),
+          label: {
+            content: m.origin(),
+            offset: new amap.Pixel(2, -5),
+            direction: 'right'
+          },
+          zIndex: ORIGIN_INDEX
+        });
+        origin.setMap(map);
+        if (data.shops.length > 0) {
+          data.shops.forEach((shop) => {
+            const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
+            const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
+            const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
+            const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+
+            const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
+            const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
+            const zIndex =
+              Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
+
+            const marker = new amap!.Marker({
+              position: shop.location.coordinates,
+              title: shop.name,
+              content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
+              offset: new amap!.Pixel(-7.03, -20),
+              label: {
+                content: shop.name,
+                offset: new amap!.Pixel(2, -5),
+                direction: 'right'
+              },
+              zIndex
+            });
+
+            markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+
+            marker.on('mouseover', () => {
+              hoveredShopId = `${shop.source}-${shop.id}`;
+            });
+            marker.on('mouseout', () => {
+              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+                hoveredShopId = null;
+              }
+            });
+            marker.on('click', () => {
+              selectedShopId = `${shop.source}-${shop.id}`;
+              highlightedShopId = `${shop.source}-${shop.id}`;
+              if (highlightedShopIdTimeout) {
+                clearTimeout(highlightedShopIdTimeout);
+              }
+              if (!routeGuidance.isOpen) {
+                highlightedShopIdTimeout = setTimeout(() => {
+                  highlightedShopId = null;
+                }, 3000);
+              }
+              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              if (shopElement && !(isMobile && routeGuidance.isOpen)) {
+                shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            });
+            marker.setMap(map);
+          });
+
+          if (map && map.setFitView) map.setFitView();
+        }
+      });
+    }
   });
 
   $effect(() => {
-    if (!map) return;
-    map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
+    if (!map || shouldUseGoogleMaps) return;
+    if (map && map.setMapStyle) {
+      map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
+    }
   });
 
   $effect(() => {
-    if (!amap || !data) return;
+    if (!map || shouldUseGoogleMaps) return; // Skip for Google Maps
     if (transportMethod) {
       untrack(async () => {
         await calculateTravelData(transportMethod!);
       });
       return () => {
         Object.keys(travelData).forEach((shopId) => {
-          const route = travelData[Number(shopId)]?.route;
-          if (route) {
-            map?.remove(route);
-          }
+        if (route && map && map.remove) {
+          map.remove(route);
+        }
         });
       };
     } else {
@@ -593,18 +814,19 @@
   });
 
   $effect(() => {
+    if (shouldUseGoogleMaps) return; // Skip for Google Maps
     Object.keys(travelData).forEach((shopId) => {
       const data = travelData[shopId];
-      if (!data) return;
+      if (!data || !data.route.setOptions) return;
       data.route.setOptions(getRouteOptions(shopId));
     });
   });
 
   $effect(() => {
     // Update route colors when guidance state changes
-    if (routeGuidance.shopId) {
+    if (routeGuidance.shopId && !shouldUseGoogleMaps) {
       const routeData = travelData[routeGuidance.shopId];
-      if (routeData) {
+      if (routeData && routeData.route.setOptions) {
         routeData.route.setOptions(getRouteOptions(routeGuidance.shopId));
       }
     }
@@ -613,23 +835,35 @@
   $effect(() => {
     if (selectedShopId) {
       untrack(() => {
-        const route = travelData[selectedShopId!]?.route;
-        if (route) {
-          map?.setFitView([route]);
-          routeGuidance.shopId = selectedShopId;
-          openRouteGuidance();
+        if (shouldUseGoogleMaps && map && map.setZoom) {
+          // For Google Maps, just center on the shop
+          const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+          if (shop && map) {
+            map.setZoom(15);
+            map.setCenter({ 
+              lat: shop.location.coordinates[1], 
+              lng: shop.location.coordinates[0] 
+            });
+          }
         } else {
-          map?.setZoomAndCenter(
-            15,
-            data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId)!.location.coordinates
-          );
+          const route = travelData[selectedShopId!]?.route;
+          if (route && map && map.setFitView) {
+            map.setFitView([route]);
+            routeGuidance.shopId = selectedShopId;
+            openRouteGuidance();
+          } else {
+            const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+            if (shop && map && map.setZoomAndCenter) {
+              map.setZoomAndCenter(15, shop.location.coordinates);
+            }
+          }
         }
       });
     }
   });
 
   $effect(() => {
-    if (transportMethod && selectedShopId && travelData[selectedShopId]?.routeData) {
+    if (transportMethod && selectedShopId && travelData[selectedShopId]?.routeData && !shouldUseGoogleMaps) {
       const selected = selectedShopId;
       untrack(() => {
         const result = travelData[selected]?.routeData;
@@ -664,29 +898,60 @@
     const hovered = hoveredShopId;
     untrack(() => {
       data.shops.forEach((shop) => {
-        markers[`${shop.source}-${shop.id}`]?.marker.setzIndex(
-          `${shop.source}-${shop.id}` === selected
-            ? SELECTED_SHOP_INDEX
-            : `${shop.source}-${shop.id}` === hovered
-              ? HOVERED_SHOP_INDEX
-              : markers[`${shop.source}-${shop.id}`].zIndex
-        );
-        const element = document.querySelector(
-          `#shop-marker-${shop.source}-${shop.id}`
-        ) as HTMLElement | null;
-        if (element) {
-          element.className = element.className.replace(
-            /text-error|text-warning dark:text-info|text-info dark:text-success/g,
-            ''
+        const markerId = `${shop.source}-${shop.id}`;
+        const markerData = markers[markerId];
+        if (!markerData) return;
+
+        if (shouldUseGoogleMaps) {
+          // Handle Google Maps marker styling
+          const marker = markerData.marker;
+          const isSelected = markerId === selected;
+          const isHovered = markerId === hovered;
+          
+          const shopIcon = {
+            path: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+            fillColor: isSelected ? "#ef4444" : isHovered ? "#f59e0b" : (darkMode ? "#10b981" : "#0891b2"),
+            fillOpacity: 1,
+            strokeWeight: 2,
+            strokeColor: "#ffffff",
+            scale: isSelected ? 1.5 : isHovered ? 1.3 : 1.2,
+          };
+          
+          if (marker.setIcon) marker.setIcon(shopIcon);
+          if (marker.setZIndex) marker.setZIndex(
+            isSelected
+              ? SELECTED_SHOP_INDEX
+              : isHovered
+                ? HOVERED_SHOP_INDEX
+                : markerData.zIndex
           );
-          if (selected === `${shop.source}-${shop.id}`) {
-            element.classList.add('text-error');
-          } else if (hovered === `${shop.source}-${shop.id}`) {
-            element.classList.add('text-warning');
-            element.classList.add('dark:text-info');
-          } else {
-            element.classList.add('text-info');
-            element.classList.add('dark:text-success');
+        } else {
+          // Handle AMap marker styling (existing code)
+          const marker = markerData.marker;
+          if (marker.setzIndex) marker.setzIndex(
+            markerId === selected
+              ? SELECTED_SHOP_INDEX
+              : markerId === hovered
+                ? HOVERED_SHOP_INDEX
+                : markerData.zIndex
+          );
+          const element = document.querySelector(
+            `#shop-marker-${shop.source}-${shop.id}`
+          ) as HTMLElement | null;
+          if (element) {
+            element.className = element.className.replace(
+              /text-error|text-warning dark:text-info|text-info dark:text-success/g,
+              ''
+            );
+            if (selected === markerId) {
+              element.classList.add('text-error');
+            } else if (hovered === markerId) {
+              element.classList.add('text-warning');
+              element.classList.add('dark:text-info');
+            } else {
+              element.classList.add('text-info');
+              element.classList.add('dark:text-success');
+            }
           }
         }
       });
@@ -694,18 +959,18 @@
   });
 
   $effect(() => {
-    if (!amap || !map) return;
+    if (!amap || !map || shouldUseGoogleMaps) return;
     if (['transit', 'riding', 'driving'].includes(transportMethod!)) {
-      if (!trafficLayer) {
+      if (!trafficLayer && amap.TileLayer) {
         trafficLayer = new amap.TileLayer.Traffic({
           zIndex: 1000,
           autoRefresh: true,
           opacity: 0.5
         });
-        trafficLayer.setMap(map);
+        if (trafficLayer.setMap) trafficLayer.setMap(map);
       }
     } else {
-      trafficLayer?.setMap(null);
+      if (trafficLayer && trafficLayer.setMap) trafficLayer.setMap(null);
       trafficLayer = undefined;
     }
   });
@@ -809,7 +1074,7 @@
         })}
       </p>
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 {shouldUseGoogleMaps ? 'hidden' : ''}">
       <label class="label not-md:mx-auto" for="transport-select">
         <span class="label-text">{m.transport_method()}</span>
       </label>
@@ -836,7 +1101,7 @@
       <span>{m.no_shops_found()}</span>
     </div>
   {/if}
-  {#if amapError}
+  {#if amapError && !shouldUseGoogleMaps}
     <div class="alert alert-error mb-4">
       <i class="fa-solid fa-circle-xmark fa-lg"></i>
       <span>
@@ -846,9 +1111,17 @@
       </span>
     </div>
   {/if}
+  {#if googleMapsError && shouldUseGoogleMaps}
+    <div class="alert alert-error mb-4">
+      <i class="fa-solid fa-circle-xmark fa-lg"></i>
+      <span>
+        Google Maps failed to load: {googleMapsError}
+      </span>
+    </div>
+  {/if}
   <div
     id="amap-container"
-    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!amap
+    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {(shouldUseGoogleMaps && !googleMaps) || (!shouldUseGoogleMaps && !amap)
       ? 'bg-base-200 animate-pulse opacity-50'
       : ''}"
     bind:this={amapContainer}

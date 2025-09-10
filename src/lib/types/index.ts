@@ -500,6 +500,7 @@ export interface Notification {
 }
 
 export * from './amap';
+export * from './googlemaps';
 import type { TransportSearchResult } from './amap';
 
 // Extended types for route guidance
