@@ -70,11 +70,6 @@ export interface University {
   updatedAt?: Date;
 }
 
-export interface AMapContext {
-  amap: typeof AMap | undefined;
-  error: string | null;
-}
-
 export interface UniversityRankingResponse {
   data: UniversityRankingData[];
   totalCount: number;
@@ -500,7 +495,6 @@ export interface Notification {
 }
 
 export * from './amap';
-export * from './googlemaps';
 import type { TransportSearchResult } from './amap';
 
 // Extended types for route guidance

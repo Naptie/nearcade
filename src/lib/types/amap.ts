@@ -1,3 +1,8 @@
+export interface AMapContext {
+  amap: typeof AMap | undefined;
+  error: string | null;
+}
+
 export type TransportSearchResult = TransportSearchResultObject | string | undefined;
 
 type TransportSearchResultObject =

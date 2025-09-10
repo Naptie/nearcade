@@ -7,7 +7,7 @@
     PUBLIC_FIREBASE_VAPID_KEY,
     PUBLIC_GOOGLE_MAPS_API_KEY
   } from '$env/static/public';
-  import type { AMapContext, GoogleMapsContext, WindowMessage } from '$lib/types';
+  import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import { fromPath } from '$lib/utils/scoped';
@@ -30,8 +30,6 @@
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
   let amapError = $state<string | null>(null);
-  let googleMaps: typeof google.maps | undefined = $state(undefined);
-  let googleMapsError = $state<string | null>(null);
 
   const amapContext: AMapContext = {
     get amap() {
@@ -42,17 +40,7 @@
     }
   };
 
-  const googleMapsContext: GoogleMapsContext = {
-    get googleMaps() {
-      return googleMaps;
-    },
-    get error() {
-      return googleMapsError;
-    }
-  };
-
   setContext('amap', amapContext);
-  setContext('googlemaps', googleMapsContext);
 
   const setHighlightTheme = () => {
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -117,46 +105,6 @@
       console.error('Failed to load AMap:', error);
       amapError = error instanceof Error ? error.message : 'Failed to load AMap';
     }
-
-    // Function to load Google Maps when needed
-    const loadGoogleMaps = () => {
-      if (googleMaps || !PUBLIC_GOOGLE_MAPS_API_KEY) return Promise.resolve();
-
-      return new Promise<void>((resolve, reject) => {
-        if (window.google?.maps) {
-          googleMaps = window.google.maps;
-          window.dispatchEvent(
-            new CustomEvent('googlemaps-loaded', { detail: window.google.maps })
-          );
-          resolve();
-          return;
-        }
-
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initGoogleMaps`;
-        script.async = true;
-        script.defer = true;
-
-        // @ts-expect-error - Global callback for Google Maps
-        window.initGoogleMaps = () => {
-          googleMaps = window.google.maps;
-          window.dispatchEvent(
-            new CustomEvent('googlemaps-loaded', { detail: window.google.maps })
-          );
-          resolve();
-        };
-
-        script.onerror = () => {
-          googleMapsError = 'Failed to load Google Maps API';
-          reject(new Error('Failed to load Google Maps API'));
-        };
-
-        document.head.appendChild(script);
-      });
-    };
-
-    // Expose loadGoogleMaps globally for components to use
-    (window as { loadGoogleMaps?: () => Promise<void> }).loadGoogleMaps = loadGoogleMaps;
 
     let redirect = page.url.searchParams.get('redirect');
     if (data.session?.user) {
@@ -250,7 +198,7 @@
   <meta name="theme-color" content="#1B1717" />
   <script
     type="text/javascript"
-    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}"
+    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async"
     defer
   ></script>
 </svelte:head>
