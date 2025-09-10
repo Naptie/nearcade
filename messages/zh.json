@@ -55,7 +55,15 @@
   "admin_club_delete_confirm": "确定要删除此社团吗？此操作无法撤销。",
   "admin_club_memberships": "社团成员身份",
   "admin_clubs": "社团管理",
-  "admin_clubs_count": "{count} 个社团",
+  "admin_clubs_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 个社团"
+      }
+    }
+  ],
   "admin_clubs_description": "管理学生社团和组织",
   "admin_clubs_header": "社团",
   "admin_clubs_option": "社团",
@@ -138,7 +146,15 @@
   "admin_type_header": "类型",
   "admin_unable_to_load_statistics": "无法加载统计数据",
   "admin_universities": "高校管理",
-  "admin_universities_count": "{count} 所高校",
+  "admin_universities_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 所高校"
+      }
+    }
+  ],
   "admin_universities_option": "高校",
   "admin_university_delete_confirm": "确定要删除此高校吗？此操作无法撤销，同时会删除所有关联的社团和成员。",
   "admin_university_header": "高校",
@@ -202,7 +218,15 @@
   "cache_refreshing": "正在刷新数据...",
   "calculating_rankings": "正在计算排名...",
   "campus_address": "校区地址",
-  "campus_count": "{count} 个校区",
+  "campus_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 个校区"
+      }
+    }
+  ],
   "campus_location": "校区位置",
   "campus_name": "校区名称",
   "campus_overview": "校园概览",
@@ -255,7 +279,15 @@
   "city": "城市",
   "clear_search": "清除搜索",
   "cleared_value": "清除了",
-  "clicks": "{count} 次点击",
+  "clicks": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 次点击"
+      }
+    }
+  ],
   "close": "关闭",
   "close_modal": "关闭弹窗",
   "club": "社团",
@@ -263,7 +295,15 @@
   "club_admin": "社团管理员",
   "club_avatar": "社团头像",
   "club_background_color": "社团背景色",
-  "club_count": "{count} 个社团",
+  "club_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 个社团"
+      }
+    }
+  ],
   "club_created_successfully": "社团创建成功",
   "club_introduction": "社团简介",
   "club_left": "成功退出社团",
@@ -279,7 +319,15 @@
   "club_slug_hint": "将在 URL 中使用：/clubs/{slug}",
   "club_updated_successfully": "社团更新成功",
   "clubs": "社团",
-  "clubs_available": "{count} 个社团可用",
+  "clubs_available": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 个社团可用"
+      }
+    }
+  ],
   "clubs_joined": "个已加入社团",
   "collapse_details": "收起详情",
   "color_picker_description": "选择代表您组织的颜色",
@@ -343,7 +391,15 @@
   "discipline_category": "学科门类",
   "discover": "开始探索",
   "discover_from": "从哪里开始探索？",
-  "dismiss_in": "{count} 天内不再显示",
+  "dismiss_in": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 天内不再显示"
+      }
+    }
+  ],
   "display_name": "显示名称",
   "display_name_too_long": "显示名称不能超过50个字符",
   "dist_km": "{km} 千米",
@@ -353,7 +409,16 @@
   "domain_mismatch": "域名不匹配",
   "domain_mismatch_description": "电子邮件地址的域名与高校的域名不一致。",
   "donate": "赞助",
-  "donate_description": "您已在本站浏览 {count} 次页面了。如果您觉得本站对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！",
+  "donate_description": [
+    {
+      "declarations": ["input appName", "input count"],
+      "selectors": ["count"],
+      "match": {
+        "count=1": "欢迎来到 {appName}！如果您觉得这个项目对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！",
+        "count=*": "您已在本站浏览 {count} 次页面了。如果您觉得本站对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！"
+      }
+    }
+  ],
   "done": "完成",
   "double_first_class": "双一流",
   "downvote": "踩",
@@ -409,7 +474,15 @@
   "footprint_visibility": "足迹可见性",
   "form_errors_found": "表单中发现错误",
   "form_validation_error": "请修复下面的错误",
-  "found_shops_near": "在 {location} 附近找到了 {count} 家店铺",
+  "found_shops_near": [
+    {
+      "declarations": ["input count", "input location", "local countPlural = count: plural"],
+      "selectors": ["count", "location"],
+      "match": {
+        "count=*, location=*": "在 {location} 附近找到了 {count} 家店铺"
+      }
+    }
+  ],
   "frequenting_arcades": "常去机厅",
   "frequenting_arcades_public": "将我常去的机厅展示给其他人",
   "frequenting_arcades_visibility": "常去机厅可见性",
@@ -509,7 +582,15 @@
   "max_uses_count": "最大使用次数",
   "member": "成员",
   "member_count": "成员数量",
-  "member_count_people": "{count} 人",
+  "member_count_people": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 人"
+      }
+    }
+  ],
   "member_management": "成员管理",
   "member_management_description": "查看和管理高校成员、学生验证和成员角色。",
   "members": "成员",
@@ -666,7 +747,15 @@
   "route": "路线",
   "route_details": "路线详情",
   "route_guidance": "路线指引",
-  "route_options": "{count} 条路线",
+  "route_options": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 条路线"
+      }
+    }
+  ],
   "route_steps": "路线步骤",
   "running_nature": "办学性质",
   "save": "保存",
@@ -700,7 +789,15 @@
   "sharp_left": "急左转",
   "sharp_right": "急右转",
   "shop": "店铺",
-  "shops": "{count} 家店铺",
+  "shops": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 家店铺"
+      }
+    }
+  ],
   "show_unread_only": "仅显示未读",
   "showing_all_clubs": "显示所有社团",
   "showing_all_universities": "显示所有高校",
@@ -726,14 +823,38 @@
   "star": "收藏",
   "starred_arcades": "收藏机厅",
   "starred_arcades_count": "收藏机厅数量",
-  "starred_arcades_count_shops": "{count} 家",
+  "starred_arcades_count_shops": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 家"
+      }
+    }
+  ],
   "starred_arcades_public": "将我收藏的机厅展示给其他人",
   "starred_arcades_visibility": "收藏机厅可见性",
-  "stations": "{count} 站",
+  "stations": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 站"
+      }
+    }
+  ],
   "statistics": "统计数据",
   "status": "状态",
   "step": "第 {step} 步",
-  "stops": "{count} 站",
+  "stops": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 站"
+      }
+    }
+  ],
   "student": "学生",
   "student_organization": "学生社团",
   "student_status_verified": "您的在校生资格已通过以下电子邮件地址验证：",
@@ -747,6 +868,8 @@
   "this_is_how_others_will_see_your_name": "这是其他人看到您的名称",
   "time_length": [
     {
+      "declarations": ["input hours", "input minutes"],
+      "selectors": ["hours", "minutes"],
       "match": {
         "hours=0, minutes=*": "{minutes} 分钟",
         "hours=*, minutes=0": "{hours} 小时",
@@ -782,7 +905,15 @@
   "underconfigured_university": "高校信息未完善",
   "underconfigured_university_description": "该高校缺少自动验证所需的关键信息。请联系高校管理员完成设置。",
   "universities": "高校",
-  "universities_and_colleges_available": "{count} 所高校可用",
+  "universities_and_colleges_available": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 所高校可用"
+      }
+    }
+  ],
   "university": "高校",
   "university_affiliation": "隶属关系",
   "university_affiliation_placeholder": "例如：教育部",
@@ -843,6 +974,7 @@
   "uses": [
     {
       "declarations": ["input current", "input max"],
+      "selectors": ["current", "max"],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
@@ -864,7 +996,15 @@
   "verify_student": "验证学生",
   "verify_title": "验证『{university}』的在校生资格",
   "via_stop": "途经站点",
-  "via_stops": "途经 {count} 站",
+  "via_stops": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "途经 {count} 站"
+      }
+    }
+  ],
   "view": "查看",
   "view_all": "查看全部",
   "view_club": "查看社团",

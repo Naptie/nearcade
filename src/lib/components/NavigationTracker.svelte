@@ -42,7 +42,7 @@
       return false;
     }
 
-    if (count === INITIAL_THRESHOLD) return true;
+    if (count === 1 || count === INITIAL_THRESHOLD) return true;
     if (count > INITIAL_THRESHOLD && count % RECURRING_INTERVAL === 0) return true;
 
     return false;
