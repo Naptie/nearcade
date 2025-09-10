@@ -1089,7 +1089,9 @@
       <p class="text-base-content/70">
         {m.found_shops_near({
           count: data.shops.length,
-          location: data.location.name ?? `(${data.location.longitude}, ${data.location.latitude})`
+          location:
+            data.location.name ??
+            `(${data.location.longitude.toFixed(6)}, ${data.location.latitude.toFixed(6)})`
         })}
       </p>
     </div>
