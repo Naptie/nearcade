@@ -13,6 +13,7 @@ export interface Shop {
   region: string;
   subregion: string;
   city: string;
+  address?: string; // Optional address field
   location: Location;
   games: Game[];
   source: ShopSource;

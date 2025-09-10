@@ -519,6 +519,76 @@
     return element;
   };
 
+  const formatShopAddress = (shop: Shop): string => {
+    const addressParts: string[] = [];
+
+    if (shop.address) {
+      addressParts.push(shop.address);
+    }
+
+    // If we don't have a specific address, build from region/city info
+    if (addressParts.length === 0) {
+      if (shop.city && shop.city !== shop.subregion) {
+        addressParts.push(shop.city);
+      }
+      if (shop.subregion && shop.subregion !== shop.region) {
+        addressParts.push(shop.subregion);
+      }
+      if (shop.region) {
+        addressParts.push(shop.region);
+      }
+    }
+
+    return addressParts.length > 0 ? addressParts.join(' · ') : '';
+  };
+
+  const createShopInfoWindowContent = (shop: Shop): string => {
+    const address = formatShopAddress(shop);
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name)}@${shop.location.coordinates[1]},${shop.location.coordinates[0]}`;
+
+    return `
+      <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 200px; max-width: 300px;">
+        <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1f2937;">
+          ${shop.name}
+        </div>
+        ${
+          address
+            ? `
+          <div style="font-size: 14px; color: #6b7280; margin-bottom: 12px; line-height: 1.4;">
+            ${address}
+          </div>
+        `
+            : ''
+        }
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <a 
+            href="${googleMapsUrl}" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style="
+              display: inline-flex; 
+              align-items: center; 
+              gap: 6px; 
+              padding: 6px 12px; 
+              background: #3b82f6; 
+              color: white; 
+              text-decoration: none; 
+              border-radius: 6px; 
+              font-size: 13px;
+              font-weight: 500;
+              transition: background-color 0.2s;
+            "
+            onmouseover="this.style.background='#2563eb'"
+            onmouseout="this.style.background='#3b82f6'"
+          >
+            <i class="fas fa-external-link-alt" style="font-size: 11px;"></i>
+            View in Google Maps
+          </a>
+        </div>
+      </div>
+    `;
+  };
+
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined) return;
 
@@ -582,7 +652,7 @@
 
             // Create info window for shop
             const infoWindow = new google.maps!.InfoWindow({
-              content: `<div class="text-sm font-medium">${shop.name}</div>`
+              content: createShopInfoWindowContent(shop)
             });
 
             marker.addListener('mouseover', () => {
@@ -1256,5 +1326,39 @@
 
   :global(.amap-marker-label) {
     @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;
+  }
+
+  /* Fix Google Maps InfoWindow close button visibility */
+  :global(.gm-ui-hover-effect) {
+    opacity: 1 !important;
+    background-color: #f3f4f6 !important;
+    border-radius: 2px !important;
+  }
+
+  :global(.gm-ui-hover-effect:hover) {
+    background-color: #e5e7eb !important;
+  }
+
+  /* Ensure InfoWindow close button icon is visible */
+  :global(.gm-ui-hover-effect > img) {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  /* Dark mode adjustments for InfoWindow */
+  :global(.gm-style .gm-style-iw-c) {
+    border-radius: 8px !important;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  /* Fix InfoWindow close button positioning and visibility */
+  :global(.gm-style .gm-style-iw-tc::after) {
+    background: white !important;
+  }
+
+  :global(.gm-style .gm-style-iw-t::after) {
+    background: white !important;
   }
 </style>
