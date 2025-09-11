@@ -1,15 +1,15 @@
 import { MongoDBAdapter } from '@auth/mongodb-adapter';
 import { SvelteKitAuth, type User } from '@auth/sveltekit';
-import GitHub from '@auth/sveltekit/providers/github';
+import { env } from '$env/dynamic/private';
+import { ObjectId } from 'mongodb';
+import { generateValidUsername } from '$lib/utils';
 import MicrosoftEntraID from '@auth/sveltekit/providers/microsoft-entra-id';
 import Osu from '@auth/sveltekit/providers/osu';
 import client from '$lib/db/index.server';
 import Discord from '@auth/sveltekit/providers/discord';
-import QQ from './qq';
-import { env } from '$env/dynamic/private';
-import { ObjectId } from 'mongodb';
-import { generateValidUsername } from '$lib/utils';
+import GitHub from './github';
 import Phira from './phira';
+import QQ from './qq';
 import {
   countUnreadNotifications,
   countPendingJoinRequests
@@ -25,9 +25,21 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
     }),
     GitHub(config),
     MicrosoftEntraID(config),
-    Discord(config),
     Phira(config),
-    Osu(config)
+    Osu(config),
+    (() => {
+      const discord = Discord(config);
+      const discordUrl = 'https://discord.com';
+      if (env.DISCORD_PROXY) {
+        const proxy = env.DISCORD_PROXY.endsWith('/')
+          ? env.DISCORD_PROXY.slice(0, -1)
+          : env.DISCORD_PROXY;
+        discord.authorization.url = discord.authorization.url.replace(discordUrl, proxy);
+        discord.token = discord.token.replace(discordUrl, proxy);
+        discord.userinfo = discord.userinfo.replace(discordUrl, proxy);
+      }
+      return discord;
+    })()
   ],
   adapter: MongoDBAdapter(client, {
     databaseName: undefined,
