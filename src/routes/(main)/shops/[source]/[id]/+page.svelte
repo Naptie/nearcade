@@ -4,10 +4,34 @@
   import { formatShopAddress, pageTitle } from '$lib/utils';
   import { GAMES, ShopSource } from '$lib/constants';
   import type { Game } from '$lib/types';
+  import AttendanceModal from '$lib/components/shops/AttendanceModal.svelte';
+  import { browser } from '$app/environment';
 
   let { data }: { data: PageData } = $props();
 
   const shop = data.shop;
+  let attendanceData = $state(data.attendanceData);
+  let showAttendanceModal = $state(false);
+  let isLoading = $state(false);
+
+  // Track user's current attendance status
+  let userAttendance = $state<Record<number, boolean>>({});
+
+  // Update user attendance status
+  $effect(() => {
+    if (data.user && attendanceData) {
+      const newUserAttendance: Record<number, boolean> = {};
+      
+      for (const [gameIdStr, attendees] of Object.entries(attendanceData)) {
+        const gameId = parseInt(gameIdStr);
+        newUserAttendance[gameId] = attendees.some((attendee: any) => 
+          attendee.userId === data.user?.id
+        );
+      }
+      
+      userAttendance = newUserAttendance;
+    }
+  });
 
   const getGameInfo = (gameId: number) => {
     return GAMES.find(g => g.id === gameId);
@@ -26,6 +50,108 @@
   const getGoogleMapsUrl = (): string => {
     const address = formatShopAddress(shop);
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
+  };
+
+  const getTotalAttendance = (): number => {
+    if (!attendanceData) return 0;
+    return Object.values(attendanceData).reduce((total: number, attendees: any[]) => total + attendees.length, 0);
+  };
+
+  const getGameAttendance = (gameId: number): number => {
+    if (!attendanceData || !attendanceData[gameId]) return 0;
+    return attendanceData[gameId].length;
+  };
+
+  const handleAttend = async (gameId: number, plannedLeaveAt: Date) => {
+    if (!data.user) return;
+
+    isLoading = true;
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          shopSource: shop.source,
+          shopId: shop.id,
+          gameId,
+          plannedLeaveAt: plannedLeaveAt.toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to attend');
+      }
+
+      // Refresh attendance data
+      await refreshAttendanceData();
+    } catch (error) {
+      console.error('Error attending:', error);
+      // TODO: Show error toast
+    } finally {
+      isLoading = false;
+    }
+  };
+
+  const handleLeave = async (gameId: number) => {
+    if (!data.user) return;
+
+    isLoading = true;
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          shopSource: shop.source,
+          shopId: shop.id,
+          gameId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to leave');
+      }
+
+      // Refresh attendance data
+      await refreshAttendanceData();
+    } catch (error) {
+      console.error('Error leaving:', error);
+      // TODO: Show error toast
+    } finally {
+      isLoading = false;
+    }
+  };
+
+  const refreshAttendanceData = async () => {
+    if (!browser) return;
+
+    try {
+      const response = await fetch(`/api/attendance?shopSource=${shop.source}&shopId=${shop.id}`);
+      if (response.ok) {
+        const result = await response.json();
+        attendanceData = result.attendanceData || {};
+      }
+    } catch (error) {
+      console.error('Error refreshing attendance:', error);
+    }
+  };
+
+  // Refresh attendance data every 30 seconds
+  $effect(() => {
+    if (!browser) return;
+
+    const interval = setInterval(refreshAttendanceData, 30000);
+    return () => clearInterval(interval);
+  });
+
+  const formatAttendanceTime = (timestamp: string): string => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   };
 </script>
 
@@ -115,16 +241,63 @@
                     </div>
                   </div>
 
-                  <!-- Attendance Section (Placeholder for now) -->
+                  <!-- Attendance Section -->
                   <div class="mt-4 pt-4 border-t border-base-content/10">
                     <div class="flex items-center justify-between mb-2">
                       <span class="text-sm text-base-content/60">{m.current_players()}:</span>
-                      <span class="text-sm font-medium">0 {m.online()}</span>
+                      <span class="text-sm font-medium">{getGameAttendance(game.id)} {m.online()}</span>
                     </div>
-                    <button class="btn btn-outline btn-sm w-full">
-                      <i class="fa-solid fa-play"></i>
-                      {m.attend()}
-                    </button>
+                    
+                    {#if data.user}
+                      {#if userAttendance[game.id]}
+                        <button 
+                          class="btn btn-error btn-sm w-full"
+                          onclick={() => handleLeave(game.id)}
+                          disabled={isLoading}
+                        >
+                          {#if isLoading}
+                            <span class="loading loading-spinner loading-xs"></span>
+                          {:else}
+                            <i class="fa-solid fa-stop"></i>
+                          {/if}
+                          {m.leave()}
+                        </button>
+                      {:else}
+                        <button 
+                          class="btn btn-outline btn-sm w-full"
+                          onclick={() => showAttendanceModal = true}
+                          disabled={isLoading}
+                        >
+                          <i class="fa-solid fa-play"></i>
+                          {m.attend()}
+                        </button>
+                      {/if}
+                    {:else}
+                      <div class="text-center text-sm text-base-content/60 py-2">
+                        {m.sign_in_to_attend()}
+                      </div>
+                    {/if}
+
+                    <!-- Detailed attendance list for this game -->
+                    {#if attendanceData[game.id] && attendanceData[game.id].length > 0}
+                      <div class="mt-3 pt-3 border-t border-base-content/10">
+                        <div class="text-xs text-base-content/60 mb-2 font-medium">
+                          {m.currently_playing()}:
+                        </div>
+                        <div class="space-y-1 max-h-24 overflow-y-auto">
+                          {#each attendanceData[game.id] as attendee}
+                            <div class="flex justify-between items-center text-xs">
+                              <span class="truncate">
+                                {attendee.userId === data.user?.id ? m.you() : `${m.user()} ${attendee.userId.slice(0, 8)}...`}
+                              </span>
+                              <span class="text-base-content/60 shrink-0">
+                                {formatAttendanceTime(attendee.attendedAt)}
+                              </span>
+                            </div>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
                   </div>
                 </div>
               </div>
@@ -168,19 +341,20 @@
           </div>
         </div>
 
-        <!-- Real-time Attendance (Placeholder) -->
+        <!-- Real-time Attendance -->
         <div class="card bg-base-200 border-base-content/20 border">
           <div class="card-body p-6">
             <h3 class="text-lg font-semibold mb-4">{m.realtime_attendance()}</h3>
             
             <div class="text-center py-4">
-              <div class="text-3xl font-bold text-primary mb-2">0</div>
+              <div class="text-3xl font-bold text-primary mb-2">{getTotalAttendance()}</div>
               <div class="text-base-content/60 text-sm">{m.players_currently_playing()}</div>
             </div>
 
             <div class="space-y-2 text-sm">
               {#each shop.games as game (game.id)}
                 {@const gameInfo = getGameInfo(game.id)}
+                {@const gameAttendance = getGameAttendance(game.id)}
                 <div class="flex justify-between items-center">
                   <span class="text-base-content/60 truncate max-w-24">
                     {#if gameInfo}
@@ -189,13 +363,64 @@
                       Game #{game.id}
                     {/if}
                   </span>
-                  <span class="font-medium">0 / {game.quantity}</span>
+                  <span class="font-medium" class:text-success={gameAttendance > 0}>
+                    {gameAttendance} / {game.quantity}
+                  </span>
                 </div>
               {/each}
             </div>
+
+            <!-- Quick attend button -->
+            {#if data.user && shop.games.length === 1}
+              {@const singleGame = shop.games[0]}
+              <div class="mt-4 pt-4 border-t border-base-content/10">
+                {#if userAttendance[singleGame.id]}
+                  <button 
+                    class="btn btn-error btn-sm w-full"
+                    onclick={() => handleLeave(singleGame.id)}
+                    disabled={isLoading}
+                  >
+                    {#if isLoading}
+                      <span class="loading loading-spinner loading-xs"></span>
+                    {:else}
+                      <i class="fa-solid fa-stop"></i>
+                    {/if}
+                    {m.leave()}
+                  </button>
+                {:else}
+                  <button 
+                    class="btn btn-primary btn-sm w-full"
+                    onclick={() => showAttendanceModal = true}
+                    disabled={isLoading}
+                  >
+                    <i class="fa-solid fa-play"></i>
+                    {m.quick_attend()}
+                  </button>
+                {/if}
+              </div>
+            {:else if data.user && shop.games.length > 1}
+              <div class="mt-4 pt-4 border-t border-base-content/10">
+                <button 
+                  class="btn btn-primary btn-sm w-full"
+                  onclick={() => showAttendanceModal = true}
+                  disabled={isLoading}
+                >
+                  <i class="fa-solid fa-play"></i>
+                  {m.attend()}
+                </button>
+              </div>
+            {/if}
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Attendance Modal -->
+<AttendanceModal
+  bind:isOpen={showAttendanceModal}
+  {shop}
+  onClose={() => showAttendanceModal = false}
+  onAttend={handleAttend}
+/>

@@ -165,6 +165,10 @@
                   <i class="fa-solid fa-desktop"></i>
                   <span>{getTotalMachines(shop)} {m.machines()}</span>
                 </div>
+                <div class="text-base-content/60 flex items-center gap-1">
+                  <i class="fa-solid fa-users"></i>
+                  <span>0 {m.online()}</span>
+                </div>
                 <a
                   href={getSourceUrl(shop)}
                   target="_blank"
