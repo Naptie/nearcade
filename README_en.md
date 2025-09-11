@@ -40,6 +40,11 @@ Please join the following QQ group for discussions.
 - SOUND VOLTEX
 - WACCA
 
+### 🗃️ Data Collection
+
+- Arcade shops in China (mainland, HK, MO, and TW) are collected from [BEMANICN's map](https://map.bemanicn.com/). Overseas aracde shops are collected from [Zenius -I- vanisher.com](https://zenius-i-vanisher.com/v5.2/arcades.php).
+- A list of Chinese mainland universities is obtained from [MOE](http://www.moe.gov.cn/jyb_xxgk/s5743/s5744/A03/202506/t20250627_1195683.html), with additional campus geolocation data collected by [Naptie/cn-university-geocoder](https://github.com/Naptie/cn-university-geocoder) from [Tencent Maps](https://lbs.qq.com/).
+
 ## 🛠️ Technical Stack
 
 ### Frontend Framework
@@ -250,7 +255,3 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 ## 📄 License
 
 This project is open source and available under the [Mozilla Public License 2.0](LICENSE).
-
-## 🙏 Acknowledgments
-
-- [BEMANICN](https://map.bemanicn.com/)

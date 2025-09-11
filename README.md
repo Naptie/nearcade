@@ -40,6 +40,11 @@
 - 音律炫动
 - 华卡音舞
 
+### 🗃️ 数据采集
+
+- 国内机厅数据（内地、港澳台）采集自 [BEMANICN 全国音游地图](https://map.bemanicn.com/)。海外机厅数据采集自 [Zenius -I- vanisher.com](https://zenius-i-vanisher.com/v5.2/arcades.php)。
+- 内地高校列表来自[教育部](http://www.moe.gov.cn/jyb_xxgk/s5743/s5744/A03/202506/t20250627_1195683.html)；校区地理信息使用 [Naptie/cn-university-geocoder](https://github.com/Naptie/cn-university-geocoder) 采集自[腾讯地图](https://lbs.qq.com/)。
+
 ## 🛠️ 技术栈
 
 ### 前端框架
@@ -249,7 +254,3 @@ docker-compose down
 ## 📄 开源许可
 
 本项目基于 [Mozilla Public License 2.0](LICENSE) 开源。
-
-## 🙏 致谢
-
-- [BEMANICN](https://map.bemanicn.com/)
