@@ -137,9 +137,9 @@ jobs:
             done
           }
 
-          retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}"
-          retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}"
-          retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod
+          retry_cmd /tmp/${{ vars.LC_EXE }} login -- "${{ secrets.LC_LOGIN }}"
+          retry_cmd /tmp/${{ vars.LC_EXE }} switch -- "${{ secrets.LC_SWITCH }}"
+          retry_cmd /tmp/${{ vars.LC_EXE }} deploy -- --prod
 
   sentry-publish:
     name: Publish to Sentry
