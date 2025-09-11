@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import client from '$lib/db/index.server';
+import type { Shop } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q');
@@ -12,7 +13,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
   try {
     const db = client.db();
-    const shopsCollection = db.collection('shops');
+    const shopsCollection = db.collection<Shop>('shops');
 
     let shops;
     try {
@@ -59,7 +60,7 @@ export const GET: RequestHandler = async ({ url }) => {
       shops: shops.map((shop) => ({
         id: shop.id,
         name: shop.name,
-        address: shop.address || '',
+        generalAddress: shop.generalAddress || [],
         location: shop.location,
         games: shop.games || [],
         source: shop.source

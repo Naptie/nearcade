@@ -35,17 +35,31 @@
     SELECTED_SHOP_INDEX,
     HOVERED_SHOP_INDEX
   } from '$lib/constants';
+  import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
 
   let { data } = $props();
 
   let screenWidth = $state(0);
 
+  // Determine if all shops are from 'ziv' source to enable Google Maps
+  const shouldUseGoogleMaps = $derived(
+    data.shops.length > 0 && data.shops.every((shop) => shop.source === 'ziv')
+  );
+
   const amapContext = getContext<AMapContext>('amap');
   let amap = $derived(amapContext?.amap);
   let amapError = $derived(amapContext?.error ?? null);
-  let amapContainer: HTMLDivElement | undefined = $state(undefined);
-  let map: AMap.Map | undefined = $state(undefined);
-  let markers: Record<string, { marker: AMap.Marker; zIndex: number }> = $state({});
+
+  let mapContainer: HTMLDivElement | undefined = $state(undefined);
+  let map: AMap.Map | google.maps.Map | undefined = $state(undefined); // AMap.Map | google.maps.Map
+  let markers: Record<
+    string,
+    {
+      marker: AMap.Marker | google.maps.marker.AdvancedMarkerElement;
+      infoWindow?: google.maps.InfoWindow;
+      zIndex: number;
+    }
+  > = $state({}); // AMap.Marker | google.maps.marker.AdvancedMarkerElement
 
   let hoveredShopId: string | null = $state(null);
   let selectedShopId: string | null = $state(null);
@@ -251,7 +265,7 @@
   const openRouteGuidance = () => {
     routeGuidance.isOpen = true;
     if (isMobile) {
-      amapContainer?.scrollIntoView({
+      mapContainer?.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
       });
@@ -341,7 +355,7 @@
             showRouteGuidance();
           });
 
-          map?.add(routeLine);
+          (map as AMap.Map).add(routeLine);
           travelData[`${shop.source}-${shop.id}`] = {
             time: selectedRoute.time ?? 0,
             distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
@@ -428,7 +442,7 @@
       await processShop(shop);
     }
 
-    if (!routeGuidance.isOpen) map?.setFitView();
+    if (!routeGuidance.isOpen && map && 'setFitView' in map) map.setFitView();
   };
 
   const findGame = (games: Game[], gameId: number): Game | null => {
@@ -466,6 +480,17 @@
       window.addEventListener('resize', handleResize);
       window.addEventListener('amap-loaded', assignAMap);
 
+      // Load Google Maps if needed
+      if (
+        shouldUseGoogleMaps &&
+        'loadGoogleMaps' in window &&
+        typeof window.loadGoogleMaps === 'function'
+      ) {
+        window.loadGoogleMaps().catch((error: Error) => {
+          console.error('Failed to load Google Maps:', error);
+        });
+      }
+
       Promise.all(
         data.shops.flatMap((shop) => {
           costs[`${shop.source}-${shop.id}`] = {};
@@ -485,105 +510,267 @@
     }
   });
 
+  const createIcon = (id: string, icon: string, origin = false) => {
+    const element = document.createElement('div');
+    element.id = id;
+    element.className = 'cursor-pointer relative';
+    const inner = document.createElement('div');
+    inner.className = `absolute left-1/2 -translate-x-1/2 ${origin ? 'top-1/2 -translate-y-1/2' : 'bottom-0 text-info dark:text-success hover:text-warning hover:dark:text-info'} text-lg`;
+    const iconEl = document.createElement('i');
+    iconEl.className = icon;
+    inner.appendChild(iconEl);
+    element.appendChild(inner);
+    return element;
+  };
+
+  const formatShopAddress = (shop: Shop): string => {
+    const addressParts: string[] = [];
+
+    if (shop.generalAddress) {
+      addressParts.push(...shop.generalAddress);
+    }
+
+    return addressParts.length > 0 ? addressParts.toReversed().join(', ') : '';
+  };
+
+  const createShopInfoWindowContent = (shop: Shop): string => {
+    const address = formatShopAddress(shop);
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
+
+    return `
+      <div class="mt-2 min-w-48 max-w-80 space-y-2">
+        <div class="space-y-0.25">
+          <div class="font-semibold text-lg text-slate-800">
+            ${shop.name}
+          </div>
+          <div class="text-sm text-slate-600">
+            ${address}
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <a 
+            href="${googleMapsUrl}" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="btn btn-dash btn-neutral"
+          >
+            <i class="fas fa-external-link-alt"></i>
+            ${m.view_in_google_maps()}
+          </a>
+        </div>
+      </div>
+    `;
+  };
+
   $effect(() => {
-    if (!amap || !amapContainer || !data || darkMode === undefined) return;
-    untrack(() => {
-      if (!amap) return;
-      map = new amap.Map(amapContainer!.id, {
-        zoom: 10,
-        center: [data.location.longitude, data.location.latitude],
-        mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
-        viewMode: '2D'
-      });
+    if (!mapContainer || !data || darkMode === undefined) return;
 
-      const origin = new amap.Marker({
-        position: [data.location.longitude, data.location.latitude],
-        title: m.origin(),
-        content: '<i class="fa-solid fa-location-crosshairs fa-lg"></i>',
-        offset: new amap.Pixel(-9.375, -10),
-        label: {
-          content: m.origin(),
-          offset: new amap.Pixel(2, -5),
-          direction: 'right'
-        },
-        zIndex: ORIGIN_INDEX
-      });
-      origin.setMap(map);
-      if (data.shops.length > 0) {
-        data.shops.forEach((shop) => {
-          const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
-          const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
-          const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
-          const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+    if (shouldUseGoogleMaps && google.maps) {
+      // Initialize Google Maps
+      untrack(async () => {
+        if (!google.maps) return;
 
-          const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
-          const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
-          const zIndex =
-            Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
+        const googleMap = new google.maps.Map(mapContainer!, {
+          mapId: PUBLIC_GOOGLE_MAPS_MAP_ID,
+          zoom: 10,
+          center: { lat: data.location.latitude, lng: data.location.longitude },
+          colorScheme: google.maps.ColorScheme.FOLLOW_SYSTEM
+        });
 
-          const marker = new amap!.Marker({
-            position: shop.location.coordinates,
-            title: shop.name,
-            content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
-            offset: new amap!.Pixel(-7.03, -20),
-            label: {
-              content: shop.name,
-              offset: new amap!.Pixel(2, -5),
-              direction: 'right'
-            },
-            zIndex
-          });
+        map = googleMap;
+        await google.maps.importLibrary('marker');
 
-          markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+        const originMarker = new google.maps.marker.AdvancedMarkerElement({
+          position: { lat: data.location.latitude, lng: data.location.longitude },
+          map: googleMap,
+          title: m.origin(),
+          content: createIcon('origin-marker', 'fa-solid fa-location-crosshairs fa-xl', true),
+          zIndex: ORIGIN_INDEX
+        });
 
-          marker.on('mouseover', () => {
-            hoveredShopId = `${shop.source}-${shop.id}`;
-          });
-          marker.on('mouseout', () => {
-            if (hoveredShopId === `${shop.source}-${shop.id}`) {
-              hoveredShopId = null;
-            }
-          });
-          marker.on('click', () => {
-            selectedShopId = `${shop.source}-${shop.id}`;
-            highlightedShopId = `${shop.source}-${shop.id}`;
-            if (highlightedShopIdTimeout) {
-              clearTimeout(highlightedShopIdTimeout);
-            }
-            if (!routeGuidance.isOpen) {
+        // Create info window for origin
+        const originInfoWindow = new google.maps.InfoWindow({
+          content: `<div class="text-sm font-medium">${m.origin()}</div>`
+        });
+
+        originMarker.addListener('click', () => {
+          originInfoWindow.open(googleMap, originMarker);
+        });
+
+        // Create shop markers
+        if (data.shops.length > 0) {
+          data.shops.forEach((shop) => {
+            const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
+            const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
+            const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
+            const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+
+            const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
+            const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
+            const zIndex =
+              Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
+
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+              position: { lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] },
+              map: googleMap,
+              title: shop.name,
+              content: createIcon(
+                `shop-marker-${shop.source}-${shop.id}`,
+                'fa-solid fa-location-dot fa-lg'
+              ),
+              zIndex
+            });
+
+            const infoWindow = new google.maps!.InfoWindow({
+              content: createShopInfoWindowContent(shop)
+            });
+
+            markers[`${shop.source}-${shop.id}`] = { marker, infoWindow, zIndex };
+
+            marker.addListener('mouseover', () => {
+              hoveredShopId = `${shop.source}-${shop.id}`;
+            });
+
+            marker.addListener('mouseout', () => {
+              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+                hoveredShopId = null;
+              }
+            });
+
+            marker.addListener('click', () => {
+              selectedShopId = `${shop.source}-${shop.id}`;
+              highlightedShopId = `${shop.source}-${shop.id}`;
+              Object.values(markers).forEach((markerInfo) => {
+                markerInfo.infoWindow?.close();
+              });
+              infoWindow.open(googleMap, marker);
+
+              if (highlightedShopIdTimeout) {
+                clearTimeout(highlightedShopIdTimeout);
+              }
+
               highlightedShopIdTimeout = setTimeout(() => {
                 highlightedShopId = null;
               }, 3000);
-            }
-            const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
-            if (shopElement && !(isMobile && routeGuidance.isOpen)) {
-              shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+
+              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              if (shopElement && !(isMobile && routeGuidance.isOpen)) {
+                shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            });
           });
-          marker.setMap(map);
+
+          // Fit bounds to show all markers
+          const bounds = new google.maps.LatLngBounds();
+          bounds.extend({ lat: data.location.latitude, lng: data.location.longitude });
+          data.shops.forEach((shop) => {
+            bounds.extend({ lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] });
+          });
+          googleMap.fitBounds(bounds);
+        }
+      });
+    } else if (!shouldUseGoogleMaps && amap) {
+      // Initialize AMap (existing code)
+      untrack(() => {
+        if (!amap) return;
+        map = new amap.Map('amap-container', {
+          zoom: 10,
+          center: [data.location.longitude, data.location.latitude],
+          mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
+          viewMode: '2D'
         });
 
-        map.setFitView();
-      }
-    });
+        const origin = new amap.Marker({
+          position: [data.location.longitude, data.location.latitude],
+          title: m.origin(),
+          content: '<i class="fa-solid fa-location-crosshairs fa-lg"></i>',
+          offset: new amap.Pixel(-9.375, -10),
+          label: {
+            content: m.origin(),
+            offset: new amap.Pixel(2, -5),
+            direction: 'right'
+          },
+          zIndex: ORIGIN_INDEX
+        });
+        origin.setMap(map);
+        if (data.shops.length > 0) {
+          data.shops.forEach((shop) => {
+            const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
+            const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
+            const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
+            const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
+
+            const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
+            const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
+            const zIndex =
+              Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
+
+            const marker = new amap!.Marker({
+              position: shop.location.coordinates,
+              title: shop.name,
+              content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
+              offset: new amap!.Pixel(-7.03, -20),
+              label: {
+                content: shop.name,
+                offset: new amap!.Pixel(2, -5),
+                direction: 'right'
+              },
+              zIndex
+            });
+
+            markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+
+            marker.on('mouseover', () => {
+              hoveredShopId = `${shop.source}-${shop.id}`;
+            });
+            marker.on('mouseout', () => {
+              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+                hoveredShopId = null;
+              }
+            });
+            marker.on('click', () => {
+              selectedShopId = `${shop.source}-${shop.id}`;
+              highlightedShopId = `${shop.source}-${shop.id}`;
+              if (highlightedShopIdTimeout) {
+                clearTimeout(highlightedShopIdTimeout);
+              }
+              if (!routeGuidance.isOpen) {
+                highlightedShopIdTimeout = setTimeout(() => {
+                  highlightedShopId = null;
+                }, 3000);
+              }
+              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              if (shopElement && !(isMobile && routeGuidance.isOpen)) {
+                shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            });
+            marker.setMap(map as AMap.Map);
+          });
+
+          if (map && 'setFitView' in map) map.setFitView();
+        }
+      });
+    }
   });
 
   $effect(() => {
-    if (!map) return;
-    map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
+    if (!map || shouldUseGoogleMaps) return;
+    if (map && 'setMapStyle' in map) {
+      map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
+    }
   });
 
   $effect(() => {
-    if (!amap || !data) return;
+    if (!map || shouldUseGoogleMaps) return; // Skip for Google Maps
     if (transportMethod) {
       untrack(async () => {
         await calculateTravelData(transportMethod!);
       });
       return () => {
         Object.keys(travelData).forEach((shopId) => {
-          const route = travelData[Number(shopId)]?.route;
-          if (route) {
-            map?.remove(route);
+          const route = travelData[shopId]?.route;
+          if (route && map && (map as { remove?: (route: unknown) => void }).remove) {
+            (map as { remove: (route: unknown) => void }).remove(route);
           }
         });
       };
@@ -593,18 +780,19 @@
   });
 
   $effect(() => {
+    if (shouldUseGoogleMaps) return; // Skip for Google Maps
     Object.keys(travelData).forEach((shopId) => {
       const data = travelData[shopId];
-      if (!data) return;
+      if (!data || !data.route.setOptions) return;
       data.route.setOptions(getRouteOptions(shopId));
     });
   });
 
   $effect(() => {
     // Update route colors when guidance state changes
-    if (routeGuidance.shopId) {
+    if (routeGuidance.shopId && !shouldUseGoogleMaps) {
       const routeData = travelData[routeGuidance.shopId];
-      if (routeData) {
+      if (routeData && routeData.route.setOptions) {
         routeData.route.setOptions(getRouteOptions(routeGuidance.shopId));
       }
     }
@@ -613,23 +801,40 @@
   $effect(() => {
     if (selectedShopId) {
       untrack(() => {
-        const route = travelData[selectedShopId!]?.route;
-        if (route) {
-          map?.setFitView([route]);
-          routeGuidance.shopId = selectedShopId;
-          openRouteGuidance();
+        if (shouldUseGoogleMaps && map && 'setZoom' in map) {
+          // For Google Maps, just center on the shop
+          const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+          if (shop) {
+            map.setZoom(15);
+            (map as google.maps.Map).panTo({
+              lat: shop.location.coordinates[1],
+              lng: shop.location.coordinates[0]
+            });
+          }
         } else {
-          map?.setZoomAndCenter(
-            15,
-            data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId)!.location.coordinates
-          );
+          const route = travelData[selectedShopId!]?.route;
+          if (route && map && 'setFitView' in map) {
+            map.setFitView([route]);
+            routeGuidance.shopId = selectedShopId;
+            openRouteGuidance();
+          } else {
+            const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+            if (shop && map && 'setZoomAndCenter' in map) {
+              map.setZoomAndCenter(15, shop.location.coordinates);
+            }
+          }
         }
       });
     }
   });
 
   $effect(() => {
-    if (transportMethod && selectedShopId && travelData[selectedShopId]?.routeData) {
+    if (
+      transportMethod &&
+      selectedShopId &&
+      travelData[selectedShopId]?.routeData &&
+      !shouldUseGoogleMaps
+    ) {
       const selected = selectedShopId;
       untrack(() => {
         const result = travelData[selected]?.routeData;
@@ -664,13 +869,39 @@
     const hovered = hoveredShopId;
     untrack(() => {
       data.shops.forEach((shop) => {
-        markers[`${shop.source}-${shop.id}`]?.marker.setzIndex(
-          `${shop.source}-${shop.id}` === selected
+        const markerId = `${shop.source}-${shop.id}`;
+        const markerData = markers[markerId];
+        if (!markerData) return;
+
+        if (shouldUseGoogleMaps) {
+          const marker = markerData.marker as google.maps.marker.AdvancedMarkerElement;
+          const isSelected = markerId === selected;
+          const isHovered = markerId === hovered;
+
+          if (isSelected) {
+            Object.values(markers).forEach((markerInfo) => {
+              markerInfo.infoWindow?.close();
+            });
+            markerData.infoWindow?.open(map as google.maps.Map, marker);
+          }
+
+          marker.zIndex = isSelected
             ? SELECTED_SHOP_INDEX
-            : `${shop.source}-${shop.id}` === hovered
+            : isHovered
               ? HOVERED_SHOP_INDEX
-              : markers[`${shop.source}-${shop.id}`].zIndex
-        );
+              : markerData.zIndex;
+        } else {
+          const marker = markerData.marker as AMap.Marker;
+          if (marker.setzIndex)
+            marker.setzIndex(
+              markerId === selected
+                ? SELECTED_SHOP_INDEX
+                : markerId === hovered
+                  ? HOVERED_SHOP_INDEX
+                  : markerData.zIndex
+            );
+        }
+
         const element = document.querySelector(
           `#shop-marker-${shop.source}-${shop.id}`
         ) as HTMLElement | null;
@@ -679,9 +910,9 @@
             /text-error|text-warning dark:text-info|text-info dark:text-success/g,
             ''
           );
-          if (selected === `${shop.source}-${shop.id}`) {
+          if (selected === markerId) {
             element.classList.add('text-error');
-          } else if (hovered === `${shop.source}-${shop.id}`) {
+          } else if (hovered === markerId) {
             element.classList.add('text-warning');
             element.classList.add('dark:text-info');
           } else {
@@ -694,18 +925,18 @@
   });
 
   $effect(() => {
-    if (!amap || !map) return;
+    if (!amap || !map || shouldUseGoogleMaps) return;
     if (['transit', 'riding', 'driving'].includes(transportMethod!)) {
-      if (!trafficLayer) {
+      if (!trafficLayer && amap.TileLayer) {
         trafficLayer = new amap.TileLayer.Traffic({
           zIndex: 1000,
           autoRefresh: true,
           opacity: 0.5
         });
-        trafficLayer.setMap(map);
+        if (trafficLayer.setMap) trafficLayer.setMap(map as AMap.Map);
       }
     } else {
-      trafficLayer?.setMap(null);
+      if (trafficLayer && trafficLayer.setMap) trafficLayer.setMap(null);
       trafficLayer = undefined;
     }
   });
@@ -728,7 +959,7 @@
   selectedRouteIndex={routeGuidance.selectedRouteIndex}
   routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
   isLoading={!!routeGuidance.shopId && !travelData[routeGuidance.shopId]}
-  {map}
+  map={map as AMap.Map}
   {amap}
   amapLink={routeLink}
   onClose={() => {
@@ -811,7 +1042,7 @@
         })}
       </p>
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 {shouldUseGoogleMaps ? 'hidden' : ''}">
       <label class="label not-md:mx-auto" for="transport-select">
         <span class="label-text">{m.transport_method()}</span>
       </label>
@@ -838,7 +1069,7 @@
       <span>{m.no_shops_found()}</span>
     </div>
   {/if}
-  {#if amapError}
+  {#if amapError && !shouldUseGoogleMaps}
     <div class="alert alert-error mb-4">
       <i class="fa-solid fa-circle-xmark fa-lg"></i>
       <span>
@@ -850,10 +1081,10 @@
   {/if}
   <div
     id="amap-container"
-    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!amap
+    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!shouldUseGoogleMaps && !amap
       ? 'bg-base-200 animate-pulse opacity-50'
       : ''}"
-    bind:this={amapContainer}
+    bind:this={mapContainer}
   ></div>
   {#if data.shops.length > 0}
     <div class="overflow-x-auto">
@@ -896,7 +1127,7 @@
                 if ((event.target as Element)?.closest('button, a')) return;
                 selectedShopId = `${shop.source}-${shop.id}`;
                 if (!(isMobile && routeGuidance.isOpen))
-                  amapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >
               <td>
@@ -1077,5 +1308,17 @@
 
   :global(.amap-marker-label) {
     @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;
+  }
+
+  :global(.gm-style-iw-d) {
+    @apply !overflow-visible;
+  }
+
+  :global(.gm-ui-hover-effect) {
+    @apply transition dark:!bg-zinc-300;
+  }
+
+  :global(.gm-ui-hover-effect:hover) {
+    @apply dark:!bg-zinc-900;
   }
 </style>

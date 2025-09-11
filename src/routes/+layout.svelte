@@ -87,6 +87,8 @@
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
       serviceHost: fromPath('/_AMapService')
     };
+
+    // Load AMap by default
     try {
       import('@amap/amap-jsapi-loader').then((loader) => {
         loader.default
@@ -196,7 +198,7 @@
   <meta name="theme-color" content="#1B1717" />
   <script
     type="text/javascript"
-    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}"
+    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async"
     defer
   ></script>
 </svelte:head>

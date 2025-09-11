@@ -10,9 +10,7 @@ export interface Shop {
   _id: string;
   id: number;
   name: string;
-  region: string;
-  subregion: string;
-  city: string;
+  generalAddress: string[];
   location: Location;
   games: Game[];
   source: ShopSource;
@@ -68,11 +66,6 @@ export interface University {
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
-}
-
-export interface AMapContext {
-  amap: typeof AMap | undefined;
-  error: string | null;
 }
 
 export interface UniversityRankingResponse {
