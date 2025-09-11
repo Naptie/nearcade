@@ -14,7 +14,6 @@
   import { formatRegionLabel } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
-  import LocationPicker from 'location-picker';
 
   let showCollapse = $state(false);
   let mode = $state(0);
@@ -194,21 +193,28 @@
 
   $effect(() => {
     if (googleMaps) {
-      const picker = new LocationPicker(
-        'gmap',
-        {
-          setCurrentPosition: true
+      const map = new google.maps.Map(googleMaps, {
+        zoom: 15,
+        colorScheme: google.maps.ColorScheme.FOLLOW_SYSTEM,
+        gestureHandling: 'greedy',
+        streetViewControl: false
+      });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          map.setCenter(userLocation);
         },
-        {
-          zoom: 15,
-          colorScheme: google.maps.ColorScheme.FOLLOW_SYSTEM,
-          gestureHandling: 'greedy',
-          streetViewControl: false
+        () => {
+          map.setCenter({ lat: 39.9042, lng: 116.4074 });
         }
       );
-      google.maps.event.addListener(picker.map, 'idle', () => {
-        var { lat, lng } = picker.getMarkerPosition();
-        const loc = { latitude: lat, longitude: lng };
+      google.maps.event.addListener(map, 'idle', () => {
+        const center = map.getCenter();
+        if (!center) return;
+        const loc = { latitude: center.lat(), longitude: center.lng() };
         convertCoordinates(loc)?.then((loc) => {
           location.name = '';
           location.latitude = loc.latitude;
@@ -217,7 +223,7 @@
       });
 
       return () => {
-        google.maps.event.clearInstanceListeners(picker.map);
+        google.maps.event.clearInstanceListeners(map);
       };
     }
   });
@@ -586,6 +592,13 @@
                     title={m.map_location_picker()}
                     class="h-full w-full rounded-xl border"
                   ></div>
+                  <div
+                    class="text-error absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl"
+                  >
+                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2">
+                      <i class="fa-solid fa-location-dot fa-lg"></i>
+                    </div>
+                  </div>
                 {:else}
                   <iframe
                     id="qmap"
