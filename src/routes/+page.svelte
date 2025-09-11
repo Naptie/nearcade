@@ -21,7 +21,8 @@
   let location = $state({
     name: '',
     latitude: undefined as number | undefined,
-    longitude: undefined as number | undefined
+    longitude: undefined as number | undefined,
+    confirmed: true
   });
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
@@ -214,11 +215,12 @@
       google.maps.event.addListener(map, 'idle', () => {
         const center = map.getCenter();
         if (!center) return;
-        const loc = { latitude: center.lat(), longitude: center.lng() };
-        convertCoordinates(loc)?.then((loc) => {
-          location.name = '';
-          location.latitude = loc.latitude;
-          location.longitude = loc.longitude;
+        location.name = '';
+        location.latitude = center.lat();
+        location.longitude = center.lng();
+        location.confirmed = false;
+        convertCoordinates(location)?.then(() => {
+          location.confirmed = true;
         });
       });
 
@@ -614,7 +616,11 @@
             {/if}
             {#if mode !== 0}
               {#if location.latitude !== undefined && location.longitude !== undefined}
-                <div class="alert alert-success alert-soft mt-3 text-sm">
+                <div
+                  class="alert alert-soft mt-3 text-sm transition-colors {location.confirmed
+                    ? 'alert-success'
+                    : 'alert-warning'}"
+                >
                   <i class="fa-solid fa-location-dot fa-lg"></i>
                   <div>
                     <h3 class="font-bold">{location.name || m.selected_location()}</h3>
