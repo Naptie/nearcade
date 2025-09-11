@@ -141,7 +141,7 @@
       </div>
     {:else if searchResults.length > 0}
       <div class="max-h-96 space-y-2 overflow-y-auto">
-        {#each searchResults as shop (shop.id)}
+        {#each searchResults as shop (shop._id)}
           <ManagedArcade {shop} shops={data.frequentingArcades} {radius} />
         {/each}
       </div>
@@ -159,7 +159,7 @@
 
     {#if data.frequentingArcades && data.frequentingArcades.length > 0}
       <div class="grid gap-4">
-        {#each data.frequentingArcades as shop (shop.id)}
+        {#each data.frequentingArcades as shop (shop._id)}
           <ManagedArcade {shop} {radius} />
         {/each}
       </div>

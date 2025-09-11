@@ -37,7 +37,13 @@
 </script>
 
 <div class="group bg-base-100 flex items-center justify-between rounded-lg p-4">
-  <a href="https://map.bemanicn.com/shop/{shop.id}" target="_blank" class="flex-1">
+  <a
+    href="{shop.source === 'ziv'
+      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+      : 'https://map.bemanicn.com/shop/'}{shop.id}"
+    target="_blank"
+    class="flex-1"
+  >
     <h3 class="group-hover:text-accent font-medium transition-colors">{shop.name}</h3>
     {#if shop.games && shop.games.length > 0}
       <div class="mt-1 flex flex-wrap gap-1">

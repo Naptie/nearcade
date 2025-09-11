@@ -1106,7 +1106,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each sortedShops as shop, i (i)}
+          {#each sortedShops as shop (shop._id)}
             <tr
               id="shop-{shop.id}"
               class="group cursor-pointer transition-all select-none {highlightedShopId ===

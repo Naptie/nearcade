@@ -260,7 +260,7 @@
             </h3>
             {#if data.user.frequentingArcades && data.user.frequentingArcades.length > 0}
               <div class="space-y-3">
-                {#each data.user.frequentingArcades as shop (shop.id)}
+                {#each data.user.frequentingArcades as shop (shop._id)}
                   <ManagedArcade {shop} {radius} />
                 {/each}
               </div>
@@ -290,7 +290,7 @@
             </h3>
             {#if data.user.starredArcades && data.user.starredArcades.length > 0}
               <div class="space-y-3">
-                {#each data.user.starredArcades as shop (shop.id)}
+                {#each data.user.starredArcades as shop (shop._id)}
                   <ManagedArcade {shop} {radius} />
                 {/each}
               </div>
@@ -343,7 +343,9 @@
         {#snippet arcade(shop: Shop)}
           <div class="flex items-center justify-between gap-1 text-sm">
             <a
-              href="https://map.bemanicn.com/shop/{shop.id}"
+              href="{shop.source === 'ziv'
+                ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+                : 'https://map.bemanicn.com/shop/'}{shop.id}"
               target="_blank"
               class="hover:text-accent transition-colors"
             >
@@ -371,7 +373,7 @@
               {m.frequenting_arcades()}
             </h3>
             <div class="space-y-2">
-              {#each data.user.frequentingArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop.id)}
+              {#each data.user.frequentingArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop._id)}
                 {@render arcade(shop)}
               {/each}
               {#if data.user.frequentingArcades.length > ARCADE_DISPLAY_LIMIT}
@@ -393,7 +395,7 @@
               {m.starred_arcades()}
             </h3>
             <div class="space-y-2">
-              {#each data.user.starredArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop.id)}
+              {#each data.user.starredArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop._id)}
                 {@render arcade(shop)}
               {/each}
               {#if data.user.starredArcades.length > ARCADE_DISPLAY_LIMIT}

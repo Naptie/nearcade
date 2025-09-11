@@ -92,13 +92,15 @@
             </tr>
           </thead>
           <tbody>
-            {#each data.shops as shop (shop.id)}
+            {#each data.shops as shop (shop._id)}
               <tr class="hover">
                 <td>
                   <div>
                     <div class="font-medium">
                       <a
-                        href="https://map.bemanicn.com/shop/{shop.id}"
+                        href="{shop.source === 'ziv'
+                          ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+                          : 'https://map.bemanicn.com/shop/'}{shop.id}"
                         target="_blank"
                         class="hover:text-accent line-clamp-3 transition-colors"
                       >

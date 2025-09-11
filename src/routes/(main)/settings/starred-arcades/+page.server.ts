@@ -36,6 +36,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
     return {
       starredArcades: starredArcades.map((arcade) => ({
+        _id: arcade._id.toString(),
         id: arcade.id,
         name: arcade.name,
         location: arcade.location,

@@ -589,10 +589,12 @@
             <div class="bg-base-100 rounded-lg">
               {#if displayedArcades && displayedArcades.length > 0}
                 <div class="divide-base-200 divide-y">
-                  {#each displayedArcades as shop (shop.id)}
+                  {#each displayedArcades as shop (shop._id)}
                     <div class="flex items-center justify-between p-4">
                       <a
-                        href="https://map.bemanicn.com/shop/{shop.id}"
+                        href="{shop.source === 'ziv'
+                          ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+                          : 'https://map.bemanicn.com/shop/'}{shop.id}"
                         target="_blank"
                         class="group flex flex-1 items-center gap-3"
                       >
@@ -922,7 +924,7 @@
         </div>
       {:else if searchResults.length > 0}
         <div class="max-h-96 space-y-2 overflow-y-auto">
-          {#each searchResults as shop (shop.id)}
+          {#each searchResults as shop (shop._id)}
             <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
               <div class="flex-1">
                 <h4 class="font-medium">{shop.name}</h4>
