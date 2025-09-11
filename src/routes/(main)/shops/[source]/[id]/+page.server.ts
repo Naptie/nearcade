@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ params, parent, fetch }) => {
     try {
       const attendanceResponse = await fetch(`/api/attendance?shopSource=${source}&shopId=${id}`);
       if (attendanceResponse.ok) {
-        const attendanceResult = await attendanceResponse.json();
+        const attendanceResult = await attendanceResponse.json() as { attendanceData?: Record<string, unknown> };
         attendanceData = attendanceResult.attendanceData || {};
       }
     } catch (err) {

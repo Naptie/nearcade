@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { GAMES } from '$lib/constants';
   import { getNextDay6AM } from '$lib/utils';
-  import type { Shop, Game } from '$lib/types';
+  import type { Shop } from '$lib/types';
 
   interface AttendanceModalProps {
     isOpen: boolean;
@@ -11,14 +11,14 @@
     onAttend: (gameId: number, plannedLeaveAt: Date) => Promise<void>;
   }
 
-  let { isOpen, shop, onClose, onAttend }: AttendanceModalProps = $props();
+  let { isOpen = $bindable(), shop, onClose, onAttend }: AttendanceModalProps = $props();
 
   let selectedGameId = $state<number | null>(null);
   let plannedLeaveAt = $state<string>('');
   let isSubmitting = $state(false);
 
   const getGameInfo = (gameId: number) => {
-    return GAMES.find(g => g.id === gameId);
+    return GAMES.find((g) => g.id === gameId);
   };
 
   const formatDateTime = (date: Date): string => {
@@ -72,12 +72,9 @@
   <div class="modal modal-open">
     <div class="modal-box max-w-lg">
       <!-- Modal header -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="mb-6 flex items-center justify-between">
         <h3 class="text-xl font-semibold">{m.attend_at_shop({ shopName: shop.name })}</h3>
-        <button
-          class="btn btn-ghost btn-sm btn-circle"
-          onclick={onClose}
-        >
+        <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose}>
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
@@ -90,7 +87,9 @@
         <div class="space-y-2">
           {#each shop.games as game (game.id)}
             {@const gameInfo = getGameInfo(game.id)}
-            <label class="label cursor-pointer justify-start gap-3 p-3 rounded-lg border border-base-content/20 hover:bg-base-200 transition-colors">
+            <label
+              class="label border-base-content/20 hover:bg-base-200 cursor-pointer justify-start gap-3 rounded-lg border p-3 transition-colors"
+            >
               <input
                 type="radio"
                 class="radio radio-primary"
@@ -105,7 +104,7 @@
                     {m.game_id({ id: game.id })}
                   {/if}
                 </div>
-                <div class="text-sm text-base-content/60">
+                <div class="text-base-content/60 text-sm">
                   {game.name} • {game.version} • ×{game.quantity}
                 </div>
               </div>
@@ -131,11 +130,7 @@
 
       <!-- Action buttons -->
       <div class="modal-action">
-        <button
-          class="btn btn-ghost"
-          onclick={onClose}
-          disabled={isSubmitting}
-        >
+        <button class="btn btn-ghost" onclick={onClose} disabled={isSubmitting}>
           {m.cancel()}
         </button>
         <button

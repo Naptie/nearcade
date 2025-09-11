@@ -3,7 +3,6 @@
   import type { PageData } from './$types';
   import { formatShopAddress, pageTitle } from '$lib/utils';
   import { GAMES, ShopSource } from '$lib/constants';
-  import type { Game } from '$lib/types';
   import AttendanceModal from '$lib/components/shops/AttendanceModal.svelte';
   import { browser } from '$app/environment';
 
@@ -21,20 +20,20 @@
   $effect(() => {
     if (data.user && attendanceData) {
       const newUserAttendance: Record<number, boolean> = {};
-      
+
       for (const [gameIdStr, attendees] of Object.entries(attendanceData)) {
         const gameId = parseInt(gameIdStr);
-        newUserAttendance[gameId] = attendees.some((attendee: any) => 
-          attendee.userId === data.user?.id
+        newUserAttendance[gameId] = (attendees as Array<{ userId: string }>).some(
+          (attendee) => attendee.userId === data.user?.id
         );
       }
-      
+
       userAttendance = newUserAttendance;
     }
   });
 
   const getGameInfo = (gameId: number) => {
-    return GAMES.find(g => g.id === gameId);
+    return GAMES.find((g) => g.id === gameId);
   };
 
   const getTotalMachines = (): number => {
@@ -42,7 +41,7 @@
   };
 
   const getSourceUrl = (): string => {
-    return shop.source === ShopSource.ZIV 
+    return shop.source === ShopSource.ZIV
       ? `https://zenius-i-vanisher.com/v5.2/arcade.php?id=${shop.id}`
       : `https://map.bemanicn.com/shop/${shop.id}`;
   };
@@ -54,7 +53,10 @@
 
   const getTotalAttendance = (): number => {
     if (!attendanceData) return 0;
-    return Object.values(attendanceData).reduce((total: number, attendees: any[]) => total + attendees.length, 0);
+    return Object.values(attendanceData).reduce(
+      (total: number, attendees: Array<unknown>) => total + attendees.length,
+      0
+    );
   };
 
   const getGameAttendance = (gameId: number): number => {
@@ -148,9 +150,9 @@
   });
 
   const formatAttendanceTime = (timestamp: string): string => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 </script>
@@ -166,7 +168,7 @@
     <div class="lg:col-span-2">
       <!-- Shop Header -->
       <div class="mb-8">
-        <div class="flex items-center justify-between mb-4">
+        <div class="mb-4 flex items-center justify-between">
           <h1 class="text-3xl font-bold">{shop.name}</h1>
           <div class="flex items-center gap-2">
             <span class="badge badge-outline badge-lg">
@@ -176,8 +178,8 @@
           </div>
         </div>
 
-        <div class="text-base-content/80 flex items-start gap-2 text-lg mb-6">
-          <i class="fa-solid fa-location-dot mt-1 text-primary shrink-0"></i>
+        <div class="text-base-content/80 mb-6 flex items-start gap-2 text-lg">
+          <i class="fa-solid fa-location-dot text-primary mt-1 shrink-0"></i>
           <span>{formatShopAddress(shop)}</span>
         </div>
 
@@ -205,15 +207,15 @@
 
       <!-- Games Section -->
       <div class="mb-8">
-        <h2 class="text-2xl font-semibold mb-6">{m.available_games()}</h2>
-        
+        <h2 class="mb-6 text-2xl font-semibold">{m.available_games()}</h2>
+
         {#if shop.games.length > 0}
           <div class="grid gap-6 sm:grid-cols-2">
             {#each shop.games as game (game.id)}
               {@const gameInfo = getGameInfo(game.id)}
               <div class="card bg-base-200 border-base-content/20 border">
                 <div class="card-body p-6">
-                  <div class="flex items-center justify-between mb-4">
+                  <div class="mb-4 flex items-center justify-between">
                     <h3 class="text-lg font-semibold">
                       {#if gameInfo}
                         {gameInfo.key.replace(/_/g, ' ').toUpperCase()}
@@ -242,15 +244,17 @@
                   </div>
 
                   <!-- Attendance Section -->
-                  <div class="mt-4 pt-4 border-t border-base-content/10">
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-sm text-base-content/60">{m.current_players()}:</span>
-                      <span class="text-sm font-medium">{getGameAttendance(game.id)} {m.online()}</span>
+                  <div class="border-base-content/10 mt-4 border-t pt-4">
+                    <div class="mb-2 flex items-center justify-between">
+                      <span class="text-base-content/60 text-sm">{m.current_players()}:</span>
+                      <span class="text-sm font-medium"
+                        >{getGameAttendance(game.id)} {m.online()}</span
+                      >
                     </div>
-                    
+
                     {#if data.user}
                       {#if userAttendance[game.id]}
-                        <button 
+                        <button
                           class="btn btn-error btn-sm w-full"
                           onclick={() => handleLeave(game.id)}
                           disabled={isLoading}
@@ -263,9 +267,9 @@
                           {m.leave()}
                         </button>
                       {:else}
-                        <button 
+                        <button
                           class="btn btn-outline btn-sm w-full"
-                          onclick={() => showAttendanceModal = true}
+                          onclick={() => (showAttendanceModal = true)}
                           disabled={isLoading}
                         >
                           <i class="fa-solid fa-play"></i>
@@ -273,22 +277,24 @@
                         </button>
                       {/if}
                     {:else}
-                      <div class="text-center text-sm text-base-content/60 py-2">
+                      <div class="text-base-content/60 py-2 text-center text-sm">
                         {m.sign_in_to_attend()}
                       </div>
                     {/if}
 
                     <!-- Detailed attendance list for this game -->
                     {#if attendanceData[game.id] && attendanceData[game.id].length > 0}
-                      <div class="mt-3 pt-3 border-t border-base-content/10">
-                        <div class="text-xs text-base-content/60 mb-2 font-medium">
+                      <div class="border-base-content/10 mt-3 border-t pt-3">
+                        <div class="text-base-content/60 mb-2 text-xs font-medium">
                           {m.currently_playing()}:
                         </div>
-                        <div class="space-y-1 max-h-24 overflow-y-auto">
-                          {#each attendanceData[game.id] as attendee}
-                            <div class="flex justify-between items-center text-xs">
+                        <div class="max-h-24 space-y-1 overflow-y-auto">
+                          {#each attendanceData[game.id] as attendee (attendee.userId)}
+                            <div class="flex items-center justify-between text-xs">
                               <span class="truncate">
-                                {attendee.userId === data.user?.id ? m.you() : `${m.user()} ${attendee.userId.slice(0, 8)}...`}
+                                {attendee.userId === data.user?.id
+                                  ? m.you()
+                                  : `${m.user()} ${attendee.userId.slice(0, 8)}...`}
                               </span>
                               <span class="text-base-content/60 shrink-0">
                                 {formatAttendanceTime(attendee.attendedAt)}
@@ -304,7 +310,7 @@
             {/each}
           </div>
         {:else}
-          <div class="text-center py-8">
+          <div class="py-8 text-center">
             <div class="text-base-content/40 mb-2">
               <i class="fa-solid fa-gamepad text-4xl"></i>
             </div>
@@ -320,20 +326,20 @@
         <!-- Shop Statistics -->
         <div class="card bg-base-200 border-base-content/20 border">
           <div class="card-body p-6">
-            <h3 class="text-lg font-semibold mb-4">{m.shop_statistics()}</h3>
-            
+            <h3 class="mb-4 text-lg font-semibold">{m.shop_statistics()}</h3>
+
             <div class="space-y-4">
-              <div class="flex justify-between items-center">
+              <div class="flex items-center justify-between">
                 <span class="text-base-content/60">{m.total_machines()}:</span>
                 <span class="font-semibold">{getTotalMachines()}</span>
               </div>
-              
-              <div class="flex justify-between items-center">
+
+              <div class="flex items-center justify-between">
                 <span class="text-base-content/60">{m.total_games()}:</span>
                 <span class="font-semibold">{shop.games.length}</span>
               </div>
 
-              <div class="flex justify-between items-center">
+              <div class="flex items-center justify-between">
                 <span class="text-base-content/60">{m.data_source()}:</span>
                 <span class="font-semibold">{shop.source.toUpperCase()}</span>
               </div>
@@ -344,10 +350,10 @@
         <!-- Real-time Attendance -->
         <div class="card bg-base-200 border-base-content/20 border">
           <div class="card-body p-6">
-            <h3 class="text-lg font-semibold mb-4">{m.realtime_attendance()}</h3>
-            
-            <div class="text-center py-4">
-              <div class="text-3xl font-bold text-primary mb-2">{getTotalAttendance()}</div>
+            <h3 class="mb-4 text-lg font-semibold">{m.realtime_attendance()}</h3>
+
+            <div class="py-4 text-center">
+              <div class="text-primary mb-2 text-3xl font-bold">{getTotalAttendance()}</div>
               <div class="text-base-content/60 text-sm">{m.players_currently_playing()}</div>
             </div>
 
@@ -355,8 +361,8 @@
               {#each shop.games as game (game.id)}
                 {@const gameInfo = getGameInfo(game.id)}
                 {@const gameAttendance = getGameAttendance(game.id)}
-                <div class="flex justify-between items-center">
-                  <span class="text-base-content/60 truncate max-w-24">
+                <div class="flex items-center justify-between">
+                  <span class="text-base-content/60 max-w-24 truncate">
                     {#if gameInfo}
                       {gameInfo.key.replace(/_/g, ' ')}
                     {:else}
@@ -373,9 +379,9 @@
             <!-- Quick attend button -->
             {#if data.user && shop.games.length === 1}
               {@const singleGame = shop.games[0]}
-              <div class="mt-4 pt-4 border-t border-base-content/10">
+              <div class="border-base-content/10 mt-4 border-t pt-4">
                 {#if userAttendance[singleGame.id]}
-                  <button 
+                  <button
                     class="btn btn-error btn-sm w-full"
                     onclick={() => handleLeave(singleGame.id)}
                     disabled={isLoading}
@@ -388,9 +394,9 @@
                     {m.leave()}
                   </button>
                 {:else}
-                  <button 
+                  <button
                     class="btn btn-primary btn-sm w-full"
-                    onclick={() => showAttendanceModal = true}
+                    onclick={() => (showAttendanceModal = true)}
                     disabled={isLoading}
                   >
                     <i class="fa-solid fa-play"></i>
@@ -399,10 +405,10 @@
                 {/if}
               </div>
             {:else if data.user && shop.games.length > 1}
-              <div class="mt-4 pt-4 border-t border-base-content/10">
-                <button 
+              <div class="border-base-content/10 mt-4 border-t pt-4">
+                <button
                   class="btn btn-primary btn-sm w-full"
-                  onclick={() => showAttendanceModal = true}
+                  onclick={() => (showAttendanceModal = true)}
                   disabled={isLoading}
                 >
                   <i class="fa-solid fa-play"></i>
@@ -421,6 +427,6 @@
 <AttendanceModal
   bind:isOpen={showAttendanceModal}
   {shop}
-  onClose={() => showAttendanceModal = false}
+  onClose={() => (showAttendanceModal = false)}
   onAttend={handleAttend}
 />

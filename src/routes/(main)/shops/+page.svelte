@@ -7,7 +7,7 @@
   import { formatShopAddress, pageTitle } from '$lib/utils';
   import { PAGINATION, GAMES, ShopSource } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
-  import type { Shop, Game } from '$lib/types';
+  import type { Shop } from '$lib/types';
 
   let { data }: { data: PageData } = $props();
 
@@ -40,11 +40,11 @@
   };
 
   const getGameInfo = (gameId: number) => {
-    return GAMES.find(g => g.id === gameId);
+    return GAMES.find((g) => g.id === gameId);
   };
 
   const getSourceUrl = (shop: Shop): string => {
-    return shop.source === ShopSource.ZIV 
+    return shop.source === ShopSource.ZIV
       ? `https://zenius-i-vanisher.com/v5.2/arcade.php?id=${shop.id}`
       : `https://map.bemanicn.com/shop/${shop.id}`;
   };
@@ -113,8 +113,8 @@
             <div class="card-body p-6">
               <!-- Shop Header -->
               <div class="mb-4 flex items-center justify-between">
-                <div class="flex-1 min-w-0">
-                  <h3 class="text-lg font-semibold truncate">
+                <div class="min-w-0 flex-1">
+                  <h3 class="truncate text-lg font-semibold">
                     {shop.name}
                   </h3>
                   <div class="text-base-content/60 flex items-center gap-2 text-sm">
@@ -129,7 +129,7 @@
               <!-- Address -->
               <div class="mb-4">
                 <div class="text-base-content/80 flex items-start gap-2 text-sm">
-                  <i class="fa-solid fa-location-dot mt-0.5 text-primary shrink-0"></i>
+                  <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
                   <span class="line-clamp-2">
                     {formatShopAddress(shop)}
                   </span>
@@ -146,7 +146,7 @@
                     {@const gameInfo = getGameInfo(game.id)}
                     {#if gameInfo}
                       <div class="badge badge-soft badge-sm">
-                        <span class="truncate max-w-16">{gameInfo.key.replace(/_/g, ' ')}</span>
+                        <span class="max-w-16 truncate">{gameInfo.key.replace(/_/g, ' ')}</span>
                         <span class="ml-1 text-xs opacity-70">×{game.quantity}</span>
                       </div>
                     {/if}
@@ -190,24 +190,21 @@
         <div class="flex justify-center">
           <div class="join">
             {#if data.hasPrevPage}
-              <button
-                class="join-item btn"
-                onclick={() => handlePageChange(data.currentPage - 1)}
-              >
+              <button class="join-item btn" onclick={() => handlePageChange(data.currentPage - 1)}>
                 <i class="fa-solid fa-chevron-left"></i>
                 {m.previous()}
               </button>
             {/if}
-            
+
             <button class="join-item btn btn-active">
-              {m.page_of({ current: data.currentPage, total: Math.ceil(data.totalCount / PAGINATION.PAGE_SIZE) })}
+              {m.page_of({
+                current: data.currentPage,
+                total: Math.ceil(data.totalCount / PAGINATION.PAGE_SIZE)
+              })}
             </button>
-            
+
             {#if data.hasNextPage}
-              <button
-                class="join-item btn"
-                onclick={() => handlePageChange(data.currentPage + 1)}
-              >
+              <button class="join-item btn" onclick={() => handlePageChange(data.currentPage + 1)}>
                 {m.next()}
                 <i class="fa-solid fa-chevron-right"></i>
               </button>
@@ -217,11 +214,11 @@
       {/if}
     {:else}
       <!-- No Results -->
-      <div class="text-center py-12">
+      <div class="py-12 text-center">
         <div class="text-base-content/40 mb-4">
           <i class="fa-solid fa-store text-4xl"></i>
         </div>
-        <h3 class="text-xl font-semibold mb-2">
+        <h3 class="mb-2 text-xl font-semibold">
           {#if data.query}
             {m.no_shops_found_for({ query: data.query })}
           {:else}

@@ -4,6 +4,7 @@ import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
   type Game,
+  type Location,
   type TransportMethod,
   type TransportSearchResult,
   type CachedRouteData,
@@ -873,18 +874,18 @@ export const formatShopAddress = (shop: Shop): string => {
  */
 export const getShopTimezone = (location: Location): string => {
   const [longitude, latitude] = location.coordinates;
-  
+
   // Simplified timezone mapping for China and nearby regions
   // Most of China uses UTC+8 (China Standard Time)
   if (longitude >= 73 && longitude <= 135 && latitude >= 18 && latitude <= 54) {
     return 'Asia/Shanghai'; // UTC+8
   }
-  
+
   // Japan uses UTC+9
   if (longitude >= 129 && longitude <= 146 && latitude >= 24 && latitude <= 46) {
     return 'Asia/Tokyo'; // UTC+9
   }
-  
+
   // Default to China Standard Time for most arcade locations
   return 'Asia/Shanghai';
 };
@@ -895,19 +896,19 @@ export const getShopTimezone = (location: Location): string => {
 export const getNextDay6AM = (shopLocation: Location): Date => {
   const timezone = getShopTimezone(shopLocation);
   const now = new Date();
-  
+
   // Create a date for tomorrow at 6am in the shop's timezone
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   // Set to 6am
   tomorrow.setHours(6, 0, 0, 0);
-  
+
   // For now, we'll assume the timezone offset
   // In a real implementation, you'd use a proper timezone library like date-fns-tz
   const timezoneOffset = timezone === 'Asia/Tokyo' ? 9 : 8; // UTC+8 or UTC+9
   const currentOffset = now.getTimezoneOffset() / 60; // current timezone offset in hours
   const adjustment = (timezoneOffset - currentOffset) * 60 * 60 * 1000; // milliseconds
-  
+
   return new Date(tomorrow.getTime() + adjustment);
 };

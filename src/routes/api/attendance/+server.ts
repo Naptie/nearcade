@@ -19,14 +19,20 @@ async function getRedisClient() {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = await locals.auth();
-  
+
   if (!session?.user) {
     return error(401, 'Unauthorized');
   }
 
   try {
-    const { shopSource, shopId, gameId, plannedLeaveAt } = await request.json();
-    
+    const body = await request.json() as {
+      shopSource: string;
+      shopId: string;
+      gameId: string;
+      plannedLeaveAt: string;
+    };
+    const { shopSource, shopId, gameId, plannedLeaveAt } = body;
+
     // Validate input
     if (!shopSource || !shopId || !gameId || !plannedLeaveAt) {
       return error(400, 'Missing required parameters');
@@ -50,7 +56,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     // Validate game exists in shop
-    const game = shop.games.find(g => g.id === parseInt(gameId));
+    const game = shop.games.find((g) => g.id === parseInt(gameId));
     if (!game) {
       return error(404, 'Game not found in shop');
     }
@@ -84,14 +90,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
   const session = await locals.auth();
-  
+
   if (!session?.user) {
     return error(401, 'Unauthorized');
   }
 
   try {
-    const { shopSource, shopId, gameId } = await request.json();
-    
+    const body = await request.json() as {
+      shopSource: string;
+      shopId: string;
+      gameId: string;
+    };
+    const { shopSource, shopId, gameId } = body;
+
     // Validate input
     if (!shopSource || !shopId || !gameId) {
       return error(400, 'Missing required parameters');
@@ -104,7 +115,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
     }
 
     const attendanceKey = `nearcade:attend:${shopSource}-${shopId}:${gameId}:${session.user.id}`;
-    
+
     // Get the attendance data before deleting
     const attendanceDataStr = await redis.get(attendanceKey);
     if (!attendanceDataStr) {
@@ -112,14 +123,14 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
     }
 
     const attendanceData = JSON.parse(attendanceDataStr);
-    
+
     // Delete from Redis
     await redis.del(attendanceKey);
 
     // Add to MongoDB attendances collection
     const db = client.db();
     const attendancesCollection = db.collection('attendances');
-    
+
     await attendancesCollection.insertOne({
       userId: session.user.id,
       game: parseInt(gameId),
@@ -143,7 +154,7 @@ export const GET: RequestHandler = async ({ url }) => {
   try {
     const shopSource = url.searchParams.get('shopSource');
     const shopId = url.searchParams.get('shopId');
-    
+
     if (!shopSource || !shopId) {
       return error(400, 'Missing shop parameters');
     }
@@ -157,13 +168,16 @@ export const GET: RequestHandler = async ({ url }) => {
     // Get all attendance keys for this shop
     const pattern = `nearcade:attend:${shopSource}-${shopId}:*`;
     const keys = await redis.keys(pattern);
-    
-    const attendanceData: Record<string, Array<{
-      userId: string;
-      attendedAt: string;
-      plannedLeaveAt: string;
-      gameId: number;
-    }>> = {};
+
+    const attendanceData: Record<
+      string,
+      Array<{
+        userId: string;
+        attendedAt: string;
+        plannedLeaveAt: string;
+        gameId: number;
+      }>
+    > = {};
 
     // Process each attendance key
     for (const key of keys) {
@@ -173,11 +187,11 @@ export const GET: RequestHandler = async ({ url }) => {
         const keyParts = key.split(':');
         const gameId = parseInt(keyParts[3]);
         const userId = keyParts[4];
-        
+
         if (!attendanceData[gameId]) {
           attendanceData[gameId] = [];
         }
-        
+
         attendanceData[gameId].push({
           userId,
           gameId,
