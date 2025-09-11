@@ -20,6 +20,10 @@ import {
 import { ROUTE_CACHE_STORE } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { customAlphabet, nanoid } from 'nanoid';
+import rehypeParse from 'rehype-parse';
+import rehypeSanitize from 'rehype-sanitize';
+import rehypeStringify from 'rehype-stringify';
+import { unified } from 'unified';
 
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -176,7 +180,7 @@ export const formatTime = (seconds: number | null | undefined): string => {
 export const generateRouteCacheKey = (
   originLat: number,
   originLng: number,
-  shopId: number,
+  shopId: string,
   transportMethod: TransportMethod
 ): string => {
   const lat = Number(originLat.toFixed(4));
@@ -837,4 +841,15 @@ export const pageTitle = (...parts: string[]): string => {
   } else {
     return `${filteredParts.join(' - ')} - ${m.app_name()}`;
   }
+};
+
+const processor = unified()
+  .use(rehypeParse, { fragment: true })
+  .use(rehypeSanitize)
+  .use(rehypeStringify);
+
+export const sanitizeHTML = async (input: string) => {
+  if (!input) return '';
+  const sanitized = String(await processor.process(input));
+  return sanitized.replace(/<br>(?:\r?\n)*<br>/g, '<br>');
 };

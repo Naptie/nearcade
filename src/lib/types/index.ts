@@ -1,5 +1,5 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS } from '../constants';
+import type { RADIUS_OPTIONS, ShopSource } from '../constants';
 
 export interface Location {
   type: 'Point';
@@ -10,10 +10,10 @@ export interface Shop {
   _id: string;
   id: number;
   name: string;
-  province_code: string;
-  city_code: string;
+  generalAddress: string[];
   location: Location;
   games: Game[];
+  source: ShopSource;
 }
 
 export interface Game {
@@ -21,7 +21,7 @@ export interface Game {
   name: string;
   version: string;
   quantity: number;
-  cost: number;
+  cost: string;
 }
 
 export interface Campus {
@@ -61,16 +61,11 @@ export interface University {
   postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
   // Stats (calculated fields)
   studentsCount?: number;
-  frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
+  frequentingArcades?: { id: number; source: ShopSource }[]; // List of arcade IDs frequented by at least 2 university members
   clubsCount?: number;
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
-}
-
-export interface AMapContext {
-  amap: typeof AMap | undefined;
-  error: string | null;
 }
 
 export interface UniversityRankingResponse {
@@ -181,8 +176,8 @@ export interface Club {
   postWritability: PostWritability;
   // Stats
   membersCount?: number;
-  // Starred arcades (shop IDs)
-  starredArcades: string[];
+  // Starred arcades
+  starredArcades: { id: number; source: ShopSource }[];
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
@@ -508,7 +503,7 @@ export interface CachedRouteData {
 
 export interface RouteGuidanceState {
   isOpen: boolean;
-  shopId: number | null;
+  shopId: string | null;
   selectedRouteIndex: number;
 }
 

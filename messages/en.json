@@ -416,7 +416,16 @@
   "domain_mismatch": "Domain mismatch",
   "domain_mismatch_description": "The domain of the email address does not match the university's domain.",
   "donate": "Donate",
-  "donate_description": "You've navigated through this site for {count} times. If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality.",
+  "donate_description": [
+    {
+      "declarations": ["input appName", "input count"],
+      "selectors": ["count"],
+      "match": {
+        "count=1": "Welcome to {appName}! If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality.",
+        "count=*": "You've navigated through this site for {count} times. If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality."
+      }
+    }
+  ],
   "done": "Done",
   "double_first_class": "Double First-Class",
   "downvote": "Downvote",
@@ -474,7 +483,7 @@
   "form_validation_error": "Please fix the errors below",
   "found_shops_near": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
+      "declarations": ["input count", "input location", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "Found {count} shop near {location}",
@@ -670,7 +679,6 @@
   "notifications": "Notifications",
   "official_website": "Official Website",
   "online": "Online",
-  "open_in_amap": "Open in AMap",
   "organization": "Organization",
   "origin": "Origin",
   "overview": "Overview",
@@ -784,6 +792,7 @@
   "select_on_map": "Select a location on the map",
   "select_type": "Select type...",
   "select_university": "Select University",
+  "selected_location": "Selected Location",
   "send_to": "Send to",
   "set_to": "Set to",
   "settings": "Settings",
@@ -873,6 +882,8 @@
   "this_is_how_others_will_see_your_name": "This is how others will see your name",
   "time_length": [
     {
+      "declarations": ["input hours", "input minutes"],
+      "selectors": ["hours", "minutes"],
       "match": {
         "hours=0, minutes=*": "{minutes}min",
         "hours=*, minutes=0": "{hours}h",
@@ -964,6 +975,8 @@
   "updated": "Data updated {time}",
   "upvote": "Upvote",
   "upvotes": "Upvotes",
+  "use_google_maps": "Use Google Maps",
+  "use_tencent_maps": "Use AMap",
   "used_up": "Used Up",
   "user": "User",
   "user_avatar": "User avatar",
@@ -980,8 +993,8 @@
       "declarations": ["input current", "input max"],
       "selectors": ["current", "max"],
       "match": {
-        "max=0, current=1": "{current} use",
-        "max=0, current=*": "{current} uses",
+        "current=1, max=0": "{current} use",
+        "current=*, max=0": "{current} uses",
         "current=*, max=1": "{current}/{max} use",
         "current=*, max=*": "{current}/{max} uses"
       }
@@ -1015,6 +1028,8 @@
   "view": "View",
   "view_all": "View All",
   "view_club": "View Club",
+  "view_in_amap": "View in AMap",
+  "view_in_google_maps": "View in Google Maps",
   "view_location": "View Location",
   "view_profile": "View Profile",
   "view_university": "View University",

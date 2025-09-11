@@ -44,7 +44,9 @@
   let isLoadingLocation = $state(false);
   let isLoading = $state(false);
   let locationError = $state('');
-  let mapIframe = $state<HTMLIFrameElement>();
+  let googleMaps = $state<HTMLDivElement>();
+  let tencentMaps = $state<HTMLIFrameElement>();
+  let useGoogleMaps = $state(false);
   let amap: typeof AMap | undefined = $state(getContext<AMapContext>('amap')?.amap);
 
   let universityQuery = $state('');
@@ -168,7 +170,7 @@
   });
 
   $effect(() => {
-    if (mapIframe) {
+    if (tencentMaps) {
       const handleMessage = (event: MessageEvent) => {
         untrack(async () => {
           var loc = event.data;
@@ -189,9 +191,73 @@
     }
   });
 
+  $effect(() => {
+    if (googleMaps) {
+      const map = new google.maps.Map(googleMaps, {
+        zoom: 15,
+        colorScheme: google.maps.ColorScheme.FOLLOW_SYSTEM,
+        gestureHandling: 'greedy',
+        streetViewControl: false
+      });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          map.setCenter(userLocation);
+        },
+        () => {
+          map.setCenter({ lat: 39.9042, lng: 116.4074 });
+        }
+      );
+      google.maps.event.addListener(map, 'idle', () => {
+        const center = map.getCenter();
+        if (!center) return;
+        const loc = { latitude: center.lat(), longitude: center.lng() };
+        convertCoordinates(loc)?.then((loc) => {
+          location.name = '';
+          location.latitude = loc.latitude;
+          location.longitude = loc.longitude;
+        });
+      });
+
+      return () => {
+        google.maps.event.clearInstanceListeners(map);
+      };
+    }
+  });
+
   const handleGo = () => {
     if (location.latitude && location.longitude) {
       go(false);
+    }
+  };
+
+  const convertCoordinates = (location: { latitude?: number; longitude?: number }) => {
+    if (amap && location.latitude !== undefined && location.longitude !== undefined) {
+      return new Promise<typeof location>((resolve, reject) => {
+        amap!.convertFrom(
+          [location.longitude, location.latitude],
+          'gps',
+          (
+            status: string,
+            response: { info: string; locations: { lat: number; lng: number }[] }
+          ) => {
+            if (status === 'complete' && response.info === 'ok') {
+              const result = response.locations[0];
+              location.latitude = result.lat;
+              location.longitude = result.lng;
+              resolve(location);
+            } else {
+              console.error('AMap conversion failed:', status, response);
+              reject(new Error('AMap conversion failed'));
+            }
+          }
+        );
+      });
+    } else {
+      console.warn('AMap not available or location not set, skipping conversion');
     }
   };
 
@@ -199,30 +265,7 @@
     isLoading = true;
 
     if (convert) {
-      if (amap && location.latitude !== undefined && location.longitude !== undefined) {
-        await new Promise<void>((resolve, reject) => {
-          amap!.convertFrom(
-            [location.longitude, location.latitude],
-            'gps',
-            (
-              status: string,
-              response: { info: string; locations: { lat: number; lng: number }[] }
-            ) => {
-              if (status === 'complete' && response.info === 'ok') {
-                const result = response.locations[0];
-                location.latitude = result.lat;
-                location.longitude = result.lng;
-                resolve();
-              } else {
-                console.error('AMap conversion failed:', status, response);
-                reject(new Error('AMap conversion failed'));
-              }
-            }
-          );
-        });
-      } else {
-        console.warn('AMap not available or location not set, skipping conversion');
-      }
+      await convertCoordinates(location);
     }
 
     goto(
@@ -524,19 +567,63 @@
                 </div>
               </div>
             {:else if mode === 2}
-              <div class="mt-3">
-                <iframe
-                  id="mapPage"
-                  frameborder="0"
-                  bind:this={mapIframe}
-                  title={m.map_location_picker()}
-                  class="h-[80vh] w-[75vw] min-w-full rounded-xl border sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
-                  src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_QQMAP_KEY}&referer=nearcade"
+              <div
+                class="relative mt-3 h-[80vh] w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
+              >
+                <button
+                  class="btn btn-outline btn-circle not-hover:bg-base-300/25 absolute right-3 bottom-5 z-10 border-current/0 backdrop-blur-lg"
+                  style="--size: 2.6rem"
+                  class:btn-neutral={!useGoogleMaps}
+                  class:not-dark:btn-neutral={useGoogleMaps}
+                  aria-label={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
+                  title={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
+                  onclick={() => (useGoogleMaps = !useGoogleMaps)}
                 >
-                </iframe>
+                  {#if useGoogleMaps}
+                    <i class="fa-brands fa-qq fa-lg"></i>
+                  {:else}
+                    <i class="fa-brands fa-google fa-lg"></i>
+                  {/if}
+                </button>
+                {#if useGoogleMaps}
+                  <div
+                    id="gmap"
+                    bind:this={googleMaps}
+                    title={m.map_location_picker()}
+                    class="h-full w-full rounded-xl border"
+                  ></div>
+                  <div
+                    class="text-error absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl"
+                  >
+                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2">
+                      <i class="fa-solid fa-location-dot fa-lg"></i>
+                    </div>
+                  </div>
+                {:else}
+                  <iframe
+                    id="qmap"
+                    frameborder="0"
+                    bind:this={tencentMaps}
+                    title={m.map_location_picker()}
+                    class="h-full w-full rounded-xl border"
+                    src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_QQMAP_KEY}&referer=nearcade"
+                  >
+                  </iframe>
+                {/if}
               </div>
             {/if}
             {#if mode !== 0}
+              {#if location.latitude !== undefined && location.longitude !== undefined}
+                <div class="alert alert-success alert-soft mt-3 text-sm">
+                  <i class="fa-solid fa-location-dot fa-lg"></i>
+                  <div>
+                    <h3 class="font-bold">{location.name || m.selected_location()}</h3>
+                    <div class="text-sm">
+                      ({location.longitude.toFixed(6)}, {location.latitude.toFixed(6)})
+                    </div>
+                  </div>
+                </div>
+              {/if}
               <button
                 class="btn btn-primary mt-3"
                 disabled={!(location.latitude && location.longitude) || isLoading}
@@ -571,7 +658,9 @@
   </div>
 </div>
 
-<style>
+<style lang="postcss">
+  @reference "tailwindcss";
+
   .tabs-border .tab:before {
     width: 100%;
     left: 0;
@@ -580,5 +669,9 @@
     transition-property: grid-template-rows, height, opacity, border-color, box-shadow, margin-top;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 300ms, 300ms, 300ms, 150ms, 150ms, 300ms;
+  }
+
+  :global(gmp-internal-camera-control) {
+    @apply -translate-y-10;
   }
 </style>

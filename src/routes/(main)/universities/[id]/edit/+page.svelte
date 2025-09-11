@@ -44,7 +44,7 @@
   <title>{pageTitle(m.edit_university_info(), data.university.name)}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-4 py-8 pt-20 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-4xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
   <!-- Header -->
   <div class="mb-8">
     <div>

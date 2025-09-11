@@ -7,7 +7,7 @@
 
   let dialogElement: HTMLDialogElement;
 
-  const DISMISS_DURATION_DAYS = 7;
+  const DISMISS_DURATION_DAYS = 14;
 
   $effect(() => {
     if (!browser || !dialogElement) return;
@@ -53,7 +53,7 @@
       <h3 class="mb-4 text-lg font-bold">{m.donate()}</h3>
 
       <p class="mb-6 text-sm opacity-75">
-        {m.donate_description({ count: visitCount })}
+        {m.donate_description({ appName: m.app_name(), count: visitCount })}
       </p>
 
       <div class="mb-6 flex justify-center">

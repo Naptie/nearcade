@@ -2,7 +2,11 @@
   import { onMount, setContext } from 'svelte';
   import '../app.css';
   import '@fortawesome/fontawesome-free/css/all.min.css';
-  import { PUBLIC_AMAP_KEY, PUBLIC_FIREBASE_VAPID_KEY } from '$env/static/public';
+  import {
+    PUBLIC_AMAP_KEY,
+    PUBLIC_FIREBASE_VAPID_KEY,
+    PUBLIC_GOOGLE_MAPS_API_KEY
+  } from '$env/static/public';
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
@@ -83,6 +87,8 @@
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
       serviceHost: fromPath('/_AMapService')
     };
+
+    // Load AMap by default
     try {
       import('@amap/amap-jsapi-loader').then((loader) => {
         loader.default
@@ -190,6 +196,11 @@
 <svelte:head>
   <link rel="manifest" href="{base}/manifest.webmanifest" crossorigin="use-credentials" />
   <meta name="theme-color" content="#1B1717" />
+  <script
+    type="text/javascript"
+    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async"
+    defer
+  ></script>
 </svelte:head>
 
 {@render children()}

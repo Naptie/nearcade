@@ -549,7 +549,7 @@
           target="_blank"
           class="fa-solid fa-arrow-up-right-from-square fa-md"
           btnCls="btn-sm lg:btn-sm"
-          text={m.open_in_amap()}
+          text={m.view_in_amap()}
         />
         <button
           class="btn btn-ghost btn-sm btn-circle"

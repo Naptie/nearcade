@@ -33,26 +33,34 @@ export const GET: RequestHandler = async ({ params, url }) => {
       });
     }
 
-    // Convert string IDs to numbers for shop queries
-    const arcadeIds = club.starredArcades
-      .map((id: string) => parseInt(id))
-      .filter((id: number) => !isNaN(id));
+    const arcadeIdentifiers = club.starredArcades.filter((arcade) => !isNaN(arcade.id));
 
     // Get total count for pagination
-    const totalArcades = arcadeIds.length;
+    const totalArcades = arcadeIdentifiers.length;
     const hasMore = offset + PAGINATION.PAGE_SIZE < totalArcades;
 
     // Get the IDs for this page
-    const pageArcadeIds = arcadeIds.slice(offset, offset + PAGINATION.PAGE_SIZE);
+    const pageArcadeIdentifiers = arcadeIdentifiers.slice(offset, offset + PAGINATION.PAGE_SIZE);
 
     let arcades: Shop[] = [];
-    if (pageArcadeIds.length > 0) {
-      const arcadeResults = await shopsCollection.find({ id: { $in: pageArcadeIds } }).toArray();
+    if (pageArcadeIdentifiers.length > 0) {
+      const arcadeResults = await shopsCollection
+        .find({
+          $and: [
+            { id: { $in: pageArcadeIdentifiers.map((arcade) => arcade.id) } },
+            { source: { $in: pageArcadeIdentifiers.map((arcade) => arcade.source) } }
+          ]
+        })
+        .toArray();
 
       // Sort arcades to match the order in club.starredArcades
-      const arcadeMap = new Map(arcadeResults.map((arcade) => [arcade.id, arcade]));
+      const arcadeMap = new Map(
+        arcadeResults.map((arcade) => [`${arcade.source}-${arcade.id}`, arcade])
+      );
       arcades = toPlainArray(
-        pageArcadeIds.map((id: number) => arcadeMap.get(id)).filter(Boolean) as Shop[]
+        pageArcadeIdentifiers
+          .map((arcade) => arcadeMap.get(`${arcade.source}-${arcade.id}`))
+          .filter(Boolean) as Shop[]
       );
     }
 

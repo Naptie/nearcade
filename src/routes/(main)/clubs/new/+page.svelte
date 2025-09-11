@@ -39,7 +39,7 @@
   <meta name="description" content={m.create_club()} />
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-4 pt-20 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-4xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
   <!-- Header -->
   <div class="mb-8">
     <h1 class="text-3xl font-bold">{m.create_club()}</h1>
