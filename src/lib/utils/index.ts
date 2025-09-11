@@ -853,3 +853,16 @@ export const sanitizeHTML = async (input: string) => {
   const sanitized = String(await processor.process(input));
   return sanitized.replace(/<br>(?:\r?\n)*<br>/g, '<br>');
 };
+
+/**
+ * Formats a shop's general address array into a readable string
+ */
+export const formatShopAddress = (shop: Shop): string => {
+  const addressParts: string[] = [];
+
+  if (shop.generalAddress) {
+    addressParts.push(...shop.generalAddress);
+  }
+
+  return addressParts.length > 0 ? addressParts.toReversed().join(', ') : '';
+};

@@ -21,7 +21,8 @@
     clearRouteCache,
     convertPath,
     pageTitle,
-    sanitizeHTML
+    sanitizeHTML,
+    formatShopAddress
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -521,16 +522,6 @@
     inner.appendChild(iconEl);
     element.appendChild(inner);
     return element;
-  };
-
-  const formatShopAddress = (shop: Shop): string => {
-    const addressParts: string[] = [];
-
-    if (shop.generalAddress) {
-      addressParts.push(...shop.generalAddress);
-    }
-
-    return addressParts.length > 0 ? addressParts.toReversed().join(', ') : '';
   };
 
   const createShopInfoWindowContent = (shop: Shop): string => {
