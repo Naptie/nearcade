@@ -121,13 +121,27 @@ jobs:
             local max_attempts=5
             local attempt=1
             local delay=1
+
+            # Build a command array and split any space-separated option strings
+            local -a cmd=()
+            local arg
+            for arg in "$@"; do
+              # split arg into words on IFS (spaces) so strings like "--opt val --opt2 val2"
+              # become separate arguments preserving leading dashes
+              read -r -a parts <<< "$arg"
+              local p
+              for p in "${parts[@]}"; do
+                cmd+=("$p")
+              done
+            done
+
             while true; do
-              echo "Attempt $attempt/$max_attempts: $*"
-              if "$@"; then
+              echo "Attempt $attempt/$max_attempts: ${cmd[*]}"
+              if "${cmd[@]}"; then
                 return 0
               fi
               if [ "$attempt" -ge "$max_attempts" ]; then
-                echo "Command failed after $attempt attempts: $*" >&2
+                echo "Command failed after $attempt attempts: ${cmd[*]}" >&2
                 return 1
               fi
               echo "Command failed. Retrying in ${delay}s..."
@@ -137,9 +151,9 @@ jobs:
             done
           }
 
-          retry_cmd /tmp/${{ vars.LC_EXE }} login -- "${{ secrets.LC_LOGIN }}"
-          retry_cmd /tmp/${{ vars.LC_EXE }} switch -- "${{ secrets.LC_SWITCH }}"
-          retry_cmd /tmp/${{ vars.LC_EXE }} deploy -- --prod
+          retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}"
+          retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}"
+          retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod
 
   sentry-publish:
     name: Publish to Sentry
