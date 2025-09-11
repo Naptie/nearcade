@@ -113,9 +113,9 @@ Please join the following QQ group for discussions.
     ```env
     # Map Services
     PUBLIC_AMAP_KEY = "your_amap_key"
-    PUBLIC_QQMAP_KEY = "your_qqmap_key"
-    PUBLIC_GOOGLE_MAPS_MAP_ID = "your_gm_map_id"
-    PUBLIC_GOOGLE_MAPS_API_KEY = "your_gm_api_key"
+    PUBLIC_TENCENT_MAPS_KEY = "your_tencent_maps_key"
+    PUBLIC_GOOGLE_MAPS_MAP_ID = "your_google_maps_map_id"
+    PUBLIC_GOOGLE_MAPS_API_KEY = "your_google_maps_api_key"
 
     AMAP_SECRET = "your_amap_secret"
 

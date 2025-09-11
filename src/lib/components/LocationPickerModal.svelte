@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { PUBLIC_QQMAP_KEY } from '$env/static/public';
+  import { PUBLIC_TENCENT_MAPS_KEY } from '$env/static/public';
   import { m } from '$lib/paraglide/messages';
 
   let {
@@ -66,7 +66,7 @@
         frameborder="0"
         title="Map Location Picker"
         class="h-[60vh] w-full rounded-lg border"
-        src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_QQMAP_KEY}&referer=nearcade"
+        src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_TENCENT_MAPS_KEY}&referer=nearcade"
       ></iframe>
     </div>
 

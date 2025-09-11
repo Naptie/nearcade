@@ -2,7 +2,7 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { resolve, base } from '$app/paths';
-  import { PUBLIC_QQMAP_KEY } from '$env/static/public';
+  import { PUBLIC_TENCENT_MAPS_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
   import AuthModal from '$lib/components/AuthModal.svelte';
   import FancyButton from '$lib/components/FancyButton.svelte';
@@ -608,7 +608,7 @@
                     bind:this={tencentMaps}
                     title={m.map_location_picker()}
                     class="h-full w-full rounded-xl border"
-                    src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_QQMAP_KEY}&referer=nearcade"
+                    src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_TENCENT_MAPS_KEY}&referer=nearcade"
                   >
                   </iframe>
                 {/if}
