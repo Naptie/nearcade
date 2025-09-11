@@ -54,7 +54,11 @@
   let map: AMap.Map | google.maps.Map | undefined = $state(undefined); // AMap.Map | google.maps.Map
   let markers: Record<
     string,
-    { marker: AMap.Marker | google.maps.marker.AdvancedMarkerElement; zIndex: number }
+    {
+      marker: AMap.Marker | google.maps.marker.AdvancedMarkerElement;
+      infoWindow?: google.maps.InfoWindow;
+      zIndex: number;
+    }
   > = $state({}); // AMap.Marker | google.maps.marker.AdvancedMarkerElement
 
   let hoveredShopId: string | null = $state(null);
@@ -522,67 +526,36 @@
   const formatShopAddress = (shop: Shop): string => {
     const addressParts: string[] = [];
 
-    if (shop.address) {
-      addressParts.push(shop.address);
+    if (shop.generalAddress) {
+      addressParts.push(...shop.generalAddress);
     }
 
-    // If we don't have a specific address, build from region/city info
-    if (addressParts.length === 0) {
-      if (shop.city && shop.city !== shop.subregion) {
-        addressParts.push(shop.city);
-      }
-      if (shop.subregion && shop.subregion !== shop.region) {
-        addressParts.push(shop.subregion);
-      }
-      if (shop.region) {
-        addressParts.push(shop.region);
-      }
-    }
-
-    return addressParts.length > 0 ? addressParts.join(' · ') : '';
+    return addressParts.length > 0 ? addressParts.toReversed().join(', ') : '';
   };
 
   const createShopInfoWindowContent = (shop: Shop): string => {
     const address = formatShopAddress(shop);
-    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name)}@${shop.location.coordinates[1]},${shop.location.coordinates[0]}`;
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
 
     return `
-      <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 200px; max-width: 300px;">
-        <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #1f2937;">
-          ${shop.name}
-        </div>
-        ${
-          address
-            ? `
-          <div style="font-size: 14px; color: #6b7280; margin-bottom: 12px; line-height: 1.4;">
+      <div class="mt-2 min-w-48 max-w-80 space-y-2">
+        <div class="space-y-0.25">
+          <div class="font-semibold text-lg text-slate-800">
+            ${shop.name}
+          </div>
+          <div class="text-sm text-slate-600">
             ${address}
           </div>
-        `
-            : ''
-        }
-        <div style="display: flex; gap: 8px; margin-top: 12px;">
+        </div>
+        <div class="flex gap-2">
           <a 
             href="${googleMapsUrl}" 
             target="_blank" 
             rel="noopener noreferrer"
-            style="
-              display: inline-flex; 
-              align-items: center; 
-              gap: 6px; 
-              padding: 6px 12px; 
-              background: #3b82f6; 
-              color: white; 
-              text-decoration: none; 
-              border-radius: 6px; 
-              font-size: 13px;
-              font-weight: 500;
-              transition: background-color 0.2s;
-            "
-            onmouseover="this.style.background='#2563eb'"
-            onmouseout="this.style.background='#3b82f6'"
+            class="btn btn-dash btn-neutral"
           >
-            <i class="fas fa-external-link-alt" style="font-size: 11px;"></i>
-            View in Google Maps
+            <i class="fas fa-external-link-alt"></i>
+            ${m.view_in_google_maps()}
           </a>
         </div>
       </div>
@@ -648,12 +621,11 @@
               zIndex
             });
 
-            markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
-
-            // Create info window for shop
             const infoWindow = new google.maps!.InfoWindow({
               content: createShopInfoWindowContent(shop)
             });
+
+            markers[`${shop.source}-${shop.id}`] = { marker, infoWindow, zIndex };
 
             marker.addListener('mouseover', () => {
               hoveredShopId = `${shop.source}-${shop.id}`;
@@ -668,6 +640,9 @@
             marker.addListener('click', () => {
               selectedShopId = `${shop.source}-${shop.id}`;
               highlightedShopId = `${shop.source}-${shop.id}`;
+              Object.values(markers).forEach((markerInfo) => {
+                markerInfo.infoWindow?.close();
+              });
               infoWindow.open(googleMap, marker);
 
               if (highlightedShopIdTimeout) {
@@ -829,9 +804,9 @@
         if (shouldUseGoogleMaps && map && 'setZoom' in map) {
           // For Google Maps, just center on the shop
           const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
-          if (shop && map) {
+          if (shop) {
             map.setZoom(15);
-            (map as google.maps.Map).setCenter({
+            (map as google.maps.Map).panTo({
               lat: shop.location.coordinates[1],
               lng: shop.location.coordinates[0]
             });
@@ -902,6 +877,13 @@
           const marker = markerData.marker as google.maps.marker.AdvancedMarkerElement;
           const isSelected = markerId === selected;
           const isHovered = markerId === hovered;
+
+          if (isSelected) {
+            Object.values(markers).forEach((markerInfo) => {
+              markerInfo.infoWindow?.close();
+            });
+            markerData.infoWindow?.open(map as google.maps.Map, marker);
+          }
 
           marker.zIndex = isSelected
             ? SELECTED_SHOP_INDEX
@@ -1328,37 +1310,15 @@
     @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;
   }
 
-  /* Fix Google Maps InfoWindow close button visibility */
+  :global(.gm-style-iw-d) {
+    @apply !overflow-visible;
+  }
+
   :global(.gm-ui-hover-effect) {
-    opacity: 1 !important;
-    background-color: #f3f4f6 !important;
-    border-radius: 2px !important;
+    @apply transition dark:!bg-zinc-300;
   }
 
   :global(.gm-ui-hover-effect:hover) {
-    background-color: #e5e7eb !important;
-  }
-
-  /* Ensure InfoWindow close button icon is visible */
-  :global(.gm-ui-hover-effect > img) {
-    opacity: 1 !important;
-    filter: none !important;
-  }
-
-  /* Dark mode adjustments for InfoWindow */
-  :global(.gm-style .gm-style-iw-c) {
-    border-radius: 8px !important;
-    box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  /* Fix InfoWindow close button positioning and visibility */
-  :global(.gm-style .gm-style-iw-tc::after) {
-    background: white !important;
-  }
-
-  :global(.gm-style .gm-style-iw-t::after) {
-    background: white !important;
+    @apply dark:!bg-zinc-900;
   }
 </style>

@@ -10,10 +10,7 @@ export interface Shop {
   _id: string;
   id: number;
   name: string;
-  region: string;
-  subregion: string;
-  city: string;
-  address?: string; // Optional address field
+  generalAddress: string[];
   location: Location;
   games: Game[];
   source: ShopSource;
