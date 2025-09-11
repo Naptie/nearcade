@@ -117,9 +117,29 @@ jobs:
 
       - name: Deploy to LeanCloud
         run: |
-          /tmp/${{ vars.LC_EXE }} login ${{ secrets.LC_LOGIN }}
-          /tmp/${{ vars.LC_EXE }} switch ${{ secrets.LC_SWITCH }}
-          /tmp/${{ vars.LC_EXE }} deploy --prod
+          retry_cmd() {
+            local max_attempts=5
+            local attempt=1
+            local delay=1
+            while true; do
+              echo "Attempt $attempt/$max_attempts: $*"
+              if "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "Command failed after $attempt attempts: $*" >&2
+                return 1
+              fi
+              echo "Command failed. Retrying in ${delay}s..."
+              sleep "$delay"
+              attempt=$((attempt+1))
+              delay=$((delay*2))
+            done
+          }
+
+          retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}"
+          retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}"
+          retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod
 
   sentry-publish:
     name: Publish to Sentry
