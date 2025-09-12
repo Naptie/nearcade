@@ -516,6 +516,8 @@
   "icon": "图标",
   "image_for_social_media": "社交媒体图片",
   "in_attendance": "{count} 人在勤",
+  "in_attendance_with_reported": "{inAttendance} 人在勤，{reported} 人报告",
+  "report_current_attendance": "报告当前在勤人数",
   "attendance_details": "在勤 {duration}\n计划离开于 {leave}",
   "in_this_area": "在此区域",
   "inactive": "非活跃",

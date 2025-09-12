@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   try {
     const body = (await request.json()) as {
-      games: { id: number; version: string }[];
+      games: { id: number; version: string; currentAttendances?: number }[];
       plannedLeaveAt: string;
     };
     const { games, plannedLeaveAt } = body;
@@ -89,7 +89,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
     const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}`;
     const attendanceData = {
-      games: shopGames.map((g) => ({ id: g.id, version: g.version })),
+      games: shopGames.map((g, index) => ({
+        id: g.id,
+        version: g.version,
+        currentAttendances: games[index]?.currentAttendances
+      })),
       attendedAt: new Date().toISOString(),
       plannedLeaveAt: plannedLeaveTime.toISOString()
     };
@@ -209,11 +213,15 @@ export const GET: RequestHandler = async ({ params }) => {
         const data = JSON.parse(dataStr);
         const keyParts = key.split(':');
         const userId = keyParts[3];
-        data.games.forEach((game: { id: number; version: string }) => {
+        data.games.forEach((game: { id: number; version: string; currentAttendances?: number }) => {
           usersSet.add(userId);
           attendanceData.push({
             userId,
-            game,
+            game: {
+              id: game.id,
+              version: game.version,
+              currentAttendances: game.currentAttendances
+            },
             attendedAt: data.attendedAt,
             plannedLeaveAt: data.plannedLeaveAt
           });

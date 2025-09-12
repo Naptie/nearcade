@@ -20,6 +20,9 @@
   let shop = $derived(data.shop);
   let attendanceData = $state<AttendanceData>([]);
   let showAttendanceModal = $state(false);
+  let showReportAttendanceModal = $state(false);
+  let selectedGameForReport = $state<{ id: number; version: string; name: string } | null>(null);
+  let reportedAttendance = $state<number>(0);
   let isLoading = $state(false);
 
   // Track user's current attendance status
@@ -88,6 +91,24 @@
     ).length;
   };
 
+  const getGameReportedAttendance = (id: number, version: string): number | undefined => {
+    if (!attendanceData) return undefined;
+    // Get the most recent reported attendance for this game
+    const attendeesWithReported = attendanceData.filter(
+      (attendee) =>
+        attendee.game.id === id &&
+        attendee.game.version === version &&
+        attendee.game.currentAttendances !== undefined
+    );
+    if (attendeesWithReported.length === 0) return undefined;
+
+    // Return the most recent reported value
+    const mostRecent = attendeesWithReported.reduce((latest, current) =>
+      new Date(current.attendedAt) > new Date(latest.attendedAt) ? current : latest
+    );
+    return mostRecent.game.currentAttendances;
+  };
+
   const handleAttend = async (games: { id: number; version: string }[], plannedLeaveAt: Date) => {
     if (!data.user) return;
 
@@ -137,6 +158,47 @@
     } finally {
       isLoading = false;
     }
+  };
+
+  const handleReportAttendance = async () => {
+    if (!data.user || !selectedGameForReport) return;
+
+    isLoading = true;
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          games: [
+            {
+              id: selectedGameForReport.id,
+              version: selectedGameForReport.version,
+              currentAttendances: reportedAttendance
+            }
+          ],
+          plannedLeaveAt: new Date(Date.now() + 60000).toISOString() // 1 minute from now as placeholder
+        })
+      });
+
+      if (response.ok) {
+        await getAttendanceData();
+        showReportAttendanceModal = false;
+        selectedGameForReport = null;
+        reportedAttendance = 0;
+      }
+    } catch (err) {
+      console.error('Error reporting attendance:', err);
+    } finally {
+      isLoading = false;
+    }
+  };
+
+  const openReportModal = (game: { id: number; version: string; name: string }) => {
+    selectedGameForReport = game;
+    reportedAttendance = getGameReportedAttendance(game.id, game.version) || 0;
+    showReportAttendanceModal = true;
   };
 
   // Refresh attendance data every 30 seconds
@@ -339,10 +401,31 @@
                 <div class="border-base-content/10 mt-4 border-t pt-4">
                   <div class="flex items-center justify-between">
                     <span class="text-base-content/60 text-sm">{m.current_players()}</span>
-                    <span class="text-sm font-medium"
-                      >{m.in_attendance({ count: getGameAttendance(game.id, game.version) })}</span
-                    >
+                    <span class="text-sm font-medium">
+                      {#if getGameReportedAttendance(game.id, game.version) !== undefined}
+                        {m.in_attendance_with_reported({
+                          inAttendance: getGameAttendance(game.id, game.version),
+                          reported: getGameReportedAttendance(game.id, game.version) || 0
+                        })}
+                      {:else}
+                        {m.in_attendance({ count: getGameAttendance(game.id, game.version) })}
+                      {/if}
+                    </span>
                   </div>
+
+                  <!-- Report attendance button -->
+                  {#if data.user}
+                    <div class="mt-2">
+                      <button
+                        class="btn btn-soft btn-sm"
+                        onclick={() =>
+                          openReportModal({ id: game.id, version: game.version, name: game.name })}
+                      >
+                        <i class="fa-solid fa-chart-simple"></i>
+                        {m.report_current_attendance()}
+                      </button>
+                    </div>
+                  {/if}
 
                   <!-- Detailed attendance list for this game -->
                   {#if attendanceData}
@@ -401,3 +484,75 @@
   onClose={() => (showAttendanceModal = false)}
   onAttend={handleAttend}
 />
+
+<!-- Report Attendance Modal -->
+{#if showReportAttendanceModal && selectedGameForReport}
+  <div class="modal modal-open">
+    <div class="modal-box">
+      <h3 class="mb-4 text-lg font-bold">
+        {m.report_current_attendance()}
+      </h3>
+
+      <div class="mb-4">
+        <p class="text-base-content/70 mb-2 text-sm">
+          Game: <strong>{selectedGameForReport.name}</strong>
+        </p>
+        <p class="text-base-content/70 mb-4 text-sm">
+          Please enter the current number of players you observe playing this game:
+        </p>
+
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text">Current Players</span>
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="50"
+            bind:value={reportedAttendance}
+            class="input input-bordered w-full"
+            placeholder="0"
+          />
+        </label>
+      </div>
+
+      <div class="modal-action">
+        <button
+          class="btn btn-soft"
+          onclick={() => {
+            showReportAttendanceModal = false;
+            selectedGameForReport = null;
+          }}
+          disabled={isLoading}
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary"
+          onclick={handleReportAttendance}
+          disabled={isLoading || reportedAttendance < 0}
+        >
+          {#if isLoading}
+            <span class="loading loading-spinner loading-xs"></span>
+          {/if}
+          Report
+        </button>
+      </div>
+    </div>
+    <div
+      class="modal-backdrop"
+      role="button"
+      tabindex="0"
+      onclick={() => {
+        showReportAttendanceModal = false;
+        selectedGameForReport = null;
+      }}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          showReportAttendanceModal = false;
+          selectedGameForReport = null;
+        }
+      }}
+    ></div>
+  </div>
+{/if}

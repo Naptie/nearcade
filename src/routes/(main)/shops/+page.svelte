@@ -174,7 +174,7 @@
                 </div>
                 <div class="text-base-content/60 flex items-center gap-1">
                   <i class="fa-solid fa-users"></i>
-                  <span>{m.in_attendance({ count: 0 })}</span>
+                  <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
                 </div>
               </div>
             </div>

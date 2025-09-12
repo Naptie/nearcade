@@ -524,6 +524,8 @@
   "icon": "Icon",
   "image_for_social_media": "Image for social media",
   "in_attendance": "{count} in attendance",
+  "in_attendance_with_reported": "{inAttendance} in attendance, {reported} reported",
+  "report_current_attendance": "Report Current Attendance",
   "attendance_details": "In attendance for {duration}\nPlanned leave at {leave}",
   "in_this_area": "in this area",
   "inactive": "Inactive",

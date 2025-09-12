@@ -4,7 +4,57 @@ import type { Shop } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { toPlainArray } from '$lib/utils';
 import client from '$lib/db/index.server';
+import { createClient } from 'redis';
+import { env } from '$env/dynamic/private';
 
+// Redis client for attendance tracking
+let redisClient: ReturnType<typeof createClient> | null = null;
+
+async function getRedisClient() {
+  if (!redisClient && env.REDIS_URI) {
+    redisClient = createClient({ url: env.REDIS_URI });
+    await redisClient.connect();
+  }
+  return redisClient;
+}
+
+async function getShopAttendanceCounts(shops: Shop[]) {
+  const redis = await getRedisClient();
+  if (!redis) {
+    // If Redis is not available, return empty attendance data
+    return shops.map((shop) => ({ ...shop, currentAttendance: 0 }));
+  }
+
+  try {
+    // Get all attendance keys
+    const allKeys = await redis.keys('nearcade:attend:*');
+
+    // Create a map to store attendance counts per shop
+    const attendanceMap = new Map<string, number>();
+
+    // Count unique users per shop
+    for (const key of allKeys) {
+      // Key format: nearcade:attend:${source}-${id}:${userId}
+      const keyParts = key.split(':');
+      if (keyParts.length === 4) {
+        const shopIdentifier = keyParts[2]; // source-id
+        const count = attendanceMap.get(shopIdentifier) || 0;
+        attendanceMap.set(shopIdentifier, count + 1);
+      }
+    }
+
+    // Add attendance count to each shop
+    return shops.map((shop) => {
+      const shopIdentifier = `${shop.source}-${shop.id}`;
+      const currentAttendance = attendanceMap.get(shopIdentifier) || 0;
+      return { ...shop, currentAttendance };
+    });
+  } catch (err) {
+    console.error('Error getting attendance counts:', err);
+    // Return shops with zero attendance on error
+    return shops.map((shop) => ({ ...shop, currentAttendance: 0 }));
+  }
+}
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
   const page = parseInt(url.searchParams.get('page') || '1');
@@ -88,10 +138,13 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       }
     }
 
+    // Get real-time attendance data for all shops
+    const shopsWithAttendance = await getShopAttendanceCounts(shops);
+
     const { session } = await parent();
 
     return {
-      shops: toPlainArray(shops),
+      shops: toPlainArray(shopsWithAttendance),
       totalCount,
       currentPage: page,
       hasNextPage: skip + shops.length < totalCount,
