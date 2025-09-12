@@ -137,7 +137,7 @@
         <p>{m.not_associated_with_university()}</p>
         <a href={resolve('/(main)/universities')} class="btn btn-primary btn-sm mt-2">
           <i class="fa-solid fa-search"></i>
-          {m.find_university()}
+          {m.find_universities()}
         </a>
       </div>
     {/if}

@@ -2,8 +2,10 @@
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import type { ShopSource } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
+  import { getShopSourceUrl } from '$lib/utils';
   import ConfirmationModal from './ConfirmationModal.svelte';
 
   interface Shop {
@@ -11,7 +13,7 @@
     name: string;
     location: Location;
     games: Game[];
-    source: string;
+    source: ShopSource;
   }
 
   let {
@@ -37,13 +39,7 @@
 </script>
 
 <div class="group bg-base-100 flex items-center justify-between rounded-lg p-4">
-  <a
-    href="{shop.source === 'ziv'
-      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-      : 'https://map.bemanicn.com/shop/'}{shop.id}"
-    target="_blank"
-    class="flex-1"
-  >
+  <a href={getShopSourceUrl(shop)} target="_blank" class="flex-1">
     <h3 class="group-hover:text-accent font-medium transition-colors">{shop.name}</h3>
     {#if shop.games && shop.games.length > 0}
       <div class="mt-1 flex flex-wrap gap-1">

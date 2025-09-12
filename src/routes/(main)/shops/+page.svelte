@@ -4,8 +4,8 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import { formatShopAddress, pageTitle } from '$lib/utils';
-  import { PAGINATION, GAMES, ShopSource } from '$lib/constants';
+  import { formatShopAddress, getGameName, getShopSourceUrl, pageTitle } from '$lib/utils';
+  import { PAGINATION, GAMES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
 
@@ -41,12 +41,6 @@
 
   const getGameInfo = (gameId: number) => {
     return GAMES.find((g) => g.id === gameId);
-  };
-
-  const getSourceUrl = (shop: Shop): string => {
-    return shop.source === ShopSource.ZIV
-      ? `https://zenius-i-vanisher.com/v5.2/arcade.php?id=${shop.id}`
-      : `https://map.bemanicn.com/shop/${shop.id}`;
   };
 </script>
 
@@ -106,24 +100,40 @@
       <!-- Shop Grid -->
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.shops as shop (shop._id)}
+          {@const aggregatedGames = (() => {
+            const map = new Map();
+            for (const g of shop.games) {
+              const existing = map.get(g.id);
+              if (existing) {
+                existing.quantity += g.quantity;
+              } else {
+                map.set(g.id, { ...g });
+              }
+            }
+            return Array.from(map.values());
+          })()}
           <a
             href={getShopLink(shop)}
-            class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
+            class="card bg-base-200 border-primary/0 hover:border-primary min-w-0 border-2 shadow-sm transition hover:shadow-md"
           >
-            <div class="card-body p-6">
+            <div class="card-body">
               <!-- Shop Header -->
-              <div class="mb-4 flex items-center justify-between">
+              <div class="flex items-center justify-between gap-2">
                 <div class="min-w-0 flex-1">
-                  <h3 class="truncate text-lg font-semibold">
+                  <h3 class="truncate text-lg font-semibold" title={shop.name}>
                     {shop.name}
                   </h3>
-                  <div class="text-base-content/60 flex items-center gap-2 text-sm">
-                    <span class="badge badge-outline badge-sm">
-                      {shop.source.toUpperCase()}
-                    </span>
-                    <span>#{shop.id}</span>
-                  </div>
                 </div>
+                <button
+                  class="btn btn-soft btn-sm btn-circle"
+                  onclick={(e) => {
+                    e.preventDefault();
+                    window.open(getShopSourceUrl(shop), '_blank');
+                  }}
+                  aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
+                >
+                  <i class="fa-solid fa-external-link-alt"></i>
+                </button>
               </div>
 
               <!-- Address -->
@@ -138,47 +148,34 @@
 
               <!-- Games Info -->
               <div class="mb-4">
-                <div class="text-base-content/60 mb-2 text-xs font-medium uppercase">
-                  {m.games_available()}
-                </div>
                 <div class="flex flex-wrap gap-2">
-                  {#each shop.games.slice(0, 4) as game (game.id)}
+                  {#each aggregatedGames.slice(0, 6) as game (game.id)}
                     {@const gameInfo = getGameInfo(game.id)}
                     {#if gameInfo}
                       <div class="badge badge-soft badge-sm">
-                        <span class="max-w-16 truncate">{gameInfo.key.replace(/_/g, ' ')}</span>
-                        <span class="ml-1 text-xs opacity-70">×{game.quantity}</span>
+                        <span class="max-w-16 truncate">{getGameName(gameInfo.key)}</span>
+                        <span class="text-xs opacity-70">×{game.quantity}</span>
                       </div>
                     {/if}
                   {/each}
-                  {#if shop.games.length > 4}
+                  {#if aggregatedGames.length > 6}
                     <div class="badge badge-soft badge-sm">
-                      +{shop.games.length - 4}
+                      +{aggregatedGames.length - 6}
                     </div>
                   {/if}
                 </div>
               </div>
 
               <!-- Stats -->
-              <div class="flex items-center justify-between text-sm">
+              <div class="mt-auto flex items-center justify-between gap-1 text-sm">
                 <div class="text-base-content/60 flex items-center gap-1">
                   <i class="fa-solid fa-desktop"></i>
-                  <span>{getTotalMachines(shop)} {m.machines()}</span>
+                  <span>{m.machines({ count: getTotalMachines(shop) })}</span>
                 </div>
                 <div class="text-base-content/60 flex items-center gap-1">
                   <i class="fa-solid fa-users"></i>
-                  <span>0 {m.online()}</span>
+                  <span>{m.in_attendance({ count: 0 })}</span>
                 </div>
-                <a
-                  href={getSourceUrl(shop)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="btn btn-ghost btn-xs"
-                  onclick={(e) => e.stopPropagation()}
-                >
-                  <i class="fa-solid fa-external-link-alt"></i>
-                  {m.source()}
-                </a>
               </div>
             </div>
           </a>
@@ -190,22 +187,25 @@
         <div class="flex justify-center">
           <div class="join">
             {#if data.hasPrevPage}
-              <button class="join-item btn" onclick={() => handlePageChange(data.currentPage - 1)}>
+              <button
+                class="join-item btn"
+                onclick={() => handlePageChange(data.currentPage - 1)}
+                aria-label={m.previous_page()}
+              >
                 <i class="fa-solid fa-chevron-left"></i>
-                {m.previous()}
               </button>
             {/if}
 
             <button class="join-item btn btn-active">
-              {m.page_of({
-                current: data.currentPage,
-                total: Math.ceil(data.totalCount / PAGINATION.PAGE_SIZE)
-              })}
+              {data.currentPage} / {Math.ceil(data.totalCount / PAGINATION.PAGE_SIZE)}
             </button>
 
             {#if data.hasNextPage}
-              <button class="join-item btn" onclick={() => handlePageChange(data.currentPage + 1)}>
-                {m.next()}
+              <button
+                class="join-item btn"
+                onclick={() => handlePageChange(data.currentPage + 1)}
+                aria-label={m.next_page()}
+              >
                 <i class="fa-solid fa-chevron-right"></i>
               </button>
             {/if}

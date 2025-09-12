@@ -5,7 +5,7 @@
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
-  import { pageTitle } from '$lib/utils';
+  import { getShopSourceUrl, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -98,9 +98,7 @@
                   <div>
                     <div class="font-medium">
                       <a
-                        href="{shop.source === 'ziv'
-                          ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-                          : 'https://map.bemanicn.com/shop/'}{shop.id}"
+                        href={getShopSourceUrl(shop)}
                         target="_blank"
                         class="hover:text-accent line-clamp-3 transition-colors"
                       >

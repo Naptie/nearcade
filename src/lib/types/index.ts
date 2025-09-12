@@ -1,5 +1,7 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, ShopSource } from '../constants';
+import type { RADIUS_OPTIONS, ShopSource, GAMES } from '../constants';
+import type { TransportSearchResult } from './amap';
+import type { User } from '@auth/sveltekit';
 
 export interface Location {
   type: 'Point';
@@ -116,15 +118,7 @@ export interface UniversityRankingCache {
   data: UniversityRankingData[];
 }
 
-export type SortCriteria =
-  | 'shops'
-  | 'machines'
-  | 'density'
-  | 'maimai_dx'
-  | 'chunithm'
-  | 'taiko_no_tatsujin'
-  | 'sound_voltex'
-  | 'wacca';
+export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAMES)[number]['key'];
 
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
@@ -492,8 +486,13 @@ export interface Notification {
   clubName?: string;
 }
 
-export * from './amap';
-import type { TransportSearchResult } from './amap';
+export type AttendanceData = Array<{
+  userId: string;
+  user?: User;
+  attendedAt: string;
+  plannedLeaveAt: string;
+  game: { id: number; version: string };
+}>;
 
 // Extended types for route guidance
 export interface CachedRouteData {
@@ -511,3 +510,5 @@ export interface WindowMessage {
   type: 'NAVIGATE' | 'INVALIDATE';
   payload?: string;
 }
+
+export * from './amap';

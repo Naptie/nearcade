@@ -1,5 +1,6 @@
 import { m } from '$lib/paraglide/messages';
 import { Database } from '$lib/db/index.client';
+import { GAMES, ShopSource } from '$lib/constants';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
@@ -25,6 +26,8 @@ import rehypeParse from 'rehype-parse';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { unified } from 'unified';
+import tzlookup from '@photostructure/tz-lookup';
+import { getTimezoneOffset } from 'date-fns-tz';
 
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -137,6 +140,12 @@ export const parseRelativeTime = (date: Date, locale: string) => {
     style: 'long'
   }).format(0, 'second');
 };
+
+export const getGameName = (gameKey?: string): string | undefined => {
+  const game = GAMES.find((g) => g.key === gameKey);
+  return game ? m[game.key]() : gameKey;
+};
+
 export const getGameMachineCount = (shops: Shop[], gameId: number): number => {
   return shops.reduce((total, shop) => {
     const game = shop.games?.find((g: Game) => g.id === gameId);
@@ -160,7 +169,7 @@ export const formatDistance = (distance: number, precision = 0): string => {
       });
 };
 
-export const formatTime = (seconds: number | null | undefined): string => {
+export const formatDuration = (seconds: number | null | undefined): string => {
   if (seconds === null || seconds === undefined) return m.unknown();
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
@@ -700,6 +709,14 @@ export const formatDateTime = (date?: Date | string | null): string => {
   return date.toLocaleString();
 };
 
+export const formatTime = (time?: string | Date): string => {
+  if (!time) return m.unknown();
+  return new Date(time).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 export const canWriteUnivPosts = (
   userPermissions: { role?: string; canEdit: boolean },
   university: University
@@ -862,53 +879,81 @@ export const formatShopAddress = (shop: Shop): string => {
   const addressParts: string[] = [];
 
   if (shop.generalAddress) {
-    addressParts.push(...shop.generalAddress);
+    const seen = new Set<string>();
+    for (const part of shop.generalAddress) {
+      if (!part) continue;
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      if (!seen.has(trimmed)) {
+        seen.add(trimmed);
+        addressParts.push(trimmed);
+      }
+    }
   }
 
-  return addressParts.length > 0 ? addressParts.toReversed().join(', ') : '';
+  const reverse = shop.source === ShopSource.ZIV;
+
+  return addressParts.length > 0
+    ? reverse
+      ? addressParts.toReversed().join(', ')
+      : addressParts.join(' · ')
+    : '';
 };
 
+export const getShopSourceUrl = (shop: { id: number; source: ShopSource }): string =>
+  `${
+    shop.source === ShopSource.ZIV
+      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+      : 'https://map.bemanicn.com/shop/'
+  }${shop.id}`;
+
 /**
- * Determines the timezone of a shop based on its coordinates
- * This is a simplified implementation - in production you'd use a proper timezone API
+ * Determines timezone based on given coordinates
  */
 export const getShopTimezone = (location: Location): string => {
   const [longitude, latitude] = location.coordinates;
 
-  // Simplified timezone mapping for China and nearby regions
-  // Most of China uses UTC+8 (China Standard Time)
-  if (longitude >= 73 && longitude <= 135 && latitude >= 18 && latitude <= 54) {
-    return 'Asia/Shanghai'; // UTC+8
+  try {
+    const timezone = tzlookup(latitude, longitude);
+    if (timezone) return timezone;
+  } catch (error) {
+    console.error('Failed to lookup timezone:', error);
   }
 
-  // Japan uses UTC+9
-  if (longitude >= 129 && longitude <= 146 && latitude >= 24 && latitude <= 46) {
-    return 'Asia/Tokyo'; // UTC+9
-  }
-
-  // Default to China Standard Time for most arcade locations
   return 'Asia/Shanghai';
 };
 
 /**
- * Calculate the next day at 6am local time for a shop
+ * Calculate the next occurrence of the specified hour at the top of the hour (i.e. HH:00:00)
+ * in the shop's local time. If that hour today has already passed in the shop timezone,
+ * returns tomorrow at that hour.
  */
-export const getNextDay6AM = (shopLocation: Location): Date => {
+export const getNextTimeAtHour = (shopLocation: Location, hour: number): Date => {
+  // normalize hour to integer in [0,23]
+  const h = Math.max(0, Math.min(23, Math.floor(Number(hour) || 0)));
+
   const timezone = getShopTimezone(shopLocation);
+  const shopOffsetMs = getTimezoneOffset(timezone);
+  const shopOffsetHours = Math.round(shopOffsetMs / (1000 * 60 * 60));
+
   const now = new Date();
+  const nowMs = now.getTime();
 
-  // Create a date for tomorrow at 6am in the shop's timezone
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Determine the shop local date components by shifting now by the shop offset
+  const shopNowShifted = new Date(nowMs + shopOffsetMs);
+  const shopYear = shopNowShifted.getUTCFullYear();
+  const shopMonth = shopNowShifted.getUTCMonth();
+  const shopDate = shopNowShifted.getUTCDate();
 
-  // Set to 6am
-  tomorrow.setHours(6, 0, 0, 0);
+  // The UTC milliseconds for the shop-local date at the requested hour is:
+  // Date.UTC(shopYear, shopMonth, shopDate, hour - shopOffsetHours, 0, 0, 0)
+  // (hour in shop local -> corresponding UTC hour = hour - offset)
+  let targetUtcMs = Date.UTC(shopYear, shopMonth, shopDate, h - shopOffsetHours, 0, 0, 0);
 
-  // For now, we'll assume the timezone offset
-  // In a real implementation, you'd use a proper timezone library like date-fns-tz
-  const timezoneOffset = timezone === 'Asia/Tokyo' ? 9 : 8; // UTC+8 or UTC+9
-  const currentOffset = now.getTimezoneOffset() / 60; // current timezone offset in hours
-  const adjustment = (timezoneOffset - currentOffset) * 60 * 60 * 1000; // milliseconds
+  // If that target time is not in the future (i.e. already passed or equal to now), move to next day
+  if (targetUtcMs <= nowMs) {
+    targetUtcMs = Date.UTC(shopYear, shopMonth, shopDate + 1, h - shopOffsetHours, 0, 0, 0);
+  }
 
-  return new Date(tomorrow.getTime() + adjustment);
+  return new Date(targetUtcMs);
 };

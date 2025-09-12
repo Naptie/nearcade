@@ -13,7 +13,7 @@
     TransitStep
   } from '$lib/types/amap';
   import { m } from '$lib/paraglide/messages';
-  import { convertPath, formatDistance, formatTime, removeRecursiveBrackets } from '$lib/utils';
+  import { convertPath, formatDistance, formatDuration, removeRecursiveBrackets } from '$lib/utils';
   import { SELECTED_ROUTE_INDEX } from '$lib/constants';
   import FancyButton from './FancyButton.svelte';
 
@@ -583,7 +583,7 @@
                     {#if 'nightLine' in route && route.nightLine}
                       <i class="fa-solid fa-moon"></i>
                     {/if}
-                    {formatTime(route.time)}
+                    {formatDuration(route.time)}
                   </div>
                 </div>
               </button>
@@ -606,7 +606,9 @@
               {:else}
                 <div class="stat bg-base-200/50 rounded-lg p-3">
                   <div class="stat-title text-xs">{m.travel_time()}</div>
-                  <div class="stat-value text-lg text-wrap">{formatTime(selectedRoute.time)}</div>
+                  <div class="stat-value text-lg text-wrap">
+                    {formatDuration(selectedRoute.time)}
+                  </div>
                 </div>
               {/if}
               <div class="stat bg-base-200/50 rounded-lg p-3">
@@ -657,7 +659,7 @@
                           <div class="text-base-content/60 text-xs sm:text-sm">
                             <span>{formatDistance(segment.distance / 1000, 2)}</span>
                             {#if segment.time}
-                              <span> · {formatTime(segment.time)}</span>
+                              <span> · {formatDuration(segment.time)}</span>
                             {/if}
                           </div>
                         </div>
@@ -798,14 +800,14 @@
                             <div class="text-base-content/60 text-xs sm:text-sm">
                               <span>{formatDistance(segment.distance / 1000, 2)}</span>
                               {#if segment.time}
-                                <span> · {formatTime(segment.time)}</span>
+                                <span> · {formatDuration(segment.time)}</span>
                               {/if}
                             </div>
                           {:else}
                             <div class="text-sm font-medium sm:text-base">
                               <span>{formatDistance(segment.distance / 1000, 2)}</span>
                               {#if segment.time}
-                                <span> · {formatTime(segment.time)}</span>
+                                <span> · {formatDuration(segment.time)}</span>
                               {/if}
                             </div>
                           {/if}
@@ -886,7 +888,7 @@
                                       >
                                         <span>{formatDistance(step.distance / 1000, 2)}</span>
                                         {#if step.time}
-                                          <span> · {formatTime(step.time)}</span>
+                                          <span> · {formatDuration(step.time)}</span>
                                         {/if}
                                       </div>
                                     {/if}

@@ -3,8 +3,10 @@ import type { RequestHandler } from './$types';
 import { createClient } from 'redis';
 import { env } from '$env/dynamic/private';
 import client from '$lib/db/index.server';
-import type { Shop } from '$lib/types';
+import type { AttendanceData, Shop } from '$lib/types';
+import { getNextTimeAtHour } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
+import type { User } from '@auth/sveltekit';
 
 // Redis client for attendance tracking
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -17,7 +19,7 @@ async function getRedisClient() {
   return redisClient;
 }
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
@@ -25,30 +27,37 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
-    const body = await request.json() as {
-      shopSource: string;
-      shopId: string;
-      gameId: string;
+    const body = (await request.json()) as {
+      games: { id: number; version: string }[];
       plannedLeaveAt: string;
     };
-    const { shopSource, shopId, gameId, plannedLeaveAt } = body;
+    const { games, plannedLeaveAt } = body;
 
     // Validate input
-    if (!shopSource || !shopId || !gameId || !plannedLeaveAt) {
+    if (!games || !plannedLeaveAt) {
       return error(400, 'Missing required parameters');
     }
 
+    const source = params.source as ShopSource;
+
     // Validate shop source
-    if (!Object.values(ShopSource).includes(shopSource)) {
+    if (!Object.values(ShopSource).includes(source)) {
       return error(400, 'Invalid shop source');
+    }
+
+    const idRaw = params.id;
+    const id = parseInt(idRaw);
+
+    if (isNaN(id)) {
+      return error(400, 'Invalid shop ID');
     }
 
     // Validate shop exists
     const db = client.db();
     const shopsCollection = db.collection<Shop>('shops');
     const shop = await shopsCollection.findOne({
-      source: shopSource,
-      id: parseInt(shopId)
+      source,
+      id
     });
 
     if (!shop) {
@@ -56,9 +65,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     // Validate game exists in shop
-    const game = shop.games.find((g) => g.id === parseInt(gameId));
-    if (!game) {
-      return error(404, 'Game not found in shop');
+    const shopGames = shop.games.filter((sg) =>
+      games.some((g) => g.id === sg.id && g.version === sg.version)
+    );
+    if (shopGames.length !== games.length) {
+      return error(404, 'Games missing in shop');
+    }
+
+    const plannedLeaveTime = new Date(plannedLeaveAt);
+
+    if (
+      plannedLeaveTime < new Date(Date.now() + 10 * 60 * 1000) ||
+      plannedLeaveTime > getNextTimeAtHour(shop.location, 6)
+    ) {
+      return error(400, 'Invalid planned leave time');
     }
 
     // Get Redis client
@@ -67,10 +87,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return error(500, 'Redis not available');
     }
 
-    const attendanceKey = `nearcade:attend:${shopSource}-${shopId}:${gameId}:${session.user.id}`;
+    const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}`;
     const attendanceData = {
+      games: shopGames.map((g) => ({ id: g.id, version: g.version })),
       attendedAt: new Date().toISOString(),
-      plannedLeaveAt: new Date(plannedLeaveAt).toISOString()
+      plannedLeaveAt: plannedLeaveTime.toISOString()
     };
 
     // Calculate TTL in seconds
@@ -88,7 +109,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 };
 
-export const DELETE: RequestHandler = async ({ request, locals }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
@@ -96,16 +117,18 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
-    const body = await request.json() as {
-      shopSource: string;
-      shopId: string;
-      gameId: string;
-    };
-    const { shopSource, shopId, gameId } = body;
+    const source = params.source as ShopSource;
 
-    // Validate input
-    if (!shopSource || !shopId || !gameId) {
-      return error(400, 'Missing required parameters');
+    // Validate shop source
+    if (!Object.values(ShopSource).includes(source)) {
+      return error(400, 'Invalid shop source');
+    }
+
+    const idRaw = params.id;
+    const id = parseInt(idRaw);
+
+    if (isNaN(id)) {
+      return error(400, 'Invalid shop ID');
     }
 
     // Get Redis client
@@ -114,7 +137,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
       return error(500, 'Redis not available');
     }
 
-    const attendanceKey = `nearcade:attend:${shopSource}-${shopId}:${gameId}:${session.user.id}`;
+    const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}`;
 
     // Get the attendance data before deleting
     const attendanceDataStr = await redis.get(attendanceKey);
@@ -133,10 +156,10 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 
     await attendancesCollection.insertOne({
       userId: session.user.id,
-      game: parseInt(gameId),
+      games: attendanceData.games,
       shop: {
-        id: parseInt(shopId),
-        source: shopSource
+        id,
+        source
       },
       attendedAt: new Date(attendanceData.attendedAt),
       leftAt: new Date() // Actual leave time
@@ -150,13 +173,20 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 };
 
 // GET endpoint to retrieve attendance data for a shop
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ params }) => {
   try {
-    const shopSource = url.searchParams.get('shopSource');
-    const shopId = url.searchParams.get('shopId');
+    const source = params.source as ShopSource;
 
-    if (!shopSource || !shopId) {
-      return error(400, 'Missing shop parameters');
+    // Validate shop source
+    if (!Object.values(ShopSource).includes(source)) {
+      return error(400, 'Invalid shop source');
+    }
+
+    const idRaw = params.id;
+    const id = parseInt(idRaw);
+
+    if (isNaN(id)) {
+      return error(400, 'Invalid shop ID');
     }
 
     // Get Redis client
@@ -166,18 +196,11 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     // Get all attendance keys for this shop
-    const pattern = `nearcade:attend:${shopSource}-${shopId}:*`;
+    const pattern = `nearcade:attend:${source}-${id}:*`;
     const keys = await redis.keys(pattern);
 
-    const attendanceData: Record<
-      string,
-      Array<{
-        userId: string;
-        attendedAt: string;
-        plannedLeaveAt: string;
-        gameId: number;
-      }>
-    > = {};
+    const attendanceData: AttendanceData = [];
+    const usersSet = new Set<string>();
 
     // Process each attendance key
     for (const key of keys) {
@@ -185,21 +208,25 @@ export const GET: RequestHandler = async ({ url }) => {
       if (dataStr) {
         const data = JSON.parse(dataStr);
         const keyParts = key.split(':');
-        const gameId = parseInt(keyParts[3]);
-        const userId = keyParts[4];
-
-        if (!attendanceData[gameId]) {
-          attendanceData[gameId] = [];
-        }
-
-        attendanceData[gameId].push({
-          userId,
-          gameId,
-          attendedAt: data.attendedAt,
-          plannedLeaveAt: data.plannedLeaveAt
+        const userId = keyParts[3];
+        data.games.forEach((game: { id: number; version: string }) => {
+          usersSet.add(userId);
+          attendanceData.push({
+            userId,
+            game,
+            attendedAt: data.attendedAt,
+            plannedLeaveAt: data.plannedLeaveAt
+          });
         });
       }
     }
+
+    const db = client.db();
+    const usersCollection = db.collection<User>('users');
+    const users = await usersCollection.find({ id: { $in: Array.from(usersSet) } }).toArray();
+    attendanceData.forEach((entry) => {
+      entry.user = users.find((u) => u.id === entry.userId) as User;
+    });
 
     return json({ success: true, attendanceData });
   } catch (err) {

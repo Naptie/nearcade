@@ -5,7 +5,7 @@ import { toPlainObject } from '$lib/utils';
 import client from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
 
-export const load: PageServerLoad = async ({ params, parent, fetch }) => {
+export const load: PageServerLoad = async ({ params, parent }) => {
   const { source, id } = params;
 
   // Validate source
@@ -35,21 +35,8 @@ export const load: PageServerLoad = async ({ params, parent, fetch }) => {
 
     const { session } = await parent();
 
-    // Load attendance data
-    let attendanceData = {};
-    try {
-      const attendanceResponse = await fetch(`/api/attendance?shopSource=${source}&shopId=${id}`);
-      if (attendanceResponse.ok) {
-        const attendanceResult = await attendanceResponse.json() as { attendanceData?: Record<string, unknown> };
-        attendanceData = attendanceResult.attendanceData || {};
-      }
-    } catch (err) {
-      console.warn('Failed to load attendance data:', err);
-    }
-
     return {
       shop: toPlainObject(shop),
-      attendanceData,
       user: session?.user
     };
   } catch (err) {

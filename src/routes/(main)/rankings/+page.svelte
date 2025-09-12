@@ -1,7 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistance, formatRegionLabel, parseRelativeTime, pageTitle } from '$lib/utils';
+  import {
+    formatDistance,
+    formatRegionLabel,
+    parseRelativeTime,
+    pageTitle,
+    getGameName
+  } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
@@ -175,11 +181,6 @@
   };
   const getMetricsForRadius = (ranking: UniversityRankingData, radius: number) => {
     return ranking.rankings.find((r) => r.radius === radius);
-  };
-
-  const getGameName = (gameKey: string): string => {
-    const game = GAMES.find((g) => g.key === gameKey);
-    return game ? m[game.key]() : gameKey;
   };
 
   const getSortLabel = (sortKey: string): string => {

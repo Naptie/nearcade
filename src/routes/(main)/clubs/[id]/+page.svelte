@@ -12,7 +12,7 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { formatDate, pageTitle } from '$lib/utils';
+  import { formatDate, getShopSourceUrl, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { invalidateAll } from '$app/navigation';
 
@@ -592,9 +592,7 @@
                   {#each displayedArcades as shop (shop._id)}
                     <div class="flex items-center justify-between p-4">
                       <a
-                        href="{shop.source === 'ziv'
-                          ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-                          : 'https://map.bemanicn.com/shop/'}{shop.id}"
+                        href={getShopSourceUrl(shop)}
                         target="_blank"
                         class="group flex flex-1 items-center gap-3"
                       >
@@ -929,7 +927,7 @@
               <div class="flex-1">
                 <h4 class="font-medium">{shop.name}</h4>
                 <p class="text-base-content/60 text-sm">
-                  ID: {shop.id}
+                  {shop.source.toUpperCase()} #{shop.id}
                 </p>
                 {#if shop.games && shop.games.length > 0}
                   <div class="mt-1 flex flex-wrap gap-1">

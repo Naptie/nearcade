@@ -13,7 +13,7 @@
   import { onMount, getContext, untrack } from 'svelte';
   import {
     formatDistance,
-    formatTime,
+    formatDuration,
     isDarkMode,
     generateRouteCacheKey,
     getCachedRouteData,
@@ -22,7 +22,8 @@
     convertPath,
     pageTitle,
     sanitizeHTML,
-    formatShopAddress
+    formatShopAddress,
+    getGameName
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -34,7 +35,9 @@
     ORIGIN_INDEX,
     SHOP_INDEX,
     SELECTED_SHOP_INDEX,
-    HOVERED_SHOP_INDEX
+    HOVERED_SHOP_INDEX,
+    GAMES,
+    ShopSource
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
 
@@ -43,8 +46,8 @@
   let screenWidth = $state(0);
 
   // Determine if all shops are from 'ziv' source to enable Google Maps
-  const shouldUseGoogleMaps = $derived(
-    data.shops.length > 0 && data.shops.every((shop) => shop.source === 'ziv')
+  const useGoogleMaps = $derived(
+    data.shops.length > 0 && data.shops.every((shop) => shop.source === ShopSource.ZIV)
   );
 
   const amapContext = getContext<AMapContext>('amap');
@@ -209,7 +212,7 @@
 
   const getRouteLink = (shop: Shop | undefined) => {
     if (!data || !shop) return '';
-    const useGoogleMaps = shop.source === 'ziv';
+    const useGoogleMaps = shop.source === ShopSource.ZIV;
     const origin = data.location;
     const from = useGoogleMaps
       ? `${origin.latitude},${origin.longitude}`
@@ -450,13 +453,10 @@
     return games?.find((game) => game.id === gameId) || null;
   };
 
-  const allGames = [
-    { id: 1, name: m.maimai_dx() },
-    { id: 3, name: m.chunithm() },
-    { id: 31, name: m.taiko_no_tatsujin() },
-    { id: 4, name: m.sound_voltex() },
-    { id: 17, name: m.wacca() }
-  ];
+  const allGames = GAMES.map((game) => ({
+    id: game.id,
+    name: getGameName(game.key)
+  }));
 
   const visibleGames = $derived.by(() => {
     if (screenWidth < 480) return []; // 2xs: no games
@@ -483,7 +483,7 @@
 
       // Load Google Maps if needed
       if (
-        shouldUseGoogleMaps &&
+        useGoogleMaps &&
         'loadGoogleMaps' in window &&
         typeof window.loadGoogleMaps === 'function'
       ) {
@@ -556,7 +556,7 @@
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined) return;
 
-    if (shouldUseGoogleMaps && google.maps) {
+    if (useGoogleMaps && google.maps) {
       // Initialize Google Maps
       untrack(async () => {
         if (!google.maps) return;
@@ -660,7 +660,7 @@
           googleMap.fitBounds(bounds);
         }
       });
-    } else if (!shouldUseGoogleMaps && amap) {
+    } else if (!useGoogleMaps && amap) {
       // Initialize AMap (existing code)
       untrack(() => {
         if (!amap) return;
@@ -745,14 +745,14 @@
   });
 
   $effect(() => {
-    if (!map || shouldUseGoogleMaps) return;
+    if (!map || useGoogleMaps) return;
     if (map && 'setMapStyle' in map) {
       map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
     }
   });
 
   $effect(() => {
-    if (!map || shouldUseGoogleMaps) return; // Skip for Google Maps
+    if (!map || useGoogleMaps) return; // Skip for Google Maps
     if (transportMethod) {
       untrack(async () => {
         await calculateTravelData(transportMethod!);
@@ -771,7 +771,7 @@
   });
 
   $effect(() => {
-    if (shouldUseGoogleMaps) return; // Skip for Google Maps
+    if (useGoogleMaps) return; // Skip for Google Maps
     Object.keys(travelData).forEach((shopId) => {
       const data = travelData[shopId];
       if (!data || !data.route.setOptions) return;
@@ -781,7 +781,7 @@
 
   $effect(() => {
     // Update route colors when guidance state changes
-    if (routeGuidance.shopId && !shouldUseGoogleMaps) {
+    if (routeGuidance.shopId && !useGoogleMaps) {
       const routeData = travelData[routeGuidance.shopId];
       if (routeData && routeData.route.setOptions) {
         routeData.route.setOptions(getRouteOptions(routeGuidance.shopId));
@@ -792,7 +792,7 @@
   $effect(() => {
     if (selectedShopId) {
       untrack(() => {
-        if (shouldUseGoogleMaps && map && 'setZoom' in map) {
+        if (useGoogleMaps && map && 'setZoom' in map) {
           // For Google Maps, just center on the shop
           const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
           if (shop) {
@@ -824,7 +824,7 @@
       transportMethod &&
       selectedShopId &&
       travelData[selectedShopId]?.routeData &&
-      !shouldUseGoogleMaps
+      !useGoogleMaps
     ) {
       const selected = selectedShopId;
       untrack(() => {
@@ -864,7 +864,7 @@
         const markerData = markers[markerId];
         if (!markerData) return;
 
-        if (shouldUseGoogleMaps) {
+        if (useGoogleMaps) {
           const marker = markerData.marker as google.maps.marker.AdvancedMarkerElement;
           const isSelected = markerId === selected;
           const isHovered = markerId === hovered;
@@ -916,7 +916,7 @@
   });
 
   $effect(() => {
-    if (!amap || !map || shouldUseGoogleMaps) return;
+    if (!amap || !map || useGoogleMaps) return;
     if (['transit', 'riding', 'driving'].includes(transportMethod!)) {
       if (!trafficLayer && amap.TileLayer) {
         trafficLayer = new amap.TileLayer.Traffic({
@@ -1033,7 +1033,7 @@
         })}
       </p>
     </div>
-    <div class="flex flex-col gap-1 {shouldUseGoogleMaps ? 'hidden' : ''}">
+    <div class="flex flex-col gap-1 {useGoogleMaps ? 'hidden' : ''}">
       <label class="label not-md:mx-auto" for="transport-select">
         <span class="label-text">{m.transport_method()}</span>
       </label>
@@ -1060,7 +1060,7 @@
       <span>{m.no_shops_found()}</span>
     </div>
   {/if}
-  {#if amapError && !shouldUseGoogleMaps}
+  {#if amapError && !useGoogleMaps}
     <div class="alert alert-error mb-4">
       <i class="fa-solid fa-circle-xmark fa-lg"></i>
       <span>
@@ -1072,7 +1072,7 @@
   {/if}
   <div
     id="amap-container"
-    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!shouldUseGoogleMaps && !amap
+    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!useGoogleMaps && !amap
       ? 'bg-base-200 animate-pulse opacity-50'
       : ''}"
     bind:this={mapContainer}
@@ -1133,7 +1133,7 @@
                           travelData[`${shop.source}-${shop.id}`] !== undefined}
                         {@const distance =
                           travelData[`${shop.source}-${shop.id}`]?.distance ?? shop.distance}
-                        <span>{shop.source.toUpperCase()} · {shop.id}</span>
+                        <span>{shop.source.toUpperCase()} #{shop.id}</span>
                         <span class="not-dark:hidden"> · </span>
                         <span
                           class="not-dark:badge not-dark:badge-sm not-dark:badge-soft whitespace-nowrap {!hasTravelData
@@ -1147,7 +1147,7 @@
                           {formatDistance(distance, 2)}
                         </span>
                       {:else}
-                        {shop.source.toUpperCase()} · {shop.id}
+                        {shop.source.toUpperCase()} #{shop.id}
                       {/if}
                     </div>
                   </div>
@@ -1171,7 +1171,7 @@
                             ? 'badge-warning'
                             : 'badge-error'}"
                     >
-                      {formatTime(travelData[`${shop.source}-${shop.id}`]?.time)}
+                      {formatDuration(travelData[`${shop.source}-${shop.id}`]?.time)}
                     </div>
                   {/if}
                 {:else}
@@ -1232,9 +1232,10 @@
                 <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
                     class="btn btn-ghost btn-sm text-nowrap"
-                    href="{shop.source === 'ziv'
-                      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-                      : 'https://map.bemanicn.com/shop/'}{shop.id}"
+                    href={resolve('/(main)/shops/[source]/[id]', {
+                      source: shop.source,
+                      id: shop.id.toString()
+                    })}
                     target="_blank"
                     onclick={() => handleShopClick(shop)}
                   >

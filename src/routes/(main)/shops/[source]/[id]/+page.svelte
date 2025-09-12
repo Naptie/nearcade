@@ -1,43 +1,67 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
-  import { formatShopAddress, pageTitle } from '$lib/utils';
+  import { formatShopAddress, formatTime, getGameName, pageTitle, sanitizeHTML } from '$lib/utils';
   import { GAMES, ShopSource } from '$lib/constants';
-  import AttendanceModal from '$lib/components/shops/AttendanceModal.svelte';
+  import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
+  import type { AttendanceData } from '$lib/types';
+  import { fromPath } from '$lib/utils/scoped';
+  import { resolve } from '$app/paths';
+  import { onMount } from 'svelte';
+  import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import { formatDistanceToNow } from 'date-fns';
+  import { getLocale } from '$lib/paraglide/runtime';
+  import { enUS, zhCN } from 'date-fns/locale';
 
   let { data }: { data: PageData } = $props();
 
-  const shop = data.shop;
-  let attendanceData = $state(data.attendanceData);
+  let shop = $derived(data.shop);
+  let attendanceData = $state<AttendanceData>([]);
   let showAttendanceModal = $state(false);
   let isLoading = $state(false);
 
   // Track user's current attendance status
-  let userAttendance = $state<Record<number, boolean>>({});
+  let userAttendance = $state<boolean>(false);
+  let costs: Record<string, string> = $state({});
 
   // Update user attendance status
   $effect(() => {
     if (data.user && attendanceData) {
-      const newUserAttendance: Record<number, boolean> = {};
+      userAttendance = attendanceData.some((attendee) => attendee.userId === data.user?.id);
+    }
+  });
 
-      for (const [gameIdStr, attendees] of Object.entries(attendanceData)) {
-        const gameId = parseInt(gameIdStr);
-        newUserAttendance[gameId] = (attendees as Array<{ userId: string }>).some(
-          (attendee) => attendee.userId === data.user?.id
-        );
+  let radius = $state(10);
+
+  const getAttendanceData = async () => {
+    try {
+      const attendanceResponse = await fetch(`/api/shops/${shop.source}/${shop.id}/attendance`);
+      if (attendanceResponse.ok) {
+        const attendanceResult = (await attendanceResponse.json()) as {
+          attendanceData?: AttendanceData;
+        };
+        attendanceData = attendanceResult.attendanceData || [];
       }
+    } catch (err) {
+      console.warn('Failed to load attendance data:', err);
+    }
+  };
 
-      userAttendance = newUserAttendance;
+  onMount(async () => {
+    await getAttendanceData();
+    const savedRadius = localStorage.getItem('nearcade-radius');
+    if (savedRadius) {
+      radius = parseInt(savedRadius);
+    }
+    for (const game of shop.games) {
+      costs[game.id] = await sanitizeHTML(game.cost);
     }
   });
 
   const getGameInfo = (gameId: number) => {
     return GAMES.find((g) => g.id === gameId);
-  };
-
-  const getTotalMachines = (): number => {
-    return shop.games.reduce((total, game) => total + game.quantity, 0);
   };
 
   const getSourceUrl = (): string => {
@@ -46,38 +70,36 @@
       : `https://map.bemanicn.com/shop/${shop.id}`;
   };
 
-  const getGoogleMapsUrl = (): string => {
-    const address = formatShopAddress(shop);
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
-  };
-
   const getTotalAttendance = (): number => {
     if (!attendanceData) return 0;
-    return Object.values(attendanceData).reduce(
-      (total: number, attendees: Array<unknown>) => total + attendees.length,
-      0
-    );
+    const uniqueIds = new Set<string>();
+    attendanceData.forEach((attendee) => {
+      if (attendee?.userId && typeof attendee.userId === 'string') {
+        uniqueIds.add(attendee.userId);
+      }
+    });
+    return uniqueIds.size;
   };
 
-  const getGameAttendance = (gameId: number): number => {
-    if (!attendanceData || !attendanceData[gameId]) return 0;
-    return attendanceData[gameId].length;
+  const getGameAttendance = (id: number, version: string): number => {
+    if (!attendanceData) return 0;
+    return attendanceData.filter(
+      (attendee) => attendee.game.id === id && attendee.game.version === version
+    ).length;
   };
 
-  const handleAttend = async (gameId: number, plannedLeaveAt: Date) => {
+  const handleAttend = async (games: { id: number; version: string }[], plannedLeaveAt: Date) => {
     if (!data.user) return;
 
     isLoading = true;
     try {
-      const response = await fetch('/api/attendance', {
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          shopSource: shop.source,
-          shopId: shop.id,
-          gameId,
+          games,
           plannedLeaveAt: plannedLeaveAt.toISOString()
         })
       });
@@ -86,8 +108,7 @@
         throw new Error('Failed to attend');
       }
 
-      // Refresh attendance data
-      await refreshAttendanceData();
+      await getAttendanceData();
     } catch (error) {
       console.error('Error attending:', error);
       // TODO: Show error toast
@@ -96,29 +117,20 @@
     }
   };
 
-  const handleLeave = async (gameId: number) => {
+  const handleLeave = async () => {
     if (!data.user) return;
 
     isLoading = true;
     try {
-      const response = await fetch('/api/attendance', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          shopSource: shop.source,
-          shopId: shop.id,
-          gameId
-        })
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+        method: 'DELETE'
       });
 
       if (!response.ok) {
         throw new Error('Failed to leave');
       }
 
-      // Refresh attendance data
-      await refreshAttendanceData();
+      await getAttendanceData();
     } catch (error) {
       console.error('Error leaving:', error);
       // TODO: Show error toast
@@ -127,34 +139,13 @@
     }
   };
 
-  const refreshAttendanceData = async () => {
-    if (!browser) return;
-
-    try {
-      const response = await fetch(`/api/attendance?shopSource=${shop.source}&shopId=${shop.id}`);
-      if (response.ok) {
-        const result = await response.json();
-        attendanceData = result.attendanceData || {};
-      }
-    } catch (error) {
-      console.error('Error refreshing attendance:', error);
-    }
-  };
-
   // Refresh attendance data every 30 seconds
   $effect(() => {
     if (!browser) return;
 
-    const interval = setInterval(refreshAttendanceData, 30000);
+    const interval = setInterval(getAttendanceData, 30000);
     return () => clearInterval(interval);
   });
-
-  const formatAttendanceTime = (timestamp: string): string => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 </script>
 
 <svelte:head>
@@ -163,19 +154,14 @@
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
-  <div class="lg:grid lg:grid-cols-3 lg:gap-8">
-    <!-- Main Content -->
-    <div class="lg:col-span-2">
+  <div class="md:grid md:grid-cols-3 md:gap-8">
+    {#snippet header(isMain = true)}
       <!-- Shop Header -->
-      <div class="mb-8">
-        <div class="mb-4 flex items-center justify-between">
+      <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
+        <div class="mb-2 flex items-center justify-between">
           <h1 class="text-3xl font-bold">{shop.name}</h1>
-          <div class="flex items-center gap-2">
-            <span class="badge badge-outline badge-lg">
-              {shop.source.toUpperCase()}
-            </span>
-            <span class="text-base-content/60">#{shop.id}</span>
-          </div>
+          <span class="text-base-content/60 text-right">{shop.source.toUpperCase()} #{shop.id}</span
+          >
         </div>
 
         <div class="text-base-content/80 mb-6 flex items-start gap-2 text-lg">
@@ -185,162 +171,53 @@
 
         <div class="flex gap-4">
           <a
+            href="{resolve('/(main)/discover')}?longitude={shop.location
+              ?.coordinates[0]}&latitude={shop.location
+              ?.coordinates[1]}&name={shop.name}&radius={radius}"
+            target="_blank"
+            class="btn btn-accent btn-soft"
+          >
+            <i class="fa-solid fa-map-location-dot"></i>
+            {m.explore_nearby()}
+          </a>
+          <a
             href={getSourceUrl()}
             target="_blank"
             rel="noopener noreferrer"
-            class="btn btn-primary"
+            class="btn btn-primary btn-soft"
           >
             <i class="fa-solid fa-external-link-alt"></i>
             {m.view_on_source({ source: shop.source.toUpperCase() })}
           </a>
-          <a
-            href={getGoogleMapsUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-secondary"
-          >
-            <i class="fa-solid fa-map-marker-alt"></i>
-            {m.view_on_maps()}
-          </a>
         </div>
       </div>
+    {/snippet}
 
-      <!-- Games Section -->
-      <div class="mb-8">
-        <h2 class="mb-6 text-2xl font-semibold">{m.available_games()}</h2>
-
-        {#if shop.games.length > 0}
-          <div class="grid gap-6 sm:grid-cols-2">
-            {#each shop.games as game (game.id)}
-              {@const gameInfo = getGameInfo(game.id)}
-              <div class="card bg-base-200 border-base-content/20 border">
-                <div class="card-body p-6">
-                  <div class="mb-4 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold">
-                      {#if gameInfo}
-                        {gameInfo.key.replace(/_/g, ' ').toUpperCase()}
-                      {:else}
-                        {m.game_id({ id: game.id })}
-                      {/if}
-                    </h3>
-                    <div class="badge badge-primary badge-lg">
-                      ×{game.quantity}
-                    </div>
-                  </div>
-
-                  <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
-                      <span class="text-base-content/60">{m.game_name()}:</span>
-                      <span>{game.name}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/60">{m.version()}:</span>
-                      <span>{game.version}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-base-content/60">{m.cost()}:</span>
-                      <span class="text-right break-all">{game.cost}</span>
-                    </div>
-                  </div>
-
-                  <!-- Attendance Section -->
-                  <div class="border-base-content/10 mt-4 border-t pt-4">
-                    <div class="mb-2 flex items-center justify-between">
-                      <span class="text-base-content/60 text-sm">{m.current_players()}:</span>
-                      <span class="text-sm font-medium"
-                        >{getGameAttendance(game.id)} {m.online()}</span
-                      >
-                    </div>
-
-                    {#if data.user}
-                      {#if userAttendance[game.id]}
-                        <button
-                          class="btn btn-error btn-sm w-full"
-                          onclick={() => handleLeave(game.id)}
-                          disabled={isLoading}
-                        >
-                          {#if isLoading}
-                            <span class="loading loading-spinner loading-xs"></span>
-                          {:else}
-                            <i class="fa-solid fa-stop"></i>
-                          {/if}
-                          {m.leave()}
-                        </button>
-                      {:else}
-                        <button
-                          class="btn btn-outline btn-sm w-full"
-                          onclick={() => (showAttendanceModal = true)}
-                          disabled={isLoading}
-                        >
-                          <i class="fa-solid fa-play"></i>
-                          {m.attend()}
-                        </button>
-                      {/if}
-                    {:else}
-                      <div class="text-base-content/60 py-2 text-center text-sm">
-                        {m.sign_in_to_attend()}
-                      </div>
-                    {/if}
-
-                    <!-- Detailed attendance list for this game -->
-                    {#if attendanceData[game.id] && attendanceData[game.id].length > 0}
-                      <div class="border-base-content/10 mt-3 border-t pt-3">
-                        <div class="text-base-content/60 mb-2 text-xs font-medium">
-                          {m.currently_playing()}:
-                        </div>
-                        <div class="max-h-24 space-y-1 overflow-y-auto">
-                          {#each attendanceData[game.id] as attendee (attendee.userId)}
-                            <div class="flex items-center justify-between text-xs">
-                              <span class="truncate">
-                                {attendee.userId === data.user?.id
-                                  ? m.you()
-                                  : `${m.user()} ${attendee.userId.slice(0, 8)}...`}
-                              </span>
-                              <span class="text-base-content/60 shrink-0">
-                                {formatAttendanceTime(attendee.attendedAt)}
-                              </span>
-                            </div>
-                          {/each}
-                        </div>
-                      </div>
-                    {/if}
-                  </div>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <div class="py-8 text-center">
-            <div class="text-base-content/40 mb-2">
-              <i class="fa-solid fa-gamepad text-4xl"></i>
-            </div>
-            <p class="text-base-content/60">{m.no_games_available()}</p>
-          </div>
-        {/if}
-      </div>
-    </div>
+    {@render header(false)}
 
     <!-- Sidebar -->
-    <div class="lg:col-span-1">
-      <div class="sticky top-24 space-y-6">
+    <div class="order-1 not-md:mb-6 md:col-span-1">
+      <div class="sticky top-20 space-y-6">
         <!-- Shop Statistics -->
-        <div class="card bg-base-200 border-base-content/20 border">
+        <div class="card bg-base-200 not-md:hidden">
           <div class="card-body p-6">
-            <h3 class="mb-4 text-lg font-semibold">{m.shop_statistics()}</h3>
+            <h3 class="mb-2 text-lg font-semibold">{m.shop_statistics()}</h3>
 
-            <div class="space-y-4">
-              <div class="flex items-center justify-between">
-                <span class="text-base-content/60">{m.total_machines()}:</span>
-                <span class="font-semibold">{getTotalMachines()}</span>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <span class="text-base-content/60">{m.total_games()}:</span>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-base-content/60 truncate">{m.total_games()}</span>
                 <span class="font-semibold">{shop.games.length}</span>
               </div>
 
-              <div class="flex items-center justify-between">
-                <span class="text-base-content/60">{m.data_source()}:</span>
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-base-content/60 truncate">{m.total_machines()}</span>
+                <span class="font-semibold"
+                  >{shop.games.reduce((total, game) => total + game.quantity, 0)}</span
+                >
+              </div>
+
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-base-content/60 truncate">{m.data_source()}</span>
                 <span class="font-semibold">{shop.source.toUpperCase()}</span>
               </div>
             </div>
@@ -348,42 +225,51 @@
         </div>
 
         <!-- Real-time Attendance -->
-        <div class="card bg-base-200 border-base-content/20 border">
+        <div class="card bg-base-200">
           <div class="card-body p-6">
-            <h3 class="mb-4 text-lg font-semibold">{m.realtime_attendance()}</h3>
+            <h3 class="mb-4 text-lg font-semibold">{m.attendance()}</h3>
 
             <div class="py-4 text-center">
               <div class="text-primary mb-2 text-3xl font-bold">{getTotalAttendance()}</div>
               <div class="text-base-content/60 text-sm">{m.players_currently_playing()}</div>
             </div>
 
-            <div class="space-y-2 text-sm">
-              {#each shop.games as game (game.id)}
-                {@const gameInfo = getGameInfo(game.id)}
-                {@const gameAttendance = getGameAttendance(game.id)}
-                <div class="flex items-center justify-between">
-                  <span class="text-base-content/60 max-w-24 truncate">
-                    {#if gameInfo}
-                      {gameInfo.key.replace(/_/g, ' ')}
-                    {:else}
-                      Game #{game.id}
-                    {/if}
-                  </span>
-                  <span class="font-medium" class:text-success={gameAttendance > 0}>
-                    {gameAttendance} / {game.quantity}
-                  </span>
-                </div>
-              {/each}
-            </div>
+            {#if shop.games.length > 0}
+              {@const aggregatedGames = (() => {
+                const map = new Map();
+                for (const g of shop.games) {
+                  const existing = map.get(g.id);
+                  if (existing) {
+                    existing.quantity += g.quantity;
+                  } else {
+                    map.set(g.id, { ...g });
+                  }
+                }
+                return Array.from(map.values());
+              })()}
+              <div class="space-y-2 text-sm">
+                {#each aggregatedGames as game (game.id)}
+                  {@const gameInfo = getGameInfo(game.id)}
+                  {@const gameAttendance = getGameAttendance(game.id, game.version)}
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-base-content/60 truncate">
+                      {getGameName(gameInfo?.key)}
+                    </span>
+                    <span class="font-medium" class:text-success={gameAttendance > 0}>
+                      {gameAttendance} / {game.quantity}
+                    </span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
 
             <!-- Quick attend button -->
-            {#if data.user && shop.games.length === 1}
-              {@const singleGame = shop.games[0]}
+            {#if data.user}
               <div class="border-base-content/10 mt-4 border-t pt-4">
-                {#if userAttendance[singleGame.id]}
+                {#if userAttendance}
                   <button
-                    class="btn btn-error btn-sm w-full"
-                    onclick={() => handleLeave(singleGame.id)}
+                    class="btn btn-error btn-soft w-full"
+                    onclick={() => handleLeave()}
                     disabled={isLoading}
                   >
                     {#if isLoading}
@@ -395,30 +281,115 @@
                   </button>
                 {:else}
                   <button
-                    class="btn btn-primary btn-sm w-full"
+                    class="btn btn-primary w-full"
                     onclick={() => (showAttendanceModal = true)}
                     disabled={isLoading}
                   >
                     <i class="fa-solid fa-play"></i>
-                    {m.quick_attend()}
+                    {m.attend()}
                   </button>
                 {/if}
-              </div>
-            {:else if data.user && shop.games.length > 1}
-              <div class="border-base-content/10 mt-4 border-t pt-4">
-                <button
-                  class="btn btn-primary btn-sm w-full"
-                  onclick={() => (showAttendanceModal = true)}
-                  disabled={isLoading}
-                >
-                  <i class="fa-solid fa-play"></i>
-                  {m.attend()}
-                </button>
               </div>
             {/if}
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="md:col-span-2">
+      {@render header()}
+
+      <!-- Games Section -->
+      {#if shop.games.length > 0}
+        <div class="flex flex-col gap-4">
+          {#each shop.games as game, i (i)}
+            {@const gameInfo = getGameInfo(game.id)}
+            <div
+              class="card bg-base-200 group hover:border-primary border-2 border-current/0 shadow-none transition-all hover:shadow-lg"
+            >
+              <div class="card-body p-6">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-semibold">
+                    {game.name}
+                  </h3>
+                  <div class="badge badge-primary badge-soft badge-lg">
+                    ×{game.quantity}
+                  </div>
+                </div>
+
+                <div class="space-y-2 text-sm">
+                  <div class="group-hover:text-accent flex items-center gap-2 transition-colors">
+                    <i class="fa-solid fa-gamepad"></i>
+                    {#if game.version}
+                      <span>{getGameName(gameInfo?.key)} · {game.version}</span>
+                    {:else}
+                      <span>{getGameName(gameInfo?.key)}</span>
+                    {/if}
+                  </div>
+                  {#if costs[game.id]}
+                    <div class="group-hover:text-warning flex items-center gap-2 transition-colors">
+                      <i class="fa-solid fa-coins"></i>
+                      {@html costs[game.id]}
+                    </div>
+                  {/if}
+                </div>
+
+                <!-- Attendance Section -->
+                <div class="border-base-content/10 mt-4 border-t pt-4">
+                  <div class="flex items-center justify-between">
+                    <span class="text-base-content/60 text-sm">{m.current_players()}</span>
+                    <span class="text-sm font-medium"
+                      >{m.in_attendance({ count: getGameAttendance(game.id, game.version) })}</span
+                    >
+                  </div>
+
+                  <!-- Detailed attendance list for this game -->
+                  {#if attendanceData}
+                    {@const attendees = attendanceData.filter(
+                      (attendee) =>
+                        attendee.game.id === game.id && attendee.game.version === game.version
+                    )}
+                    {#if attendees.length > 0}
+                      <div class="border-base-content/10 mt-3">
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {#each attendees as attendee (attendee.userId)}
+                            <div class="tooltip w-fit">
+                              <div class="tooltip-content whitespace-pre-line">
+                                {m.attendance_details({
+                                  duration: formatDistanceToNow(new Date(attendee.attendedAt), {
+                                    locale: getLocale() === 'en' ? enUS : zhCN
+                                  }),
+                                  leave: formatTime(attendee.plannedLeaveAt)
+                                })}
+                              </div>
+                              <div class="w-fit">
+                                <UserAvatar
+                                  user={attendee.user!}
+                                  size="sm"
+                                  showName
+                                  target="_blank"
+                                />
+                              </div>
+                            </div>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="py-8 text-center">
+          <div class="text-base-content/40 mb-2">
+            <i class="fa-solid fa-gamepad text-4xl"></i>
+          </div>
+          <p class="text-base-content/60">{m.no_games_available()}</p>
+        </div>
+      {/if}
     </div>
   </div>
 </div>

@@ -334,15 +334,22 @@
         </button>
         <div class="join">
           <a
-            href={resolve('/(main)/universities')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
+            href={resolve('/(main)/shops')}
+            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
           >
-            {m.find_university()}
+            {m.find_arcades()}
+            <i class="fa-solid fa-gamepad fa-lg"></i>
+          </a>
+          <a
+            href={resolve('/(main)/universities')}
+            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+          >
+            {m.find_universities()}
             <i class="fa-solid fa-graduation-cap fa-lg"></i>
           </a>
           <a
             href={resolve('/(main)/clubs')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
+            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
           >
             {m.find_clubs()}
             <i class="fa-solid fa-users fa-lg"></i>

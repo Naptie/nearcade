@@ -172,11 +172,7 @@ const calculateAndCacheUniversityRankings = async (client: MongoClient): Promise
       'shops',
       'machines',
       'density',
-      'maimai_dx',
-      'chunithm',
-      'taiko_no_tatsujin',
-      'sound_voltex',
-      'wacca'
+      ...GAMES.map((g) => g.key)
     ];
 
     const cachedRankings: CachedRanking[] = rankings.map((ranking) => ({

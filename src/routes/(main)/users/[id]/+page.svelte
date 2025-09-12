@@ -2,7 +2,13 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { getDisplayName, getUserTypeBadgeClass, getUserTypeLabel, pageTitle } from '$lib/utils';
+  import {
+    getDisplayName,
+    getShopSourceUrl,
+    getUserTypeBadgeClass,
+    getUserTypeLabel,
+    pageTitle
+  } from '$lib/utils';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
@@ -343,9 +349,7 @@
         {#snippet arcade(shop: Shop)}
           <div class="flex items-center justify-between gap-1 text-sm">
             <a
-              href="{shop.source === 'ziv'
-                ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-                : 'https://map.bemanicn.com/shop/'}{shop.id}"
+              href={getShopSourceUrl(shop)}
               target="_blank"
               class="hover:text-accent transition-colors"
             >
