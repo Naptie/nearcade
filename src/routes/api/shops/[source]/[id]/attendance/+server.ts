@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
-import { getNextTimeAtHour } from '$lib/utils';
+import { getShopOpeningHours } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 
@@ -16,13 +16,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   try {
     const body = (await request.json()) as {
-      games: { id: number; version: string; currentAttendances?: number }[];
+      games: { id: number; currentAttendances?: number }[];
       plannedLeaveAt?: string;
     };
     const { games, plannedLeaveAt } = body;
 
     // Validate input
-    if (!games || (games.every((g) => g.currentAttendances === undefined) && !plannedLeaveAt)) {
+    if (
+      !games ||
+      !Array.isArray(games) ||
+      (games.every((g) => g.currentAttendances === undefined) && !plannedLeaveAt)
+    ) {
       return error(400, 'Missing required parameters');
     }
 
@@ -52,17 +56,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       return error(404, 'Shop not found');
     }
 
-    // Check for existing attendance
-    const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) {
-      return error(409, 'Attendance already exists');
-    }
-
     // Validate game exists in shop
-    const shopGames = shop.games.filter((sg) =>
-      games.some((g) => g.id === sg.id && g.version === sg.version)
-    );
+    const shopGames = shop.games.filter((sg) => games.some((g) => g.id === sg.gameId));
     if (shopGames.length !== games.length) {
       return error(404, 'Games missing in shop');
     }
@@ -72,24 +67,31 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const now = Date.now();
-    const refreshTime = getNextTimeAtHour(shop.location, 6);
+    const { open, close } = getShopOpeningHours(shop);
 
     if (plannedLeaveAt) {
+      // Check for existing attendance
+      const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) {
+        return error(409, 'Attendance already exists');
+      }
+
       const plannedLeaveTime = new Date(plannedLeaveAt);
 
       if (
         plannedLeaveTime < new Date(Date.now() + 8 * 60 * 1000) ||
-        plannedLeaveTime > refreshTime
+        plannedLeaveTime < open ||
+        plannedLeaveTime > close
       ) {
         return error(400, 'Invalid planned leave time');
       }
 
       const attendedAt = new Date().toISOString();
-      const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}:${encodeURIComponent(attendedAt)}:${shopGames.map((g) => `${g.id}-${encodeURIComponent(g.version)}`).join(',')}`;
+      const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}:${encodeURIComponent(attendedAt)}:${shopGames.map((g) => g.gameId).join(',')}`;
       const attendanceData = {
         games: shopGames.map((g) => ({
-          id: g.id,
-          version: g.version
+          id: g.gameId
         })),
         attendedAt,
         plannedLeaveAt: plannedLeaveTime.toISOString()
@@ -102,17 +104,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       // Store attendance in Redis with expiration
       await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
+      if (now < open.getTime() || now > close.getTime()) {
+        return error(400, 'Shop is currently closed');
+      }
       for (const game of games) {
         if (game.currentAttendances === undefined || game.currentAttendances < 0) {
-          return error(400, `Invalid current attendances for game ${game.id} [${game.version}]`);
+          return error(400, `Invalid current attendances for game ${game.id}`);
         }
-        const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}:${encodeURIComponent(game.version)}`;
+        const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
         const attendanceData = {
           currentAttendances: game.currentAttendances,
           reportedBy: session.user.id,
           reportedAt: new Date().toISOString()
         };
-        const ttlSeconds = Math.max(Math.floor((refreshTime.getTime() - now) / 1000), 60); // Minimum 60 seconds
+        const ttlSeconds = Math.max(Math.floor((close.getTime() - now) / 1000), 60); // Minimum 60 seconds
 
         // Store attendance in Redis
         await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
@@ -233,10 +238,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
         const keyParts = key.split(':');
         if (fetchReported) {
           const gameId = keyParts[3];
-          const gameVersion = keyParts[4];
           (attendanceData as AttendanceReport).push({
-            id: parseInt(gameId),
-            version: decodeURIComponent(gameVersion),
+            gameId: parseInt(gameId),
             currentAttendances: data.currentAttendances,
             reportedBy: data.reportedBy,
             reportedAt: data.reportedAt
@@ -244,20 +247,15 @@ export const GET: RequestHandler = async ({ params, url }) => {
           usersSet.add(data.reportedBy);
         } else {
           const userId = keyParts[3];
-          data.games.forEach(
-            (game: { id: number; version: string; currentAttendances?: number }) => {
-              (attendanceData as AttendanceData).push({
-                userId,
-                game: {
-                  id: game.id,
-                  version: game.version
-                },
-                attendedAt: data.attendedAt,
-                plannedLeaveAt: data.plannedLeaveAt
-              });
-              usersSet.add(userId);
-            }
-          );
+          data.games.forEach((game: { id: number }) => {
+            (attendanceData as AttendanceData).push({
+              userId,
+              gameId: game.id,
+              attendedAt: data.attendedAt,
+              plannedLeaveAt: data.plannedLeaveAt
+            });
+            usersSet.add(userId);
+          });
         }
       }
     }

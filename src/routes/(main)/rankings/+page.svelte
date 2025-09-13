@@ -205,12 +205,12 @@
           {#if data.stale}
             <div class="badge badge-warning badge-sm">
               <i class="fas fa-clock"></i>
-              {m.updated({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
+              {m.updated_at({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
             </div>
           {:else if data.cached}
             <div class="badge badge-success badge-sm">
               <i class="fas fa-check"></i>
-              {m.updated({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
+              {m.updated_at({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
             </div>
           {/if}
         </div>

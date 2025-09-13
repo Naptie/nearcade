@@ -103,11 +103,11 @@
           {@const aggregatedGames = (() => {
             const map = new Map();
             for (const g of shop.games) {
-              const existing = map.get(g.id);
+              const existing = map.get(g.titleId);
               if (existing) {
                 existing.quantity += g.quantity;
               } else {
-                map.set(g.id, { ...g });
+                map.set(g.titleId, { ...g });
               }
             }
             return Array.from(map.values());

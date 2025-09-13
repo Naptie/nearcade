@@ -449,8 +449,8 @@
     if (!routeGuidance.isOpen && map && 'setFitView' in map) map.setFitView();
   };
 
-  const findGame = (games: Game[], gameId: number): Game | null => {
-    return games?.find((game) => game.id === gameId) || null;
+  const findGame = (games: Game[], titleId: number): Game | null => {
+    return games?.find((game) => game.titleId === titleId) || null;
   };
 
   const allGames = GAMES.map((game) => ({
@@ -496,7 +496,7 @@
         data.shops.flatMap((shop) => {
           costs[`${shop.source}-${shop.id}`] = {};
           shop.games.map(async (game) => {
-            costs[`${shop.source}-${shop.id}`][game.id] = {
+            costs[`${shop.source}-${shop.id}`][game.titleId] = {
               preview: await sanitizeHTML(game.cost.substring(0, 30)),
               full: await sanitizeHTML(game.cost)
             };
@@ -1199,8 +1199,8 @@
                         <i class="fas fa-desktop"></i>
                         {game.quantity}
                       </div>
-                      {#if costs[id] && costs[id][game.id]}
-                        {@const cost = costs[id][game.id]}
+                      {#if costs[id] && costs[id][game.titleId]}
+                        {@const cost = costs[id][game.titleId]}
                         {#if cost.full === cost.preview}
                           <div
                             class="group-hover:text-warning flex items-center gap-1 text-sm transition-colors"

@@ -5,8 +5,8 @@
   import {
     formatShopAddress,
     formatTime,
-    getDisplayName,
     getGameName,
+    getShopOpeningHours,
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
@@ -22,6 +22,8 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { enUS, zhCN } from 'date-fns/locale';
   import FancyButton from '$lib/components/FancyButton.svelte';
+  import type { User } from '@auth/sveltekit';
+  import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -30,8 +32,35 @@
   let attendanceReport = $state<AttendanceReport>([]);
   let showAttendanceModal = $state(false);
   let showReportAttendanceModal = $state(false);
-  let selectedGameForReport = $state<{ id: number; version: string; name: string } | null>(null);
+  let selectedGameForReport = $state<{ id: number; name: string; version: string } | null>(null);
   let reportedAttendance = $state<number>(0);
+  let reportedAttendances = $state<
+    Array<{
+      id: number;
+      count: number | undefined;
+      reportedBy: User | undefined;
+      reportedAt: string;
+    }>
+  >([]);
+  let totalAttendance = $derived.by(() => {
+    if (!attendanceData) return 0;
+    const uniqueIds = new Set<string>();
+    attendanceData.forEach((attendee) => {
+      if (attendee?.userId && typeof attendee.userId === 'string') {
+        uniqueIds.add(attendee.userId);
+      }
+    });
+    return uniqueIds.size;
+  });
+  let totalReportedAttendance = $derived(
+    reportedAttendances.reduce((total, g) => total + (g.count || 0), 0)
+  );
+  let open = $state<Date | null>(null);
+  let close = $state<Date | null>(null);
+  let isShopOpen = $derived.by(() => {
+    const now = new Date();
+    return open && close && now >= open && now <= close;
+  });
   let isLoading = $state(false);
 
   // Track user's current attendance status
@@ -59,6 +88,16 @@
             attendanceData?: AttendanceReport;
           };
           attendanceReport = reportResult.attendanceData || [];
+          reportedAttendances = shop.games
+            .map((g) => {
+              const reportedAttendance = getGameReportedAttendance(g.gameId);
+              if (!reportedAttendance) return undefined;
+              return {
+                id: g.gameId,
+                ...reportedAttendance
+              };
+            })
+            .filter((r) => r !== undefined) as typeof reportedAttendances;
         } else {
           const attendanceResult = result as {
             attendanceData?: AttendanceData;
@@ -79,12 +118,13 @@
       radius = parseInt(savedRadius);
     }
     for (const game of shop.games) {
-      costs[game.id] = await sanitizeHTML(game.cost);
+      costs[game.gameId] = await sanitizeHTML(game.cost);
     }
+    ({ open, close } = getShopOpeningHours(shop));
   });
 
-  const getGameInfo = (gameId: number) => {
-    return GAMES.find((g) => g.id === gameId);
+  const getGameInfo = (titleId: number) => {
+    return GAMES.find((g) => g.id === titleId);
   };
 
   const getSourceUrl = (): string => {
@@ -93,32 +133,16 @@
       : `https://map.bemanicn.com/shop/${shop.id}`;
   };
 
-  const getTotalAttendance = (): number => {
+  const getGameAttendance = (id: number): number => {
     if (!attendanceData) return 0;
-    const uniqueIds = new Set<string>();
-    attendanceData.forEach((attendee) => {
-      if (attendee?.userId && typeof attendee.userId === 'string') {
-        uniqueIds.add(attendee.userId);
-      }
-    });
-    return uniqueIds.size;
+    return attendanceData.filter((attendee) => attendee.gameId === id).length;
   };
 
-  const getGameAttendance = (id: number, version: string): number => {
-    if (!attendanceData) return 0;
-    return attendanceData.filter(
-      (attendee) => attendee.game.id === id && attendee.game.version === version
-    ).length;
-  };
-
-  const getGameReportedAttendance = (id: number, version: string) => {
+  const getGameReportedAttendance = (id: number) => {
     if (!attendanceReport) return undefined;
     // Get the most recent reported attendance for this game
     const attendeesWithReported = attendanceReport.filter(
-      (attendee) =>
-        attendee.id === id &&
-        attendee.version === version &&
-        attendee.currentAttendances !== undefined
+      (attendee) => attendee.gameId === id && attendee.currentAttendances !== undefined
     );
     if (attendeesWithReported.length === 0) return undefined;
 
@@ -133,7 +157,7 @@
     };
   };
 
-  const handleAttend = async (games: { id: number; version: string }[], plannedLeaveAt: Date) => {
+  const handleAttend = async (games: number[], plannedLeaveAt: Date) => {
     if (!data.user) return;
 
     isLoading = true;
@@ -144,7 +168,7 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          games,
+          games: games.map((id) => ({ id })),
           plannedLeaveAt: plannedLeaveAt.toISOString()
         })
       });
@@ -198,7 +222,6 @@
           games: [
             {
               id: selectedGameForReport.id,
-              version: selectedGameForReport.version,
               currentAttendances: reportedAttendance
             }
           ]
@@ -218,9 +241,9 @@
     }
   };
 
-  const openReportModal = (game: { id: number; version: string; name: string }) => {
+  const openReportModal = (game: { id: number; name: string; version: string }) => {
     selectedGameForReport = game;
-    reportedAttendance = getGameReportedAttendance(game.id, game.version)?.count || 0;
+    reportedAttendance = reportedAttendances.find((g) => g.id === game.id)?.count || 0;
     showReportAttendanceModal = true;
   };
 
@@ -238,7 +261,6 @@
 
 <svelte:head>
   <title>{pageTitle(shop.name, m.shop_details())}</title>
-  <meta name="description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
@@ -246,18 +268,30 @@
     {#snippet header(isMain = true)}
       <!-- Shop Header -->
       <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
-        <div class="mb-2 flex items-center justify-between">
+        <div class="mb-4 flex items-center justify-between gap-2">
           <h1 class="text-3xl font-bold">{shop.name}</h1>
           <span class="text-base-content/60 text-right">{shop.source.toUpperCase()} #{shop.id}</span
           >
         </div>
 
-        <div class="text-base-content/80 mb-6 flex items-start gap-2 text-lg">
-          <i class="fa-solid fa-location-dot text-primary mt-1 shrink-0"></i>
-          <span>{formatShopAddress(shop)}</span>
+        <div
+          class="alert alert-success alert-soft flex flex-col items-start gap-2 text-[1.03125rem] leading-normal"
+        >
+          <div class="flex items-start gap-2">
+            <div class="w-4 text-center">
+              <i class="fa-solid fa-location-dot mt-0.75 shrink-0"></i>
+            </div>
+            <span class="whitespace-pre-line">{formatShopAddress(shop, true)}</span>
+          </div>
         </div>
 
-        <div class="flex flex-wrap gap-4">
+        {#if shop.comment}
+          <div class="text-base-content/80 mt-4">
+            <p class="whitespace-pre-line">{shop.comment}</p>
+          </div>
+        {/if}
+
+        <div class="mt-6 flex flex-wrap gap-4">
           <a
             href="{resolve('/(main)/discover')}?longitude={shop.location
               ?.coordinates[0]}&latitude={shop.location
@@ -286,6 +320,59 @@
     <!-- Sidebar -->
     <div class="order-1 not-md:mb-6 md:col-span-1">
       <div class="sticky top-20 space-y-6">
+        <!-- Shop Information -->
+        <div class="card bg-base-200">
+          <div class="card-body p-6">
+            <h3 class="mb-2 text-lg font-semibold">{m.shop_info()}</h3>
+
+            <div class="space-y-2">
+              {#if open && close}
+                {@const offset = (() => {
+                  const minutes = open.getTimezoneOffset();
+                  const sign = minutes <= 0 ? '+' : '-';
+                  const abs = Math.abs(minutes);
+                  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+                  const mm = String(abs % 60).padStart(2, '0');
+                  return `${sign}${hh}:${mm}`;
+                })()}
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate"
+                    >{m.opening_hours()} (UTC{offset})</span
+                  >
+                  <span class="font-semibold">{formatTime(open)} – {formatTime(close)}</span>
+                </div>
+              {/if}
+
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-base-content/60 truncate">{m.data_source()}</span>
+                <span class="font-semibold">{shop.source.toUpperCase()}</span>
+              </div>
+
+              {#if shop.createdAt}
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate">{m.created()}</span>
+                  <span class="font-semibold"
+                    >{formatDistanceToNow(shop.createdAt, {
+                      addSuffix: true,
+                      locale: getLocale() === 'en' ? enUS : zhCN
+                    })}</span
+                  >
+                </div>
+              {/if}
+
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-base-content/60 truncate">{m.updated()}</span>
+                <span class="font-semibold"
+                  >{formatDistanceToNow(shop.updatedAt, {
+                    addSuffix: true,
+                    locale: getLocale() === 'en' ? enUS : zhCN
+                  })}</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Shop Statistics -->
         <div class="card bg-base-200 not-md:hidden">
           <div class="card-body p-6">
@@ -303,55 +390,114 @@
                   >{shop.games.reduce((total, game) => total + game.quantity, 0)}</span
                 >
               </div>
-
-              <div class="flex items-center justify-between gap-1">
-                <span class="text-base-content/60 truncate">{m.data_source()}</span>
-                <span class="font-semibold">{shop.source.toUpperCase()}</span>
-              </div>
             </div>
           </div>
         </div>
 
-        <!-- Real-time Attendance -->
+        <!-- Attendance -->
         <div class="card bg-base-200">
           <div class="card-body p-6">
             <h3 class="mb-4 text-lg font-semibold">{m.attendance()}</h3>
 
             <div class="py-4 text-center">
-              <div class="text-primary mb-2 text-3xl font-bold">{getTotalAttendance()}</div>
+              {#if reportedAttendances.length > 0 && totalReportedAttendance >= totalAttendance}
+                {@const reportedAttendance = reportedAttendances.reduce(
+                  (latest, current) =>
+                    new Date(current.reportedAt).getTime() > new Date(latest.reportedAt).getTime()
+                      ? current
+                      : latest,
+                  reportedAttendances[0]
+                )}
+                <AttendanceReportBlame {reportedAttendance}>
+                  <div class="text-accent mb-2 text-3xl font-bold">
+                    {totalReportedAttendance}
+                  </div>
+                </AttendanceReportBlame>
+              {:else}
+                <div class="text-primary mb-2 text-3xl font-bold">{totalAttendance}</div>
+              {/if}
               <div class="text-base-content/60 text-sm">{m.players_currently_playing()}</div>
             </div>
 
             {#if shop.games.length > 0}
+              {@const showReported =
+                reportedAttendances.length > 0 && totalReportedAttendance >= totalAttendance}
               {@const aggregatedGames = (() => {
                 const map = new Map();
                 for (const g of shop.games) {
-                  const existing = map.get(g.id);
+                  const existing = map.get(g.titleId);
                   if (existing) {
                     existing.quantity += g.quantity;
                   } else {
-                    map.set(g.id, { ...g });
+                    map.set(g.titleId, { ...g });
                   }
                 }
                 return Array.from(map.values());
               })()}
               <div class="space-y-2 text-sm">
-                {#each aggregatedGames as game (game.id)}
-                  {@const gameInfo = getGameInfo(game.id)}
-                  {@const gameAttendance = getGameAttendance(game.id, game.version)}
+                {#each aggregatedGames as game (game.titleId)}
+                  {@const gameInfo = getGameInfo(game.titleId)}
+                  {@const gameAttendance = shop.games.reduce(
+                    (total, g) =>
+                      g.titleId === game.titleId
+                        ? total +
+                          (showReported
+                            ? reportedAttendances.reduce(
+                                (acc, ra) => acc + (ra.id === g.gameId ? ra.count || 0 : 0),
+                                0
+                              )
+                            : getGameAttendance(g.gameId))
+                        : total,
+                    0
+                  )}
+                  {@const reportedAttendance = shop.games
+                    .reduce(
+                      (acc, cur) => {
+                        const ra = reportedAttendances.find((r) => r.id === cur.gameId);
+                        if (ra && cur.titleId === game.titleId) {
+                          acc.push(ra);
+                        }
+                        return acc;
+                      },
+                      [] as typeof reportedAttendances
+                    )
+                    .reduce(
+                      (latest, current) =>
+                        new Date(current.reportedAt).getTime() >
+                        new Date(latest.reportedAt).getTime()
+                          ? current
+                          : latest,
+                      reportedAttendances[0]
+                    )}
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60 truncate">
                       {getGameName(gameInfo?.key)}
                     </span>
-                    <span class="font-medium" class:text-success={gameAttendance > 0}>
-                      {gameAttendance} / {game.quantity}
-                    </span>
+                    {#if showReported}
+                      <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                        <span
+                          class="font-medium"
+                          class:text-accent={showReported}
+                          class:text-primary={!showReported && gameAttendance > 0}
+                        >
+                          {gameAttendance} / {game.quantity}
+                        </span>
+                      </AttendanceReportBlame>
+                    {:else}
+                      <span
+                        class="font-medium"
+                        class:text-accent={showReported}
+                        class:text-primary={!showReported && gameAttendance > 0}
+                      >
+                        {gameAttendance} / {game.quantity}
+                      </span>
+                    {/if}
                   </div>
                 {/each}
               </div>
             {/if}
 
-            <!-- Quick attend button -->
+            <!-- Attend button -->
             {#if data.user}
               <div class="border-base-content/10 mt-4 border-t pt-4">
                 {#if userAttendance}
@@ -368,14 +514,20 @@
                     {m.leave()}
                   </button>
                 {:else}
-                  <button
-                    class="btn btn-primary w-full"
-                    onclick={() => (showAttendanceModal = true)}
-                    disabled={isLoading}
+                  <div
+                    class="tooltip-error w-full"
+                    class:tooltip={!isShopOpen}
+                    data-tip={isShopOpen ? '' : m.shop_closed()}
                   >
-                    <i class="fa-solid fa-play"></i>
-                    {m.attend()}
-                  </button>
+                    <button
+                      class="btn btn-primary w-full"
+                      onclick={() => (showAttendanceModal = true)}
+                      disabled={!isShopOpen || isLoading}
+                    >
+                      <i class="fa-solid fa-play"></i>
+                      {m.attend()}
+                    </button>
+                  </div>
                 {/if}
               </div>
             {/if}
@@ -392,22 +544,26 @@
       {#if shop.games.length > 0}
         <div class="flex flex-col gap-4">
           {#each shop.games as game, i (i)}
-            {@const gameInfo = getGameInfo(game.id)}
-            {@const countedAttendance = getGameAttendance(game.id, game.version)}
-            {@const reportedAttendance = getGameReportedAttendance(game.id, game.version)}
+            {@const gameInfo = getGameInfo(game.titleId)}
+            {@const countedAttendance = getGameAttendance(game.gameId)}
+            {@const reportedAttendance = reportedAttendances.find((g) => g.id === game.gameId)}
             <div
               class="card bg-base-200 group hover:border-primary border-2 border-current/0 shadow-none transition-all hover:shadow-lg"
             >
               <div class="card-body p-6">
                 <div class="flex items-center justify-between gap-2">
-                  <h3 class="truncate text-lg font-semibold">
+                  <h3 class="truncate text-xl font-semibold">
                     {game.name}
                   </h3>
                   <div class="flex items-center gap-1">
-                    {#if data.user}
+                    {#if data.user && isShopOpen}
                       <FancyButton
                         callback={() =>
-                          openReportModal({ id: game.id, version: game.version, name: game.name })}
+                          openReportModal({
+                            id: game.gameId,
+                            name: game.name,
+                            version: game.version
+                          })}
                         class="fa-solid fa-chart-simple"
                         btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
                         text={m.report_current_attendance()}
@@ -430,10 +586,16 @@
                       <span>{getGameName(gameInfo?.key)}</span>
                     {/if}
                   </div>
-                  {#if costs[game.id]}
+                  {#if costs[game.gameId]}
                     <div class="group-hover:text-warning flex items-center gap-2 transition-colors">
                       <i class="fa-solid fa-coins"></i>
-                      {@html costs[game.id]}
+                      {@html costs[game.gameId]}
+                    </div>
+                  {/if}
+                  {#if game.comment}
+                    <div class="flex items-center gap-2 whitespace-pre-line">
+                      <i class="fa-solid fa-circle-info"></i>
+                      {game.comment}
                     </div>
                   {/if}
                 </div>
@@ -445,25 +607,11 @@
                       >{m.current_players()} ({countedAttendance})</span
                     >
                     {#if reportedAttendance !== undefined}
-                      <a
-                        href={resolve('/(main)/users/[id]', {
-                          id: `@${reportedAttendance.reportedBy!.name}`
-                        })}
-                        target="_blank"
-                        class="tooltip group/reported-attendance cursor-pointer"
-                      >
-                        <div class="tooltip-content">
-                          {@html m.report_details({
-                            user: `<span class="group-hover/reported-attendance:text-primary transition-colors">${getDisplayName(
-                              reportedAttendance.reportedBy
-                            )}</span>`,
-                            time: formatTime(reportedAttendance.reportedAt)
-                          })}
-                        </div>
-                        <span class="text-warning text-sm font-medium">
+                      <AttendanceReportBlame {reportedAttendance}>
+                        <span class="text-accent text-sm font-medium">
                           {m.in_attendance({ count: reportedAttendance?.count || 0 })}
                         </span>
-                      </a>
+                      </AttendanceReportBlame>
                     {:else}
                       <span class="text-sm font-medium">
                         {m.in_attendance({ count: countedAttendance })}
@@ -474,8 +622,7 @@
                   <!-- Detailed attendance list for this game -->
                   {#if attendanceData}
                     {@const attendees = attendanceData.filter(
-                      (attendee) =>
-                        attendee.game.id === game.id && attendee.game.version === game.version
+                      (attendee) => attendee.gameId === game.gameId
                     )}
                     {#if attendees.length > 0}
                       <div class="border-base-content/10 mt-3">

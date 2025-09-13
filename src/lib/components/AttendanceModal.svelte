@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { GAMES } from '$lib/constants';
-  import { formatDateTime, formatTime, getGameName, getNextTimeAtHour } from '$lib/utils';
+  import { formatDateTime, formatTime, getGameName, getShopOpeningHours } from '$lib/utils';
   import type { Shop } from '$lib/types';
   import { onMount } from 'svelte';
 
@@ -9,7 +9,7 @@
     isOpen: boolean;
     shop: Shop;
     onClose: () => void;
-    onAttend: (games: { id: number; version: string }[], plannedLeaveAt: Date) => Promise<void>;
+    onAttend: (games: number[], plannedLeaveAt: Date) => Promise<void>;
   }
 
   let { isOpen = $bindable(), shop, onClose, onAttend }: AttendanceModalProps = $props();
@@ -30,13 +30,19 @@
   };
 
   const getEarliestPlannedLeave = () =>
-    new Date(Math.min(Date.now() + 9 * 60 * 1000, getNextTimeAtHour(shop.location, 6).getTime()));
+    new Date(
+      Math.min(
+        Date.now() + 9 * 60 * 1000,
+        Math.max(Date.now(), getShopOpeningHours(shop).close.getTime() - 60 * 1000)
+      )
+    );
 
-  let selectedGames = $state<{ id: number; version: string }[] | null>(null);
+  let selectedGames = $state<number[] | null>(null);
   let plannedLeaveAt = $state<string>('');
   let isSubmitting = $state(false);
-  let latestPlannedLeave = $derived(getNextTimeAtHour(shop.location, 6));
+  let latestPlannedLeave = $derived(getShopOpeningHours(shop).close);
   let earliestPlannedLeave = $state(getEarliestPlannedLeave());
+  let now = $state(new Date());
 
   const getGameInfo = (gameId: number) => {
     return GAMES.find((g) => g.id === gameId);
@@ -60,6 +66,7 @@
 
   onMount(() => {
     const interval = setInterval(() => {
+      now = new Date();
       earliestPlannedLeave = getEarliestPlannedLeave();
     }, 1000);
     return () => clearInterval(interval);
@@ -82,11 +89,12 @@
 </script>
 
 {#if isOpen}
+  {@const { open, close } = getShopOpeningHours(shop)}
   <!-- Modal backdrop -->
   <div class="modal modal-open">
     <div class="modal-box max-w-lg">
       <!-- Modal header -->
-      <div class="mb-6 flex items-center justify-between">
+      <div class="mb-6 flex items-start justify-between">
         <h3 class="text-xl font-semibold">{m.attend_at_shop({ shopName: shop.name })}</h3>
         <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose} aria-label={m.close()}>
           <i class="fa-solid fa-times fa-lg"></i>
@@ -101,7 +109,7 @@
         </label>
         <div class="flex flex-col gap-2">
           {#each shop.games as game, i (i)}
-            {@const gameInfo = getGameInfo(game.id)}
+            {@const gameInfo = getGameInfo(game.titleId)}
             <label
               class="label border-base-content/20 hover:bg-base-200 cursor-pointer justify-start gap-3 rounded-lg border p-3 transition-colors"
             >
@@ -109,7 +117,7 @@
                 type="checkbox"
                 class="checkbox hover:checkbox-primary checked:checkbox-primary border-2 transition"
                 bind:group={selectedGames}
-                value={{ id: game.id, version: game.version }}
+                value={game.gameId}
               />
               <div class="flex-1">
                 <div class="text-base-content font-medium">
@@ -131,27 +139,35 @@
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class="label mb-1 flex justify-between">
           <span class="label-text font-medium">{m.planned_leave_time()}</span>
-          <span class="label-text-alt text-base-content/60 text-right">
-            {m.planned_leave_time_help({
-              time: formatTime(latestPlannedLeave),
-              isTomorrow: (() => {
-                const now = new Date();
-                return (
-                  latestPlannedLeave.getFullYear() === now.getFullYear() &&
-                  latestPlannedLeave.getMonth() === now.getMonth() &&
-                  latestPlannedLeave.getDate() === now.getDate() + 1
-                ).toString();
-              })()
-            })}
+          <span
+            class="label-text-alt text-base-content/60 text-right"
+            class:text-error={now < open || now > new Date(close.getTime() - 10 * 60 * 1000)}
+          >
+            {now < open || now > close
+              ? m.shop_closed()
+              : now > new Date(close.getTime() - 10 * 60 * 1000)
+                ? m.shop_closing()
+                : m.planned_leave_time_help({
+                    time: formatTime(latestPlannedLeave),
+                    isTomorrow: (() => {
+                      return (
+                        latestPlannedLeave.getFullYear() === now.getFullYear() &&
+                        latestPlannedLeave.getMonth() === now.getMonth() &&
+                        latestPlannedLeave.getDate() === now.getDate() + 1
+                      ).toString();
+                    })()
+                  })}
           </span>
         </label>
         <input
           id="planned-leave-time"
           type="datetime-local"
           class="input input-bordered w-full"
-          class:input-error={plannedLeaveAt &&
+          class:input-error={(plannedLeaveAt &&
             (new Date(plannedLeaveAt) <= earliestPlannedLeave ||
-              new Date(plannedLeaveAt) > latestPlannedLeave)}
+              new Date(plannedLeaveAt) > latestPlannedLeave)) ||
+            now < open ||
+            now > new Date(close.getTime() - 10 * 60 * 1000)}
           bind:value={plannedLeaveAt}
           min={toLocalTime(earliestPlannedLeave)}
           max={toLocalTime(latestPlannedLeave)}
@@ -183,6 +199,8 @@
             !plannedLeaveAt ||
             new Date(plannedLeaveAt) <= earliestPlannedLeave ||
             new Date(plannedLeaveAt) > latestPlannedLeave ||
+            now < open ||
+            now > new Date(close.getTime() - 10 * 60 * 1000) ||
             isSubmitting}
         >
           {#if isSubmitting}

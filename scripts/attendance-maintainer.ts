@@ -58,7 +58,7 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
     console.log('Processing expired attendance key:', expiredKey);
 
     // Parse the key to extract shop and user information
-    // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId}-${gameVersion},...
+    // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
     const keyParts = expiredKey.split(':');
     if (keyParts.length !== 6) {
       console.error('Invalid attendance key format:', expiredKey);
@@ -68,10 +68,7 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
     const shopPart = keyParts[2]; // source-id
     const userId = keyParts[3];
     const attendedAt = decodeURIComponent(keyParts[4]);
-    const games = keyParts[5].split(',').map((g) => {
-      const [id, version] = g.split('-');
-      return { id: parseInt(id), version: decodeURIComponent(version) };
-    }); // gameId-gameVersion
+    const games = keyParts[5].split(',').map((g) => parseInt(g)); // gameId
 
     const shopInfo = shopPart.split('-');
     if (shopInfo.length < 2) {

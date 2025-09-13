@@ -12,16 +12,26 @@ export interface Shop {
   _id: string;
   id: number;
   name: string;
+  comment: string;
   generalAddress: string[];
+  address: {
+    general: string[];
+    detailed: string;
+  };
+  openingHours: [openHour: number, closeHour: number][];
   location: Location;
   games: Game[];
+  createdAt?: Date;
+  updatedAt: Date;
   source: ShopSource;
 }
 
 export interface Game {
-  id: number;
+  gameId: number;
+  titleId: number;
   name: string;
   version: string;
+  comment: string;
   quantity: number;
   cost: string;
 }
@@ -491,12 +501,11 @@ export type AttendanceData = Array<{
   user?: User;
   attendedAt: string;
   plannedLeaveAt: string;
-  game: { id: number; version: string };
+  gameId: number;
 }>;
 
 export type AttendanceReport = Array<{
-  id: number;
-  version: string;
+  gameId: number;
   currentAttendances?: number;
   reportedBy: string;
   reporter?: User;

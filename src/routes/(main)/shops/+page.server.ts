@@ -21,7 +21,7 @@ async function getShopAttendanceCounts(shops: Shop[]) {
 
     // Count unique users per shop
     for (const key of allKeys) {
-      // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId}-${gameVersion},...
+      // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
       const keyParts = key.split(':');
       if (keyParts.length === 6) {
         const shopIdentifier = keyParts[2]; // source-id
