@@ -339,19 +339,21 @@
                   <span class="text-base-content/60 truncate"
                     >{m.opening_hours()} (UTC{offset})</span
                   >
-                  <span class="font-semibold">{formatTime(open)} – {formatTime(close)}</span>
+                  <span class="text-right font-semibold"
+                    >{formatTime(open)} – {formatTime(close)}</span
+                  >
                 </div>
               {/if}
 
               <div class="flex items-center justify-between gap-1">
                 <span class="text-base-content/60 truncate">{m.data_source()}</span>
-                <span class="font-semibold">{shop.source.toUpperCase()}</span>
+                <span class="text-right font-semibold">{shop.source.toUpperCase()}</span>
               </div>
 
               {#if shop.createdAt}
                 <div class="flex items-center justify-between gap-1">
                   <span class="text-base-content/60 truncate">{m.created()}</span>
-                  <span class="font-semibold"
+                  <span class="text-right font-semibold"
                     >{formatDistanceToNow(shop.createdAt, {
                       addSuffix: true,
                       locale: getLocale() === 'en' ? enUS : zhCN
@@ -362,7 +364,7 @@
 
               <div class="flex items-center justify-between gap-1">
                 <span class="text-base-content/60 truncate">{m.updated()}</span>
-                <span class="font-semibold"
+                <span class="text-right font-semibold"
                   >{formatDistanceToNow(shop.updatedAt, {
                     addSuffix: true,
                     locale: getLocale() === 'en' ? enUS : zhCN
@@ -381,12 +383,12 @@
             <div class="space-y-2">
               <div class="flex items-center justify-between gap-1">
                 <span class="text-base-content/60 truncate">{m.total_games()}</span>
-                <span class="font-semibold">{shop.games.length}</span>
+                <span class="text-right font-semibold">{shop.games.length}</span>
               </div>
 
               <div class="flex items-center justify-between gap-1">
                 <span class="text-base-content/60 truncate">{m.total_machines()}</span>
-                <span class="font-semibold"
+                <span class="text-right font-semibold"
                   >{shop.games.reduce((total, game) => total + game.quantity, 0)}</span
                 >
               </div>
