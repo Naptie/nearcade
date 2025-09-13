@@ -10,10 +10,25 @@ import {
   type University,
   type UniversityMember,
   type ClubMember,
+  type Shop,
   PostReadability
 } from '$lib/types';
 import type { User } from '@auth/sveltekit';
-import { getDisplayName } from '.';
+import { getDisplayName, getGameName } from '.';
+
+// Interface for attendance records in MongoDB
+interface AttendanceRecord {
+  _id?: string;
+  id: string;
+  userId: string;
+  shopSource: string;
+  shopId: number;
+  gameIds: number[];
+  attendedAt: Date;
+  leftAt: Date;
+  reason: 'manual' | 'expired';
+  createdAt: Date;
+}
 
 /**
  * User Activity Server Module
@@ -491,6 +506,64 @@ export async function getUserActivities(
       });
     });
   }
+
+  // Fetch shop attendance activities
+  const shopAttendances = (await db
+    .collection<AttendanceRecord>('attendances')
+    .aggregate([
+      { $match: { userId: userId } },
+      {
+        $lookup: {
+          from: 'shops',
+          let: { shopSource: '$shopSource', shopId: '$shopId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$source', '$$shopSource'] },
+                    { $eq: ['$id', '$$shopId'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'shop'
+        }
+      },
+      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+      { $sort: { attendedAt: -1 } },
+      { $limit: limit }
+    ])
+    .toArray()) as (AttendanceRecord & { shop: Shop })[];
+
+  shopAttendances.forEach((attendance) => {
+    // Calculate duration
+    const duration = attendance.leftAt.getTime() - attendance.attendedAt.getTime();
+    
+    // Get game names
+    const gameNames = attendance.gameIds
+      .map(gameId => {
+        const game = attendance.shop.games.find(g => g.gameId === gameId);
+        return game ? getGameName(game.titleId.toString()) : null;
+      })
+      .filter(name => name !== null)
+      .join(', ');
+
+    activities.push({
+      id: `shop-attendance-${attendance.id}`,
+      type: 'shop_attendance',
+      createdAt: attendance.attendedAt,
+      userId: attendance.userId,
+      shopId: attendance.shopId,
+      shopName: attendance.shop.name,
+      shopSource: attendance.shopSource,
+      attendedAt: attendance.attendedAt,
+      leftAt: attendance.leftAt,
+      duration,
+      attendanceGames: gameNames
+    });
+  });
 
   // Sort all activities by creation time (descending) and apply pagination
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

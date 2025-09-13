@@ -420,7 +420,8 @@ export interface Activity {
     | 'changelog'
     | 'university_join'
     | 'club_join'
-    | 'club_create';
+    | 'club_create'
+    | 'shop_attendance';
   createdAt: Date;
   userId: string;
 
@@ -462,6 +463,15 @@ export interface Activity {
   // Club creation activity (club_create)
   createdClubId?: string;
   createdClubName?: string;
+
+  // Shop attendance activity (shop_attendance)
+  shopId?: number;
+  shopName?: string;
+  shopSource?: string;
+  attendedAt?: Date;
+  leftAt?: Date;
+  duration?: number; // Duration in milliseconds
+  attendanceGames?: string; // Comma-separated game names
 }
 
 // Notification types for active notification system

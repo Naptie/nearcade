@@ -40,6 +40,8 @@
         return 'fa-solid fa-user-plus text-success';
       case 'club_create':
         return 'fa-solid fa-users text-primary';
+      case 'shop_attendance':
+        return 'fa-solid fa-gamepad text-info';
       default:
         return 'fa-solid fa-clock';
     }
@@ -88,6 +90,8 @@
         return m.activity_joined_club({ targetName });
       case 'club_create':
         return m.activity_created_club({ targetName });
+      case 'shop_attendance':
+        return m.activity_visited_shop({ targetName });
       default:
         return '';
     }
@@ -188,6 +192,15 @@
         }
         return '#';
 
+      case 'shop_attendance':
+        if (activity.shopSource && activity.shopId) {
+          return resolve('/(main)/shops/[source]/[id]', {
+            source: activity.shopSource,
+            id: activity.shopId.toString()
+          });
+        }
+        return '#';
+
       default:
         return '#';
     }
@@ -214,6 +227,8 @@
         return activity.joinedClubName || '';
       case 'club_create':
         return activity.createdClubName || '';
+      case 'shop_attendance':
+        return activity.shopName || '';
       default:
         return '';
     }
@@ -255,6 +270,26 @@
       {#if (activity.type === 'comment' || activity.type === 'reply') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
+        </div>
+      {/if}
+
+      <!-- Shop Attendance Details -->
+      {#if activity.type === 'shop_attendance'}
+        <div class="text-base-content/60 text-xs">
+          {#if activity.attendanceGames}
+            <div class="mb-1">
+              <i class="fa-solid fa-gamepad mr-1"></i>
+              {activity.attendanceGames}
+            </div>
+          {/if}
+          {#if activity.duration && activity.duration > 0}
+            <div>
+              <i class="fa-solid fa-clock mr-1"></i>
+              {m.activity_duration({ 
+                duration: Math.round(activity.duration / (1000 * 60)) // Convert to minutes 
+              })}
+            </div>
+          {/if}
         </div>
       {/if}
 
