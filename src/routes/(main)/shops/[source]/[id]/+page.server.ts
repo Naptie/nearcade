@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
     // Find the shop by source and id

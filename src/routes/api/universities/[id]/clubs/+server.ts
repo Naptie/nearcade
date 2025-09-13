@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
@@ -13,7 +13,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       return json({ error: 'Invalid university ID' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection('universities');
     const clubsCollection = db.collection('clubs');
 

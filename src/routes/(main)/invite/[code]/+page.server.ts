@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { InviteLink, University, Club } from '$lib/types';
 import { loginRedirect } from '$lib/utils/scoped';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { code } = params;
@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const invitesCollection = db.collection<InviteLink>('invite_links');
 
     // Find the invite by code

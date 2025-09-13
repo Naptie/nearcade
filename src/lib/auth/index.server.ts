@@ -5,7 +5,7 @@ import { ObjectId } from 'mongodb';
 import { generateValidUsername } from '$lib/utils';
 import MicrosoftEntraID from '@auth/sveltekit/providers/microsoft-entra-id';
 import Osu from '@auth/sveltekit/providers/osu';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import Discord from '@auth/sveltekit/providers/discord';
 import GitHub from './github';
 import Phira from './phira';
@@ -41,7 +41,7 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
       return discord;
     })()
   ],
-  adapter: MongoDBAdapter(client, {
+  adapter: MongoDBAdapter(mongo, {
     databaseName: undefined,
     collections: {
       Users: 'users',
@@ -55,7 +55,7 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
     session: async ({ session, user }) => {
       const userId = session.userId;
       user.lastActiveAt = new Date();
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection<User>('users');
 
       const dbUser: User | null = await usersCollection.findOne({
@@ -107,8 +107,8 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
           emailVerified: null,
           ...rest
         };
-        session.unreadNotifications = await countUnreadNotifications(client, userId);
-        session.pendingJoinRequests = await countPendingJoinRequests(client, user);
+        session.unreadNotifications = await countUnreadNotifications(mongo, userId);
+        session.pendingJoinRequests = await countPendingJoinRequests(mongo, user);
       }
       return session;
     }

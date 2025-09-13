@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getChangelogEntries } from '$lib/utils/changelog.server';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   const { id } = params;
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
   }
 
   try {
-    const { entries, total } = await getChangelogEntries(client, id, {
+    const { entries, total } = await getChangelogEntries(mongo, id, {
       limit,
       offset: (page - 1) * limit
     });

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import {
   PostReadability,
   type Club,
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Invalid vote type' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
     const votesCollection = db.collection<CommentVote>('comment_votes');
 
@@ -59,7 +59,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         const postReadability = getDefaultPostReadability(university.postReadability);
         if (postReadability === PostReadability.UNIV_MEMBERS) {
           const { checkUniversityPermission } = await import('$lib/utils');
-          const permissions = await checkUniversityPermission(session.user, university, client);
+          const permissions = await checkUniversityPermission(session.user, university, mongo);
           canVote = !!permissions.role; // User is member if role is not empty
         }
       }
@@ -72,7 +72,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           postReadability === PostReadability.UNIV_MEMBERS
         ) {
           const { checkClubPermission } = await import('$lib/utils');
-          const permissions = await checkClubPermission(session.user, club, client, true);
+          const permissions = await checkClubPermission(session.user, club, mongo, true);
           if (postReadability === PostReadability.CLUB_MEMBERS) {
             canVote = !!permissions.role;
           } else {
@@ -96,14 +96,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           .findOne({ id: post.universityId });
         if (university) {
           const { checkUniversityPermission } = await import('$lib/utils');
-          const permissions = await checkUniversityPermission(session.user, university, client);
+          const permissions = await checkUniversityPermission(session.user, university, mongo);
           canInteract = permissions.canEdit;
         }
       } else if (post.clubId) {
         const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
         if (club) {
           const { checkClubPermission } = await import('$lib/utils');
-          const permissions = await checkClubPermission(session.user, club, client);
+          const permissions = await checkClubPermission(session.user, club, mongo);
           canInteract = permissions.canEdit;
         }
       }

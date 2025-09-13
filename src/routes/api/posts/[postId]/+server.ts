@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import {
   type Post,
   type PostWithAuthor,
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       return json({ error: 'Invalid post ID' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
     const commentsCollection = db.collection<Comment>('comments');
     const session = await locals.auth();
@@ -74,7 +74,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       post.readability,
       { universityId: post.universityId, clubId: post.clubId },
       session?.user,
-      client
+      mongo
     );
 
     if (!canRead) {
@@ -178,7 +178,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       isLocked?: boolean;
     };
 
-    const db = client.db();
+    const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
 
     // Find the post
@@ -197,7 +197,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const permissions = await checkUniversityPermission(session.user, university, client);
+        const permissions = await checkUniversityPermission(session.user, university, mongo);
         canEdit = permissions.canEdit;
         canManage = permissions.canEdit; // Only canEdit users can manage posts
         orgReadability = getDefaultPostReadability(university.postReadability);
@@ -205,7 +205,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const permissions = await checkClubPermission(session.user, club, client);
+        const permissions = await checkClubPermission(session.user, club, mongo);
         canEdit = permissions.canEdit;
         canManage = permissions.canEdit; // Only canEdit users can manage posts
         orgReadability = getDefaultPostReadability(club.postReadability);
@@ -292,7 +292,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       return json({ error: 'Invalid post ID' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
 
     // Find the post
@@ -310,13 +310,13 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const permissions = await checkUniversityPermission(session.user, university, client);
+        const permissions = await checkUniversityPermission(session.user, university, mongo);
         canDelete = isOwner || permissions.canEdit;
       }
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const permissions = await checkClubPermission(session.user, club, client);
+        const permissions = await checkClubPermission(session.user, club, mongo);
         canDelete = isOwner || permissions.canEdit;
       }
     }

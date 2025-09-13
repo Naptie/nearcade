@@ -1,10 +1,10 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { handle as handleAuth } from '$lib/auth/index.server';
 import { env } from '$env/dynamic/public';
-import { startAttendanceExpirationSubscriber } from '$lib/redis-subscriber.server';
+import redis from '$lib/db/redis.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -62,7 +62,8 @@ export const handle: Handle = sequence(
 
 export const handleError: HandleServerError = sentryHandleError ?? reportError;
 
-// Start Redis attendance expiration subscriber on server startup
-startAttendanceExpirationSubscriber().catch((error) => {
-  console.error('Failed to start attendance expiration subscriber:', error);
-});
+export const init: ServerInit = async () => {
+  if (!redis.isOpen) {
+    await redis.connect();
+  }
+};

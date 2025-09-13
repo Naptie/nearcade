@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q');
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection('universities');
 
     let universities: University[];

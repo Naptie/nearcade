@@ -491,7 +491,16 @@ export type AttendanceData = Array<{
   user?: User;
   attendedAt: string;
   plannedLeaveAt: string;
-  game: { id: number; version: string; currentAttendances?: number };
+  game: { id: number; version: string };
+}>;
+
+export type AttendanceReport = Array<{
+  id: number;
+  version: string;
+  currentAttendances?: number;
+  reportedBy: string;
+  reporter?: User;
+  reportedAt: string;
 }>;
 
 // Extended types for route guidance

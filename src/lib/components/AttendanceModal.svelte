@@ -30,7 +30,7 @@
   };
 
   const getEarliestPlannedLeave = () =>
-    new Date(Math.min(Date.now() + 10 * 60 * 1000, getNextTimeAtHour(shop.location, 6).getTime()));
+    new Date(Math.min(Date.now() + 9 * 60 * 1000, getNextTimeAtHour(shop.location, 6).getTime()));
 
   let selectedGames = $state<{ id: number; version: string }[] | null>(null);
   let plannedLeaveAt = $state<string>('');
@@ -187,11 +187,10 @@
         >
           {#if isSubmitting}
             <span class="loading loading-spinner loading-sm"></span>
-            {m.loading()}
           {:else}
             <i class="fa-solid fa-play"></i>
-            {m.attend()}
           {/if}
+          {m.attend()}
         </button>
       </div>
     </div>

@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     const page = parseInt(url.searchParams.get('page') || '1');
     const offset = (page - 1) * PAGINATION.PAGE_SIZE;
 
-    const db = client.db();
+    const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
     const shopsCollection = db.collection<Shop>('shops');
 

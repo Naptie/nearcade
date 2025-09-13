@@ -3,23 +3,10 @@ import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { toPlainArray } from '$lib/utils';
-import client from '$lib/db/index.server';
-import { createClient } from 'redis';
-import { env } from '$env/dynamic/private';
-
-// Redis client for attendance tracking
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (!redisClient && env.REDIS_URI) {
-    redisClient = createClient({ url: env.REDIS_URI });
-    await redisClient.connect();
-  }
-  return redisClient;
-}
+import mongo from '$lib/db/index.server';
+import redis from '$lib/db/redis.server';
 
 async function getShopAttendanceCounts(shops: Shop[]) {
-  const redis = await getRedisClient();
   if (!redis) {
     // If Redis is not available, return empty attendance data
     return shops.map((shop) => ({ ...shop, currentAttendance: 0 }));
@@ -34,9 +21,9 @@ async function getShopAttendanceCounts(shops: Shop[]) {
 
     // Count unique users per shop
     for (const key of allKeys) {
-      // Key format: nearcade:attend:${source}-${id}:${userId}
+      // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId}-${gameVersion},...
       const keyParts = key.split(':');
-      if (keyParts.length === 4) {
+      if (keyParts.length === 6) {
         const shopIdentifier = keyParts[2]; // source-id
         const count = attendanceMap.get(shopIdentifier) || 0;
         attendanceMap.set(shopIdentifier, count + 1);
@@ -55,6 +42,7 @@ async function getShopAttendanceCounts(shops: Shop[]) {
     return shops.map((shop) => ({ ...shop, currentAttendance: 0 }));
   }
 }
+
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
   const page = parseInt(url.searchParams.get('page') || '1');
@@ -62,7 +50,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   const skip = (page - 1) * limit;
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
     let shops: Shop[];

@@ -1,4 +1,4 @@
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { UniversityMember, ClubMember } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     // Initialize stats and recent activity objects

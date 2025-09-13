@@ -61,7 +61,7 @@
           window.dispatchEvent(new CustomEvent('nearcade-donate'));
         }}
         class="fa-solid fa-heart fa-lg text-shadow"
-        btnCls="not-ss:hidden"
+        btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden"
         text={m.donate()}
       />
       <FancyButton
@@ -72,7 +72,7 @@
       <FancyButton
         href={resolve('/')}
         class="fa-solid fa-home fa-lg text-shadow"
-        btnCls="not-sm:hidden"
+        btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden"
         text={m.home()}
       />
       <AuthModal size="lg" class="text-shadow shadow" />

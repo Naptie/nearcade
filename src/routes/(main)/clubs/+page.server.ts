@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Club, University } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   const skip = (page - 1) * limit;
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
     const universitiesCollection = db.collection<University>('universities');
 

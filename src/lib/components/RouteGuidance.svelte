@@ -548,7 +548,7 @@
           href={amapLink}
           target="_blank"
           class="fa-solid fa-arrow-up-right-from-square fa-md"
-          btnCls="btn-sm lg:btn-sm"
+          btnCls="btn-ghost btn-sm"
           text={m.view_in_amap()}
         />
         <button

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { Club, ClubMember, UniversityMember } from '$lib/types';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       return json({ error: 'Invalid club ID' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
     const membersCollection = db.collection<ClubMember>('club_members');
 

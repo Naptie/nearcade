@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 interface CacheMetadata {
   _id: string;
@@ -20,7 +20,7 @@ interface CachedRanking extends UniversityRankingData {
 
 export const GET: RequestHandler = async ({ url }) => {
   try {
-    const db = client.db();
+    const db = mongo.db();
     const cacheCollection = db.collection('rankings');
 
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';

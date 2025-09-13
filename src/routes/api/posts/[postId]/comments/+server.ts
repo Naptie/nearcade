@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { Post, Comment, University, Club } from '$lib/types';
 import {
   checkUniversityPermission,
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Comment content is required' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
     const commentsCollection = db.collection<Comment>('comments');
 
@@ -49,14 +49,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const permissions = await checkUniversityPermission(session.user, university, client);
+        const permissions = await checkUniversityPermission(session.user, university, mongo);
         canComment = canWriteUnivPosts(permissions, university);
       }
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const permissions = await checkClubPermission(session.user, club, client);
-        canComment = await canWriteClubPosts(permissions, club, session.user, client);
+        const permissions = await checkClubPermission(session.user, club, mongo);
+        canComment = await canWriteClubPosts(permissions, club, session.user, mongo);
       }
     }
 
@@ -73,13 +73,13 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           .collection<University>('universities')
           .findOne({ id: post.universityId });
         if (university) {
-          const permissions = await checkUniversityPermission(session.user, university, client);
+          const permissions = await checkUniversityPermission(session.user, university, mongo);
           canInteract = permissions.canEdit;
         }
       } else if (post.clubId) {
         const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
         if (club) {
-          const permissions = await checkClubPermission(session.user, club, client);
+          const permissions = await checkClubPermission(session.user, club, mongo);
           canInteract = permissions.canEdit;
         }
       }

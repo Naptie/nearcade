@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import {
   type University,
   type Post,
@@ -19,7 +19,7 @@ import {
 export const load = (async ({ params, locals }) => {
   const { id: universityId, postId } = params;
 
-  const db = client.db();
+  const db = mongo.db();
   const universitiesCollection = db.collection<University>('universities');
   const postsCollection = db.collection<Post>('posts');
   const commentsCollection = db.collection('comments');
@@ -53,7 +53,7 @@ export const load = (async ({ params, locals }) => {
     });
     userVote = vote ? vote.voteType : null;
 
-    const permissions = await checkUniversityPermission(session.user, university, client);
+    const permissions = await checkUniversityPermission(session.user, university, mongo);
     canEdit = permissions.canEdit;
     canManage = permissions.canEdit; // Only canEdit users can manage posts
     canComment = canWriteUnivPosts(permissions, university);

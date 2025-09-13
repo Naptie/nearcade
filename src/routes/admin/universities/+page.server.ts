@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { University } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const limit = 20;
   const skip = (page - 1) * limit;
 
-  const db = client.db();
+  const db = mongo.db();
 
   // Build search query
   const searchQuery: Record<string, unknown> = {};
@@ -113,7 +113,7 @@ export const actions: Actions = {
     }
 
     try {
-      const db = client.db();
+      const db = mongo.db();
 
       // Get university details for logging
       const university = await db.collection('universities').findOne({ id: universityId });

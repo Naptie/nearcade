@@ -15,7 +15,16 @@
     callback?: () => void;
   }
 
-  let { image, content, text, class: klass = '', btnCls, href, target, callback }: Props = $props();
+  let {
+    image,
+    content,
+    text,
+    class: klass = '',
+    btnCls = 'btn-ghost btn-sm lg:btn-md',
+    href,
+    target,
+    callback
+  }: Props = $props();
 
   let buttonElement: HTMLElement;
   let iconElement: HTMLElement | undefined = $state(undefined);
@@ -129,7 +138,7 @@
   bind:this={buttonElement}
   {href}
   {target}
-  class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
+  class="btn adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
     ? 'px-2'
     : ''} {btnCls}"
   onmouseenter={handleMouseEnter}

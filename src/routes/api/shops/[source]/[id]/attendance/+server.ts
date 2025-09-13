@@ -1,23 +1,11 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createClient } from 'redis';
-import { env } from '$env/dynamic/private';
-import client from '$lib/db/index.server';
-import type { AttendanceData, Shop } from '$lib/types';
+import mongo from '$lib/db/index.server';
+import redis from '$lib/db/redis.server';
+import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
 import { getNextTimeAtHour } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
-
-// Redis client for attendance tracking
-let redisClient: ReturnType<typeof createClient> | null = null;
-
-async function getRedisClient() {
-  if (!redisClient && env.REDIS_URI) {
-    redisClient = createClient({ url: env.REDIS_URI });
-    await redisClient.connect();
-  }
-  return redisClient;
-}
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = await locals.auth();
@@ -29,12 +17,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   try {
     const body = (await request.json()) as {
       games: { id: number; version: string; currentAttendances?: number }[];
-      plannedLeaveAt: string;
+      plannedLeaveAt?: string;
     };
     const { games, plannedLeaveAt } = body;
 
     // Validate input
-    if (!games || !plannedLeaveAt) {
+    if (!games || (games.every((g) => g.currentAttendances === undefined) && !plannedLeaveAt)) {
       return error(400, 'Missing required parameters');
     }
 
@@ -53,7 +41,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
 
     // Validate shop exists
-    const db = client.db();
+    const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
     const shop = await shopsCollection.findOne({
       source,
@@ -64,6 +52,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       return error(404, 'Shop not found');
     }
 
+    // Check for existing attendance
+    const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
+    const keys = await redis.keys(pattern);
+    if (keys.length > 0) {
+      return error(409, 'Attendance already exists');
+    }
+
     // Validate game exists in shop
     const shopGames = shop.games.filter((sg) =>
       games.some((g) => g.id === sg.id && g.version === sg.version)
@@ -72,41 +67,59 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       return error(404, 'Games missing in shop');
     }
 
-    const plannedLeaveTime = new Date(plannedLeaveAt);
-
-    if (
-      plannedLeaveTime < new Date(Date.now() + 10 * 60 * 1000) ||
-      plannedLeaveTime > getNextTimeAtHour(shop.location, 6)
-    ) {
-      return error(400, 'Invalid planned leave time');
-    }
-
-    // Get Redis client
-    const redis = await getRedisClient();
     if (!redis) {
       return error(500, 'Redis not available');
     }
 
-    const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}`;
-    const attendanceData = {
-      games: shopGames.map((g, index) => ({
-        id: g.id,
-        version: g.version,
-        currentAttendances: games[index]?.currentAttendances
-      })),
-      attendedAt: new Date().toISOString(),
-      plannedLeaveAt: plannedLeaveTime.toISOString()
-    };
-
-    // Calculate TTL in seconds
     const now = Date.now();
-    const plannedLeave = new Date(plannedLeaveAt).getTime();
-    const ttlSeconds = Math.max(Math.floor((plannedLeave - now) / 1000), 60); // Minimum 60 seconds
+    const refreshTime = getNextTimeAtHour(shop.location, 6);
 
-    // Store attendance in Redis with expiration
-    await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+    if (plannedLeaveAt) {
+      const plannedLeaveTime = new Date(plannedLeaveAt);
 
-    return json({ success: true, attendanceKey, ttlSeconds });
+      if (
+        plannedLeaveTime < new Date(Date.now() + 8 * 60 * 1000) ||
+        plannedLeaveTime > refreshTime
+      ) {
+        return error(400, 'Invalid planned leave time');
+      }
+
+      const attendedAt = new Date().toISOString();
+      const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}:${encodeURIComponent(attendedAt)}:${shopGames.map((g) => `${g.id}-${encodeURIComponent(g.version)}`).join(',')}`;
+      const attendanceData = {
+        games: shopGames.map((g) => ({
+          id: g.id,
+          version: g.version
+        })),
+        attendedAt,
+        plannedLeaveAt: plannedLeaveTime.toISOString()
+      };
+
+      // Calculate TTL in seconds
+      const plannedLeave = plannedLeaveTime.getTime();
+      const ttlSeconds = Math.max(Math.floor((plannedLeave - now) / 1000), 60); // Minimum 60 seconds
+
+      // Store attendance in Redis with expiration
+      await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+    } else if (games.some((g) => g.currentAttendances !== undefined)) {
+      for (const game of games) {
+        if (game.currentAttendances === undefined || game.currentAttendances < 0) {
+          return error(400, `Invalid current attendances for game ${game.id} [${game.version}]`);
+        }
+        const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}:${encodeURIComponent(game.version)}`;
+        const attendanceData = {
+          currentAttendances: game.currentAttendances,
+          reportedBy: session.user.id,
+          reportedAt: new Date().toISOString()
+        };
+        const ttlSeconds = Math.max(Math.floor((refreshTime.getTime() - now) / 1000), 60); // Minimum 60 seconds
+
+        // Store attendance in Redis
+        await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+      }
+    }
+
+    return json({ success: true });
   } catch (err) {
     console.error('Error creating attendance:', err);
     return error(500, 'Failed to create attendance');
@@ -135,13 +148,18 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       return error(400, 'Invalid shop ID');
     }
 
-    // Get Redis client
-    const redis = await getRedisClient();
     if (!redis) {
       return error(500, 'Redis not available');
     }
 
-    const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}`;
+    const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
+    const keys = await redis.keys(pattern);
+    if (keys.length === 0) {
+      return error(404, 'Attendance not found');
+    }
+
+    // Only one active attendance per user per shop
+    const attendanceKey = keys[0];
 
     // Get the attendance data before deleting
     const attendanceDataStr = await redis.get(attendanceKey);
@@ -155,7 +173,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     await redis.del(attendanceKey);
 
     // Add to MongoDB attendances collection
-    const db = client.db();
+    const db = mongo.db();
     const attendancesCollection = db.collection('attendances');
 
     await attendancesCollection.insertOne({
@@ -177,8 +195,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 // GET endpoint to retrieve attendance data for a shop
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
   try {
+    const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'false');
     const source = params.source as ShopSource;
 
     // Validate shop source
@@ -193,17 +212,17 @@ export const GET: RequestHandler = async ({ params }) => {
       return error(400, 'Invalid shop ID');
     }
 
-    // Get Redis client
-    const redis = await getRedisClient();
     if (!redis) {
       return error(500, 'Redis not available');
     }
 
     // Get all attendance keys for this shop
-    const pattern = `nearcade:attend:${source}-${id}:*`;
+    const pattern = fetchReported
+      ? `nearcade:attend-report:${source}-${id}:*`
+      : `nearcade:attend:${source}-${id}:*`;
     const keys = await redis.keys(pattern);
 
-    const attendanceData: AttendanceData = [];
+    const attendanceData: AttendanceReport | AttendanceData = [];
     const usersSet = new Set<string>();
 
     // Process each attendance key
@@ -212,28 +231,44 @@ export const GET: RequestHandler = async ({ params }) => {
       if (dataStr) {
         const data = JSON.parse(dataStr);
         const keyParts = key.split(':');
-        const userId = keyParts[3];
-        data.games.forEach((game: { id: number; version: string; currentAttendances?: number }) => {
-          usersSet.add(userId);
-          attendanceData.push({
-            userId,
-            game: {
-              id: game.id,
-              version: game.version,
-              currentAttendances: game.currentAttendances
-            },
-            attendedAt: data.attendedAt,
-            plannedLeaveAt: data.plannedLeaveAt
+        if (fetchReported) {
+          const gameId = keyParts[3];
+          const gameVersion = keyParts[4];
+          (attendanceData as AttendanceReport).push({
+            id: parseInt(gameId),
+            version: decodeURIComponent(gameVersion),
+            currentAttendances: data.currentAttendances,
+            reportedBy: data.reportedBy,
+            reportedAt: data.reportedAt
           });
-        });
+          usersSet.add(data.reportedBy);
+        } else {
+          const userId = keyParts[3];
+          data.games.forEach(
+            (game: { id: number; version: string; currentAttendances?: number }) => {
+              (attendanceData as AttendanceData).push({
+                userId,
+                game: {
+                  id: game.id,
+                  version: game.version
+                },
+                attendedAt: data.attendedAt,
+                plannedLeaveAt: data.plannedLeaveAt
+              });
+              usersSet.add(userId);
+            }
+          );
+        }
       }
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const usersCollection = db.collection<User>('users');
     const users = await usersCollection.find({ id: { $in: Array.from(usersSet) } }).toArray();
     attendanceData.forEach((entry) => {
-      entry.user = users.find((u) => u.id === entry.userId) as User;
+      if ('userId' in entry) entry.user = users.find((u) => u.id === entry.userId) as User;
+      else if ('reportedBy' in entry)
+        entry.reporter = users.find((u) => u.id === entry.reportedBy) as User;
     });
 
     return json({ success: true, attendanceData });

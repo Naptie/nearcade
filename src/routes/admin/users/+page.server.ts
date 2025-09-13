@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { toPlainArray, updateUserType } from '$lib/utils';
 import type { User } from '@auth/sveltekit';
 import { nanoid } from 'nanoid';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const limit = 20;
   const skip = (page - 1) * limit;
 
-  const db = client.db();
+  const db = mongo.db();
 
   // Build search query
   const searchQuery: Record<string, unknown> = {};
@@ -167,7 +167,7 @@ export const actions: Actions = {
     }
 
     try {
-      const db = client.db();
+      const db = mongo.db();
 
       const collectionName =
         organizationType === 'university' ? 'university_members' : 'club_members';
@@ -232,7 +232,7 @@ export const actions: Actions = {
         });
       }
 
-      await updateUserType(userId, client);
+      await updateUserType(userId, mongo);
       return { success: true };
     } catch (error) {
       console.error('Error updating organization role:', error);
@@ -265,7 +265,7 @@ export const actions: Actions = {
     }
 
     try {
-      const db = client.db();
+      const db = mongo.db();
 
       // Check if user exists
       const user = await db.collection('users').findOne({ id: userId });

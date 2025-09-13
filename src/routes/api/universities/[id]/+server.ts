@@ -2,13 +2,13 @@ import { json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ params }) => {
   const { id } = params;
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug

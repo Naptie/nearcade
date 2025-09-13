@@ -1,20 +1,29 @@
 import { createClient } from 'redis';
-import { env } from '$env/dynamic/private';
-import client from '$lib/db/index.server';
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+
+if (!('MONGODB_URI' in process.env)) {
+  // Load environment variables for local development
+  dotenv.config();
+}
+
+const { REDIS_URI, MONGODB_URI } = process.env;
+
+const mongo = new MongoClient(MONGODB_URI!);
 
 let subscriberClient: ReturnType<typeof createClient> | null = null;
 let isSubscriberStarted = false;
 
-async function getSubscriberClient() {
-  if (!subscriberClient && env.REDIS_URI) {
-    subscriberClient = createClient({ url: env.REDIS_URI });
+const getSubscriberClient = async () => {
+  if (!subscriberClient && REDIS_URI) {
+    subscriberClient = createClient({ url: REDIS_URI });
     await subscriberClient.connect();
   }
   return subscriberClient;
-}
+};
 
 // Start Redis keyspace notifications subscriber for attendance key expirations
-export async function startAttendanceExpirationSubscriber() {
+const startAttendanceExpirationSubscriber = async () => {
   if (isSubscriberStarted) {
     return;
   }
@@ -42,22 +51,27 @@ export async function startAttendanceExpirationSubscriber() {
   } catch (error) {
     console.error('Failed to start attendance expiration subscriber:', error);
   }
-}
+};
 
-async function handleAttendanceExpiration(expiredKey: string) {
+const handleAttendanceExpiration = async (expiredKey: string) => {
   try {
     console.log('Processing expired attendance key:', expiredKey);
 
     // Parse the key to extract shop and user information
-    // Key format: nearcade:attend:${source}-${id}:${userId}
+    // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId}-${gameVersion},...
     const keyParts = expiredKey.split(':');
-    if (keyParts.length !== 4) {
+    if (keyParts.length !== 6) {
       console.error('Invalid attendance key format:', expiredKey);
       return;
     }
 
     const shopPart = keyParts[2]; // source-id
     const userId = keyParts[3];
+    const attendedAt = decodeURIComponent(keyParts[4]);
+    const games = keyParts[5].split(',').map((g) => {
+      const [id, version] = g.split('-');
+      return { id: parseInt(id), version: decodeURIComponent(version) };
+    }); // gameId-gameVersion
 
     const shopInfo = shopPart.split('-');
     if (shopInfo.length < 2) {
@@ -73,9 +87,7 @@ async function handleAttendanceExpiration(expiredKey: string) {
       return;
     }
 
-    // We need to get a separate Redis client for data operations
-    // since the subscriber client is dedicated to subscriptions
-    const dataClient = createClient({ url: env.REDIS_URI });
+    const dataClient = createClient({ url: REDIS_URI });
     await dataClient.connect();
 
     try {
@@ -87,17 +99,15 @@ async function handleAttendanceExpiration(expiredKey: string) {
         attendanceData = JSON.parse(attendanceDataStr);
       } else {
         // If the data is no longer in Redis, we still want to create a record
-        // but with limited information
-        console.warn('Attendance data not found for expired key:', expiredKey);
         attendanceData = {
-          games: [], // We don't know which games were attended
-          attendedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Estimate 24h ago
+          games,
+          attendedAt: new Date(attendedAt).toISOString(),
           plannedLeaveAt: new Date().toISOString() // Now
         };
       }
 
       // Add to MongoDB attendances collection
-      const db = client.db();
+      const db = mongo.db();
       const attendancesCollection = db.collection('attendances');
 
       await attendancesCollection.insertOne({
@@ -108,8 +118,7 @@ async function handleAttendanceExpiration(expiredKey: string) {
           source
         },
         attendedAt: new Date(attendanceData.attendedAt),
-        leftAt: new Date(), // Expiration time as leave time
-        reason: 'expired' // Mark as expired rather than manually left
+        leftAt: new Date(attendanceData.plannedLeaveAt)
       });
 
       console.log(`Attendance record created for expired key: ${expiredKey}`);
@@ -119,10 +128,10 @@ async function handleAttendanceExpiration(expiredKey: string) {
   } catch (error) {
     console.error('Error handling attendance expiration:', error);
   }
-}
+};
 
 // Gracefully shutdown the subscriber
-export async function stopAttendanceExpirationSubscriber() {
+const stopAttendanceExpirationSubscriber = async () => {
   if (subscriberClient) {
     await subscriberClient.unsubscribe();
     await subscriberClient.quit();
@@ -130,4 +139,12 @@ export async function stopAttendanceExpirationSubscriber() {
     isSubscriberStarted = false;
     console.log('Redis attendance expiration subscriber stopped');
   }
+};
+
+try {
+  await startAttendanceExpirationSubscriber();
+} catch (err) {
+  console.error('Fatal error:', err);
+  await stopAttendanceExpirationSubscriber();
+  process.exit(1);
 }

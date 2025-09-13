@@ -2,11 +2,18 @@
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
-  import { formatShopAddress, formatTime, getGameName, pageTitle, sanitizeHTML } from '$lib/utils';
+  import {
+    formatShopAddress,
+    formatTime,
+    getDisplayName,
+    getGameName,
+    pageTitle,
+    sanitizeHTML
+  } from '$lib/utils';
   import { GAMES, ShopSource } from '$lib/constants';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
-  import type { AttendanceData } from '$lib/types';
+  import type { AttendanceData, AttendanceReport } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
@@ -14,11 +21,13 @@
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
   import { enUS, zhCN } from 'date-fns/locale';
+  import FancyButton from '$lib/components/FancyButton.svelte';
 
   let { data }: { data: PageData } = $props();
 
   let shop = $derived(data.shop);
   let attendanceData = $state<AttendanceData>([]);
+  let attendanceReport = $state<AttendanceReport>([]);
   let showAttendanceModal = $state(false);
   let showReportAttendanceModal = $state(false);
   let selectedGameForReport = $state<{ id: number; version: string; name: string } | null>(null);
@@ -38,14 +47,24 @@
 
   let radius = $state(10);
 
-  const getAttendanceData = async () => {
+  const getAttendanceData = async (fetchReported = false) => {
     try {
-      const attendanceResponse = await fetch(`/api/shops/${shop.source}/${shop.id}/attendance`);
+      const attendanceResponse = await fetch(
+        `/api/shops/${shop.source}/${shop.id}/attendance${fetchReported ? '?reported=true' : ''}`
+      );
       if (attendanceResponse.ok) {
-        const attendanceResult = (await attendanceResponse.json()) as {
-          attendanceData?: AttendanceData;
-        };
-        attendanceData = attendanceResult.attendanceData || [];
+        const result = await attendanceResponse.json();
+        if (fetchReported) {
+          const reportResult = result as {
+            attendanceData?: AttendanceReport;
+          };
+          attendanceReport = reportResult.attendanceData || [];
+        } else {
+          const attendanceResult = result as {
+            attendanceData?: AttendanceData;
+          };
+          attendanceData = attendanceResult.attendanceData || [];
+        }
       }
     } catch (err) {
       console.warn('Failed to load attendance data:', err);
@@ -53,7 +72,8 @@
   };
 
   onMount(async () => {
-    await getAttendanceData();
+    await getAttendanceData(false);
+    await getAttendanceData(true);
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
       radius = parseInt(savedRadius);
@@ -91,22 +111,26 @@
     ).length;
   };
 
-  const getGameReportedAttendance = (id: number, version: string): number | undefined => {
-    if (!attendanceData) return undefined;
+  const getGameReportedAttendance = (id: number, version: string) => {
+    if (!attendanceReport) return undefined;
     // Get the most recent reported attendance for this game
-    const attendeesWithReported = attendanceData.filter(
+    const attendeesWithReported = attendanceReport.filter(
       (attendee) =>
-        attendee.game.id === id &&
-        attendee.game.version === version &&
-        attendee.game.currentAttendances !== undefined
+        attendee.id === id &&
+        attendee.version === version &&
+        attendee.currentAttendances !== undefined
     );
     if (attendeesWithReported.length === 0) return undefined;
 
     // Return the most recent reported value
     const mostRecent = attendeesWithReported.reduce((latest, current) =>
-      new Date(current.attendedAt) > new Date(latest.attendedAt) ? current : latest
+      new Date(current.reportedAt) > new Date(latest.reportedAt) ? current : latest
     );
-    return mostRecent.game.currentAttendances;
+    return {
+      count: mostRecent.currentAttendances,
+      reportedBy: mostRecent.reporter,
+      reportedAt: mostRecent.reportedAt
+    };
   };
 
   const handleAttend = async (games: { id: number; version: string }[], plannedLeaveAt: Date) => {
@@ -177,13 +201,12 @@
               version: selectedGameForReport.version,
               currentAttendances: reportedAttendance
             }
-          ],
-          plannedLeaveAt: new Date(Date.now() + 60000).toISOString() // 1 minute from now as placeholder
+          ]
         })
       });
 
       if (response.ok) {
-        await getAttendanceData();
+        await getAttendanceData(true);
         showReportAttendanceModal = false;
         selectedGameForReport = null;
         reportedAttendance = 0;
@@ -197,7 +220,7 @@
 
   const openReportModal = (game: { id: number; version: string; name: string }) => {
     selectedGameForReport = game;
-    reportedAttendance = getGameReportedAttendance(game.id, game.version) || 0;
+    reportedAttendance = getGameReportedAttendance(game.id, game.version)?.count || 0;
     showReportAttendanceModal = true;
   };
 
@@ -205,7 +228,10 @@
   $effect(() => {
     if (!browser) return;
 
-    const interval = setInterval(getAttendanceData, 30000);
+    const interval = setInterval(() => {
+      getAttendanceData(false);
+      getAttendanceData(true);
+    }, 30000);
     return () => clearInterval(interval);
   });
 </script>
@@ -231,7 +257,7 @@
           <span>{formatShopAddress(shop)}</span>
         </div>
 
-        <div class="flex gap-4">
+        <div class="flex flex-wrap gap-4">
           <a
             href="{resolve('/(main)/discover')}?longitude={shop.location
               ?.coordinates[0]}&latitude={shop.location
@@ -367,16 +393,31 @@
         <div class="flex flex-col gap-4">
           {#each shop.games as game, i (i)}
             {@const gameInfo = getGameInfo(game.id)}
+            {@const countedAttendance = getGameAttendance(game.id, game.version)}
+            {@const reportedAttendance = getGameReportedAttendance(game.id, game.version)}
             <div
               class="card bg-base-200 group hover:border-primary border-2 border-current/0 shadow-none transition-all hover:shadow-lg"
             >
               <div class="card-body p-6">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-lg font-semibold">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="truncate text-lg font-semibold">
                     {game.name}
                   </h3>
-                  <div class="badge badge-primary badge-soft badge-lg">
-                    ×{game.quantity}
+                  <div class="flex items-center gap-1">
+                    {#if data.user}
+                      <FancyButton
+                        callback={() =>
+                          openReportModal({ id: game.id, version: game.version, name: game.name })}
+                        class="fa-solid fa-chart-simple"
+                        btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
+                        text={m.report_current_attendance()}
+                      />
+                    {/if}
+                    <div
+                      class="btn btn-neutral btn-active btn-soft btn-sm cursor-default text-base"
+                    >
+                      ×{game.quantity}
+                    </div>
                   </div>
                 </div>
 
@@ -400,32 +441,35 @@
                 <!-- Attendance Section -->
                 <div class="border-base-content/10 mt-4 border-t pt-4">
                   <div class="flex items-center justify-between">
-                    <span class="text-base-content/60 text-sm">{m.current_players()}</span>
-                    <span class="text-sm font-medium">
-                      {#if getGameReportedAttendance(game.id, game.version) !== undefined}
-                        {m.in_attendance_with_reported({
-                          inAttendance: getGameAttendance(game.id, game.version),
-                          reported: getGameReportedAttendance(game.id, game.version) || 0
+                    <span class="text-base-content/60 text-sm"
+                      >{m.current_players()} ({countedAttendance})</span
+                    >
+                    {#if reportedAttendance !== undefined}
+                      <a
+                        href={resolve('/(main)/users/[id]', {
+                          id: `@${reportedAttendance.reportedBy!.name}`
                         })}
-                      {:else}
-                        {m.in_attendance({ count: getGameAttendance(game.id, game.version) })}
-                      {/if}
-                    </span>
-                  </div>
-
-                  <!-- Report attendance button -->
-                  {#if data.user}
-                    <div class="mt-2">
-                      <button
-                        class="btn btn-soft btn-sm"
-                        onclick={() =>
-                          openReportModal({ id: game.id, version: game.version, name: game.name })}
+                        target="_blank"
+                        class="tooltip group/reported-attendance cursor-pointer"
                       >
-                        <i class="fa-solid fa-chart-simple"></i>
-                        {m.report_current_attendance()}
-                      </button>
-                    </div>
-                  {/if}
+                        <div class="tooltip-content">
+                          {@html m.report_details({
+                            user: `<span class="group-hover/reported-attendance:text-primary transition-colors">${getDisplayName(
+                              reportedAttendance.reportedBy
+                            )}</span>`,
+                            time: formatTime(reportedAttendance.reportedAt)
+                          })}
+                        </div>
+                        <span class="text-warning text-sm font-medium">
+                          {m.in_attendance({ count: reportedAttendance?.count || 0 })}
+                        </span>
+                      </a>
+                    {:else}
+                      <span class="text-sm font-medium">
+                        {m.in_attendance({ count: countedAttendance })}
+                      </span>
+                    {/if}
+                  </div>
 
                   <!-- Detailed attendance list for this game -->
                   {#if attendanceData}
@@ -438,7 +482,7 @@
                         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {#each attendees as attendee (attendee.userId)}
                             <div class="tooltip w-fit">
-                              <div class="tooltip-content whitespace-pre-line">
+                              <div class="tooltip-content px-3 whitespace-pre-line">
                                 {m.attendance_details({
                                   duration: formatDistanceToNow(new Date(attendee.attendedAt), {
                                     locale: getLocale() === 'en' ? enUS : zhCN
@@ -448,7 +492,7 @@
                               </div>
                               <div class="w-fit">
                                 <UserAvatar
-                                  user={attendee.user!}
+                                  user={attendee.user || { displayName: attendee.userId }}
                                   size="sm"
                                   showName
                                   target="_blank"
@@ -494,16 +538,19 @@
       </h3>
 
       <div class="mb-4">
-        <p class="text-base-content/70 mb-2 text-sm">
-          Game: <strong>{selectedGameForReport.name}</strong>
+        <p class="text-base-content/70 mb-2 flex items-center gap-2 text-sm">
+          <i class="fa-solid fa-gamepad"></i>
+          <span
+            ><strong>{selectedGameForReport.name}</strong> · {selectedGameForReport.version}</span
+          >
         </p>
         <p class="text-base-content/70 mb-4 text-sm">
-          Please enter the current number of players you observe playing this game:
+          {m.report_attendance_description()}
         </p>
 
         <label class="form-control w-full">
           <div class="label">
-            <span class="label-text">Current Players</span>
+            <span class="label-text">{m.current_players()}</span>
           </div>
           <input
             type="number"
@@ -511,21 +558,21 @@
             max="50"
             bind:value={reportedAttendance}
             class="input input-bordered w-full"
-            placeholder="0"
+            placeholder="1"
           />
         </label>
       </div>
 
       <div class="modal-action">
         <button
-          class="btn btn-soft"
+          class="btn btn-ghost"
           onclick={() => {
             showReportAttendanceModal = false;
             selectedGameForReport = null;
           }}
           disabled={isLoading}
         >
-          Cancel
+          {m.cancel()}
         </button>
         <button
           class="btn btn-primary"
@@ -535,7 +582,7 @@
           {#if isLoading}
             <span class="loading loading-spinner loading-xs"></span>
           {/if}
-          Report
+          {m.submit()}
         </button>
       </div>
     </div>

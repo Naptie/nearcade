@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -106,7 +106,7 @@ export const actions: Actions = {
 
       // Check if username is taken (if username changed)
       if (username && username.trim() !== user.name) {
-        const db = client.db();
+        const db = mongo.db();
         const usersCollection = db.collection('users');
 
         const existingUser = await usersCollection.findOne({
@@ -134,7 +134,7 @@ export const actions: Actions = {
         }
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
 
       const updateData: {

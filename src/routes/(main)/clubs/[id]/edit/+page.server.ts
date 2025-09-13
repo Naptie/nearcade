@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
 import { checkClubPermission, toPlainObject } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
 
     // Try to find club by ID first, then by slug
@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       error(404, 'Club not found');
     }
 
-    const userPermissions = await checkClubPermission(session.user, club, client);
+    const userPermissions = await checkClubPermission(session.user, club, mongo);
 
     if (!userPermissions.canEdit) {
       error(403, { message: 'You do not have permission to edit this club' });
@@ -144,7 +144,7 @@ export const actions: Actions = {
         });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const clubsCollection = db.collection<Club>('clubs');
 
       // Get current club
@@ -156,7 +156,7 @@ export const actions: Actions = {
         return fail(404, { message: 'Club not found' });
       }
 
-      if (!session?.user || !(await checkClubPermission(session.user, club, client)).canEdit) {
+      if (!session?.user || !(await checkClubPermission(session.user, club, mongo)).canEdit) {
         return fail(403, { message: 'You do not have permission to edit this club' });
       }
 

@@ -4,10 +4,10 @@ import type { University } from '$lib/types';
 import { checkUniversityPermission } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import { resolve } from '$app/paths';
-import client from '$lib/db/index.server';
-import { AUTH_SECRET, REDIS_URI } from '$env/static/private';
+import mongo from '$lib/db/index.server';
+import redis from '$lib/db/redis.server';
+import { AUTH_SECRET } from '$env/static/private';
 import { createHmac } from 'crypto';
-import { createClient } from 'redis';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug
@@ -48,7 +48,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const { verificationEmail, verifiedAt, ...userPermissions } = await checkUniversityPermission(
       user,
       university,
-      client
+      mongo
     );
 
     if (!userPermissions.canJoin) {
@@ -65,8 +65,6 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const expires = new Date(today);
     expires.setUTCDate(today.getUTCDate() + 1);
 
-    const redis = createClient({ url: REDIS_URI });
-    await redis.connect();
     const status = (await redis.get(`nearcade:ssv:${university.id}:${user.id}`)) as
       | 'success'
       | 'processing'

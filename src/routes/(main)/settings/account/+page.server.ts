@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { UniversityMember, University, Club, ClubMember } from '$lib/types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   };
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
     const clubsCollection = db.collection<Club>('clubs');
 
@@ -85,7 +85,7 @@ export const actions: Actions = {
         return fail(400, { message: 'University ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const universityMembersCollection = db.collection<UniversityMember>('university_members');
 
       await universityMembersCollection.deleteOne({
@@ -116,7 +116,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Club ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const clubMembersCollection = db.collection<ClubMember>('club_members');
 
       await clubMembersCollection.deleteOne({
@@ -140,7 +140,7 @@ export const actions: Actions = {
     const user = session.user;
 
     try {
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
       const accountsCollection = db.collection('accounts');
       const sessionsCollection = db.collection('sessions');
