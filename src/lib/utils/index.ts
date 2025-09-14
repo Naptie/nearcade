@@ -1007,3 +1007,41 @@ export const getShopOpeningHours = (shop: Shop) => {
     closeLocal: formatHourLiteral(openingHours[1] ?? 0)
   };
 };
+
+export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> =>
+  new Promise((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      reject(m.location_not_supported());
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+      },
+      (error) => {
+        let msg = m.location_unknown_error();
+        switch (error?.code) {
+          case 1: // PERMISSION_DENIED
+            msg = m.location_permission_denied();
+            break;
+          case 2: // POSITION_UNAVAILABLE
+            msg = m.location_unavailable();
+            break;
+          case 3: // TIMEOUT
+            msg = m.location_timeout();
+            break;
+        }
+        console.error('Geolocation error:', error);
+        reject(msg);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      }
+    );
+  });

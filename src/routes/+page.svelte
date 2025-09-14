@@ -11,7 +11,7 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel } from '$lib/utils';
+  import { formatRegionLabel, getMyLocation } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
 
@@ -54,51 +54,6 @@
   let universities = $state<University[]>([]);
   let isSearchingUniversities = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
-
-  const getMyLocation = () => {
-    if (!navigator.geolocation) {
-      locationError = m.location_not_supported();
-      return;
-    }
-
-    isLoadingLocation = true;
-    locationError = '';
-
-    navigator.geolocation.getCurrentPosition(
-      // Success callback
-      (position) => {
-        location.name = m.my_location();
-        location.latitude = position.coords.latitude;
-        location.longitude = position.coords.longitude;
-        isLoadingLocation = false;
-        go();
-      },
-      // Error callback
-      (error) => {
-        isLoadingLocation = false;
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            locationError = m.location_permission_denied();
-            break;
-          case error.POSITION_UNAVAILABLE:
-            locationError = m.location_unavailable();
-            break;
-          case error.TIMEOUT:
-            locationError = m.location_timeout();
-            break;
-          default:
-            locationError = m.location_unknown_error();
-            break;
-        }
-        console.error('Geolocation error:', error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000
-      }
-    );
-  };
 
   let searchRequestId = $state(0);
 
@@ -459,7 +414,21 @@
               {/if}
               <button
                 class="btn btn-primary mt-3"
-                onclick={getMyLocation}
+                onclick={async () => {
+                  isLoadingLocation = true;
+                  locationError = '';
+                  try {
+                    const loc = await getMyLocation();
+                    location.name = m.my_location();
+                    location.latitude = loc.latitude;
+                    location.longitude = loc.longitude;
+                  } catch (error) {
+                    console.error('Error getting location:', error);
+                    locationError = typeof error === 'string' ? error : m.location_unknown_error();
+                  } finally {
+                    isLoadingLocation = false;
+                  }
+                }}
                 disabled={isLoadingLocation || isLoading}
               >
                 {#if isLoading}
