@@ -333,6 +333,7 @@
   "club_page": "Club Page",
   "club_settings": "Club Settings",
   "club_slug_hint": "This will be used in the URL: /clubs/{slug}",
+  "club_starred_shops": "Your Clubs' Starred Shops",
   "club_updated_successfully": "Club updated successfully",
   "clubs": "Clubs",
   "clubs_available": [
@@ -651,6 +652,7 @@
   "no_clubs_in_university": "No clubs found in this university",
   "no_comment_permission": "You do not have permission to comment on this post.",
   "no_comments_yet": "No comments yet",
+  "no_current_attendance": "No one attending",
   "no_data": "No data",
   "no_earlier_than": "No earlier than {time}",
   "no_frequenting_arcades": "No Frequenting Arcades",
@@ -711,7 +713,9 @@
   "pending": "Pending",
   "pending_approval": "Pending Approval",
   "pending_requests": "Pending Requests",
+  "people_attending": "people attending",
   "permission_denied": "Permission denied",
+  "person_attending": "person attending",
   "personal_settings": "Personal Settings",
   "pick_location": "Pick Location",
   "pin_post": "Pin Post",
@@ -1110,5 +1114,6 @@
   "welcome": "Welcome",
   "write": "Write",
   "yes": "Yes",
-  "you": "You"
+  "you": "You",
+  "your_starred_shops": "Your Starred Shops"
 }

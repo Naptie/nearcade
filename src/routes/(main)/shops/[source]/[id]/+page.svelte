@@ -3,15 +3,20 @@
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
   import {
+    calculateDistance,
+    convertCoordinates,
     formatHourLiteral,
     formatShopAddress,
     formatTime,
     getGameName,
+    getMyLocation,
     getShopOpeningHours,
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
-  import { GAMES, ShopSource } from '$lib/constants';
+  import { ATTENDANCE_RADIUS_KM, GAMES, ShopSource } from '$lib/constants';
+  import { getContext } from 'svelte';
+  import type { AMapContext } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
@@ -45,13 +50,16 @@
   >([]);
   let totalAttendance = $derived.by(() => {
     if (!attendanceData) return 0;
-    const uniqueIds = new Set<string>();
+    // Using a regular array to avoid eslint warnings with Set in reactive context
+    const uniqueUserIds: string[] = [];
     attendanceData.forEach((attendee) => {
       if (attendee?.userId && typeof attendee.userId === 'string') {
-        uniqueIds.add(attendee.userId);
+        if (!uniqueUserIds.includes(attendee.userId)) {
+          uniqueUserIds.push(attendee.userId);
+        }
       }
     });
-    return uniqueIds.size;
+    return uniqueUserIds.length;
   });
   let totalReportedAttendance = $derived(
     reportedAttendances.reduce((total, g) => total + (g.count || 0), 0)
@@ -83,6 +91,10 @@
   });
 
   let radius = $state(10);
+
+  // Location checking for attendance
+  let amap: typeof AMap | undefined = $state(getContext<AMapContext>('amap')?.amap);
+  let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
 
   const getAttendanceData = async (fetchReported = false) => {
     try {
@@ -132,11 +144,44 @@
         costs[game.gameId] = await sanitizeHTML(game.cost);
       })
     );
+
+    // Check user location proximity to shop
+    checkUserProximity();
+
     const interval = setInterval(() => {
       now = new Date();
     }, 1000);
     return () => clearInterval(interval);
   });
+
+  const checkUserProximity = async () => {
+    try {
+      // Get user's current location
+      const location = await getMyLocation();
+
+      // Convert coordinates using AMap if available
+      let convertedLocation = { ...location };
+      if (amap) {
+        convertedLocation = await convertCoordinates(convertedLocation, amap);
+      }
+
+      // Calculate distance to shop
+      const shopCoords = shop.location.coordinates;
+      const distance = calculateDistance(
+        convertedLocation.latitude,
+        convertedLocation.longitude,
+        shopCoords[1], // latitude
+        shopCoords[0] // longitude
+      );
+
+      // Check if within attendance radius
+      isUserNearShop = distance <= ATTENDANCE_RADIUS_KM;
+    } catch (error) {
+      console.warn('Failed to get user location:', error);
+      // Default to false if location check fails
+      isUserNearShop = false;
+    }
+  };
 
   const getGameInfo = (titleId: number) => {
     return GAMES.find((g) => g.id === titleId);
@@ -449,16 +494,17 @@
               {@const showReported =
                 reportedAttendances.length > 0 && totalReportedAttendance >= totalAttendance}
               {@const aggregatedGames = (() => {
-                const map = new Map();
+                // Using record instead of Map to avoid eslint warnings
+                const gameMap: Record<number, typeof shop.games[0]> = {};
                 for (const g of shop.games) {
-                  const existing = map.get(g.titleId);
+                  const existing = gameMap[g.titleId];
                   if (existing) {
                     existing.quantity += g.quantity;
                   } else {
-                    map.set(g.titleId, { ...g });
+                    gameMap[g.titleId] = { ...g };
                   }
                 }
-                return Array.from(map.values());
+                return Object.values(gameMap);
               })()}
               <div class="space-y-2 text-sm">
                 {#each aggregatedGames as game (game.titleId)}
@@ -555,7 +601,7 @@
                     <button
                       class="btn btn-primary w-full"
                       onclick={() => (showAttendanceModal = true)}
-                      disabled={!isShopOpen || !!otherShop || isLoading}
+                      disabled={!isShopOpen || !!otherShop || isLoading || isUserNearShop === false}
                     >
                       <i class="fa-solid fa-play"></i>
                       {m.attend()}
@@ -589,7 +635,7 @@
                     {game.name}
                   </h3>
                   <div class="flex items-center gap-1">
-                    {#if data.user && isShopOpen}
+                    {#if data.user && isShopOpen && isUserNearShop !== false}
                       <FancyButton
                         callback={() =>
                           openReportModal({

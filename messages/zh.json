@@ -328,6 +328,7 @@
   "club_page": "社团页面",
   "club_settings": "社团设置",
   "club_slug_hint": "将在 URL 中使用：/clubs/{slug}",
+  "club_starred_shops": "您的社团收藏机厅",
   "club_updated_successfully": "社团更新成功",
   "clubs": "社团",
   "clubs_available": [
@@ -642,6 +643,7 @@
   "no_clubs_in_university": "此高校暂无社团",
   "no_comment_permission": "您没有权限对该帖子发表评论。",
   "no_comments_yet": "暂无评论",
+  "no_current_attendance": "无人在场",
   "no_data": "无数据",
   "no_earlier_than": "不得早于 {time}",
   "no_frequenting_arcades": "无常去机厅",
@@ -702,7 +704,9 @@
   "pending": "待审核",
   "pending_approval": "待审批",
   "pending_requests": "待审请求",
+  "people_attending": "人在场",
   "permission_denied": "权限不足",
+  "person_attending": "人在场",
   "personal_settings": "个人设置",
   "pick_location": "选择位置",
   "pin_post": "置顶帖子",
@@ -1092,5 +1096,6 @@
   "welcome": "欢迎",
   "write": "编写",
   "yes": "是",
-  "you": "你"
+  "you": "你",
+  "your_starred_shops": "您收藏的机厅"
 }

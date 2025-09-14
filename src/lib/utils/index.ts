@@ -1045,3 +1045,34 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
       }
     );
   });
+
+/**
+ * Convert GPS coordinates to AMap coordinates when AMap is available
+ */
+export const convertCoordinates = (
+  location: { latitude?: number; longitude?: number },
+  amap?: typeof AMap
+) => {
+  if (amap && location.latitude !== undefined && location.longitude !== undefined) {
+    return new Promise<typeof location>((resolve, reject) => {
+      amap.convertFrom(
+        [location.longitude, location.latitude],
+        'gps',
+        (status: string, response: { info: string; locations: { lat: number; lng: number }[] }) => {
+          if (status === 'complete' && response.info === 'ok') {
+            const result = response.locations[0];
+            location.latitude = result.lat;
+            location.longitude = result.lng;
+            resolve(location);
+          } else {
+            console.error('AMap conversion failed:', status, response);
+            reject(new Error('AMap conversion failed'));
+          }
+        }
+      );
+    });
+  } else {
+    console.warn('AMap not available or location not set, skipping conversion');
+    return Promise.resolve(location);
+  }
+};

@@ -102,16 +102,17 @@
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.shops as shop (shop._id)}
           {@const aggregatedGames = (() => {
-            const map = new Map();
+            // Using record instead of Map to avoid eslint warnings
+            const gameMap: Record<number, typeof shop.games[0]> = {};
             for (const g of shop.games) {
-              const existing = map.get(g.titleId);
+              const existing = gameMap[g.titleId];
               if (existing) {
                 existing.quantity += g.quantity;
               } else {
-                map.set(g.titleId, { ...g });
+                gameMap[g.titleId] = { ...g };
               }
             }
-            return Array.from(map.values());
+            return Object.values(gameMap);
           })()}
           <a
             href={getShopLink(shop)}
