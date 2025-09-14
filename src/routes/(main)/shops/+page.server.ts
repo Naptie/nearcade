@@ -7,11 +7,11 @@ import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import type { User } from '@auth/sveltekit';
 
-async function getShopAttendanceData(shops: Shop[]) {
+const getShopAttendanceData = async (shops: Shop[]) => {
   if (!redis) {
     // If Redis is not available, return empty attendance data
-    return shops.map((shop) => ({ 
-      ...shop, 
+    return shops.map((shop) => ({
+      ...shop,
       currentAttendance: 0,
       currentReportedAttendance: null
     }));
@@ -37,15 +37,15 @@ async function getShopAttendanceData(shops: Shop[]) {
 
     // Build list of Redis keys for reported attendance
     const reportedKeys: string[] = [];
-    const shopGameMap = new Map<string, Array<{gameId: number, keyIndex: number}>>();
-    
+    const shopGameMap = new Map<string, Array<{ gameId: number; keyIndex: number }>>();
+
     for (const shop of shops) {
       const shopIdentifier = `${shop.source}-${shop.id}`;
-      const gameKeys: Array<{gameId: number, keyIndex: number}> = [];
-      
+      const gameKeys: Array<{ gameId: number; keyIndex: number }> = [];
+
       for (const game of shop.games) {
         const reportKey = `nearcade:attend-report:${shopIdentifier}:${game.gameId}`;
-        gameKeys.push({gameId: game.gameId, keyIndex: reportedKeys.length});
+        gameKeys.push({ gameId: game.gameId, keyIndex: reportedKeys.length });
         reportedKeys.push(reportKey);
       }
       shopGameMap.set(shopIdentifier, gameKeys);
@@ -54,27 +54,30 @@ async function getShopAttendanceData(shops: Shop[]) {
     // Use MGET to efficiently get all reported attendance values
     let reportedValues: (string | null)[] = [];
     if (reportedKeys.length > 0) {
-      const mgetResult = await redis.mget(...reportedKeys);
+      const mgetResult = await redis.mGet(reportedKeys);
       reportedValues = mgetResult as (string | null)[];
     }
 
     // Process reported attendance data and collect user IDs
     const usersSet = new Set<string>();
-    const shopReportedData = new Map<string, {
-      total: number;
-      latestReportedAt: string | null;
-      latestReportedBy: string | null;
-    }>();
+    const shopReportedData = new Map<
+      string,
+      {
+        total: number;
+        latestReportedAt: string | null;
+        latestReportedBy: string | null;
+      }
+    >();
 
     for (const shop of shops) {
       const shopIdentifier = `${shop.source}-${shop.id}`;
       const gameKeys = shopGameMap.get(shopIdentifier) || [];
-      
+
       let total = 0;
       let latestReportedAt: string | null = null;
       let latestReportedBy: string | null = null;
 
-      for (const {keyIndex} of gameKeys) {
+      for (const { keyIndex } of gameKeys) {
         const value = reportedValues[keyIndex];
         if (value) {
           try {
@@ -83,10 +86,10 @@ async function getShopAttendanceData(shops: Shop[]) {
               reportedBy: string;
               reportedAt: string;
             };
-            
+
             total += parsed.currentAttendances;
             usersSet.add(parsed.reportedBy);
-            
+
             if (!latestReportedAt || new Date(parsed.reportedAt) > new Date(latestReportedAt)) {
               latestReportedAt = parsed.reportedAt;
               latestReportedBy = parsed.reportedBy;
@@ -107,13 +110,14 @@ async function getShopAttendanceData(shops: Shop[]) {
     // Fetch all users in one go using $in operator
     const userIds = Array.from(usersSet);
     const usersMap = new Map<string, User>();
-    
+
     if (userIds.length > 0) {
       const db = mongo.db();
-      const users = await db.collection<User>('users')
+      const users = await db
+        .collection<User>('users')
         .find({ id: { $in: userIds } })
         .toArray();
-      
+
       for (const user of users) {
         if (user.id) {
           usersMap.set(user.id, user);
@@ -126,26 +130,31 @@ async function getShopAttendanceData(shops: Shop[]) {
       const shopIdentifier = `${shop.source}-${shop.id}`;
       const currentAttendance = attendanceMap.get(shopIdentifier) || 0;
       const reportedData = shopReportedData.get(shopIdentifier);
-      
+
       let currentReportedAttendance: {
-        total: number;
-        latestReportedAt: string;
+        count: number;
+        reportedAt: string;
         reportedBy: User;
       } | null = null;
 
-      if (reportedData && reportedData.total > 0 && reportedData.latestReportedAt && reportedData.latestReportedBy) {
+      if (
+        reportedData &&
+        reportedData.total > 0 &&
+        reportedData.latestReportedAt &&
+        reportedData.latestReportedBy
+      ) {
         const reportedBy = usersMap.get(reportedData.latestReportedBy);
         if (reportedBy) {
           currentReportedAttendance = {
-            total: reportedData.total,
-            latestReportedAt: reportedData.latestReportedAt,
+            count: reportedData.total,
+            reportedAt: reportedData.latestReportedAt,
             reportedBy
           };
         }
       }
 
-      return { 
-        ...shop, 
+      return {
+        ...shop,
         currentAttendance,
         currentReportedAttendance
       };
@@ -153,13 +162,13 @@ async function getShopAttendanceData(shops: Shop[]) {
   } catch (err) {
     console.error('Error getting attendance data:', err);
     // Return shops with zero attendance on error
-    return shops.map((shop) => ({ 
-      ...shop, 
+    return shops.map((shop) => ({
+      ...shop,
       currentAttendance: 0,
       currentReportedAttendance: null
     }));
   }
-}
+};
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';

@@ -332,28 +332,31 @@
             <i class="fa-solid fa-angle-down fa-sm"></i>
           </span>
         </button>
-        <div class="join">
-          <a
+        <div class="join not-sm:w-full">
+          <FancyButton
             href={resolve('/(main)/shops')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-          >
-            {m.find_arcades()}
-            <i class="fa-solid fa-gamepad fa-lg"></i>
-          </a>
-          <a
+            class="fa-solid fa-gamepad fa-lg"
+            btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            text={m.find_arcades()}
+            square={false}
+            padding={20}
+          />
+          <FancyButton
             href={resolve('/(main)/universities')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-          >
-            {m.find_universities()}
-            <i class="fa-solid fa-graduation-cap fa-lg"></i>
-          </a>
-          <a
+            class="fa-solid fa-graduation-cap fa-lg"
+            btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            text={m.find_universities()}
+            square={false}
+            padding={20}
+          />
+          <FancyButton
             href={resolve('/(main)/clubs')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-          >
-            {m.find_clubs()}
-            <i class="fa-solid fa-users fa-lg"></i>
-          </a>
+            class="fa-solid fa-users fa-lg"
+            btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            text={m.find_clubs()}
+            square={false}
+            padding={20}
+          />
         </div>
       </div>
       <div

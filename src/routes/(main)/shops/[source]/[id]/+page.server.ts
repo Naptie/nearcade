@@ -4,6 +4,7 @@ import type { Shop } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
+import { getCurrentAttendance } from '$lib/utils/index.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { source, id } = params;
@@ -35,9 +36,17 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
     const { session } = await parent();
 
+    let userAttendance: { shop: Shop; attendedAt: Date } | null = null;
+    if (session?.user?.id) {
+      userAttendance = await getCurrentAttendance(session.user.id);
+    }
+
     return {
       shop: toPlainObject(shop),
-      user: session?.user
+      user: session?.user,
+      currentAttendance: userAttendance
+        ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
+        : null
     };
   } catch (err) {
     console.error('Error loading shop:', err);

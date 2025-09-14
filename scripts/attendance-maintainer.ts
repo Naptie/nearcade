@@ -84,44 +84,38 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
       return;
     }
 
-    const dataClient = createClient({ url: REDIS_URI });
-    await dataClient.connect();
+    const db = mongo.db();
+    const shopsCollection = db.collection('shops');
+    const shop = await shopsCollection.findOne({ id, source });
 
-    try {
-      // Try to get the attendance data (might be null if already expired)
-      const attendanceDataStr = await dataClient.get(expiredKey);
-
-      let attendanceData;
-      if (attendanceDataStr) {
-        attendanceData = JSON.parse(attendanceDataStr);
-      } else {
-        // If the data is no longer in Redis, we still want to create a record
-        attendanceData = {
-          games,
-          attendedAt: new Date(attendedAt).toISOString(),
-          plannedLeaveAt: new Date().toISOString() // Now
+    const attendanceData = {
+      games: games.map((gameId) => {
+        const game = shop?.games.find((g: { gameId: number }) => g.gameId === gameId);
+        return {
+          gameId,
+          name: game.name,
+          version: game.version
         };
-      }
+      }),
+      attendedAt: new Date(attendedAt).toISOString(),
+      plannedLeaveAt: new Date().toISOString() // Now
+    };
 
-      // Add to MongoDB attendances collection
-      const db = mongo.db();
-      const attendancesCollection = db.collection('attendances');
+    // Add to MongoDB attendances collection
+    const attendancesCollection = db.collection('attendances');
 
-      await attendancesCollection.insertOne({
-        userId,
-        games: attendanceData.games || [],
-        shop: {
-          id,
-          source
-        },
-        attendedAt: new Date(attendanceData.attendedAt),
-        leftAt: new Date(attendanceData.plannedLeaveAt)
-      });
+    await attendancesCollection.insertOne({
+      userId,
+      games: attendanceData.games || [],
+      shop: {
+        id,
+        source
+      },
+      attendedAt: new Date(attendanceData.attendedAt),
+      leftAt: new Date(attendanceData.plannedLeaveAt)
+    });
 
-      console.log(`Attendance record created for expired key: ${expiredKey}`);
-    } finally {
-      await dataClient.quit();
-    }
+    console.log(`Attendance record created for expired key: ${expiredKey}`);
   } catch (error) {
     console.error('Error handling attendance expiration:', error);
   }

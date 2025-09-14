@@ -141,9 +141,11 @@ export const parseRelativeTime = (date: Date, locale: string) => {
   }).format(0, 'second');
 };
 
-export const getGameName = (gameKey?: string): string | undefined => {
-  const game = GAMES.find((g) => g.key === gameKey);
-  return game ? m[game.key]() : gameKey;
+export const getGameName = (identifier?: number | string): string | undefined => {
+  const game = GAMES.find((g) =>
+    typeof identifier === 'number' ? g.id === identifier : g.key === identifier
+  );
+  return game ? m[game.key]() : identifier?.toString();
 };
 
 export const getGameMachineCount = (shops: Shop[], titleId: number): number => {
@@ -872,6 +874,21 @@ export const sanitizeHTML = async (input: string) => {
   return sanitized.replace(/<br>(?:\r?\n)*<br>/g, '<br>');
 };
 
+export const formatHourLiteral = (hourNum: number) => {
+  const total = Number(hourNum % 24) || 0;
+  let hour = Math.floor(total);
+  let minutes = Math.round((total - hour) * 60);
+
+  if (minutes === 60) {
+    minutes = 0;
+    hour = (hour + 1) % 24;
+  }
+
+  const hh = String((hour + 24) % 24).padStart(2, '0');
+  const mm = String(minutes).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
 /**
  * Formats a shop's general address array into a readable string
  */
@@ -894,9 +911,10 @@ export const formatShopAddress = (shop: Shop, detailed = false): string => {
   const reverse = shop.source === ShopSource.ZIV;
 
   return addressParts.length > 0
-    ? reverse
-      ? (detailed ? shop.address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
-      : addressParts.join(' · ') + (detailed ? '\n' + shop.address.detailed : '')
+    ? (reverse
+        ? (detailed ? shop.address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
+        : addressParts.join(' · ') + (detailed ? '\n' + shop.address.detailed : '')
+      ).trim()
     : '';
 };
 
@@ -972,7 +990,7 @@ export const getNextTimeAtHour = (shopLocation: Location, hours: number[], basis
  * @returns An object containing the opening and closing times
  */
 export const getShopOpeningHours = (shop: Shop) => {
-  const { shopNowShifted } = getCurrentShopTime(shop.location);
+  const { shopNowShifted, shopOffsetHours } = getCurrentShopTime(shop.location);
   const openingHours =
     shop.openingHours.length === 1
       ? shop.openingHours[0]
@@ -980,8 +998,12 @@ export const getShopOpeningHours = (shop: Shop) => {
   const {
     hours: [open, close]
   } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
+
   return {
     open,
-    close
+    close,
+    offsetHours: shopOffsetHours,
+    openLocal: formatHourLiteral(openingHours[0] ?? 0),
+    closeLocal: formatHourLiteral(openingHours[1] ?? 0)
   };
 };

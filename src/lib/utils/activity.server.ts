@@ -11,24 +11,13 @@ import {
   type UniversityMember,
   type ClubMember,
   type Shop,
-  PostReadability
+  PostReadability,
+  type AttendanceRecord
 } from '$lib/types';
 import type { User } from '@auth/sveltekit';
-import { getDisplayName, getGameName } from '.';
-
-// Interface for attendance records in MongoDB
-interface AttendanceRecord {
-  _id?: string;
-  id: string;
-  userId: string;
-  shopSource: string;
-  shopId: number;
-  gameIds: number[];
-  attendedAt: Date;
-  leftAt: Date;
-  reason: 'manual' | 'expired';
-  createdAt: Date;
-}
+import { getDisplayName } from '.';
+import redis from '$lib/db/redis.server';
+import type { ShopSource } from '$lib/constants';
 
 /**
  * User Activity Server Module
@@ -506,64 +495,96 @@ export async function getUserActivities(
       });
     });
   }
-
-  // Fetch shop attendance activities
-  const shopAttendances = (await db
-    .collection<AttendanceRecord>('attendances')
-    .aggregate([
-      { $match: { userId: userId } },
-      {
-        $lookup: {
-          from: 'shops',
-          let: { shopSource: '$shopSource', shopId: '$shopId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$source', '$$shopSource'] },
-                    { $eq: ['$id', '$$shopId'] }
-                  ]
+  if (canViewAll || user.isFootprintPublic) {
+    // Fetch shop attendance activities
+    const shopAttendances = (await db
+      .collection<AttendanceRecord>('attendances')
+      .aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'shops',
+            let: { shopSource: '$shop.source', shopId: '$shop.id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [{ $eq: ['$source', '$$shopSource'] }, { $eq: ['$id', '$$shopId'] }]
+                  }
                 }
               }
-            }
-          ],
-          as: 'shop'
-        }
-      },
-      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
-      { $sort: { attendedAt: -1 } },
-      { $limit: limit }
-    ])
-    .toArray()) as (AttendanceRecord & { shop: Shop })[];
+            ],
+            as: 'shop'
+          }
+        },
+        { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+        { $sort: { attendedAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (AttendanceRecord & { shop: Shop })[];
 
-  shopAttendances.forEach((attendance) => {
-    // Calculate duration
-    const duration = attendance.leftAt.getTime() - attendance.attendedAt.getTime();
-    
-    // Get game names
-    const gameNames = attendance.gameIds
-      .map(gameId => {
-        const game = attendance.shop.games.find(g => g.gameId === gameId);
-        return game ? getGameName(game.titleId.toString()) : null;
-      })
-      .filter(name => name !== null)
-      .join(', ');
+    const getGameNames = (games: { gameId: number; name: string; version: string }[]) =>
+      games.map((game) => (game.version ? `${game.name} (${game.version})` : game.name)).join(', ');
 
-    activities.push({
-      id: `shop-attendance-${attendance.id}`,
-      type: 'shop_attendance',
-      createdAt: attendance.attendedAt,
-      userId: attendance.userId,
-      shopId: attendance.shopId,
-      shopName: attendance.shop.name,
-      shopSource: attendance.shopSource,
-      attendedAt: attendance.attendedAt,
-      leftAt: attendance.leftAt,
-      duration,
-      attendanceGames: gameNames
+    shopAttendances.forEach((attendance) => {
+      // Calculate duration
+      const duration = attendance.leftAt.getTime() - attendance.attendedAt.getTime();
+
+      // Get game names
+      const gameNames = getGameNames(attendance.games);
+      activities.push({
+        id: `shop-attendance-${attendance._id}`,
+        type: 'shop_attendance',
+        createdAt: attendance.attendedAt,
+        userId: attendance.userId,
+        shopId: attendance.shop.id,
+        shopName: attendance.shop.name,
+        shopSource: attendance.shop.source,
+        leftAt: attendance.leftAt,
+        duration,
+        attendanceGames: gameNames
+      });
     });
-  });
+
+    const attendancePattern = `nearcade:attend:*:${userId}:*`;
+    const keys = await redis.keys(attendancePattern);
+    if (keys.length > 0) {
+      const dataStr = await redis.get(keys[0]);
+      if (dataStr) {
+        const [source, id] = keys[0].split(':')[2].split('-');
+        const shop = await db
+          .collection<Shop>('shops')
+          .findOne({ source: source as ShopSource, id: parseInt(id) });
+        if (shop) {
+          const data = JSON.parse(dataStr);
+          const attendedAt = new Date(data.attendedAt);
+          const duration = Date.now() - attendedAt.getTime();
+          const gameNames = getGameNames(
+            data.games.map((game: { id: number }) => {
+              const shopGame = shop.games.find((g) => g.gameId === game.id);
+              return {
+                gameId: game.id,
+                name: shopGame ? shopGame.name : 'Unknown Game',
+                version: shopGame ? shopGame.version : ''
+              };
+            })
+          );
+          activities.push({
+            id: `shop-attendance-${attendedAt.getTime()}`,
+            type: 'shop_attendance',
+            createdAt: attendedAt,
+            userId: userId,
+            shopId: shop.id,
+            shopName: shop.name,
+            shopSource: shop.source,
+            duration,
+            attendanceGames: gameNames,
+            isLive: true
+          });
+        }
+      }
+    }
+  }
 
   // Sort all activities by creation time (descending) and apply pagination
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

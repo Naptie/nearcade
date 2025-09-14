@@ -12,8 +12,6 @@
     children
   }: {
     reportedAttendance: {
-      id: number;
-      count: number | undefined;
       reportedBy: User | undefined;
       reportedAt: string;
     };
@@ -22,12 +20,17 @@
   } = $props();
 </script>
 
-<a
-  href={resolve('/(main)/users/[id]', {
-    id: `@${reportedAttendance.reportedBy!.name}`
-  })}
-  target="_blank"
+<button
   class="tooltip group/reported-attendance cursor-pointer {klass}"
+  onclick={(e) => {
+    e.preventDefault();
+    window.open(
+      resolve('/(main)/users/[id]', {
+        id: `@${reportedAttendance.reportedBy!.name}`
+      }),
+      '_blank'
+    );
+  }}
 >
   <div class="tooltip-content">
     {@html m.report_details({
@@ -38,4 +41,4 @@
     })}
   </div>
   {@render children()}
-</a>
+</button>

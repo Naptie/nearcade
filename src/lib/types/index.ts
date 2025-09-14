@@ -468,10 +468,10 @@ export interface Activity {
   shopId?: number;
   shopName?: string;
   shopSource?: string;
-  attendedAt?: Date;
   leftAt?: Date;
   duration?: number; // Duration in milliseconds
   attendanceGames?: string; // Comma-separated game names
+  isLive?: boolean; // Whether the attendance is still ongoing
 }
 
 // Notification types for active notification system
@@ -507,7 +507,7 @@ export interface Notification {
 }
 
 export type AttendanceData = Array<{
-  userId: string;
+  userId?: string;
   user?: User;
   attendedAt: string;
   plannedLeaveAt: string;
@@ -521,6 +521,16 @@ export type AttendanceReport = Array<{
   reporter?: User;
   reportedAt: string;
 }>;
+
+// Interface for attendance records in MongoDB
+export interface AttendanceRecord {
+  _id?: string;
+  userId: string;
+  games: { gameId: number; name: string; version: string }[];
+  attendedAt: Date;
+  leftAt: Date;
+  shop: { id: number; source: ShopSource };
+}
 
 // Extended types for route guidance
 export interface CachedRouteData {

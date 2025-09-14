@@ -3,16 +3,16 @@
   import { GAMES } from '$lib/constants';
   import { formatDateTime, formatTime, getGameName, getShopOpeningHours } from '$lib/utils';
   import type { Shop } from '$lib/types';
-  import { onMount } from 'svelte';
 
   interface AttendanceModalProps {
     isOpen: boolean;
     shop: Shop;
+    now: Date;
     onClose: () => void;
     onAttend: (games: number[], plannedLeaveAt: Date) => Promise<void>;
   }
 
-  let { isOpen = $bindable(), shop, onClose, onAttend }: AttendanceModalProps = $props();
+  let { isOpen = $bindable(), shop, now, onClose, onAttend }: AttendanceModalProps = $props();
 
   const toLocalTime = (date: Date): string => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -29,20 +29,18 @@
     );
   };
 
-  const getEarliestPlannedLeave = () =>
-    new Date(
-      Math.min(
-        Date.now() + 9 * 60 * 1000,
-        Math.max(Date.now(), getShopOpeningHours(shop).close.getTime() - 60 * 1000)
-      )
-    );
-
   let selectedGames = $state<number[] | null>(null);
   let plannedLeaveAt = $state<string>('');
   let isSubmitting = $state(false);
   let latestPlannedLeave = $derived(getShopOpeningHours(shop).close);
-  let earliestPlannedLeave = $state(getEarliestPlannedLeave());
-  let now = $state(new Date());
+  let earliestPlannedLeave = $derived(
+    new Date(
+      Math.min(
+        now.getTime() + 9 * 60 * 1000,
+        Math.max(now.getTime(), getShopOpeningHours(shop).close.getTime() - 60 * 1000)
+      )
+    )
+  );
 
   const getGameInfo = (gameId: number) => {
     return GAMES.find((g) => g.id === gameId);
@@ -51,7 +49,7 @@
   $effect(() => {
     if (isOpen && !plannedLeaveAt) {
       plannedLeaveAt = toLocalTime(
-        new Date(Math.min(Date.now() + 30 * 60 * 1000, latestPlannedLeave.getTime() - 60 * 1000))
+        new Date(Math.min(now.getTime() + 30 * 60 * 1000, latestPlannedLeave.getTime() - 60 * 1000))
       );
     }
   });
@@ -62,14 +60,6 @@
       plannedLeaveAt = '';
       isSubmitting = false;
     }
-  });
-
-  onMount(() => {
-    const interval = setInterval(() => {
-      now = new Date();
-      earliestPlannedLeave = getEarliestPlannedLeave();
-    }, 1000);
-    return () => clearInterval(interval);
   });
 
   const handleSubmit = async () => {
@@ -95,7 +85,7 @@
     <div class="modal-box max-w-lg">
       <!-- Modal header -->
       <div class="mb-6 flex items-start justify-between">
-        <h3 class="text-xl font-semibold">{m.attend_at_shop({ shopName: shop.name })}</h3>
+        <h3 class="text-xl font-semibold">{m.attend_shop({ shopName: shop.name })}</h3>
         <button class="btn btn-ghost btn-sm btn-circle" onclick={onClose} aria-label={m.close()}>
           <i class="fa-solid fa-times fa-lg"></i>
         </button>

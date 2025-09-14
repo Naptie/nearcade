@@ -8,6 +8,7 @@
   import { PAGINATION, GAMES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
+  import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -172,10 +173,26 @@
                   <i class="fa-solid fa-desktop"></i>
                   <span>{m.machines({ count: getTotalMachines(shop) })}</span>
                 </div>
-                <div class="text-base-content/60 flex items-center gap-1">
-                  <i class="fa-solid fa-users"></i>
-                  <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
-                </div>
+                {#if shop.currentReportedAttendance && shop.currentReportedAttendance.count >= shop.currentAttendance}
+                  <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
+                    <div class="text-accent flex items-center gap-1">
+                      <i class="fa-solid fa-users"></i>
+                      <span
+                        >{m.in_attendance({
+                          count: shop.currentReportedAttendance.count || 0
+                        })}</span
+                      >
+                    </div>
+                  </AttendanceReportBlame>
+                {:else}
+                  <div
+                    class="text-base-content/60 flex items-center gap-1"
+                    class:text-primary={shop.currentAttendance > 0}
+                  >
+                    <i class="fa-solid fa-users"></i>
+                    <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
+                  </div>
+                {/if}
               </div>
             </div>
           </a>

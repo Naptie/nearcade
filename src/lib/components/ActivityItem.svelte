@@ -91,7 +91,9 @@
       case 'club_create':
         return m.activity_created_club({ targetName });
       case 'shop_attendance':
-        return m.activity_visited_shop({ targetName });
+        return activity.isLive
+          ? m.activity_currently_visiting_shop({ targetName })
+          : m.activity_visited_shop({ targetName });
       default:
         return '';
     }
@@ -251,18 +253,23 @@
 </script>
 
 <div
-  class="bg-base-100 hover:bg-base-200/50 flex items-start gap-3 rounded-lg p-3 transition-colors"
+  class="bg-base-100 hover:bg-base-200/50 flex items-start gap-3 rounded-lg p-3 transition {activity.isLive
+    ? 'ring-warning hover:ring-warning/50 bg-gradient-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 ring-2 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+    : ''}"
 >
   <!-- Activity Icon -->
   <div class="mt-1 flex-shrink-0">
-    <i class="{icon} text-base-content/60"></i>
+    <i class="{icon} text-base-content/60" class:text-warning={activity.isLive}></i>
   </div>
 
   <!-- Activity Content -->
   <div class="min-w-0 flex-1">
     <div class="flex flex-col gap-1">
       <!-- Activity Description -->
-      <div class="text-base-content/80 text-sm">
+      <div
+        class="text-base-content/80 text-sm transition-colors"
+        class:text-warning={activity.isLive}
+      >
         {@html text}
       </div>
 
@@ -285,8 +292,8 @@
           {#if activity.duration && activity.duration > 0}
             <div>
               <i class="fa-solid fa-clock mr-1"></i>
-              {m.activity_duration({ 
-                duration: Math.round(activity.duration / (1000 * 60)) // Convert to minutes 
+              {m.activity_duration({
+                duration: Math.round(activity.duration / (1000 * 60)) // Convert to minutes
               })}
             </div>
           {/if}

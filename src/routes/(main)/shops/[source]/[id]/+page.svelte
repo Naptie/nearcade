@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
   import {
+    formatHourLiteral,
     formatShopAddress,
     formatTime,
     getGameName,
@@ -55,11 +56,18 @@
   let totalReportedAttendance = $derived(
     reportedAttendances.reduce((total, g) => total + (g.count || 0), 0)
   );
-  let open = $state<Date | null>(null);
-  let close = $state<Date | null>(null);
+  let openingHours = $derived(getShopOpeningHours(shop));
+  let now = $state(new Date());
   let isShopOpen = $derived.by(() => {
-    const now = new Date();
-    return open && close && now >= open && now <= close;
+    return openingHours && now >= openingHours.open && now <= openingHours.close;
+  });
+  let otherShop = $derived.by(() => {
+    if (!data.currentAttendance) return false;
+    const attendance = data.currentAttendance;
+    console.log(attendance);
+    return attendance.shop.source !== shop.source || attendance.shop.id !== shop.id
+      ? attendance
+      : false;
   });
   let isLoading = $state(false);
 
@@ -110,17 +118,24 @@
     }
   };
 
-  onMount(async () => {
-    await getAttendanceData(false);
-    await getAttendanceData(true);
+  onMount(() => {
+    getAttendanceData(false);
+    getAttendanceData(true);
+
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
       radius = parseInt(savedRadius);
     }
-    for (const game of shop.games) {
-      costs[game.gameId] = await sanitizeHTML(game.cost);
-    }
-    ({ open, close } = getShopOpeningHours(shop));
+
+    Promise.all(
+      shop.games.map(async (game) => {
+        costs[game.gameId] = await sanitizeHTML(game.cost);
+      })
+    );
+    const interval = setInterval(() => {
+      now = new Date();
+    }, 1000);
+    return () => clearInterval(interval);
   });
 
   const getGameInfo = (titleId: number) => {
@@ -326,21 +341,30 @@
             <h3 class="mb-2 text-lg font-semibold">{m.shop_info()}</h3>
 
             <div class="space-y-2">
-              {#if open && close}
+              {#if openingHours}
                 {@const offset = (() => {
-                  const minutes = open.getTimezoneOffset();
+                  const minutes = now.getTimezoneOffset();
                   const sign = minutes <= 0 ? '+' : '-';
-                  const abs = Math.abs(minutes);
-                  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
-                  const mm = String(abs % 60).padStart(2, '0');
-                  return `${sign}${hh}:${mm}`;
+                  return `${sign}${formatHourLiteral(Math.abs(minutes / 60))}`;
                 })()}
-                <div class="flex items-center justify-between gap-1">
-                  <span class="text-base-content/60 truncate"
+                {@const offsetLocal = (() => {
+                  const hours = openingHours.offsetHours;
+                  const sign = hours >= 0 ? '+' : '-';
+                  return `${sign}${formatHourLiteral(Math.abs(hours))}`;
+                })()}
+                <div class="group flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate group-hover:hidden"
                     >{m.opening_hours()} (UTC{offset})</span
                   >
-                  <span class="text-right font-semibold"
-                    >{formatTime(open)} – {formatTime(close)}</span
+                  <span
+                    class="text-base-content/60 truncate not-group-hover:hidden"
+                    title={m.local_time()}>{m.opening_hours()} (UTC{offsetLocal})</span
+                  >
+                  <span class="text-right font-semibold group-hover:hidden"
+                    >{formatTime(openingHours.open)} – {formatTime(openingHours.close)}</span
+                  >
+                  <span class="text-right font-semibold not-group-hover:hidden"
+                    >{openingHours.openLocal} – {openingHours.closeLocal}</span
                   >
                 </div>
               {/if}
@@ -518,13 +542,20 @@
                 {:else}
                   <div
                     class="tooltip-error w-full"
-                    class:tooltip={!isShopOpen}
-                    data-tip={isShopOpen ? '' : m.shop_closed()}
+                    class:tooltip={!isShopOpen || !!otherShop}
+                    data-tip={isShopOpen
+                      ? otherShop
+                        ? m.attending_other_shop({
+                            shopName: otherShop.shop.name,
+                            attendedAt: formatTime(otherShop.attendedAt)
+                          })
+                        : ''
+                      : m.shop_closed()}
                   >
                     <button
                       class="btn btn-primary w-full"
                       onclick={() => (showAttendanceModal = true)}
-                      disabled={!isShopOpen || isLoading}
+                      disabled={!isShopOpen || !!otherShop || isLoading}
                     >
                       <i class="fa-solid fa-play"></i>
                       {m.attend()}
@@ -674,6 +705,7 @@
 <AttendanceModal
   bind:isOpen={showAttendanceModal}
   {shop}
+  {now}
   onClose={() => (showAttendanceModal = false)}
   onAttend={handleAttend}
 />

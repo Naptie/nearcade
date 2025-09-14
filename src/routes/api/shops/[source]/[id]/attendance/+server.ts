@@ -2,10 +2,11 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
-import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
+import type { AttendanceData, AttendanceRecord, AttendanceReport, Shop } from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
+import { getCurrentAttendance } from '$lib/utils/index.server';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = await locals.auth();
@@ -64,6 +65,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
     if (!redis) {
       return error(500, 'Redis not available');
+    }
+
+    if (await getCurrentAttendance(session.user.id!)) {
+      return error(409, 'User already has an active attendance');
     }
 
     const now = Date.now();
@@ -179,11 +184,21 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
     // Add to MongoDB attendances collection
     const db = mongo.db();
-    const attendancesCollection = db.collection('attendances');
+    const shopsCollection = db.collection<Shop>('shops');
+    const attendancesCollection = db.collection<AttendanceRecord>('attendances');
+
+    const shop = await shopsCollection.findOne({ id, source });
 
     await attendancesCollection.insertOne({
-      userId: session.user.id,
-      games: attendanceData.games,
+      userId: session.user.id!,
+      games: attendanceData.games.map((game: { id: number }) => {
+        const shopGame = shop?.games.find((g) => g.gameId === game.id);
+        return {
+          gameId: game.id,
+          name: shopGame ? shopGame.name : 'Unknown Game',
+          version: shopGame ? shopGame.version : ''
+        };
+      }),
       shop: {
         id,
         source
@@ -200,7 +215,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 // GET endpoint to retrieve attendance data for a shop
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
     const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'false');
     const source = params.source as ShopSource;
@@ -263,9 +278,22 @@ export const GET: RequestHandler = async ({ params, url }) => {
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
     const users = await usersCollection.find({ id: { $in: Array.from(usersSet) } }).toArray();
+
+    const session = await locals.auth();
+
     attendanceData.forEach((entry) => {
-      if ('userId' in entry) entry.user = users.find((u) => u.id === entry.userId) as User;
-      else if ('reportedBy' in entry)
+      if ('userId' in entry) {
+        const user = users.find((u) => u.id === entry.userId) as User;
+        if (
+          session?.user?.userType === 'site_admin' ||
+          session?.user?.id === user.id ||
+          user.isFootprintPublic
+        ) {
+          entry.user = user;
+        } else {
+          delete entry.userId;
+        }
+      } else if ('reportedBy' in entry)
         entry.reporter = users.find((u) => u.id === entry.reportedBy) as User;
     });
 
