@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
 
     if (!club) {
-      return error(404, 'Club not found');
+      error(404, 'Club not found');
     }
 
     if (!club.starredArcades || club.starredArcades.length === 0) {
@@ -72,6 +72,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
   } catch (err) {
     console.error('Error loading club arcades:', err);
-    return error(500, 'Failed to load club arcades');
+    error(500, 'Failed to load club arcades');
   }
 };

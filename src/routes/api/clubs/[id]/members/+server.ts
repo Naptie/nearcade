@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!clubId) {
-      return error(400, 'Invalid club ID');
+      error(400, 'Invalid club ID');
     }
 
     const db = mongo.db();
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: clubId }, { slug: clubId }]
     });
     if (!club) {
-      return error(404, 'Club not found');
+      error(404, 'Club not found');
     }
 
     const session = await locals.auth();
@@ -91,6 +91,6 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     });
   } catch (err) {
     console.error('Error loading club members:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

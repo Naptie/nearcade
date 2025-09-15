@@ -15,12 +15,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return error(400, 'Invalid post ID');
+      error(400, 'Invalid post ID');
     }
 
     const { content, parentCommentId } = (await request.json()) as {
@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       parentCommentId?: string;
     };
     if (!content || !content.trim()) {
-      return error(400, 'Comment content is required');
+      error(400, 'Comment content is required');
     }
 
     const db = mongo.db();
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if post exists
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     // Check commenting permissions based on post writability
@@ -61,7 +61,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (!canComment) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Check if post is locked and user has permission to comment
@@ -85,7 +85,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        return error(403, 'Post is locked');
+        error(403, 'Post is locked');
       }
     }
 
@@ -93,7 +93,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (parentCommentId) {
       const parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment) {
-        return error(404, 'Parent comment not found');
+        error(404, 'Parent comment not found');
       }
     }
 
@@ -173,6 +173,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     );
   } catch (err) {
     console.error('Error creating comment:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

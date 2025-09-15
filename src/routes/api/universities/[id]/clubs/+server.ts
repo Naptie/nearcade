@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!universityId) {
-      return error(400, 'Invalid university ID');
+      error(400, 'Invalid university ID');
     }
 
     const db = mongo.db();
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      return error(404, 'University not found');
+      error(404, 'University not found');
     }
 
     // Get clubs with pagination
@@ -69,6 +69,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
   } catch (err) {
     console.error('Error loading university clubs:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

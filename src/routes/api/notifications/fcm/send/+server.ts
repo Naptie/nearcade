@@ -6,7 +6,7 @@ import { sendFCMNotification } from '$lib/notifications/fcm.server';
 export const POST: RequestHandler = async ({ request }) => {
   const authHeader = request.headers.get('Authorization');
   if (authHeader !== SSC_SECRET) {
-    return error(401, 'Unauthorized');
+    error(401, 'Unauthorized');
   }
 
   const body: Notification = await request.json();

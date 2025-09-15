@@ -8,19 +8,19 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
 
     const commentId = params.commentId;
     if (!commentId) {
-      return error(400, 'Invalid comment ID');
+      error(400, 'Invalid comment ID');
     }
 
     const { content } = (await request.json()) as {
       content: string;
     };
     if (!content || !content.trim()) {
-      return error(400, 'Comment content is required');
+      error(400, 'Comment content is required');
     }
 
     const db = mongo.db();
@@ -29,11 +29,11 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Check if comment exists and user owns it
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      return error(404, 'Comment not found');
+      error(404, 'Comment not found');
     }
 
     if (comment.createdBy !== session.user.id) {
-      return error(403, 'You can only edit your own comments');
+      error(403, 'You can only edit your own comments');
     }
 
     // Update comment
@@ -50,7 +50,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error updating comment:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };
 
@@ -58,12 +58,12 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
 
     const commentId = params.commentId;
     if (!commentId) {
-      return error(400, 'Invalid comment ID');
+      error(400, 'Invalid comment ID');
     }
 
     const db = mongo.db();
@@ -73,7 +73,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Check if comment exists and user owns it
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      return error(404, 'Comment not found');
+      error(404, 'Comment not found');
     }
 
     // Check permissions (owner or canEdit)
@@ -81,7 +81,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     const isOwner = comment.createdBy === session.user.id;
     const post = await postsCollection.findOne({ id: comment.postId });
     if (!post) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     if (post.universityId) {
@@ -101,7 +101,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     }
 
     if (!canDelete) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Delete comment and all its replies
@@ -124,6 +124,6 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error deleting comment:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const postId = params.postId;
 
     if (!postId) {
-      return error(400, 'Invalid post ID');
+      error(400, 'Invalid post ID');
     }
 
     const db = mongo.db();
@@ -64,7 +64,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       .toArray();
 
     if (postResult.length === 0) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     const post = postResult[0];
@@ -78,7 +78,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     );
 
     if (!canRead) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Get comments for this post
@@ -153,7 +153,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     });
   } catch (err) {
     console.error('Error fetching post details:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };
 
@@ -162,12 +162,12 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Authentication required');
+      error(401, 'Authentication required');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return error(400, 'Invalid post ID');
+      error(400, 'Invalid post ID');
     }
 
     const { title, content, readability, isPinned, isLocked } = (await request.json()) as {
@@ -184,7 +184,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Find the post
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     // Check permissions
@@ -220,7 +220,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     if (isContentUpdate || readability !== undefined) {
       const isOwner = post.createdBy === session.user.id;
       if (!isOwner && !canEdit) {
-        return error(403, 'Permission denied');
+        error(403, 'Permission denied');
       }
     }
 
@@ -242,7 +242,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     // Check permissions for management updates (only canEdit)
     if (isManagementUpdate && !canManage) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Build update object
@@ -275,7 +275,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error updating post:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };
 
@@ -284,12 +284,12 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Authentication required');
+      error(401, 'Authentication required');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return error(400, 'Invalid post ID');
+      error(400, 'Invalid post ID');
     }
 
     const db = mongo.db();
@@ -298,7 +298,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Find the post
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     // Check permissions (owner or canEdit)
@@ -322,7 +322,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     }
 
     if (!canDelete) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Delete all comments associated with this post
@@ -339,6 +339,6 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error deleting post:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

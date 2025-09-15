@@ -10,13 +10,13 @@ export const GET: RequestHandler = async ({ params }) => {
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    return error(404, 'Invalid shop source');
+    error(404, 'Invalid shop source');
   }
 
   // Validate id
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
-    return error(404, 'Invalid shop ID');
+    error(404, 'Invalid shop ID');
   }
 
   try {
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ params }) => {
     });
 
     if (!shop) {
-      return error(404, 'Shop not found');
+      error(404, 'Shop not found');
     }
 
     return json({
@@ -38,6 +38,6 @@ export const GET: RequestHandler = async ({ params }) => {
     });
   } catch (err) {
     console.error('Error fetching shop:', err);
-    return error(500, 'Failed to fetch shop');
+    error(500, 'Failed to fetch shop');
   }
 };

@@ -15,17 +15,17 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return error(400, 'Invalid post ID');
+      error(400, 'Invalid post ID');
     }
 
     const { voteType } = (await request.json()) as { voteType: 'upvote' | 'downvote' };
     if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      return error(400, 'Invalid vote type');
+      error(400, 'Invalid vote type');
     }
 
     const db = mongo.db();
@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if post exists
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     // Check voting permissions based on post readability (anyone who can read posts can vote)
@@ -71,7 +71,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (!canVote) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Check if post is locked and user has permission to interact
@@ -95,7 +95,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        return error(403, 'Post is locked');
+        error(403, 'Post is locked');
       }
     }
 
@@ -206,6 +206,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     });
   } catch (err) {
     console.error('Error voting on post:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };

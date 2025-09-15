@@ -22,14 +22,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!user) {
     const header = request.headers.get('Authorization');
     if (!header || !header.startsWith('Bearer ')) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
     const token = header.slice(7);
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
     const dbUser = await usersCollection.findOne({ apiToken: token });
     if (!dbUser) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
     isOpenApiAccess = true;
     user = dbUser;
@@ -48,21 +48,21 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       !Array.isArray(games) ||
       (games.every((g) => g.currentAttendances === undefined) && !plannedLeaveAt)
     ) {
-      return error(400, 'Missing required parameters');
+      error(400, 'Missing required parameters');
     }
 
     const source = params.source as ShopSource;
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
-      return error(400, 'Invalid shop source');
+      error(400, 'Invalid shop source');
     }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
-      return error(400, 'Invalid shop ID');
+      error(400, 'Invalid shop ID');
     }
 
     // Validate shop exists
@@ -74,29 +74,29 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     });
 
     if (!shop) {
-      return error(404, 'Shop not found');
+      error(404, 'Shop not found');
     }
 
     // Validate game exists in shop
     const shopGames = shop.games.filter((sg) => games.some((g) => g.id === sg.gameId));
     if (shopGames.length !== games.length) {
-      return error(404, 'Games missing in shop');
+      error(404, 'Games missing in shop');
     }
 
     if (!redis) {
-      return error(500, 'Redis not available');
+      error(500, 'Redis not available');
     }
 
     const now = Date.now();
     const { open, close } = getShopOpeningHours(shop);
     if (now < open.getTime() || now > close.getTime()) {
-      return error(400, 'Shop is currently closed');
+      error(400, 'Shop is currently closed');
     }
 
     if (!isOpenApiAccess && plannedLeaveAt) {
       // Check for existing attendance
       if (await getCurrentAttendance(user.id!)) {
-        return error(409, 'User already has an active attendance');
+        error(409, 'User already has an active attendance');
       }
 
       const plannedLeaveTime = new Date(plannedLeaveAt);
@@ -106,7 +106,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         plannedLeaveTime < open ||
         plannedLeaveTime > close
       ) {
-        return error(400, 'Invalid planned leave time');
+        error(400, 'Invalid planned leave time');
       }
 
       const attendedAt = new Date().toISOString();
@@ -148,11 +148,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       }
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
       if (now < open.getTime() || now > close.getTime()) {
-        return error(400, 'Shop is currently closed');
+        error(400, 'Shop is currently closed');
       }
       for (const game of games) {
         if (game.currentAttendances === undefined || game.currentAttendances < 0) {
-          return error(400, `Invalid current attendances for game ${game.id}`);
+          error(400, `Invalid current attendances for game ${game.id}`);
         }
         const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
         const attendanceData = {
@@ -187,7 +187,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error creating attendance:', err);
-    return error(500, 'Failed to create attendance');
+    error(500, 'Failed to create attendance');
   }
 };
 
@@ -195,7 +195,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    return error(401, 'Unauthorized');
+    error(401, 'Unauthorized');
   }
 
   try {
@@ -203,24 +203,24 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
-      return error(400, 'Invalid shop source');
+      error(400, 'Invalid shop source');
     }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
-      return error(400, 'Invalid shop ID');
+      error(400, 'Invalid shop ID');
     }
 
     if (!redis) {
-      return error(500, 'Redis not available');
+      error(500, 'Redis not available');
     }
 
     const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
     const keys = await redis.keys(pattern);
     if (keys.length === 0) {
-      return error(404, 'Attendance not found');
+      error(404, 'Attendance not found');
     }
 
     // Only one active attendance per user per shop
@@ -229,7 +229,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     // Get the attendance data before deleting
     const attendanceDataStr = await redis.get(attendanceKey);
     if (!attendanceDataStr) {
-      return error(404, 'Attendance not found');
+      error(404, 'Attendance not found');
     }
 
     const attendanceData = JSON.parse(attendanceDataStr);
@@ -265,7 +265,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error removing attendance:', err);
-    return error(500, 'Failed to remove attendance');
+    error(500, 'Failed to remove attendance');
   }
 };
 
@@ -277,18 +277,18 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
-      return error(400, 'Invalid shop source');
+      error(400, 'Invalid shop source');
     }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
-      return error(400, 'Invalid shop ID');
+      error(400, 'Invalid shop ID');
     }
 
     if (!redis) {
-      return error(500, 'Redis not available');
+      error(500, 'Redis not available');
     }
 
     // Get all attendance keys for this shop
@@ -355,6 +355,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     return json({ success: true, attendanceData });
   } catch (err) {
     console.error('Error getting attendance:', err);
-    return error(500, 'Failed to get attendance');
+    error(500, 'Failed to get attendance');
   }
 };

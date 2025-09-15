@@ -16,19 +16,19 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return error(401, 'Unauthorized');
+      error(401, 'Unauthorized');
     }
 
     const commentId = params.commentId;
     if (!commentId) {
-      return error(400, 'Invalid comment ID');
+      error(400, 'Invalid comment ID');
     }
 
     const { voteType } = (await request.json()) as {
       voteType: 'upvote' | 'downvote';
     };
     if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      return error(400, 'Invalid vote type');
+      error(400, 'Invalid vote type');
     }
 
     const db = mongo.db();
@@ -38,14 +38,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if comment exists
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      return error(404, 'Comment not found');
+      error(404, 'Comment not found');
     }
 
     // Get the post to check permissions
     const postsCollection = db.collection('posts');
     const post = await postsCollection.findOne({ id: comment.postId });
     if (!post) {
-      return error(404, 'Post not found');
+      error(404, 'Post not found');
     }
 
     // Check voting permissions based on post readability (anyone who can read posts can vote)
@@ -83,7 +83,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (!canVote) {
-      return error(403, 'Permission denied');
+      error(403, 'Permission denied');
     }
 
     // Check if post is locked and user has permission to interact
@@ -109,7 +109,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        return error(403, 'Post is locked');
+        error(403, 'Post is locked');
       }
     }
 
@@ -220,7 +220,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Get updated vote counts
     const updatedComment = await commentsCollection.findOne({ id: commentId });
     if (!updatedComment) {
-      return error(500, 'Failed to get updated comment');
+      error(500, 'Failed to get updated comment');
     }
 
     return json({
@@ -231,6 +231,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     });
   } catch (err) {
     console.error('Error voting on comment:', err);
-    return error(500, 'Internal server error');
+    error(500, 'Internal server error');
   }
 };
