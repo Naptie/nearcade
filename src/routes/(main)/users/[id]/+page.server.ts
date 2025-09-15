@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
 import type { University, UniversityMember, Shop } from '$lib/types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const usersCollection = db.collection<User>('users');
 
     // Get user data

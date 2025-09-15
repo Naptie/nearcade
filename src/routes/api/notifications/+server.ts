@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { markNotificationsAsRead } from '$lib/notifications/index.server';
 import type { Notification } from '$lib/types';
 
@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     }
 
     // Get notifications directly from the notifications collection
-    const db = client.db();
+    const db = mongo.db();
     const notificationsCollection = db.collection<Notification>('notifications');
 
     const notifications = await notificationsCollection
@@ -74,7 +74,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const { action } = (await request.json()) as { action: string };
 
     if (action === 'markAsRead') {
-      await markNotificationsAsRead(client, session.user.id!);
+      await markNotificationsAsRead(mongo, session.user.id!);
       return json({ success: true });
     }
 

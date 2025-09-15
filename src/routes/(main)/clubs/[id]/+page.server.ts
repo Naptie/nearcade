@@ -16,14 +16,14 @@ import {
 } from '$lib/utils';
 import { PAGINATION, ShopSource } from '$lib/constants';
 import { nanoid } from 'nanoid';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
   const session = await locals.auth();
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
     const membersCollection = db.collection<ClubMember>('club_members');
     const universitiesCollection = db.collection<University>('universities');
@@ -47,7 +47,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
     // Check user permissions if authenticated
     const userPermissions = session?.user
-      ? await checkClubPermission(session.user, club, client)
+      ? await checkClubPermission(session.user, club, mongo)
       : { canEdit: false, canManage: false, canJoin: 0 as const };
 
     // Get university information
@@ -66,7 +66,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     // Get member statistics
     const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
 
-    const members = await getClubMembersWithUserData(club.id, client, {
+    const members = await getClubMembersWithUserData(club.id, mongo, {
       limit: PAGINATION.PAGE_SIZE,
       userFilter: universityMembership?.memberType
         ? {}
@@ -85,10 +85,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         starredArcades = toPlainArray(
           await shopsCollection
             .find({
-              $and: [
-                { id: { $in: arcades.map((arcade) => arcade.id) } },
-                { source: { $in: arcades.map((arcade) => arcade.source) } }
-              ]
+              $or: arcades.map((arcade) => {
+                return { $and: [{ source: arcade.source }, { id: arcade.id }] };
+              })
             })
             .limit(PAGINATION.PAGE_SIZE)
             .toArray()
@@ -109,7 +108,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       },
       user: session?.user || null,
       userPermissions,
-      canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, client)
+      canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, mongo)
     };
   } catch (err) {
     console.error('Error loading club:', err);
@@ -137,14 +136,14 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkClubPermission(session.user, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
       // Verify target user is not admin/moderator if requester is not admin
       if (!permissions.canManage) {
-        const db = client.db();
+        const db = mongo.db();
         const membersCollection = db.collection('club_members');
         const targetMember = await membersCollection.findOne({
           clubId,
@@ -156,7 +155,7 @@ export const actions: Actions = {
         }
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const membersCollection = db.collection('club_members');
 
       // Remove membership
@@ -188,12 +187,12 @@ export const actions: Actions = {
       }
 
       // Only admins can grant moderator roles
-      const permissions = await checkClubPermission(session.user, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can grant moderator roles' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const membersCollection = db.collection('club_members');
 
       // Update membership type
@@ -225,12 +224,12 @@ export const actions: Actions = {
       }
 
       // Only admins can revoke moderator roles
-      const permissions = await checkClubPermission(session.user, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can revoke moderator roles' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const membersCollection = db.collection('club_members');
 
       // Update membership type
@@ -262,7 +261,7 @@ export const actions: Actions = {
       }
 
       // Check if current user is a site admin (site admins can grant admin without losing their status)
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
@@ -301,13 +300,13 @@ export const actions: Actions = {
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
-      const permissions = await checkClubPermission(session.user, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can transfer admin privileges' });
       }
 
       // Check if current user is a site admin (they should use grantAdmin instead)
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
@@ -360,12 +359,12 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkClubPermission(session.user, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const clubsCollection = db.collection<Club>('clubs');
       const shopsCollection = db.collection<Shop>('shops');
 
@@ -402,25 +401,31 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = formData.get('arcadeId') as string;
+      const arcadeSource = formData.get('arcadeSource') as ShopSource;
+      const arcadeIdRaw = formData.get('arcadeId') as string;
+      const arcadeId = parseInt(arcadeIdRaw, 10);
       const clubId = formData.get('clubId') as string;
 
-      if (!arcadeId || !clubId) {
+      if (!arcadeSource) {
+        return fail(400, { message: 'Arcade source is required' });
+      }
+
+      if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
         return fail(400, { message: 'Arcade ID and Club ID are required' });
       }
 
       // Check permissions
-      const permissions = await checkClubPermission(session.user, clubId, client);
+      const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const clubsCollection = db.collection('clubs');
 
       // Remove arcade from club's starred list
       await clubsCollection.updateOne({ id: clubId }, {
-        $pull: { starredArcades: arcadeId },
+        $pull: { starredArcades: { id: arcadeId, source: arcadeSource } },
         $set: { updatedAt: new Date() }
       } as Record<string, unknown>);
 
@@ -446,7 +451,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Club ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const clubsCollection = db.collection('clubs');
       const clubMembersCollection = db.collection('club_members');
       const universityMembersCollection = db.collection('university_members');

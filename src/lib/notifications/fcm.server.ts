@@ -6,7 +6,7 @@ import type { Notification } from '$lib/types';
 import type { User } from '@auth/sveltekit';
 import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
 import app from './firebase.server';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { getNotificationTitle } from './index.client';
 
 /**
@@ -38,7 +38,7 @@ export async function sendFCMNotification(
   if (!app) return { success: false, response: undefined };
   try {
     // Get user's FCM tokens
-    const tokens = await getUserFCMTokens(client, notification.targetUserId);
+    const tokens = await getUserFCMTokens(mongo, notification.targetUserId);
     if (tokens.length === 0) {
       console.log(`No FCM tokens found for user ${notification.targetUserId}`);
       return { success: true, response: undefined };
@@ -95,7 +95,7 @@ export async function sendFCMNotification(
       if (failedTokens.length > 0) {
         console.log('Failed FCM tokens to clean up:', failedTokens);
         failedTokens.forEach(async (token) => {
-          await removeFCMToken(client, notification.targetUserId, token);
+          await removeFCMToken(mongo, notification.targetUserId, token);
         });
       }
     }

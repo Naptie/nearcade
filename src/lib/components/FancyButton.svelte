@@ -7,6 +7,8 @@
   interface Props {
     class?: string;
     btnCls?: string;
+    square?: boolean;
+    padding?: number;
     href?: string;
     target?: string;
     text?: string;
@@ -15,11 +17,23 @@
     callback?: () => void;
   }
 
-  let { image, content, text, class: klass = '', btnCls, href, target, callback }: Props = $props();
+  let {
+    image,
+    content,
+    text,
+    class: klass = '',
+    btnCls = 'btn-ghost btn-sm lg:btn-md',
+    square = true,
+    padding = 0,
+    href,
+    target,
+    callback
+  }: Props = $props();
 
   let buttonElement: HTMLElement;
   let iconElement: HTMLElement | undefined = $state(undefined);
   let contentElement: HTMLElement;
+  let initialWidth = $state(NaN);
   let lastMeasured = $state(0);
 
   const measureButtonDimensions = () => {
@@ -28,7 +42,7 @@
     lastMeasured = Date.now();
 
     const buttonHeight = buttonElement.offsetHeight;
-    const collapsedWidth = `${buttonHeight}px`;
+    const collapsedWidth = `${square ? buttonHeight : initialWidth}px`;
 
     // Set the collapsed width immediately
     buttonElement.style.setProperty('--collapsed-width', collapsedWidth);
@@ -49,7 +63,7 @@
 
     document.body.appendChild(clone);
 
-    const fullWidth = clone.scrollWidth;
+    const fullWidth = clone.scrollWidth + padding;
     const iconWidth = (clone.querySelector('.icon') as HTMLElement).offsetWidth;
     const contentWidth = cloneContent.offsetWidth;
 
@@ -91,6 +105,7 @@
 
   onMount(() => {
     if (browser) {
+      initialWidth = buttonElement.offsetWidth;
       // Set initial width to avoid layout jank
       buttonElement.style.width = 'var(--collapsed-width, 3rem)'; // Provide a fallback
 
@@ -129,7 +144,7 @@
   bind:this={buttonElement}
   {href}
   {target}
-  class="btn btn-ghost btn-sm lg:btn-md adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
+  class="btn adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
     ? 'px-2'
     : ''} {btnCls}"
   onmouseenter={handleMouseEnter}
@@ -166,9 +181,9 @@
   @reference "tailwindcss";
 
   .adaptive {
-    width: var(--collapsed-width);
     transition:
-      width 0.15s ease-out,
+      width 0.15s cubic-bezier(0.33, 1, 0.68, 1),
+      flex 0.15s cubic-bezier(0.33, 1, 0.68, 1),
       color 0.2s cubic-bezier(0, 0, 0.2, 1),
       background-color 0.2s cubic-bezier(0, 0, 0.2, 1),
       border-color 0.2s cubic-bezier(0, 0, 0.2, 1);
@@ -193,9 +208,6 @@
   }
 
   @media not (hover: hover) {
-    .adaptive {
-      width: var(--collapsed-width) !important;
-    }
     .icon,
     .content {
       transform: none !important;

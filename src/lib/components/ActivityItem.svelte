@@ -2,14 +2,14 @@
   /* eslint svelte/no-at-html-tags: "off" */
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistanceToNow } from 'date-fns';
+  import { formatDistance, formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatChangelogDescription } from '$lib/utils/changelog';
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
-  import { getDisplayName } from '$lib/utils';
+  import { formatTime, getDisplayName } from '$lib/utils';
 
   interface Props {
     activity: Activity;
@@ -40,6 +40,8 @@
         return 'fa-solid fa-user-plus text-success';
       case 'club_create':
         return 'fa-solid fa-users text-primary';
+      case 'shop_attendance':
+        return 'fa-solid fa-gamepad text-info';
       default:
         return 'fa-solid fa-clock';
     }
@@ -88,6 +90,10 @@
         return m.activity_joined_club({ targetName });
       case 'club_create':
         return m.activity_created_club({ targetName });
+      case 'shop_attendance':
+        return activity.isLive
+          ? m.activity_currently_visiting_shop({ targetName })
+          : m.activity_visited_shop({ targetName });
       default:
         return '';
     }
@@ -188,6 +194,15 @@
         }
         return '#';
 
+      case 'shop_attendance':
+        if (activity.shopSource && activity.shopId) {
+          return resolve('/(main)/shops/[source]/[id]', {
+            source: activity.shopSource,
+            id: activity.shopId.toString()
+          });
+        }
+        return '#';
+
       default:
         return '#';
     }
@@ -214,6 +229,8 @@
         return activity.joinedClubName || '';
       case 'club_create':
         return activity.createdClubName || '';
+      case 'shop_attendance':
+        return activity.shopName || '';
       default:
         return '';
     }
@@ -236,18 +253,23 @@
 </script>
 
 <div
-  class="bg-base-100 hover:bg-base-200/50 flex items-start gap-3 rounded-lg p-3 transition-colors"
+  class="bg-base-100 hover:bg-base-200/50 flex items-start gap-3 rounded-lg p-3 transition {activity.isLive
+    ? 'ring-warning hover:ring-warning/50 bg-gradient-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 ring-2 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+    : ''}"
 >
   <!-- Activity Icon -->
   <div class="mt-1 flex-shrink-0">
-    <i class="{icon} text-base-content/60"></i>
+    <i class="{icon} text-base-content/60" class:text-warning={activity.isLive}></i>
   </div>
 
   <!-- Activity Content -->
   <div class="min-w-0 flex-1">
     <div class="flex flex-col gap-1">
       <!-- Activity Description -->
-      <div class="text-base-content/80 text-sm">
+      <div
+        class="text-base-content/80 text-sm transition-colors"
+        class:text-warning={activity.isLive}
+      >
         {@html text}
       </div>
 
@@ -255,6 +277,35 @@
       {#if (activity.type === 'comment' || activity.type === 'reply') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
+        </div>
+      {/if}
+
+      <!-- Shop Attendance Details -->
+      {#if activity.type === 'shop_attendance'}
+        <div class="text-base-content/60 text-xs">
+          {#if activity.attendanceGames}
+            <div class="mb-1">
+              <i class="fa-solid fa-gamepad mr-1"></i>
+              {activity.attendanceGames}
+            </div>
+          {/if}
+          {#if activity.leaveAt}
+            <div>
+              <i class="fa-solid fa-clock mr-1"></i>
+              {#if activity.isLive}
+                {m.attendance_details_one_liner({
+                  duration: formatDistanceToNow(activity.createdAt, {
+                    locale: getLocale() === 'en' ? enUS : zhCN
+                  }),
+                  leave: formatTime(activity.leaveAt)
+                })}
+              {:else}
+                {formatDistance(activity.leaveAt, activity.createdAt, {
+                  locale: getLocale() === 'en' ? enUS : zhCN
+                })}
+              {/if}
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -280,7 +331,7 @@
   <!-- Timestamp -->
   <div class="flex-shrink-0">
     <span class="text-base-content/50 text-xs">
-      {formatDistanceToNow(new Date(activity.createdAt), {
+      {formatDistanceToNow(activity.createdAt, {
         addSuffix: true,
         locale: getLocale() === 'en' ? enUS : zhCN
       })}

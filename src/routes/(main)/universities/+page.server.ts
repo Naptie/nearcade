@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { toPlainArray } from '$lib/utils';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   const skip = (page - 1) * limit;
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
 
     let universities: University[];

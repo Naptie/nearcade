@@ -4,7 +4,7 @@ import type { University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { resolve } from '$app/paths';
 import { loginRedirect } from '$lib/utils/scoped';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = await locals.auth();
@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
 
     const university = await universitiesCollection.findOne({ id: universityId });
@@ -76,7 +76,7 @@ export const actions: Actions = {
         });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const clubsCollection = db.collection<Club>('clubs');
       const universitiesCollection = db.collection<University>('universities');
 

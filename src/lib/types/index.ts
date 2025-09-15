@@ -1,5 +1,7 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, ShopSource } from '../constants';
+import type { RADIUS_OPTIONS, ShopSource, GAMES } from '../constants';
+import type { TransportSearchResult } from './amap';
+import type { User } from '@auth/sveltekit';
 
 export interface Location {
   type: 'Point';
@@ -10,16 +12,26 @@ export interface Shop {
   _id: string;
   id: number;
   name: string;
+  comment: string;
   generalAddress: string[];
+  address: {
+    general: string[];
+    detailed: string;
+  };
+  openingHours: [openHour: number, closeHour: number][];
   location: Location;
   games: Game[];
+  createdAt?: Date;
+  updatedAt: Date;
   source: ShopSource;
 }
 
 export interface Game {
-  id: number;
+  gameId: number;
+  titleId: number;
   name: string;
   version: string;
+  comment: string;
   quantity: number;
   cost: string;
 }
@@ -116,15 +128,7 @@ export interface UniversityRankingCache {
   data: UniversityRankingData[];
 }
 
-export type SortCriteria =
-  | 'shops'
-  | 'machines'
-  | 'density'
-  | 'maimai_dx'
-  | 'chunithm'
-  | 'taiko_no_tatsujin'
-  | 'sound_voltex'
-  | 'wacca';
+export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAMES)[number]['key'];
 
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
@@ -416,7 +420,8 @@ export interface Activity {
     | 'changelog'
     | 'university_join'
     | 'club_join'
-    | 'club_create';
+    | 'club_create'
+    | 'shop_attendance';
   createdAt: Date;
   userId: string;
 
@@ -458,6 +463,14 @@ export interface Activity {
   // Club creation activity (club_create)
   createdClubId?: string;
   createdClubName?: string;
+
+  // Shop attendance activity (shop_attendance)
+  shopId?: number;
+  shopName?: string;
+  shopSource?: string;
+  leaveAt?: Date;
+  attendanceGames?: string; // Comma-separated game names
+  isLive?: boolean; // Whether the attendance is still ongoing
 }
 
 // Notification types for active notification system
@@ -492,8 +505,31 @@ export interface Notification {
   clubName?: string;
 }
 
-export * from './amap';
-import type { TransportSearchResult } from './amap';
+export type AttendanceData = Array<{
+  userId?: string;
+  user?: User;
+  attendedAt: string;
+  plannedLeaveAt: string;
+  gameId: number;
+}>;
+
+export type AttendanceReport = Array<{
+  gameId: number;
+  currentAttendances?: number;
+  reportedBy: string;
+  reporter?: User;
+  reportedAt: string;
+}>;
+
+// Interface for attendance records in MongoDB
+export interface AttendanceRecord {
+  _id?: string;
+  userId: string;
+  games: { gameId: number; name: string; version: string }[];
+  attendedAt: Date;
+  leftAt: Date;
+  shop: { id: number; source: ShopSource };
+}
 
 // Extended types for route guidance
 export interface CachedRouteData {
@@ -511,3 +547,16 @@ export interface WindowMessage {
   type: 'NAVIGATE' | 'INVALIDATE';
   payload?: string;
 }
+
+// Extended Shop type with attendance data
+export interface ShopWithAttendance extends Shop {
+  currentAttendance?: number;
+  currentReportedAttendance?: {
+    count: number;
+    reportedAt: string;
+    reportedBy: User;
+  } | null;
+  isInAttendance?: boolean;
+}
+
+export * from './amap';

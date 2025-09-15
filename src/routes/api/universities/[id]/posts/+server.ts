@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { type Post, type PostWithAuthor, type University, PostReadability } from '$lib/types';
 import {
   postId,
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       return json({ error: 'Invalid university ID' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
     const postsCollection = db.collection<Post>('posts');
 
@@ -77,7 +77,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
         post.readability,
         { universityId: post.universityId, clubId: post.clubId },
         session?.user,
-        client
+        mongo
       );
       if (canRead) {
         readablePosts.push(post);
@@ -120,7 +120,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Title and content are required' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
     const postsCollection = db.collection<Post>('posts');
 
@@ -133,7 +133,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Check post writability permissions
-    const permissions = await checkUniversityPermission(session.user, university, client);
+    const permissions = await checkUniversityPermission(session.user, university, mongo);
 
     if (!canWriteUnivPosts(permissions, university)) {
       return json({ error: 'Permission denied' }, { status: 403 });

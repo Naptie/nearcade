@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
@@ -21,7 +21,7 @@ export const loadShops = async ({ url }: { url: URL }) => {
     const radiusKm = radiusParam ? Math.max(1, Math.min(30, parseInt(radiusParam))) : 10;
     const radiusRadians = radiusKm / 6371;
 
-    const db = client.db();
+    const db = mongo.db();
     const shopsCollection = db.collection('shops');
     const shops = (await shopsCollection
       .find({

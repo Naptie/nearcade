@@ -1,4 +1,4 @@
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { PageServerLoad } from './$types';
 import type { UniversityMember, ClubMember } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
@@ -17,7 +17,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     const limit = 20;
     const skip = (page - 1) * limit;
 
-    const db = client.db();
+    const db = mongo.db();
     let postFilter = {};
 
     if (search.trim()) {

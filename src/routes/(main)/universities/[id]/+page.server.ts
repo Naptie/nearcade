@@ -11,13 +11,13 @@ import {
 import { PAGINATION } from '$lib/constants';
 import { logCampusChanges } from '$lib/utils/changelog.server';
 import { nanoid } from 'nanoid';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection('universities');
     const membersCollection = db.collection('university_members');
     const clubsCollection = db.collection('clubs');
@@ -54,12 +54,12 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       canJoin: 0
     };
     if (user) {
-      userPermissions = await checkUniversityPermission(user, university.id, client);
+      userPermissions = await checkUniversityPermission(user, university.id, mongo);
     }
 
     // Get member statistics and list with user data joined
     const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
-    const members = await getUniversityMembersWithUserData(university.id, client, {
+    const members = await getUniversityMembersWithUserData(university.id, mongo, {
       limit: PAGINATION.PAGE_SIZE,
       sort: { joinedAt: -1 },
       userFilter: userPermissions.role
@@ -122,7 +122,7 @@ export const actions: Actions = {
       const district = formData.get('district') as string;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -131,7 +131,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Missing required fields' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const universitiesCollection = db.collection('universities');
 
       const newCampus = {
@@ -154,7 +154,7 @@ export const actions: Actions = {
       } as object);
 
       // Log campus addition to changelog
-      await logCampusChanges(client, universityId, 'campus_added', newCampus as Campus, {
+      await logCampusChanges(mongo, universityId, 'campus_added', newCampus as Campus, {
         id: user.id!,
         name: user.name,
         image: user.image
@@ -188,7 +188,7 @@ export const actions: Actions = {
       const district = formData.get('district') as string;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -197,7 +197,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Missing required fields' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const universitiesCollection = db.collection('universities');
 
       // Get current campus data for changelog comparison
@@ -245,7 +245,7 @@ export const actions: Actions = {
 
       // Log campus changes to changelog
       await logCampusChanges(
-        client,
+        mongo,
         universityId,
         'campus_updated',
         updatedCampus,
@@ -278,7 +278,7 @@ export const actions: Actions = {
       const campusId = formData.get('campusId') as string;
 
       // Check permissions using new system - only managers can delete
-      const permissions = await checkUniversityPermission(user, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -287,7 +287,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Campus ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const universitiesCollection = db.collection('universities');
 
       // Check if this is the last campus
@@ -313,7 +313,7 @@ export const actions: Actions = {
         return fail(404, { message: 'Campus not found or already deleted' });
       }
       // Log campus deletion to changelog
-      await logCampusChanges(client, universityId, 'campus_deleted', campusToDelete, {
+      await logCampusChanges(mongo, universityId, 'campus_deleted', campusToDelete, {
         id: user.id!,
         name: user.name,
         image: user.image
@@ -341,7 +341,7 @@ export const actions: Actions = {
       const memberType = formData.get('memberType') as string;
 
       // Check permissions using new system - only managers can invite
-      const permissions = await checkUniversityPermission(user, universityId, client);
+      const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -355,7 +355,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Invalid member type' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
       const universityMembersCollection = db.collection('university_members');
 
@@ -386,7 +386,7 @@ export const actions: Actions = {
 
       await universityMembersCollection.insertOne(newMembership);
 
-      await updateUserType(targetUser.id, client);
+      await updateUserType(targetUser.id, mongo);
 
       return { success: true };
     } catch (err) {
@@ -411,14 +411,14 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkUniversityPermission(session.user, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient permissions' });
       }
 
       // Verify target user is not admin/moderator if requester is not admin
       if (!permissions.canManage) {
-        const db = client.db();
+        const db = mongo.db();
         const membersCollection = db.collection('university_members');
         const targetMember = await membersCollection.findOne({
           universityId,
@@ -430,7 +430,7 @@ export const actions: Actions = {
         }
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const membersCollection = db.collection('university_members');
 
       // Remove membership
@@ -439,7 +439,7 @@ export const actions: Actions = {
         userId: targetUserId
       });
 
-      await updateUserType(targetUserId, client);
+      await updateUserType(targetUserId, mongo);
 
       return { success: true, message: 'Member removed successfully' };
     } catch (err) {
@@ -464,12 +464,12 @@ export const actions: Actions = {
       }
 
       // Only admins can grant moderator roles
-      const permissions = await checkUniversityPermission(session.user, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can grant moderator roles' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const membersCollection = db.collection('university_members');
 
       // Update membership type
@@ -479,7 +479,7 @@ export const actions: Actions = {
       );
 
       // Update user type
-      await updateUserType(targetUserId, client);
+      await updateUserType(targetUserId, mongo);
 
       return { success: true, message: 'Moderator role granted successfully' };
     } catch (err) {
@@ -504,12 +504,12 @@ export const actions: Actions = {
       }
 
       // Only admins can revoke moderator roles
-      const permissions = await checkUniversityPermission(session.user, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can revoke moderator roles' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const membersCollection = db.collection('university_members');
 
       // Update membership type
@@ -519,7 +519,7 @@ export const actions: Actions = {
       );
 
       // Update user type
-      await updateUserType(targetUserId, client);
+      await updateUserType(targetUserId, mongo);
 
       return { success: true, message: 'Moderator role revoked successfully' };
     } catch (err) {
@@ -544,7 +544,7 @@ export const actions: Actions = {
       }
 
       // Check if current user is a site admin (site admins can grant admin without losing their status)
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
@@ -560,7 +560,7 @@ export const actions: Actions = {
         { $set: { memberType: 'admin' } }
       );
 
-      await updateUserType(targetUserId, client);
+      await updateUserType(targetUserId, mongo);
 
       return { success: true, message: 'Admin privileges granted successfully' };
     } catch (err) {
@@ -585,13 +585,13 @@ export const actions: Actions = {
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
-      const permissions = await checkUniversityPermission(session.user, universityId, client);
+      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canManage) {
         return fail(403, { message: 'Only admins can transfer admin privileges' });
       }
 
       // Check if current user is a site admin (they should use grantAdmin instead)
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection('users');
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
@@ -609,7 +609,7 @@ export const actions: Actions = {
         { $set: { memberType: 'moderator' } }
       );
 
-      await updateUserType(session.user.id!, client);
+      await updateUserType(session.user.id!, mongo);
 
       // Promote target user to admin
       await membersCollection.updateOne(
@@ -617,7 +617,7 @@ export const actions: Actions = {
         { $set: { memberType: 'admin' } }
       );
 
-      await updateUserType(targetUserId, client);
+      await updateUserType(targetUserId, mongo);
 
       return { success: true, message: 'Admin privileges transferred successfully' };
     } catch (err) {

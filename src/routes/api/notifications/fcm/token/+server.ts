@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { storeFCMToken, removeFCMToken } from '$lib/notifications/fcm.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -21,10 +21,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (action === 'store') {
-      await storeFCMToken(client, session.user.id, token);
+      await storeFCMToken(mongo, session.user.id, token);
       return json({ success: true, message: 'FCM token stored' });
     } else if (action === 'remove') {
-      await removeFCMToken(client, session.user.id, token);
+      await removeFCMToken(mongo, session.user.id, token);
       return json({ success: true, message: 'FCM token removed' });
     } else {
       error(400, 'Invalid action');

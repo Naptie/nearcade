@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { resolve, base } from '$app/paths';
   import { PUBLIC_TENCENT_MAPS_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
@@ -11,9 +11,15 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel } from '$lib/utils';
+  import { formatRegionLabel, formatShopAddress, getMyLocation } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
+  import type { PageData } from './$types';
+  import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+
+  let { data }: { data: PageData } = $props();
+
+  let isLeavingShop = $state(false);
 
   let showCollapse = $state(false);
   let mode = $state(0);
@@ -54,51 +60,6 @@
   let universities = $state<University[]>([]);
   let isSearchingUniversities = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
-
-  const getMyLocation = () => {
-    if (!navigator.geolocation) {
-      locationError = m.location_not_supported();
-      return;
-    }
-
-    isLoadingLocation = true;
-    locationError = '';
-
-    navigator.geolocation.getCurrentPosition(
-      // Success callback
-      (position) => {
-        location.name = m.my_location();
-        location.latitude = position.coords.latitude;
-        location.longitude = position.coords.longitude;
-        isLoadingLocation = false;
-        go();
-      },
-      // Error callback
-      (error) => {
-        isLoadingLocation = false;
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            locationError = m.location_permission_denied();
-            break;
-          case error.POSITION_UNAVAILABLE:
-            locationError = m.location_unavailable();
-            break;
-          case error.TIMEOUT:
-            locationError = m.location_timeout();
-            break;
-          default:
-            locationError = m.location_unknown_error();
-            break;
-        }
-        console.error('Geolocation error:', error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000
-      }
-    );
-  };
 
   let searchRequestId = $state(0);
 
@@ -280,6 +241,26 @@
     amap = event.detail;
   };
 
+  const handleLeave = async (shop: { source: string; id: number }) => {
+    isLeavingShop = true;
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to leave');
+      }
+
+      await invalidateAll();
+    } catch (error) {
+      console.error('Error leaving:', error);
+      // TODO: Show error toast
+    } finally {
+      isLeavingShop = false;
+    }
+  };
+
   onMount(() => {
     if (browser) {
       window.addEventListener('amap-loaded', assignAMap);
@@ -332,21 +313,31 @@
             <i class="fa-solid fa-angle-down fa-sm"></i>
           </span>
         </button>
-        <div class="join">
-          <a
+        <div class="join not-sm:w-full">
+          <FancyButton
+            href={resolve('/(main)/shops')}
+            class="fa-solid fa-gamepad fa-lg"
+            btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            text={m.find_arcades()}
+            square={false}
+            padding={20}
+          />
+          <FancyButton
             href={resolve('/(main)/universities')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
-          >
-            {m.find_university()}
-            <i class="fa-solid fa-graduation-cap fa-lg"></i>
-          </a>
-          <a
+            class="fa-solid fa-graduation-cap fa-lg"
+            btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            text={m.find_universities()}
+            square={false}
+            padding={20}
+          />
+          <FancyButton
             href={resolve('/(main)/clubs')}
-            class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex-1 gap-2 py-5 text-nowrap sm:px-6 dark:hover:bg-white dark:hover:text-black"
-          >
-            {m.find_clubs()}
-            <i class="fa-solid fa-users fa-lg"></i>
-          </a>
+            class="fa-solid fa-users fa-lg"
+            btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            text={m.find_clubs()}
+            square={false}
+            padding={20}
+          />
         </div>
       </div>
       <div
@@ -449,7 +440,22 @@
               {/if}
               <button
                 class="btn btn-primary mt-3"
-                onclick={getMyLocation}
+                onclick={async () => {
+                  isLoadingLocation = true;
+                  locationError = '';
+                  try {
+                    const loc = await getMyLocation();
+                    location.name = m.my_location();
+                    location.latitude = loc.latitude;
+                    location.longitude = loc.longitude;
+                    go();
+                  } catch (error) {
+                    console.error('Error getting location:', error);
+                    locationError = typeof error === 'string' ? error : m.location_unknown_error();
+                  } finally {
+                    isLoadingLocation = false;
+                  }
+                }}
                 disabled={isLoadingLocation || isLoading}
               >
                 {#if isLoading}
@@ -646,8 +652,98 @@
           </fieldset>
         </div>
       </div>
+
+      <!-- Starred Shops Real-time Attendance -->
+      {#if data.starredShops.length > 0}
+        <div
+          class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+          class:collapse-open={!showCollapse}
+          class:min-h-fit={!showCollapse}
+          class:h-full={!showCollapse}
+          class:mt-0={!showCollapse}
+          class:opacity-0={showCollapse}
+        >
+          <div
+            class="collapse-content flex max-w-full min-w-full flex-col items-center gap-2 pt-0 transition-[padding] duration-300 sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw]"
+            class:pt-4={!showCollapse}
+          >
+            {#each data.starredShops as shop (shop._id)}
+              {@const currentAttendance = shop.currentAttendance || 0}
+              {@const reportedAttendance = shop.currentReportedAttendance}
+              {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
+              <div
+                class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
+                  ? 'border-warning hover:border-warning/50 bg-gradient-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+                  : ''}"
+              >
+                <a
+                  href={resolve('/(main)/shops/[source]/[id]', {
+                    source: shop.source,
+                    id: shop.id.toString()
+                  })}
+                  class="flex items-center justify-between gap-2"
+                >
+                  <div class="min-w-0 flex-1">
+                    <h3
+                      class="truncate text-base font-semibold"
+                      class:text-warning={isInAttendance}
+                    >
+                      {shop.name}
+                    </h3>
+                    <p class="text-base-content/70 truncate text-xs">
+                      {formatShopAddress(shop)}
+                    </p>
+                  </div>
+                  {#if isInAttendance}
+                    <button
+                      class="btn btn-error btn-soft btn-sm"
+                      disabled={isLeavingShop}
+                      onclick={(e) => {
+                        e.preventDefault();
+                        handleLeave(shop);
+                      }}
+                    >
+                      {#if isLeavingShop}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <i class="fa-solid fa-stop"></i>
+                      {/if}
+                      {m.leave()}
+                    </button>
+                  {:else}
+                    <div class="text-right">
+                      {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
+                        <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                          <div class="text-accent text-sm">
+                            {m.in_attendance({ count: reportedAttendance.count })}
+                          </div>
+                        </AttendanceReportBlame>
+                      {:else}
+                        <div
+                          class="text-base-content/60 text-sm not-sm:hidden"
+                          class:text-primary={currentAttendance > 0}
+                        >
+                          {m.in_attendance({ count: currentAttendance })}
+                        </div>
+                        <div
+                          class="text-base-content/60 text-sm sm:hidden"
+                          class:text-primary={currentAttendance > 0}
+                        >
+                          <i class="fa-solid fa-user"></i>
+                          {currentAttendance}
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                </a>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
+
   <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
     <FancyButton
       href={GITHUB_LINK}

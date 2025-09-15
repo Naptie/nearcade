@@ -127,7 +127,7 @@
   <!-- Name (if showName is true) -->
   {#if showName}
     <div
-      class="group-hover:text-accent min-w-0 flex-1 transition-colors"
+      class="group-hover/useravatar:text-accent min-w-0 flex-1 transition-colors"
       class:text-right={align === 'right'}
     >
       {#if user.displayName}
@@ -160,13 +160,16 @@
   <a
     href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
     {target}
-    class="group flex items-center {gapClasses[size]} {className}"
+    class="group/useravatar flex items-center {gapClasses[size]} {className}"
     class:w-full={showName}
   >
     {@render content()}
   </a>
 {:else}
-  <div class="group flex items-center {gapClasses[size]} {className}" class:w-full={showName}>
+  <div
+    class="group/useravatar flex items-center {gapClasses[size]} {className}"
+    class:w-full={showName}
+  >
     {@render content()}
   </div>
 {/if}

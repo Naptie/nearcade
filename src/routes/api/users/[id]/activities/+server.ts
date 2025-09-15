@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { getUserActivities } from '$lib/utils/activity.server';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
@@ -15,7 +15,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const usersCollection = db.collection('users');
 
     // Get user data
@@ -44,7 +44,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     // Get activities with pagination
     const activities = await getUserActivities(
-      client,
+      mongo,
       user.id,
       isOwnProfile || session?.user?.userType === 'site_admin',
       limit + 1,

@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import type { Club, University } from '$lib/types';
 import { checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
 
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = PAGINATION.PAGE_SIZE;
@@ -139,14 +139,14 @@ export const actions: Actions = {
         return fail(400, { message: 'Club ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
 
       // Check permissions
       let hasPermission = false;
       if (session.user.userType === 'site_admin') {
         hasPermission = true;
       } else {
-        const permissions = await checkClubPermission(session.user, clubId, client);
+        const permissions = await checkClubPermission(session.user, clubId, mongo);
         hasPermission = permissions.canManage;
       }
 

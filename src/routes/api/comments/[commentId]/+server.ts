@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 
@@ -23,7 +23,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       return json({ error: 'Comment content is required' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
 
     // Check if comment exists and user owns it
@@ -66,7 +66,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       return json({ error: 'Invalid comment ID' }, { status: 400 });
     }
 
-    const db = client.db();
+    const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
     const postsCollection = db.collection<Post>('posts');
 
@@ -89,13 +89,13 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
         .collection<University>('universities')
         .findOne({ id: post.universityId });
       if (university) {
-        const permissions = await checkUniversityPermission(session.user, university, client);
+        const permissions = await checkUniversityPermission(session.user, university, mongo);
         canDelete = isOwner || permissions.canEdit;
       }
     } else if (post.clubId) {
       const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
       if (club) {
-        const permissions = await checkClubPermission(session.user, club, client);
+        const permissions = await checkClubPermission(session.user, club, mongo);
         canDelete = isOwner || permissions.canEdit;
       }
     }

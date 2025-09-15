@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
 import { sendFCMNotification } from './fcm.server';
 import { SSC_SECRET } from '$env/static/private';
 import { env } from '$env/dynamic/private';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 /**
  * Sends an active notification to a user
@@ -15,7 +15,7 @@ import client from '$lib/db/index.server';
 export const notify = async (
   notification: Omit<Notification, 'id' | 'createdAt'>
 ): Promise<void> => {
-  const db = client.db();
+  const db = mongo.db();
   const notificationsCollection = db.collection<Notification>('notifications');
 
   // Check if user wants this type of notification

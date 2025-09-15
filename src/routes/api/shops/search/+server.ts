@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
     let shops;
@@ -58,6 +58,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
     return json({
       shops: shops.map((shop) => ({
+        _id: shop._id.toString(),
         id: shop.id,
         name: shop.name,
         generalAddress: shop.generalAddress || [],

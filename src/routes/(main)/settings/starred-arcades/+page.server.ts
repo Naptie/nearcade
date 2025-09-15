@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { User } from '@auth/sveltekit';
 import type { Shop } from '$lib/types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import type { ShopSource } from '$lib/constants';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const usersCollection = db.collection<User>('users');
     const shopsCollection = db.collection<Shop>('shops');
 
@@ -75,7 +75,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection<User>('users');
       const shopsCollection = db.collection<Shop>('shops');
 
@@ -89,10 +89,9 @@ export const actions: Actions = {
       await usersCollection.updateOne(
         { id: user.id },
         {
-          $addToSet: { starredArcades: arcadeId },
+          $addToSet: { starredArcades: { id: arcadeId, source: arcadeSource } },
           $set: { updatedAt: new Date() }
-        },
-        { upsert: true }
+        }
       );
 
       return { success: true, message: 'Arcade starred successfully' };
@@ -120,7 +119,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const usersCollection = db.collection<User>('users');
 
       // Remove arcade from user's starred list

@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { toPlainArray } from '$lib/utils';
 import type { ClubMember, Club, University, UniversityMember } from '$lib/types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   const session = await locals.auth();
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
 
     // Get user basic information
     const user = await db.collection('users').findOne({ id: userId });

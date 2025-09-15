@@ -30,7 +30,7 @@
   {/snippet}
   <FancyButton
     class="fa-solid fa-language fa-lg {klass}"
-    btnCls="gap-2"
+    btnCls="btn-ghost btn-sm lg:btn-md gap-2"
     {content}
     callback={() => {
       open = !open;

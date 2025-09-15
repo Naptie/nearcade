@@ -5,7 +5,7 @@
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
-  import { pageTitle } from '$lib/utils';
+  import { aggregateGames, formatShopAddress, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -86,7 +86,7 @@
           <thead>
             <tr>
               <th>{m.admin_shop_header()}</th>
-              <th class="not-lg:hidden">{m.admin_location_header()}</th>
+              <th class="not-lg:hidden">{m.admin_address_header()}</th>
               <th class="not-sm:hidden">{m.admin_games_header()}</th>
               <th class="text-right">{m.admin_actions_header()}</th>
             </tr>
@@ -98,9 +98,10 @@
                   <div>
                     <div class="font-medium">
                       <a
-                        href="{shop.source === 'ziv'
-                          ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-                          : 'https://map.bemanicn.com/shop/'}{shop.id}"
+                        href={resolve('/(main)/shops/[source]/[id]', {
+                          source: shop.source,
+                          id: shop.id.toString()
+                        })}
                         target="_blank"
                         class="hover:text-accent line-clamp-3 transition-colors"
                       >
@@ -110,29 +111,22 @@
                   </div>
                 </td>
                 <td class="not-lg:hidden">
-                  <div class="max-w-xs text-sm">
-                    {#if shop.location?.coordinates}
-                      <span class="text-xs opacity-60">
-                        Lat: {shop.location.coordinates[1].toFixed(4)}, Lng: {shop.location.coordinates[0].toFixed(
-                          4
-                        )}
-                      </span>
-                    {:else}
-                      <span class="text-xs opacity-60">{m.admin_no_location_data()}</span>
-                    {/if}
-                  </div>
+                  <span class="max-w-xs text-sm opacity-60">
+                    {formatShopAddress(shop)}
+                  </span>
                 </td>
                 <td class="not-sm:hidden">
                   {#if shop.games && shop.games.length > 0}
+                    {@const aggregatedGames = aggregateGames(shop)}
                     <div class="mt-1 flex flex-wrap gap-1">
-                      {#each shop.games.slice(0, 3) as game (game.id)}
+                      {#each aggregatedGames as game (game.titleId)}
                         <span class="badge badge-xs badge-soft">
-                          {game.name || `Game ${game.id}`}
+                          {game.name}
                         </span>
                       {/each}
-                      {#if shop.games.length > 3}
+                      {#if aggregatedGames.length > 3}
                         <span class="badge badge-xs badge-soft">
-                          +{shop.games.length - 3}
+                          +{aggregatedGames.length - 3}
                         </span>
                       {/if}
                     </div>

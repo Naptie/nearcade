@@ -1,7 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistance, formatRegionLabel, parseRelativeTime, pageTitle } from '$lib/utils';
+  import {
+    formatDistance,
+    formatRegionLabel,
+    parseRelativeTime,
+    pageTitle,
+    getGameName
+  } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy, tick } from 'svelte';
   import type {
@@ -177,11 +183,6 @@
     return ranking.rankings.find((r) => r.radius === radius);
   };
 
-  const getGameName = (gameKey: string): string => {
-    const game = GAMES.find((g) => g.key === gameKey);
-    return game ? m[game.key]() : gameKey;
-  };
-
   const getSortLabel = (sortKey: string): string => {
     const criteria = SORT_CRITERIA.find((s) => s.key === sortKey);
     // @ts-expect-error custom index
@@ -204,12 +205,12 @@
           {#if data.stale}
             <div class="badge badge-warning badge-sm">
               <i class="fas fa-clock"></i>
-              {m.updated({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
+              {m.updated_at({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
             </div>
           {:else if data.cached}
             <div class="badge badge-success badge-sm">
               <i class="fas fa-check"></i>
-              {m.updated({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
+              {m.updated_at({ time: parseRelativeTime(data.cacheTime, getLocale()) })}
             </div>
           {/if}
         </div>

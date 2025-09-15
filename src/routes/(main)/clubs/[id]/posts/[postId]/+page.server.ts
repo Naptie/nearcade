@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import {
   type Club,
   type Post,
@@ -14,7 +14,7 @@ import { canWriteClubPosts, checkClubPermission, toPlainArray, toPlainObject } f
 export const load = (async ({ params, locals }) => {
   const { id: clubId, postId } = params;
 
-  const db = client.db();
+  const db = mongo.db();
   const clubsCollection = db.collection<Club>('clubs');
   const postsCollection = db.collection<Post>('posts');
   const commentsCollection = db.collection('comments');
@@ -48,10 +48,10 @@ export const load = (async ({ params, locals }) => {
     });
     userVote = vote ? vote.voteType : null;
 
-    const permissions = await checkClubPermission(session.user, club, client, true);
+    const permissions = await checkClubPermission(session.user, club, mongo, true);
     canEdit = permissions.canEdit;
     canManage = permissions.canEdit; // Only canEdit users can manage posts
-    canComment = await canWriteClubPosts(permissions, club, session.user, client);
+    canComment = await canWriteClubPosts(permissions, club, session.user, mongo);
     canJoin = club.acceptJoinRequests && permissions.canJoin > 0;
 
     if (permissions.role) {

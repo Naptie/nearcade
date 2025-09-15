@@ -10,10 +10,14 @@ import {
   type University,
   type UniversityMember,
   type ClubMember,
-  PostReadability
+  type Shop,
+  PostReadability,
+  type AttendanceRecord
 } from '$lib/types';
 import type { User } from '@auth/sveltekit';
 import { getDisplayName } from '.';
+import redis from '$lib/db/redis.server';
+import type { ShopSource } from '$lib/constants';
 
 /**
  * User Activity Server Module
@@ -490,6 +494,92 @@ export async function getUserActivities(
         clubName: entry.type === 'club' ? entry.club?.name : undefined
       });
     });
+  }
+  if (canViewAll || user.isFootprintPublic) {
+    // Fetch shop attendance activities
+    const shopAttendances = (await db
+      .collection<AttendanceRecord>('attendances')
+      .aggregate([
+        { $match: { userId: userId } },
+        {
+          $lookup: {
+            from: 'shops',
+            let: { shopSource: '$shop.source', shopId: '$shop.id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [{ $eq: ['$source', '$$shopSource'] }, { $eq: ['$id', '$$shopId'] }]
+                  }
+                }
+              }
+            ],
+            as: 'shop'
+          }
+        },
+        { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+        { $sort: { attendedAt: -1 } },
+        { $limit: limit }
+      ])
+      .toArray()) as (AttendanceRecord & { shop: Shop })[];
+
+    const getGameNames = (games: { gameId: number; name: string; version: string }[]) =>
+      games.map((game) => (game.version ? `${game.name} (${game.version})` : game.name)).join(', ');
+
+    shopAttendances.forEach((attendance) => {
+      // Get game names
+      const gameNames = getGameNames(attendance.games);
+      activities.push({
+        id: `shop-attendance-${attendance._id}`,
+        type: 'shop_attendance',
+        createdAt: attendance.attendedAt,
+        userId: attendance.userId,
+        shopId: attendance.shop.id,
+        shopName: attendance.shop.name,
+        shopSource: attendance.shop.source,
+        leaveAt: attendance.leftAt,
+        attendanceGames: gameNames
+      });
+    });
+
+    const attendancePattern = `nearcade:attend:*:${userId}:*`;
+    const keys = await redis.keys(attendancePattern);
+    if (keys.length > 0) {
+      const dataStr = await redis.get(keys[0]);
+      if (dataStr) {
+        const [source, id] = keys[0].split(':')[2].split('-');
+        const shop = await db
+          .collection<Shop>('shops')
+          .findOne({ source: source as ShopSource, id: parseInt(id) });
+        if (shop) {
+          const data = JSON.parse(dataStr);
+          const attendedAt = new Date(data.attendedAt);
+          const plannedLeaveAt = new Date(data.plannedLeaveAt);
+          const gameNames = getGameNames(
+            data.games.map((game: { id: number }) => {
+              const shopGame = shop.games.find((g) => g.gameId === game.id);
+              return {
+                gameId: game.id,
+                name: shopGame ? shopGame.name : 'Unknown Game',
+                version: shopGame ? shopGame.version : ''
+              };
+            })
+          );
+          activities.push({
+            id: `shop-attendance-${attendedAt.getTime()}`,
+            type: 'shop_attendance',
+            createdAt: attendedAt,
+            userId: userId,
+            shopId: shop.id,
+            shopName: shop.name,
+            shopSource: shop.source,
+            leaveAt: plannedLeaveAt,
+            attendanceGames: gameNames,
+            isLive: true
+          });
+        }
+      }
+    }
   }
 
   // Sort all activities by creation time (descending) and apply pagination

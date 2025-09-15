@@ -4,7 +4,7 @@ import type { JoinRequestWithUser } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 import { notify } from '$lib/notifications/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
 
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = PAGINATION.PAGE_SIZE;
@@ -204,7 +204,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Request ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
 
       // Get the join request
       const joinRequestsCollection = db.collection('join_requests');
@@ -226,11 +226,11 @@ export const actions: Actions = {
         const permissions = await checkUniversityPermission(
           session.user,
           joinRequest.targetId,
-          client
+          mongo
         );
         hasPermission = permissions.canManage;
       } else if (joinRequest.type === 'club') {
-        const permissions = await checkClubPermission(session.user, joinRequest.targetId, client);
+        const permissions = await checkClubPermission(session.user, joinRequest.targetId, mongo);
         hasPermission = permissions.canManage;
       }
 
@@ -351,7 +351,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Request ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
 
       // Get the join request
       const joinRequestsCollection = db.collection('join_requests');
@@ -373,11 +373,11 @@ export const actions: Actions = {
         const permissions = await checkUniversityPermission(
           session.user,
           joinRequest.targetId,
-          client
+          mongo
         );
         hasPermission = permissions.canManage;
       } else if (joinRequest.type === 'club') {
-        const permissions = await checkClubPermission(session.user, joinRequest.targetId, client);
+        const permissions = await checkClubPermission(session.user, joinRequest.targetId, mongo);
         hasPermission = permissions.canManage;
       }
 
@@ -454,7 +454,7 @@ export const actions: Actions = {
         return fail(400, { message: 'Request ID is required' });
       }
 
-      const db = client.db();
+      const db = mongo.db();
 
       // Get the join request
       const joinRequestsCollection = db.collection('join_requests');
@@ -472,11 +472,11 @@ export const actions: Actions = {
           const permissions = await checkUniversityPermission(
             session.user,
             joinRequest.targetId,
-            client
+            mongo
           );
           hasPermission = permissions.canManage;
         } else if (joinRequest.type === 'club') {
-          const permissions = await checkClubPermission(session.user, joinRequest.targetId, client);
+          const permissions = await checkClubPermission(session.user, joinRequest.targetId, mongo);
           hasPermission = permissions.canManage;
         }
 

@@ -52,7 +52,7 @@
     const newCount = visitCount + 1;
     visitCount = newCount;
     setStoredCount(newCount);
-    console.log(`Visit count incremented to ${newCount}`);
+    console.debug(`Visit count incremented to ${newCount}`);
 
     if (shouldShowModal(newCount)) {
       showDonationModal = true;

@@ -5,7 +5,7 @@ import { checkUniversityPermission } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import { logUniversityChanges } from '$lib/utils/changelog.server';
 import { resolve } from '$app/paths';
-import client from '$lib/db/index.server';
+import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
   }
 
   try {
-    const db = client.db();
+    const db = mongo.db();
     const universitiesCollection = db.collection('universities');
 
     // Try to find university by ID first, then by slug
@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     // Check permissions for the current user
-    const userPermissions = await checkUniversityPermission(user, university, client);
+    const userPermissions = await checkUniversityPermission(user, university, mongo);
 
     if (!userPermissions.canEdit) {
       error(403, 'Insufficient privileges');
@@ -84,7 +84,7 @@ export const actions: Actions = {
       const postWritability = parseInt(formData.get('postWritability') as string);
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user, id, client);
+      const permissions = await checkUniversityPermission(user, id, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: 'Insufficient privileges' });
       }
@@ -166,7 +166,7 @@ export const actions: Actions = {
         });
       }
 
-      const db = client.db();
+      const db = mongo.db();
       const universitiesCollection = db.collection('universities');
 
       // Get current university data for changelog comparison
@@ -219,7 +219,7 @@ export const actions: Actions = {
       }
 
       // Log changes to changelog
-      await logUniversityChanges(client, id, currentUniversity, updateData, {
+      await logUniversityChanges(mongo, id, currentUniversity, updateData, {
         id: user.id!,
         name: user.name,
         image: user.image

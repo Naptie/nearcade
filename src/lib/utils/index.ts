@@ -1,9 +1,11 @@
 import { m } from '$lib/paraglide/messages';
 import { Database } from '$lib/db/index.client';
+import { GAMES, ShopSource } from '$lib/constants';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
   type Game,
+  type Location,
   type TransportMethod,
   type TransportSearchResult,
   type CachedRouteData,
@@ -24,6 +26,8 @@ import rehypeParse from 'rehype-parse';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { unified } from 'unified';
+import tzlookup from '@photostructure/tz-lookup';
+import { getTimezoneOffset } from 'date-fns-tz';
 
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -83,19 +87,19 @@ export const generateValidUsername = async (
 
 export const calculateDistance = (
   lat1: number,
-  lon1: number,
+  lng1: number,
   lat2: number,
-  lon2: number
+  lng2: number
 ): number => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -136,9 +140,17 @@ export const parseRelativeTime = (date: Date, locale: string) => {
     style: 'long'
   }).format(0, 'second');
 };
-export const getGameMachineCount = (shops: Shop[], gameId: number): number => {
+
+export const getGameName = (identifier?: number | string): string | undefined => {
+  const game = GAMES.find((g) =>
+    typeof identifier === 'number' ? g.id === identifier : g.key === identifier
+  );
+  return game ? m[game.key]() : identifier?.toString();
+};
+
+export const getGameMachineCount = (shops: Shop[], titleId: number): number => {
   return shops.reduce((total, shop) => {
-    const game = shop.games?.find((g: Game) => g.id === gameId);
+    const game = shop.games?.find((g: Game) => g.titleId === titleId);
     return total + (game?.quantity || 0);
   }, 0);
 };
@@ -159,7 +171,7 @@ export const formatDistance = (distance: number, precision = 0): string => {
       });
 };
 
-export const formatTime = (seconds: number | null | undefined): string => {
+export const formatDuration = (seconds: number | null | undefined): string => {
   if (seconds === null || seconds === undefined) return m.unknown();
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
@@ -699,6 +711,14 @@ export const formatDateTime = (date?: Date | string | null): string => {
   return date.toLocaleString();
 };
 
+export const formatTime = (time?: string | Date): string => {
+  if (!time) return m.unknown();
+  return new Date(time).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 export const canWriteUnivPosts = (
   userPermissions: { role?: string; canEdit: boolean },
   university: University
@@ -852,4 +872,217 @@ export const sanitizeHTML = async (input: string) => {
   if (!input) return '';
   const sanitized = String(await processor.process(input));
   return sanitized.replace(/<br>(?:\r?\n)*<br>/g, '<br>');
+};
+
+export const formatHourLiteral = (hourNum: number) => {
+  const total = Number(hourNum % 24) || 0;
+  let hour = Math.floor(total);
+  let minutes = Math.round((total - hour) * 60);
+
+  if (minutes === 60) {
+    minutes = 0;
+    hour = (hour + 1) % 24;
+  }
+
+  const hh = String((hour + 24) % 24).padStart(2, '0');
+  const mm = String(minutes).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
+/**
+ * Formats a shop's general address array into a readable string
+ */
+export const formatShopAddress = (shop: Shop, detailed = false): string => {
+  const addressParts: string[] = [];
+
+  if (shop.address?.general || shop.generalAddress) {
+    const seen = new Set<string>();
+    for (const part of shop.address?.general || shop.generalAddress) {
+      if (!part) continue;
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      if (!seen.has(trimmed)) {
+        seen.add(trimmed);
+        addressParts.push(trimmed);
+      }
+    }
+  }
+
+  const reverse = shop.source === ShopSource.ZIV;
+
+  return addressParts.length > 0
+    ? (reverse
+        ? (detailed ? shop.address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
+        : addressParts.join(' · ') + (detailed ? '\n' + shop.address.detailed : '')
+      ).trim()
+    : '';
+};
+
+export const getShopSourceUrl = (shop: { id: number; source: ShopSource }): string =>
+  `${
+    shop.source === ShopSource.ZIV
+      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
+      : 'https://map.bemanicn.com/shop/'
+  }${shop.id}`;
+
+/**
+ * Determines timezone based on given coordinates
+ */
+export const getShopTimezone = (location: Location): string => {
+  const [longitude, latitude] = location.coordinates;
+
+  try {
+    const timezone = tzlookup(latitude, longitude);
+    if (timezone) return timezone;
+  } catch (error) {
+    console.error('Failed to lookup timezone:', error);
+  }
+
+  return 'Asia/Shanghai';
+};
+
+export const getCurrentTimeByLocation = (location: Location) => {
+  const timezone = getShopTimezone(location);
+  const offsetMs = getTimezoneOffset(timezone);
+  const offsetHours = offsetMs / (1000 * 60 * 60);
+
+  const now = new Date();
+  const nowMs = now.getTime();
+
+  // Determine the local date components by shifting now by the offset
+  const nowShifted = new Date(nowMs + offsetMs);
+  return { nowShifted, offsetHours };
+};
+
+/**
+ * Calculate the next occurrence of the specified hour in the location's local time.
+ * If that hour today has already passed, returns tomorrow at that hour.
+ */
+export const getNextTimeAtHour = (location: Location, hours: number[], basisHour: number) => {
+  [basisHour, ...hours] = [basisHour, ...hours].map((hour) => Number(hour) || 0);
+  const { nowShifted, offsetHours } = getCurrentTimeByLocation(location);
+
+  const year = nowShifted.getUTCFullYear();
+  const month = nowShifted.getUTCMonth();
+  const date = nowShifted.getUTCDate();
+  const minutes = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
+
+  let targetUtcMs = Date.UTC(year, month, date, basisHour - offsetHours, minutes, 0, 0);
+  console.log(basisHour, offsetHours, minutes, new Date(targetUtcMs));
+
+  // If that target time is not in the future (i.e. already passed or equal to now), move to next day
+  if (targetUtcMs <= new Date().getTime()) {
+    targetUtcMs = Date.UTC(year, month, date + 1, basisHour - offsetHours, minutes, 0, 0);
+  }
+
+  return {
+    hours: hours.map((hour) => new Date(targetUtcMs + (hour - basisHour) * 3600 * 1000)),
+    hour: new Date(targetUtcMs)
+  };
+};
+
+/**
+ * Get the opening hours for a shop
+ * @param shop The shop to get opening hours for
+ * @returns An object containing the opening and closing times
+ */
+export const getShopOpeningHours = (shop: Shop) => {
+  const { nowShifted, offsetHours } = getCurrentTimeByLocation(shop.location);
+  const openingHours =
+    shop.openingHours.length === 1
+      ? shop.openingHours[0]
+      : (shop.openingHours[nowShifted.getDay()] ?? shop.openingHours[0]);
+  const {
+    hours: [open, close]
+  } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
+
+  return {
+    open,
+    close,
+    offsetHours: offsetHours,
+    openLocal: formatHourLiteral(openingHours[0] ?? 0),
+    closeLocal: formatHourLiteral(openingHours[1] ?? 0)
+  };
+};
+
+export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> =>
+  new Promise((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      reject(m.location_not_supported());
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+      },
+      (error) => {
+        let msg = m.location_unknown_error();
+        switch (error?.code) {
+          case 1: // PERMISSION_DENIED
+            msg = m.location_permission_denied();
+            break;
+          case 2: // POSITION_UNAVAILABLE
+            msg = m.location_unavailable();
+            break;
+          case 3: // TIMEOUT
+            msg = m.location_timeout();
+            break;
+        }
+        console.error('Geolocation error:', error);
+        reject(msg);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      }
+    );
+  });
+
+/**
+ * Convert GPS coordinates to AMap coordinates when AMap is available
+ */
+export const convertCoordinates = (
+  location: { latitude: number; longitude: number },
+  amap?: typeof AMap
+) => {
+  if (amap && location.latitude !== undefined && location.longitude !== undefined) {
+    return new Promise<typeof location>((resolve, reject) => {
+      amap.convertFrom(
+        [location.longitude, location.latitude],
+        'gps',
+        (status: string, response: { info: string; locations: { lat: number; lng: number }[] }) => {
+          if (status === 'complete' && response.info === 'ok') {
+            const result = response.locations[0];
+            location.latitude = result.lat;
+            location.longitude = result.lng;
+            resolve(location);
+          } else {
+            console.error('AMap conversion failed:', status, response);
+            reject(new Error('AMap conversion failed'));
+          }
+        }
+      );
+    });
+  } else {
+    console.warn('AMap not available or location not set, skipping conversion');
+    return Promise.resolve(location);
+  }
+};
+
+export const aggregateGames = (shop: Pick<Shop, 'games'>) => {
+  const gameMap: Record<number, (typeof shop.games)[0]> = {};
+  for (const g of shop.games) {
+    const existing = gameMap[g.titleId];
+    if (existing) {
+      existing.quantity += g.quantity;
+    } else {
+      gameMap[g.titleId] = { ...g };
+    }
+  }
+  return Object.values(gameMap);
 };
