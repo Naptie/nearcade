@@ -968,7 +968,6 @@ export const getNextTimeAtHour = (location: Location, hours: number[], basisHour
   const minutes = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
 
   let targetUtcMs = Date.UTC(year, month, date, basisHour - offsetHours, minutes, 0, 0);
-  console.log(basisHour, offsetHours, minutes, new Date(targetUtcMs));
 
   // If that target time is not in the future (i.e. already passed or equal to now), move to next day
   if (targetUtcMs <= new Date().getTime()) {
