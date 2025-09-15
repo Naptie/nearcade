@@ -556,7 +556,7 @@ export interface ShopWithAttendance extends Shop {
     reportedAt: string;
     reportedBy: User;
   } | null;
-  isCurrentlyAttending?: boolean;
+  isInAttendance?: boolean;
 }
 
 export * from './amap';

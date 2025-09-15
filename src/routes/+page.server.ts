@@ -209,9 +209,9 @@ export const load: PageServerLoad = async ({ parent }) => {
               });
 
               if (shopData) {
-                currentlyAttendingShop = { 
-                  ...shopData, 
-                  isCurrentlyAttending: true 
+                currentlyAttendingShop = {
+                  ...shopData,
+                  isInAttendance: true
                 } as ShopWithAttendance;
               }
             }

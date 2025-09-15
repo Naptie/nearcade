@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { resolve, base } from '$app/paths';
   import { PUBLIC_TENCENT_MAPS_KEY } from '$env/static/public';
   import { GITHUB_LINK } from '$lib';
@@ -252,8 +252,7 @@
         throw new Error('Failed to leave');
       }
 
-      // Refresh the page to update the attendance data
-      location.reload();
+      await invalidateAll();
     } catch (error) {
       console.error('Error leaving:', error);
       // TODO: Show error toast
@@ -671,34 +670,33 @@
             {#each data.starredShops as shop (shop._id)}
               {@const currentAttendance = shop.currentAttendance || 0}
               {@const reportedAttendance = shop.currentReportedAttendance}
-              {@const isCurrentlyAttending = (shop as { isCurrentlyAttending?: boolean }).isCurrentlyAttending}
+              {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
               <div
-                class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition-all hover:shadow-md"
+                class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
+                  ? 'border-warning hover:border-warning/50 bg-gradient-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+                  : ''}"
               >
-                {#if isCurrentlyAttending}
-                  <!-- Currently attending shop with Leave button -->
-                  <div class="flex items-center justify-between gap-2">
-                    <a
-                      href={resolve('/(main)/shops/[source]/[id]', {
-                        source: shop.source,
-                        id: shop.id.toString()
-                      })}
-                      class="min-w-0 flex-1"
+                <a
+                  href={resolve('/(main)/shops/[source]/[id]', {
+                    source: shop.source,
+                    id: shop.id.toString()
+                  })}
+                  class="flex items-center justify-between gap-2"
+                >
+                  <div class="min-w-0 flex-1">
+                    <h3
+                      class="truncate text-base font-semibold"
+                      class:text-warning={isInAttendance}
                     >
-                      <div class="flex items-center gap-2">
-                        <div class="badge badge-success badge-sm">
-                          <i class="fa-solid fa-user-check fa-xs"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          <h3 class="truncate text-base font-semibold">{shop.name}</h3>
-                          <p class="text-base-content/70 truncate text-xs">
-                            {formatShopAddress(shop)}
-                          </p>
-                        </div>
-                      </div>
-                    </a>
+                      {shop.name}
+                    </h3>
+                    <p class="text-base-content/70 truncate text-xs">
+                      {formatShopAddress(shop)}
+                    </p>
+                  </div>
+                  {#if isInAttendance}
                     <button
-                      class="btn btn-error btn-sm"
+                      class="btn btn-error btn-soft btn-sm"
                       disabled={isLeavingShop}
                       onclick={(e) => {
                         e.preventDefault();
@@ -708,27 +706,12 @@
                       {#if isLeavingShop}
                         <span class="loading loading-spinner loading-xs"></span>
                       {:else}
-                        <i class="fa-solid fa-sign-out-alt fa-xs"></i>
+                        <i class="fa-solid fa-stop"></i>
                       {/if}
                       {m.leave()}
                     </button>
-                  </div>
-                {:else}
-                  <!-- Regular starred shop with attendance display -->
-                  <a
-                    href={resolve('/(main)/shops/[source]/[id]', {
-                      source: shop.source,
-                      id: shop.id.toString()
-                    })}
-                    class="flex items-center justify-between gap-2"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <h3 class="truncate text-base font-semibold">{shop.name}</h3>
-                      <p class="text-base-content/70 truncate text-xs">
-                        {formatShopAddress(shop)}
-                      </p>
-                    </div>
-                    <div class="shrink-0 text-right">
+                  {:else}
+                    <div class="text-right">
                       {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
                         <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
                           <div class="text-accent text-sm">
@@ -751,8 +734,8 @@
                         </div>
                       {/if}
                     </div>
-                  </a>
-                {/if}
+                  {/if}
+                </a>
               </div>
             {/each}
           </div>
