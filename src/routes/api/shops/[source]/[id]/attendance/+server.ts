@@ -87,19 +87,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       return error(500, 'Redis not available');
     }
 
-    if (await getCurrentAttendance(user.id!)) {
-      return error(409, 'User already has an active attendance');
-    }
-
     const now = Date.now();
     const { open, close } = getShopOpeningHours(shop);
+    if (now < open.getTime() || now > close.getTime()) {
+      return error(400, 'Shop is currently closed');
+    }
 
     if (!isOpenApiAccess && plannedLeaveAt) {
       // Check for existing attendance
-      const pattern = `nearcade:attend:${source}-${id}:${user.id}:*`;
-      const keys = await redis.keys(pattern);
-      if (keys.length > 0) {
-        return error(409, 'Attendance already exists');
+      if (await getCurrentAttendance(user.id!)) {
+        return error(409, 'User already has an active attendance');
       }
 
       const plannedLeaveTime = new Date(plannedLeaveAt);
