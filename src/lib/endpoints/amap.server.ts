@@ -2,7 +2,7 @@ import { base } from '$app/paths';
 import { AMAP_SECRET } from '$env/static/private';
 import { error, type RequestEvent } from '@sveltejs/kit';
 
-export const handleAmapRequest = async ({ url, fetch }: RequestEvent) => {
+export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
   try {
     // Check if the secret is configured
     if (!AMAP_SECRET) {

@@ -5,7 +5,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 import { handle as handleAuth } from '$lib/auth/index.server';
 import { env } from '$env/dynamic/public';
 import redis from '$lib/db/redis.server';
-import { handleAmapRequest } from '$lib/endpoints/amap.server';
+import { handleAMapRequest } from '$lib/endpoints/amap.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -54,12 +54,12 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
   return response;
 };
 
-const handleAmap: Handle = async ({ event, resolve }) => {
+const handleAMap: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
 
   // Check if this is an AMap service request
   if (pathname.includes('/_AMapService/')) {
-    return await handleAmapRequest(event);
+    return await handleAMapRequest(event);
   }
 
   // Otherwise, proceed with normal request handling
@@ -69,7 +69,7 @@ const handleAmap: Handle = async ({ event, resolve }) => {
 export const handle: Handle = sequence(
   ...(sentryHandle ? [sentryHandle] : []),
   handleParaglide,
-  handleAmap,
+  handleAMap,
   handleHeaders,
   handleAuth
 );
