@@ -23,7 +23,8 @@
     pageTitle,
     sanitizeHTML,
     formatShopAddress,
-    getGameName
+    getGameName,
+    adaptiveNewTab
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -1234,7 +1235,7 @@
                       source: shop.source,
                       id: shop.id.toString()
                     })}
-                    target="_blank"
+                    target={adaptiveNewTab()}
                     onclick={() => handleShopClick(shop)}
                   >
                     <i class="fas fa-info-circle"></i>

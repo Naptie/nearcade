@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
-  import { formatDate, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, formatDate, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -88,7 +88,7 @@
                 <td class="max-w-[20vw]">
                   <a
                     href={resolve('/(main)/clubs/[id]', { id: club.id })}
-                    target="_blank"
+                    target={adaptiveNewTab()}
                     class="group flex items-center gap-3"
                   >
                     {#if club.avatarUrl}
@@ -151,7 +151,7 @@
                   <div class="flex justify-end gap-2">
                     <a
                       href={resolve('/(main)/clubs/[id]/edit', { id: club.id })}
-                      target="_blank"
+                      target={adaptiveNewTab()}
                       class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
                       <i class="fa-solid fa-edit"></i>

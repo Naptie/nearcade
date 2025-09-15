@@ -12,6 +12,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
   import {
+    adaptiveNewTab,
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
@@ -515,7 +516,7 @@
                                 href={resolve('/(main)/universities/[id]', {
                                   id: university.slug || university.id
                                 })}
-                                target="_blank"
+                                target={adaptiveNewTab()}
                                 class="hover:text-accent text-base font-medium transition-colors"
                               >
                                 {university.name}
@@ -539,7 +540,7 @@
                                 href={resolve('/(main)/universities/[id]', {
                                   id: university.slug || university.id
                                 })}
-                                target="_blank"
+                                target={adaptiveNewTab()}
                                 class="hover:text-accent text-base font-medium transition-colors"
                                 >{university.name}</a
                               >

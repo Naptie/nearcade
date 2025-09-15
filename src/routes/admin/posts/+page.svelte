@@ -6,7 +6,7 @@
   import type { PageData } from './$types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { page } from '$app/state';
-  import { pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -156,7 +156,7 @@
                 </td>
 
                 <td class="not-xs:hidden max-w-[25vw] sm:max-w-[15vw]">
-                  <UserAvatar user={post.author} size="sm" showName target="_blank" />
+                  <UserAvatar user={post.author} size="sm" showName target={adaptiveNewTab()} />
                 </td>
 
                 <td class="not-md:hidden">

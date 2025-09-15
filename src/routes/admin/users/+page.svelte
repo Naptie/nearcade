@@ -6,6 +6,7 @@
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import {
+    adaptiveNewTab,
     formatDate,
     formatDateTime,
     getDisplayName,
@@ -219,10 +220,10 @@
               <tr class="hover">
                 <td class="max-w-[15vw]">
                   <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
-                    <UserAvatar {user} size="md" target="_blank" />
+                    <UserAvatar {user} size="md" target={adaptiveNewTab()} />
                     <a
                       href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
-                      target="_blank"
+                      target={adaptiveNewTab()}
                       class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors"
                     >
                       <div class="truncate font-medium">

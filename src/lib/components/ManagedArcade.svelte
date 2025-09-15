@@ -5,7 +5,7 @@
   import type { ShopSource } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
-  import { aggregateGames } from '$lib/utils';
+  import { adaptiveNewTab, aggregateGames } from '$lib/utils';
   import ConfirmationModal from './ConfirmationModal.svelte';
 
   interface Shop {
@@ -44,7 +44,7 @@
       source: shop.source,
       id: shop.id.toString()
     })}
-    target="_blank"
+    target={adaptiveNewTab()}
     class="flex-1"
   >
     <h3 class="group-hover:text-accent font-medium transition-colors">{shop.name}</h3>
@@ -87,7 +87,7 @@
       <a
         href="{resolve('/(main)/discover')}?longitude={shop.location?.coordinates[0]}&latitude={shop
           .location?.coordinates[1]}&name={shop.name}&radius={radius}"
-        target="_blank"
+        target={adaptiveNewTab()}
         class="btn btn-soft btn-circle btn-sm"
         title={m.explore_nearby()}
         aria-label={m.explore_nearby()}

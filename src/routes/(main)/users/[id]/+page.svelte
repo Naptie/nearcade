@@ -2,7 +2,13 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { getDisplayName, getUserTypeBadgeClass, getUserTypeLabel, pageTitle } from '$lib/utils';
+  import {
+    adaptiveNewTab,
+    getDisplayName,
+    getUserTypeBadgeClass,
+    getUserTypeLabel,
+    pageTitle
+  } from '$lib/utils';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
@@ -347,7 +353,7 @@
                 source: shop.source,
                 id: shop.id.toString()
               })}
-              target="_blank"
+              target={adaptiveNewTab()}
               class="hover:text-accent transition-colors"
             >
               {shop.name}
@@ -356,7 +362,7 @@
               href="{resolve('/(main)/discover')}?longitude={shop.location
                 ?.coordinates[0]}&latitude={shop.location
                 ?.coordinates[1]}&name={shop.name}&radius={radius}"
-              target="_blank"
+              target={adaptiveNewTab()}
               class="btn btn-ghost btn-circle btn-xs"
               title={m.explore_nearby()}
               aria-label={m.explore_nearby()}

@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
-  import { pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -87,7 +87,7 @@
                     href={resolve('/(main)/universities/[id]', {
                       id: university.slug || university.id
                     })}
-                    target="_blank"
+                    target={adaptiveNewTab()}
                     class="group flex items-center gap-3"
                   >
                     {#if university.avatarUrl}
@@ -136,7 +136,7 @@
                       href={resolve('/(main)/universities/[id]/edit', {
                         id: university.slug || university.id
                       })}
-                      target="_blank"
+                      target={adaptiveNewTab()}
                       class="btn btn-primary btn-soft btn-sm text-nowrap"
                     >
                       <i class="fa-solid fa-edit"></i>
