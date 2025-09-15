@@ -112,28 +112,27 @@
             href={getShopLink(shop)}
             class="card bg-base-200 border-primary/0 hover:border-primary min-w-0 border-2 shadow-sm transition hover:shadow-md"
           >
-            <div class="card-body">
+            <div class="card-body p-5">
               <!-- Shop Header -->
-              <div class="flex items-center justify-between gap-2">
-                <div class="min-w-0 flex-1">
-                  <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                    {shop.name}
-                  </h3>
+              <div class="mb-2 flex flex-col">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="min-w-0 flex-1">
+                    <h3 class="truncate text-lg font-semibold" title={shop.name}>
+                      {shop.name}
+                    </h3>
+                  </div>
+                  <button
+                    class="btn btn-soft btn-sm btn-circle"
+                    onclick={(e) => {
+                      e.preventDefault();
+                      window.open(getShopSourceUrl(shop), '_blank');
+                    }}
+                    aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
+                  >
+                    <i class="fa-solid fa-external-link-alt"></i>
+                  </button>
                 </div>
-                <button
-                  class="btn btn-soft btn-sm btn-circle"
-                  onclick={(e) => {
-                    e.preventDefault();
-                    window.open(getShopSourceUrl(shop), '_blank');
-                  }}
-                  aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
-                >
-                  <i class="fa-solid fa-external-link-alt"></i>
-                </button>
-              </div>
 
-              <!-- Address -->
-              <div class="mb-4">
                 <div class="text-base-content/80 flex items-start gap-2 text-sm">
                   <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
                   <span class="line-clamp-2">
@@ -143,7 +142,7 @@
               </div>
 
               <!-- Games Info -->
-              <div class="mb-4">
+              <div class="mb-1">
                 <div class="flex flex-wrap gap-2">
                   {#each aggregatedGames.slice(0, 6) as game (game.titleId)}
                     {@const gameInfo = getGameInfo(game.titleId)}
