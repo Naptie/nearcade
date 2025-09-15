@@ -23,14 +23,14 @@ const getSubscriberClient = async () => {
 };
 
 // Start Redis keyspace notifications subscriber for attendance key expirations
-const startAttendanceExpirationSubscriber = async () => {
+const startSubscriber = async () => {
   if (isSubscriberStarted) {
     return;
   }
 
   const subscriber = await getSubscriberClient();
   if (!subscriber) {
-    console.warn('Redis not available, attendance expiration subscriber not started');
+    console.warn('[Attendance] Redis not available, subscriber not started');
     return;
   }
 
@@ -47,21 +47,21 @@ const startAttendanceExpirationSubscriber = async () => {
     });
 
     isSubscriberStarted = true;
-    console.log('Redis attendance expiration subscriber started');
+    console.log('[Attendance] Redis subscriber started');
   } catch (error) {
-    console.error('Failed to start attendance expiration subscriber:', error);
+    console.error('[Attendance] Failed to start subscriber:', error);
   }
 };
 
 const handleAttendanceExpiration = async (expiredKey: string) => {
   try {
-    console.log('Processing expired attendance key:', expiredKey);
+    console.log('[Attendance] Processing key:', expiredKey);
 
     // Parse the key to extract shop and user information
     // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
     const keyParts = expiredKey.split(':');
     if (keyParts.length !== 6) {
-      console.error('Invalid attendance key format:', expiredKey);
+      console.error('[Attendance] Invalid key format:', expiredKey);
       return;
     }
 
@@ -72,7 +72,7 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
 
     const shopInfo = shopPart.split('-');
     if (shopInfo.length < 2) {
-      console.error('Invalid shop info in key:', expiredKey);
+      console.error('[Attendance] Invalid shop info in key:', expiredKey);
       return;
     }
 
@@ -80,7 +80,7 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
     const id = parseInt(shopInfo.slice(1).join('-')); // Handle sources with dashes
 
     if (isNaN(id)) {
-      console.error('Invalid shop ID in key:', expiredKey);
+      console.error('[Attendance] Invalid shop ID in key:', expiredKey);
       return;
     }
 
@@ -115,27 +115,27 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
       leftAt: new Date(attendanceData.plannedLeaveAt)
     });
 
-    console.log(`Attendance record created for expired key: ${expiredKey}`);
+    console.log(`[Attendance] Record created for key: ${expiredKey}`);
   } catch (error) {
-    console.error('Error handling attendance expiration:', error);
+    console.error('[Attendance] Error:', error);
   }
 };
 
 // Gracefully shutdown the subscriber
-const stopAttendanceExpirationSubscriber = async () => {
+const stopSubscriber = async () => {
   if (subscriberClient) {
     await subscriberClient.unsubscribe();
     await subscriberClient.quit();
     subscriberClient = null;
     isSubscriberStarted = false;
-    console.log('Redis attendance expiration subscriber stopped');
+    console.log('[Attendance] Redis subscriber stopped');
   }
 };
 
 try {
-  await startAttendanceExpirationSubscriber();
+  await startSubscriber();
 } catch (err) {
-  console.error('Fatal error:', err);
-  await stopAttendanceExpirationSubscriber();
+  console.error('[Attendance] Fatal error:', err);
+  await stopSubscriber();
   process.exit(1);
 }

@@ -34,7 +34,7 @@ const getVerifiedSenderInfo = (
 
   if (!authResults || !authResults.includes('dmarc=pass')) {
     // If DMARC did not pass, we cannot trust the sender's `From` address. Reject the email.
-    console.log('[Security] DMARC check failed or header not found.');
+    console.log('[SSV Security] DMARC check failed or header not found.');
     return null;
   }
 
@@ -43,7 +43,7 @@ const getVerifiedSenderInfo = (
   const verifiedDomain = domainMatch?.[1];
 
   if (!verifiedDomain) {
-    console.log('[Security] Could not extract verified domain from DMARC pass.');
+    console.log('[SSV Security] Could not extract verified domain from DMARC pass.');
     return null;
   }
 
@@ -55,11 +55,11 @@ const getVerifiedSenderInfo = (
   const senderAddress = senderMatch?.[1];
 
   if (!senderAddress) {
-    console.log('[Security] Could not extract envelope-from address.');
+    console.log('[SSV Security] Could not extract envelope-from address.');
     return null;
   }
 
-  console.log(`[Security] Verified domain: ${verifiedDomain}, sender: ${senderAddress}`);
+  console.log(`[SSV Security] Verified domain: ${verifiedDomain}, sender: ${senderAddress}`);
   return { verifiedDomain, senderAddress };
 };
 
@@ -115,7 +115,7 @@ const ensureRedisConnected = async () => {
 };
 
 const report = async (key: string, value: string, expire: number = 60 * 60 * 24) => {
-  console.log(`[Report] ${key} - ${value}`);
+  console.log(`[SSV Report] ${key} - ${value}`);
   await redis.set(key, value, { EX: expire });
 };
 
@@ -194,12 +194,12 @@ const startPolling = () => {
   });
 
   imap.once('error', (err) => {
-    console.error('IMAP error:', err);
+    console.error('[SSV] IMAP error:', err);
     setTimeout(() => startPolling(), 10_000);
   });
 
   imap.once('end', () => {
-    console.log('IMAP connection ended');
+    console.log('[SSV] IMAP connection ended');
     setTimeout(() => startPolling(), 10_000);
   });
 
@@ -229,11 +229,11 @@ const startPolling = () => {
             const parsed = await parseEmail(mailBuffer);
             await processEmail(parsed);
           } catch (err) {
-            console.error('Processing error:', err);
+            console.error('[SSV] Processing error:', err);
           } finally {
             imap.addFlags(seqno, '\\Seen', (err) => {
               if (err) {
-                console.error(`Failed to mark message ${seqno} as read:`, err);
+                console.error(`[SSV] Failed to mark message ${seqno} as read:`, err);
               }
             });
           }
@@ -244,7 +244,7 @@ const startPolling = () => {
         setTimeout(poll, 2000);
       });
     } catch (err) {
-      console.error('Polling error:', err);
+      console.error('[SSV] Polling error:', err);
       setTimeout(poll, 10000);
     }
   };
@@ -258,7 +258,7 @@ const startPolling = () => {
 const processEmail = async (parsed: ParsedMail) => {
   const subject: string = parsed.subject || '';
   if (!subject.startsWith('[nearcade] SSV ')) {
-    console.log('[Parser] Ignoring email with subject:', subject);
+    console.log('[SSV Parser] Ignoring email with subject:', subject);
     return;
   }
 
@@ -269,7 +269,7 @@ const processEmail = async (parsed: ParsedMail) => {
   const hmacMatch = body.match(/HMAC:\s*(\w{64})/);
 
   if (!univMatch || !userMatch) {
-    console.log('[Parser] Ignoring email with body:', body);
+    console.log('[SSV Parser] Ignoring email with body:', body);
     return;
   }
 
@@ -361,6 +361,6 @@ const processEmail = async (parsed: ParsedMail) => {
 try {
   startPolling();
 } catch (err) {
-  console.error('Fatal error:', err);
+  console.error('[SSV] Fatal error:', err);
   process.exit(1);
 }
