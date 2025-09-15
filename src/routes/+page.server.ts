@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { Shop } from '$lib/types';
+import type { ClubMember, Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
@@ -167,31 +167,29 @@ const getShopAttendanceData = async (shops: Shop[]) => {
   }
 };
 
-export const load: PageServerLoad = async ({ locals }) => {
-  const user = locals.user;
+export const load: PageServerLoad = async ({ parent }) => {
+  const { session } = await parent();
 
-  if (!user) {
+  if (!session || !session.user) {
     return {
       starredShops: [],
       joinedClubsStarredShops: []
     };
   }
 
+  const user = session.user;
+
   try {
     const db = mongo.db();
 
     // Get user's starred shops
-    const starredShopsQuery = db.collection('starred_arcades').find({ userId: user.id });
-    const starredArcadeIds = (await starredShopsQuery.toArray()).map((s) => s.arcadeId);
-
     let starredShops: Shop[] = [];
-    if (starredArcadeIds.length > 0) {
+    if (user.starredArcades && user.starredArcades.length > 0) {
       const starredShopsQuery = db
         .collection<Shop>('shops')
         .find({
-          $or: starredArcadeIds.map((id) => ({
-            id: Number(id.split('-')[1]),
-            source: id.split('-')[0]
+          $or: user.starredArcades.map((shop) => ({
+            $and: [{ source: shop.source }, { id: shop.id }]
           }))
         })
         .limit(20);
@@ -200,30 +198,44 @@ export const load: PageServerLoad = async ({ locals }) => {
     }
 
     // Get user's joined clubs
-    const joinedClubsQuery = db
-      .collection('club_members')
-      .find({ userId: user.id })
-      .project({ clubId: 1 });
-
-    const joinedClubIds = (await joinedClubsQuery.toArray()).map((m) => m.clubId);
+    const joinedClubs = await db
+      .collection<ClubMember>('club_members')
+      .aggregate([
+        { $match: { userId: user.id } },
+        {
+          $lookup: {
+            from: 'clubs',
+            localField: 'clubId',
+            foreignField: 'id',
+            as: 'club'
+          }
+        },
+        { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 0,
+            clubId: 1,
+            starredArcades: '$club.starredArcades'
+          }
+        }
+      ])
+      .toArray();
 
     let joinedClubsStarredShops: Shop[] = [];
-    if (joinedClubIds.length > 0) {
-      // Get starred shops of joined clubs
-      const clubStarredQuery = db.collection('starred_arcades').find({
-        clubId: { $in: joinedClubIds }
-      });
+    if (joinedClubs.length > 0) {
+      const arcadesLists = joinedClubs
+        .map((club) => club.starredArcades)
+        .filter((arcades) => arcades && arcades.length > 0);
 
-      const clubStarredArcadeIds = (await clubStarredQuery.toArray()).map((s) => s.arcadeId);
-
-      if (clubStarredArcadeIds.length > 0) {
+      if (arcadesLists.length > 0) {
         const clubStarredShopsQuery = db
           .collection<Shop>('shops')
           .find({
-            $or: clubStarredArcadeIds.map((id) => ({
-              id: Number(id.split('-')[1]),
-              source: id.split('-')[0]
-            }))
+            $or: arcadesLists.flatMap((arcades) =>
+              arcades.map((shop: { source: string; id: number }) => ({
+                $and: [{ source: shop.source }, { id: shop.id }]
+              }))
+            )
           })
           .limit(20);
 
@@ -232,16 +244,20 @@ export const load: PageServerLoad = async ({ locals }) => {
     }
 
     // Get attendance data for all shops
-    const allShops = [...starredShops, ...joinedClubsStarredShops];
+    // Merge and deduplicate shops by "source-id" while preserving order
+    const seen = new Set<string>();
+    const allShops: Shop[] = [];
+    for (const shop of [...starredShops, ...joinedClubsStarredShops]) {
+      const key = `${shop.source}-${shop.id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        allShops.push(shop);
+      }
+    }
     const shopsWithAttendance = await getShopAttendanceData(allShops);
 
-    // Split back into starred and club starred shops
-    const starredShopsWithAttendance = shopsWithAttendance.slice(0, starredShops.length);
-    const joinedClubsStarredShopsWithAttendance = shopsWithAttendance.slice(starredShops.length);
-
     return {
-      starredShops: toPlainArray(starredShopsWithAttendance),
-      joinedClubsStarredShops: toPlainArray(joinedClubsStarredShopsWithAttendance)
+      starredShops: toPlainArray(shopsWithAttendance)
     };
   } catch (error) {
     console.error('Failed to load starred shops:', error);

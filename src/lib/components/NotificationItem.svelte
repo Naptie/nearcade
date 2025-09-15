@@ -149,7 +149,7 @@
       <i class="{icon} text-base-content/60"></i>
     </div>
     <span class="text-base-content/50 text-xs">
-      {formatDistanceToNow(new Date(notification.createdAt), {
+      {formatDistanceToNow(notification.createdAt, {
         addSuffix: true,
         locale: getLocale() === 'en' ? enUS : zhCN
       })}

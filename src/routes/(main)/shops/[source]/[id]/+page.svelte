@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
   import {
+    aggregateGames,
     calculateDistance,
     convertCoordinates,
     formatHourLiteral,
@@ -72,7 +73,6 @@
   let otherShop = $derived.by(() => {
     if (!data.currentAttendance) return false;
     const attendance = data.currentAttendance;
-    console.log(attendance);
     return attendance.shop.source !== shop.source || attendance.shop.id !== shop.id
       ? attendance
       : false;
@@ -95,6 +95,8 @@
   // Location checking for attendance
   let amap: typeof AMap | undefined = $state(getContext<AMapContext>('amap')?.amap);
   let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
+  let locationError = $state<string | null>(null);
+  let shopComment = $state({ sanitized: false, content: data.shop.comment });
 
   const getAttendanceData = async (fetchReported = false) => {
     try {
@@ -133,6 +135,9 @@
   onMount(() => {
     getAttendanceData(false);
     getAttendanceData(true);
+    sanitizeHTML(shop.comment).then((content) => {
+      shopComment = { sanitized: true, content };
+    });
 
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
@@ -178,7 +183,7 @@
       isUserNearShop = distance <= ATTENDANCE_RADIUS_KM;
     } catch (error) {
       console.warn('Failed to get user location:', error);
-      // Default to false if location check fails
+      locationError = typeof error === 'string' ? error : m.location_unknown_error();
       isUserNearShop = false;
     }
   };
@@ -324,14 +329,56 @@
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
-  <div class="md:grid md:grid-cols-3 md:gap-8">
+  <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
+    {#snippet attend(klass = 'w-full')}
+      {#if userAttendance}
+        <button
+          class="btn btn-error btn-soft {klass}"
+          onclick={() => handleLeave()}
+          disabled={isLoading}
+        >
+          {#if isLoading}
+            <span class="loading loading-spinner loading-xs"></span>
+          {:else}
+            <i class="fa-solid fa-stop"></i>
+          {/if}
+          {m.leave()}
+        </button>
+      {:else}
+        <div
+          class="tooltip-error {klass}"
+          class:tooltip={!isShopOpen || !!otherShop || isUserNearShop === false}
+          data-tip={isShopOpen
+            ? otherShop
+              ? m.attending_other_shop({
+                  shopName: otherShop.shop.name,
+                  attendedAt: formatTime(otherShop.attendedAt)
+                })
+              : isUserNearShop === false
+                ? locationError || m.not_near_shop()
+                : ''
+            : m.shop_closed()}
+        >
+          <button
+            class="btn btn-primary w-full"
+            onclick={() => (showAttendanceModal = true)}
+            disabled={!isShopOpen || !!otherShop || isLoading || !isUserNearShop}
+          >
+            <i class="fa-solid fa-play"></i>
+            {m.attend()}
+          </button>
+        </div>
+      {/if}
+    {/snippet}
     {#snippet header(isMain = true)}
       <!-- Shop Header -->
       <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
         <div class="mb-4 flex items-center justify-between gap-2">
           <h1 class="text-3xl font-bold">{shop.name}</h1>
-          <span class="text-base-content/60 text-right">{shop.source.toUpperCase()} #{shop.id}</span
-          >
+          <span class="text-base-content/60 text-right not-md:hidden">
+            {shop.source.toUpperCase()} #{shop.id}
+          </span>
+          {@render attend('max-w-[40vw] min-w-24 tooltip-left md:hidden')}
         </div>
 
         <div
@@ -345,9 +392,15 @@
           </div>
         </div>
 
-        {#if shop.comment}
+        {#if shopComment.content}
           <div class="text-base-content/80 mt-4">
-            <p class="whitespace-pre-line">{shop.comment}</p>
+            <p class="whitespace-pre-line" class:prose={shopComment.sanitized}>
+              {#if shopComment.sanitized}
+                {@html shopComment.content}
+              {:else}
+                {shopComment.content}
+              {/if}
+            </p>
           </div>
         {/if}
 
@@ -378,7 +431,7 @@
     {@render header(false)}
 
     <!-- Sidebar -->
-    <div class="order-1 not-md:mb-6 md:col-span-1">
+    <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
       <div class="sticky top-20 space-y-6">
         <!-- Shop Information -->
         <div class="card bg-base-200">
@@ -491,76 +544,36 @@
             </div>
 
             {#if shop.games.length > 0}
-              {@const showReported =
-                reportedAttendances.length > 0 && totalReportedAttendance >= totalAttendance}
-              {@const aggregatedGames = (() => {
-                // Using record instead of Map to avoid eslint warnings
-                const gameMap: Record<number, typeof shop.games[0]> = {};
-                for (const g of shop.games) {
-                  const existing = gameMap[g.titleId];
-                  if (existing) {
-                    existing.quantity += g.quantity;
-                  } else {
-                    gameMap[g.titleId] = { ...g };
-                  }
-                }
-                return Object.values(gameMap);
-              })()}
+              {@const aggregatedGames = aggregateGames(shop)}
               <div class="space-y-2 text-sm">
                 {#each aggregatedGames as game (game.titleId)}
                   {@const gameInfo = getGameInfo(game.titleId)}
                   {@const gameAttendance = shop.games.reduce(
                     (total, g) =>
-                      g.titleId === game.titleId
-                        ? total +
-                          (showReported
-                            ? reportedAttendances.reduce(
-                                (acc, ra) => acc + (ra.id === g.gameId ? ra.count || 0 : 0),
-                                0
-                              )
-                            : getGameAttendance(g.gameId))
-                        : total,
+                      g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
                     0
                   )}
-                  {@const reportedAttendance = shop.games
-                    .reduce(
-                      (acc, cur) => {
-                        const ra = reportedAttendances.find((r) => r.id === cur.gameId);
-                        if (ra && cur.titleId === game.titleId) {
-                          acc.push(ra);
-                        }
-                        return acc;
-                      },
-                      [] as typeof reportedAttendances
-                    )
-                    .reduce(
-                      (latest, current) =>
-                        new Date(current.reportedAt).getTime() >
-                        new Date(latest.reportedAt).getTime()
-                          ? current
-                          : latest,
-                      reportedAttendances[0]
-                    )}
+                  {@const reportedAttendance = reportedAttendances.reduce(
+                    (acc, cur) => {
+                      if (shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId) {
+                        acc.push(cur);
+                      }
+                      return acc;
+                    },
+                    [] as typeof reportedAttendances
+                  )[0]}
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60 truncate">
                       {getGameName(gameInfo?.key)}
                     </span>
-                    {#if showReported}
+                    {#if reportedAttendance?.count !== undefined && reportedAttendance.count >= gameAttendance}
                       <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
-                        <span
-                          class="font-medium"
-                          class:text-accent={showReported}
-                          class:text-primary={!showReported && gameAttendance > 0}
-                        >
-                          {gameAttendance} / {game.quantity}
+                        <span class="text-accent font-medium">
+                          {reportedAttendance.count} / {game.quantity}
                         </span>
                       </AttendanceReportBlame>
                     {:else}
-                      <span
-                        class="font-medium"
-                        class:text-accent={showReported}
-                        class:text-primary={!showReported && gameAttendance > 0}
-                      >
+                      <span class="font-medium" class:text-primary={gameAttendance > 0}>
                         {gameAttendance} / {game.quantity}
                       </span>
                     {/if}
@@ -572,42 +585,7 @@
             <!-- Attend button -->
             {#if data.user}
               <div class="border-base-content/10 mt-4 border-t pt-4">
-                {#if userAttendance}
-                  <button
-                    class="btn btn-error btn-soft w-full"
-                    onclick={() => handleLeave()}
-                    disabled={isLoading}
-                  >
-                    {#if isLoading}
-                      <span class="loading loading-spinner loading-xs"></span>
-                    {:else}
-                      <i class="fa-solid fa-stop"></i>
-                    {/if}
-                    {m.leave()}
-                  </button>
-                {:else}
-                  <div
-                    class="tooltip-error w-full"
-                    class:tooltip={!isShopOpen || !!otherShop}
-                    data-tip={isShopOpen
-                      ? otherShop
-                        ? m.attending_other_shop({
-                            shopName: otherShop.shop.name,
-                            attendedAt: formatTime(otherShop.attendedAt)
-                          })
-                        : ''
-                      : m.shop_closed()}
-                  >
-                    <button
-                      class="btn btn-primary w-full"
-                      onclick={() => (showAttendanceModal = true)}
-                      disabled={!isShopOpen || !!otherShop || isLoading || isUserNearShop === false}
-                    >
-                      <i class="fa-solid fa-play"></i>
-                      {m.attend()}
-                    </button>
-                  </div>
-                {/if}
+                {@render attend()}
               </div>
             {/if}
           </div>
@@ -616,7 +594,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="md:col-span-2">
+    <div class="md:col-span-3 lg:col-span-2">
       {@render header()}
 
       <!-- Games Section -->
@@ -635,7 +613,7 @@
                     {game.name}
                   </h3>
                   <div class="flex items-center gap-1">
-                    {#if data.user && isShopOpen && isUserNearShop !== false}
+                    {#if data.user && isShopOpen && isUserNearShop}
                       <FancyButton
                         callback={() =>
                           openReportModal({
@@ -710,7 +688,7 @@
                             <div class="tooltip w-fit">
                               <div class="tooltip-content px-3 whitespace-pre-line">
                                 {m.attendance_details({
-                                  duration: formatDistanceToNow(new Date(attendee.attendedAt), {
+                                  duration: formatDistanceToNow(attendee.attendedAt, {
                                     locale: getLocale() === 'en' ? enUS : zhCN
                                   }),
                                   leave: formatTime(attendee.plannedLeaveAt)

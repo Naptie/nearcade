@@ -43,7 +43,10 @@ export const load: PageServerLoad = async ({ parent }) => {
         games: arcade.games || [],
         source: arcade.source
       })),
-      autoDiscoveryThreshold: userProfile?.autoDiscoveryThreshold ?? 3
+      autoDiscovery: userProfile?.autoDiscovery ?? {
+        discoveryInteractionThreshold: 5,
+        attendanceThreshold: 2
+      }
     };
   } catch (err) {
     console.error('Error loading frequenting arcades:', err);
@@ -90,10 +93,9 @@ export const actions: Actions = {
       await usersCollection.updateOne(
         { id: user.id },
         {
-          $addToSet: { frequentingArcades: arcadeId },
+          $addToSet: { frequentingArcades: { id: arcadeId, source: arcadeSource } },
           $set: { updatedAt: new Date() }
-        },
-        { upsert: true }
+        }
       );
 
       return { success: true, message: 'Arcade added to your frequenting list' };
@@ -154,10 +156,21 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const threshold = parseInt(formData.get('autoDiscoveryThreshold') as string);
+      const discoveryInteractionThreshold = parseInt(
+        formData.get('discoveryInteractionThreshold') as string
+      );
+      const attendanceThreshold = parseInt(formData.get('attendanceThreshold') as string);
 
-      if (!threshold || threshold < 1 || threshold > 10) {
-        return fail(400, { message: 'Auto-discovery threshold must be between 1 and 10' });
+      if (
+        !discoveryInteractionThreshold ||
+        discoveryInteractionThreshold < 1 ||
+        discoveryInteractionThreshold > 100
+      ) {
+        return fail(400, { message: 'Discovery interaction threshold must be between 1 and 100' });
+      }
+
+      if (!attendanceThreshold || attendanceThreshold < 1 || attendanceThreshold > 100) {
+        return fail(400, { message: 'Attendance threshold must be between 1 and 100' });
       }
 
       const db = mongo.db();
@@ -168,11 +181,11 @@ export const actions: Actions = {
         { id: user.id },
         {
           $set: {
-            autoDiscoveryThreshold: threshold,
+            'autoDiscovery.discoveryInteractionThreshold': discoveryInteractionThreshold,
+            'autoDiscovery.attendanceThreshold': attendanceThreshold,
             updatedAt: new Date()
           }
-        },
-        { upsert: true }
+        }
       );
 
       return { success: true, message: 'Settings updated successfully' };

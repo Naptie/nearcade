@@ -55,27 +55,27 @@
   </div>
   <div class="flex-none">
     <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
-      <LocaleSwitch class="text-shadow" />
+      <LocaleSwitch class="text-shadow-lg" />
       <FancyButton
         callback={() => {
           window.dispatchEvent(new CustomEvent('nearcade-donate'));
         }}
-        class="fa-solid fa-heart fa-lg text-shadow"
+        class="fa-solid fa-heart fa-lg text-shadow-lg"
         btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden"
         text={m.donate()}
       />
       <FancyButton
         href={resolve('/(main)/rankings')}
-        class="fa-solid fa-trophy fa-lg text-shadow"
+        class="fa-solid fa-trophy fa-lg text-shadow-lg"
         text={m.campus_rankings()}
       />
       <FancyButton
         href={resolve('/')}
-        class="fa-solid fa-home fa-lg text-shadow"
+        class="fa-solid fa-home fa-lg text-shadow-lg"
         btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden"
         text={m.home()}
       />
-      <AuthModal size="lg" class="text-shadow shadow" />
+      <AuthModal size="lg" class="shadow-lg" />
     </div>
   </div>
 </nav>

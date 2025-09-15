@@ -87,19 +87,19 @@ export const generateValidUsername = async (
 
 export const calculateDistance = (
   lat1: number,
-  lon1: number,
+  lng1: number,
   lat2: number,
-  lon2: number
+  lng2: number
 ): number => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -1050,7 +1050,7 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
  * Convert GPS coordinates to AMap coordinates when AMap is available
  */
 export const convertCoordinates = (
-  location: { latitude?: number; longitude?: number },
+  location: { latitude: number; longitude: number },
   amap?: typeof AMap
 ) => {
   if (amap && location.latitude !== undefined && location.longitude !== undefined) {
@@ -1075,4 +1075,17 @@ export const convertCoordinates = (
     console.warn('AMap not available or location not set, skipping conversion');
     return Promise.resolve(location);
   }
+};
+
+export const aggregateGames = (shop: Pick<Shop, 'games'>) => {
+  const gameMap: Record<number, (typeof shop.games)[0]> = {};
+  for (const g of shop.games) {
+    const existing = gameMap[g.titleId];
+    if (existing) {
+      existing.quantity += g.quantity;
+    } else {
+      gameMap[g.titleId] = { ...g };
+    }
+  }
+  return Object.values(gameMap);
 };

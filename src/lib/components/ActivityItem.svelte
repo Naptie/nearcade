@@ -2,14 +2,14 @@
   /* eslint svelte/no-at-html-tags: "off" */
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { formatDistanceToNow } from 'date-fns';
+  import { formatDistance, formatDistanceToNow } from 'date-fns';
   import { zhCN, enUS } from 'date-fns/locale';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatChangelogDescription } from '$lib/utils/changelog';
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
-  import { getDisplayName } from '$lib/utils';
+  import { formatTime, getDisplayName } from '$lib/utils';
 
   interface Props {
     activity: Activity;
@@ -289,12 +289,21 @@
               {activity.attendanceGames}
             </div>
           {/if}
-          {#if activity.duration && activity.duration > 0}
+          {#if activity.leaveAt}
             <div>
               <i class="fa-solid fa-clock mr-1"></i>
-              {m.activity_duration({
-                duration: Math.round(activity.duration / (1000 * 60)) // Convert to minutes
-              })}
+              {#if activity.isLive}
+                {m.attendance_details_one_liner({
+                  duration: formatDistanceToNow(activity.createdAt, {
+                    locale: getLocale() === 'en' ? enUS : zhCN
+                  }),
+                  leave: formatTime(activity.leaveAt)
+                })}
+              {:else}
+                {formatDistance(activity.leaveAt, activity.createdAt, {
+                  locale: getLocale() === 'en' ? enUS : zhCN
+                })}
+              {/if}
             </div>
           {/if}
         </div>
@@ -322,7 +331,7 @@
   <!-- Timestamp -->
   <div class="flex-shrink-0">
     <span class="text-base-content/50 text-xs">
-      {formatDistanceToNow(new Date(activity.createdAt), {
+      {formatDistanceToNow(activity.createdAt, {
         addSuffix: true,
         locale: getLocale() === 'en' ? enUS : zhCN
       })}

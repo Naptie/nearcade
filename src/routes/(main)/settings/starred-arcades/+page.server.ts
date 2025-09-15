@@ -89,10 +89,9 @@ export const actions: Actions = {
       await usersCollection.updateOne(
         { id: user.id },
         {
-          $addToSet: { starredArcades: arcadeId },
+          $addToSet: { starredArcades: { id: arcadeId, source: arcadeSource } },
           $set: { updatedAt: new Date() }
-        },
-        { upsert: true }
+        }
       );
 
       return { success: true, message: 'Arcade starred successfully' };

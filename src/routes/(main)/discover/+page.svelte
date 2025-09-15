@@ -95,7 +95,9 @@
 
   // Auto-discovery functionality
   let user = $derived(data.session?.user);
-  let autoDiscoveryThreshold = $derived(user?.autoDiscoveryThreshold ?? 3); // Default to 3 clicks
+  let discoveryInteractionThreshold = $derived(
+    user?.autoDiscovery?.discoveryInteractionThreshold ?? 5
+  ); // Default to 5 clicks
   let shopClickCounts = $state<Record<string, number>>({});
 
   // Load shop click counts from localStorage on mount
@@ -125,7 +127,7 @@
 
     // Check if threshold is reached and user isn't already frequenting this arcade
     if (
-      newCount >= autoDiscoveryThreshold &&
+      newCount >= discoveryInteractionThreshold &&
       !user.frequentingArcades?.some(
         (arcade) => arcade.id === shop.id && arcade.source === shop.source
       )
@@ -145,12 +147,8 @@
         );
 
         if (response.ok) {
-          // Reset click count for this shop since it's now been added
           localStorage.removeItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
           shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: 0 };
-
-          // Optionally show a notification
-          console.log(`Auto-added ${shop.name} to your frequenting arcades!`);
         }
       } catch (error) {
         console.error('Failed to auto-add arcade:', error);

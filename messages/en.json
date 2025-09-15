@@ -24,7 +24,6 @@
   "activity_currently_visiting_shop": "Currently visiting {targetName}",
   "activity_downvoted_comment": "Downvoted comment by {authorName} on {targetName}",
   "activity_downvoted_post": "Downvoted post {targetName}",
-  "activity_duration": "{duration} minutes",
   "activity_joined_club": "Joined club {targetName}",
   "activity_joined_university": "Joined university {targetName}",
   "activity_public": "Show my activity to other users",
@@ -45,6 +44,7 @@
   "admin_add_note_decision": "Add a note about your decision...",
   "admin_add_role": "Add Role",
   "admin_add_shop": "Add Shop",
+  "admin_address_header": "Address",
   "admin_all_statuses": "All Statuses",
   "admin_all_types": "All Types",
   "admin_approve": "Approve",
@@ -98,7 +98,6 @@
   "admin_joined_header": "Joined",
   "admin_last_active_header": "Last Active",
   "admin_loading_user_details": "Loading user details...",
-  "admin_location_header": "Location",
   "admin_manage_universities": "Manage universities and educational institutions",
   "admin_member_type": "Role",
   "admin_member_type_admin": "Admin",
@@ -199,10 +198,11 @@
   "attend_shop": "Attend {shopName}",
   "attendance": "Attendance",
   "attendance_details": "In attendance for {duration}\nPlanned leave at {leave}",
+  "attendance_details_one_liner": "In attendance for {duration}; planned leave at {leave}",
+  "attendance_threshold": "Attendance Threshold",
+  "attendance_threshold_description": "Number of times you need to attend an arcade before it's automatically added to your frequenting list",
   "attending_other_shop": "You've been attending {shopName} since {attendedAt}. Please leave that shop before attending this one.",
   "auto_discovery_settings": "Auto-Discovery Settings",
-  "auto_discovery_threshold": "Auto-Discovery Threshold",
-  "auto_discovery_threshold_description": "Number of times you need to click 'Details' or 'Route' on an arcade before it's automatically added to your frequenting list",
   "auto_join_club": "Auto Join Club",
   "available_games": "Available Games",
   "avatar": "avatar",
@@ -293,16 +293,6 @@
   "city": "City",
   "clear_search": "Clear search",
   "cleared_value": "Cleared",
-  "clicks": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} click",
-        "countPlural=other": "{count} clicks"
-      }
-    }
-  ],
   "close": "Close",
   "close_modal": "Close modal",
   "club": "Club",
@@ -413,6 +403,8 @@
   "discipline_category": "Discipline Category",
   "discover": "Discover now",
   "discover_from": "Discover from",
+  "discovery_interaction_threshold": "Discovery Interaction Threshold",
+  "discovery_interaction_threshold_description": "Number of times you need to click 'Details' or 'Route' on an arcade on the discover page before it's automatically added to your frequenting list",
   "dismiss_in": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -652,7 +644,6 @@
   "no_clubs_in_university": "No clubs found in this university",
   "no_comment_permission": "You do not have permission to comment on this post.",
   "no_comments_yet": "No comments yet",
-  "no_current_attendance": "No one attending",
   "no_data": "No data",
   "no_earlier_than": "No earlier than {time}",
   "no_frequenting_arcades": "No Frequenting Arcades",
@@ -680,6 +671,7 @@
   "none": "None",
   "not_associated_with_university": "Not Associated with University",
   "not_member_of_any_clubs": "Not Member of Any Clubs",
+  "not_near_shop": "Your current location does not appear to be near the shop.",
   "not_specified": "Not Specified",
   "nothing_to_preview": "Nothing to preview yet",
   "notification_comment_votes": "Comment votes",
@@ -713,9 +705,7 @@
   "pending": "Pending",
   "pending_approval": "Pending Approval",
   "pending_requests": "Pending Requests",
-  "people_attending": "people attending",
   "permission_denied": "Permission denied",
-  "person_attending": "person attending",
   "personal_settings": "Personal Settings",
   "pick_location": "Pick Location",
   "pin_post": "Pin Post",
@@ -953,6 +943,16 @@
         "hours=0, minutes=*": "{minutes}min",
         "hours=*, minutes=0": "{hours}h",
         "hours=*, minutes=*": "{hours}h {minutes}m"
+      }
+    }
+  ],
+  "times": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} time",
+        "countPlural=other": "{count} times"
       }
     }
   ],

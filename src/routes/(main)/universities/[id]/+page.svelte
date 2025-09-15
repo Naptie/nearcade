@@ -313,7 +313,7 @@
           : 'text-base-content dark:text-white'}"
       >
         <div class="flex flex-col gap-2 not-sm:items-center not-sm:text-center">
-          <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
+          <h1 class="text-3xl font-bold text-shadow-lg sm:text-4xl lg:text-5xl">
             {data.university.name}
           </h1>
 
@@ -340,10 +340,10 @@
               class="btn btn-ghost"
             >
               {#if data.userPermissions.canJoin === 2}
-                <i class="fa-solid fa-plus"></i>
+                <i class="fa-solid fa-plus text-shadow-lg"></i>
                 {m.verify_and_join()}
               {:else}
-                <i class="fa-solid fa-user-check"></i>
+                <i class="fa-solid fa-user-check text-shadow-lg"></i>
                 {m.verify()}
               {/if}
             </a>
@@ -359,7 +359,7 @@
               title={m.edit_university_info()}
               aria-label={m.edit_university_info()}
             >
-              <i class="fa-solid fa-edit"></i>
+              <i class="fa-solid fa-edit text-shadow-lg"></i>
             </a>
           {/if}
         </div>

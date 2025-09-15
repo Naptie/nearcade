@@ -10,6 +10,8 @@
 
   let { data }: { data: PageData } = $props();
 
+  let isSubmitting = $state(false);
+  let showSuccess = $state(false);
   let searchQuery = $state('');
   let searchResults = $state<Shop[]>([]);
   let isSearching = $state(false);
@@ -25,7 +27,7 @@
 
   const autoDiscoveryOptions = Array.from({ length: 10 }, (_, i) => ({
     value: i + 1,
-    label: m.clicks({ count: i + 1 })
+    label: m.times({ count: i + 1 })
   }));
 
   const searchArcades = async (query: string) => {
@@ -84,30 +86,80 @@
 
   <!-- Auto-Discovery Settings -->
   <div class="bg-base-200 mb-6 rounded-lg p-6">
-    <h2 class="mb-4 text-xl font-semibold">{m.auto_discovery_settings()}</h2>
-
-    <form method="POST" action="?/updateSettings" use:enhance>
-      <label class="label whitespace-normal" for="autoDiscoveryThreshold">
-        <span class="label-text">{m.auto_discovery_threshold()}</span>
-      </label>
-      <div class="flex w-full gap-4">
-        <select
-          name="autoDiscoveryThreshold"
-          id="autoDiscoveryThreshold"
-          class="select select-bordered w-full"
-          value={data.autoDiscoveryThreshold}
+    <form
+      method="POST"
+      action="?/updateSettings"
+      use:enhance={() => {
+        isSubmitting = true;
+        return async ({ result }) => {
+          isSubmitting = false;
+          if (result.type === 'success') {
+            showSuccess = true;
+            setTimeout(() => {
+              showSuccess = false;
+            }, 2000);
+          }
+        };
+      }}
+    >
+      <div class="mb-4 flex items-center justify-between gap-2">
+        <h2 class="text-xl font-semibold">{m.auto_discovery_settings()}</h2>
+        <button
+          type="submit"
+          class="btn btn-soft btn-primary"
+          class:btn-active={showSuccess}
+          disabled={isSubmitting}
         >
-          {#each autoDiscoveryOptions as option, index (index)}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
-        <button type="submit" class="btn btn-soft btn-primary">
-          {m.save()}
+          {#if isSubmitting}
+            <span class="loading loading-spinner loading-sm"></span>
+          {:else if showSuccess}
+            <i class="fa-solid fa-check"></i>
+          {:else}
+            <i class="fa-solid fa-save"></i>
+          {/if}
+          {showSuccess ? m.success() : m.save()}
         </button>
       </div>
-      <label class="label whitespace-normal" for="autoDiscoveryThreshold">
-        <span class="label-text-alt">{m.auto_discovery_threshold_description()}</span>
-      </label>
+      <div class="mb-4">
+        <label class="label whitespace-normal" for="discoveryInteractionThreshold">
+          <span class="label-text">{m.discovery_interaction_threshold()}</span>
+        </label>
+        <div class="flex w-full gap-4">
+          <select
+            name="discoveryInteractionThreshold"
+            id="discoveryInteractionThreshold"
+            class="select select-bordered w-full"
+            value={data.autoDiscovery?.discoveryInteractionThreshold ?? 5}
+          >
+            {#each autoDiscoveryOptions as option, index (index)}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        </div>
+        <label class="label whitespace-normal" for="discoveryInteractionThreshold">
+          <span class="label-text-alt">{m.discovery_interaction_threshold_description()}</span>
+        </label>
+      </div>
+      <div>
+        <label class="label whitespace-normal" for="attendanceThreshold">
+          <span class="label-text">{m.attendance_threshold()}</span>
+        </label>
+        <div class="flex w-full gap-4">
+          <select
+            name="attendanceThreshold"
+            id="attendanceThreshold"
+            class="select select-bordered w-full"
+            value={data.autoDiscovery?.attendanceThreshold ?? 2}
+          >
+            {#each autoDiscoveryOptions as option, index (index)}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        </div>
+        <label class="label whitespace-normal" for="attendanceThreshold">
+          <span class="label-text-alt">{m.attendance_threshold_description()}</span>
+        </label>
+      </div>
     </form>
   </div>
 

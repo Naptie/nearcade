@@ -11,10 +11,11 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel, getMyLocation } from '$lib/utils';
+  import { formatRegionLabel, formatShopAddress, getMyLocation } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
   import type { PageData } from './$types';
+  import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -425,6 +426,7 @@
                     location.name = m.my_location();
                     location.latitude = loc.latitude;
                     location.longitude = loc.longitude;
+                    go();
                   } catch (error) {
                     console.error('Error getting location:', error);
                     locationError = typeof error === 'string' ? error : m.location_unknown_error();
@@ -628,125 +630,71 @@
           </fieldset>
         </div>
       </div>
+
+      <!-- Starred Shops Real-time Attendance -->
+      {#if data.starredShops.length > 0}
+        <div
+          class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+          class:collapse-open={!showCollapse}
+          class:min-h-fit={!showCollapse}
+          class:h-full={!showCollapse}
+          class:mt-0={!showCollapse}
+          class:opacity-0={showCollapse}
+        >
+          <div
+            class="collapse-content flex max-w-full min-w-full flex-col items-center gap-2 pt-0 transition-[padding] duration-300 sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw]"
+            class:pt-4={!showCollapse}
+          >
+            {#each data.starredShops as shop (shop._id)}
+              {@const currentAttendance = shop.currentAttendance || 0}
+              {@const reportedAttendance = shop.currentReportedAttendance}
+              <div
+                class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition-all hover:shadow-md"
+              >
+                <a
+                  href={resolve('/(main)/shops/[source]/[id]', {
+                    source: shop.source,
+                    id: shop.id.toString()
+                  })}
+                  class="flex items-center justify-between gap-2"
+                >
+                  <div class="min-w-0 flex-1">
+                    <h3 class="truncate text-base font-semibold">{shop.name}</h3>
+                    <p class="text-base-content/70 truncate text-xs">
+                      {formatShopAddress(shop)}
+                    </p>
+                  </div>
+                  <div class="shrink-0 text-right">
+                    {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
+                      <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                        <div class="text-accent text-sm">
+                          {m.in_attendance({ count: reportedAttendance.count })}
+                        </div>
+                      </AttendanceReportBlame>
+                    {:else}
+                      <div
+                        class="text-base-content/60 text-sm not-sm:hidden"
+                        class:text-primary={currentAttendance > 0}
+                      >
+                        {m.in_attendance({ count: currentAttendance })}
+                      </div>
+                      <div
+                        class="text-base-content/60 text-sm sm:hidden"
+                        class:text-primary={currentAttendance > 0}
+                      >
+                        <i class="fa-solid fa-user"></i>
+                        {currentAttendance}
+                      </div>
+                    {/if}
+                  </div>
+                </a>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
-
-  <!-- Starred Shops Real-time Attendance -->
-  {#if data?.starredShops?.length > 0 || data?.joinedClubsStarredShops?.length > 0}
-    <div class="container mx-auto mt-8 max-w-4xl px-4">
-      <div
-        class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 border-base-300 rounded-xl border shadow backdrop-blur-2xl dark:border-neutral-700"
-      >
-        <div class="p-6">
-          <!-- User's Starred Shops -->
-          {#if data.starredShops?.length > 0}
-            <div class="mb-6">
-              <h2 class="mb-4 flex items-center gap-2 text-xl font-bold">
-                <i class="fa-solid fa-star text-yellow-500"></i>
-                {m.your_starred_shops()}
-              </h2>
-              <div class="flex flex-col gap-2">
-                {#each data.starredShops as shop (shop.id + '-' + shop.source)}
-                  {@const currentAttendance = shop.currentAttendance || 0}
-                  {@const reportedAttendance = shop.currentReportedAttendance?.count || 0}
-                  {@const displayAttendance = Math.max(currentAttendance, reportedAttendance)}
-
-                  <div
-                    class="shop-card bg-base-100 border-base-300 hover:border-primary rounded-lg border p-4 transition-all hover:shadow-md"
-                  >
-                    <a href={resolve(`/(main)/shops/${shop.source}/${shop.id}`)} class="block">
-                      <div class="flex items-center justify-between">
-                        <div>
-                          <h3 class="text-lg font-semibold">{shop.name}</h3>
-                          <p class="text-base-content/70 text-sm">
-                            {shop.location.address?.general?.join(' · ') || ''}
-                          </p>
-                        </div>
-                        <div class="text-right">
-                          {#if displayAttendance > 0}
-                            <div class="text-primary text-lg font-bold">
-                              {#if currentAttendance > 0 && reportedAttendance > 0}
-                                {m.in_attendance_with_reported({
-                                  inAttendance: currentAttendance.toString(),
-                                  reported: reportedAttendance.toString()
-                                })}
-                              {:else}
-                                {displayAttendance}
-                                {displayAttendance === 1
-                                  ? m.person_attending()
-                                  : m.people_attending()}
-                              {/if}
-                            </div>
-                          {:else}
-                            <div class="text-base-content/50 text-sm">
-                              {m.no_current_attendance()}
-                            </div>
-                          {/if}
-                        </div>
-                      </div>
-                    </a>
-                  </div>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          <!-- Joined Clubs' Starred Shops -->
-          {#if data.joinedClubsStarredShops?.length > 0}
-            <div>
-              <h2 class="mb-4 flex items-center gap-2 text-xl font-bold">
-                <i class="fa-solid fa-users text-blue-500"></i>
-                {m.club_starred_shops()}
-              </h2>
-              <div class="flex flex-col gap-2">
-                {#each data.joinedClubsStarredShops as shop (shop.id + '-' + shop.source)}
-                  {@const currentAttendance = shop.currentAttendance || 0}
-                  {@const reportedAttendance = shop.currentReportedAttendance?.count || 0}
-                  {@const displayAttendance = Math.max(currentAttendance, reportedAttendance)}
-
-                  <div
-                    class="shop-card bg-base-100 border-base-300 hover:border-primary rounded-lg border p-4 transition-all hover:shadow-md"
-                  >
-                    <a href={resolve(`/(main)/shops/${shop.source}/${shop.id}`)} class="block">
-                      <div class="flex items-center justify-between">
-                        <div>
-                          <h3 class="text-lg font-semibold">{shop.name}</h3>
-                          <p class="text-base-content/70 text-sm">
-                            {shop.location.address?.general?.join(' · ') || ''}
-                          </p>
-                        </div>
-                        <div class="text-right">
-                          {#if displayAttendance > 0}
-                            <div class="text-primary text-lg font-bold">
-                              {#if currentAttendance > 0 && reportedAttendance > 0}
-                                {m.in_attendance_with_reported({
-                                  inAttendance: currentAttendance.toString(),
-                                  reported: reportedAttendance.toString()
-                                })}
-                              {:else}
-                                {displayAttendance}
-                                {displayAttendance === 1
-                                  ? m.person_attending()
-                                  : m.people_attending()}
-                              {/if}
-                            </div>
-                          {:else}
-                            <div class="text-base-content/50 text-sm">
-                              {m.no_current_attendance()}
-                            </div>
-                          {/if}
-                        </div>
-                      </div>
-                    </a>
-                  </div>
-                {/each}
-              </div>
-            </div>
-          {/if}
-        </div>
-      </div>
-    </div>
-  {/if}
 
   <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
     <FancyButton

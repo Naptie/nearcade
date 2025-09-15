@@ -527,9 +527,6 @@ export async function getUserActivities(
       games.map((game) => (game.version ? `${game.name} (${game.version})` : game.name)).join(', ');
 
     shopAttendances.forEach((attendance) => {
-      // Calculate duration
-      const duration = attendance.leftAt.getTime() - attendance.attendedAt.getTime();
-
       // Get game names
       const gameNames = getGameNames(attendance.games);
       activities.push({
@@ -540,8 +537,7 @@ export async function getUserActivities(
         shopId: attendance.shop.id,
         shopName: attendance.shop.name,
         shopSource: attendance.shop.source,
-        leftAt: attendance.leftAt,
-        duration,
+        leaveAt: attendance.leftAt,
         attendanceGames: gameNames
       });
     });
@@ -558,7 +554,7 @@ export async function getUserActivities(
         if (shop) {
           const data = JSON.parse(dataStr);
           const attendedAt = new Date(data.attendedAt);
-          const duration = Date.now() - attendedAt.getTime();
+          const plannedLeaveAt = new Date(data.plannedLeaveAt);
           const gameNames = getGameNames(
             data.games.map((game: { id: number }) => {
               const shopGame = shop.games.find((g) => g.gameId === game.id);
@@ -577,7 +573,7 @@ export async function getUserActivities(
             shopId: shop.id,
             shopName: shop.name,
             shopSource: shop.source,
-            duration,
+            leaveAt: plannedLeaveAt,
             attendanceGames: gameNames,
             isLive: true
           });

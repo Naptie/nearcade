@@ -108,6 +108,29 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
       // Store attendance in Redis with expiration
       await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+
+      if (
+        !session.user.frequentingArcades?.some((a) => a.id === shop.id && a.source === shop.source)
+      ) {
+        const attendancesCollection = db.collection<AttendanceRecord>('attendances');
+        const count = await attendancesCollection.countDocuments({
+          userId: session.user.id!,
+          'shop.id': id,
+          'shop.source': source
+        });
+        if (count + 1 >= (session.user.autoDiscovery?.attendanceThreshold ?? 2)) {
+          const usersCollection = db.collection<User>('users');
+          await usersCollection.updateOne(
+            { id: session.user.id! },
+            {
+              $addToSet: {
+                frequentingArcades: { id: shop.id, source: shop.source }
+              },
+              $set: { updatedAt: new Date() }
+            }
+          );
+        }
+      }
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
       if (now < open.getTime() || now > close.getTime()) {
         return error(400, 'Shop is currently closed');

@@ -4,7 +4,13 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import { formatShopAddress, getGameName, getShopSourceUrl, pageTitle } from '$lib/utils';
+  import {
+    aggregateGames,
+    formatShopAddress,
+    getGameName,
+    getShopSourceUrl,
+    pageTitle
+  } from '$lib/utils';
   import { PAGINATION, GAMES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
@@ -101,19 +107,7 @@
       <!-- Shop Grid -->
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {#each data.shops as shop (shop._id)}
-          {@const aggregatedGames = (() => {
-            // Using record instead of Map to avoid eslint warnings
-            const gameMap: Record<number, typeof shop.games[0]> = {};
-            for (const g of shop.games) {
-              const existing = gameMap[g.titleId];
-              if (existing) {
-                existing.quantity += g.quantity;
-              } else {
-                gameMap[g.titleId] = { ...g };
-              }
-            }
-            return Object.values(gameMap);
-          })()}
+          {@const aggregatedGames = aggregateGames(shop)}
           <a
             href={getShopLink(shop)}
             class="card bg-base-200 border-primary/0 hover:border-primary min-w-0 border-2 shadow-sm transition hover:shadow-md"
@@ -151,8 +145,8 @@
               <!-- Games Info -->
               <div class="mb-4">
                 <div class="flex flex-wrap gap-2">
-                  {#each aggregatedGames.slice(0, 6) as game (game.id)}
-                    {@const gameInfo = getGameInfo(game.id)}
+                  {#each aggregatedGames.slice(0, 6) as game (game.titleId)}
+                    {@const gameInfo = getGameInfo(game.titleId)}
                     {#if gameInfo}
                       <div class="badge badge-soft badge-sm">
                         <span class="max-w-16 truncate">{getGameName(gameInfo.key)}</span>
@@ -177,7 +171,7 @@
                 {#if shop.currentReportedAttendance && shop.currentReportedAttendance.count >= shop.currentAttendance}
                   <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
                     <div class="text-accent flex items-center gap-1">
-                      <i class="fa-solid fa-users"></i>
+                      <i class="fa-solid fa-user"></i>
                       <span
                         >{m.in_attendance({
                           count: shop.currentReportedAttendance.count || 0
@@ -190,7 +184,7 @@
                     class="text-base-content/60 flex items-center gap-1"
                     class:text-primary={shop.currentAttendance > 0}
                   >
-                    <i class="fa-solid fa-users"></i>
+                    <i class="fa-solid fa-user"></i>
                     <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
                   </div>
                 {/if}

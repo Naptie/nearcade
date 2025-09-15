@@ -221,7 +221,7 @@
 
                 <!-- Timestamp -->
                 <div class="text-base-content/60 flex-shrink-0 text-xs">
-                  {formatDistanceToNow(new Date(entry.createdAt), {
+                  {formatDistanceToNow(entry.createdAt, {
                     addSuffix: true,
                     locale: getLocale() === 'en' ? enUS : zhCN
                   })}

@@ -5,7 +5,7 @@
   import type { ShopSource } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
-  import { getShopSourceUrl } from '$lib/utils';
+  import { aggregateGames } from '$lib/utils';
   import ConfirmationModal from './ConfirmationModal.svelte';
 
   interface Shop {
@@ -30,7 +30,7 @@
 
   const confirmRemoveArcade = () => {
     const form = document.getElementById(
-      `removeArcadeForm-${shop.source}-${shop.id}`
+      `remove-arcade-${shop.source}-${shop.id}`
     ) as HTMLFormElement;
     if (form) {
       form.requestSubmit();
@@ -39,18 +39,26 @@
 </script>
 
 <div class="group bg-base-100 flex items-center justify-between rounded-lg p-4">
-  <a href={getShopSourceUrl(shop)} target="_blank" class="flex-1">
+  <a
+    href={resolve('/(main)/shops/[source]/[id]', {
+      source: shop.source,
+      id: shop.id.toString()
+    })}
+    target="_blank"
+    class="flex-1"
+  >
     <h3 class="group-hover:text-accent font-medium transition-colors">{shop.name}</h3>
     {#if shop.games && shop.games.length > 0}
+      {@const aggregatedGames = aggregateGames(shop)}
       <div class="mt-1 flex flex-wrap gap-1">
-        {#each shop.games.slice(0, 3) as game (game.id)}
+        {#each aggregatedGames as game (game.titleId)}
           <span class="badge badge-xs badge-soft">
-            {game.name || `Game ${game.id}`}
+            {game.name}
           </span>
         {/each}
-        {#if shop.games.length > 3}
+        {#if aggregatedGames.length > 3}
           <span class="badge badge-xs badge-soft">
-            +{shop.games.length - 3}
+            +{aggregatedGames.length - 3}
           </span>
         {/if}
       </div>
@@ -75,7 +83,7 @@
       </button>
     </form>
   {:else}
-    <div class="flex gap-2">
+    <div class="flex gap-1">
       <a
         href="{resolve('/(main)/discover')}?longitude={shop.location?.coordinates[0]}&latitude={shop
           .location?.coordinates[1]}&name={shop.name}&radius={radius}"
@@ -87,7 +95,13 @@
         <i class="fa-solid fa-map-location-dot"></i>
       </a>
       {#if page.url.pathname.startsWith(resolve('/(main)/settings') + '/')}
-        <form id="removeArcadeForm-{shop.id}" method="POST" action="?/removeArcade" use:enhance>
+        <form
+          id="remove-arcade-{shop.source}-{shop.id}"
+          method="POST"
+          action="?/removeArcade"
+          use:enhance
+        >
+          <input type="hidden" name="arcadeSource" value={shop.source} />
           <input type="hidden" name="arcadeId" value={shop.id} />
         </form>
         <button

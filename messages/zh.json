@@ -24,7 +24,6 @@
   "activity_currently_visiting_shop": "正在出勤 {targetName}",
   "activity_downvoted_comment": "踩了 {authorName} 在 {targetName} 的评论",
   "activity_downvoted_post": "踩了帖子 {targetName}",
-  "activity_duration": "{duration} 分钟",
   "activity_joined_club": "加入了社团 {targetName}",
   "activity_joined_university": "加入了高校 {targetName}",
   "activity_public": "将我的活动展示给其他人",
@@ -45,6 +44,7 @@
   "admin_add_note_decision": "添加决策备注...",
   "admin_add_role": "添加角色",
   "admin_add_shop": "添加店铺",
+  "admin_address_header": "地址",
   "admin_all_statuses": "所有状态",
   "admin_all_types": "所有类型",
   "admin_approve": "批准",
@@ -97,7 +97,6 @@
   "admin_joined_header": "加入时间",
   "admin_last_active_header": "最后活动",
   "admin_loading_user_details": "正在加载用户详情...",
-  "admin_location_header": "位置",
   "admin_manage_universities": "管理高校和教育机构",
   "admin_member_type": "角色",
   "admin_member_type_admin": "管理员",
@@ -197,10 +196,11 @@
   "attend_shop": "在 {shopName} 出勤",
   "attendance": "出勤",
   "attendance_details": "在勤 {duration}\n计划离开于 {leave}",
+  "attendance_details_one_liner": "在勤 {duration}；计划离开于 {leave}",
+  "attendance_threshold": "出勤次数阈值",
+  "attendance_threshold_description": "您在某机厅出勤该次数后，系统会自动将其添加到您的常去机厅列表",
   "attending_other_shop": "您于 {attendedAt} 已登记在 {shopName} 出勤。请先离开该店铺，随后再在此处出勤。",
   "auto_discovery_settings": "自动发现设置",
-  "auto_discovery_threshold": "自动发现阈值",
-  "auto_discovery_threshold_description": "您在点击机厅的“详情”或“路线”按钮该次数后，系统会自动将其添加到您的常去机厅列表",
   "auto_join_club": "自动加入社团",
   "available_games": "可玩游戏",
   "avatar": "头像",
@@ -290,15 +290,6 @@
   "city": "城市",
   "clear_search": "清除搜索",
   "cleared_value": "清除了",
-  "clicks": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
-      "match": {
-        "count=*": "{count} 次点击"
-      }
-    }
-  ],
   "close": "关闭",
   "close_modal": "关闭弹窗",
   "club": "社团",
@@ -407,6 +398,8 @@
   "discipline_category": "学科门类",
   "discover": "开始探索",
   "discover_from": "从哪里开始探索？",
+  "discovery_interaction_threshold": "探索互动阈值",
+  "discovery_interaction_threshold_description": "您在“探索”页上点击机厅的“详情”或“路线”按钮该次数后，系统会自动将其添加到您的常去机厅列表",
   "dismiss_in": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -643,7 +636,6 @@
   "no_clubs_in_university": "此高校暂无社团",
   "no_comment_permission": "您没有权限对该帖子发表评论。",
   "no_comments_yet": "暂无评论",
-  "no_current_attendance": "无人在场",
   "no_data": "无数据",
   "no_earlier_than": "不得早于 {time}",
   "no_frequenting_arcades": "无常去机厅",
@@ -671,6 +663,7 @@
   "none": "无",
   "not_associated_with_university": "未关联高校",
   "not_member_of_any_clubs": "未加入任何社团",
+  "not_near_shop": "您当前的位置似乎不在该店铺附近。",
   "not_specified": "未指定",
   "nothing_to_preview": "暂无内容预览",
   "notification_comment_votes": "评论投票",
@@ -704,9 +697,7 @@
   "pending": "待审核",
   "pending_approval": "待审批",
   "pending_requests": "待审请求",
-  "people_attending": "人在场",
   "permission_denied": "权限不足",
-  "person_attending": "人在场",
   "personal_settings": "个人设置",
   "pick_location": "选择位置",
   "pin_post": "置顶帖子",
@@ -939,6 +930,15 @@
         "hours=0, minutes=*": "{minutes} 分钟",
         "hours=*, minutes=0": "{hours} 小时",
         "hours=*, minutes=*": "{hours} 时 {minutes} 分"
+      }
+    }
+  ],
+  "times": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 次"
       }
     }
   ],

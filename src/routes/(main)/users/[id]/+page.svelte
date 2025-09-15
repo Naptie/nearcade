@@ -2,13 +2,7 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import {
-    getDisplayName,
-    getShopSourceUrl,
-    getUserTypeBadgeClass,
-    getUserTypeLabel,
-    pageTitle
-  } from '$lib/utils';
+  import { getDisplayName, getUserTypeBadgeClass, getUserTypeLabel, pageTitle } from '$lib/utils';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
@@ -189,7 +183,7 @@
         <!-- Edit Button (if own profile) -->
         {#if data.isOwnProfile}
           <div class="shrink-0">
-            <a href={resolve('/(main)/settings')} class="btn btn-sm btn-soft">
+            <a href={resolve('/(main)/settings')} class="btn btn-sm btn-soft hover:btn-neutral">
               <i class="fa-solid fa-edit"></i>
               {m.edit()}
             </a>
@@ -349,7 +343,10 @@
         {#snippet arcade(shop: Shop)}
           <div class="flex items-center justify-between gap-1 text-sm">
             <a
-              href={getShopSourceUrl(shop)}
+              href={resolve('/(main)/shops/[source]/[id]', {
+                source: shop.source,
+                id: shop.id.toString()
+              })}
               target="_blank"
               class="hover:text-accent transition-colors"
             >

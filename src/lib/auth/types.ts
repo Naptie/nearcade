@@ -12,7 +12,10 @@ declare module '@auth/sveltekit' {
     lastActiveAt?: Date;
     frequentingArcades?: { id: number; source: ShopSource }[];
     starredArcades?: { id: number; source: ShopSource }[];
-    autoDiscoveryThreshold?: number; // Number of clicks before auto-adding to frequenting arcades
+    autoDiscovery?: {
+      discoveryInteractionThreshold: number; // Number of interactions on discover page before auto-adding to frequenting arcades
+      attendanceThreshold: number; // Number of attendances at a shop before auto-adding to frequenting arcades
+    };
     isEmailPublic?: boolean;
     isActivityPublic?: boolean;
     isFootprintPublic?: boolean;

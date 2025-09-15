@@ -468,8 +468,7 @@ export interface Activity {
   shopId?: number;
   shopName?: string;
   shopSource?: string;
-  leftAt?: Date;
-  duration?: number; // Duration in milliseconds
+  leaveAt?: Date;
   attendanceGames?: string; // Comma-separated game names
   isLive?: boolean; // Whether the attendance is still ongoing
 }

@@ -12,7 +12,7 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { formatDate, getShopSourceUrl, pageTitle } from '$lib/utils';
+  import { aggregateGames, formatDate, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { invalidateAll } from '$app/navigation';
 
@@ -49,7 +49,7 @@
   let currentMembersPage = $state(1);
 
   // Infinite scrolling state for starred arcades
-  let displayedArcades = $state(data.starredArcades || []);
+  let displayedArcades = $derived(data.starredArcades);
   let isLoadingMoreArcades = $state(false);
   let hasMoreArcades = $state((data.starredArcades?.length || 0) >= PAGINATION.PAGE_SIZE);
   let currentArcadesPage = $state(1);
@@ -215,7 +215,7 @@
 
   // Handle arcade management actions
   const handleArcadeAction = async (action: string, arcadeSource: string, arcadeId: number) => {
-    if (!arcadeId) return;
+    if (!arcadeSource || !arcadeId) return;
 
     const formData = new FormData();
     formData.append('clubId', data.club.id);
@@ -371,7 +371,7 @@
           : 'text-base-content dark:text-white'}"
       >
         <div class="flex flex-col not-sm:text-center">
-          <h1 class="text-3xl font-bold sm:text-4xl lg:text-5xl">
+          <h1 class="text-3xl font-bold text-shadow-lg sm:text-4xl lg:text-5xl">
             {data.club.name}
           </h1>
 
@@ -391,7 +391,7 @@
           <!-- Join Button for eligible users -->
           {#if data.user && data.userPermissions.canJoin === 2}
             <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
-              <i class="fa-solid fa-plus"></i>
+              <i class="fa-solid fa-plus text-shadow-lg"></i>
               {m.join_club()}
             </button>
           {:else if data.userPermissions.canJoin === 1}
@@ -409,7 +409,7 @@
               title="{m.edit()} {m.club()}"
               aria-label="{m.edit()} {m.club()}"
             >
-              <i class="fa-solid fa-edit"></i>
+              <i class="fa-solid fa-edit text-shadow-lg"></i>
             </a>
           {/if}
         </div>
@@ -592,7 +592,10 @@
                   {#each displayedArcades as shop (shop._id)}
                     <div class="flex items-center justify-between p-4">
                       <a
-                        href={getShopSourceUrl(shop)}
+                        href={resolve('/(main)/shops/[source]/[id]', {
+                          source: shop.source,
+                          id: shop.id.toString()
+                        })}
                         target="_blank"
                         class="group flex flex-1 items-center gap-3"
                       >
@@ -601,15 +604,16 @@
                             {shop.name}
                           </h4>
                           {#if shop.games && shop.games.length > 0}
+                            {@const aggregatedGames = aggregateGames(shop)}
                             <div class="mt-1 flex flex-wrap gap-1">
-                              {#each shop.games.slice(0, 3) as game (game.id)}
+                              {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
                                 <span class="badge badge-xs badge-soft">
-                                  {game.name || `Game ${game.id}`}
+                                  {game.name}
                                 </span>
                               {/each}
-                              {#if shop.games.length > 3}
+                              {#if aggregatedGames.length > 3}
                                 <span class="badge badge-xs badge-soft">
-                                  +{shop.games.length - 3}
+                                  +{aggregatedGames.length - 3}
                                 </span>
                               {/if}
                             </div>
@@ -930,15 +934,16 @@
                   {shop.source.toUpperCase()} #{shop.id}
                 </p>
                 {#if shop.games && shop.games.length > 0}
+                  {@const aggregatedGames = aggregateGames(shop)}
                   <div class="mt-1 flex flex-wrap gap-1">
-                    {#each shop.games.slice(0, 3) as game (game.id)}
+                    {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
                       <span class="badge badge-xs badge-ghost">
-                        {game.name || `Game ${game.id}`}
+                        {game.name}
                       </span>
                     {/each}
-                    {#if shop.games.length > 3}
+                    {#if aggregatedGames.length > 3}
                       <span class="badge badge-xs badge-ghost">
-                        +{shop.games.length - 3} more
+                        +{aggregatedGames.length - 3}
                       </span>
                     {/if}
                   </div>
@@ -946,7 +951,7 @@
               </div>
               {#if !data.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
                 <button
-                  class="btn btn-primary btn-sm"
+                  class="btn btn-primary btn-soft btn-sm"
                   onclick={() => {
                     handleArcadeAction('addArcade', shop.source, shop.id);
                     showAddArcadeModal = false;
@@ -958,7 +963,7 @@
                 </button>
               {:else}
                 <span class="badge badge-success">
-                  <i class="fa-solid fa-check mr-1"></i>
+                  <i class="fa-solid fa-check"></i>
                   {m.already_added()}
                 </span>
               {/if}

@@ -85,10 +85,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         starredArcades = toPlainArray(
           await shopsCollection
             .find({
-              $and: [
-                { id: { $in: arcades.map((arcade) => arcade.id) } },
-                { source: { $in: arcades.map((arcade) => arcade.source) } }
-              ]
+              $or: arcades.map((arcade) => {
+                return { $and: [{ source: arcade.source }, { id: arcade.id }] };
+              })
             })
             .limit(PAGINATION.PAGE_SIZE)
             .toArray()
@@ -402,10 +401,16 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeId = formData.get('arcadeId') as string;
+      const arcadeSource = formData.get('arcadeSource') as ShopSource;
+      const arcadeIdRaw = formData.get('arcadeId') as string;
+      const arcadeId = parseInt(arcadeIdRaw, 10);
       const clubId = formData.get('clubId') as string;
 
-      if (!arcadeId || !clubId) {
+      if (!arcadeSource) {
+        return fail(400, { message: 'Arcade source is required' });
+      }
+
+      if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
         return fail(400, { message: 'Arcade ID and Club ID are required' });
       }
 
@@ -420,7 +425,7 @@ export const actions: Actions = {
 
       // Remove arcade from club's starred list
       await clubsCollection.updateOne({ id: clubId }, {
-        $pull: { starredArcades: arcadeId },
+        $pull: { starredArcades: { id: arcadeId, source: arcadeSource } },
         $set: { updatedAt: new Date() }
       } as Record<string, unknown>);
 

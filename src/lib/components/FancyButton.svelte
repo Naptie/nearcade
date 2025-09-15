@@ -43,7 +43,6 @@
 
     const buttonHeight = buttonElement.offsetHeight;
     const collapsedWidth = `${square ? buttonHeight : initialWidth}px`;
-    if (!square) console.log('collapsedWidth', collapsedWidth);
 
     // Set the collapsed width immediately
     buttonElement.style.setProperty('--collapsed-width', collapsedWidth);

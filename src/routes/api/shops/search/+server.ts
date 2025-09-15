@@ -58,6 +58,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
     return json({
       shops: shops.map((shop) => ({
+        _id: shop._id.toString(),
         id: shop.id,
         name: shop.name,
         generalAddress: shop.generalAddress || [],

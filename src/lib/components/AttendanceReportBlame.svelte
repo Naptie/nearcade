@@ -2,8 +2,11 @@
   /* eslint svelte/no-at-html-tags: "off" */
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { getDisplayName, formatTime } from '$lib/utils';
+  import { getLocale } from '$lib/paraglide/runtime';
+  import { getDisplayName } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
+  import { formatDistanceToNow } from 'date-fns';
+  import { enUS, zhCN } from 'date-fns/locale';
   import type { Snippet } from 'svelte';
 
   let {
@@ -37,7 +40,10 @@
       user: `<span class="group-hover/reported-attendance:text-primary transition-colors">${getDisplayName(
         reportedAttendance.reportedBy
       )}</span>`,
-      time: formatTime(reportedAttendance.reportedAt)
+      time: formatDistanceToNow(reportedAttendance.reportedAt, {
+        addSuffix: true,
+        locale: getLocale() === 'en' ? enUS : zhCN
+      })
     })}
   </div>
   {@render children()}
