@@ -897,9 +897,9 @@ export const formatHourLiteral = (hourNum: number) => {
 export const formatShopAddress = (shop: Shop, detailed = false): string => {
   const addressParts: string[] = [];
 
-  if (shop.address?.general || shop.generalAddress) {
+  if (shop.address?.general) {
     const seen = new Set<string>();
-    for (const part of shop.address?.general || shop.generalAddress) {
+    for (const part of shop.address.general) {
       if (!part) continue;
       const trimmed = part.trim();
       if (!trimmed) continue;

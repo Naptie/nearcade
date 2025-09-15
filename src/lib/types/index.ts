@@ -13,7 +13,6 @@ export interface Shop {
   id: number;
   name: string;
   comment: string;
-  generalAddress: string[];
   address: {
     general: string[];
     detailed: string;

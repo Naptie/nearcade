@@ -3,11 +3,12 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getChangelogEntries } from '$lib/utils/changelog.server';
 import mongo from '$lib/db/index.server';
+import { PAGINATION } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   const { id } = params;
   const page = parseInt(url.searchParams.get('page') || '1', 10);
-  const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+  const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (page < 1 || limit < 1 || limit > 100) {
     error(400, 'Invalid pagination parameters');

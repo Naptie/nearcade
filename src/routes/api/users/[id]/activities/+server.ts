@@ -2,13 +2,14 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { getUserActivities } from '$lib/utils/activity.server';
+import { PAGINATION } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   const session = await locals.auth();
   const { id } = params;
 
   const page = parseInt(url.searchParams.get('page') || '1');
-  const limit = parseInt(url.searchParams.get('limit') || '20');
+  const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (page < 1 || limit < 1 || limit > 100) {
     error(400, 'Invalid page or limit parameters');

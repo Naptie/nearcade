@@ -17,7 +17,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     const db = mongo.db();
 
     const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = PAGINATION.PAGE_SIZE;
+    const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
     const skip = (page - 1) * limit;
 
     const search = url.searchParams.get('search') || '';

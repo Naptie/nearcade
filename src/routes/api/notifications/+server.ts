@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { markNotificationsAsRead } from '$lib/notifications/index.server';
 import type { Notification } from '$lib/types';
+import { PAGINATION } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const session = await locals.auth();
@@ -12,7 +13,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   }
 
   const page = parseInt(url.searchParams.get('page') || '1');
-  const limit = parseInt(url.searchParams.get('limit') || '20');
+  const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
   const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
 
   if (page < 1 || limit < 1 || limit > 100) {

@@ -2,10 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
+import { toPlainArray } from '$lib/utils';
+import { PAGINATION } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q');
-  const limit = parseInt(url.searchParams.get('limit') || '20');
+  const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (!query || query.trim().length === 0) {
     return json({ shops: [] });
@@ -57,15 +59,7 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     return json({
-      shops: shops.map((shop) => ({
-        _id: shop._id.toString(),
-        id: shop.id,
-        name: shop.name,
-        generalAddress: shop.generalAddress || [],
-        location: shop.location,
-        games: shop.games || [],
-        source: shop.source
-      }))
+      shops: toPlainArray(shops)
     });
   } catch (error) {
     console.error('Error searching shops:', error);

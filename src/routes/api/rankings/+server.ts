@@ -25,8 +25,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
     const radiusFilter = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
-    const pageSize = parseInt(url.searchParams.get('pageSize') || PAGINATION.PAGE_SIZE.toString());
-    const limit = parseInt(url.searchParams.get('limit') || pageSize.toString());
+    const limit = parseInt(url.searchParams.get('limit') || '') || PAGINATION.PAGE_SIZE;
     const after = url.searchParams.get('after') || null;
 
     // Check cache metadata

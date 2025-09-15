@@ -8,7 +8,7 @@ import mongo from '$lib/db/index.server';
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
   const page = parseInt(url.searchParams.get('page') || '1');
-  const limit = PAGINATION.PAGE_SIZE;
+  const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
   const skip = (page - 1) * limit;
 
   try {
