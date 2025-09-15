@@ -1,11 +1,12 @@
 import type { PageServerLoad } from './$types';
-import type { ClubMember, Shop } from '$lib/types';
+import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import type { User } from '@auth/sveltekit';
+import { ShopSource } from '$lib/constants';
 
-const getShopAttendanceData = async (shops: Shop[]) => {
+const getShopAttendanceData = async (shops: Shop[]): Promise<ShopWithAttendance[]> => {
   if (!redis) {
     // If Redis is not available, return empty attendance data
     return shops.map((shop) => ({
@@ -182,6 +183,45 @@ export const load: PageServerLoad = async ({ parent }) => {
   try {
     const db = mongo.db();
 
+    // Get user's current attendance from Redis
+    let currentlyAttendingShop: ShopWithAttendance | null = null;
+    if (redis) {
+      try {
+        // Get Redis keys for user's current attendance
+        const userAttendanceKeys = await redis.keys(`nearcade:attend:*:${user.id}:*`);
+
+        if (userAttendanceKeys.length > 0) {
+          // Extract shop identifier from the first key
+          // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
+          const firstKey = userAttendanceKeys[0];
+          const keyParts = firstKey.split(':');
+
+          if (keyParts.length >= 3) {
+            const shopIdentifier = keyParts[2]; // source-id format
+            const [source, idStr] = shopIdentifier.split('-');
+            const id = parseInt(idStr);
+
+            if (source && !isNaN(id)) {
+              // Fetch the shop data from MongoDB
+              const shopData = await db.collection<Shop>('shops').findOne({
+                source: source as ShopSource,
+                id: id
+              });
+
+              if (shopData) {
+                currentlyAttendingShop = { 
+                  ...shopData, 
+                  isCurrentlyAttending: true 
+                } as ShopWithAttendance;
+              }
+            }
+          }
+        }
+      } catch (redisError) {
+        console.error('Error getting user attendance from Redis:', redisError);
+      }
+    }
+
     // Get user's starred shops
     let starredShops: Shop[] = [];
     if (user.starredArcades && user.starredArcades.length > 0) {
@@ -243,10 +283,18 @@ export const load: PageServerLoad = async ({ parent }) => {
       }
     }
 
-    // Get attendance data for all shops
     // Merge and deduplicate shops by "source-id" while preserving order
+    // If user is currently attending a shop, add it first
     const seen = new Set<string>();
     const allShops: Shop[] = [];
+
+    if (currentlyAttendingShop) {
+      const currentKey = `${currentlyAttendingShop.source}-${currentlyAttendingShop.id}`;
+      allShops.push(currentlyAttendingShop);
+      seen.add(currentKey);
+    }
+
+    // Add starred shops and club starred shops
     for (const shop of [...starredShops, ...joinedClubsStarredShops]) {
       const key = `${shop.source}-${shop.id}`;
       if (!seen.has(key)) {
@@ -254,6 +302,7 @@ export const load: PageServerLoad = async ({ parent }) => {
         allShops.push(shop);
       }
     }
+
     const shopsWithAttendance = await getShopAttendanceData(allShops);
 
     return {

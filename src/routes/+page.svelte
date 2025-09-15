@@ -19,6 +19,8 @@
 
   let { data }: { data: PageData } = $props();
 
+  let isLeavingShop = $state(false);
+
   let showCollapse = $state(false);
   let mode = $state(0);
   let radius = $state(10);
@@ -237,6 +239,27 @@
 
   const assignAMap = (event: CustomEventInit<typeof AMap>) => {
     amap = event.detail;
+  };
+
+  const handleLeave = async (shop: { source: string; id: number }) => {
+    isLeavingShop = true;
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to leave');
+      }
+
+      // Refresh the page to update the attendance data
+      location.reload();
+    } catch (error) {
+      console.error('Error leaving:', error);
+      // TODO: Show error toast
+    } finally {
+      isLeavingShop = false;
+    }
   };
 
   onMount(() => {
@@ -648,46 +671,88 @@
             {#each data.starredShops as shop (shop._id)}
               {@const currentAttendance = shop.currentAttendance || 0}
               {@const reportedAttendance = shop.currentReportedAttendance}
+              {@const isCurrentlyAttending = (shop as { isCurrentlyAttending?: boolean }).isCurrentlyAttending}
               <div
                 class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition-all hover:shadow-md"
               >
-                <a
-                  href={resolve('/(main)/shops/[source]/[id]', {
-                    source: shop.source,
-                    id: shop.id.toString()
-                  })}
-                  class="flex items-center justify-between gap-2"
-                >
-                  <div class="min-w-0 flex-1">
-                    <h3 class="truncate text-base font-semibold">{shop.name}</h3>
-                    <p class="text-base-content/70 truncate text-xs">
-                      {formatShopAddress(shop)}
-                    </p>
-                  </div>
-                  <div class="shrink-0 text-right">
-                    {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
-                      <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
-                        <div class="text-accent text-sm">
-                          {m.in_attendance({ count: reportedAttendance.count })}
+                {#if isCurrentlyAttending}
+                  <!-- Currently attending shop with Leave button -->
+                  <div class="flex items-center justify-between gap-2">
+                    <a
+                      href={resolve('/(main)/shops/[source]/[id]', {
+                        source: shop.source,
+                        id: shop.id.toString()
+                      })}
+                      class="min-w-0 flex-1"
+                    >
+                      <div class="flex items-center gap-2">
+                        <div class="badge badge-success badge-sm">
+                          <i class="fa-solid fa-user-check fa-xs"></i>
                         </div>
-                      </AttendanceReportBlame>
-                    {:else}
-                      <div
-                        class="text-base-content/60 text-sm not-sm:hidden"
-                        class:text-primary={currentAttendance > 0}
-                      >
-                        {m.in_attendance({ count: currentAttendance })}
+                        <div class="min-w-0 flex-1">
+                          <h3 class="truncate text-base font-semibold">{shop.name}</h3>
+                          <p class="text-base-content/70 truncate text-xs">
+                            {formatShopAddress(shop)}
+                          </p>
+                        </div>
                       </div>
-                      <div
-                        class="text-base-content/60 text-sm sm:hidden"
-                        class:text-primary={currentAttendance > 0}
-                      >
-                        <i class="fa-solid fa-user"></i>
-                        {currentAttendance}
-                      </div>
-                    {/if}
+                    </a>
+                    <button
+                      class="btn btn-error btn-sm"
+                      disabled={isLeavingShop}
+                      onclick={(e) => {
+                        e.preventDefault();
+                        handleLeave(shop);
+                      }}
+                    >
+                      {#if isLeavingShop}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <i class="fa-solid fa-sign-out-alt fa-xs"></i>
+                      {/if}
+                      {m.leave()}
+                    </button>
                   </div>
-                </a>
+                {:else}
+                  <!-- Regular starred shop with attendance display -->
+                  <a
+                    href={resolve('/(main)/shops/[source]/[id]', {
+                      source: shop.source,
+                      id: shop.id.toString()
+                    })}
+                    class="flex items-center justify-between gap-2"
+                  >
+                    <div class="min-w-0 flex-1">
+                      <h3 class="truncate text-base font-semibold">{shop.name}</h3>
+                      <p class="text-base-content/70 truncate text-xs">
+                        {formatShopAddress(shop)}
+                      </p>
+                    </div>
+                    <div class="shrink-0 text-right">
+                      {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
+                        <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                          <div class="text-accent text-sm">
+                            {m.in_attendance({ count: reportedAttendance.count })}
+                          </div>
+                        </AttendanceReportBlame>
+                      {:else}
+                        <div
+                          class="text-base-content/60 text-sm not-sm:hidden"
+                          class:text-primary={currentAttendance > 0}
+                        >
+                          {m.in_attendance({ count: currentAttendance })}
+                        </div>
+                        <div
+                          class="text-base-content/60 text-sm sm:hidden"
+                          class:text-primary={currentAttendance > 0}
+                        >
+                          <i class="fa-solid fa-user"></i>
+                          {currentAttendance}
+                        </div>
+                      {/if}
+                    </div>
+                  </a>
+                {/if}
               </div>
             {/each}
           </div>

@@ -548,4 +548,15 @@ export interface WindowMessage {
   payload?: string;
 }
 
+// Extended Shop type with attendance data
+export interface ShopWithAttendance extends Shop {
+  currentAttendance?: number;
+  currentReportedAttendance?: {
+    count: number;
+    reportedAt: string;
+    reportedBy: User;
+  } | null;
+  isCurrentlyAttending?: boolean;
+}
+
 export * from './amap';
