@@ -941,41 +941,38 @@ export const getShopTimezone = (location: Location): string => {
   return 'Asia/Shanghai';
 };
 
-export const getCurrentShopTime = (location: Location) => {
+export const getCurrentTimeByLocation = (location: Location) => {
   const timezone = getShopTimezone(location);
-  const shopOffsetMs = getTimezoneOffset(timezone);
-  const shopOffsetHours = Math.round(shopOffsetMs / (1000 * 60 * 60));
+  const offsetMs = getTimezoneOffset(timezone);
+  const offsetHours = offsetMs / (1000 * 60 * 60);
 
   const now = new Date();
   const nowMs = now.getTime();
 
-  // Determine the shop local date components by shifting now by the shop offset
-  const shopNowShifted = new Date(nowMs + shopOffsetMs);
-  return { shopNowShifted, shopOffsetHours };
+  // Determine the local date components by shifting now by the offset
+  const nowShifted = new Date(nowMs + offsetMs);
+  return { nowShifted, offsetHours };
 };
 
 /**
- * Calculate the next occurrence of the specified hour at the top of the hour (i.e. HH:00:00)
- * in the shop's local time. If that hour today has already passed in the shop timezone,
- * returns tomorrow at that hour.
+ * Calculate the next occurrence of the specified hour in the location's local time.
+ * If that hour today has already passed, returns tomorrow at that hour.
  */
-export const getNextTimeAtHour = (shopLocation: Location, hours: number[], basisHour: number) => {
-  // normalize hour to integer in [0,23]
+export const getNextTimeAtHour = (location: Location, hours: number[], basisHour: number) => {
   [basisHour, ...hours] = [basisHour, ...hours].map((hour) => Number(hour) || 0);
-  const { shopNowShifted, shopOffsetHours } = getCurrentShopTime(shopLocation);
+  const { nowShifted, offsetHours } = getCurrentTimeByLocation(location);
 
-  const shopYear = shopNowShifted.getUTCFullYear();
-  const shopMonth = shopNowShifted.getUTCMonth();
-  const shopDate = shopNowShifted.getUTCDate();
+  const year = nowShifted.getUTCFullYear();
+  const month = nowShifted.getUTCMonth();
+  const date = nowShifted.getUTCDate();
+  const minutes = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
 
-  // The UTC milliseconds for the shop-local date at the requested hour is:
-  // Date.UTC(shopYear, shopMonth, shopDate, hour - shopOffsetHours, 0, 0, 0)
-  // (hour in shop local -> corresponding UTC hour = hour - offset)
-  let targetUtcMs = Date.UTC(shopYear, shopMonth, shopDate, basisHour - shopOffsetHours, 0, 0, 0);
+  let targetUtcMs = Date.UTC(year, month, date, basisHour - offsetHours, minutes, 0, 0);
+  console.log(basisHour, offsetHours, minutes, new Date(targetUtcMs));
 
   // If that target time is not in the future (i.e. already passed or equal to now), move to next day
   if (targetUtcMs <= new Date().getTime()) {
-    targetUtcMs = Date.UTC(shopYear, shopMonth, shopDate + 1, basisHour - shopOffsetHours, 0, 0, 0);
+    targetUtcMs = Date.UTC(year, month, date + 1, basisHour - offsetHours, minutes, 0, 0);
   }
 
   return {
@@ -990,11 +987,11 @@ export const getNextTimeAtHour = (shopLocation: Location, hours: number[], basis
  * @returns An object containing the opening and closing times
  */
 export const getShopOpeningHours = (shop: Shop) => {
-  const { shopNowShifted, shopOffsetHours } = getCurrentShopTime(shop.location);
+  const { nowShifted, offsetHours } = getCurrentTimeByLocation(shop.location);
   const openingHours =
     shop.openingHours.length === 1
       ? shop.openingHours[0]
-      : (shop.openingHours[shopNowShifted.getDay()] ?? shop.openingHours[0]);
+      : (shop.openingHours[nowShifted.getDay()] ?? shop.openingHours[0]);
   const {
     hours: [open, close]
   } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
@@ -1002,7 +999,7 @@ export const getShopOpeningHours = (shop: Shop) => {
   return {
     open,
     close,
-    offsetHours: shopOffsetHours,
+    offsetHours: offsetHours,
     openLocal: formatHourLiteral(openingHours[0] ?? 0),
     closeLocal: formatHourLiteral(openingHours[1] ?? 0)
   };
