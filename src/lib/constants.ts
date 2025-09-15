@@ -35,7 +35,7 @@ export const ORIGIN_INDEX = 40000;
 export const SHOP_INDEX = 30000;
 
 // Attendance proximity check radius in kilometers
-export const ATTENDANCE_RADIUS_KM = 5;
+export const ATTENDANCE_RADIUS_KM = 0.5;
 export const HOVERED_ROUTE_INDEX = 29999;
 export const SELECTED_ROUTE_INDEX = 20000;
 export const ROUTE_INDEX = 10000;
