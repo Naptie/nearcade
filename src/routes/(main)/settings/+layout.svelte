@@ -14,14 +14,14 @@
       exact: true
     },
     {
-      href: resolve('/(main)/settings/frequenting-arcades'),
-      label: m.frequenting_arcades(),
-      icon: 'fa-clock'
-    },
-    {
       href: resolve('/(main)/settings/starred-arcades'),
       label: m.starred_arcades(),
       icon: 'fa-star'
+    },
+    {
+      href: resolve('/(main)/settings/frequenting-arcades'),
+      label: m.frequenting_arcades(),
+      icon: 'fa-clock'
     },
     {
       href: resolve('/(main)/settings/account'),

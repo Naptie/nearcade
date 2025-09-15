@@ -31,6 +31,7 @@
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '@auth/sveltekit';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 
@@ -404,17 +405,80 @@
           </div>
         {/if}
 
-        <div class="mt-6 flex flex-wrap gap-4">
-          <a
-            href="{resolve('/(main)/discover')}?longitude={shop.location
-              ?.coordinates[0]}&latitude={shop.location
-              ?.coordinates[1]}&name={shop.name}&radius={radius}"
-            target="_blank"
-            class="btn btn-accent btn-soft"
-          >
-            <i class="fa-solid fa-map-location-dot"></i>
-            {m.explore_nearby()}
-          </a>
+        <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <a
+              href="{resolve('/(main)/discover')}?longitude={shop.location
+                ?.coordinates[0]}&latitude={shop.location
+                ?.coordinates[1]}&name={shop.name}&radius={radius}"
+              target="_blank"
+              class="btn btn-accent btn-soft"
+            >
+              <i class="fa-solid fa-map-location-dot"></i>
+              {m.explore_nearby()}
+            </a>
+            {#if data.user}
+              {@const isStarred = data.user.starredArcades?.some(
+                (a) => a.id === shop.id && a.source === shop.source
+              )}
+              {@const toggleStar = async () => {
+                isLoading = true;
+                try {
+                  const formData = new FormData();
+                  formData.append('arcadeSource', shop.source);
+                  formData.append('arcadeId', shop.id.toString());
+                  const response = await fetch(
+                    resolve('/(main)/settings/starred-arcades') +
+                      (isStarred ? '?/removeArcade' : '?/addArcade'),
+                    {
+                      method: 'POST',
+                      body: formData
+                    }
+                  );
+                  if (response.ok) {
+                    await invalidateAll();
+                  }
+                } catch (err) {
+                  console.log('Error starring arcade:', err);
+                } finally {
+                  isLoading = false;
+                }
+              }}
+              <button
+                class="btn btn-warning btn-soft group"
+                class:hover:btn-error={isStarred}
+                disabled={isLoading}
+                onclick={toggleStar}
+              >
+                <span class="loading loading-spinner loading-sm" class:hidden={!isLoading}></span>
+                <span
+                  class:hidden={!isStarred || isLoading}
+                  class:not-group-hover:hidden={isStarred}
+                >
+                  <i class="fa-solid fa-trash"></i>
+                </span>
+                <span
+                  class:group-hover:hidden={isStarred}
+                  class:not-group-hover:hidden={!isStarred}
+                  class:hidden={isLoading}
+                >
+                  <i class="fa-solid fa-star"></i>
+                </span>
+                <span class:hidden={isStarred || isLoading} class:group-hover:hidden={!isStarred}>
+                  <i class="fa-regular fa-star"></i>
+                </span>
+                <span
+                  class:not-group-hover:hidden={isStarred && !isLoading}
+                  class:hidden={!isStarred}
+                >
+                  {m.unstar()}
+                </span>
+                <span class:group-hover:hidden={isStarred} class:hidden={isStarred && isLoading}>
+                  {isStarred ? m.starred() : m.star()}
+                </span>
+              </button>
+            {/if}
+          </div>
           <a
             href={getSourceUrl()}
             target="_blank"
