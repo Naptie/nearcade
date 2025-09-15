@@ -180,7 +180,7 @@
 
     isSearching = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/search?q=${encodeURIComponent(query)}`));
+      const response = await fetch(fromPath(`/api/shops?q=${encodeURIComponent(query)}`));
       if (response.ok) {
         const results = (await response.json()) as { shops: Shop[] };
         searchResults = results.shops || [];
