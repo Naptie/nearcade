@@ -24,6 +24,11 @@
       icon: 'fa-clock'
     },
     {
+      href: resolve('/(main)/settings/api-tokens'),
+      label: m.api_tokens_management(),
+      icon: 'fa-key'
+    },
+    {
       href: resolve('/(main)/settings/account'),
       label: m.account_settings(),
       icon: 'fa-cog'
