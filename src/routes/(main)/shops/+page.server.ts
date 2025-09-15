@@ -2,7 +2,7 @@ import { error, isHttpError } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-import { toPlainArray } from '$lib/utils';
+import { protect, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import type { User } from '@auth/sveltekit';
@@ -120,7 +120,7 @@ const getShopAttendanceData = async (shops: Shop[]) => {
 
       for (const user of users) {
         if (user.id) {
-          usersMap.set(user.id, user);
+          usersMap.set(user.id, protect(user));
         }
       }
     }

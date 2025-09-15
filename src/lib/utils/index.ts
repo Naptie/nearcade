@@ -1087,3 +1087,30 @@ export const aggregateGames = (shop: Pick<Shop, 'games'>) => {
   }
   return Object.values(gameMap);
 };
+
+export const protect = <T extends User | undefined>(user: T): T => {
+  if (!user) return user;
+  const propertiesToRemove = [
+    'emailVerified',
+    'notificationTypes',
+    'fcmTokenUpdatedAt',
+    'fcmTokens',
+    'autoDiscovery',
+    'apiTokens'
+  ];
+  for (const prop of propertiesToRemove) {
+    if (prop in user) {
+      delete (user as never)[prop];
+    }
+  }
+  if (user.isEmailPublic !== true) {
+    delete user.email;
+  }
+  if (user.isFrequentingArcadePublic === false) {
+    delete user.frequentingArcades;
+  }
+  if (user.isStarredArcadePublic === false) {
+    delete user.starredArcades;
+  }
+  return user;
+};

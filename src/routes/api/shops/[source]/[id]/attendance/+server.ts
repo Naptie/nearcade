@@ -9,7 +9,7 @@ import type {
   AttendanceReportRecord,
   Shop
 } from '$lib/types';
-import { getShopOpeningHours } from '$lib/utils';
+import { getShopOpeningHours, protect } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { getCurrentAttendance } from '$lib/utils/index.server';
@@ -355,7 +355,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
           delete entry.userId;
         }
       } else if ('reportedBy' in entry)
-        entry.reporter = users.find((u) => u.id === entry.reportedBy) as User;
+        entry.reporter = protect(users.find((u) => u.id === entry.reportedBy)) as User;
     });
 
     return json({ success: true, data: attendanceData });

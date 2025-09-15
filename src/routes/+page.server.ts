@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
-import { toPlainArray } from '$lib/utils';
+import { protect, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import type { User } from '@auth/sveltekit';
@@ -119,7 +119,7 @@ const getShopAttendanceData = async (shops: Shop[]): Promise<ShopWithAttendance[
 
       for (const user of users) {
         if (user.id) {
-          usersMap.set(user.id, user);
+          usersMap.set(user.id, protect(user));
         }
       }
     }
