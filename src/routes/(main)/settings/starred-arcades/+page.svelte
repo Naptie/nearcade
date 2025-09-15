@@ -68,16 +68,16 @@
   <title>{pageTitle(m.starred_arcades())}</title>
 </svelte:head>
 
-<div class="mx-auto px-4 py-8 sm:container">
-  <div class="mb-6">
-    <h1 class="mb-2 text-3xl font-bold">{m.starred_arcades()}</h1>
-    <p class="text-base-content/70">
+<div class="space-y-6 md:space-y-10 md:p-5">
+  <div>
+    <h1 class="text-2xl font-bold md:text-3xl">{m.starred_arcades()}</h1>
+    <p class="text-base-content/70 mt-1">
       {m.manage_starred_arcades()}
     </p>
   </div>
 
   <!-- Add Arcade Section -->
-  <div class="bg-base-200 mb-6 rounded-lg p-6">
+  <div class="bg-base-200 mb-6 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.add_arcade()}</h2>
 
     <div class="mb-4 flex gap-2">
@@ -119,7 +119,7 @@
   </div>
 
   <!-- Current Starred Arcades -->
-  <div class="bg-base-200 rounded-lg p-6">
+  <div class="bg-base-200 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.my_starred_arcades()}</h2>
 
     {#if data.starredArcades && data.starredArcades.length > 0}

@@ -6,6 +6,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { zhCN, enUS } from 'date-fns/locale';
   import type { PageData, ActionData } from './$types';
+  import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -14,8 +15,20 @@
   let showCreateModal = $state(false);
   let showRenameModal = $state(false);
   let showDeleteModal = $state(false);
-  let currentToken = $state<{ id: string; name: string; token: string; expiresAt: string | Date; createdAt: string | Date } | null>(null);
-  let createdToken = $state<{ id: string; name: string; token: string; expiresAt: string | Date; createdAt: string | Date } | null>(null);
+  let currentToken = $state<{
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date;
+    createdAt: string | Date;
+  } | null>(null);
+  let createdToken = $state<{
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date;
+    createdAt: string | Date;
+  } | null>(null);
 
   // Form states
   let tokenName = $state('');
@@ -63,6 +76,8 @@
     return renameTokenName.trim().length > 0 && !clientErrors.renameTokenName;
   });
 
+  let isCopied = $state(false);
+
   // Safe message getter
   const getMessage = (key: string | undefined): string => {
     if (!key) return '';
@@ -103,7 +118,13 @@
     createdToken = null;
   };
 
-  const openRenameModal = (token: { id: string; name: string; token: string; expiresAt: string | Date; createdAt: string | Date }) => {
+  const openRenameModal = (token: {
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date;
+    createdAt: string | Date;
+  }) => {
     currentToken = token;
     renameTokenName = token.name;
     clientErrors = {};
@@ -115,7 +136,13 @@
     currentToken = null;
   };
 
-  const openDeleteModal = (token: { id: string; name: string; token: string; expiresAt: string | Date; createdAt: string | Date }) => {
+  const openDeleteModal = (token: {
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date;
+    createdAt: string | Date;
+  }) => {
     currentToken = token;
     showDeleteModal = true;
   };
@@ -162,7 +189,7 @@
 
   // Check if token is expired
   const isExpired = (expiresAt: string | Date) => {
-    return new Date(expiresAt) < Date.now();
+    return new Date(expiresAt) < new Date();
   };
 
   // Format expiration date
@@ -181,13 +208,24 @@
   const maxDate = oneYearDate.toISOString().split('T')[0];
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 md:space-y-10 md:p-5">
   <!-- Header -->
-  <div>
-    <h1 class="text-2xl font-bold">{m.api_tokens_management()}</h1>
-    <p class="text-base-content/70 mt-1">
-      {m.api_tokens_description()}
-    </p>
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold md:text-3xl">{m.api_tokens()}</h1>
+      <p class="text-base-content/70 mt-1">
+        {m.api_tokens_description()}
+      </p>
+    </div>
+    {#if data.apiTokens && data.apiTokens.length > 0}
+      <!-- Create Token Button -->
+      <div class="flex justify-end">
+        <button class="btn btn-primary btn-soft" onclick={openCreateModal}>
+          <i class="fa-solid fa-plus"></i>
+          {m.create_api_token()}
+        </button>
+      </div>
+    {/if}
   </div>
 
   <!-- Success Alert -->
@@ -206,198 +244,211 @@
     </div>
   {/if}
 
-  <!-- Create Token Button -->
-  <div class="flex justify-end">
-    <button class="btn btn-primary" onclick={openCreateModal}>
-      <i class="fa-solid fa-plus"></i>
-      {m.create_api_token()}
-    </button>
-  </div>
-
-  <!-- API Tokens List -->
-  <div class="bg-base-100 rounded-lg p-6">
-    <h3 class="mb-4 text-lg font-semibold">{m.api_tokens()}</h3>
-
-    {#if data.apiTokens && data.apiTokens.length > 0}
-      <div class="space-y-4">
-        {#each data.apiTokens as token (token.id)}
-          <div class="bg-base-200 flex items-center justify-between rounded-lg p-4">
-            <div class="flex-1">
-              <div class="flex items-center gap-3">
-                <h4 class="font-medium">{token.name}</h4>
-                {#if isExpired(token.expiresAt)}
-                  <span class="badge badge-error">{m.expired()}</span>
-                {:else}
-                  <span class="badge badge-success">{m.active()}</span>
-                {/if}
-              </div>
-              <div class="text-base-content/60 mt-1 text-sm">
-                <p>{m.expires_at()}: {formatExpiresAt(token.expiresAt)}</p>
-                <p>
-                  Created: {formatDistanceToNow(new Date(token.createdAt), {
-                    addSuffix: true,
-                    locale: dateLocale
-                  })}
-                </p>
-              </div>
-            </div>
-
+  {#if data.apiTokens && data.apiTokens.length > 0}
+    <div class="space-y-4">
+      {#each data.apiTokens as token (token.id)}
+        <div class="bg-base-100 flex items-center justify-between rounded-lg p-4">
+          <div class="flex-1">
             <div class="flex items-center gap-2">
-              <button
-                class="btn btn-sm btn-ghost"
-                onclick={() => openRenameModal(token)}
-                title={m.rename_token()}
-              >
-                <i class="fa-solid fa-edit"></i>
-                {m.rename()}
-              </button>
-              <button
-                class="btn btn-sm btn-error"
-                onclick={() => openDeleteModal(token)}
-                title={m.delete()}
-              >
-                <i class="fa-solid fa-trash"></i>
-                {m.delete()}
-              </button>
+              <h4 class="font-medium">{token.name}</h4>
+              {#if isExpired(token.expiresAt)}
+                <span class="badge badge-error badge-soft text-nowrap">{m.expired()}</span>
+              {:else}
+                <span class="badge badge-success badge-soft text-nowrap">{m.active()}</span>
+              {/if}
+            </div>
+            <div class="text-base-content/60 mt-1 text-sm">
+              <p>{m.expires_at()}: {formatExpiresAt(token.expiresAt)}</p>
+              <p>
+                {m.created()}: {formatDistanceToNow(new Date(token.createdAt), {
+                  addSuffix: true,
+                  locale: dateLocale
+                })}
+              </p>
             </div>
           </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-key text-base-content/30 mb-4 text-4xl"></i>
-        <h3 class="text-base-content/60 mb-2 text-lg font-medium">{m.no_tokens_yet()}</h3>
-        <p class="text-base-content/50 mb-4">{m.api_tokens_description()}</p>
-        <button class="btn btn-primary" onclick={openCreateModal}>
-          <i class="fa-solid fa-plus"></i>
-          {m.create_api_token()}
-        </button>
-      </div>
-    {/if}
-  </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              class="btn btn-sm btn-soft"
+              onclick={() => openRenameModal(token)}
+              title={m.rename_token()}
+            >
+              <i class="fa-solid fa-edit"></i>
+              <span class="not-ss:hidden">{m.rename()}</span>
+            </button>
+            <button
+              class="btn btn-sm btn-soft btn-error"
+              onclick={() => openDeleteModal(token)}
+              title={m.delete()}
+            >
+              <i class="fa-solid fa-trash"></i>
+              <span class="not-ss:hidden">{m.delete()}</span>
+            </button>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {:else}
+    <div class="py-6 text-center">
+      <i class="fa-solid fa-key text-base-content/30 mb-4 text-4xl"></i>
+      <h3 class="text-base-content/60 mb-2 text-lg font-medium">{m.no_tokens_yet()}</h3>
+      <p class="text-base-content/50 mb-4">{m.api_tokens_description()}</p>
+      <button class="btn btn-primary btn-soft" onclick={openCreateModal}>
+        <i class="fa-solid fa-plus"></i>
+        {m.create_api_token()}
+      </button>
+    </div>
+  {/if}
 </div>
 
 <!-- Create Token Modal -->
-{#if showCreateModal}
-  <div class="modal modal-open">
-    <div class="modal-box w-11/12 max-w-md">
-      {#if createdToken}
-        <!-- Token Created Successfully -->
-        <h3 class="mb-4 text-lg font-bold">{m.api_token_created()}</h3>
+<div class="modal" class:modal-open={showCreateModal}>
+  <div class="modal-box w-11/12 max-w-md">
+    {#if createdToken}
+      <!-- Token Created Successfully -->
+      <h3 class="mb-4 text-lg font-bold">{m.api_token_created()}</h3>
 
-        <div class="space-y-4">
-          <div class="alert alert-warning">
-            <i class="fa-solid fa-exclamation-triangle"></i>
-            <span>{m.copy_token_warning()}</span>
-          </div>
-
-          <div>
-            <label class="label" for="token-display-name">
-              <span class="label-text font-medium">{m.api_token_name()}</span>
-            </label>
-            <input
-              id="token-display-name"
-              type="text"
-              class="input input-bordered w-full"
-              value={createdToken.name}
-              readonly
-            />
-          </div>
-
-          <div>
-            <label class="label" for="token-display-value">
-              <span class="label-text font-medium">{m.api_token()}</span>
-            </label>
-            <div class="flex gap-2">
-              <input
-                id="token-display-value"
-                type="text"
-                class="input input-bordered w-full font-mono text-sm"
-                value={createdToken.token}
-                readonly
-              />
-              <button
-                type="button"
-                class="btn btn-square btn-outline"
-                onclick={() => copyToClipboard(createdToken.token)}
-                title={m.copy_token()}
-                aria-label={m.copy_token()}
-              >
-                <i class="fa-solid fa-copy"></i>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label class="label" for="token-display-expires">
-              <span class="label-text font-medium">{m.expires_at()}</span>
-            </label>
-            <input
-              id="token-display-expires"
-              type="text"
-              class="input input-bordered w-full"
-              value={formatExpiresAt(createdToken.expiresAt)}
-              readonly
-            />
-          </div>
+      <div class="space-y-4">
+        <div class="alert alert-warning">
+          <i class="fa-solid fa-exclamation-triangle"></i>
+          <span>{m.copy_token_warning()}</span>
         </div>
 
-        <div class="modal-action">
-          <button class="btn btn-primary" onclick={closeCreateModal}>
-            {m.confirm()}
-          </button>
+        <div>
+          <label class="label" for="token-display-name">
+            <span class="label-text font-medium">{m.api_token_name()}</span>
+          </label>
+          <input
+            id="token-display-name"
+            type="text"
+            class="input input-bordered w-full"
+            value={createdToken.name}
+            readonly
+          />
         </div>
-      {:else}
-        <!-- Create Token Form -->
-        <h3 class="mb-4 text-lg font-bold">{m.create_api_token()}</h3>
 
-        <form
-          method="POST"
-          action="?/createToken"
-          use:enhance={() => {
-            isSubmitting = true;
-            return async () => {
-              isSubmitting = false;
-            };
-          }}
-        >
-          <div class="space-y-4">
-            <div class="form-control">
-              <label class="label" for="token-name">
-                <span class="label-text">{m.api_token_name()}</span>
-                <span class="label-text-alt text-error">*</span>
-              </label>
-              <input
-                id="token-name"
-                name="name"
-                type="text"
-                bind:value={tokenName}
-                oninput={() => validateField('tokenName', tokenName)}
-                placeholder={m.api_token_name_placeholder()}
-                class="input input-bordered w-full"
-                class:input-error={clientErrors.tokenName}
-                maxlength="50"
-                required
-              />
-              {#if clientErrors.tokenName}
-                <div class="label">
-                  <span class="label-text-alt text-error">
-                    <i class="fa-solid fa-exclamation-triangle mr-1"></i>
-                    {getMessage(clientErrors.tokenName)}
-                  </span>
-                </div>
+        <div>
+          <label class="label" for="token-display-value">
+            <span class="label-text font-medium">{m.api_token()}</span>
+          </label>
+          <div class="flex gap-2">
+            <input
+              id="token-display-value"
+              type="text"
+              class="input input-bordered w-full font-mono text-sm"
+              value={createdToken.token}
+              readonly
+            />
+            <button
+              type="button"
+              class="btn btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
+              class:btn-success={isCopied}
+              class:btn-active={isCopied}
+              onclick={async () => {
+                await copyToClipboard(createdToken!.token);
+                isCopied = true;
+                setTimeout(() => {
+                  isCopied = false;
+                }, 2000);
+              }}
+              title={m.copy_token()}
+              aria-label={m.copy_token()}
+            >
+              {#if isCopied}
+                <i class="fa-solid fa-check fa-lg"></i>
+              {:else}
+                <i class="fa-solid fa-copy fa-lg"></i>
               {/if}
-            </div>
+            </button>
+          </div>
+        </div>
 
-            <div class="form-control">
-              <label class="label" for="expiration-select">
-                <span class="label-text">{m.api_token_expiration()}</span>
-              </label>
+        <div>
+          <label class="label" for="token-display-expires">
+            <span class="label-text font-medium">{m.expires_at()}</span>
+          </label>
+          <input
+            id="token-display-expires"
+            type="text"
+            class="input input-bordered w-full"
+            value={formatExpiresAt(createdToken.expiresAt)}
+            readonly
+          />
+        </div>
+      </div>
+
+      <div class="modal-action">
+        <button class="btn btn-primary btn-soft" onclick={closeCreateModal}>
+          {m.confirm()}
+        </button>
+      </div>
+    {:else}
+      <!-- Create Token Form -->
+      <h3 class="mb-4 text-lg font-bold">{m.create_api_token()}</h3>
+
+      <form
+        method="POST"
+        action="?/createToken"
+        use:enhance={() => {
+          isSubmitting = true;
+          return async ({ result }) => {
+            isSubmitting = false;
+            tokenName = '';
+            expiration = '30days';
+            customDate = '';
+            clientErrors = {};
+            if (result.type === 'success' && result.data?.success) {
+              createdToken = result.data.token as {
+                id: string;
+                name: string;
+                token: string;
+                expiresAt: string | Date;
+                createdAt: string | Date;
+              };
+            }
+            await invalidateAll();
+          };
+        }}
+      >
+        <div class="space-y-4">
+          <div class="form-control">
+            <label class="label" for="token-name">
+              <span class="label-text">{m.api_token_name()}</span>
+              <span class="label-text-alt text-error">*</span>
+            </label>
+            <input
+              id="token-name"
+              name="name"
+              type="text"
+              bind:value={tokenName}
+              oninput={() => validateField('tokenName', tokenName)}
+              placeholder={m.api_token_name_placeholder()}
+              class="input input-bordered w-full"
+              class:input-error={clientErrors.tokenName}
+              maxlength="50"
+              required
+            />
+            {#if clientErrors.tokenName}
+              <div class="label">
+                <span class="label-text-alt text-error">
+                  <i class="fa-solid fa-exclamation-triangle mr-1"></i>
+                  {getMessage(clientErrors.tokenName)}
+                </span>
+              </div>
+            {/if}
+          </div>
+
+          <div class="form-control">
+            <label class="label" for="expiration-select">
+              <span class="label-text">{m.api_token_expiration()}</span>
+            </label>
+            <div class="join w-full">
               <select
                 id="expiration-select"
                 name="expiration"
                 bind:value={expiration}
-                class="select select-bordered w-full"
+                class="select select-bordered join-item w-full flex-1/3"
               >
                 <option value="1day">{m.expires_in_1_day()}</option>
                 <option value="1week">{m.expires_in_1_week()}</option>
@@ -406,14 +457,7 @@
                 <option value="1year">{m.expires_in_1_year()}</option>
                 <option value="custom">{m.expires_in_custom()}</option>
               </select>
-            </div>
-
-            {#if expiration === 'custom'}
-              <div class="form-control">
-                <label class="label" for="custom-date">
-                  <span class="label-text">Custom Expiration Date</span>
-                  <span class="label-text-alt text-error">*</span>
-                </label>
+              {#if expiration === 'custom'}
                 <input
                   id="custom-date"
                   name="customDate"
@@ -421,11 +465,11 @@
                   bind:value={customDate}
                   min={today}
                   max={maxDate}
-                  class="input input-bordered w-full"
+                  class="input input-bordered join-item w-full flex-2/3"
                   required
                 />
-              </div>
-            {/if}
+              {/if}
+            </div>
           </div>
 
           <div class="modal-action">
@@ -434,7 +478,7 @@
             </button>
             <button
               type="submit"
-              class="btn btn-primary"
+              class="btn btn-primary btn-soft"
               disabled={isSubmitting || !isCreateFormValid}
             >
               {#if isSubmitting}
@@ -445,15 +489,15 @@
               {m.create()}
             </button>
           </div>
-        </form>
-      {/if}
-    </div>
+        </div>
+      </form>
+    {/if}
   </div>
-{/if}
+</div>
 
 <!-- Rename Token Modal -->
-{#if showRenameModal && currentToken}
-  <div class="modal modal-open">
+{#if currentToken}
+  <div class="modal" class:modal-open={showRenameModal}>
     <div class="modal-box w-11/12 max-w-md">
       <h3 class="mb-4 text-lg font-bold">{m.rename_token()}</h3>
 
@@ -464,6 +508,8 @@
           isSubmitting = true;
           return async () => {
             isSubmitting = false;
+            closeRenameModal();
+            invalidateAll();
           };
         }}
       >
@@ -519,42 +565,21 @@
 {/if}
 
 <!-- Delete Token Modal -->
-{#if showDeleteModal && currentToken}
-  <div class="modal modal-open">
-    <div class="modal-box w-11/12 max-w-md">
-      <h3 class="mb-4 text-lg font-bold">{m.confirm_delete_token_title()}</h3>
-
-      <p class="py-4">{m.confirm_delete_token()}</p>
-      <p class="text-base-content/60 mb-4 text-sm">
-        Token: <strong>{currentToken.name}</strong>
-      </p>
-
-      <form
-        method="POST"
-        action="?/deleteToken"
-        use:enhance={() => {
-          isSubmitting = true;
-          return async () => {
-            isSubmitting = false;
-          };
-        }}
-      >
-        <input type="hidden" name="tokenId" value={currentToken.id} />
-
-        <div class="modal-action">
-          <button type="button" class="btn" onclick={closeDeleteModal}>
-            {m.cancel()}
-          </button>
-          <button type="submit" class="btn btn-error" disabled={isSubmitting}>
-            {#if isSubmitting}
-              <span class="loading loading-spinner loading-sm"></span>
-            {:else}
-              <i class="fa-solid fa-trash"></i>
-            {/if}
-            {m.delete()}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+{#if currentToken}
+  <ConfirmationModal
+    bind:isOpen={showDeleteModal}
+    title={m.confirm_delete_token_title()}
+    message={m.confirm_delete_token()}
+    onConfirm={async () => {
+      isSubmitting = true;
+      await fetch('?/deleteToken', {
+        method: 'POST',
+        body: new URLSearchParams({ tokenId: currentToken!.id })
+      });
+      isSubmitting = false;
+      closeDeleteModal();
+      await invalidateAll();
+    }}
+    onCancel={() => {}}
+  />
 {/if}

@@ -30,16 +30,16 @@
   <title>{pageTitle(m.account_settings())}</title>
 </svelte:head>
 
-<div class="mx-auto px-4 py-8 sm:container">
-  <div class="mb-6">
-    <h1 class="mb-2 text-3xl font-bold">{m.account_settings()}</h1>
-    <p class="text-base-content/70">
+<div class="space-y-6 md:space-y-10 md:p-5">
+  <div>
+    <h1 class="text-2xl font-bold md:text-3xl">{m.account_settings()}</h1>
+    <p class="text-base-content/70 mt-1">
       {m.manage_account_and_associations()}
     </p>
   </div>
 
   <!-- Account Information -->
-  <div class="bg-base-200 mb-6 rounded-lg p-6">
+  <div class="bg-base-200 mb-6 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.account_information()}</h2>
 
     {#if data.userProfile}
@@ -90,7 +90,7 @@
   </div>
 
   <!-- University Association -->
-  <div class="bg-base-200 mb-6 rounded-lg p-6">
+  <div class="bg-base-200 mb-6 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.university_associations()}</h2>
 
     {#if data.universities && data.universities.length > 0}
@@ -144,7 +144,7 @@
   </div>
 
   <!-- Club Memberships -->
-  <div class="bg-base-200 mb-6 rounded-lg p-6">
+  <div class="bg-base-200 mb-6 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.club_memberships()}</h2>
 
     {#if data.clubs && data.clubs.length > 0}
@@ -209,7 +209,7 @@
   </div>
 
   <!-- Danger Zone -->
-  <div class="bg-error/10 border-error/20 rounded-lg border p-6">
+  <div class="bg-error/10 border-error/20 rounded-lg border p-4 sm:p-6">
     <h2 class="text-error mb-4 text-xl font-semibold">{m.danger_zone()}</h2>
 
     <div class="space-y-4">

@@ -25,7 +25,7 @@
     },
     {
       href: resolve('/(main)/settings/api-tokens'),
-      label: m.api_tokens_management(),
+      label: m.api_tokens(),
       icon: 'fa-key'
     },
     {

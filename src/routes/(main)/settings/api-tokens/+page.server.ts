@@ -1,9 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
-import { nanoid } from 'nanoid';
-import crypto from 'crypto';
+import { customAlphabet, nanoid } from 'nanoid';
 import type { PageServerLoad, Actions } from './$types';
 import mongo from '$lib/db/index.server';
+import type { User } from '@auth/sveltekit';
+import { alphabet } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -97,7 +98,7 @@ export const actions: Actions = {
       }
 
       // Generate token
-      const token = crypto.randomBytes(32).toString('hex');
+      const token = `nk_${customAlphabet(alphabet, 42)()}`;
       const apiTokenId = nanoid();
 
       const newToken = {
@@ -110,19 +111,15 @@ export const actions: Actions = {
 
       // Update user with new API token
       const db = mongo.db();
-      const usersCollection = db.collection('users');
+      const usersCollection = db.collection<User>('users');
 
-      interface ApiTokenUpdate {
-        $push: { apiTokens: unknown };
-        $set: { updatedAt: Date };
-      }
-
-      const updateDoc: ApiTokenUpdate = {
-        $push: { apiTokens: newToken },
-        $set: { updatedAt: new Date() }
-      };
-
-      await usersCollection.updateOne({ _id: new ObjectId(session.user.id) }, updateDoc);
+      await usersCollection.updateOne(
+        { _id: new ObjectId(session.user.id) },
+        {
+          $push: { apiTokens: newToken },
+          $set: { updatedAt: new Date() }
+        }
+      );
 
       return {
         success: true,
@@ -210,19 +207,15 @@ export const actions: Actions = {
 
       // Remove the token from user's apiTokens array
       const db = mongo.db();
-      const usersCollection = db.collection('users');
+      const usersCollection = db.collection<User>('users');
 
-      interface PullTokenUpdate {
-        $pull: { apiTokens: { id: string } };
-        $set: { updatedAt: Date };
-      }
-
-      const updateDoc: PullTokenUpdate = {
-        $pull: { apiTokens: { id: tokenId } },
-        $set: { updatedAt: new Date() }
-      };
-
-      await usersCollection.updateOne({ _id: new ObjectId(session.user.id) }, updateDoc);
+      await usersCollection.updateOne(
+        { _id: new ObjectId(session.user.id) },
+        {
+          $pull: { apiTokens: { id: tokenId } },
+          $set: { updatedAt: new Date() }
+        }
+      );
 
       return {
         success: true,
