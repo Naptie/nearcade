@@ -11,7 +11,12 @@
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
-  import { formatRegionLabel, formatShopAddress, getMyLocation } from '$lib/utils';
+  import {
+    formatRegionLabel,
+    formatShopAddress,
+    getMyLocation,
+    getShopOpeningHours
+  } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
   import type { PageData } from './$types';
@@ -33,16 +38,6 @@
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
 
-  onMount(() => {
-    const savedRadius = localStorage.getItem('nearcade-radius');
-    if (savedRadius) {
-      const parsedRadius = parseInt(savedRadius);
-      if (RADIUS_OPTIONS.includes(parsedRadius)) {
-        radius = parsedRadius;
-      }
-    }
-  });
-
   $effect(() => {
     if (browser) {
       localStorage.setItem('nearcade-radius', radius.toString());
@@ -60,8 +55,9 @@
   let universities = $state<University[]>([]);
   let isSearchingUniversities = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
-
   let searchRequestId = $state(0);
+
+  let now = $state(new Date());
 
   const searchUniversities = async (query: string, requestId: number) => {
     if (query.trim().length === 0) {
@@ -262,12 +258,24 @@
   };
 
   onMount(() => {
-    if (browser) {
-      window.addEventListener('amap-loaded', assignAMap);
-      return () => {
-        window.removeEventListener('amap-loaded', assignAMap);
-      };
+    window.addEventListener('amap-loaded', assignAMap);
+
+    const interval = setInterval(() => {
+      now = new Date();
+    }, 1000);
+
+    const savedRadius = localStorage.getItem('nearcade-radius');
+    if (savedRadius) {
+      const parsedRadius = parseInt(savedRadius);
+      if (RADIUS_OPTIONS.includes(parsedRadius)) {
+        radius = parsedRadius;
+      }
     }
+
+    return () => {
+      window.removeEventListener('amap-loaded', assignAMap);
+      clearInterval(interval);
+    };
   });
 </script>
 
@@ -668,8 +676,9 @@
             class:pt-4={!showCollapse}
           >
             {#each data.starredShops as shop (shop._id)}
-              {@const currentAttendance = shop.currentAttendance || 0}
-              {@const reportedAttendance = shop.currentReportedAttendance}
+              {@const openingHours = getShopOpeningHours(shop)}
+              {@const isShopOpen =
+                openingHours && now >= openingHours.open && now <= openingHours.close}
               {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
               <div
                 class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
@@ -710,7 +719,9 @@
                       {/if}
                       {m.leave()}
                     </button>
-                  {:else}
+                  {:else if isShopOpen}
+                    {@const currentAttendance = shop.currentAttendance || 0}
+                    {@const reportedAttendance = shop.currentReportedAttendance}
                     <div class="text-right">
                       {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
                         <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
@@ -734,6 +745,8 @@
                         </div>
                       {/if}
                     </div>
+                  {:else}
+                    <div class="text-error text-sm">{m.closed()}</div>
                   {/if}
                 </a>
               </div>
