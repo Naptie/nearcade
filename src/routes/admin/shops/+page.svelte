@@ -5,7 +5,7 @@
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
-  import { aggregateGames, formatShopAddress, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, aggregateGames, formatShopAddress, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -102,7 +102,7 @@
                           source: shop.source,
                           id: shop.id.toString()
                         })}
-                        target="_blank"
+                        target={adaptiveNewTab()}
                         class="hover:text-accent line-clamp-3 transition-colors"
                       >
                         {shop.name}
@@ -138,7 +138,7 @@
                       href="{resolve('/(main)/discover')}?longitude={shop.location
                         ?.coordinates[0]}&latitude={shop.location
                         ?.coordinates[1]}&name={shop.name}&radius={radius}"
-                      target="_blank"
+                      target={adaptiveNewTab()}
                       class="btn btn-soft btn-sm"
                       title={m.explore_nearby()}
                     >

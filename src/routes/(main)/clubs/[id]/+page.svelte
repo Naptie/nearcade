@@ -12,7 +12,7 @@
   import type { ClubMemberWithUser, Shop } from '$lib/types';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { aggregateGames, formatDate, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, aggregateGames, formatDate, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { invalidateAll } from '$app/navigation';
 
@@ -596,7 +596,7 @@
                           source: shop.source,
                           id: shop.id.toString()
                         })}
-                        target="_blank"
+                        target={adaptiveNewTab()}
                         class="group flex flex-1 items-center gap-3"
                       >
                         <div class="flex-1">
@@ -625,7 +625,7 @@
                           href="{resolve('/(main)/discover')}?longitude={shop.location
                             ?.coordinates[0]}&latitude={shop.location
                             ?.coordinates[1]}&name={shop.name}&radius={radius}"
-                          target="_blank"
+                          target={adaptiveNewTab()}
                           class="btn btn-soft btn-circle btn-sm"
                           title={m.explore_nearby()}
                           aria-label={m.explore_nearby()}

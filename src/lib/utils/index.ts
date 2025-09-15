@@ -863,6 +863,8 @@ export const pageTitle = (...parts: string[]): string => {
   }
 };
 
+export const adaptiveNewTab = () => (isStandalone() ? '_self' : '_blank');
+
 const processor = unified()
   .use(rehypeParse, { fragment: true })
   .use(rehypeSanitize)

@@ -7,7 +7,7 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
   import type { JoinRequestWithUser } from '$lib/types';
-  import { formatDateTime, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, formatDateTime, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -144,7 +144,7 @@
               <tr class="hover">
                 <td class="max-w-[10vw]">
                   <div class="flex items-center gap-3">
-                    <UserAvatar user={request.user} target="_blank" showName size="sm" />
+                    <UserAvatar user={request.user} target={adaptiveNewTab()} showName size="sm" />
                   </div>
                 </td>
                 <td class="max-w-[10vw]">
@@ -167,7 +167,7 @@
                           : resolve('/(main)/clubs/[id]', {
                               id: (request.target.slug || request.target.id) as string
                             })}
-                        target="_blank"
+                        target={adaptiveNewTab()}
                         class="hover:text-accent line-clamp-3 font-medium transition-colors"
                       >
                         {request.target.name}
@@ -302,7 +302,7 @@
             <div>
               <UserAvatar
                 user={selectedRequest.user}
-                target="_blank"
+                target={adaptiveNewTab()}
                 showName
                 align="right"
                 size="sm"

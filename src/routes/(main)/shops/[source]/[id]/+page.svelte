@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
   import {
+    adaptiveNewTab,
     aggregateGames,
     calculateDistance,
     convertCoordinates,
@@ -411,7 +412,7 @@
               href="{resolve('/(main)/discover')}?longitude={shop.location
                 ?.coordinates[0]}&latitude={shop.location
                 ?.coordinates[1]}&name={shop.name}&radius={radius}"
-              target="_blank"
+              target={adaptiveNewTab()}
               class="btn btn-accent btn-soft"
             >
               <i class="fa-solid fa-map-location-dot"></i>
@@ -763,7 +764,7 @@
                                   user={attendee.user || { displayName: attendee.userId }}
                                   size="sm"
                                   showName
-                                  target="_blank"
+                                  target={adaptiveNewTab()}
                                 />
                               </div>
                             </div>

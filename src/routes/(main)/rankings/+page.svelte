@@ -6,7 +6,8 @@
     formatRegionLabel,
     parseRelativeTime,
     pageTitle,
-    getGameName
+    getGameName,
+    adaptiveNewTab
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy, tick } from 'svelte';
@@ -286,7 +287,7 @@
                         href={resolve('/(main)/universities/[id]', {
                           id: ranking.id.split('_')[0]
                         })}
-                        target="_blank"
+                        target={adaptiveNewTab()}
                         class="text-base-content link-accent pr-1 font-semibold transition-colors"
                         >{ranking.universityName}</a
                       >
@@ -416,7 +417,7 @@
                         .coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(
                         ranking.fullName
                       )}"
-                      target="_blank"
+                      target={adaptiveNewTab()}
                     >
                       <i class="fas fa-map-marker-alt"></i>
                       <span class="not-md:hidden">{m.view_location()}</span>

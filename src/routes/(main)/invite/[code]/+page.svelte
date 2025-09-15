@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import { getDisplayName, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, getDisplayName, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
 
   let { data }: { data: PageData } = $props();
@@ -117,7 +117,7 @@
                   id: data.targetInfo.slug || data.targetInfo.id
                 })
               : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })}
-            target="_blank"
+            target={adaptiveNewTab()}
             class="group mb-4 flex items-center gap-4"
           >
             {#if data.targetInfo.avatarUrl}

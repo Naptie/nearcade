@@ -14,7 +14,7 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { canWriteUnivPosts, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, canWriteUnivPosts, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
@@ -563,7 +563,7 @@
                             .coordinates[0]}&radius={searchRadius}&name={encodeURIComponent(
                             `${data.university.name}${campus.name ? ` (${campus.name})` : ''}`
                           )}"
-                          target="_blank"
+                          target={adaptiveNewTab()}
                         >
                           <i class="fas fa-map-marker-alt"></i>
                           <span class="not-md:hidden">{m.view_location()}</span>
