@@ -47,7 +47,7 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
   try {
     response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET');
+    response.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   } catch {
     // Intentionally ignore errors when setting headers
   }
