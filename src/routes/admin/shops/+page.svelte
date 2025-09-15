@@ -119,7 +119,7 @@
                   {#if shop.games && shop.games.length > 0}
                     {@const aggregatedGames = aggregateGames(shop)}
                     <div class="mt-1 flex flex-wrap gap-1">
-                      {#each aggregatedGames as game (game.titleId)}
+                      {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
                         <span class="badge badge-xs badge-soft">
                           {game.name}
                         </span>
