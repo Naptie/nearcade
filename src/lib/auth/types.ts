@@ -25,6 +25,13 @@ declare module '@auth/sveltekit' {
     notificationTypes?: NotificationType[];
     fcmTokens?: string[]; // Firebase Cloud Messaging tokens
     fcmTokenUpdatedAt?: Date; // Last time FCM tokens were updated
+    apiTokens?: {
+      id: string;
+      name: string;
+      token: string;
+      expiresAt: Date;
+      createdAt: Date;
+    }[]; // API tokens for user authentication
   }
 
   export interface Session {

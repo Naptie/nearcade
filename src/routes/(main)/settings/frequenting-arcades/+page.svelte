@@ -76,16 +76,16 @@
   <title>{pageTitle(m.frequenting_arcades())}</title>
 </svelte:head>
 
-<div class="mx-auto px-4 py-8 sm:container">
-  <div class="mb-6">
-    <h1 class="mb-2 text-3xl font-bold">{m.frequenting_arcades()}</h1>
-    <p class="text-base-content/70">
+<div class="space-y-6 md:space-y-10 md:p-5">
+  <div>
+    <h1 class="text-2xl font-bold md:text-3xl">{m.frequenting_arcades()}</h1>
+    <p class="text-base-content/70 mt-1">
       {m.manage_frequenting_arcades()}
     </p>
   </div>
 
   <!-- Auto-Discovery Settings -->
-  <div class="bg-base-200 mb-6 rounded-lg p-6">
+  <div class="bg-base-200 mb-6 rounded-lg">
     <form
       method="POST"
       action="?/updateSettings"
@@ -120,7 +120,7 @@
           {showSuccess ? m.success() : m.save()}
         </button>
       </div>
-      <div class="mb-4">
+      <div class="mb-3">
         <label class="label whitespace-normal" for="discoveryInteractionThreshold">
           <span class="label-text">{m.discovery_interaction_threshold()}</span>
         </label>
@@ -164,7 +164,7 @@
   </div>
 
   <!-- Add Arcade Section -->
-  <div class="bg-base-200 mb-6 rounded-lg p-6">
+  <div class="bg-base-200 mb-6 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.add_arcade()}</h2>
 
     <div class="mb-4 flex gap-2">
@@ -206,7 +206,7 @@
   </div>
 
   <!-- Current Frequenting Arcades -->
-  <div class="bg-base-200 rounded-lg p-6">
+  <div class="bg-base-200 rounded-lg">
     <h2 class="mb-4 text-xl font-semibold">{m.my_frequenting_arcades()}</h2>
 
     {#if data.frequentingArcades && data.frequentingArcades.length > 0}

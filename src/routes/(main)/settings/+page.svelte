@@ -188,10 +188,10 @@
   };
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 md:space-y-10 md:p-5">
   <!-- Header -->
   <div>
-    <h1 class="text-2xl font-bold">{m.personal_settings()}</h1>
+    <h1 class="text-2xl font-bold md:text-3xl">{m.personal_settings()}</h1>
     <p class="text-base-content/70 mt-1">
       {m.manage_your_personal_information_and_preferences()}
     </p>

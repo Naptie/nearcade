@@ -29,7 +29,7 @@ import { unified } from 'unified';
 import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
 
-const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+export const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 export const postId = () => {
   return customAlphabet(alphabet, 14)();
