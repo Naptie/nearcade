@@ -234,8 +234,6 @@ pnpm preview
 docker-compose down
 ```
 
----
-
 ## 🤝 参与贡献
 
 我们欢迎各种形式的贡献！欢迎提交 issues 和 pull requests。
