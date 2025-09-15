@@ -358,7 +358,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
         entry.reporter = users.find((u) => u.id === entry.reportedBy) as User;
     });
 
-    return json({ success: true, attendanceData });
+    return json({ success: true, data: attendanceData });
   } catch (err) {
     if (err && isHttpError(err)) {
       throw err;

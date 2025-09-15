@@ -11,10 +11,6 @@ export const GET: RequestHandler = async ({ url }) => {
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
   const skip = (page - 1) * limit;
 
-  if (!query || query.trim().length === 0) {
-    return json({ shops: [] });
-  }
-
   try {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');

@@ -109,9 +109,9 @@
         const result = await attendanceResponse.json();
         if (fetchReported) {
           const reportResult = result as {
-            attendanceData?: AttendanceReport;
+            data?: AttendanceReport;
           };
-          attendanceReport = reportResult.attendanceData || [];
+          attendanceReport = reportResult.data || [];
           reportedAttendances = shop.games
             .map((g) => {
               const reportedAttendance = getGameReportedAttendance(g.gameId);
@@ -124,9 +124,9 @@
             .filter((r) => r !== undefined) as typeof reportedAttendances;
         } else {
           const attendanceResult = result as {
-            attendanceData?: AttendanceData;
+            data?: AttendanceData;
           };
-          attendanceData = attendanceResult.attendanceData || [];
+          attendanceData = attendanceResult.data || [];
         }
       }
     } catch (err) {
