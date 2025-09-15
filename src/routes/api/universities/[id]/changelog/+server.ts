@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getChangelogEntries } from '$lib/utils/changelog.server';
@@ -30,6 +30,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
   } catch (err) {
     console.error('Error fetching changelog entries:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to fetch changelog entries');
   }
 };

@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
@@ -100,6 +100,9 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     };
   } catch (err) {
     console.error('Error loading universities:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to load universities');
   }
 };

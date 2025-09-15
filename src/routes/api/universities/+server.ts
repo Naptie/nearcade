@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
@@ -72,6 +72,9 @@ export const GET: RequestHandler = async ({ url }) => {
     return json({ universities });
   } catch (err) {
     console.error('Error searching universities:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to search universities');
   }
 };

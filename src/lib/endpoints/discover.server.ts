@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
@@ -64,6 +64,9 @@ export const loadShops = async ({ url }: { url: URL }) => {
     };
   } catch (err) {
     console.error('Error loading shops:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to load shops from database');
   }
 };

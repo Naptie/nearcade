@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
@@ -119,6 +119,9 @@ export const GET: RequestHandler = async ({ url }) => {
     }
   } catch (err) {
     console.error('Error getting rankings:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to get rankings');
   }
 };

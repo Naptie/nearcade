@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import {
@@ -231,6 +231,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     });
   } catch (err) {
     console.error('Error voting on comment:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Internal server error');
   }
 };

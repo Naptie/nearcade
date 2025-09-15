@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import {
@@ -153,6 +153,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     });
   } catch (err) {
     console.error('Error fetching post details:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Internal server error');
   }
 };
@@ -275,6 +278,9 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error updating post:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Internal server error');
   }
 };
@@ -339,6 +345,9 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error deleting post:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Internal server error');
   }
 };

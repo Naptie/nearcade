@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
@@ -72,6 +72,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
   } catch (err) {
     console.error('Error loading club arcades:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to load club arcades');
   }
 };

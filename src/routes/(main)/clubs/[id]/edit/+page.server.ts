@@ -1,4 +1,4 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, isHttpError } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { Club } from '$lib/types';
 import { checkClubPermission, toPlainObject } from '$lib/utils';
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     const userPermissions = await checkClubPermission(session.user, club, mongo);
 
     if (!userPermissions.canEdit) {
-      error(403, { message: 'You do not have permission to edit this club' });
+      error(403, 'You do not have permission to edit this club');
     }
 
     return {
@@ -38,7 +38,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     };
   } catch (err) {
     console.error('Error loading club for edit:', err);
-    if (err && typeof err === 'object' && 'status' in err) {
+    if (err && isHttpError(err)) {
       throw err;
     }
     error(500, 'Failed to load club data');

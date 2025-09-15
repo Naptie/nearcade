@@ -30,7 +30,7 @@ export const load = (async ({ params, locals }) => {
   });
 
   if (!university) {
-    throw error(404, 'University not found');
+    error(404, 'University not found');
   }
 
   const session = await locals.auth();

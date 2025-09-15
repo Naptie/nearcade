@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ params }) => {
     return json({ university });
   } catch (err) {
     console.error('Error loading university:', err);
-    if (err && typeof err === 'object' && 'status' in err) {
+    if (err && isHttpError(err)) {
       throw err;
     }
     error(500, 'Failed to load university data');

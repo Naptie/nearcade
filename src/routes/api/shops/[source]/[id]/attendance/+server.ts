@@ -1,4 +1,4 @@
-import { error, json } from '@sveltejs/kit';
+import { error, isHttpError, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
@@ -27,7 +27,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const token = header.slice(7);
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
-    const dbUser = await usersCollection.findOne({ apiToken: token });
+    const dbUser = await usersCollection.findOne({ apiTokens: { $elemMatch: { token } } });
     if (!dbUser) {
       error(401, 'Unauthorized');
     }
@@ -186,6 +186,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
     return json({ success: true });
   } catch (err) {
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     console.error('Error creating attendance:', err);
     error(500, 'Failed to create attendance');
   }
@@ -265,6 +268,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error removing attendance:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to remove attendance');
   }
 };
@@ -354,6 +360,9 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     return json({ success: true, attendanceData });
   } catch (err) {
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     console.error('Error getting attendance:', err);
     error(500, 'Failed to get attendance');
   }

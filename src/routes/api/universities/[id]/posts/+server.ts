@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
@@ -95,6 +95,9 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     });
   } catch (err) {
     console.error('Error fetching university posts:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Internal server error');
   }
 };
@@ -177,6 +180,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     return json({ success: true, postId: newPost.id }, { status: 201 });
   } catch (err) {
     console.error('Error creating university post:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Internal server error');
   }
 };

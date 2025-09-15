@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { User } from '@auth/sveltekit';
 import type { University, UniversityMember, Shop } from '$lib/types';
@@ -139,7 +139,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     };
   } catch (err) {
     console.error('Error loading user profile:', err);
-    if (err && typeof err === 'object' && 'status' in err) {
+    if (err && isHttpError(err)) {
       throw err;
     }
     error(500, 'Failed to load user profile');

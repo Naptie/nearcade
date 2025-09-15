@@ -1,6 +1,6 @@
 import { base } from '$app/paths';
 import { AMAP_SECRET } from '$env/static/private';
-import { error, type RequestEvent } from '@sveltejs/kit';
+import { error, isHttpError, type RequestEvent } from '@sveltejs/kit';
 
 export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
   try {
@@ -51,13 +51,9 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
     });
   } catch (err) {
     console.error('AMap proxy error:', err);
-
-    // If it's already a SvelteKit error, re-throw it
-    if (err && typeof err === 'object' && 'status' in err) {
+    if (err && isHttpError(err)) {
       throw err;
     }
-
-    // Otherwise, return a generic server error
     error(500, 'Internal server error');
   }
 };

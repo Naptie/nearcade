@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { InviteLink } from '$lib/types';
@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ invite });
   } catch (err) {
     console.error('Error creating invite:', err);
-    if (err && typeof err === 'object' && 'status' in err) {
+    if (err && isHttpError(err)) {
       throw err;
     }
     error(500, 'Failed to create invite');
@@ -95,6 +95,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     return json({ invites });
   } catch (err) {
     console.error('Error fetching invites:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to fetch invites');
   }
 };

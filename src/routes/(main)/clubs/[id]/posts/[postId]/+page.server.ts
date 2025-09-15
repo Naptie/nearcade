@@ -25,7 +25,7 @@ export const load = (async ({ params, locals }) => {
   });
 
   if (!club) {
-    throw error(404, 'Club not found');
+    error(404, 'Club not found');
   }
 
   const session = await locals.auth();
@@ -93,7 +93,7 @@ export const load = (async ({ params, locals }) => {
     .toArray();
 
   if (postResult.length === 0) {
-    throw error(404, 'Post not found');
+    error(404, 'Post not found');
   }
 
   const post = postResult[0];

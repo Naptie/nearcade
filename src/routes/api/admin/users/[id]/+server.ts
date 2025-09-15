@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { toPlainArray } from '$lib/utils';
 import type { ClubMember, Club, University, UniversityMember } from '$lib/types';
@@ -73,6 +73,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     });
   } catch (err) {
     console.error('Error fetching user details:', err);
+    if (err && isHttpError(err)) {
+      throw err;
+    }
     error(500, 'Failed to fetch user details');
   }
 };
