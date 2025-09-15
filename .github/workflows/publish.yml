@@ -98,6 +98,9 @@ jobs:
     name: Publish to LeanCloud
     runs-on: ubuntu-latest
     needs: build
+    concurrency:
+      group: leancloud-publish
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -159,6 +162,9 @@ jobs:
     name: Publish to Sentry
     runs-on: ubuntu-latest
     needs: build
+    concurrency:
+      group: sentry-publish
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
