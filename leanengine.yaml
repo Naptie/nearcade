@@ -3,4 +3,5 @@ install: npm install tsx
 build: echo ''
 run: |
   HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity node build &
+  npm run maintain-attendance &
   npm run ssv-poll
