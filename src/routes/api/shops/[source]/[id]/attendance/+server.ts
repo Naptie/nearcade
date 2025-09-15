@@ -2,7 +2,13 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
-import type { AttendanceData, AttendanceRecord, AttendanceReport, Shop } from '$lib/types';
+import type {
+  AttendanceData,
+  AttendanceRecord,
+  AttendanceReport,
+  AttendanceReportRecord,
+  Shop
+} from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
@@ -10,9 +16,23 @@ import { getCurrentAttendance } from '$lib/utils/index.server';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = await locals.auth();
+  let user = session?.user;
+  let isOpenApiAccess = false;
 
-  if (!session?.user) {
-    return error(401, 'Unauthorized');
+  if (!user) {
+    const header = request.headers.get('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+      return error(401, 'Unauthorized');
+    }
+    const token = header.slice(7);
+    const db = mongo.db();
+    const usersCollection = db.collection<User>('users');
+    const dbUser = await usersCollection.findOne({ apiToken: token });
+    if (!dbUser) {
+      return error(401, 'Unauthorized');
+    }
+    isOpenApiAccess = true;
+    user = dbUser;
   }
 
   try {
@@ -67,16 +87,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       return error(500, 'Redis not available');
     }
 
-    if (await getCurrentAttendance(session.user.id!)) {
+    if (await getCurrentAttendance(user.id!)) {
       return error(409, 'User already has an active attendance');
     }
 
     const now = Date.now();
     const { open, close } = getShopOpeningHours(shop);
 
-    if (plannedLeaveAt) {
+    if (!isOpenApiAccess && plannedLeaveAt) {
       // Check for existing attendance
-      const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
+      const pattern = `nearcade:attend:${source}-${id}:${user.id}:*`;
       const keys = await redis.keys(pattern);
       if (keys.length > 0) {
         return error(409, 'Attendance already exists');
@@ -93,7 +113,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       }
 
       const attendedAt = new Date().toISOString();
-      const attendanceKey = `nearcade:attend:${source}-${id}:${session.user.id}:${encodeURIComponent(attendedAt)}:${shopGames.map((g) => g.gameId).join(',')}`;
+      const attendanceKey = `nearcade:attend:${source}-${id}:${user.id}:${encodeURIComponent(attendedAt)}:${shopGames.map((g) => g.gameId).join(',')}`;
       const attendanceData = {
         games: shopGames.map((g) => ({
           id: g.gameId
@@ -109,19 +129,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       // Store attendance in Redis with expiration
       await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
 
-      if (
-        !session.user.frequentingArcades?.some((a) => a.id === shop.id && a.source === shop.source)
-      ) {
+      if (!user.frequentingArcades?.some((a) => a.id === shop.id && a.source === shop.source)) {
         const attendancesCollection = db.collection<AttendanceRecord>('attendances');
         const count = await attendancesCollection.countDocuments({
-          userId: session.user.id!,
+          userId: user.id!,
           'shop.id': id,
           'shop.source': source
         });
-        if (count + 1 >= (session.user.autoDiscovery?.attendanceThreshold ?? 2)) {
+        if (count + 1 >= (user.autoDiscovery?.attendanceThreshold ?? 2)) {
           const usersCollection = db.collection<User>('users');
           await usersCollection.updateOne(
-            { id: session.user.id! },
+            { id: user.id! },
             {
               $addToSet: {
                 frequentingArcades: { id: shop.id, source: shop.source }
@@ -142,7 +160,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
         const attendanceData = {
           currentAttendances: game.currentAttendances,
-          reportedBy: session.user.id,
+          reportedBy: user.id,
           reportedAt: new Date().toISOString()
         };
         const ttlSeconds = Math.max(Math.floor((close.getTime() - now) / 1000), 60); // Minimum 60 seconds
@@ -150,6 +168,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         // Store attendance in Redis
         await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
       }
+
+      const attendanceReportsCollection =
+        db.collection<AttendanceReportRecord>('attendance_reports');
+      await attendanceReportsCollection.insertOne({
+        shop: { id: shop.id, source: shop.source },
+        games: games.map((game) => {
+          const shopGame = shop.games.find((g) => g.gameId === game.id);
+          return {
+            gameId: game.id,
+            name: shopGame ? shopGame.name : 'Unknown Game',
+            version: shopGame ? shopGame.version : '',
+            currentAttendances: game.currentAttendances || 0
+          };
+        }),
+        reportedBy: user.id!,
+        reportedAt: new Date()
+      });
     }
 
     return json({ success: true });

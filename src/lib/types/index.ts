@@ -530,6 +530,14 @@ export interface AttendanceRecord {
   shop: { id: number; source: ShopSource };
 }
 
+export interface AttendanceReportRecord {
+  _id?: string | ObjectId;
+  shop: { id: number; source: ShopSource };
+  games: { gameId: number; name: string; version: string; currentAttendances: number }[];
+  reportedBy: string; // User ID
+  reportedAt: Date;
+}
+
 // Extended types for route guidance
 export interface CachedRouteData {
   routeData: TransportSearchResult;
