@@ -162,8 +162,8 @@
         newCommentContent = '';
         invalidateAll();
       } else {
-        const errorData = (await response.json()) as { error: string };
-        commentError = errorData.error || m.failed_to_post_comment();
+        const errorData = (await response.json()) as { message: string };
+        commentError = errorData.message || m.failed_to_post_comment();
       }
     } catch {
       commentError = m.network_error_try_again();
@@ -222,8 +222,8 @@
         replyContent = '';
         invalidateAll();
       } else {
-        const errorData = (await response.json()) as { error: string };
-        commentError = errorData.error || m.failed_to_post_comment();
+        const errorData = (await response.json()) as { message: string };
+        commentError = errorData.message || m.failed_to_post_comment();
       }
     } catch {
       commentError = m.network_error_try_again();
@@ -252,8 +252,8 @@
             : comment
         );
       } else {
-        const errorData = (await response.json()) as { error: string };
-        throw new Error(errorData.error || 'Failed to edit comment');
+        const errorData = (await response.json()) as { message: string };
+        throw new Error(errorData.message || 'Failed to edit comment');
       }
     } catch (error) {
       console.error('Error editing comment:', error);
@@ -273,8 +273,8 @@
         // Remove comment from local state
         comments = comments.filter((c) => c.id !== commentId && c.parentCommentId !== commentId);
       } else {
-        const errorData = (await response.json()) as { error: string };
-        alert(errorData.error || 'Failed to delete comment');
+        const errorData = (await response.json()) as { message: string };
+        alert(errorData.message || 'Failed to delete comment');
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
@@ -299,8 +299,8 @@
         localPost = { ...localPost, isPinned: !localPost.isPinned };
         showManageMenu = false;
       } else {
-        const errorData = (await response.json()) as { error: string };
-        alert(errorData.error || 'Failed to update post');
+        const errorData = (await response.json()) as { message: string };
+        alert(errorData.message || 'Failed to update post');
       }
     } catch (error) {
       console.error('Error updating post:', error);
@@ -324,8 +324,8 @@
         localPost = { ...localPost, isLocked: !localPost.isLocked };
         showManageMenu = false;
       } else {
-        const errorData = (await response.json()) as { error: string };
-        alert(errorData.error || 'Failed to update post');
+        const errorData = (await response.json()) as { message: string };
+        alert(errorData.message || 'Failed to update post');
       }
     } catch (error) {
       console.error('Error updating post:', error);
@@ -378,8 +378,8 @@
         // Re-render content
         content = await render(localPost.content);
       } else {
-        const errorData = (await response.json()) as { error: string };
-        alert(errorData.error || 'Failed to update post');
+        const errorData = (await response.json()) as { message: string };
+        alert(errorData.message || 'Failed to update post');
       }
     } catch (error) {
       console.error('Error updating post:', error);
@@ -404,8 +404,8 @@
         // Redirect back to posts list
         window.location.href = backUrl;
       } else {
-        const errorData = (await response.json()) as { error: string };
-        alert(errorData.error || 'Failed to delete post');
+        const errorData = (await response.json()) as { message: string };
+        alert(errorData.message || 'Failed to delete post');
       }
     } catch (error) {
       console.error('Error deleting post:', error);

@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
@@ -10,13 +10,13 @@ export const GET: RequestHandler = async ({ params }) => {
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    return json({ error: 'Invalid shop source' }, { status: 404 });
+    return error(404, 'Invalid shop source');
   }
 
   // Validate id
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
-    return json({ error: 'Invalid shop ID' }, { status: 404 });
+    return error(404, 'Invalid shop ID');
   }
 
   try {
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ params }) => {
     });
 
     if (!shop) {
-      return json({ error: 'Shop not found' }, { status: 404 });
+      return error(404, 'Shop not found');
     }
 
     return json({
@@ -38,6 +38,6 @@ export const GET: RequestHandler = async ({ params }) => {
     });
   } catch (err) {
     console.error('Error fetching shop:', err);
-    return json({ error: 'Failed to fetch shop' }, { status: 500 });
+    return error(500, 'Failed to fetch shop');
   }
 };

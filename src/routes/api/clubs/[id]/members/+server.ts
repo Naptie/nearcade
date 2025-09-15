@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!clubId) {
-      return json({ error: 'Invalid club ID' }, { status: 400 });
+      return error(400, 'Invalid club ID');
     }
 
     const db = mongo.db();
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: clubId }, { slug: clubId }]
     });
     if (!club) {
-      return json({ error: 'Club not found' }, { status: 404 });
+      return error(404, 'Club not found');
     }
 
     const session = await locals.auth();
@@ -89,8 +89,8 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       page,
       totalMembers
     });
-  } catch (error) {
-    console.error('Error loading club members:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error loading club members:', err);
+    return error(500, 'Internal server error');
   }
 };

@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
 
     if (!club) {
-      return json({ error: 'Club not found' }, { status: 404 });
+      return error(404, 'Club not found');
     }
 
     if (!club.starredArcades || club.starredArcades.length === 0) {
@@ -70,8 +70,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
       page,
       total: totalArcades
     });
-  } catch (error) {
-    console.error('Error loading club arcades:', error);
-    return json({ error: 'Failed to load club arcades' }, { status: 500 });
+  } catch (err) {
+    console.error('Error loading club arcades:', err);
+    return error(500, 'Failed to load club arcades');
   }
 };

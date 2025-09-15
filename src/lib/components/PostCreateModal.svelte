@@ -87,8 +87,8 @@
           onSuccess(result.postId);
         }
       } else {
-        const errorData = (await response.json()) as { error: string };
-        error = errorData.error || 'Failed to create post';
+        const errorData = (await response.json()) as { message: string };
+        error = errorData.message || 'Failed to create post';
       }
     } catch {
       error = m.network_error_try_again();

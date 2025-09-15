@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import {
@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const postId = params.postId;
 
     if (!postId) {
-      return json({ error: 'Invalid post ID' }, { status: 400 });
+      return error(400, 'Invalid post ID');
     }
 
     const db = mongo.db();
@@ -64,7 +64,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       .toArray();
 
     if (postResult.length === 0) {
-      return json({ error: 'Post not found' }, { status: 404 });
+      return error(404, 'Post not found');
     }
 
     const post = postResult[0];
@@ -78,7 +78,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     );
 
     if (!canRead) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      return error(403, 'Permission denied');
     }
 
     // Get comments for this post
@@ -151,9 +151,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       comments,
       userVote
     });
-  } catch (error) {
-    console.error('Error fetching post details:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error fetching post details:', err);
+    return error(500, 'Internal server error');
   }
 };
 
@@ -162,12 +162,12 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return json({ error: 'Authentication required' }, { status: 401 });
+      return error(401, 'Authentication required');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return json({ error: 'Invalid post ID' }, { status: 400 });
+      return error(400, 'Invalid post ID');
     }
 
     const { title, content, readability, isPinned, isLocked } = (await request.json()) as {
@@ -184,7 +184,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Find the post
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return json({ error: 'Post not found' }, { status: 404 });
+      return error(404, 'Post not found');
     }
 
     // Check permissions
@@ -220,7 +220,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     if (isContentUpdate || readability !== undefined) {
       const isOwner = post.createdBy === session.user.id;
       if (!isOwner && !canEdit) {
-        return json({ error: 'Permission denied' }, { status: 403 });
+        return error(403, 'Permission denied');
       }
     }
 
@@ -242,7 +242,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     // Check permissions for management updates (only canEdit)
     if (isManagementUpdate && !canManage) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      return error(403, 'Permission denied');
     }
 
     // Build update object
@@ -273,9 +273,9 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     await postsCollection.updateOne({ id: postId }, { $set: updateData });
 
     return json({ success: true });
-  } catch (error) {
-    console.error('Error updating post:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error updating post:', err);
+    return error(500, 'Internal server error');
   }
 };
 
@@ -284,12 +284,12 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return json({ error: 'Authentication required' }, { status: 401 });
+      return error(401, 'Authentication required');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return json({ error: 'Invalid post ID' }, { status: 400 });
+      return error(400, 'Invalid post ID');
     }
 
     const db = mongo.db();
@@ -298,7 +298,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Find the post
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return json({ error: 'Post not found' }, { status: 404 });
+      return error(404, 'Post not found');
     }
 
     // Check permissions (owner or canEdit)
@@ -322,7 +322,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     }
 
     if (!canDelete) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      return error(403, 'Permission denied');
     }
 
     // Delete all comments associated with this post
@@ -337,8 +337,8 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     await postsCollection.deleteOne({ id: postId });
 
     return json({ success: true });
-  } catch (error) {
-    console.error('Error deleting post:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error deleting post:', err);
+    return error(500, 'Internal server error');
   }
 };

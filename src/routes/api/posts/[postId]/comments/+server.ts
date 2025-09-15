@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Post, Comment, University, Club } from '$lib/types';
@@ -15,12 +15,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return json({ error: 'Unauthorized' }, { status: 401 });
+      return error(401, 'Unauthorized');
     }
 
     const postId = params.postId;
     if (!postId) {
-      return json({ error: 'Invalid post ID' }, { status: 400 });
+      return error(400, 'Invalid post ID');
     }
 
     const { content, parentCommentId } = (await request.json()) as {
@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       parentCommentId?: string;
     };
     if (!content || !content.trim()) {
-      return json({ error: 'Comment content is required' }, { status: 400 });
+      return error(400, 'Comment content is required');
     }
 
     const db = mongo.db();
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if post exists
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      return json({ error: 'Post not found' }, { status: 404 });
+      return error(404, 'Post not found');
     }
 
     // Check commenting permissions based on post writability
@@ -61,7 +61,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (!canComment) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      return error(403, 'Permission denied');
     }
 
     // Check if post is locked and user has permission to comment
@@ -85,7 +85,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        return json({ error: 'Post is locked' }, { status: 403 });
+        return error(403, 'Post is locked');
       }
     }
 
@@ -93,7 +93,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (parentCommentId) {
       const parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment) {
-        return json({ error: 'Parent comment not found' }, { status: 404 });
+        return error(404, 'Parent comment not found');
       }
     }
 
@@ -171,8 +171,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Error creating comment:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error creating comment:', err);
+    return error(500, 'Internal server error');
   }
 };

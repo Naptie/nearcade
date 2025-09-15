@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!universityId) {
-      return json({ error: 'Invalid university ID' }, { status: 400 });
+      return error(400, 'Invalid university ID');
     }
 
     const db = mongo.db();
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      return json({ error: 'University not found' }, { status: 404 });
+      return error(404, 'University not found');
     }
 
     const session = await locals.auth();
@@ -89,8 +89,8 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       page,
       totalMembers
     });
-  } catch (error) {
-    console.error('Error loading university members:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error loading university members:', err);
+    return error(500, 'Internal server error');
   }
 };

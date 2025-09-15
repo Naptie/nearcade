@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import {
@@ -16,19 +16,19 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return json({ error: 'Unauthorized' }, { status: 401 });
+      return error(401, 'Unauthorized');
     }
 
     const commentId = params.commentId;
     if (!commentId) {
-      return json({ error: 'Invalid comment ID' }, { status: 400 });
+      return error(400, 'Invalid comment ID');
     }
 
     const { voteType } = (await request.json()) as {
       voteType: 'upvote' | 'downvote';
     };
     if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      return json({ error: 'Invalid vote type' }, { status: 400 });
+      return error(400, 'Invalid vote type');
     }
 
     const db = mongo.db();
@@ -38,14 +38,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if comment exists
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      return json({ error: 'Comment not found' }, { status: 404 });
+      return error(404, 'Comment not found');
     }
 
     // Get the post to check permissions
     const postsCollection = db.collection('posts');
     const post = await postsCollection.findOne({ id: comment.postId });
     if (!post) {
-      return json({ error: 'Post not found' }, { status: 404 });
+      return error(404, 'Post not found');
     }
 
     // Check voting permissions based on post readability (anyone who can read posts can vote)
@@ -83,7 +83,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (!canVote) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      return error(403, 'Permission denied');
     }
 
     // Check if post is locked and user has permission to interact
@@ -109,7 +109,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        return json({ error: 'Post is locked' }, { status: 403 });
+        return error(403, 'Post is locked');
       }
     }
 
@@ -220,7 +220,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Get updated vote counts
     const updatedComment = await commentsCollection.findOne({ id: commentId });
     if (!updatedComment) {
-      return json({ error: 'Failed to get updated comment' }, { status: 500 });
+      return error(500, 'Failed to get updated comment');
     }
 
     return json({
@@ -229,8 +229,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       downvotes: updatedComment.downvotes,
       userVote: newUserVote
     });
-  } catch (error) {
-    console.error('Error voting on comment:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error voting on comment:', err);
+    return error(500, 'Internal server error');
   }
 };

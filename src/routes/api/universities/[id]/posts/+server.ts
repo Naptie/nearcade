@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!universityId) {
-      return json({ error: 'Invalid university ID' }, { status: 400 });
+      return error(400, 'Invalid university ID');
     }
 
     const db = mongo.db();
@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      return json({ error: 'University not found' }, { status: 404 });
+      return error(404, 'University not found');
     }
 
     // Check post readability permissions - now using post-level readability
@@ -93,9 +93,9 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       hasMore,
       page
     });
-  } catch (error) {
-    console.error('Error fetching university posts:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error fetching university posts:', err);
+    return error(500, 'Internal server error');
   }
 };
 
@@ -103,12 +103,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return json({ error: 'Unauthorized' }, { status: 401 });
+      return error(401, 'Unauthorized');
     }
 
     const universityId = params.id;
     if (!universityId) {
-      return json({ error: 'Invalid university ID' }, { status: 400 });
+      return error(400, 'Invalid university ID');
     }
 
     const { title, content, readability } = (await request.json()) as {
@@ -117,7 +117,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       readability?: PostReadability;
     };
     if (!title || !content) {
-      return json({ error: 'Title and content are required' }, { status: 400 });
+      return error(400, 'Title and content are required');
     }
 
     const db = mongo.db();
@@ -129,14 +129,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      return json({ error: 'University not found' }, { status: 404 });
+      return error(404, 'University not found');
     }
 
     // Check post writability permissions
     const permissions = await checkUniversityPermission(session.user, university, mongo);
 
     if (!canWriteUnivPosts(permissions, university)) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      return error(403, 'Permission denied');
     }
 
     // Determine post readability
@@ -148,12 +148,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (
         !validatePostReadability(readability, orgReadability, permissions, session.user.userType)
       ) {
-        return json(
-          {
-            error: 'Cannot set post readability more open than organization setting'
-          },
-          { status: 403 }
-        );
+        return error(403, 'Cannot set post readability more open than organization setting');
       }
       postReadability = readability;
     } else {
@@ -180,8 +175,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     await postsCollection.insertOne(newPost);
 
     return json({ success: true, postId: newPost.id }, { status: 201 });
-  } catch (error) {
-    console.error('Error creating university post:', error);
-    return json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Error creating university post:', err);
+    return error(500, 'Internal server error');
   }
 };
