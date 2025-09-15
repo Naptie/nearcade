@@ -1092,6 +1092,11 @@ export const protect = <T extends User | undefined>(user: T): T => {
   if (!user) return user;
   const propertiesToRemove = [
     'emailVerified',
+    'notificationReadAt',
+    'isActivityPublic',
+    'isFrequentingArcadePublic',
+    'isStarredArcadePublic',
+    'isFootprintPublic',
     'notificationTypes',
     'fcmTokenUpdatedAt',
     'fcmTokens',
