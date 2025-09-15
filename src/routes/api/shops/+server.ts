@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ url }) => {
     let shops: Shop[];
     let totalCount: number;
     if (query.trim().length === 0) {
-      // Load all shops with pagination
+      // Fetch all shops with pagination
       totalCount = await shopsCollection.countDocuments();
       shops = (await shopsCollection
         .find({})
