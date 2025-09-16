@@ -558,9 +558,8 @@ export interface WindowMessage {
 
 // Extended Shop type with attendance data
 export interface ShopWithAttendance extends Shop {
-  currentAttendance?: number;
+  totalAttendance?: number;
   currentReportedAttendance?: {
-    count: number;
     reportedAt: string;
     reportedBy: User;
   } | null;

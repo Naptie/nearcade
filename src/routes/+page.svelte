@@ -721,17 +721,17 @@
                       {m.leave()}
                     </button>
                   {:else if isShopOpen}
-                    {@const currentAttendance = shop.currentAttendance || 0}
+                    {@const currentAttendance = shop.totalAttendance || 0}
                     {@const reportedAttendance = shop.currentReportedAttendance}
                     <div class="text-right">
-                      {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
+                      {#if reportedAttendance}
                         <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
                           <div class="text-accent text-sm not-sm:hidden">
-                            {m.in_attendance({ count: reportedAttendance.count })}
+                            {m.in_attendance({ count: currentAttendance })}
                           </div>
                           <div class="text-accent text-sm sm:hidden">
                             <i class="fa-solid fa-user"></i>
-                            {reportedAttendance.count}
+                            {currentAttendance}
                           </div>
                         </AttendanceReportBlame>
                       {:else}
