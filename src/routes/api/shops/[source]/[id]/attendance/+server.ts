@@ -39,8 +39,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const body = (await request.json()) as {
       games: { id: number; currentAttendances?: number }[];
       plannedLeaveAt?: string;
+      comment?: string;
     };
-    const { games, plannedLeaveAt } = body;
+    const { games, plannedLeaveAt, comment } = body;
 
     // Validate input
     if (
@@ -179,6 +180,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             currentAttendances: game.currentAttendances || 0
           };
         }),
+        comment,
         reportedBy: user.id!,
         reportedAt: new Date()
       });

@@ -534,6 +534,7 @@ export interface AttendanceReportRecord {
   _id?: string | ObjectId;
   shop: { id: number; source: ShopSource };
   games: { gameId: number; name: string; version: string; currentAttendances: number }[];
+  comment?: string;
   reportedBy: string; // User ID
   reportedAt: Date;
 }
