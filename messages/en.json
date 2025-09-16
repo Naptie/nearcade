@@ -804,7 +804,7 @@
   "reply_to_comment": "Reply to Comment",
   "report_attendance_description": "Please enter the current number of players you observe playing this game",
   "report_current_attendance": "Report Current Attendance",
-  "report_details": "Reported by {user} at {time}",
+  "report_details": "Reported by {user} {time}",
   "report_issue": "Report Issue",
   "require_approval": "Require admin approval",
   "required_field": "This field is required",
