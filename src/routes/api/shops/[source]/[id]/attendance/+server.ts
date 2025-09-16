@@ -182,7 +182,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             currentAttendances: game.currentAttendances || 0
           };
         }),
-        comment,
+        comment: comment || null,
         reportedBy: user.id!,
         reportedAt: new Date()
       });
