@@ -329,7 +329,7 @@
             btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
             text={m.find_arcades()}
             square={false}
-            padding={20}
+            padding={8}
           />
           <FancyButton
             href={resolve('/(main)/universities')}
@@ -337,7 +337,7 @@
             btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
             text={m.find_universities()}
             square={false}
-            padding={20}
+            padding={8}
           />
           <FancyButton
             href={resolve('/(main)/clubs')}
@@ -345,7 +345,7 @@
             btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
             text={m.find_clubs()}
             square={false}
-            padding={20}
+            padding={8}
           />
         </div>
       </div>
