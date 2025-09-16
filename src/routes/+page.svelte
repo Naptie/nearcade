@@ -9,6 +9,7 @@
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
+  import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
   import {
@@ -763,6 +764,7 @@
   </div>
 
   <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+    <ThemeSwitch />
     <FancyButton
       href={GITHUB_LINK}
       target="_blank"

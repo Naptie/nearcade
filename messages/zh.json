@@ -949,6 +949,9 @@
   "take_line": "乘坐 {line}",
   "tell_us_about_yourself": "介绍一下自己...",
   "theme_color": "主题颜色",
+  "theme_dark": "深色主题",
+  "theme_light": "浅色主题",
+  "theme_switch": "主题切换",
   "this_is_how_others_will_see_your_name": "这是其他人看到您的名称",
   "time_length": [
     {

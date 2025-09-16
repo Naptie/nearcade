@@ -962,6 +962,9 @@
   "take_line": "Take {line}",
   "tell_us_about_yourself": "Tell us about yourself...",
   "theme_color": "Theme Color",
+  "theme_dark": "Dark Theme",
+  "theme_light": "Light Theme",
+  "theme_switch": "Theme Switch",
   "this_is_how_others_will_see_your_name": "This is how others will see your name",
   "time_length": [
     {
