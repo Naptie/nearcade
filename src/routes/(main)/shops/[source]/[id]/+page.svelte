@@ -13,6 +13,7 @@
     getGameName,
     getMyLocation,
     getShopOpeningHours,
+    getShopSourceUrl,
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
@@ -192,12 +193,6 @@
 
   const getGameInfo = (titleId: number) => {
     return GAMES.find((g) => g.id === titleId);
-  };
-
-  const getSourceUrl = (): string => {
-    return shop.source === ShopSource.ZIV
-      ? `https://zenius-i-vanisher.com/v5.2/arcade.php?id=${shop.id}`
-      : `https://map.bemanicn.com/shop/${shop.id}`;
   };
 
   const getGameAttendance = (id: number): number => {
@@ -481,13 +476,16 @@
             {/if}
           </div>
           <a
-            href={getSourceUrl()}
+            href={getShopSourceUrl(shop)}
             target="_blank"
             rel="noopener noreferrer"
             class="btn btn-primary btn-soft"
+            title={m.view_on_source({ source: shop.source.toUpperCase() })}
           >
             <i class="fa-solid fa-external-link-alt"></i>
-            {m.view_on_source({ source: shop.source.toUpperCase() })}
+            <span class="hidden sm:block md:hidden lg:block">
+              {m.view_on_source({ source: shop.source.toUpperCase() })}
+            </span>
           </a>
         </div>
       </div>
