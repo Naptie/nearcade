@@ -362,7 +362,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
         session?.user?.id === user.id ||
         user.isFootprintPublic
       ) {
-        entry.user = user;
+        entry.user = protect(user);
       } else {
         delete entry.userId;
       }
@@ -393,11 +393,10 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
             .filter((r) => r.gameId === g.gameId)
             .map((c) => 1 / registered.filter((r) => r.userId === c.userId).length)
             .reduce((a, b) => a + b, 0);
-          return reportedCount + registeredCount;
+          return Math.max(reportedCount, registeredCount);
         })
         .reduce((a, b) => a + b, 0) || 0
     );
-
     return json({ success: true, total, registered, reported });
   } catch (err) {
     if (err && isHttpError(err)) {
