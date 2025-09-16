@@ -101,34 +101,28 @@
   let locationError = $state<string | null>(null);
   let shopComment = $state({ sanitized: false, content: data.shop.comment });
 
-  const getAttendanceData = async (fetchReported = false) => {
+  const getAttendanceData = async () => {
     try {
       const attendanceResponse = await fetch(
-        `/api/shops/${shop.source}/${shop.id}/attendance${fetchReported ? '?reported=true' : ''}`
+        fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`)
       );
       if (attendanceResponse.ok) {
-        const result = await attendanceResponse.json();
-        if (fetchReported) {
-          const reportResult = result as {
-            data?: AttendanceReport;
-          };
-          attendanceReport = reportResult.data || [];
-          reportedAttendances = shop.games
-            .map((g) => {
-              const reportedAttendance = getGameReportedAttendance(g.gameId);
-              if (!reportedAttendance) return undefined;
-              return {
-                id: g.gameId,
-                ...reportedAttendance
-              };
-            })
-            .filter((r) => r !== undefined) as typeof reportedAttendances;
-        } else {
-          const attendanceResult = result as {
-            data?: AttendanceData;
-          };
-          attendanceData = attendanceResult.data || [];
-        }
+        const result = (await attendanceResponse.json()) as {
+          registered?: AttendanceData;
+          reported?: AttendanceReport;
+        };
+        attendanceData = result.registered || [];
+        attendanceReport = result.reported || [];
+        reportedAttendances = shop.games
+          .map((g) => {
+            const reportedAttendance = getGameReportedAttendance(g.gameId);
+            if (!reportedAttendance) return undefined;
+            return {
+              id: g.gameId,
+              ...reportedAttendance
+            };
+          })
+          .filter((r) => r !== undefined) as typeof reportedAttendances;
       }
     } catch (err) {
       console.warn('Failed to load attendance data:', err);
@@ -136,8 +130,7 @@
   };
 
   onMount(() => {
-    getAttendanceData(false);
-    getAttendanceData(true);
+    getAttendanceData();
     sanitizeHTML(shop.comment).then((content) => {
       shopComment = { sanitized: true, content };
     });
@@ -291,7 +284,7 @@
       });
 
       if (response.ok) {
-        await getAttendanceData(true);
+        await getAttendanceData();
         showReportAttendanceModal = false;
         selectedGameForReport = null;
         reportedAttendance = 0;
@@ -314,8 +307,7 @@
     if (!browser) return;
 
     const interval = setInterval(() => {
-      getAttendanceData(false);
-      getAttendanceData(true);
+      getAttendanceData();
     }, 30000);
     return () => clearInterval(interval);
   });

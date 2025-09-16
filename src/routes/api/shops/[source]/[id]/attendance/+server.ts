@@ -278,7 +278,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 // GET endpoint to retrieve attendance data for a shop
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
-    const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'false');
+    const fetchRegistered = ['0', 'false'].includes(url.searchParams.get('reported') || 'false');
+    const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'true');
     const source = params.source as ShopSource;
 
     // Validate shop source
@@ -297,34 +298,23 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       error(500, 'Redis not available');
     }
 
-    // Get all attendance keys for this shop
-    const pattern = fetchReported
-      ? `nearcade:attend-report:${source}-${id}:*`
-      : `nearcade:attend:${source}-${id}:*`;
-    const keys = await redis.keys(pattern);
-
-    const attendanceData: AttendanceReport | AttendanceData = [];
     const usersSet = new Set<string>();
 
-    // Process each attendance key
-    for (const key of keys) {
-      const dataStr = await redis.get(key);
-      if (dataStr) {
-        const data = JSON.parse(dataStr);
-        const keyParts = key.split(':');
-        if (fetchReported) {
-          const gameId = keyParts[3];
-          (attendanceData as AttendanceReport).push({
-            gameId: parseInt(gameId),
-            currentAttendances: data.currentAttendances,
-            reportedBy: data.reportedBy,
-            reportedAt: data.reportedAt
-          });
-          usersSet.add(data.reportedBy);
-        } else {
+    const registered: AttendanceData = [];
+    const reported: AttendanceReport = [];
+
+    if (fetchRegistered) {
+      const pattern = `nearcade:attend:${source}-${id}:*`;
+      const keys = await redis.keys(pattern);
+
+      for (const key of keys) {
+        const dataStr = await redis.get(key);
+        if (dataStr) {
+          const data = JSON.parse(dataStr);
+          const keyParts = key.split(':');
           const userId = keyParts[3];
           data.games.forEach((game: { id: number }) => {
-            (attendanceData as AttendanceData).push({
+            registered.push({
               userId,
               gameId: game.id,
               attendedAt: data.attendedAt,
@@ -336,29 +326,51 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       }
     }
 
+    if (fetchReported) {
+      const pattern = `nearcade:attend-report:${source}-${id}:*`;
+      const keys = await redis.keys(pattern);
+
+      for (const key of keys) {
+        const dataStr = await redis.get(key);
+        if (dataStr) {
+          const data = JSON.parse(dataStr);
+          const keyParts = key.split(':');
+          const gameId = keyParts[3];
+          reported.push({
+            gameId: parseInt(gameId),
+            currentAttendances: data.currentAttendances,
+            reportedBy: data.reportedBy,
+            reportedAt: data.reportedAt
+          });
+          usersSet.add(data.reportedBy);
+        }
+      }
+    }
+
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
     const users = await usersCollection.find({ id: { $in: Array.from(usersSet) } }).toArray();
 
     const session = await locals.auth();
 
-    attendanceData.forEach((entry) => {
-      if ('userId' in entry) {
-        const user = users.find((u) => u.id === entry.userId) as User;
-        if (
-          session?.user?.userType === 'site_admin' ||
-          session?.user?.id === user.id ||
-          user.isFootprintPublic
-        ) {
-          entry.user = user;
-        } else {
-          delete entry.userId;
-        }
-      } else if ('reportedBy' in entry)
-        entry.reporter = protect(users.find((u) => u.id === entry.reportedBy)) as User;
+    registered.forEach((entry) => {
+      const user = users.find((u) => u.id === entry.userId) as User;
+      if (
+        session?.user?.userType === 'site_admin' ||
+        session?.user?.id === user.id ||
+        user.isFootprintPublic
+      ) {
+        entry.user = user;
+      } else {
+        delete entry.userId;
+      }
     });
 
-    return json({ success: true, data: attendanceData });
+    reported.forEach((entry) => {
+      entry.reporter = protect(users.find((u) => u.id === entry.reportedBy)) as User;
+    });
+
+    return json({ success: true, registered, reported });
   } catch (err) {
     if (err && isHttpError(err)) {
       throw err;
