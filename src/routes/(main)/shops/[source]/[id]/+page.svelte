@@ -65,7 +65,7 @@
       ? attendance
       : false;
   });
-  let isLoading = $state(false);
+  let isLoading = $state(0);
 
   // Track user's current attendance status
   let userAttendance = $state<boolean>(false);
@@ -202,7 +202,7 @@
   const handleAttend = async (games: number[], plannedLeaveAt: Date) => {
     if (!data.user) return;
 
-    isLoading = true;
+    isLoading = 1;
     try {
       const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
         method: 'POST',
@@ -224,14 +224,14 @@
       console.error('Error attending:', error);
       // TODO: Show error toast
     } finally {
-      isLoading = false;
+      isLoading = 0;
     }
   };
 
   const handleLeave = async () => {
     if (!data.user) return;
 
-    isLoading = true;
+    isLoading = 1;
     try {
       const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
         method: 'DELETE'
@@ -246,14 +246,14 @@
       console.error('Error leaving:', error);
       // TODO: Show error toast
     } finally {
-      isLoading = false;
+      isLoading = 0;
     }
   };
 
   const handleReportAttendance = async () => {
     if (!data.user || !selectedGameForReport) return;
 
-    isLoading = true;
+    isLoading = 2;
     try {
       const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
         method: 'POST',
@@ -279,7 +279,7 @@
     } catch (err) {
       console.error('Error reporting attendance:', err);
     } finally {
-      isLoading = false;
+      isLoading = 0;
     }
   };
 
@@ -311,9 +311,9 @@
         <button
           class="btn btn-error btn-soft {klass}"
           onclick={() => handleLeave()}
-          disabled={isLoading}
+          disabled={isLoading === 1}
         >
-          {#if isLoading}
+          {#if isLoading === 1}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}
             <i class="fa-solid fa-stop"></i>
@@ -338,7 +338,7 @@
           <button
             class="btn btn-primary w-full"
             onclick={() => (showAttendanceModal = true)}
-            disabled={!isShopOpen || !!otherShop || isLoading || !isUserNearShop}
+            disabled={!isShopOpen || !!otherShop || isLoading === 1 || !isUserNearShop}
           >
             <i class="fa-solid fa-play"></i>
             {m.attend()}
@@ -397,7 +397,7 @@
                 (a) => a.id === shop.id && a.source === shop.source
               )}
               {@const toggleStar = async () => {
-                isLoading = true;
+                isLoading = 3;
                 try {
                   const formData = new FormData();
                   formData.append('arcadeSource', shop.source);
@@ -416,18 +416,19 @@
                 } catch (err) {
                   console.log('Error starring arcade:', err);
                 } finally {
-                  isLoading = false;
+                  isLoading = 0;
                 }
               }}
               <button
                 class="btn btn-warning btn-soft group"
                 class:hover:btn-error={isStarred}
-                disabled={isLoading}
+                disabled={isLoading === 3}
                 onclick={toggleStar}
               >
-                <span class="loading loading-spinner loading-sm" class:hidden={!isLoading}></span>
+                <span class="loading loading-spinner loading-sm" class:hidden={isLoading !== 3}
+                ></span>
                 <span
-                  class:hidden={!isStarred || isLoading}
+                  class:hidden={!isStarred || isLoading === 3}
                   class:not-group-hover:hidden={isStarred}
                 >
                   <i class="fa-solid fa-trash"></i>
@@ -435,20 +436,26 @@
                 <span
                   class:group-hover:hidden={isStarred}
                   class:not-group-hover:hidden={!isStarred}
-                  class:hidden={isLoading}
+                  class:hidden={isLoading === 3}
                 >
                   <i class="fa-solid fa-star"></i>
                 </span>
-                <span class:hidden={isStarred || isLoading} class:group-hover:hidden={!isStarred}>
+                <span
+                  class:hidden={isStarred || isLoading === 3}
+                  class:group-hover:hidden={!isStarred}
+                >
                   <i class="fa-regular fa-star"></i>
                 </span>
                 <span
-                  class:not-group-hover:hidden={isStarred && !isLoading}
+                  class:not-group-hover:hidden={isStarred && isLoading !== 3}
                   class:hidden={!isStarred}
                 >
                   {m.unstar()}
                 </span>
-                <span class:group-hover:hidden={isStarred} class:hidden={isStarred && isLoading}>
+                <span
+                  class:group-hover:hidden={isStarred}
+                  class:hidden={isStarred && isLoading === 3}
+                >
                   {isStarred ? m.starred() : m.star()}
                 </span>
               </button>
@@ -814,16 +821,16 @@
             showReportAttendanceModal = false;
             selectedGameForReport = null;
           }}
-          disabled={isLoading}
+          disabled={isLoading === 2}
         >
           {m.cancel()}
         </button>
         <button
           class="btn btn-primary"
           onclick={handleReportAttendance}
-          disabled={isLoading || reportedAttendance < 0}
+          disabled={isLoading === 2 || reportedAttendance < 0}
         >
-          {#if isLoading}
+          {#if isLoading === 2}
             <span class="loading loading-spinner loading-xs"></span>
           {/if}
           {m.submit()}
