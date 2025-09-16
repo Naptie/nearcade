@@ -17,7 +17,7 @@
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
-  import { ATTENDANCE_RADIUS_KM, GAMES, ShopSource } from '$lib/constants';
+  import { ATTENDANCE_RADIUS_KM, GAMES } from '$lib/constants';
   import { getContext } from 'svelte';
   import type { AMapContext } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
@@ -52,22 +52,7 @@
       reportedAt: string;
     }>
   >([]);
-  let totalAttendance = $derived.by(() => {
-    if (!attendanceData) return 0;
-    // Using a regular array to avoid eslint warnings with Set in reactive context
-    const uniqueUserIds: string[] = [];
-    attendanceData.forEach((attendee) => {
-      if (attendee?.userId && typeof attendee.userId === 'string') {
-        if (!uniqueUserIds.includes(attendee.userId)) {
-          uniqueUserIds.push(attendee.userId);
-        }
-      }
-    });
-    return uniqueUserIds.length;
-  });
-  let totalReportedAttendance = $derived(
-    reportedAttendances.reduce((total, g) => total + (g.count || 0), 0)
-  );
+  let totalAttendance = $state(0);
   let openingHours = $derived(getShopOpeningHours(shop));
   let now = $state(new Date());
   let isShopOpen = $derived.by(() => {
@@ -108,9 +93,11 @@
       );
       if (attendanceResponse.ok) {
         const result = (await attendanceResponse.json()) as {
-          registered?: AttendanceData;
-          reported?: AttendanceReport;
+          total: number;
+          registered: AttendanceData;
+          reported: AttendanceReport;
         };
+        totalAttendance = result.total || 0;
         attendanceData = result.registered || [];
         attendanceReport = result.reported || [];
         reportedAttendances = shop.games
@@ -579,17 +566,14 @@
             <h3 class="mb-4 text-lg font-semibold">{m.attendance()}</h3>
 
             <div class="py-4 text-center">
-              {#if reportedAttendances.length > 0 && totalReportedAttendance >= totalAttendance}
-                {@const reportedAttendance = reportedAttendances.reduce(
-                  (latest, current) =>
-                    new Date(current.reportedAt).getTime() > new Date(latest.reportedAt).getTime()
-                      ? current
-                      : latest,
-                  reportedAttendances[0]
-                )}
+              {#if attendanceReport.length > 0}
+                {@const reportedAttendance = {
+                  reportedBy: attendanceReport[0].reporter,
+                  reportedAt: attendanceReport[0].reportedAt
+                }}
                 <AttendanceReportBlame {reportedAttendance}>
                   <div class="text-accent mb-2 text-3xl font-bold">
-                    {totalReportedAttendance}
+                    {totalAttendance}
                   </div>
                 </AttendanceReportBlame>
               {:else}

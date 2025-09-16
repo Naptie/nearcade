@@ -365,12 +365,38 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
         delete entry.userId;
       }
     });
+    registered.sort((a, b) => new Date(b.attendedAt).getTime() - new Date(a.attendedAt).getTime());
 
     reported.forEach((entry) => {
       entry.reporter = protect(users.find((u) => u.id === entry.reportedBy)) as User;
     });
+    reported.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
 
-    return json({ success: true, registered, reported });
+    const shopsCollection = db.collection<Shop>('shops');
+    const shop = await shopsCollection.findOne({ id, source });
+    const total = Math.round(
+      shop?.games
+        .map((g) => {
+          const mostRecentReport = reported
+            .filter((r) => r.gameId === g.gameId)
+            .reduce(
+              (latest, current) =>
+                !latest || new Date(current.reportedAt) > new Date(latest.reportedAt)
+                  ? current
+                  : latest,
+              undefined as AttendanceReport[number] | undefined
+            );
+          const reportedCount = mostRecentReport?.currentAttendances || 0;
+          const registeredCount = registered
+            .filter((r) => r.gameId === g.gameId)
+            .map((c) => 1 / registered.filter((r) => r.userId === c.userId).length)
+            .reduce((a, b) => a + b, 0);
+          return reportedCount + registeredCount;
+        })
+        .reduce((a, b) => a + b, 0) || 0
+    );
+
+    return json({ success: true, total, registered, reported });
   } catch (err) {
     if (err && isHttpError(err)) {
       throw err;
