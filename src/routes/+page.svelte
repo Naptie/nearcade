@@ -726,8 +726,15 @@
                     <div class="text-right">
                       {#if reportedAttendance && reportedAttendance.count >= currentAttendance}
                         <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
-                          <div class="text-accent text-sm">
+                          <div class="text-accent text-sm not-sm:hidden">
                             {m.in_attendance({ count: reportedAttendance.count })}
+                          </div>
+                          <div
+                            class="text-accent text-sm sm:hidden"
+                            class:text-primary={reportedAttendance.count > 0}
+                          >
+                            <i class="fa-solid fa-user"></i>
+                            {reportedAttendance.count}
                           </div>
                         </AttendanceReportBlame>
                       {:else}
