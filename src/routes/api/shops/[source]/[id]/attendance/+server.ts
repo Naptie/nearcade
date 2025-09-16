@@ -379,15 +379,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     const total = Math.round(
       shop?.games
         .map((g) => {
-          const mostRecentReport = reported
-            .filter((r) => r.gameId === g.gameId)
-            .reduce(
-              (latest, current) =>
-                !latest || new Date(current.reportedAt) > new Date(latest.reportedAt)
-                  ? current
-                  : latest,
-              undefined as AttendanceReport[number] | undefined
-            );
+          const mostRecentReport = reported.filter((r) => r.gameId === g.gameId)[0];
           const reportedCount = mostRecentReport?.currentAttendances || 0;
           const registeredCount = registered
             .filter((r) => r.gameId === g.gameId)
