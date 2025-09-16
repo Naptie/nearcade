@@ -84,14 +84,18 @@
     <div class="relative shrink-0">
       <div class="avatar {user.image ? '' : 'placeholder'}">
         <div
-          class="rounded-full {avatarSizeClasses[size]} {user.image
+          class="relative rounded-full {avatarSizeClasses[size]} {user.image
             ? ''
             : 'bg-neutral text-neutral-content'}"
         >
           {#if user.image}
             <img src={user.image} alt="{getDisplayName(user)} {m.avatar()}" />
           {:else}
-            <span class={textSizeClasses[size]}>
+            <span
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform {textSizeClasses[
+                size
+              ]}"
+            >
               {getInitials(user)}
             </span>
           {/if}
@@ -144,7 +148,7 @@
           @{user.name}
         </div>
       {:else}
-        <div class="truncate font-medium italic opacity-60">
+        <div class="truncate overflow-visible font-medium italic opacity-60">
           {m.anonymous_user()}
         </div>
       {/if}
