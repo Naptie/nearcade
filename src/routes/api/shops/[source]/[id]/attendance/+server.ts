@@ -27,7 +27,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const token = header.slice(7);
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
-    const dbUser = await usersCollection.findOne({ apiTokens: { $elemMatch: { token } } });
+    const dbUser = await usersCollection.findOne({
+      apiTokens: { $elemMatch: { token, expiresAt: { $gt: new Date() } } }
+    });
     if (!dbUser) {
       error(401, 'Unauthorized');
     }
