@@ -152,10 +152,10 @@ export const actions: Actions = {
       await usersCollection.deleteOne({ id: user.id });
 
       // Delete associated accounts
-      await accountsCollection.deleteMany({ userId: user.id });
+      await accountsCollection.deleteMany({ userId: user._id });
 
       // Delete sessions
-      await sessionsCollection.deleteMany({ userId: user.id });
+      await sessionsCollection.deleteMany({ userId: user._id });
 
       // Delete university memberships
       await universityMembersCollection.deleteMany({ userId: user.id });

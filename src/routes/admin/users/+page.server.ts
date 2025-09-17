@@ -278,9 +278,9 @@ export const actions: Actions = {
         // Delete the user
         db.collection('users').deleteOne({ id: userId }),
         // Delete user's accounts (auth providers)
-        db.collection('accounts').deleteMany({ userId }),
+        db.collection('accounts').deleteMany({ userId: user._id }),
         // Delete user's sessions
-        db.collection('sessions').deleteMany({ userId }),
+        db.collection('sessions').deleteMany({ userId: user._id }),
         // Delete university memberships
         db.collection('university_members').deleteMany({ userId }),
         // Delete club memberships
