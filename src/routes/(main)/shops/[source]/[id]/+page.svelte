@@ -105,8 +105,15 @@
             const reportedAttendance = getGameReportedAttendance(g.gameId);
             if (!reportedAttendance) return undefined;
             return {
+              ...reportedAttendance,
               id: g.gameId,
-              ...reportedAttendance
+              count:
+                (reportedAttendance.count || 0) +
+                attendanceData.filter(
+                  (a) =>
+                    a.gameId === g.gameId &&
+                    new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
+                ).length
             };
           })
           .filter((r) => r !== undefined) as typeof reportedAttendances;
@@ -599,23 +606,32 @@
                       g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
                     0
                   )}
-                  {@const reportedAttendance = reportedAttendances.reduce(
-                    (acc, cur) => {
-                      if (shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId) {
-                        acc.push(cur);
-                      }
-                      return acc;
-                    },
-                    [] as typeof reportedAttendances
-                  )[0]}
+                  {@const reportedAttendance = reportedAttendances
+                    .reduce(
+                      (acc, cur) => {
+                        if (shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId) {
+                          acc.push(cur);
+                        }
+                        return acc;
+                      },
+                      [] as typeof reportedAttendances
+                    )
+                    .reduce(
+                      (mostRecent, current) =>
+                        !mostRecent ||
+                        new Date(current.reportedAt) > new Date(mostRecent.reportedAt)
+                          ? { ...current, count: (current.count || 0) + (mostRecent?.count || 0) }
+                          : mostRecent,
+                      undefined as (typeof reportedAttendances)[number] | undefined
+                    )}
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60 truncate">
                       {getGameName(gameInfo?.key)}
                     </span>
-                    {#if reportedAttendance?.count !== undefined && reportedAttendance.count >= gameAttendance}
+                    {#if reportedAttendance}
                       <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
                         <span class="text-accent font-medium">
-                          {reportedAttendance.count} / {game.quantity}
+                          {reportedAttendance.count || 0} / {game.quantity}
                         </span>
                       </AttendanceReportBlame>
                     {:else}
