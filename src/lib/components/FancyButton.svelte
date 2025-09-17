@@ -138,6 +138,12 @@
       };
     }
   });
+
+  $effect(() => {
+    if (text || content) {
+      measureButtonDimensions();
+    }
+  });
 </script>
 
 <a
