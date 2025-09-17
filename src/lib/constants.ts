@@ -7,6 +7,16 @@ export const GAMES = [
   { id: 17, key: 'wacca' }
 ] as const;
 
+export const USER_TYPES = [
+  'site_admin',
+  'school_admin',
+  'club_admin',
+  'school_moderator',
+  'club_moderator',
+  'student',
+  'regular'
+] as const;
+
 // Radius constants for search distances
 export const RADIUS_OPTIONS = [1, 2, 5, 10] as const;
 

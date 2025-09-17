@@ -4,6 +4,7 @@ import { toPlainArray, updateUserType } from '$lib/utils';
 import type { User } from '@auth/sveltekit';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { USER_TYPES } from '$lib/constants';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -124,6 +125,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       .toArray()
   ]);
 
+  const countsMap = Object.fromEntries(
+    userTypeStats.map((stat) => [stat._id || 'regular', stat.count])
+  );
+
   return {
     users: toPlainArray(users),
     universities: toPlainArray(universities),
@@ -132,9 +137,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     userType,
     currentPage: page,
     hasMore,
-    userTypeStats: Object.fromEntries(
-      userTypeStats.map((stat) => [stat._id || 'regular', stat.count])
-    )
+    userTypeStats: Object.fromEntries(USER_TYPES.map((k) => [k, countsMap[k] ?? 0]))
   };
 };
 
