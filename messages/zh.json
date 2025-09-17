@@ -945,13 +945,14 @@
   "success": "成功",
   "success_club_updated": "社团更新成功",
   "success_university_updated": "高校更新成功",
+  "switch_theme": "切换主题",
   "taiko_no_tatsujin": "太鼓之达人",
   "take_line": "乘坐 {line}",
   "tell_us_about_yourself": "介绍一下自己...",
   "theme_color": "主题颜色",
-  "theme_dark": "深色主题",
-  "theme_light": "浅色主题",
-  "theme_switch": "主题切换",
+  "theme_dark": "深色",
+  "theme_light": "浅色",
+  "theme_system": "跟随系统",
   "this_is_how_others_will_see_your_name": "这是其他人看到您的名称",
   "time_length": [
     {

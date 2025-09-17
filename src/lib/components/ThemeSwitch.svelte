@@ -1,82 +1,71 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
   import { m } from '$lib/paraglide/messages';
   import FancyButton from './FancyButton.svelte';
+  import {
+    type ThemeMode,
+    applyTheme,
+    setStoredTheme,
+    getNextTheme,
+    initializeTheme
+  } from '$lib/utils/theme';
 
   let { class: klass = '' } = $props();
 
-  // Theme states
-  const THEMES = {
-    light: 'emerald',
-    dark: 'forest'
-  } as const;
-
-  let currentTheme = $state<'light' | 'dark'>('light');
+  let currentTheme = $state<ThemeMode>('light');
   let isInitialized = $state(false);
 
-  // Initialize theme from localStorage or system preference
-  const initializeTheme = () => {
-    if (!browser) return;
-
-    const stored = localStorage.getItem('nearcade-theme');
-    if (stored === 'light' || stored === 'dark') {
-      currentTheme = stored;
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      currentTheme = prefersDark ? 'dark' : 'light';
-    }
-
-    applyTheme(currentTheme);
-    isInitialized = true;
-  };
-
-  // Apply theme to the document
-  const applyTheme = (theme: 'light' | 'dark') => {
-    if (!browser) return;
-
-    const daisyTheme = THEMES[theme];
-    document.documentElement.setAttribute('data-theme', daisyTheme);
-  };
-
-  // Toggle between light and dark themes
+  // Cycle through themes and save to storage
   const toggleTheme = () => {
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    currentTheme = newTheme;
-    
-    applyTheme(newTheme);
-    localStorage.setItem('nearcade-theme', newTheme);
+    const nextTheme = getNextTheme(currentTheme);
+    currentTheme = nextTheme;
+    applyTheme(nextTheme);
+    setStoredTheme(nextTheme);
   };
 
   onMount(() => {
-    initializeTheme();
+    currentTheme = initializeTheme();
+    console.log(currentTheme);
+    isInitialized = true;
+  });
 
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Only apply system preference if user hasn't manually set a theme
-      if (!localStorage.getItem('nearcade-theme')) {
-        currentTheme = e.matches ? 'dark' : 'light';
-        applyTheme(currentTheme);
-      }
-    };
+  // Get display icon based on current theme mode
+  let themeIcon = $derived.by(() => {
+    switch (currentTheme) {
+      case 'light':
+        return 'sun';
+      case 'dark':
+        return 'moon';
+      default:
+        return 'circle-half-stroke';
+    }
+  });
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+  // Get display text for current theme mode
+  let themeText = $derived.by(() => {
+    switch (currentTheme) {
+      case 'light':
+        return m.theme_light();
+      case 'dark':
+        return m.theme_dark();
+      default:
+        return m.theme_system();
+    }
   });
 </script>
 
 {#if isInitialized}
   {#snippet content()}
-    <span>{currentTheme === 'light' ? m.theme_light() : m.theme_dark()}</span>
+    <span class="flex items-center gap-2">
+      <span>{m.switch_theme()}</span>
+      <span class="text-xs opacity-70">({themeText})</span>
+    </span>
   {/snippet}
-  
+
   <FancyButton
-    class="fa-solid fa-{currentTheme === 'light' ? 'moon' : 'sun'} fa-lg {klass}"
+    class="fa-solid fa-{themeIcon} fa-lg {klass}"
     btnCls="btn-ghost btn-sm lg:btn-md"
     {content}
     callback={toggleTheme}
   />
 {/if}
-</script>

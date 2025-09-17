@@ -764,7 +764,6 @@
   </div>
 
   <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
-    <ThemeSwitch />
     <FancyButton
       href={GITHUB_LINK}
       target="_blank"
@@ -777,6 +776,7 @@
       description={m.qq_description()}
       image="{base}/group-chat-qq.jpg"
     />
+    <ThemeSwitch />
   </div>
 </div>
 
