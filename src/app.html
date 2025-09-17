@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem('nearcade-theme');
+          const root = document.documentElement;
+          root.setAttribute('data-theme', stored === 'dark' ? 'forest' : 'emerald');
+        } catch {}
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <!-- Databuddy -->

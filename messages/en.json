@@ -958,10 +958,14 @@
   "success": "Success",
   "success_club_updated": "Club updated successfully",
   "success_university_updated": "University updated successfully",
+  "switch_theme": "Switch Theme",
   "taiko_no_tatsujin": "Taiko no Tatsujin",
   "take_line": "Take {line}",
   "tell_us_about_yourself": "Tell us about yourself...",
   "theme_color": "Theme Color",
+  "theme_dark": "Dark",
+  "theme_light": "Light",
+  "theme_system": "System",
   "this_is_how_others_will_see_your_name": "This is how others will see your name",
   "time_length": [
     {

@@ -9,6 +9,7 @@
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
+  import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
   import {
@@ -775,6 +776,7 @@
       description={m.qq_description()}
       image="{base}/group-chat-qq.jpg"
     />
+    <ThemeSwitch />
   </div>
 </div>
 
