@@ -7,9 +7,11 @@
     <script>
       (() => {
         try {
-          const stored = localStorage.getItem('nearcade-theme');
+          const theme =
+            localStorage.getItem('nearcade-theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
           const root = document.documentElement;
-          root.setAttribute('data-theme', stored === 'dark' ? 'forest' : 'emerald');
+          root.setAttribute('data-theme', theme === 'dark' ? 'forest' : 'emerald');
         } catch {}
       })();
     </script>
