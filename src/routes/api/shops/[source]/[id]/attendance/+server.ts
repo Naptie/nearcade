@@ -18,6 +18,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = await locals.auth();
   let user = session?.user;
   let isOpenApiAccess = false;
+  let isClaimedShopAccess = false;
 
   if (!user) {
     const header = request.headers.get('Authorization');
@@ -33,7 +34,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     if (!dbUser) {
       error(401, 'Unauthorized');
     }
+    const matchedToken = dbUser.apiTokens?.find((t) => t.token === token);
+    if (
+      matchedToken?.shop &&
+      matchedToken.shop.id.toString() !== params.id &&
+      matchedToken.shop.source !== params.source
+    ) {
+      error(403, 'Forbidden');
+    }
     isOpenApiAccess = true;
+    isClaimedShopAccess = matchedToken?.shop ? true : false;
     user = dbUser;
   }
 
@@ -78,6 +88,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
     if (!shop) {
       error(404, 'Shop not found');
+    }
+    if ((isClaimedShopAccess && !shop.isClaimed) || (!isClaimedShopAccess && shop.isClaimed)) {
+      error(403, 'Forbidden');
     }
 
     // Validate game exists in shop
@@ -154,7 +167,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         error(400, 'Shop is currently closed');
       }
       for (const game of games) {
-        if (game.currentAttendances === undefined || game.currentAttendances < 0) {
+        if (
+          game.currentAttendances === undefined ||
+          typeof game.currentAttendances !== 'number' ||
+          isNaN(game.currentAttendances) ||
+          game.currentAttendances < 0
+        ) {
           error(400, `Invalid current attendances for game ${game.id}`);
         }
         const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
@@ -383,6 +401,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
         .map((g) => {
           const mostRecentReport = reported.filter((r) => r.gameId === g.gameId).at(0);
           const reportedCount = mostRecentReport?.currentAttendances || 0;
+          if (shop.isClaimed) return reportedCount;
           const registeredCount = registered
             .filter(
               (r) =>

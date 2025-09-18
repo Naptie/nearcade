@@ -20,6 +20,7 @@ export interface Shop {
   openingHours: [openHour: number, closeHour: number][];
   location: Location;
   games: Game[];
+  isClaimed?: boolean;
   createdAt?: Date;
   updatedAt: Date;
   source: ShopSource;

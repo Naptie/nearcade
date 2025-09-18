@@ -330,7 +330,7 @@
       {:else}
         <div
           class="tooltip-error {klass}"
-          class:tooltip={!isShopOpen || !!otherShop || isUserNearShop === false}
+          class:tooltip={!isShopOpen || shop.isClaimed || !!otherShop || isUserNearShop === false}
           data-tip={isShopOpen
             ? otherShop
               ? m.attending_other_shop({
@@ -339,13 +339,19 @@
                 })
               : isUserNearShop === false
                 ? locationError || m.not_near_shop()
-                : ''
+                : shop.isClaimed
+                  ? m.attend_claimed()
+                  : ''
             : m.shop_closed()}
         >
           <button
             class="btn btn-primary w-full"
             onclick={() => (showAttendanceModal = true)}
-            disabled={!isShopOpen || !!otherShop || isLoading === 1 || !isUserNearShop}
+            disabled={!isShopOpen ||
+              shop.isClaimed ||
+              !!otherShop ||
+              isLoading === 1 ||
+              !isUserNearShop}
           >
             <i class="fa-solid fa-play"></i>
             {m.attend()}
@@ -357,7 +363,26 @@
       <!-- Shop Header -->
       <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
         <div class="mb-4 flex items-center justify-between gap-2">
-          <h1 class="text-3xl font-bold">{shop.name}</h1>
+          <h1 class="text-3xl font-bold">
+            {shop.name}
+            {#if shop.isClaimed}
+              {#snippet badge()}
+                <span class="badge badge-success badge-soft">
+                  <i class="fa-solid fa-check-circle"></i>
+                  <span class="text-sm">{m.claimed()}</span>
+                </span>
+              {/snippet}
+              <div
+                class="tooltip tooltip-right text-base-content/60 font-normal not-md:hidden"
+                data-tip={m.claimed_description()}
+              >
+                {@render badge()}
+              </div>
+              <div class="md:hidden" title={m.claimed_description()}>
+                {@render badge()}
+              </div>
+            {/if}
+          </h1>
           <span class="text-base-content/60 text-right not-md:hidden">
             {shop.source.toUpperCase()} #{shop.id}
           </span>
@@ -675,7 +700,7 @@
                     {game.name}
                   </h3>
                   <div class="flex items-center gap-1">
-                    {#if data.user && isShopOpen && isUserNearShop}
+                    {#if data.user && isShopOpen && isUserNearShop && !shop.isClaimed}
                       <FancyButton
                         callback={() =>
                           openReportModal({

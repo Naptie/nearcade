@@ -29,9 +29,10 @@ declare module '@auth/sveltekit' {
       id: string;
       name: string;
       token: string;
+      shop?: { id: number; source: ShopSource }; // Associated shop, if any
       expiresAt: Date;
       createdAt: Date;
-    }[]; // API tokens for user authentication
+    }[]; // API tokens for user/shop authentication
   }
 
   export interface Session {
