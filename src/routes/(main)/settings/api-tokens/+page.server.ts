@@ -227,6 +227,12 @@ export const actions: Actions = {
         });
       }
 
+      if (existingToken.expiresAt < new Date()) {
+        return fail(400, {
+          message: 'Cannot reset an expired token'
+        });
+      }
+
       // Generate new token with same name and expiration
       const newTokenValue = `nk_${customAlphabet(alphabet, 42)()}`;
 

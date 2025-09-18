@@ -307,14 +307,16 @@
               <i class="fa-solid fa-edit"></i>
               <span class="not-ss:hidden">{m.rename()}</span>
             </button>
-            <button
-              class="btn btn-sm btn-soft btn-warning"
-              onclick={() => openResetModal(token)}
-              title={m.reset_token()}
-            >
-              <i class="fa-solid fa-refresh"></i>
-              <span class="not-ss:hidden">{m.reset()}</span>
-            </button>
+            {#if !isExpired(token.expiresAt)}
+              <button
+                class="btn btn-sm btn-soft btn-warning"
+                onclick={() => openResetModal(token)}
+                title={m.reset_token()}
+              >
+                <i class="fa-solid fa-refresh"></i>
+                <span class="not-ss:hidden">{m.reset()}</span>
+              </button>
+            {/if}
             <button
               class="btn btn-sm btn-soft btn-error"
               onclick={() => openDeleteModal(token)}
@@ -516,7 +518,7 @@
             </button>
             <button
               type="submit"
-              class="btn btn-primary btn-soft"
+              class="btn btn-primary"
               disabled={isSubmitting || !isCreateFormValid}
             >
               {#if isSubmitting}
