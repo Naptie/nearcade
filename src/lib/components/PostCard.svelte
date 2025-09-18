@@ -8,6 +8,8 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { getDisplayName } from '$lib/utils';
+  import { getLocale } from '$lib/paraglide/runtime';
+  import { enUS, zhCN } from 'date-fns/locale';
 
   interface Props {
     post: PostWithAuthor;
@@ -82,7 +84,10 @@
             {/if}
           </div>
           <div class="text-base-content/60 text-xs">
-            {formatDistanceToNow(post.createdAt, { addSuffix: true })}
+            {formatDistanceToNow(post.createdAt, {
+              addSuffix: true,
+              locale: getLocale() === 'en' ? enUS : zhCN
+            })}
           </div>
         </div>
       </div>

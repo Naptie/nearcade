@@ -11,6 +11,8 @@
   import { getDisplayName } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { getLocale } from '$lib/paraglide/runtime';
+  import { enUS, zhCN } from 'date-fns/locale';
 
   interface Props {
     comment: CommentWithAuthorAndVote;
@@ -155,7 +157,10 @@
             {getDisplayName(comment.author)}
           </a>
           <span class="text-base-content/60">
-            {formatDistanceToNow(comment.createdAt, { addSuffix: true })}
+            {formatDistanceToNow(comment.createdAt, {
+              addSuffix: true,
+              locale: getLocale() === 'en' ? enUS : zhCN
+            })}
           </span>
           {#if comment.updatedAt && comment.updatedAt !== comment.createdAt}
             <span class="text-base-content/40 text-xs">
