@@ -15,6 +15,7 @@
   let showCreateModal = $state(false);
   let showRenameModal = $state(false);
   let showDeleteModal = $state(false);
+  let showResetModal = $state(false);
   let currentToken = $state<{
     id: string;
     name: string;
@@ -23,6 +24,13 @@
     createdAt: string | Date;
   } | null>(null);
   let createdToken = $state<{
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date;
+    createdAt: string | Date;
+  } | null>(null);
+  let resetToken = $state<{
     id: string;
     name: string;
     token: string;
@@ -93,6 +101,8 @@
         return m.api_token_created();
       case 'api_token_renamed':
         return m.api_token_renamed();
+      case 'api_token_reset':
+        return m.api_token_reset();
       case 'api_token_deleted':
         return m.api_token_deleted();
       case 'cancel':
@@ -152,6 +162,23 @@
     currentToken = null;
   };
 
+  const openResetModal = (token: {
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date;
+    createdAt: string | Date;
+  }) => {
+    currentToken = token;
+    showResetModal = true;
+  };
+
+  const closeResetModal = () => {
+    showResetModal = false;
+    currentToken = null;
+    resetToken = null;
+  };
+
   // Copy token to clipboard
   const copyToClipboard = async (text: string) => {
     try {
@@ -164,12 +191,15 @@
 
   // Handle form results
   $effect(() => {
-    if (form?.success && form?.token) {
+    if (form?.success && form?.token && form?.message === 'api_token_created') {
       createdToken = form.token;
       tokenName = '';
       expiration = '30days';
       customDate = '';
       clientErrors = {};
+      invalidateAll();
+    } else if (form?.success && form?.token && form?.message === 'api_token_reset') {
+      resetToken = form.token;
       invalidateAll();
     } else if (form?.success && form?.message === 'api_token_renamed') {
       closeRenameModal();
@@ -276,6 +306,14 @@
             >
               <i class="fa-solid fa-edit"></i>
               <span class="not-ss:hidden">{m.rename()}</span>
+            </button>
+            <button
+              class="btn btn-sm btn-soft btn-warning"
+              onclick={() => openResetModal(token)}
+              title={m.reset_token()}
+            >
+              <i class="fa-solid fa-refresh"></i>
+              <span class="not-ss:hidden">{m.reset()}</span>
             </button>
             <button
               class="btn btn-sm btn-soft btn-error"
@@ -560,6 +598,143 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+{/if}
+
+<!-- Reset Token Modal -->
+{#if currentToken}
+  <div class="modal" class:modal-open={showResetModal}>
+    <div class="modal-box w-11/12 max-w-md">
+      {#if resetToken}
+        <!-- Token Reset Successfully -->
+        <h3 class="mb-4 text-lg font-bold">{m.api_token_reset()}</h3>
+
+        <div class="space-y-4">
+          <div class="alert alert-warning">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <span>{m.copy_token_warning()}</span>
+          </div>
+
+          <div>
+            <label class="label" for="reset-token-display-name">
+              <span class="label-text font-medium">{m.api_token_name()}</span>
+            </label>
+            <input
+              id="reset-token-display-name"
+              type="text"
+              class="input input-bordered w-full"
+              value={resetToken.name}
+              readonly
+            />
+          </div>
+
+          <div>
+            <label class="label" for="reset-token-display-value">
+              <span class="label-text font-medium">{m.api_token()}</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                id="reset-token-display-value"
+                type="text"
+                class="input input-bordered w-full font-mono text-sm"
+                value={resetToken.token}
+                readonly
+              />
+              <button
+                type="button"
+                class="btn btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
+                class:btn-success={isCopied}
+                class:btn-active={isCopied}
+                onclick={async () => {
+                  await copyToClipboard(resetToken!.token);
+                  isCopied = true;
+                  setTimeout(() => {
+                    isCopied = false;
+                  }, 2000);
+                }}
+                title={m.copy_token()}
+                aria-label={m.copy_token()}
+              >
+                {#if isCopied}
+                  <i class="fa-solid fa-check fa-lg"></i>
+                {:else}
+                  <i class="fa-solid fa-copy fa-lg"></i>
+                {/if}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="label" for="reset-token-display-expires">
+              <span class="label-text font-medium">{m.expires_at()}</span>
+            </label>
+            <input
+              id="reset-token-display-expires"
+              type="text"
+              class="input input-bordered w-full"
+              value={formatExpiresAt(resetToken.expiresAt)}
+              readonly
+            />
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button class="btn btn-primary btn-soft" onclick={closeResetModal}>
+            {m.confirm()}
+          </button>
+        </div>
+      {:else}
+        <!-- Reset Token Confirmation -->
+        <h3 class="mb-4 text-lg font-bold">{m.confirm_reset_token_title()}</h3>
+        <p class="py-4">{m.confirm_reset_token()}</p>
+
+        <div class="bg-base-200 mb-4 flex items-center gap-3 rounded-lg p-3">
+          <div class="flex-1">
+            <div class="font-medium">{currentToken.name}</div>
+            <div class="text-base-content/60 text-sm">
+              {m.expires_at()}: {formatExpiresAt(currentToken.expiresAt)}
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" onclick={closeResetModal}>
+            {m.cancel()}
+          </button>
+          <form
+            method="POST"
+            action="?/resetToken"
+            use:enhance={() => {
+              isSubmitting = true;
+              return async ({ result }) => {
+                isSubmitting = false;
+                if (result.type === 'success' && result.data?.success) {
+                  resetToken = result.data.token as {
+                    id: string;
+                    name: string;
+                    token: string;
+                    expiresAt: string | Date;
+                    createdAt: string | Date;
+                  };
+                }
+                await invalidateAll();
+              };
+            }}
+            style="display: inline;"
+          >
+            <input type="hidden" name="tokenId" value={currentToken.id} />
+            <button type="submit" class="btn btn-warning" disabled={isSubmitting}>
+              {#if isSubmitting}
+                <span class="loading loading-spinner loading-sm"></span>
+              {:else}
+                <i class="fa-solid fa-refresh"></i>
+              {/if}
+              {m.reset()}
+            </button>
+          </form>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

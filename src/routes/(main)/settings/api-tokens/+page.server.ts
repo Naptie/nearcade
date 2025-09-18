@@ -189,6 +189,81 @@ export const actions: Actions = {
     }
   },
 
+  resetToken: async ({ request, locals }) => {
+    const session = await locals.auth();
+    if (!session || !session.user) {
+      return fail(401, { message: 'Unauthorized' });
+    }
+
+    try {
+      const formData = await request.formData();
+      const tokenId = formData.get('tokenId') as string;
+
+      if (!tokenId) {
+        return fail(400, {
+          message: 'Token ID is required'
+        });
+      }
+
+      // Find the existing token to get its name and expiration
+      const db = mongo.db();
+      const usersCollection = db.collection<User>('users');
+
+      const user = await usersCollection.findOne(
+        { _id: new ObjectId(session.user.id) },
+        { projection: { apiTokens: 1 } }
+      );
+
+      if (!user || !user.apiTokens) {
+        return fail(404, {
+          message: 'User or tokens not found'
+        });
+      }
+
+      const existingToken = user.apiTokens.find((token) => token.id === tokenId);
+      if (!existingToken) {
+        return fail(404, {
+          message: 'Token not found'
+        });
+      }
+
+      // Generate new token with same name and expiration
+      const newTokenValue = `nk_${customAlphabet(alphabet, 42)()}`;
+
+      const updatedToken = {
+        ...existingToken,
+        token: newTokenValue,
+        createdAt: new Date()
+      };
+
+      // Update the token in the database
+      await usersCollection.updateOne(
+        {
+          _id: new ObjectId(session.user.id),
+          'apiTokens.id': tokenId
+        },
+        {
+          $set: {
+            'apiTokens.$.token': newTokenValue,
+            'apiTokens.$.createdAt': new Date(),
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      return {
+        success: true,
+        message: 'api_token_reset',
+        token: updatedToken
+      };
+    } catch (err) {
+      console.error('Error resetting API token:', err);
+      return fail(500, {
+        message: 'An error occurred while resetting the token'
+      });
+    }
+  },
+
   deleteToken: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
