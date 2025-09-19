@@ -204,7 +204,7 @@
   "area_density": "区域密度",
   "arrive_at": "到达目的地",
   "attend": "出勤",
-  "attend_claimed": "该店铺已被认领。请使用店内机器进行出勤登记。",
+  "attend_claimed": "该店铺已被认领。请使用店内机器登记出勤。",
   "attend_shop": "在 {shopName} 出勤",
   "attendance": "出勤",
   "attendance_details": "在勤 {duration}\n计划离开于 {leave}",
