@@ -71,7 +71,7 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
 
   // Check if this is a shortcut link to a user profile
   if (pathname.startsWith('/@')) {
-    redirect(308, `/users/${pathname.slice(2)}${search}`);
+    redirect(308, `/users/${pathname.slice(1)}${search}`);
   }
 
   // Otherwise, proceed with normal request handling
