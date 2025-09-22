@@ -14,11 +14,86 @@ import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 
+const attend = async (
+  user: User,
+  shop: Shop,
+  data: {
+    games: {
+      id: number;
+    }[];
+    attendedAt: Date;
+    plannedLeaveAt: Date;
+  }
+) => {
+  const { source, id } = shop;
+  const { games, attendedAt, plannedLeaveAt } = data;
+  const attendanceKey = `nearcade:attend:${source}-${id}:${user.id}:${encodeURIComponent(attendedAt.toISOString())}:${games.map((g) => g.id).join(',')}`;
+  const attendanceData = {
+    games,
+    attendedAt: attendedAt.toISOString(),
+    plannedLeaveAt: plannedLeaveAt.toISOString()
+  };
+
+  // Calculate TTL in seconds
+  const plannedLeave = plannedLeaveAt.getTime();
+  const ttlSeconds = Math.max(Math.floor((plannedLeave - Date.now()) / 1000), 60); // Minimum 60 seconds
+
+  // Store attendance in Redis with expiration
+  await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+};
+
+const leave = async (user: User, shop: Shop) => {
+  const { source, id } = shop;
+  const pattern = `nearcade:attend:${source}-${id}:${user.id}:*`;
+  const keys = await redis.keys(pattern);
+  if (keys.length === 0) {
+    error(404, 'Attendance not found');
+  }
+
+  // Only one active attendance per user per shop
+  const attendanceKey = keys[0];
+
+  // Get the attendance data before deleting
+  const attendanceDataStr = await redis.get(attendanceKey);
+  if (!attendanceDataStr) {
+    error(404, 'Attendance not found');
+  }
+
+  const attendanceData = JSON.parse(attendanceDataStr);
+
+  // Delete from Redis
+  await redis.del(attendanceKey);
+
+  // Add to MongoDB attendances collection
+  const db = mongo.db();
+  const attendancesCollection = db.collection<AttendanceRecord>('attendances');
+
+  await attendancesCollection.insertOne({
+    userId: user.id!,
+    games: attendanceData.games.map((game: { id: number }) => {
+      const shopGame = shop?.games.find((g) => g.gameId === game.id);
+      return {
+        gameId: game.id,
+        name: shopGame ? shopGame.name : 'Unknown Game',
+        version: shopGame ? shopGame.version : ''
+      };
+    }),
+    shop: {
+      id,
+      source
+    },
+    attendedAt: new Date(attendanceData.attendedAt),
+    leftAt: new Date() // Actual leave time
+  });
+};
+
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = await locals.auth();
   let user = session?.user;
+  let attendingUser = null;
   let isOpenApiAccess = false;
   let isClaimedShopAccess = false;
+  let isAttendingOnBehalf = false;
 
   if (!user) {
     const header = request.headers.get('Authorization');
@@ -26,15 +101,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(401, 'Unauthorized');
     }
     const token = header.slice(7);
+    const agentToken = token.split('/')[0];
+    const userToken = token === agentToken ? null : token.split('/')[1];
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
     const dbUser = await usersCollection.findOne({
-      apiTokens: { $elemMatch: { token, expiresAt: { $gt: new Date() } } }
+      apiTokens: { $elemMatch: { token: agentToken, expiresAt: { $gt: new Date() } } }
     });
     if (!dbUser) {
       error(401, 'Unauthorized');
     }
-    const matchedToken = dbUser.apiTokens?.find((t) => t.token === token);
+    const matchedToken = dbUser.apiTokens?.find((t) => t.token === agentToken);
     if (
       matchedToken?.shop &&
       matchedToken.shop.id.toString() !== params.id &&
@@ -45,11 +122,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     isOpenApiAccess = true;
     isClaimedShopAccess = matchedToken?.shop ? true : false;
     user = dbUser;
+    if (userToken) {
+      attendingUser = await usersCollection.findOne({
+        apiTokens: { $elemMatch: { token: userToken, expiresAt: { $gt: new Date() } } }
+      });
+      if (!attendingUser) {
+        error(404, 'Target user not found');
+      }
+      isAttendingOnBehalf = true;
+    }
   }
 
   try {
     const body = (await request.json()) as {
-      games: { id: number; currentAttendances?: number }[];
+      games: { id: number; currentAttendances?: number; attend?: boolean }[];
       plannedLeaveAt?: string;
       comment?: string;
     };
@@ -125,22 +211,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         error(400, 'Invalid planned leave time');
       }
 
-      const attendedAt = new Date().toISOString();
-      const attendanceKey = `nearcade:attend:${source}-${id}:${user.id}:${encodeURIComponent(attendedAt)}:${shopGames.map((g) => g.gameId).join(',')}`;
-      const attendanceData = {
+      await attend(user, shop, {
         games: shopGames.map((g) => ({
           id: g.gameId
         })),
-        attendedAt,
-        plannedLeaveAt: plannedLeaveTime.toISOString()
-      };
-
-      // Calculate TTL in seconds
-      const plannedLeave = plannedLeaveTime.getTime();
-      const ttlSeconds = Math.max(Math.floor((plannedLeave - now) / 1000), 60); // Minimum 60 seconds
-
-      // Store attendance in Redis with expiration
-      await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+        attendedAt: new Date(),
+        plannedLeaveAt: plannedLeaveTime
+      });
 
       if (!user.frequentingArcades?.some((a) => a.id === shop.id && a.source === shop.source)) {
         const attendancesCollection = db.collection<AttendanceRecord>('attendances');
@@ -185,6 +262,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
         // Store attendance in Redis
         await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+
+        if (
+          isAttendingOnBehalf &&
+          attendingUser &&
+          'attend' in game &&
+          typeof game.attend === 'boolean'
+        ) {
+          if (game.attend) {
+            await attend(attendingUser, shop, {
+              games: [{ id: game.id }],
+              attendedAt: new Date(),
+              plannedLeaveAt: close
+            });
+          } else {
+            await leave(attendingUser, shop);
+          }
+        }
       }
 
       const attendanceReportsCollection =
@@ -242,50 +336,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       error(500, 'Redis not available');
     }
 
-    const pattern = `nearcade:attend:${source}-${id}:${session.user.id}:*`;
-    const keys = await redis.keys(pattern);
-    if (keys.length === 0) {
-      error(404, 'Attendance not found');
-    }
-
-    // Only one active attendance per user per shop
-    const attendanceKey = keys[0];
-
-    // Get the attendance data before deleting
-    const attendanceDataStr = await redis.get(attendanceKey);
-    if (!attendanceDataStr) {
-      error(404, 'Attendance not found');
-    }
-
-    const attendanceData = JSON.parse(attendanceDataStr);
-
-    // Delete from Redis
-    await redis.del(attendanceKey);
-
-    // Add to MongoDB attendances collection
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
-    const attendancesCollection = db.collection<AttendanceRecord>('attendances');
-
-    const shop = await shopsCollection.findOne({ id, source });
-
-    await attendancesCollection.insertOne({
-      userId: session.user.id!,
-      games: attendanceData.games.map((game: { id: number }) => {
-        const shopGame = shop?.games.find((g) => g.gameId === game.id);
-        return {
-          gameId: game.id,
-          name: shopGame ? shopGame.name : 'Unknown Game',
-          version: shopGame ? shopGame.version : ''
-        };
-      }),
-      shop: {
-        id,
-        source
-      },
-      attendedAt: new Date(attendanceData.attendedAt),
-      leftAt: new Date() // Actual leave time
+    const shop = await shopsCollection.findOne({
+      source,
+      id
     });
+    if (!shop) {
+      error(404, 'Shop not found');
+    }
+
+    await leave(session.user, shop);
 
     return json({ success: true });
   } catch (err) {

@@ -109,11 +109,13 @@
               id: g.gameId,
               count:
                 (reportedAttendance.count || 0) +
-                attendanceData.filter(
-                  (a) =>
-                    a.gameId === g.gameId &&
-                    new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
-                ).length
+                (shop.isClaimed
+                  ? 0
+                  : attendanceData.filter(
+                      (a) =>
+                        a.gameId === g.gameId &&
+                        new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
+                    ).length)
             };
           })
           .filter((r) => r !== undefined) as typeof reportedAttendances;
