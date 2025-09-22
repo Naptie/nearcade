@@ -1,6 +1,6 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
-import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleServerError, type ServerInit } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { handle as handleAuth } from '$lib/auth/index.server';
 import { env } from '$env/dynamic/public';
@@ -66,10 +66,23 @@ const handleAMap: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
+const handleUserShortcut: Handle = async ({ event, resolve }) => {
+  const { pathname, search } = event.url;
+
+  // Check if this is a shortcut link to a user profile
+  if (pathname.startsWith('/@')) {
+    redirect(308, `/users/${pathname.slice(2)}${search}`);
+  }
+
+  // Otherwise, proceed with normal request handling
+  return resolve(event);
+};
+
 export const handle: Handle = sequence(
   ...(sentryHandle ? [sentryHandle] : []),
   handleParaglide,
   handleAMap,
+  handleUserShortcut,
   handleHeaders,
   handleAuth
 );
