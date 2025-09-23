@@ -1013,12 +1013,6 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
       return;
     }
 
-    // Check if we're in a secure context
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-      reject('Location access requires HTTPS');
-      return;
-    }
-
     const requestLocation = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
