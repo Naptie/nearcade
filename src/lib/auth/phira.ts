@@ -41,12 +41,18 @@ const Phira = <P extends PhiraProfile>(options: OAuthUserConfig<P>): OAuth2Confi
     token: {
       url: 'https://api.phira.cn/oauth/token',
       conform: async (response: Response) => {
-        const data = (await response.json()) as object;
-        console.log('Phira token response:', data);
+        const data = (await response.json()) as {
+          accessToken: string;
+          tokenType: string;
+          expiresIn: number;
+          refreshToken: string;
+        };
         return new Response(
           JSON.stringify({
-            ...data,
-            token_type: 'bearer'
+            access_token: data.accessToken,
+            token_type: data.tokenType,
+            expires_in: data.expiresIn,
+            refresh_token: data.refreshToken
           }),
           response
         );
@@ -54,13 +60,12 @@ const Phira = <P extends PhiraProfile>(options: OAuthUserConfig<P>): OAuth2Confi
     },
 
     [customFetch]: async (...args) => {
-      console.log(args);
       const url = new URL(args[0] instanceof Request ? args[0].url : args[0]);
       if (url.pathname.endsWith('token')) {
         url.searchParams.set('client_id', clientId);
         url.searchParams.set('client_secret', clientSecret);
         (args[1]!.body as URLSearchParams).forEach((value, key) => {
-          url.searchParams.set(key, value);
+          if (key !== 'redirect_uri') url.searchParams.set(key, value);
         });
         return fetch(url, {
           method: 'POST',
