@@ -1013,35 +1013,61 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        });
-      },
-      (error) => {
-        let msg = m.location_unknown_error();
-        switch (error?.code) {
-          case 1: // PERMISSION_DENIED
-            msg = m.location_permission_denied();
-            break;
-          case 2: // POSITION_UNAVAILABLE
-            msg = m.location_unavailable();
-            break;
-          case 3: // TIMEOUT
-            msg = m.location_timeout();
-            break;
+    // Check if we're in a secure context
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      reject('Location access requires HTTPS');
+      return;
+    }
+
+    const requestLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          let msg = m.location_unknown_error();
+          switch (error?.code) {
+            case 1: // PERMISSION_DENIED
+              msg = m.location_permission_denied();
+              break;
+            case 2: // POSITION_UNAVAILABLE
+              msg = m.location_unavailable();
+              break;
+            case 3: // TIMEOUT
+              msg = m.location_timeout();
+              break;
+          }
+          console.error('Geolocation error:', error);
+          reject(msg);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 300000
         }
-        console.error('Geolocation error:', error);
-        reject(msg);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000
-      }
-    );
+      );
+    };
+
+    if ('permissions' in navigator) {
+      navigator.permissions
+        .query({ name: 'geolocation' })
+        .then((permission) => {
+          if (permission.state === 'denied') {
+            reject(m.location_permission_denied());
+            return;
+          }
+          requestLocation();
+        })
+        .catch(() => {
+          // Fallback for browsers that don't support permissions API
+          requestLocation();
+        });
+    } else {
+      requestLocation();
+    }
   });
 
 /**
