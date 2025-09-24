@@ -271,7 +271,10 @@
     const isMemberRegular = member.memberType === 'student';
 
     return {
-      remove: (isCurrentUserAdmin && !isMemberAdmin) || (isCurrentUserModerator && isMemberRegular),
+      remove:
+        (isCurrentUserAdmin && !isMemberAdmin) ||
+        (isCurrentUserModerator && isMemberRegular) ||
+        isCurrentUserSiteAdmin,
       grantModerator: isCurrentUserAdmin && isMemberRegular,
       revokeModerator: isCurrentUserAdmin && isMemberModerator,
       // Site admins can grant admin (without losing their status), regular admins can only transfer
