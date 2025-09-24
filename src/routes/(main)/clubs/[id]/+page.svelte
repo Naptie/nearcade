@@ -43,9 +43,9 @@
   let selectedMember = $state<ClubMemberWithUser | null>(null);
 
   // Infinite scrolling state for members
-  let displayedMembers = $state(data.members || []);
+  let displayedMembers = $derived(data.members || []);
   let isLoadingMoreMembers = $state(false);
-  let hasMoreMembers = $state((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreMembers = $derived((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
   let currentMembersPage = $state(1);
 
   // Infinite scrolling state for starred arcades

@@ -52,12 +52,12 @@
   let selectedMember = $state<UniversityMemberWithUser | null>(null);
 
   // Infinite scrolling state
-  let displayedMembers = $state(data.members || []);
-  let displayedClubs = $state(data.clubs || []);
+  let displayedMembers = $derived(data.members || []);
+  let displayedClubs = $derived(data.clubs || []);
   let isLoadingMoreMembers = $state(false);
   let isLoadingMoreClubs = $state(false);
-  let hasMoreMembers = $state((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
-  let hasMoreClubs = $state((data.clubs?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreMembers = $derived((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreClubs = $derived((data.clubs?.length || 0) >= PAGINATION.PAGE_SIZE);
   let currentMembersPage = $state(1);
   let currentClubsPage = $state(1);
 
