@@ -14,7 +14,7 @@
   import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { adaptiveNewTab, canWriteUnivPosts, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, canWriteUnivPosts, pageTitle, aggregateGames } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
@@ -23,6 +23,7 @@
 
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
+    { id: 'frequenting-arcades', label: m.frequenting_arcades(), icon: 'fa-gamepad' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
     { id: 'clubs', label: m.clubs(), icon: 'fa-users' },
     { id: 'members', label: m.members(), icon: 'fa-user' },
@@ -54,6 +55,7 @@
   // Infinite scrolling state
   let displayedMembers = $derived(data.members || []);
   let displayedClubs = $derived(data.clubs || []);
+  let displayedFrequentingArcades = $derived(data.frequentingArcades || []);
   let isLoadingMoreMembers = $state(false);
   let isLoadingMoreClubs = $state(false);
   let hasMoreMembers = $derived((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
@@ -527,6 +529,85 @@
             canCreatePost={canWritePosts}
             initialPosts={[]}
           />
+        {:else if activeTab === 'frequenting-arcades'}
+          <div class="space-y-6">
+            <div class="flex items-center justify-between">
+              <h3 class="flex items-center gap-2 text-lg font-semibold">
+                <i class="fa-solid fa-gamepad"></i>
+                {m.frequenting_arcades()}
+              </h3>
+              <div class="text-base-content/60 text-sm">
+                {data.stats.frequentingArcadesCount > 0
+                  ? `${data.stats.frequentingArcadesCount} arcades`
+                  : '0 arcades'}
+              </div>
+            </div>
+
+            <!-- Arcade List -->
+            <div class="bg-base-100 rounded-lg">
+              {#if displayedFrequentingArcades && displayedFrequentingArcades.length > 0}
+                <div class="divide-base-200 divide-y">
+                  {#each displayedFrequentingArcades as shop (shop._id)}
+                    <div class="flex items-center justify-between p-4">
+                      <a
+                        href={resolve('/(main)/shops/[source]/[id]', {
+                          source: shop.source,
+                          id: shop.id.toString()
+                        })}
+                        target={adaptiveNewTab()}
+                        class="group flex flex-1 items-center gap-3"
+                      >
+                        <div class="flex-1">
+                          <h4 class="group-hover:text-accent font-medium transition-colors">
+                            {shop.name}
+                          </h4>
+                          {#if shop.games && shop.games.length > 0}
+                            {@const aggregatedGames = aggregateGames(shop)}
+                            <div class="mt-1 flex flex-wrap gap-1">
+                              {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
+                                <span class="badge badge-xs badge-soft">
+                                  {game.name}
+                                </span>
+                              {/each}
+                              {#if aggregatedGames.length > 3}
+                                <span class="badge badge-xs badge-soft">
+                                  +{aggregatedGames.length - 3}
+                                </span>
+                              {/if}
+                            </div>
+                          {/if}
+                        </div>
+                      </a>
+                      <div class="flex gap-2">
+                        <a
+                          href="{resolve('/(main)/discover')}?longitude={shop.location
+                            ?.coordinates[0]}&latitude={shop.location
+                            ?.coordinates[1]}&name={shop.name}&radius={searchRadius}"
+                          target={adaptiveNewTab()}
+                          class="btn btn-soft btn-circle btn-sm"
+                          title={m.explore_nearby()}
+                          aria-label={m.explore_nearby()}
+                        >
+                          <i class="fa-solid fa-map-location-dot"></i>
+                        </a>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div class="p-6">
+                  <div class="py-8 text-center">
+                    <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
+                    <h4 class="text-lg font-medium">{m.no_frequenting_arcades()}</h4>
+                    <p class="text-base-content/60 mt-2">
+                      This university's frequenting arcades are automatically maintained by the
+                      system.
+                    </p>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
         {:else if activeTab === 'campuses'}
           <div class="space-y-4">
             <div class="flex items-center justify-between">
