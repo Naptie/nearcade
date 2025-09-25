@@ -613,8 +613,7 @@
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-base-content/60 text-sm">
-                  {data.stats.totalClubs}
-                  {m.clubs()}
+                  {m.club_count({ count: data.stats.totalClubs })}
                 </div>
                 {#if userPrivileges.canManage}
                   <a
@@ -716,9 +715,7 @@
                 {m.frequenting_arcades()}
               </h3>
               <div class="text-base-content/60 text-sm">
-                {data.stats.frequentingArcadesCount > 0
-                  ? `${data.stats.frequentingArcadesCount} arcades`
-                  : '0 arcades'}
+                {m.shops({ count: data.stats.frequentingArcadesCount })}
               </div>
             </div>
 
