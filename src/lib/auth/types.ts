@@ -25,6 +25,10 @@ declare module '@auth/sveltekit' {
     notificationTypes?: NotificationType[];
     fcmTokens?: string[]; // Firebase Cloud Messaging tokens
     fcmTokenUpdatedAt?: Date; // Last time FCM tokens were updated
+    socialLinks?: {
+      platform: 'qq' | 'wechat' | 'github' | 'discord';
+      username: string;
+    }[]; // Social media links
     apiTokens?: {
       id: string;
       name: string;

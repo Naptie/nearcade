@@ -21,6 +21,9 @@
   let isFrequentingArcadePublic = $state(data.userProfile?.isFrequentingArcadePublic !== false);
   let isStarredArcadePublic = $state(data.userProfile?.isStarredArcadePublic !== false);
 
+  // Social links
+  let socialLinks = $state(data.userProfile?.socialLinks || []);
+
   // Notification settings
   let notificationTypeComments = $state(
     data.userProfile?.notificationTypes
@@ -79,6 +82,9 @@
       notificationTypePostVotes = notificationTypes.includes('POST_VOTES');
       notificationTypeCommentVotes = notificationTypes.includes('COMMENT_VOTES');
       notificationTypeJoinRequests = notificationTypes.includes('JOIN_REQUESTS');
+
+      // Update social links from response
+      socialLinks = (formData as { socialLinks?: typeof socialLinks }).socialLinks || [];
     }
   });
 
@@ -185,6 +191,22 @@
       default:
         return key;
     }
+  };
+
+  // Social links helper functions
+  const addSocialLink = () => {
+    socialLinks = [...socialLinks, { platform: 'qq', username: '' }];
+  };
+
+  const removeSocialLink = (index: number) => {
+    socialLinks = socialLinks.filter((_: unknown, i: number) => i !== index);
+  };
+
+  const updateSocialLink = (index: number, field: 'platform' | 'username', value: string) => {
+    socialLinks = socialLinks.map(
+      (link: { platform: 'qq' | 'wechat' | 'github' | 'discord'; username: string }, i: number) =>
+        i === index ? { ...link, [field]: value } : link
+    );
   };
 </script>
 
@@ -357,6 +379,74 @@
             {bio.length}/500 {m.characters()}
           </span>
         {/if}
+      </div>
+    </div>
+
+    <!-- Social Links -->
+    <div class="form-control">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <div class="form-control">
+          <label class="label" for="social-links-section">
+            <span class="label-text">{m.social_links()}</span>
+          </label>
+          <p class="text-base-content/70 text-sm">{m.social_links_description()}</p>
+        </div>
+        {#if socialLinks.length < 4}
+          <button type="button" class="btn btn-soft btn-success btn-sm" onclick={addSocialLink}>
+            <i class="fa-solid fa-plus"></i>
+            {m.add()}
+          </button>
+        {/if}
+      </div>
+
+      <div id="social-links-section" class="space-y-3">
+        {#each socialLinks as link, index (index)}
+          <div class="flex items-center gap-2">
+            <div class="form-control flex-1">
+              <select
+                id="platform-{index}"
+                name="socialLinks[{index}].platform"
+                bind:value={link.platform}
+                onchange={(e) =>
+                  updateSocialLink(index, 'platform', (e.target as HTMLSelectElement).value)}
+                class="select select-bordered w-full"
+              >
+                <option value="qq">
+                  {m.social_platform_qq()}
+                </option>
+                <option value="wechat">
+                  {m.social_platform_wechat()}
+                </option>
+                <option value="github">
+                  {m.social_platform_github()}
+                </option>
+                <option value="discord">
+                  {m.social_platform_discord()}
+                </option>
+              </select>
+            </div>
+            <div class="form-control flex-2">
+              <input
+                id="username-{index}"
+                name="socialLinks[{index}].username"
+                type="text"
+                bind:value={link.username}
+                oninput={(e) =>
+                  updateSocialLink(index, 'username', (e.target as HTMLInputElement).value)}
+                placeholder={m[`social_${link.platform}_placeholder`]()}
+                class="input input-bordered w-full"
+              />
+            </div>
+            <button
+              type="button"
+              class="btn btn-ghost btn-error btn-sm"
+              onclick={() => removeSocialLink(index)}
+              aria-label={m.delete()}
+            >
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        {/each}
       </div>
     </div>
 

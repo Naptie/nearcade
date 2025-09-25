@@ -415,20 +415,68 @@
         {/if}
 
         <!-- Contact Info -->
-        {#if data.user.email && !data.user.email.endsWith('.nearcade')}
+        {#if (data.user.socialLinks && data.user.socialLinks.length > 0) || (data.user.email && !data.user.email.endsWith('.nearcade'))}
           <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-3 flex items-center gap-2 font-semibold">
               <i class="fa-solid fa-envelope"></i>
               {m.contact()}
             </h3>
             <div class="space-y-2">
-              <div class="flex items-center gap-2 text-sm">
-                <i class="fa-solid fa-envelope text-base-content/50"></i>
-                <a
-                  class="hover:text-accent break-all transition-colors"
-                  href="mailto:{data.user.email}">{data.user.email}</a
-                >
-              </div>
+              {#if data.user.socialLinks && data.user.socialLinks.length > 0}
+                {#each data.user.socialLinks as link, index (index)}
+                  {@const iconClass =
+                    link.platform === 'qq'
+                      ? 'fa-brands fa-qq'
+                      : link.platform === 'wechat'
+                        ? 'fa-brands fa-weixin'
+                        : link.platform === 'github'
+                          ? 'fa-brands fa-github'
+                          : link.platform === 'discord'
+                            ? 'fa-brands fa-discord'
+                            : 'fa-solid fa-link'}
+                  {@const linkUrl =
+                    link.platform === 'github' ? `https://github.com/${link.username}` : null}
+                  <div class="flex items-center gap-2 text-sm">
+                    <div
+                      class="flex w-4 justify-center"
+                      title={link.platform === 'qq'
+                        ? m.social_platform_qq()
+                        : link.platform === 'wechat'
+                          ? m.social_platform_wechat()
+                          : link.platform === 'github'
+                            ? m.social_platform_github()
+                            : link.platform === 'discord'
+                              ? m.social_platform_discord()
+                              : link.platform}
+                    >
+                      <i class="{iconClass} text-base-content/50"></i>
+                    </div>
+                    {#if linkUrl}
+                      <a
+                        class="hover:text-accent break-all transition-colors"
+                        href={linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {link.username}
+                      </a>
+                    {:else}
+                      <span class="break-all">{link.username}</span>
+                    {/if}
+                  </div>
+                {/each}
+              {/if}
+              {#if data.user.email && !data.user.email.endsWith('.nearcade')}
+                <div class="flex items-center gap-2 text-sm">
+                  <div class="flex w-4 justify-center">
+                    <i class="fa-solid fa-envelope text-base-content/50"></i>
+                  </div>
+                  <a
+                    class="hover:text-accent break-all transition-colors"
+                    href="mailto:{data.user.email}">{data.user.email}</a
+                  >
+                </div>
+              {/if}
             </div>
           </div>
         {/if}
