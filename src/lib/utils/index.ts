@@ -963,17 +963,24 @@ export const getCurrentTimeByLocation = (location: Location) => {
 export const getNextTimeAtHour = (location: Location, hours: number[], basisHour: number) => {
   [basisHour, ...hours] = [basisHour, ...hours].map((hour) => Number(hour) || 0);
   const { nowShifted, offsetHours } = getCurrentTimeByLocation(location);
+  const now = new Date();
 
   const year = nowShifted.getUTCFullYear();
   const month = nowShifted.getUTCMonth();
   const date = nowShifted.getUTCDate();
-  const minutes = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
+  const hour = basisHour - offsetHours;
+  const minute = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
 
-  let targetUtcMs = Date.UTC(year, month, date, basisHour - offsetHours, minutes, 0, 0);
+  let targetUtcMs = Date.UTC(year, month, date, hour, minute, 0, 0);
 
   // If that target time is not in the future (i.e. already passed or equal to now), move to next day
-  if (targetUtcMs <= new Date().getTime()) {
-    targetUtcMs = Date.UTC(year, month, date + 1, basisHour - offsetHours, minutes, 0, 0);
+  while (targetUtcMs <= now.getTime()) {
+    targetUtcMs = Date.UTC(year, month, date + 1, hour, minute, 0, 0);
+  }
+
+  // Otherwise, if the target time is too far in the future (more than 24 hours), move to previous day
+  while (targetUtcMs - now.getTime() > 24 * 3600 * 1000) {
+    targetUtcMs = Date.UTC(year, month, date - 1, hour, minute, 0, 0);
   }
 
   return {
