@@ -15,7 +15,7 @@ const compareKeys = (keysA: string[], keysB: string[]) => {
 
 const main = (): void => {
   const localeKeys: Record<string, string[]> = {};
-  const localeJsons: Record<string, object> = {};
+  const localeJsons: Record<string, Record<string, string>> = {};
   for (const locale of locales) {
     const filePath = path.join(messagesDir, locale);
     const raw = fs.readFileSync(filePath, 'utf-8');
@@ -85,7 +85,7 @@ const main = (): void => {
   if (process.argv.includes('--write')) {
     for (const locale of locales) {
       const json = localeJsons[locale];
-      const sorted: Record<string, object> = {};
+      const sorted: Record<string, string> = {};
       if (json['$schema']) sorted['$schema'] = json['$schema'];
       if (json['locale_name']) sorted['locale_name'] = json['locale_name'];
       for (const key of localeKeys[locale]) {
