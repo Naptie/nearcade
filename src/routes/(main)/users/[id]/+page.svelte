@@ -432,6 +432,54 @@
             </div>
           </div>
         {/if}
+
+        <!-- Social Links -->
+        {#if data.user.socialLinks && data.user.socialLinks.length > 0}
+          <div class="bg-base-200 rounded-xl p-6">
+            <h3 class="mb-3 flex items-center gap-2 font-semibold">
+              <i class="fa-solid fa-share-nodes"></i>
+              {m.social_links()}
+            </h3>
+            <div class="space-y-2">
+              {#each data.user.socialLinks as link}
+                {@const iconClass = 
+                  link.platform === 'qq' ? 'fa-brands fa-qq' :
+                  link.platform === 'wechat' ? 'fa-brands fa-weixin' :
+                  link.platform === 'github' ? 'fa-brands fa-github' :
+                  link.platform === 'discord' ? 'fa-brands fa-discord' :
+                  'fa-solid fa-link'
+                }
+                {@const linkUrl = 
+                  link.platform === 'github' ? `https://github.com/${link.username}` :
+                  link.platform === 'discord' ? `https://discord.com/users/${link.username}` :
+                  null
+                }
+                <div class="flex items-center gap-2 text-sm">
+                  <i class="{iconClass} text-base-content/50"></i>
+                  {#if linkUrl}
+                    <a
+                      class="hover:text-accent break-all transition-colors"
+                      href={linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {link.username}
+                    </a>
+                  {:else}
+                    <span class="break-all">{link.username}</span>
+                  {/if}
+                  <span class="text-base-content/40 ml-1">
+                    ({link.platform === 'qq' ? m.social_platform_qq() :
+                      link.platform === 'wechat' ? m.social_platform_wechat() :
+                      link.platform === 'github' ? m.social_platform_github() :
+                      link.platform === 'discord' ? m.social_platform_discord() :
+                      link.platform})
+                  </span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
