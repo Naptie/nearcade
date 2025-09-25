@@ -128,7 +128,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         email: canViewAll || user.isEmailPublic ? user.email : null,
         frequentingArcades: toPlainArray(frequentingArcades),
         starredArcades: toPlainArray(starredArcades),
-        isActivityPublic: user.isActivityPublic
+        isActivityPublic: user.isActivityPublic,
+        socialLinks: user.socialLinks || []
       },
       frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,
       starredArcadesCount: user.starredArcades ? user.starredArcades.length : 0,

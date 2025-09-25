@@ -26,7 +26,8 @@ export const load: PageServerLoad = async ({ parent }) => {
       isUniversityPublic: user.isUniversityPublic,
       isFrequentingArcadePublic: user.isFrequentingArcadePublic,
       isStarredArcadePublic: user.isStarredArcadePublic,
-      notificationTypes: user.notificationTypes
+      notificationTypes: user.notificationTypes,
+      socialLinks: user.socialLinks || []
     }
   };
 };
@@ -61,6 +62,37 @@ export const actions: Actions = {
         notificationTypes.push('COMMENT_VOTES');
       if (formData.get('notificationTypeJoinRequests') === 'on')
         notificationTypes.push('JOIN_REQUESTS');
+
+      // Parse social links
+      const socialLinks: Array<{
+        platform: 'qq' | 'wechat' | 'github' | 'discord';
+        username: string;
+      }> = [];
+      const platforms = ['qq', 'wechat', 'github', 'discord'] as const;
+
+      // Extract social links from form data
+      for (const entry of formData.entries()) {
+        const [key, value] = entry;
+        const match = key.match(/^socialLinks\[(\d+)\]\.(platform|username)$/);
+        if (match) {
+          const index = parseInt(match[1]);
+          const field = match[2] as 'platform' | 'username';
+
+          // Ensure the socialLinks array is large enough
+          while (socialLinks.length <= index) {
+            socialLinks.push({ platform: 'qq', username: '' });
+          }
+
+          if (field === 'platform' && platforms.includes(value as (typeof platforms)[number])) {
+            socialLinks[index].platform = value as (typeof platforms)[number];
+          } else if (field === 'username' && typeof value === 'string') {
+            socialLinks[index].username = value.trim();
+          }
+        }
+      }
+
+      // Filter out empty social links
+      const validSocialLinks = socialLinks.filter((link) => link.username.trim() !== '');
 
       // Field-specific validation errors
       const fieldErrors: Record<string, string> = {};
@@ -99,7 +131,8 @@ export const actions: Actions = {
             isUniversityPublic,
             isFrequentingArcadePublic,
             isStarredArcadePublic,
-            notificationTypes
+            notificationTypes,
+            socialLinks: validSocialLinks
           }
         });
       }
@@ -128,7 +161,8 @@ export const actions: Actions = {
               isUniversityPublic,
               isFrequentingArcadePublic,
               isStarredArcadePublic,
-              notificationTypes
+              notificationTypes,
+              socialLinks: validSocialLinks
             }
           });
         }
@@ -147,6 +181,7 @@ export const actions: Actions = {
         isFrequentingArcadePublic: boolean;
         isStarredArcadePublic: boolean;
         notificationTypes: NotificationType[];
+        socialLinks: Array<{ platform: 'qq' | 'wechat' | 'github' | 'discord'; username: string }>;
         updatedAt: Date;
         name?: string;
       } = {
@@ -159,6 +194,7 @@ export const actions: Actions = {
         isFrequentingArcadePublic,
         isStarredArcadePublic,
         notificationTypes,
+        socialLinks: validSocialLinks,
         updatedAt: new Date()
       };
 

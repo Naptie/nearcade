@@ -441,19 +441,23 @@
               {m.social_links()}
             </h3>
             <div class="space-y-2">
-              {#each data.user.socialLinks as link}
-                {@const iconClass = 
-                  link.platform === 'qq' ? 'fa-brands fa-qq' :
-                  link.platform === 'wechat' ? 'fa-brands fa-weixin' :
-                  link.platform === 'github' ? 'fa-brands fa-github' :
-                  link.platform === 'discord' ? 'fa-brands fa-discord' :
-                  'fa-solid fa-link'
-                }
-                {@const linkUrl = 
-                  link.platform === 'github' ? `https://github.com/${link.username}` :
-                  link.platform === 'discord' ? `https://discord.com/users/${link.username}` :
-                  null
-                }
+              {#each data.user.socialLinks as link, index (index)}
+                {@const iconClass =
+                  link.platform === 'qq'
+                    ? 'fa-brands fa-qq'
+                    : link.platform === 'wechat'
+                      ? 'fa-brands fa-weixin'
+                      : link.platform === 'github'
+                        ? 'fa-brands fa-github'
+                        : link.platform === 'discord'
+                          ? 'fa-brands fa-discord'
+                          : 'fa-solid fa-link'}
+                {@const linkUrl =
+                  link.platform === 'github'
+                    ? `https://github.com/${link.username}`
+                    : link.platform === 'discord'
+                      ? `https://discord.com/users/${link.username}`
+                      : null}
                 <div class="flex items-center gap-2 text-sm">
                   <i class="{iconClass} text-base-content/50"></i>
                   {#if linkUrl}
@@ -469,11 +473,15 @@
                     <span class="break-all">{link.username}</span>
                   {/if}
                   <span class="text-base-content/40 ml-1">
-                    ({link.platform === 'qq' ? m.social_platform_qq() :
-                      link.platform === 'wechat' ? m.social_platform_wechat() :
-                      link.platform === 'github' ? m.social_platform_github() :
-                      link.platform === 'discord' ? m.social_platform_discord() :
-                      link.platform})
+                    ({link.platform === 'qq'
+                      ? m.social_platform_qq()
+                      : link.platform === 'wechat'
+                        ? m.social_platform_wechat()
+                        : link.platform === 'github'
+                          ? m.social_platform_github()
+                          : link.platform === 'discord'
+                            ? m.social_platform_discord()
+                            : link.platform})
                   </span>
                 </div>
               {/each}

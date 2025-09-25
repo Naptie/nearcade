@@ -84,7 +84,7 @@
       notificationTypeJoinRequests = notificationTypes.includes('JOIN_REQUESTS');
 
       // Update social links from response
-      socialLinks = formData.socialLinks || [];
+      socialLinks = (formData as { socialLinks?: typeof socialLinks }).socialLinks || [];
     }
   });
 
@@ -199,11 +199,11 @@
   };
 
   const removeSocialLink = (index: number) => {
-    socialLinks = socialLinks.filter((_, i) => i !== index);
+    socialLinks = socialLinks.filter((_: unknown, i: number) => i !== index);
   };
 
   const updateSocialLink = (index: number, field: 'platform' | 'username', value: string) => {
-    socialLinks = socialLinks.map((link, i) => 
+    socialLinks = socialLinks.map((link: { platform: string; username: string }, i: number) =>
       i === index ? { ...link, [field]: value } : link
     );
   };
@@ -383,14 +383,14 @@
 
     <!-- Social Links -->
     <div class="form-control">
-      <label class="label">
+      <label class="label" for="social-links-section">
         <span class="label-text">{m.social_links()}</span>
       </label>
-      <p class="text-sm text-base-content/70 mb-3">{m.social_links_description()}</p>
-      
-      <div class="space-y-3">
+      <p class="text-base-content/70 mb-3 text-sm">{m.social_links_description()}</p>
+
+      <div id="social-links-section" class="space-y-3">
         {#each socialLinks as link, index (index)}
-          <div class="flex gap-2 items-end">
+          <div class="flex items-end gap-2">
             <div class="form-control flex-1">
               <label class="label" for="platform-{index}">
                 <span class="label-text">Platform</span>
@@ -399,7 +399,8 @@
                 id="platform-{index}"
                 name="socialLinks[{index}].platform"
                 bind:value={link.platform}
-                onchange={(e) => updateSocialLink(index, 'platform', e.target.value)}
+                onchange={(e) =>
+                  updateSocialLink(index, 'platform', (e.target as HTMLSelectElement).value)}
                 class="select select-bordered w-full"
               >
                 <option value="qq">
@@ -425,7 +426,8 @@
                 name="socialLinks[{index}].username"
                 type="text"
                 bind:value={link.username}
-                oninput={(e) => updateSocialLink(index, 'username', e.target.value)}
+                oninput={(e) =>
+                  updateSocialLink(index, 'username', (e.target as HTMLInputElement).value)}
                 placeholder={m.social_username_placeholder()}
                 class="input input-bordered w-full"
               />
@@ -440,13 +442,9 @@
             </button>
           </div>
         {/each}
-        
+
         {#if socialLinks.length < 4}
-          <button
-            type="button"
-            class="btn btn-outline btn-sm"
-            onclick={addSocialLink}
-          >
+          <button type="button" class="btn btn-outline btn-sm" onclick={addSocialLink}>
             <i class="fa-solid fa-plus"></i>
             {m.add()}
           </button>
