@@ -574,7 +574,7 @@
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-base-content/60 text-sm">
-                  {m.starred_arcades_count_shops({ count: data.club.starredArcades.length })}
+                  {m.shops({ count: data.club.starredArcades.length })}
                 </div>
                 {#if userPrivileges.canEdit}
                   <button

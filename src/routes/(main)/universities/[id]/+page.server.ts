@@ -1,6 +1,6 @@
 import { error, fail, isHttpError } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { University, Club, Campus } from '$lib/types';
+import type { University, Club, Campus, Shop } from '$lib/types';
 import {
   checkUniversityPermission,
   getUniversityMembersWithUserData,
@@ -21,6 +21,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     const universitiesCollection = db.collection('universities');
     const membersCollection = db.collection('university_members');
     const clubsCollection = db.collection('clubs');
+    const shopsCollection = db.collection('shops');
 
     // Try to find university by ID first, then by slug
     let university = (await universitiesCollection.findOne({
@@ -79,12 +80,30 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
     university.studentsCount = totalMembers;
 
+    // Get frequenting arcades for the university
+    let frequentingArcades: Shop[] = [];
+    if (university.frequentingArcades && university.frequentingArcades.length > 0) {
+      const frequentingArcadeIdentifiers = university.frequentingArcades.slice(
+        0,
+        PAGINATION.PAGE_SIZE
+      );
+      frequentingArcades = (await shopsCollection
+        .find({
+          $or: frequentingArcadeIdentifiers.map((identifier: { id: number; source: string }) => ({
+            id: identifier.id,
+            source: identifier.source
+          }))
+        })
+        .toArray()) as unknown as Shop[];
+    }
+
     return {
       university: toPlainObject(university),
       user,
       userPermissions,
       members,
       clubs: toPlainArray(clubs),
+      frequentingArcades: toPlainArray(frequentingArcades),
       stats: {
         totalMembers,
         totalClubs,
