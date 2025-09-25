@@ -87,14 +87,14 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         0,
         PAGINATION.PAGE_SIZE
       );
-      frequentingArcades = await shopsCollection
+      frequentingArcades = (await shopsCollection
         .find({
           $or: frequentingArcadeIdentifiers.map((identifier: { id: number; source: string }) => ({
             id: identifier.id,
             source: identifier.source
           }))
         })
-        .toArray() as unknown as Shop[];
+        .toArray()) as unknown as Shop[];
     }
 
     return {
