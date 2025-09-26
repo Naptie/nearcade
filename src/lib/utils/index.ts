@@ -352,6 +352,7 @@ export const checkUniversityPermission = async (
     return {
       canEdit: isSiteAdmin,
       canManage: isSiteAdmin,
+      role: isSiteAdmin ? 'admin' : undefined,
       canJoin: eligibleForVerification ? 2 : 0
     };
   }
