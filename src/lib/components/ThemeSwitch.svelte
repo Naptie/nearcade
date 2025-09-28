@@ -25,7 +25,6 @@
 
   onMount(() => {
     currentTheme = initializeTheme();
-    console.log(currentTheme);
     isInitialized = true;
   });
 

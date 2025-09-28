@@ -74,7 +74,7 @@ const notifyFCM = async (notification: Notification) => {
       },
       body: JSON.stringify(notification)
     });
-    console.log(response.status, await response.text());
+    console.log('FCM response:', response.status, await response.text());
   }
 };
 
