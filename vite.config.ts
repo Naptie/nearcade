@@ -82,8 +82,10 @@ export default defineConfig({
         theme_color: '#1B1717',
         lang: 'en',
         icons: [
+          { src: 'logo-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'logo-192.webp', sizes: '192x192', type: 'image/webp' },
           { src: 'logo-256.webp', sizes: '256x256', type: 'image/webp' },
+          { src: 'logo-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'logo-512.webp', sizes: '512x512', type: 'image/webp' }
         ]
       }
