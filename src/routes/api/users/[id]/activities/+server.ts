@@ -1,4 +1,4 @@
-import { error, isHttpError, json } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { getUserActivities } from '$lib/utils/activity.server';
@@ -66,7 +66,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     });
   } catch (err) {
     console.error('Error loading user activities:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to load activities');

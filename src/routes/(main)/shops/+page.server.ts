@@ -1,4 +1,4 @@
-import { error, isHttpError } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
@@ -276,7 +276,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     };
   } catch (err) {
     console.error('Error loading shops:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to load shops');

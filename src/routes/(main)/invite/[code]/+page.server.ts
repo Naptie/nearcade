@@ -1,4 +1,4 @@
-import { error, isHttpError } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { InviteLink, University, Club } from '$lib/types';
 import { loginRedirect } from '$lib/utils/scoped';
@@ -77,7 +77,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     };
   } catch (err) {
     console.error('Error loading invite:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to load invite');

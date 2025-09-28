@@ -1,4 +1,4 @@
-import { json, error, isHttpError } from '@sveltejs/kit';
+import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
@@ -38,7 +38,7 @@ export const GET: RequestHandler = async ({ params }) => {
     });
   } catch (err) {
     console.error('Error fetching shop:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to fetch shop');

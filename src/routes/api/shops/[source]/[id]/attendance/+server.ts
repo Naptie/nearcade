@@ -1,4 +1,4 @@
-import { error, isHttpError, json } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
@@ -302,7 +302,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
     return json({ success: true });
   } catch (err) {
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     console.error('Error creating attendance:', err);
@@ -351,7 +351,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error removing attendance:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to remove attendance');
@@ -478,7 +478,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     );
     return json({ success: true, total, registered, reported });
   } catch (err) {
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     console.error('Error getting attendance:', err);

@@ -1,6 +1,6 @@
 import { base } from '$app/paths';
 import { AMAP_SECRET } from '$env/static/private';
-import { error, isHttpError, type RequestEvent } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
 
 export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
   try {
@@ -51,7 +51,7 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
     });
   } catch (err) {
     console.error('AMap proxy error:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Internal server error');

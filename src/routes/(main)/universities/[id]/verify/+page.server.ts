@@ -1,4 +1,4 @@
-import { error, isHttpError, redirect } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { checkUniversityPermission } from '$lib/utils';
@@ -87,7 +87,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     };
   } catch (err) {
     console.error('Error loading university:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to load university data');

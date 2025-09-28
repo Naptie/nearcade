@@ -1,4 +1,4 @@
-import { error, isHttpError, json } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { markNotificationsAsRead } from '$lib/notifications/index.server';
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     });
   } catch (err) {
     console.error('Error loading user notifications:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to load notifications');
@@ -82,7 +82,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     error(400, 'Invalid action');
   } catch (err) {
     console.error('Error updating notifications:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to update notifications');

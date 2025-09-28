@@ -1,4 +1,4 @@
-import { json, error, isHttpError } from '@sveltejs/kit';
+import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
@@ -50,7 +50,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error updating comment:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Internal server error');
@@ -127,7 +127,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     return json({ success: true });
   } catch (err) {
     console.error('Error deleting comment:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Internal server error');

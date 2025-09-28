@@ -1,4 +1,4 @@
-import { json, error, isHttpError } from '@sveltejs/kit';
+import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
@@ -91,7 +91,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     });
   } catch (err) {
     console.error('Error loading university members:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Internal server error');

@@ -1,5 +1,5 @@
 import { loadShops } from '$lib/endpoints/discover.server';
-import { error, isHttpError, json } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ url }) => {
     return json(resp);
   } catch (err) {
     console.error('Error getting shops:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to get nearby shops');

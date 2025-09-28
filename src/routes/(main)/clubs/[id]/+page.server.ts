@@ -1,4 +1,4 @@
-import { error, fail, isHttpError } from '@sveltejs/kit';
+import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import {
   type Club,
@@ -112,7 +112,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     };
   } catch (err) {
     console.error('Error loading club:', err);
-    if (err && isHttpError(err)) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     error(500, 'Failed to load club data');
