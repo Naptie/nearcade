@@ -1,15 +1,9 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import {
-  PostReadability,
-  type Club,
-  type Comment,
-  type CommentVote,
-  type University
-} from '$lib/types';
+import { type Club, type Comment, type CommentVote, type University } from '$lib/types';
 import { nanoid } from 'nanoid';
-import { getDefaultPostReadability } from '$lib/utils';
+import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
@@ -48,41 +42,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(404, 'Post not found');
     }
 
-    // Check voting permissions based on post readability (anyone who can read posts can vote)
-    let canVote = true;
+    const canRead = await canReadPost(
+      post.readability,
+      { universityId: post.universityId, clubId: post.clubId },
+      session?.user,
+      mongo
+    );
 
-    if (post.universityId) {
-      const university = await db
-        .collection<University>('universities')
-        .findOne({ id: post.universityId });
-      if (university) {
-        const postReadability = getDefaultPostReadability(university.postReadability);
-        if (postReadability === PostReadability.UNIV_MEMBERS) {
-          const { checkUniversityPermission } = await import('$lib/utils');
-          const permissions = await checkUniversityPermission(session.user, university, mongo);
-          canVote = !!permissions.role; // User is member if role is not empty
-        }
-      }
-    } else if (post.clubId) {
-      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
-      if (club) {
-        const postReadability = getDefaultPostReadability(club.postReadability);
-        if (
-          postReadability === PostReadability.CLUB_MEMBERS ||
-          postReadability === PostReadability.UNIV_MEMBERS
-        ) {
-          const { checkClubPermission } = await import('$lib/utils');
-          const permissions = await checkClubPermission(session.user, club, mongo, true);
-          if (postReadability === PostReadability.CLUB_MEMBERS) {
-            canVote = !!permissions.role;
-          } else {
-            canVote = !!permissions.role || permissions.canJoin > 0;
-          }
-        }
-      }
-    }
-
-    if (!canVote) {
+    if (!canRead) {
       error(403, 'Permission denied');
     }
 
