@@ -81,7 +81,9 @@
   <title>{pageTitle(m.invite_link())}</title>
 </svelte:head>
 
-<div class="bg-base-100 flex min-h-screen items-center justify-center p-4">
+<div
+  class="bg-base-100 mx-auto flex min-h-[calc(100vh-2.75rem)] items-center justify-center pt-20 pb-8 sm:container sm:px-4"
+>
   <div class="w-full max-w-2xl">
     <!-- Invite Card -->
     <div class="bg-base-200 overflow-hidden rounded-lg shadow-lg">
@@ -228,7 +230,7 @@
 
         <!-- Action Buttons -->
         <div class="flex justify-center gap-3">
-          <button class="btn btn-outline" onclick={() => history.back()}> {m.go_back()} </button>
+          <button class="btn btn-soft" onclick={() => history.back()}>{m.go_back()}</button>
           <button
             class="btn btn-primary"
             onclick={handleAcceptInvite}
