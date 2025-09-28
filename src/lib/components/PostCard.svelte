@@ -132,8 +132,8 @@
         >
           <div class="relative flex flex-col gap-1">
             <i class="fa-solid fa-caret-up opacity-0"></i>
-            <i class="fa-solid fa-caret-up absolute bottom-0.75"></i>
-            <i class="fa-solid fa-caret-down absolute top-0.75"></i>
+            <i class="fa-solid fa-caret-up absolute bottom-1"></i>
+            <i class="fa-solid fa-caret-down absolute top-1"></i>
           </div>
           <span class="font-medium">
             {netVotes > 0 ? '+' : ''}{netVotes}
