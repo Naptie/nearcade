@@ -95,13 +95,13 @@
       <!-- Post badges -->
       <div class="flex gap-1">
         {#if post.isPinned}
-          <div class="badge badge-soft badge-info badge-sm text-nowrap">
+          <div class="badge badge-soft badge-info badge-sm gap-0.5 text-nowrap">
             <i class="fa-solid fa-thumbtack"></i>
             <span class="not-sm:hidden">{m.pinned()}</span>
           </div>
         {/if}
         {#if post.isLocked}
-          <div class="badge badge-soft badge-warning badge-sm text-nowrap">
+          <div class="badge badge-soft badge-warning badge-sm gap-0.5 text-nowrap">
             <i class="fa-solid fa-lock"></i>
             <span class="not-sm:hidden">{m.locked()}</span>
           </div>

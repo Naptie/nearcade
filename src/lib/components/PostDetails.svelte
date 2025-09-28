@@ -475,14 +475,14 @@
           <div class="flex items-center justify-between gap-2">
             <div class="flex gap-2 text-nowrap">
               {#if localPost.isPinned}
-                <div class="badge badge-soft badge-info">
+                <div class="badge badge-soft badge-info gap-0.75">
                   <i class="fa-solid fa-thumbtack"></i>
                   <span class="not-sm:hidden">{m.pinned()}</span>
                 </div>
               {/if}
               {#if localPost.isLocked}
-                <div class="badge badge-soft badge-warning">
-                  <i class="fa-solid fa-lock mr-1"></i>
+                <div class="badge badge-soft badge-warning gap-0.75">
+                  <i class="fa-solid fa-lock"></i>
                   <span class="not-sm:hidden">{m.locked()}</span>
                 </div>
               {/if}
