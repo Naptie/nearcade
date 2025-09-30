@@ -532,7 +532,10 @@
         {:else if activeTab === 'campuses'}
           <div class="space-y-4">
             <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">{m.campuses()}</h3>
+              <h3 class="flex items-center gap-2 text-lg font-semibold">
+                <i class="fa-solid fa-building"></i>
+                {m.campuses()}
+              </h3>
 
               <!-- Add Campus button for admins -->
               {#if userPrivileges.canManage}
