@@ -90,10 +90,10 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       totalMembers
     });
   } catch (err) {
-    console.error('Error loading club members:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading club members:', err);
     error(500, 'Internal server error');
   }
 };

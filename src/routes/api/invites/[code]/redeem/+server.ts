@@ -186,10 +186,10 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       requiresApproval: invite.requireApproval
     });
   } catch (err) {
-    console.error('Error redeeming invite:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error redeeming invite:', err);
     error(500, 'Failed to redeem invite');
   }
 };

@@ -30,10 +30,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       error(400, 'Invalid action');
     }
   } catch (err) {
-    console.error('Error managing FCM token:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error managing FCM token:', err);
     error(500, 'Failed to manage FCM token');
   }
 };

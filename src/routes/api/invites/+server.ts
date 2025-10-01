@@ -62,10 +62,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ invite });
   } catch (err) {
-    console.error('Error creating invite:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error creating invite:', err);
     error(500, 'Failed to create invite');
   }
 };
@@ -94,10 +94,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     return json({ invites });
   } catch (err) {
-    console.error('Error fetching invites:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error fetching invites:', err);
     error(500, 'Failed to fetch invites');
   }
 };

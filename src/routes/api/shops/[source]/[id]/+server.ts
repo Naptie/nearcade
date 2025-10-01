@@ -37,10 +37,10 @@ export const GET: RequestHandler = async ({ params }) => {
       shop: toPlainObject(shop)
     });
   } catch (err) {
-    console.error('Error fetching shop:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error fetching shop:', err);
     error(500, 'Failed to fetch shop');
   }
 };

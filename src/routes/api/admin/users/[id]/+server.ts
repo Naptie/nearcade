@@ -72,10 +72,10 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       clubMemberships: toPlainArray(clubMemberships)
     });
   } catch (err) {
-    console.error('Error fetching user details:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error fetching user details:', err);
     error(500, 'Failed to fetch user details');
   }
 };

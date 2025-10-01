@@ -174,10 +174,10 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       user: session?.user
     };
   } catch (err) {
-    console.error('Error loading clubs:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading clubs:', err);
     error(500, 'Failed to load clubs');
   }
 };

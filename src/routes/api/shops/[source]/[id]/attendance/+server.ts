@@ -350,10 +350,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
     return json({ success: true });
   } catch (err) {
-    console.error('Error removing attendance:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error removing attendance:', err);
     error(500, 'Failed to remove attendance');
   }
 };

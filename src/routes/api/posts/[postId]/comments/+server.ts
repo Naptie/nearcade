@@ -172,10 +172,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       { status: 201 }
     );
   } catch (err) {
-    console.error('Error creating comment:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error creating comment:', err);
     error(500, 'Internal server error');
   }
 };

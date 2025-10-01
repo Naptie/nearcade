@@ -49,10 +49,10 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         : null
     };
   } catch (err) {
-    console.error('Error loading shop:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading shop:', err);
     error(500, 'Failed to load shop');
   }
 };

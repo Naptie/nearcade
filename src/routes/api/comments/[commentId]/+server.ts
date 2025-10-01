@@ -49,10 +49,10 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     return json({ success: true });
   } catch (err) {
-    console.error('Error updating comment:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error updating comment:', err);
     error(500, 'Internal server error');
   }
 };
@@ -126,10 +126,10 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 
     return json({ success: true });
   } catch (err) {
-    console.error('Error deleting comment:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error deleting comment:', err);
     error(500, 'Internal server error');
   }
 };

@@ -76,10 +76,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       user: session.user
     };
   } catch (err) {
-    console.error('Error loading invite:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading invite:', err);
     error(500, 'Failed to load invite');
   }
 };

@@ -29,10 +29,10 @@ export const GET: RequestHandler = async ({ params, url }) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (err) {
-    console.error('Error fetching changelog entries:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error fetching changelog entries:', err);
     error(500, 'Failed to fetch changelog entries');
   }
 };

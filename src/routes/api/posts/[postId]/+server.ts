@@ -152,10 +152,10 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       userVote
     });
   } catch (err) {
-    console.error('Error fetching post details:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error fetching post details:', err);
     error(500, 'Internal server error');
   }
 };
@@ -277,10 +277,10 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     return json({ success: true });
   } catch (err) {
-    console.error('Error updating post:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error updating post:', err);
     error(500, 'Internal server error');
   }
 };
@@ -344,10 +344,10 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 
     return json({ success: true });
   } catch (err) {
-    console.error('Error deleting post:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error deleting post:', err);
     error(500, 'Internal server error');
   }
 };

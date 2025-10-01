@@ -71,10 +71,10 @@ export const GET: RequestHandler = async ({ params, url }) => {
       total: totalArcades
     });
   } catch (err) {
-    console.error('Error loading club arcades:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading club arcades:', err);
     error(500, 'Failed to load club arcades');
   }
 };

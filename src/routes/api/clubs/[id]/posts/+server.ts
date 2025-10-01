@@ -94,10 +94,10 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       page
     });
   } catch (err) {
-    console.error('Error fetching club posts:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error fetching club posts:', err);
     error(500, 'Internal server error');
   }
 };
@@ -189,10 +189,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     return json({ success: true, postId: newPost.id }, { status: 201 });
   } catch (err) {
-    console.error('Error creating club post:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error creating club post:', err);
     error(500, 'Internal server error');
   }
 };

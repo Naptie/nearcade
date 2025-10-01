@@ -118,10 +118,10 @@ export const GET: RequestHandler = async ({ url }) => {
       });
     }
   } catch (err) {
-    console.error('Error getting rankings:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error getting rankings:', err);
     error(500, 'Failed to get rankings');
   }
 };

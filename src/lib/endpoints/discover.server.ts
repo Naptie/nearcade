@@ -63,10 +63,10 @@ export const loadShops = async ({ url }: { url: URL }) => {
       radius: radiusKm
     };
   } catch (err) {
-    console.error('Error loading shops:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading shops:', err);
     error(500, 'Failed to load shops from database');
   }
 };

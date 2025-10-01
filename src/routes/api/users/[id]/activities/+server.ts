@@ -65,10 +65,10 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       limit
     });
   } catch (err) {
-    console.error('Error loading user activities:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading user activities:', err);
     error(500, 'Failed to load activities');
   }
 };

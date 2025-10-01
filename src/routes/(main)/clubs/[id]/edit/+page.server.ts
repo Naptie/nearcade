@@ -37,10 +37,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       userPermissions
     };
   } catch (err) {
-    console.error('Error loading club for edit:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading club for edit:', err);
     error(500, 'Failed to load club data');
   }
 };

@@ -7,10 +7,10 @@ export const GET: RequestHandler = async ({ url }) => {
     const resp = await loadShops({ url });
     return json(resp);
   } catch (err) {
-    console.error('Error getting shops:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error getting shops:', err);
     error(500, 'Failed to get nearby shops');
   }
 };

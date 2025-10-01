@@ -139,10 +139,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       isOwnProfile: session?.user?.id === user.id
     };
   } catch (err) {
-    console.error('Error loading user profile:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading user profile:', err);
     error(500, 'Failed to load user profile');
   }
 };

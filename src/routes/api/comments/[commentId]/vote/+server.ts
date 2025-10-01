@@ -197,10 +197,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       userVote: newUserVote
     });
   } catch (err) {
-    console.error('Error voting on comment:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error voting on comment:', err);
     error(500, 'Internal server error');
   }
 };

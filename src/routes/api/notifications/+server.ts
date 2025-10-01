@@ -56,10 +56,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       limit
     });
   } catch (err) {
-    console.error('Error loading user notifications:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading user notifications:', err);
     error(500, 'Failed to load notifications');
   }
 };
@@ -81,10 +81,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     error(400, 'Invalid action');
   } catch (err) {
-    console.error('Error updating notifications:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error updating notifications:', err);
     error(500, 'Failed to update notifications');
   }
 };

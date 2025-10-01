@@ -111,10 +111,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, mongo)
     };
   } catch (err) {
-    console.error('Error loading club:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading club:', err);
     error(500, 'Failed to load club data');
   }
 };

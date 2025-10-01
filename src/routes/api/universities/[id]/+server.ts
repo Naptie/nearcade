@@ -28,10 +28,10 @@ export const GET: RequestHandler = async ({ params }) => {
 
     return json({ university });
   } catch (err) {
-    console.error('Error loading university:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading university:', err);
     error(500, 'Failed to load university data');
   }
 };

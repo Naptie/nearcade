@@ -68,10 +68,10 @@ export const GET: RequestHandler = async ({ params, url }) => {
       totalClubs
     });
   } catch (err) {
-    console.error('Error loading university clubs:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading university clubs:', err);
     error(500, 'Internal server error');
   }
 };

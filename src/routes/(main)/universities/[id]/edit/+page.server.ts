@@ -46,10 +46,10 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       userPermissions
     };
   } catch (err) {
-    console.error('Error loading university:', err);
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
+    console.error('Error loading university:', err);
     error(500, 'Failed to load university data');
   }
 };
@@ -229,10 +229,10 @@ export const actions: Actions = {
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {
-      console.error('Error updating university:', err);
       if (err && (isHttpError(err) || isRedirect(err))) {
         throw err;
       }
+      console.error('Error updating university:', err);
       return fail(500, { message: 'Failed to update university' });
     }
   }
