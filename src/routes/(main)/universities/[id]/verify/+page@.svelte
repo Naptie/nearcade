@@ -86,9 +86,10 @@
       class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 border-base-300 flex flex-col gap-2 rounded-xl border p-4 shadow-none backdrop-blur-2xl transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
     >
       {#if data.verificationEmail}
-        <div class="flex flex-col items-center">
+        <div class="flex flex-col items-center text-center">
           <span>{m.student_status_verified()}</span>
-          <span class="text-success text-2xl font-semibold">{data.verificationEmail}</span>
+          <span class="text-success text-2xl font-semibold break-all">{data.verificationEmail}</span
+          >
         </div>
       {:else}
         <div class="flex flex-col">
