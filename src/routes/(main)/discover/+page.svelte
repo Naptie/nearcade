@@ -1035,9 +1035,9 @@
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
   <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
     <div class="not-xs:text-center">
-      <div class="mb-2 inline-flex gap-2">
+      <div class="mb-2 inline-flex items-center gap-2">
         <h1 class="text-3xl font-bold">{m.nearby_arcades()}</h1>
-        <div class="dropdown">
+        <div class="dropdown not-sm:dropdown-center">
           <button
             type="button"
             tabindex="0"
@@ -1053,13 +1053,22 @@
           <div
             role="menu"
             tabindex="-1"
-            class="card dropdown-content bg-base-200 text-base-content z-10 mt-2 w-64 font-normal shadow-md"
+            class="card dropdown-content bg-base-200 text-base-content z-10 mt-2 w-fit font-normal shadow-md"
           >
             <div class="card-body p-4">
-              <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
+              <h3 class="card-title justify-between text-base text-nowrap">
+                {m.filter_by_game_titles()}
+                <button
+                  class="btn btn-sm btn-ghost hover:btn-error"
+                  onclick={() => (selectedTitleIds = [])}
+                >
+                  <i class="fa-solid fa-trash"></i>
+                  {m.clear_filters()}
+                </button>
+              </h3>
               <div class="space-y-2">
                 {#each GAMES as game (game.id)}
-                  <label class="flex cursor-pointer items-center gap-2">
+                  <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                     <input
                       type="checkbox"
                       class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"

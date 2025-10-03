@@ -117,13 +117,13 @@
         <div
           role="menu"
           tabindex="-1"
-          class="card dropdown-content bg-base-200 z-10 mt-2 w-64 shadow-lg"
+          class="card dropdown-content bg-base-200 z-10 mt-2 w-fit shadow-lg"
         >
           <div class="card-body p-4">
-            <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
+            <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
             <div class="space-y-2">
               {#each GAMES as game (game.id)}
-                <label class="flex cursor-pointer items-center gap-2">
+                <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                   <input
                     type="checkbox"
                     class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
@@ -134,7 +134,7 @@
                 </label>
               {/each}
             </div>
-            <div class="card-actions mt-2 justify-between">
+            <div class="card-actions mt-2 w-fit flex-nowrap justify-between whitespace-nowrap">
               <button
                 type="button"
                 class="btn btn-soft hover:btn-error btn-sm"
