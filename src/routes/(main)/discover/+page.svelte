@@ -475,39 +475,37 @@
   };
 
   onMount(() => {
-    if (browser) {
-      screenWidth = window.innerWidth;
-      window.addEventListener('resize', handleResize);
-      window.addEventListener('amap-loaded', assignAMap);
+    screenWidth = window.innerWidth;
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('amap-loaded', assignAMap);
 
-      // Load Google Maps if needed
-      if (
-        useGoogleMaps &&
-        'loadGoogleMaps' in window &&
-        typeof window.loadGoogleMaps === 'function'
-      ) {
-        window.loadGoogleMaps().catch((error: Error) => {
-          console.error('Failed to load Google Maps:', error);
-        });
-      }
-
-      Promise.all(
-        data.shops.flatMap((shop) => {
-          costs[`${shop.source}-${shop.id}`] = {};
-          shop.games.map(async (game) => {
-            costs[`${shop.source}-${shop.id}`][game.titleId] = {
-              preview: await sanitizeHTML(game.cost.substring(0, 30)),
-              full: await sanitizeHTML(game.cost)
-            };
-          });
-        })
-      );
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        window.removeEventListener('amap-loaded', assignAMap);
-      };
+    // Load Google Maps if needed
+    if (
+      useGoogleMaps &&
+      'loadGoogleMaps' in window &&
+      typeof window.loadGoogleMaps === 'function'
+    ) {
+      window.loadGoogleMaps().catch((error: Error) => {
+        console.error('Failed to load Google Maps:', error);
+      });
     }
+
+    Promise.all(
+      data.shops.flatMap((shop) => {
+        costs[`${shop.source}-${shop.id}`] = {};
+        shop.games.map(async (game) => {
+          costs[`${shop.source}-${shop.id}`][game.titleId] = {
+            preview: await sanitizeHTML(game.cost.substring(0, 30)),
+            full: await sanitizeHTML(game.cost)
+          };
+        });
+      })
+    );
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('amap-loaded', assignAMap);
+    };
   });
 
   const createIcon = (id: string, icon: string, origin = false) => {
@@ -555,6 +553,11 @@
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined) return;
 
+    const shops = data.shops.filter(
+      (shop) =>
+        selectedTitleIds.length === 0 ||
+        selectedTitleIds.every((id) => shop.games.some((g) => g.titleId === id))
+    );
     if (useGoogleMaps && google.maps) {
       // Initialize Google Maps
       untrack(async () => {
@@ -588,8 +591,8 @@
         });
 
         // Create shop markers
-        if (data.shops.length > 0) {
-          data.shops.forEach((shop) => {
+        if (shops.length > 0) {
+          shops.forEach((shop) => {
             const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
             const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
             const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
@@ -683,8 +686,8 @@
           zIndex: ORIGIN_INDEX
         });
         origin.setMap(map);
-        if (data.shops.length > 0) {
-          data.shops.forEach((shop) => {
+        if (shops.length > 0) {
+          shops.forEach((shop) => {
             const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
             const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
             const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
@@ -939,6 +942,16 @@
       };
     }
   });
+
+  let selectedTitleIds = $state<number[]>([]);
+
+  const handleTitleFilterChange = (titleId: number) => {
+    if (selectedTitleIds.includes(titleId)) {
+      selectedTitleIds = selectedTitleIds.filter((id) => id !== titleId);
+    } else {
+      selectedTitleIds = [...selectedTitleIds, titleId];
+    }
+  };
 </script>
 
 <RouteGuidance
@@ -1022,7 +1035,45 @@
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
   <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
     <div class="not-xs:text-center">
-      <h1 class="mb-2 text-3xl font-bold">{m.nearby_arcades()}</h1>
+      <div class="mb-2 inline-flex gap-2">
+        <h1 class="text-3xl font-bold">{m.nearby_arcades()}</h1>
+        <div class="dropdown">
+          <button
+            type="button"
+            tabindex="0"
+            class="btn btn-soft hover:btn-accent btn-sm"
+            class:btn-primary={selectedTitleIds.length > 0}
+            aria-label={m.filter_by_game_titles()}
+          >
+            <i class="fa-solid fa-filter"></i>
+            {#if selectedTitleIds.length > 0}
+              <span class="badge badge-sm">{selectedTitleIds.length}</span>
+            {/if}
+          </button>
+          <div
+            role="menu"
+            tabindex="-1"
+            class="card dropdown-content bg-base-200 text-base-content z-10 mt-2 w-64 font-normal shadow-md"
+          >
+            <div class="card-body p-4">
+              <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
+              <div class="space-y-2">
+                {#each GAMES as game (game.id)}
+                  <label class="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                      checked={selectedTitleIds.includes(game.id)}
+                      onchange={() => handleTitleFilterChange(game.id)}
+                    />
+                    <span class="text-sm">{getGameName(game.key)}</span>
+                  </label>
+                {/each}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <p class="text-base-content/70">
         {m.found_shops_near({
           count: data.shops.length,
@@ -1081,7 +1132,9 @@
       <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
         <thead>
           <tr>
-            <th class="text-left">{m.shop()}</th>
+            <th class="text-left">
+              {m.shop()}
+            </th>
             <th class="text-center">
               {#if transportMethod}
                 {m.travel_time()}
@@ -1096,7 +1149,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each sortedShops as shop (shop._id)}
+          {#each sortedShops.filter((shop) => selectedTitleIds.length === 0 || selectedTitleIds.every( (id) => shop.games.some((g) => g.titleId === id) )) as shop (shop._id)}
             <tr
               id="shop-{shop.id}"
               class="group cursor-pointer transition-all select-none {highlightedShopId ===
