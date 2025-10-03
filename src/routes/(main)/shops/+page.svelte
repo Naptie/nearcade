@@ -22,7 +22,6 @@
   let searchQuery = $state(data.query);
   let isSearching = $state(false);
   let selectedTitleIds = $state<number[]>(data.titleIds || []);
-  let isFilterOpen = $state(false);
 
   const handleSearch = async (event: Event) => {
     event.preventDefault();
@@ -63,7 +62,6 @@
     }
     await goto(resolve('/(main)/shops') + `?${params.toString()}`);
     isSearching = false;
-    isFilterOpen = false;
   };
 
   const clearFilters = async () => {
@@ -103,13 +101,12 @@
   <div class="mb-8">
     <form onsubmit={handleSearch} class="flex gap-4">
       <!-- Game Title Filter Dropdown -->
-      <div class="dropdown" class:dropdown-open={isFilterOpen}>
+      <div class="dropdown">
         <button
           type="button"
           tabindex="0"
           class="btn btn-soft hover:btn-accent"
           class:btn-primary={selectedTitleIds.length > 0}
-          onclick={() => (isFilterOpen = !isFilterOpen)}
           aria-label={m.filter_by_game_titles()}
         >
           <i class="fa-solid fa-filter"></i>
@@ -121,11 +118,6 @@
           role="menu"
           tabindex="-1"
           class="card dropdown-content bg-base-200 z-10 mt-2 w-64 shadow-lg"
-          onkeydown={(e) => {
-            if (e.key === 'Escape') {
-              isFilterOpen = false;
-            }
-          }}
         >
           <div class="card-body p-4">
             <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
