@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import type { Club, ClubMember, UniversityMember } from '$lib/types';
+import { protect } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -37,7 +38,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     }
 
     // Get members with pagination
-    const membersAggregation = await membersCollection
+    const members = await membersCollection
       .aggregate([
         { $match: { clubId: club.id } },
         { $skip: skip },
@@ -75,7 +76,8 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
         },
         { $sort: { joinedAt: -1 } }
       ])
-      .toArray();
+      .toArray()
+      .then((results) => results.map((r) => ({ ...r, user: protect(r.user) })));
 
     // Check if there are more members
     const totalMembers = await membersCollection.countDocuments({
@@ -84,7 +86,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const hasMore = page * PAGINATION.PAGE_SIZE < totalMembers;
 
     return json({
-      members: membersAggregation,
+      members,
       hasMore,
       page,
       totalMembers

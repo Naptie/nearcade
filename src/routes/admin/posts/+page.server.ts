@@ -1,7 +1,7 @@
 import mongo from '$lib/db/index.server';
 import type { PageServerLoad } from './$types';
-import type { UniversityMember, ClubMember } from '$lib/types';
-import { toPlainArray } from '$lib/utils';
+import type { UniversityMember, ClubMember, PostWithAuthor } from '$lib/types';
+import { protect, toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -114,9 +114,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         $project: {
           authorData: 0,
           universityData: 0,
-          clubData: 0,
-          'author.email': 0,
-          'author._id': 0
+          clubData: 0
         }
       },
       {
@@ -127,7 +125,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     const [posts, totalCount] = await Promise.all([
       db
         .collection('posts')
-        .aggregate([
+        .aggregate<PostWithAuthor>([
           ...postsAggregation,
           { $skip: skip },
           { $limit: limit + 1 } // Get one extra to check if there's more
@@ -142,7 +140,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     }
 
     return {
-      posts: toPlainArray(posts),
+      posts: toPlainArray(posts.map((p) => ({ ...p, author: protect(p.author) }))),
       search,
       currentPage: page,
       totalCount,

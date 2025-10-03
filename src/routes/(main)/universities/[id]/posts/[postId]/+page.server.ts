@@ -13,7 +13,8 @@ import {
   canWriteUnivPosts,
   checkUniversityPermission,
   toPlainArray,
-  toPlainObject
+  toPlainObject,
+  protect
 } from '$lib/utils';
 
 export const load = (async ({ params, locals }) => {
@@ -87,9 +88,7 @@ export const load = (async ({ params, locals }) => {
       },
       {
         $project: {
-          authorData: 0,
-          'author._id': 0,
-          'author.email': 0
+          authorData: 0
         }
       }
     ])
@@ -99,7 +98,7 @@ export const load = (async ({ params, locals }) => {
     throw error(404, 'Post not found');
   }
 
-  const post = postResult[0];
+  const post = { ...postResult[0], author: protect(postResult[0].author) };
 
   // Get comments with authors
   const comments = await commentsCollection
@@ -144,16 +143,15 @@ export const load = (async ({ params, locals }) => {
       },
       {
         $project: {
-          authorData: 0,
-          'author._id': 0,
-          'author.email': 0
+          authorData: 0
         }
       },
       {
         $sort: { createdAt: 1 }
       }
     ])
-    .toArray();
+    .toArray()
+    .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
 
   return {
     university: toPlainObject(university),

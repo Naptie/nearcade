@@ -1,8 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { InviteLink } from '$lib/types';
-import { toPlainArray } from '$lib/utils';
+import { protect, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import type { User } from '@auth/sveltekit';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -144,7 +145,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       universityId?: string;
       club?: { id: string; name: string };
       university?: { id: string; name: string };
-      creator?: { id: string; name?: string; displayName?: string };
+      creator?: User;
     }
   >;
 
@@ -190,7 +191,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   inviteStats.expired = inviteStats.total - inviteStats.active;
 
   return {
-    invites: toPlainArray(invites),
+    invites: toPlainArray(
+      invites.map((invite) => ({ ...invite, creator: protect(invite.creator) }))
+    ),
     search,
     status,
     currentPage: page,

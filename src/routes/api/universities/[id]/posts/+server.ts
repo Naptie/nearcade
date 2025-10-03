@@ -9,7 +9,8 @@ import {
   canWriteUnivPosts,
   getDefaultPostReadability,
   validatePostReadability,
-  canReadPost
+  canReadPost,
+  protect
 } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
@@ -59,9 +60,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
         },
         {
           $project: {
-            authorData: 0,
-            'author._id': 0,
-            'author.email': 0
+            authorData: 0
           }
         },
         {
@@ -80,7 +79,8 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
         mongo
       );
       if (canRead) {
-        readablePosts.push(post);
+        const readablePost = { ...post, author: protect(post.author) };
+        readablePosts.push(readablePost);
       }
     }
 

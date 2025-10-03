@@ -37,7 +37,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     }
 
     // Get members with pagination
-    const membersAggregation = await membersCollection
+    const members = await membersCollection
       .aggregate([
         { $match: { universityId: university.id } },
         { $skip: skip },
@@ -84,7 +84,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const hasMore = page * PAGINATION.PAGE_SIZE < totalMembers;
 
     return json({
-      members: membersAggregation,
+      members,
       hasMore,
       page,
       totalMembers

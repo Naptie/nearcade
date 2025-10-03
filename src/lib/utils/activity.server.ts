@@ -15,7 +15,7 @@ import {
   type AttendanceRecord
 } from '$lib/types';
 import type { User } from '@auth/sveltekit';
-import { getDisplayName } from '.';
+import { getDisplayName, protect } from '.';
 import redis from '$lib/db/redis.server';
 import type { ShopSource } from '$lib/constants';
 
@@ -174,7 +174,7 @@ export async function getUserActivities(
 
   comments.forEach((comment) => {
     const post = comment.post?.[0];
-    const parentCommentAuthor = comment.parentCommentAuthor?.[0];
+    const parentCommentAuthor = protect(comment.parentCommentAuthor?.[0]);
     const isReply = !!comment.parentCommentId;
 
     // Only include this comment activity if the associated post passes the privacy check
@@ -316,7 +316,7 @@ export async function getUserActivities(
   commentVotes.forEach((vote) => {
     const comment = vote.comment?.[0];
     const post = vote.post?.[0];
-    const commentAuthor = vote.commentAuthor?.[0];
+    const commentAuthor = protect(vote.commentAuthor?.[0]);
     const isReplyVote = !!comment?.parentCommentId;
 
     // Only include this comment vote activity if the associated post passes the privacy check
