@@ -118,9 +118,14 @@
         </button>
         {#if isFilterOpen}
           <div
-            tabindex="0"
+            role="menu"
+            tabindex="-1"
             class="card dropdown-content bg-base-100 z-10 mt-2 w-64 shadow-lg"
-            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => {
+              if (e.key === 'Escape') {
+                isFilterOpen = false;
+              }
+            }}
           >
             <div class="card-body p-4">
               <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
