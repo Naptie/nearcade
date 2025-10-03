@@ -175,6 +175,13 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
   const skip = (page - 1) * limit;
+  const titleIdsParam = url.searchParams.get('titleIds') || '';
+  const titleIds = titleIdsParam
+    ? titleIdsParam
+        .split(',')
+        .map((id) => parseInt(id.trim()))
+        .filter((id) => !isNaN(id))
+    : [];
 
   try {
     const db = mongo.db();
@@ -183,11 +190,22 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     let shops: Shop[];
     let totalCount: number;
 
+    // Build base filter for titleIds
+    const titleIdsFilter =
+      titleIds.length > 0
+        ? {
+            $and: titleIds.map((titleId) => ({
+              'games.titleId': titleId
+            }))
+          }
+        : {};
+
     if (query.trim().length === 0) {
       // Load all shops with pagination
-      totalCount = await shopsCollection.countDocuments();
+      const baseFilter = titleIds.length > 0 ? titleIdsFilter : {};
+      totalCount = await shopsCollection.countDocuments(baseFilter);
       shops = (await shopsCollection
-        .find({})
+        .find(baseFilter)
         .sort({ name: 1 })
         .collation({ locale: 'zh@collation=gb2312han' })
         .skip(skip)
@@ -199,48 +217,63 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 
       try {
         // Try Atlas Search first
-        searchResults = (await shopsCollection
-          .aggregate([
-            {
-              $search: {
-                index: 'default',
-                compound: {
-                  should: [
-                    {
-                      text: {
-                        query: query,
-                        path: 'name',
-                        score: { boost: { value: 2 } }
-                      }
-                    },
-                    {
-                      text: {
-                        query: query,
-                        path: 'address.general'
-                      }
-                    },
-                    {
-                      text: {
-                        query: query,
-                        path: 'address.detailed'
-                      }
+        const aggregationPipeline: object[] = [
+          {
+            $search: {
+              index: 'default',
+              compound: {
+                should: [
+                  {
+                    text: {
+                      query: query,
+                      path: 'name',
+                      score: { boost: { value: 2 } }
                     }
-                  ]
-                }
+                  },
+                  {
+                    text: {
+                      query: query,
+                      path: 'address.general'
+                    }
+                  },
+                  {
+                    text: {
+                      query: query,
+                      path: 'address.detailed'
+                    }
+                  }
+                ]
               }
-            },
-            { $sort: { score: { $meta: 'searchScore' }, name: 1 } },
-            { $skip: skip },
-            { $limit: limit }
-          ])
+            }
+          }
+        ];
+
+        // Add titleIds filter if present
+        if (titleIds.length > 0) {
+          aggregationPipeline.push({ $match: titleIdsFilter });
+        }
+
+        aggregationPipeline.push(
+          { $sort: { score: { $meta: 'searchScore' }, name: 1 } },
+          { $skip: skip },
+          { $limit: limit }
+        );
+
+        searchResults = (await shopsCollection
+          .aggregate(aggregationPipeline)
           .toArray()) as unknown as Shop[];
       } catch {
         // Fallback to regex search
         const searchQuery = {
-          $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { 'address.general': { $elemMatch: { $regex: query, $options: 'i' } } },
-            { 'address.detailed': { $regex: query, $options: 'i' } }
+          $and: [
+            {
+              $or: [
+                { name: { $regex: query, $options: 'i' } },
+                { 'address.general': { $elemMatch: { $regex: query, $options: 'i' } } },
+                { 'address.detailed': { $regex: query, $options: 'i' } }
+              ]
+            },
+            ...(titleIds.length > 0 ? [titleIdsFilter] : [])
           ]
         };
 
@@ -272,6 +305,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       hasNextPage: skip + shops.length < totalCount,
       hasPrevPage: page > 1,
       query,
+      titleIds,
       user: session?.user
     };
   } catch (err) {

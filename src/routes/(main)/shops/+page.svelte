@@ -20,6 +20,8 @@
 
   let searchQuery = $state(data.query);
   let isSearching = $state(false);
+  let selectedTitleIds = $state<number[]>(data.titleIds || []);
+  let isFilterOpen = $state(false);
 
   const handleSearch = async (event: Event) => {
     event.preventDefault();
@@ -27,6 +29,9 @@
     const params = new SvelteURLSearchParams();
     if (searchQuery.trim()) {
       params.set('q', searchQuery.trim());
+    }
+    if (selectedTitleIds.length > 0) {
+      params.set('titleIds', selectedTitleIds.join(','));
     }
     await goto(resolve('/(main)/shops') + `?${params.toString()}`);
     isSearching = false;
@@ -36,6 +41,39 @@
     const params = new SvelteURLSearchParams(page.url.searchParams);
     params.set('page', newPage.toString());
     goto(resolve('/(main)/shops') + `?${params.toString()}`);
+  };
+
+  const handleTitleFilterChange = (titleId: number) => {
+    if (selectedTitleIds.includes(titleId)) {
+      selectedTitleIds = selectedTitleIds.filter((id) => id !== titleId);
+    } else {
+      selectedTitleIds = [...selectedTitleIds, titleId];
+    }
+  };
+
+  const applyFilters = async () => {
+    isSearching = true;
+    const params = new SvelteURLSearchParams();
+    if (searchQuery.trim()) {
+      params.set('q', searchQuery.trim());
+    }
+    if (selectedTitleIds.length > 0) {
+      params.set('titleIds', selectedTitleIds.join(','));
+    }
+    await goto(resolve('/(main)/shops') + `?${params.toString()}`);
+    isSearching = false;
+    isFilterOpen = false;
+  };
+
+  const clearFilters = async () => {
+    selectedTitleIds = [];
+    isSearching = true;
+    const params = new SvelteURLSearchParams();
+    if (searchQuery.trim()) {
+      params.set('q', searchQuery.trim());
+    }
+    await goto(resolve('/(main)/shops') + `?${params.toString()}`);
+    isSearching = false;
   };
 
   const getShopLink = (shop: Shop): string => {
@@ -63,6 +101,60 @@
   <!-- Search Bar -->
   <div class="mb-8">
     <form onsubmit={handleSearch} class="flex gap-4">
+      <!-- Game Title Filter Dropdown -->
+      <div class="dropdown" class:dropdown-open={isFilterOpen}>
+        <button
+          type="button"
+          tabindex="0"
+          class="btn btn-soft"
+          class:btn-primary={selectedTitleIds.length > 0}
+          onclick={() => (isFilterOpen = !isFilterOpen)}
+          aria-label={m.filter_by_game_titles()}
+        >
+          <i class="fa-solid fa-filter"></i>
+          {#if selectedTitleIds.length > 0}
+            <span class="badge badge-sm">{selectedTitleIds.length}</span>
+          {/if}
+        </button>
+        {#if isFilterOpen}
+          <div
+            tabindex="0"
+            class="card dropdown-content bg-base-100 z-10 mt-2 w-64 shadow-lg"
+            onclick={(e) => e.stopPropagation()}
+          >
+            <div class="card-body p-4">
+              <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
+              <div class="space-y-2">
+                {#each GAMES as game (game.id)}
+                  <label class="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-sm"
+                      checked={selectedTitleIds.includes(game.id)}
+                      onchange={() => handleTitleFilterChange(game.id)}
+                    />
+                    <span class="text-sm">{getGameName(game.key)}</span>
+                  </label>
+                {/each}
+              </div>
+              <div class="card-actions mt-4 justify-between">
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  onclick={clearFilters}
+                  disabled={selectedTitleIds.length === 0}
+                >
+                  {m.clear_filters()}
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick={applyFilters}>
+                  {m.apply_filters()}
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
+
       <div class="flex-1">
         <input
           type="text"
