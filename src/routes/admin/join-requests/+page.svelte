@@ -209,7 +209,7 @@
                   {/if}
                 </td>
                 <td class="max-w-[10vw] not-sm:hidden">
-                  {#if request.reviewer}
+                  {#if request.reviewer && request.reviewer.id}
                     <UserAvatar user={request.reviewer} showName size="xs" />
                   {:else}
                     <span class="text-base-content/40 text-sm italic">{m.none()}</span>
