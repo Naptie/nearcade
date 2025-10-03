@@ -15,6 +15,8 @@
     image?: string;
     content?: () => ReturnType<import('svelte').Snippet>;
     callback?: () => void;
+    expanded?: boolean;
+    override?: boolean;
   }
 
   let {
@@ -27,7 +29,9 @@
     padding = 0,
     href,
     target,
-    callback
+    callback,
+    expanded = $bindable(false),
+    override = false
   }: Props = $props();
 
   let buttonElement: HTMLElement;
@@ -92,14 +96,14 @@
       preloadCode(href);
       preloadData(href);
     }
-    if (buttonElement && window.matchMedia('(hover: hover)').matches) {
-      buttonElement.style.width = 'var(--expanded-width)';
+    if (window.matchMedia('(hover: hover)').matches && !override) {
+      expanded = true;
     }
   };
 
   const handleMouseLeave = () => {
-    if (buttonElement) {
-      buttonElement.style.width = 'var(--collapsed-width)';
+    if (!override) {
+      expanded = false;
     }
   };
 
@@ -144,6 +148,16 @@
       measureButtonDimensions();
     }
   });
+
+  $effect(() => {
+    if (buttonElement) {
+      if (expanded) {
+        buttonElement.style.width = 'var(--expanded-width)';
+      } else {
+        buttonElement.style.width = 'var(--collapsed-width)';
+      }
+    }
+  });
 </script>
 
 <a
@@ -153,6 +167,7 @@
   class="btn adaptive group relative items-center justify-center overflow-hidden whitespace-nowrap {image
     ? 'px-2'
     : ''} {btnCls}"
+  class:expanded
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
   onclick={() => {
@@ -204,11 +219,13 @@
     @apply pointer-events-none absolute top-[50%] left-[50%] z-1 opacity-0 transition duration-200 ease-out;
   }
 
-  .group:hover .icon {
+  .group:hover .icon,
+  .expanded .icon {
     transform: translateX(var(--icon-translate-x));
   }
 
-  .group:hover .content {
+  .group:hover .content,
+  .expanded .content {
     transform: translateY(-50%) translateX(var(--content-translate-x));
     @apply opacity-100;
   }

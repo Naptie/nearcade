@@ -66,6 +66,7 @@
       ? attendance
       : false;
   });
+  let hovered = $state<Record<number, boolean>>({});
   let isLoading = $state(0);
 
   // Track user's current attendance status
@@ -696,8 +697,11 @@
             {@const gameInfo = getGameInfo(game.titleId)}
             {@const countedAttendance = getGameAttendance(game.gameId)}
             {@const reportedAttendance = reportedAttendances.find((g) => g.id === game.gameId)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               class="card bg-base-200 group hover:border-primary border-2 border-current/0 shadow-none transition-all hover:shadow-lg"
+              onmouseenter={() => (hovered[game.gameId] = true)}
+              onmouseleave={() => (hovered[game.gameId] = false)}
             >
               <div class="card-body p-6">
                 <div class="flex items-center justify-between gap-2">
@@ -716,6 +720,8 @@
                         class="fa-solid fa-chart-simple"
                         btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
                         text={m.report_current_attendance()}
+                        expanded={hovered[game.gameId] || false}
+                        override
                       />
                     {/if}
                     <div
