@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -106,7 +107,7 @@
         <button
           type="button"
           tabindex="0"
-          class="btn btn-soft"
+          class="btn btn-soft hover:btn-accent"
           class:btn-primary={selectedTitleIds.length > 0}
           onclick={() => (isFilterOpen = !isFilterOpen)}
           aria-label={m.filter_by_game_titles()}
@@ -116,48 +117,48 @@
             <span class="badge badge-sm">{selectedTitleIds.length}</span>
           {/if}
         </button>
-        {#if isFilterOpen}
-          <div
-            role="menu"
-            tabindex="-1"
-            class="card dropdown-content bg-base-100 z-10 mt-2 w-64 shadow-lg"
-            onkeydown={(e) => {
-              if (e.key === 'Escape') {
-                isFilterOpen = false;
-              }
-            }}
-          >
-            <div class="card-body p-4">
-              <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
-              <div class="space-y-2">
-                {#each GAMES as game (game.id)}
-                  <label class="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      class="checkbox checkbox-sm"
-                      checked={selectedTitleIds.includes(game.id)}
-                      onchange={() => handleTitleFilterChange(game.id)}
-                    />
-                    <span class="text-sm">{getGameName(game.key)}</span>
-                  </label>
-                {/each}
-              </div>
-              <div class="card-actions mt-4 justify-between">
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  onclick={clearFilters}
-                  disabled={selectedTitleIds.length === 0}
-                >
-                  {m.clear_filters()}
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" onclick={applyFilters}>
-                  {m.apply_filters()}
-                </button>
-              </div>
+        <div
+          role="menu"
+          tabindex="-1"
+          class="card dropdown-content bg-base-200 z-10 mt-2 w-64 shadow-lg"
+          onkeydown={(e) => {
+            if (e.key === 'Escape') {
+              isFilterOpen = false;
+            }
+          }}
+        >
+          <div class="card-body p-4">
+            <h3 class="card-title text-base">{m.filter_by_game_titles()}</h3>
+            <div class="space-y-2">
+              {#each GAMES as game (game.id)}
+                <label class="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                    checked={selectedTitleIds.includes(game.id)}
+                    onchange={() => handleTitleFilterChange(game.id)}
+                  />
+                  <span class="text-sm">{getGameName(game.key)}</span>
+                </label>
+              {/each}
+            </div>
+            <div class="card-actions mt-2 justify-between">
+              <button
+                type="button"
+                class="btn btn-soft hover:btn-error btn-sm"
+                onclick={clearFilters}
+                disabled={selectedTitleIds.length === 0}
+              >
+                <i class="fa-solid fa-trash"></i>
+                {m.clear_filters()}
+              </button>
+              <button type="button" class="btn btn-primary btn-soft btn-sm" onclick={applyFilters}>
+                <i class="fa-solid fa-filter"></i>
+                {m.apply_filters()}
+              </button>
             </div>
           </div>
-        {/if}
+        </div>
       </div>
 
       <div class="flex-1">
@@ -192,6 +193,17 @@
         <div class="text-base-content/60 text-sm">
           {#if data.query}
             {m.showing_results_for({ query: data.query })}
+          {:else if data.titleIds.length > 0}
+            <div class="inline-flex flex-wrap items-center gap-2">
+              {@html m.showing_shops_with_games({
+                games: GAMES.filter((g) => data.titleIds.includes(g.id))
+                  .map(
+                    (g) =>
+                      `<span class="badge badge-soft badge-sm px-1.75">${getGameName(g.key)}</span>`
+                  )
+                  .join('')
+              })}
+            </div>
           {:else}
             {m.showing_all_shops()}
           {/if}
