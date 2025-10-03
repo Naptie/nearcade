@@ -206,7 +206,7 @@ export interface ClubMemberWithUser extends ClubMember {
     displayName?: string | null;
     email: string | null;
     image: string | null;
-    userType: string | null;
+    userType?: UserType;
   };
 }
 
@@ -250,7 +250,7 @@ export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verifi
     displayName?: string | null;
     email: string | null;
     image: string | null;
-    userType: string | null;
+    userType?: UserType;
   };
 }
 
@@ -277,7 +277,7 @@ export interface JoinRequestWithUser extends JoinRequest {
     displayName?: string | null;
     email: string | null;
     image: string | null;
-    userType: string | null;
+    userType?: UserType;
   };
   reviewer?: {
     _id: string;
@@ -286,7 +286,7 @@ export interface JoinRequestWithUser extends JoinRequest {
     displayName?: string | null;
     email: string | null;
     image: string | null;
-    userType: string | null;
+    userType?: UserType;
   };
 }
 
@@ -355,7 +355,7 @@ export interface PostWithAuthor extends Post {
     displayName?: string | null;
     email: string | null;
     image: string | null;
-    userType: string | null;
+    userType?: UserType;
   };
 }
 
@@ -392,7 +392,7 @@ export interface CommentWithAuthorAndVote extends Comment {
     displayName?: string | null;
     email: string | null;
     image: string | null;
-    userType: string | null;
+    userType?: UserType;
   };
   vote?: CommentVote;
 }

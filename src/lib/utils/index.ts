@@ -551,7 +551,7 @@ export const getUniversityMembersWithUserData = async (
     .toArray()) as UniversityMemberWithUser[];
 
   // Convert to plain objects and type
-  return toPlainArray(results);
+  return toPlainArray(results.map((r) => ({ ...r, user: protect(r.user) })));
 };
 
 /**
@@ -613,7 +613,7 @@ export const getClubMembersWithUserData = async (
   const results = (await membersCollection.aggregate(pipeline).toArray()) as ClubMemberWithUser[];
 
   // Convert to plain objects and type
-  return toPlainArray(results);
+  return toPlainArray(results.map((r) => ({ ...r, user: protect(r.user) })));
 };
 
 export const isAdminOrModerator = (user?: { userType?: string }): boolean => {
