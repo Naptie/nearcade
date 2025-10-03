@@ -702,7 +702,7 @@
   "none": "None",
   "not_associated_with_university": "Not Associated with University",
   "not_member_of_any_clubs": "Not Member of Any Clubs",
-  "not_near_shop": "Your current location does not appear to be near the shop.",
+  "not_near_shop": "Your current location does not appear to be near the shop ({distance}).",
   "not_specified": "Not Specified",
   "nothing_to_preview": "Nothing to preview yet",
   "notification_comment_votes": "Comment votes",

@@ -7,6 +7,7 @@
     aggregateGames,
     calculateDistance,
     convertCoordinates,
+    formatDistance,
     formatHourLiteral,
     formatShopAddress,
     formatTime,
@@ -81,7 +82,9 @@
   let radius = $state(10);
 
   // Location checking for attendance
-  let amap: typeof AMap | undefined = $state(getContext<AMapContext>('amap')?.amap);
+  const amapContext = getContext<AMapContext>('amap');
+  let amap = $derived(amapContext?.amap);
+  let distance = $state<number | null>(null); // Distance to shop
   let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
   let locationError = $state<string | null>(null);
   let shopComment = $state({ sanitized: false, content: data.shop.comment });
@@ -164,7 +167,7 @@
 
       // Calculate distance to shop
       const shopCoords = shop.location.coordinates;
-      const distance = calculateDistance(
+      distance = calculateDistance(
         convertedLocation.latitude,
         convertedLocation.longitude,
         shopCoords[1], // latitude
@@ -339,8 +342,8 @@
                   shopName: otherShop.shop.name,
                   attendedAt: formatTime(otherShop.attendedAt)
                 })
-              : isUserNearShop === false
-                ? locationError || m.not_near_shop()
+              : isUserNearShop === false && distance
+                ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
                 : shop.isClaimed
                   ? m.attend_claimed()
                   : ''

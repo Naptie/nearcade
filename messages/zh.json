@@ -694,7 +694,7 @@
   "none": "无",
   "not_associated_with_university": "未关联高校",
   "not_member_of_any_clubs": "未加入任何社团",
-  "not_near_shop": "您当前的位置似乎不在该店铺附近。",
+  "not_near_shop": "您当前的位置似乎不在该店铺附近（{distance}）。",
   "not_specified": "未指定",
   "nothing_to_preview": "暂无内容预览",
   "notification_comment_votes": "评论投票",
