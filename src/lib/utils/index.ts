@@ -28,6 +28,7 @@ import rehypeStringify from 'rehype-stringify';
 import { unified } from 'unified';
 import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
+import { enUS, ja, zhCN } from 'date-fns/locale';
 
 export const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -1114,6 +1115,19 @@ export const aggregateGames = (shop: Pick<Shop, 'games'>) => {
     }
   }
   return Object.values(gameMap);
+};
+
+export const getFnsLocale = (locale: string) => {
+  switch (locale) {
+    case 'zh':
+    case 'zh-CN':
+      return zhCN;
+    case 'ja':
+    case 'ja-JP':
+      return ja;
+    default:
+      return enUS;
+  }
 };
 
 export const protect = <T extends User | undefined>(user: T): T => {

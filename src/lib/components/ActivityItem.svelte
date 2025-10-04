@@ -3,13 +3,12 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDistance, formatDistanceToNow } from 'date-fns';
-  import { zhCN, enUS } from 'date-fns/locale';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatChangelogDescription } from '$lib/utils/changelog';
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
-  import { formatTime, getDisplayName } from '$lib/utils';
+  import { formatTime, getDisplayName, getFnsLocale } from '$lib/utils';
 
   interface Props {
     activity: Activity;
@@ -295,13 +294,13 @@
               {#if activity.isLive}
                 {m.attendance_details_one_liner({
                   duration: formatDistanceToNow(activity.createdAt, {
-                    locale: getLocale() === 'en' ? enUS : zhCN
+                    locale: getFnsLocale(getLocale())
                   }),
                   leave: formatTime(activity.leaveAt)
                 })}
               {:else}
                 {formatDistance(activity.leaveAt, activity.createdAt, {
-                  locale: getLocale() === 'en' ? enUS : zhCN
+                  locale: getFnsLocale(getLocale())
                 })}
               {/if}
             </div>
@@ -333,7 +332,7 @@
     <span class="text-base-content/50 text-xs">
       {formatDistanceToNow(activity.createdAt, {
         addSuffix: true,
-        locale: getLocale() === 'en' ? enUS : zhCN
+        locale: getFnsLocale(getLocale())
       })}
     </span>
   </div>

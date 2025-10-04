@@ -3,10 +3,9 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { getDisplayName } from '$lib/utils';
+  import { getDisplayName, getFnsLocale } from '$lib/utils';
   import type { User } from '@auth/sveltekit';
   import { formatDistanceToNow } from 'date-fns';
-  import { enUS, zhCN } from 'date-fns/locale';
   import { onMount, type Snippet } from 'svelte';
 
   let {
@@ -50,7 +49,7 @@
         : `<span class="group-hover/reported-attendance:text-primary transition-colors">${displayName}</span>`,
       time: formatDistanceToNow(reportedAttendance.reportedAt, {
         addSuffix: true,
-        locale: getLocale() === 'en' ? enUS : zhCN
+        locale: getFnsLocale(getLocale())
       })
     })}
   </div>

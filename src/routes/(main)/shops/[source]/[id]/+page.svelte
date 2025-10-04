@@ -11,6 +11,7 @@
     formatHourLiteral,
     formatShopAddress,
     formatTime,
+    getFnsLocale,
     getGameName,
     getMyLocation,
     getShopOpeningHours,
@@ -30,7 +31,6 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { enUS, zhCN } from 'date-fns/locale';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '@auth/sveltekit';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
@@ -565,7 +565,7 @@
                   <span class="text-right font-semibold"
                     >{formatDistanceToNow(shop.createdAt, {
                       addSuffix: true,
-                      locale: getLocale() === 'en' ? enUS : zhCN
+                      locale: getFnsLocale(getLocale())
                     })}</span
                   >
                 </div>
@@ -576,7 +576,7 @@
                 <span class="text-right font-semibold"
                   >{formatDistanceToNow(shop.updatedAt, {
                     addSuffix: true,
-                    locale: getLocale() === 'en' ? enUS : zhCN
+                    locale: getFnsLocale(getLocale())
                   })}</span
                 >
               </div>
@@ -787,7 +787,7 @@
                               <div class="tooltip-content px-3 whitespace-pre-line">
                                 {m.attendance_details({
                                   duration: formatDistanceToNow(attendee.attendedAt, {
-                                    locale: getLocale() === 'en' ? enUS : zhCN
+                                    locale: getFnsLocale(getLocale())
                                   }),
                                   leave: formatTime(attendee.plannedLeaveAt)
                                 })}

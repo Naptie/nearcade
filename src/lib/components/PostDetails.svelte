@@ -17,10 +17,9 @@
   import { render } from '$lib/utils/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
-  import { getDisplayName, pageTitle } from '$lib/utils';
+  import { getDisplayName, getFnsLocale, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { enUS, zhCN } from 'date-fns/locale';
 
   interface Props {
     post: PostWithAuthor;
@@ -462,7 +461,7 @@
               <div class="text-base-content/60 text-sm">
                 {formatDistanceToNow(post.createdAt, {
                   addSuffix: true,
-                  locale: getLocale() === 'en' ? enUS : zhCN
+                  locale: getFnsLocale(getLocale())
                 })}
                 {#if post.updatedAt && post.updatedAt !== post.createdAt}
                   <span class="ml-1">({m.edited()})</span>

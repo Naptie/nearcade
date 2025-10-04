@@ -6,8 +6,7 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
-  import { enUS, zhCN } from 'date-fns/locale';
-  import { getDisplayName } from '$lib/utils';
+  import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
@@ -223,7 +222,7 @@
                 <div class="text-base-content/60 flex-shrink-0 text-xs">
                   {formatDistanceToNow(entry.createdAt, {
                     addSuffix: true,
-                    locale: getLocale() === 'en' ? enUS : zhCN
+                    locale: getFnsLocale(getLocale())
                   })}
                 </div>
               </div>

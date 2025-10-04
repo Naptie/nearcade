@@ -4,9 +4,9 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { zhCN, enUS } from 'date-fns/locale';
   import type { PageData, ActionData } from './$types';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
+  import { getFnsLocale } from '$lib/utils';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -46,7 +46,7 @@
 
   // Get locale for date formatting
   const locale = getLocale();
-  const dateLocale = locale === 'zh' ? zhCN : enUS;
+  const dateLocale = getFnsLocale(locale);
 
   // Form validation
   let clientErrors = $state<Record<string, string>>({});

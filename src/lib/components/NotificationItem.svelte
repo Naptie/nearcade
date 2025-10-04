@@ -3,10 +3,9 @@
   import { resolve, base } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
-  import { zhCN, enUS } from 'date-fns/locale';
   import { getLocale } from '$lib/paraglide/runtime';
   import UserAvatar from './UserAvatar.svelte';
-  import { getDisplayName } from '$lib/utils';
+  import { getDisplayName, getFnsLocale } from '$lib/utils';
   import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
   import { strip } from '$lib/utils/markdown';
@@ -151,7 +150,7 @@
     <span class="text-base-content/50 text-xs">
       {formatDistanceToNow(notification.createdAt, {
         addSuffix: true,
-        locale: getLocale() === 'en' ? enUS : zhCN
+        locale: getFnsLocale(getLocale())
       })}
     </span>
   </div>

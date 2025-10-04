@@ -8,11 +8,10 @@
   import { render } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
-  import { getDisplayName } from '$lib/utils';
+  import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { enUS, zhCN } from 'date-fns/locale';
 
   interface Props {
     comment: CommentWithAuthorAndVote;
@@ -159,7 +158,7 @@
           <span class="text-base-content/60">
             {formatDistanceToNow(comment.createdAt, {
               addSuffix: true,
-              locale: getLocale() === 'en' ? enUS : zhCN
+              locale: getFnsLocale(getLocale())
             })}
           </span>
           {#if comment.updatedAt && comment.updatedAt !== comment.createdAt}

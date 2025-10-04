@@ -5,6 +5,7 @@
   import {
     adaptiveNewTab,
     getDisplayName,
+    getFnsLocale,
     getUserTypeBadgeClass,
     getUserTypeLabel,
     pageTitle
@@ -15,7 +16,6 @@
   import type { PageData } from './$types';
   import type { Activity } from '$lib/types';
   import { formatDistanceToNow } from 'date-fns';
-  import { zhCN, enUS } from 'date-fns/locale';
   import { onMount } from 'svelte';
   import type { Shop } from '$lib/types';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
@@ -177,7 +177,7 @@
                   {m.last_active_at({
                     time: formatDistanceToNow(lastActiveDate, {
                       addSuffix: true,
-                      locale: getLocale() === 'en' ? enUS : zhCN
+                      locale: getFnsLocale(getLocale())
                     })
                   })}
                 </span>
