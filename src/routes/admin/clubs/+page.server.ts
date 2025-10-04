@@ -1,17 +1,18 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { Club, University } from '$lib/types';
+import type { Club, University, UniversityMember } from '$lib/types';
 import { checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
-  const user = session?.user;
 
-  if (!user) {
-    return { clubs: [], hasMore: false };
+  if (!session?.user) {
+    error(401, 'Unauthorized');
   }
+
+  const user = session.user;
 
   try {
     const db = mongo.db();
@@ -45,10 +46,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         .toArray();
 
       const managedClubIds = userClubMemberships.map((m) => m.clubId);
-
-      if (managedClubIds.length === 0) {
-        return { clubs: [], hasMore: false };
-      }
 
       if (query.$or) {
         query = {
@@ -104,9 +101,26 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       university: universityMap.get(club.universityId) || null
     }));
 
+    // For site admins, show all universities
+    // For university admins, only show their own university
+    const universityQuery: Record<string, unknown> = {};
+    if (session.user.userType !== 'site_admin') {
+      // Get user's university admin/moderator affiliations
+      const memberships = await db
+        .collection<UniversityMember>('university_members')
+        .find({
+          userId: session.user.id,
+          memberType: { $in: ['admin', 'moderator'] }
+        })
+        .map((m: { universityId: string }) => m.universityId)
+        .toArray();
+
+      universityQuery.id = { $in: memberships };
+    }
+
     // Get all universities for the create modal
     const allUniversities = await universitiesCollection
-      .find({})
+      .find(universityQuery)
       .sort({ name: 1 })
       .collation({ locale: 'zh@collation=gb2312han' })
       .toArray();
