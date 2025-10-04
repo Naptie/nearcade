@@ -281,9 +281,11 @@
                     <form method="POST" action="?/deleteUser" use:enhance class="inline">
                       <input type="hidden" name="userId" value={user.id} />
                       <button
-                        type="submit"
+                        type="button"
                         class="btn btn-error btn-sm btn-soft text-nowrap"
-                        onclick={() => confirm(m.admin_user_delete_confirm())}
+                        onclick={(e) =>
+                          confirm(m.admin_user_delete_confirm()) &&
+                          e.currentTarget.closest('form')?.requestSubmit()}
                         disabled={user.id === data.user?.id}
                       >
                         <i class="fa-solid fa-trash"></i>
@@ -538,9 +540,11 @@
                           />
                           <input type="hidden" name="action" value="remove" />
                           <button
-                            type="submit"
+                            type="button"
                             class="btn btn-error btn-sm btn-soft btn-circle"
-                            onclick={() => confirm(m.admin_remove_role_confirm())}
+                            onclick={(e) =>
+                              confirm(m.admin_remove_role_confirm()) &&
+                              e.currentTarget.closest('form')?.requestSubmit()}
                             aria-label={m.admin_remove_role_confirm()}
                           >
                             <i class="fa-solid fa-trash"></i>
@@ -601,9 +605,11 @@
                           <input type="hidden" name="organizationId" value={membership.clubId} />
                           <input type="hidden" name="action" value="remove" />
                           <button
-                            type="submit"
+                            type="button"
                             class="btn btn-error btn-sm btn-soft btn-circle"
-                            onclick={() => confirm(m.admin_remove_role_confirm())}
+                            onclick={(e) =>
+                              confirm(m.admin_remove_role_confirm()) &&
+                              e.currentTarget.closest('form')?.requestSubmit()}
                             aria-label={m.admin_remove_role_confirm()}
                           >
                             <i class="fa-solid fa-trash"></i>

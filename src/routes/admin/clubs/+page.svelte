@@ -160,9 +160,11 @@
                     <form method="POST" action="?/delete" use:enhance class="inline">
                       <input type="hidden" name="clubId" value={club.id} />
                       <button
-                        type="submit"
+                        type="button"
                         class="btn btn-error btn-sm btn-soft text-nowrap"
-                        onclick={() => confirm(m.admin_club_delete_confirm())}
+                        onclick={(e) =>
+                          confirm(m.admin_club_delete_confirm()) &&
+                          e.currentTarget.closest('form')?.requestSubmit()}
                       >
                         <i class="fa-solid fa-trash"></i>
                         <span class="not-lg:hidden">{m.delete()}</span>

@@ -146,9 +146,11 @@
                       <form method="POST" action="?/delete" use:enhance class="inline">
                         <input type="hidden" name="universityId" value={university.id} />
                         <button
-                          type="submit"
+                          type="button"
                           class="btn btn-error btn-sm btn-soft text-nowrap"
-                          onclick={() => confirm(m.admin_university_delete_confirm())}
+                          onclick={(e) =>
+                            confirm(m.admin_university_delete_confirm()) &&
+                            e.currentTarget.closest('form')?.requestSubmit()}
                         >
                           <i class="fa-solid fa-trash"></i>
                           <span class="not-md:hidden">{m.delete()}</span>
