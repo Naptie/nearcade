@@ -56,13 +56,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   let permissionFilter = {};
   if (session.user.userType !== 'site_admin') {
     // Get user's club/university memberships where they have admin/moderator role
-    const [clubMemberships, universityMemberships] = await Promise.all([
+    const [clubIds, universityIds] = await Promise.all([
       db
         .collection('club_members')
         .find({
           userId: session.user.id,
           $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
         })
+        .map((m) => m.clubId)
         .toArray(),
       db
         .collection('university_members')
@@ -70,11 +71,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           userId: session.user.id,
           $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
         })
+        .map((m) => m.universityId)
         .toArray()
     ]);
-
-    const clubIds = clubMemberships.map((m: Record<string, unknown>) => m.clubId);
-    const universityIds = universityMemberships.map((m: Record<string, unknown>) => m.universityId);
 
     if (clubIds.length === 0 && universityIds.length === 0) {
       // User has no admin privileges
@@ -89,7 +88,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     }
 
     permissionFilter = {
-      $or: [{ clubId: { $in: clubIds } }, { universityId: { $in: universityIds } }]
+      $or: [
+        { type: 'club', targetId: { $in: clubIds } },
+        { type: 'university', targetId: { $in: universityIds } }
+      ]
     };
   }
 
