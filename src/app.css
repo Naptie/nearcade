@@ -53,3 +53,7 @@ code,
 .label-text-alt {
   @apply text-xs text-wrap;
 }
+
+.katex-display {
+  @apply overflow-x-auto overflow-y-clip;
+}
