@@ -1,6 +1,6 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { University } from '$lib/types';
+import type { University, UniversityMember } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 
@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    return fail(401, { error: 'Unauthorized' });
+    error(401, 'Unauthorized');
   }
 
   const search = url.searchParams.get('search') || '';
@@ -31,16 +31,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   // For site admins, show all universities
   // For university admins, only show their own university
   if (session.user.userType !== 'site_admin') {
-    // Get user's university affiliations
-    const userMembership = await db.collection('university_members').findOne({
-      userId: session.user.id,
-      $or: [{ memberType: 'admin' }, { memberType: 'moderator' }]
-    });
+    // Get user's university admin/moderator affiliations
+    const memberships = await db
+      .collection<UniversityMember>('university_members')
+      .find({
+        userId: session.user.id,
+        memberType: { $in: ['admin', 'moderator'] }
+      })
+      .map((m: { universityId: string }) => m.universityId)
+      .toArray();
 
-    if (userMembership) {
-      searchQuery.id = userMembership.universityId;
+    if (memberships.length > 0) {
+      // Restrict results to the universities the user administers/moderates.
+      // Preserve any existing $or search criteria.
+      searchQuery.id = { $in: memberships };
     } else {
-      // User has no university admin privileges
+      // User has no university admin/moderator privileges
       return {
         universities: [],
         search,
