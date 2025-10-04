@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -13,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   // Only site admins can manage arcade shops
   if (session.user.userType !== 'site_admin') {
-    error(403, 'Access denied');
+    error(403, m.access_denied());
   }
 
   const search = url.searchParams.get('search') || '';

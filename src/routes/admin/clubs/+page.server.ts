@@ -4,12 +4,13 @@ import type { Club, University, UniversityMember } from '$lib/types';
 import { checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   const user = session.user;

@@ -3,12 +3,13 @@ import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import mongo from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
 
   if (!user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   return {

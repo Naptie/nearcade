@@ -2,12 +2,13 @@ import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { storeFCMToken, removeFCMToken } from '$lib/notifications/fcm.server';
+import { m } from '$lib/paraglide/messages';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user?.id) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   try {

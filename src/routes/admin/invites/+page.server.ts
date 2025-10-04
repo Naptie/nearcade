@@ -4,12 +4,13 @@ import type { InviteLink } from '$lib/types';
 import { protect, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import type { User } from '@auth/sveltekit';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   const search = url.searchParams.get('search') || '';

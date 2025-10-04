@@ -12,6 +12,7 @@ import {
   canReadPost,
   protect
 } from '$lib/utils';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -106,7 +107,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      error(401, 'Unauthorized');
+      error(401, m.unauthorized());
     }
 
     const universityId = params.id;

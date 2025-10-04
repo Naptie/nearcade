@@ -5,17 +5,18 @@ import type { User } from '@auth/sveltekit';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { USER_TYPES } from '$lib/constants';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   // Only site admins can manage users
   if (session.user.userType !== 'site_admin') {
-    error(403, 'Access denied');
+    error(403, m.access_denied());
   }
 
   const search = url.searchParams.get('search') || '';

@@ -2,12 +2,13 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { UniversityMember, University, Club, ClubMember } from '$lib/types';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
 
   if (!user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   const userProfile = {

@@ -5,12 +5,13 @@ import { type Club, type Comment, type CommentVote, type University } from '$lib
 import { nanoid } from 'nanoid';
 import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      error(401, 'Unauthorized');
+      error(401, m.unauthorized());
     }
 
     const commentId = params.commentId;

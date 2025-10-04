@@ -3,17 +3,18 @@ import type { RequestHandler } from './$types';
 import { toPlainArray } from '$lib/utils';
 import type { ClubMember, Club, University, UniversityMember } from '$lib/types';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   // Only site admins can access user details
   if (session.user.userType !== 'site_admin') {
-    error(403, 'Access denied');
+    error(403, m.access_denied());
   }
 
   const userId = params.id;

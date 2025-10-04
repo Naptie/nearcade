@@ -4,12 +4,13 @@ import mongo from '$lib/db/index.server';
 import { markNotificationsAsRead } from '$lib/notifications/index.server';
 import type { Notification } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   const page = parseInt(url.searchParams.get('page') || '1');
@@ -68,7 +69,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   try {

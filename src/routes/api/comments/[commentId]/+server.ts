@@ -3,12 +3,13 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
+import { m } from '$lib/paraglide/messages';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      error(401, 'Unauthorized');
+      error(401, m.unauthorized());
     }
 
     const commentId = params.commentId;
@@ -61,7 +62,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      error(401, 'Unauthorized');
+      error(401, m.unauthorized());
     }
 
     const commentId = params.commentId;

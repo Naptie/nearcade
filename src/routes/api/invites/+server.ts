@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import type { InviteLink } from '$lib/types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 interface CreateInviteRequest {
   type: 'university' | 'club';
@@ -19,7 +20,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   try {
@@ -74,7 +75,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   try {

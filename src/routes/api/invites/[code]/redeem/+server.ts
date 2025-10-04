@@ -4,13 +4,14 @@ import type { RequestHandler } from './$types';
 import type { InviteLink, UniversityMember, ClubMember, JoinRequest } from '$lib/types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
   const { code } = params;
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   try {

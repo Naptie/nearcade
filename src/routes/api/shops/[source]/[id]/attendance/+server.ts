@@ -13,6 +13,7 @@ import { getShopOpeningHours, protect } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { getCurrentAttendance } from '$lib/utils/index.server';
+import { m } from '$lib/paraglide/messages';
 
 const attend = async (
   user: User,
@@ -98,7 +99,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!user) {
     const header = request.headers.get('Authorization');
     if (!header || !header.startsWith('Bearer ')) {
-      error(401, 'Unauthorized');
+      error(401, m.unauthorized());
     }
     const token = header.slice(7);
     const agentToken = token.split('/')[0];
@@ -109,7 +110,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       apiTokens: { $elemMatch: { token: agentToken, expiresAt: { $gt: new Date() } } }
     });
     if (!dbUser) {
-      error(401, 'Unauthorized');
+      error(401, m.unauthorized());
     }
     const matchedToken = dbUser.apiTokens?.find((t) => t.token === agentToken);
     if (
@@ -314,7 +315,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   try {

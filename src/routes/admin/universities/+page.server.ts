@@ -3,12 +3,13 @@ import type { PageServerLoad, Actions } from './$types';
 import type { University, UniversityMember } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Unauthorized');
+    error(401, m.unauthorized());
   }
 
   const search = url.searchParams.get('search') || '';
