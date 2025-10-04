@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { toPlainArray, updateUserType } from '$lib/utils';
 import type { User } from '@auth/sveltekit';
@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    return fail(401, { error: 'Unauthorized' });
+    error(401, 'Unauthorized');
   }
 
   // Only site admins can manage users

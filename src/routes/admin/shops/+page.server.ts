@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
@@ -8,12 +8,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    return fail(401, { error: 'Unauthorized' });
+    error(401, 'Authentication required');
   }
 
   // Only site admins can manage arcade shops
   if (session.user.userType !== 'site_admin') {
-    return fail(403, { error: 'Access denied' });
+    error(403, 'Access denied');
   }
 
   const search = url.searchParams.get('search') || '';

@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { Shop } from '$lib/types';
 import type { User } from '@auth/sveltekit';
@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
 
   if (!user) {
-    return fail(401, { message: 'Unauthorized' });
+    error(401, 'Unauthorized');
   }
 
   try {
