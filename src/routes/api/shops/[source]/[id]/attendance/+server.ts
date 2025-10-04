@@ -457,34 +457,24 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     const shopsCollection = db.collection<Shop>('shops');
     const shop = await shopsCollection.findOne({ id, source });
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const total = Math.round(
       shop?.games
-        .map((g: { gameId: number }) => {
-          const mostRecentReport = reported
-            .filter((r: AttendanceReport[0]) => r.gameId === g.gameId)
-            .at(0);
-          const reportedCount =
-            mostRecentReport && new Date(mostRecentReport.reportedAt) >= today
-              ? mostRecentReport.currentAttendances || 0
-              : 0;
+        .map((g) => {
+          const mostRecentReport = reported.filter((r) => r.gameId === g.gameId).at(0);
+          const reportedCount = mostRecentReport?.currentAttendances || 0;
           if (shop.isClaimed) return reportedCount;
           const registeredCount = registered
             .filter(
-              (r: AttendanceData[0]) =>
+              (r) =>
                 r.gameId === g.gameId &&
                 (!mostRecentReport ||
                   new Date(r.attendedAt) > new Date(mostRecentReport.reportedAt))
             )
-            .map(
-              (c: AttendanceData[0]) =>
-                1 / registered.filter((r: AttendanceData[0]) => r.userId === c.userId).length
-            )
-            .reduce((a: number, b: number) => a + b, 0);
+            .map((c) => 1 / registered.filter((r) => r.userId === c.userId).length)
+            .reduce((a, b) => a + b, 0);
           return reportedCount + registeredCount;
         })
-        .reduce((a: number, b: number) => a + b, 0) || 0
+        .reduce((a, b) => a + b, 0) || 0
     );
     return json({ success: true, total, registered, reported });
   } catch (err) {
