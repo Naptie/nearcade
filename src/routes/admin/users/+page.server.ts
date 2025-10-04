@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   // Only site admins can manage users
   if (session.user.userType !== 'site_admin') {
-    return fail(403, { error: 'Access denied' });
+    error(403, 'Access denied');
   }
 
   const search = url.searchParams.get('search') || '';

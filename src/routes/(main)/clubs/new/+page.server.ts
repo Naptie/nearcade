@@ -1,4 +1,4 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Club } from '$lib/types';
 import { nanoid } from 'nanoid';
@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   const universityId = url.searchParams.get('university');
 
   if (!universityId) {
-    return fail(400, { message: 'University ID is required' });
+    error(400, 'University ID is required');
   }
 
   try {
@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     const university = await universitiesCollection.findOne({ id: universityId });
 
     if (!university) {
-      return fail(404, { message: 'University not found' });
+      error(404, 'University not found');
     }
 
     return {
@@ -37,8 +37,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
       }
     };
   } catch (err) {
+    if (isHttpError(err) || isRedirect(err)) {
+      throw err;
+    }
     console.error('Error loading university:', err);
-    return fail(500, { message: 'Failed to load university information' });
+    error(500, 'Failed to load university information');
   }
 };
 
