@@ -937,6 +937,7 @@ export const getShopTimezone = (location: Location): string => {
 
   try {
     const timezone = tzlookup(latitude, longitude);
+    if (timezone === 'Asia/Urumqi') return 'Asia/Shanghai';
     if (timezone) return timezone;
   } catch (error) {
     console.error('Failed to lookup timezone:', error);
