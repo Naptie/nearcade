@@ -66,6 +66,7 @@ const getShopAttendanceData = async (shops: Shop[]) => {
         total: number;
         latestReportedAt: string | null;
         latestReportedBy: string | null;
+        latestComment: string | null;
       }
     >();
 
@@ -76,6 +77,7 @@ const getShopAttendanceData = async (shops: Shop[]) => {
       let total = 0;
       let latestReportedAt: string | null = null;
       let latestReportedBy: string | null = null;
+      let latestComment: string | null = null;
 
       for (const { keyIndex } of gameKeys) {
         const value = reportedValues[keyIndex];
@@ -85,6 +87,7 @@ const getShopAttendanceData = async (shops: Shop[]) => {
               currentAttendances: number;
               reportedBy: string;
               reportedAt: string;
+              comment: string | null;
             };
 
             total += parsed.currentAttendances;
@@ -93,6 +96,7 @@ const getShopAttendanceData = async (shops: Shop[]) => {
             if (!latestReportedAt || new Date(parsed.reportedAt) > new Date(latestReportedAt)) {
               latestReportedAt = parsed.reportedAt;
               latestReportedBy = parsed.reportedBy;
+              latestComment = parsed.comment;
             }
           } catch (parseError) {
             console.error('Error parsing reported attendance data:', parseError);
@@ -103,7 +107,8 @@ const getShopAttendanceData = async (shops: Shop[]) => {
       shopReportedData.set(shopIdentifier, {
         total,
         latestReportedAt,
-        latestReportedBy
+        latestReportedBy,
+        latestComment
       });
     }
 
@@ -135,6 +140,7 @@ const getShopAttendanceData = async (shops: Shop[]) => {
         count: number;
         reportedAt: string;
         reportedBy: User;
+        comment: string | null;
       } | null = null;
 
       if (
@@ -148,7 +154,8 @@ const getShopAttendanceData = async (shops: Shop[]) => {
           currentReportedAttendance = {
             count: reportedData.total,
             reportedAt: reportedData.latestReportedAt,
-            reportedBy
+            reportedBy,
+            comment: reportedData.latestComment
           };
         }
       }

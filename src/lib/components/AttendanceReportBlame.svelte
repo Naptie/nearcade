@@ -16,6 +16,7 @@
     reportedAttendance: {
       reportedBy: User | undefined;
       reportedAt: string;
+      comment: string | null;
     };
     class?: string;
     children: Snippet;
@@ -42,16 +43,27 @@
     );
   }}
 >
-  <div class="tooltip-content">
-    {@html m.report_details({
-      user: isTouchscreen
-        ? displayName
-        : `<span class="group-hover/reported-attendance:text-primary transition-colors">${displayName}</span>`,
-      time: formatDistanceToNow(reportedAttendance.reportedAt, {
-        addSuffix: true,
-        locale: getFnsLocale(getLocale())
-      })
-    })}
+  <div
+    class="tooltip-content flex flex-col gap-1"
+    class:rounded-xl={reportedAttendance.comment != null}
+  >
+    <span>
+      {@html m.report_details({
+        user: isTouchscreen
+          ? displayName
+          : `<span class="group-hover/reported-attendance:text-primary transition-colors">${displayName}</span>`,
+        time: formatDistanceToNow(reportedAttendance.reportedAt, {
+          addSuffix: true,
+          locale: getFnsLocale(getLocale())
+        })
+      })}
+    </span>
+    {#if reportedAttendance.comment}
+      <div class="divider -my-1.25"></div>
+      <div class="text-xs break-words whitespace-pre-wrap opacity-70">
+        {reportedAttendance.comment}
+      </div>
+    {/if}
   </div>
   {@render children()}
 </button>

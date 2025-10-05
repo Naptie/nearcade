@@ -257,7 +257,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const attendanceData = {
           currentAttendances: game.currentAttendances,
           reportedBy: user.id,
-          reportedAt: new Date().toISOString()
+          reportedAt: new Date().toISOString(),
+          comment: comment || null
         };
         const ttlSeconds = Math.max(Math.floor((close.getTime() - now) / 1000), 60); // Minimum 60 seconds
 
@@ -424,7 +425,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
             gameId: parseInt(gameId),
             currentAttendances: data.currentAttendances,
             reportedBy: data.reportedBy,
-            reportedAt: data.reportedAt
+            reportedAt: data.reportedAt,
+            comment: data.comment ?? null
           });
           usersSet.add(data.reportedBy);
         }

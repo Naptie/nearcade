@@ -30,7 +30,11 @@ const getShopAttendanceData = async (
             ...shop,
             totalAttendance: data.total || 0,
             currentReportedAttendance: latestReport
-              ? { reportedAt: latestReport.reportedAt, reportedBy: latestReport.reporter! }
+              ? {
+                  reportedAt: latestReport.reportedAt,
+                  reportedBy: latestReport.reporter!,
+                  comment: latestReport.comment ?? null
+                }
               : null
           };
         } else {

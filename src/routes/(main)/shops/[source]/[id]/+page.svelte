@@ -51,6 +51,7 @@
       count: number | undefined;
       reportedBy: User | undefined;
       reportedAt: string;
+      comment: string | null;
     }>
   >([]);
   let totalAttendance = $state(0);
@@ -208,7 +209,8 @@
     return {
       count: mostRecent.currentAttendances,
       reportedBy: mostRecent.reporter,
-      reportedAt: mostRecent.reportedAt
+      reportedAt: mostRecent.reportedAt,
+      comment: mostRecent.comment
     };
   };
 
@@ -614,7 +616,8 @@
               {#if attendanceReport.length > 0}
                 {@const reportedAttendance = {
                   reportedBy: attendanceReport[0].reporter,
-                  reportedAt: attendanceReport[0].reportedAt
+                  reportedAt: attendanceReport[0].reportedAt,
+                  comment: attendanceReport[0].comment
                 }}
                 <AttendanceReportBlame {reportedAttendance}>
                   <div class="text-accent mb-2 text-3xl font-bold">
