@@ -14,6 +14,7 @@ import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
+import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 
 const attend = async (
   user: User,
@@ -383,103 +384,27 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       error(500, 'Redis not available');
     }
 
-    const usersSet = new Set<string>();
-
-    const registered: AttendanceData = [];
-    const reported: AttendanceReport = [];
-
-    if (fetchRegistered) {
-      const pattern = `nearcade:attend:${source}-${id}:*`;
-      const keys = await redis.keys(pattern);
-
-      for (const key of keys) {
-        const dataStr = await redis.get(key);
-        if (dataStr) {
-          const data = JSON.parse(dataStr);
-          const keyParts = key.split(':');
-          const userId = keyParts[3];
-          data.games.forEach((game: { id: number }) => {
-            registered.push({
-              userId,
-              gameId: game.id,
-              attendedAt: data.attendedAt,
-              plannedLeaveAt: data.plannedLeaveAt
-            });
-            usersSet.add(userId);
-          });
-        }
-      }
-    }
-
-    if (fetchReported) {
-      const pattern = `nearcade:attend-report:${source}-${id}:*`;
-      const keys = await redis.keys(pattern);
-
-      for (const key of keys) {
-        const dataStr = await redis.get(key);
-        if (dataStr) {
-          const data = JSON.parse(dataStr);
-          const keyParts = key.split(':');
-          const gameId = keyParts[3];
-          reported.push({
-            gameId: parseInt(gameId),
-            currentAttendances: data.currentAttendances,
-            reportedBy: data.reportedBy,
-            reportedAt: data.reportedAt,
-            comment: data.comment ?? null
-          });
-          usersSet.add(data.reportedBy);
-        }
-      }
-    }
-
-    const db = mongo.db();
-    const usersCollection = db.collection<User>('users');
-    const users = await usersCollection.find({ id: { $in: Array.from(usersSet) } }).toArray();
-
     const session = await locals.auth();
 
-    registered.forEach((entry) => {
-      const user = users.find((u) => u.id === entry.userId) as User;
-      if (
-        session?.user?.userType === 'site_admin' ||
-        session?.user?.id === user.id ||
-        user.isFootprintPublic
-      ) {
-        entry.user = protect(user);
-      } else {
-        delete entry.userId;
-      }
-    });
-    registered.sort((a, b) => new Date(b.attendedAt).getTime() - new Date(a.attendedAt).getTime());
-
-    reported.forEach((entry) => {
-      entry.reporter = protect(users.find((u) => u.id === entry.reportedBy)) as User;
-    });
-    reported.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
-
-    const shopsCollection = db.collection<Shop>('shops');
-    const shop = await shopsCollection.findOne({ id, source });
-    const total = Math.round(
-      shop?.games
-        .map((g) => {
-          const mostRecentReport = reported.filter((r) => r.gameId === g.gameId).at(0);
-          const reportedCount = mostRecentReport?.currentAttendances || 0;
-          if (shop.isClaimed) return reportedCount;
-          const registeredCount = registered
-            .filter(
-              (r) =>
-                r.gameId === g.gameId &&
-                (!mostRecentReport ||
-                  new Date(r.attendedAt) > new Date(mostRecentReport.reportedAt))
-            )
-            .map((c) => 1 / registered.filter((r) => r.userId === c.userId).length)
-            .reduce((a, b) => a + b, 0);
-          return reportedCount + registeredCount;
-        })
-        .reduce((a, b) => a + b, 0) || 0
+    // Use the new attendance function with a single shop
+    const attendanceData = await getShopsAttendanceData(
+      [{ source, id }],
+      { fetchRegistered, fetchReported, session }
     );
-    return json({ success: true, total, registered, reported });
+
+    const shopIdentifier = `${source}-${id}`;
+    const result = attendanceData.get(shopIdentifier);
+
+    if (!result) {
+      return json({ success: true, total: 0, registered: [], reported: [] });
+    }
+
+    return json({
+      success: true,
+      total: result.total,
+      registered: result.registered,
+      reported: result.reported
+    });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
