@@ -295,6 +295,7 @@
       class="fa-solid fa-heart fa-lg"
       text={m.donate()}
     />
+    <FancyButton href={resolve('/globe')} class="fa-solid fa-globe fa-lg" text={m.globe()} />
     <FancyButton
       href={resolve('/(main)/rankings')}
       class="fa-solid fa-trophy fa-lg"

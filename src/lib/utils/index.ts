@@ -997,7 +997,7 @@ export const getNextTimeAtHour = (location: Location, hours: number[], basisHour
  * @param shop The shop to get opening hours for
  * @returns An object containing the opening and closing times
  */
-export const getShopOpeningHours = (shop: Shop) => {
+export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'>) => {
   const { nowShifted, offsetHours } = getCurrentTimeByLocation(shop.location);
   const openingHours =
     shop.openingHours.length === 1
