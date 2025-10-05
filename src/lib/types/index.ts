@@ -519,6 +519,7 @@ export type AttendanceReport = Array<{
   reportedBy: string;
   reporter?: User;
   reportedAt: string;
+  comment: string | null;
 }>;
 
 // Interface for attendance records in MongoDB
@@ -563,6 +564,7 @@ export interface ShopWithAttendance extends Shop {
   currentReportedAttendance?: {
     reportedAt: string;
     reportedBy: User;
+    comment: string | null;
   } | null;
   isInAttendance?: boolean;
 }
