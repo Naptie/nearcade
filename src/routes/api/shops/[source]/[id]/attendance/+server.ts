@@ -2,14 +2,8 @@ import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
-import type {
-  AttendanceData,
-  AttendanceRecord,
-  AttendanceReport,
-  AttendanceReportRecord,
-  Shop
-} from '$lib/types';
-import { getShopOpeningHours, protect } from '$lib/utils';
+import type { AttendanceRecord, AttendanceReportRecord, Shop } from '$lib/types';
+import { getShopOpeningHours } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { getCurrentAttendance } from '$lib/utils/index.server';

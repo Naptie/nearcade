@@ -8,6 +8,7 @@ import type { ShopSource } from '$lib/constants';
 export interface AttendanceDataOptions {
   fetchRegistered?: boolean;
   fetchReported?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   session?: { user?: any } | null;
 }
 

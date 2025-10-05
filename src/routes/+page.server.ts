@@ -1,11 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type {
-  AttendanceData,
-  AttendanceReport,
-  ClubMember,
-  Shop,
-  ShopWithAttendance
-} from '$lib/types';
+import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
@@ -14,6 +8,7 @@ import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 
 const getShopAttendanceData = async (
   shops: Shop[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   session?: { user?: any } | null
 ): Promise<ShopWithAttendance[]> => {
   try {
