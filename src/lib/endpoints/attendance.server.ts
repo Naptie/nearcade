@@ -210,3 +210,85 @@ export const getShopsAttendanceData = async (
 
   return results;
 };
+
+/**
+ * Get all shops with attendance reports from Redis
+ * Fetches all keys starting with nearcade:attend-report: and calculates totals
+ * @returns Map of shop identifiers to their calculated total attendance
+ */
+export const getAllShopsAttendanceReports = async (): Promise<Map<string, number>> => {
+  if (!redis) {
+    throw new Error('Redis not available');
+  }
+
+  const results = new Map<string, number>();
+
+  // Find all attend-report keys
+  const pattern = 'nearcade:attend-report:*';
+  const allKeys = await redis.keys(pattern);
+
+  if (allKeys.length === 0) {
+    return results;
+  }
+
+  // Fetch all report data using mGet
+  const reportValues = await redis.mGet(allKeys);
+
+  // Group reports by shop identifier
+  const shopReports = new Map<string, AttendanceReport>();
+
+  for (let i = 0; i < allKeys.length; i++) {
+    const key = allKeys[i];
+    const dataStr = reportValues[i];
+
+    if (dataStr) {
+      const data = JSON.parse(dataStr);
+      const keyParts = key.split(':');
+      const shopIdentifier = keyParts[2]; // source-id format
+      const gameId = keyParts[3];
+
+      if (!shopReports.has(shopIdentifier)) {
+        shopReports.set(shopIdentifier, []);
+      }
+
+      shopReports.get(shopIdentifier)!.push({
+        gameId: parseInt(gameId),
+        currentAttendances: data.currentAttendances,
+        reportedBy: data.reportedBy,
+        reportedAt: data.reportedAt,
+        comment: data.comment ?? null
+      });
+    }
+  }
+
+  // Fetch shop data from MongoDB to calculate totals
+  const db = mongo.db();
+  const shopsCollection = db.collection<Shop>('shops');
+
+  // Parse shop identifiers to get source and id
+  const shopIdentifiers = Array.from(shopReports.keys()).map((identifier) => {
+    const [source, id] = identifier.split('-');
+    return { source: source as ShopSource, id: parseInt(id) };
+  });
+
+  const shopDocs = await shopsCollection
+    .find({
+      $or: shopIdentifiers.map((s) => ({ source: s.source, id: s.id }))
+    })
+    .toArray();
+
+  // Calculate totals for each shop
+  for (const shopDoc of shopDocs) {
+    const identifier = `${shopDoc.source}-${shopDoc.id}`;
+    const reported = shopReports.get(identifier) || [];
+
+    // Sort reports by date (most recent first) for accurate calculation
+    reported.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
+
+    // For this function, we only use reported data (no registered data)
+    const total = calculateShopTotal(shopDoc, [], reported);
+    results.set(identifier, total);
+  }
+
+  return results;
+};
