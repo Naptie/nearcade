@@ -1,6 +1,6 @@
 import mongo from '$lib/db/index.server';
 import type { PageServerLoad } from './$types';
-import type { UniversityMember, ClubMember, PostWithAuthor } from '$lib/types';
+import type { UniversityMember, ClubMember, PostWithAuthor, Club, University } from '$lib/types';
 import { protect, toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -125,7 +125,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     const [posts, totalCount] = await Promise.all([
       db
         .collection('posts')
-        .aggregate<PostWithAuthor>([
+        .aggregate<PostWithAuthor & { university?: University; club?: Club }>([
           ...postsAggregation,
           { $skip: skip },
           { $limit: limit + 1 } // Get one extra to check if there's more
