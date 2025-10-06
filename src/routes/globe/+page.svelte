@@ -152,7 +152,7 @@
       0
     );
     return {
-      shop: { source: shop.source, id: shop.id },
+      shop,
       location: {
         latitude: shop.location.coordinates[1],
         longitude: shop.location.coordinates[0]
@@ -163,16 +163,14 @@
   })}
   onHover={(point) => {
     if (point !== null) {
-      hoveredShop =
-        shops.find((shop) => shop.source === point.shop.source && shop.id === point.shop.id) ||
-        null;
+      hoveredShop = (point as { shop: ShopWithExtras }).shop;
     } else {
       hoveredShop = null;
     }
   }}
   onClick={(point) => {
     if (point !== null) {
-      const { shop } = point;
+      const shop = (point as { shop: ShopWithExtras }).shop;
       window.open(
         resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: shop.id.toString() }),
         '_blank'

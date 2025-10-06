@@ -9,7 +9,7 @@
 
   // Define the type for a single data point
   type DataPoint = {
-    shop: { source: string; id: number };
+    shop: object;
     location: {
       latitude: number;
       longitude: number;
@@ -24,11 +24,8 @@
     onClick
   }: {
     data: DataPoint[];
-    onHover: (
-      point: Pick<DataPoint, 'shop'> | null,
-      prevPoint: Pick<DataPoint, 'shop'> | null
-    ) => void;
-    onClick: (point: Pick<DataPoint, 'shop'> | null) => void;
+    onHover: (point: object | null, prevPoint: object | null) => void;
+    onClick: (point: object | null) => void;
   } = $props();
 
   let globeEl: HTMLDivElement;
@@ -83,8 +80,8 @@
         .pointAltitude('altitude')
         .pointRadius(0.15)
         .pointColor('color')
-        .onPointHover(onHover as () => void)
-        .onPointClick(onClick as () => void);
+        .onPointHover(onHover)
+        .onPointClick(onClick);
     } catch (err) {
       console.error(err);
     }
