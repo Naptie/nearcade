@@ -381,10 +381,11 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     const session = await locals.auth();
 
     // Use the new attendance function with a single shop
-    const attendanceData = await getShopsAttendanceData(
-      [{ source, id }],
-      { fetchRegistered, fetchReported, session }
-    );
+    const attendanceData = await getShopsAttendanceData([{ source, id }], {
+      fetchRegistered,
+      fetchReported,
+      session
+    });
 
     const shopIdentifier = `${source}-${id}`;
     const result = attendanceData.get(shopIdentifier);

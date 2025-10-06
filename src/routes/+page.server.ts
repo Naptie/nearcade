@@ -5,11 +5,11 @@ import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import { ShopSource } from '$lib/constants';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import type { Session } from '@auth/sveltekit';
 
 const getShopAttendanceData = async (
   shops: Shop[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  session?: { user?: any } | null
+  session?: Session | null
 ): Promise<ShopWithAttendance[]> => {
   try {
     if (!redis || shops.length === 0) {
