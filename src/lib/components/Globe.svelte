@@ -9,6 +9,7 @@
 
   // Define the type for a single data point
   type DataPoint = {
+    shop: { source: string; id: number };
     location: {
       latitude: number;
       longitude: number;
@@ -17,7 +18,18 @@
     color: string;
   };
 
-  let { data }: { data: DataPoint[] } = $props();
+  let {
+    data,
+    onHover,
+    onClick
+  }: {
+    data: DataPoint[];
+    onHover: (
+      point: Pick<DataPoint, 'shop'> | null,
+      prevPoint: Pick<DataPoint, 'shop'> | null
+    ) => void;
+    onClick: (point: Pick<DataPoint, 'shop'> | null) => void;
+  } = $props();
 
   let globeEl: HTMLDivElement;
   let globe: GlobeInstance;
@@ -61,6 +73,7 @@
         .polygonAltitude(-0.0005)
         .pointsData(
           data.map((item) => ({
+            shop: item.shop,
             lat: item.location.latitude,
             lng: item.location.longitude,
             color: item.color,
@@ -69,7 +82,9 @@
         )
         .pointAltitude('altitude')
         .pointRadius(0.15)
-        .pointColor('color');
+        .pointColor('color')
+        .onPointHover(onHover as () => void)
+        .onPointClick(onClick as () => void);
     } catch (err) {
       console.error(err);
     }
@@ -97,7 +112,7 @@
   @reference "tailwindcss";
 
   .globe-container {
-    @apply h-screen w-full cursor-grab touch-none select-none;
+    @apply h-screen w-full cursor-grab touch-none overflow-clip select-none;
   }
 
   .globe-container:active {

@@ -212,61 +212,105 @@ export const getShopsAttendanceData = async (
 };
 
 /**
- * Get all shops with attendance reports from Redis
- * Fetches all keys starting with nearcade:attend-report: and calculates totals
- * @returns Map of shop identifiers to their calculated total attendance
+ * Get all shops with attendance data from Redis
+ * Fetches all keys starting with nearcade:attend: and nearcade:attend-report: and calculates totals per game
+ * @returns Map of shop identifiers to their game attendance totals
  */
-export const getAllShopsAttendanceReports = async (): Promise<Map<string, number>> => {
+export const getAllShopsAttendanceData = async (): Promise<
+  Map<string, Array<{ gameId: number; total: number }>>
+> => {
   if (!redis) {
     throw new Error('Redis not available');
   }
 
-  const results = new Map<string, number>();
+  const results = new Map<string, Array<{ gameId: number; total: number }>>();
 
-  // Find all attend-report keys
-  const pattern = 'nearcade:attend-report:*';
-  const allKeys = await redis.keys(pattern);
+  // Find all attend and attend-report keys
+  const attendPattern = 'nearcade:attend:*';
+  const reportPattern = 'nearcade:attend-report:*';
+  const [attendKeys, reportKeys] = await Promise.all([
+    redis.keys(attendPattern),
+    redis.keys(reportPattern)
+  ]);
 
-  if (allKeys.length === 0) {
+  if (attendKeys.length === 0 && reportKeys.length === 0) {
     return results;
   }
 
-  // Fetch all report data using mGet
-  const reportValues = await redis.mGet(allKeys);
+  // Group registered attendance by shop identifier
+  const shopRegistered = new Map<string, AttendanceData>();
+
+  // Fetch all registered attendance data using mGet
+  if (attendKeys.length > 0) {
+    const attendValues = await redis.mGet(attendKeys);
+
+    for (let i = 0; i < attendKeys.length; i++) {
+      const key = attendKeys[i];
+      const dataStr = attendValues[i];
+
+      if (dataStr) {
+        const data = JSON.parse(dataStr);
+        const keyParts = key.split(':');
+        const shopIdentifier = keyParts[2]; // source-id format
+        const userId = keyParts[3];
+
+        if (!shopRegistered.has(shopIdentifier)) {
+          shopRegistered.set(shopIdentifier, []);
+        }
+
+        data.games.forEach((game: { id: number }) => {
+          shopRegistered.get(shopIdentifier)!.push({
+            userId,
+            gameId: game.id,
+            attendedAt: data.attendedAt,
+            plannedLeaveAt: data.plannedLeaveAt
+          });
+        });
+      }
+    }
+  }
 
   // Group reports by shop identifier
   const shopReports = new Map<string, AttendanceReport>();
 
-  for (let i = 0; i < allKeys.length; i++) {
-    const key = allKeys[i];
-    const dataStr = reportValues[i];
+  // Fetch all report data using mGet
+  if (reportKeys.length > 0) {
+    const reportValues = await redis.mGet(reportKeys);
 
-    if (dataStr) {
-      const data = JSON.parse(dataStr);
-      const keyParts = key.split(':');
-      const shopIdentifier = keyParts[2]; // source-id format
-      const gameId = keyParts[3];
+    for (let i = 0; i < reportKeys.length; i++) {
+      const key = reportKeys[i];
+      const dataStr = reportValues[i];
 
-      if (!shopReports.has(shopIdentifier)) {
-        shopReports.set(shopIdentifier, []);
+      if (dataStr) {
+        const data = JSON.parse(dataStr);
+        const keyParts = key.split(':');
+        const shopIdentifier = keyParts[2]; // source-id format
+        const gameId = keyParts[3];
+
+        if (!shopReports.has(shopIdentifier)) {
+          shopReports.set(shopIdentifier, []);
+        }
+
+        shopReports.get(shopIdentifier)!.push({
+          gameId: parseInt(gameId),
+          currentAttendances: data.currentAttendances,
+          reportedBy: data.reportedBy,
+          reportedAt: data.reportedAt,
+          comment: data.comment ?? null
+        });
       }
-
-      shopReports.get(shopIdentifier)!.push({
-        gameId: parseInt(gameId),
-        currentAttendances: data.currentAttendances,
-        reportedBy: data.reportedBy,
-        reportedAt: data.reportedAt,
-        comment: data.comment ?? null
-      });
     }
   }
+
+  // Get all unique shop identifiers from both registered and reported data
+  const allShopIdentifiers = new Set([...shopRegistered.keys(), ...shopReports.keys()]);
 
   // Fetch shop data from MongoDB to calculate totals
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
 
   // Parse shop identifiers to get source and id
-  const shopIdentifiers = Array.from(shopReports.keys()).map((identifier) => {
+  const shopIdentifiers = Array.from(allShopIdentifiers).map((identifier) => {
     const [source, id] = identifier.split('-');
     return { source: source as ShopSource, id: parseInt(id) };
   });
@@ -277,17 +321,46 @@ export const getAllShopsAttendanceReports = async (): Promise<Map<string, number
     })
     .toArray();
 
-  // Calculate totals for each shop
+  // Calculate totals for each game in each shop
   for (const shopDoc of shopDocs) {
     const identifier = `${shopDoc.source}-${shopDoc.id}`;
+    const registered = shopRegistered.get(identifier) || [];
     const reported = shopReports.get(identifier) || [];
 
     // Sort reports by date (most recent first) for accurate calculation
     reported.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
 
-    // For this function, we only use reported data (no registered data)
-    const total = calculateShopTotal(shopDoc, [], reported);
-    results.set(identifier, total);
+    const gameAttendances: Array<{ gameId: number; total: number }> = [];
+
+    // Calculate total for each game
+    for (const game of shopDoc.games) {
+      const gameRegistered = registered.filter((r) => r.gameId === game.gameId);
+      const gameReported = reported.filter((r) => r.gameId === game.gameId);
+
+      const mostRecentReport = gameReported.at(0);
+      const reportedCount = mostRecentReport?.currentAttendances || 0;
+
+      let total: number;
+      if (shopDoc.isClaimed) {
+        total = reportedCount;
+      } else {
+        const registeredCount = gameRegistered
+          .filter(
+            (r) =>
+              !mostRecentReport || new Date(r.attendedAt) > new Date(mostRecentReport.reportedAt)
+          )
+          .map((c) => 1 / registered.filter((r) => r.userId === c.userId).length)
+          .reduce((a, b) => a + b, 0);
+        total = reportedCount + registeredCount;
+      }
+
+      gameAttendances.push({
+        gameId: game.gameId,
+        total: Math.round(total)
+      });
+    }
+
+    results.set(identifier, gameAttendances);
   }
 
   return results;
