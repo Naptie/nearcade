@@ -1,4 +1,4 @@
-import type { ShopSource } from '$lib/constants';
+import type { ShopSource, SocialPlatform } from '$lib/constants';
 import type { NotificationType, UserType } from '$lib/types';
 import type { ObjectId } from 'mongodb';
 
@@ -26,7 +26,7 @@ declare module '@auth/sveltekit' {
     fcmTokens?: string[]; // Firebase Cloud Messaging tokens
     fcmTokenUpdatedAt?: Date; // Last time FCM tokens were updated
     socialLinks?: {
-      platform: 'qq' | 'wechat' | 'github' | 'discord';
+      platform: SocialPlatform;
       username: string;
     }[]; // Social media links
     apiTokens?: {

@@ -4,6 +4,7 @@ import type { PageServerLoad, Actions } from './$types';
 import mongo from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
+import type { SocialPlatform } from '$lib/constants';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -66,10 +67,10 @@ export const actions: Actions = {
 
       // Parse social links
       const socialLinks: Array<{
-        platform: 'qq' | 'wechat' | 'github' | 'discord';
+        platform: SocialPlatform;
         username: string;
       }> = [];
-      const platforms = ['qq', 'wechat', 'github', 'discord'] as const;
+      const platforms = ['qq', 'wechat', 'github', 'discord', 'divingfish'] as const;
 
       // Extract social links from form data
       for (const entry of formData.entries()) {
@@ -182,7 +183,7 @@ export const actions: Actions = {
         isFrequentingArcadePublic: boolean;
         isStarredArcadePublic: boolean;
         notificationTypes: NotificationType[];
-        socialLinks: Array<{ platform: 'qq' | 'wechat' | 'github' | 'discord'; username: string }>;
+        socialLinks: Array<{ platform: SocialPlatform; username: string }>;
         updatedAt: Date;
         name?: string;
       } = {

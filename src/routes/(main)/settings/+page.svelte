@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import type { SocialPlatform } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName } from '$lib/utils';
   import type { PageData, ActionData } from './$types';
@@ -204,7 +205,7 @@
 
   const updateSocialLink = (index: number, field: 'platform' | 'username', value: string) => {
     socialLinks = socialLinks.map(
-      (link: { platform: 'qq' | 'wechat' | 'github' | 'discord'; username: string }, i: number) =>
+      (link: { platform: SocialPlatform; username: string }, i: number) =>
         i === index ? { ...link, [field]: value } : link
     );
   };
@@ -422,6 +423,9 @@
                 </option>
                 <option value="discord">
                   {m.social_platform_discord()}
+                </option>
+                <option value="divingfish">
+                  {m.social_platform_divingfish()}
                 </option>
               </select>
             </div>

@@ -17,6 +17,8 @@ export const USER_TYPES = [
   'regular'
 ] as const;
 
+export const SOCIAL_PLATFORMS = ['qq', 'wechat', 'github', 'discord', 'divingfish'] as const;
+
 // Radius constants for search distances
 export const RADIUS_OPTIONS = [1, 2, 5, 10] as const;
 
@@ -57,3 +59,4 @@ export enum ShopSource {
 
 export type GameKey = (typeof GAMES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];

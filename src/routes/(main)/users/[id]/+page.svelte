@@ -34,6 +34,14 @@
   let activitiesPage = $state(1);
   let activitiesError = $state<string | null>(null);
 
+  let dxRating = $derived.by(() => {
+    const divingfishLink = data.user.socialLinks.find((link) => link.platform === 'divingfish');
+    if (divingfishLink && divingfishLink.username) {
+      return `https://dxrating.phizone.cn/api/genImage/${divingfishLink.username}`;
+    }
+    return null;
+  });
+
   // Check if can view activities
   const canViewActivities = $derived(data.isOwnProfile || data.user.isActivityPublic !== false);
 
@@ -120,6 +128,9 @@
             <span class="badge text-nowrap {getUserTypeBadgeClass(data.user.userType)}">
               {getUserTypeLabel(data.user.userType)}
             </span>
+            {#if dxRating}
+              <img src={dxRating} alt="DX Rating" class="w-36" />
+            {/if}
           </div>
 
           {#if data.user.displayName && data.user.name && data.user.displayName !== data.user.name}
@@ -433,7 +444,9 @@
                           ? 'fa-brands fa-github'
                           : link.platform === 'discord'
                             ? 'fa-brands fa-discord'
-                            : 'fa-solid fa-link'}
+                            : link.platform === 'divingfish'
+                              ? 'fa-solid fa-fish-fins'
+                              : 'fa-solid fa-link'}
                   {@const linkUrl =
                     link.platform === 'github' ? `https://github.com/${link.username}` : null}
                   <div class="flex items-center gap-2 text-sm">
@@ -447,7 +460,9 @@
                             ? m.social_platform_github()
                             : link.platform === 'discord'
                               ? m.social_platform_discord()
-                              : link.platform}
+                              : link.platform === 'divingfish'
+                                ? m.social_platform_divingfish()
+                                : link.platform}
                     >
                       <i class="{iconClass} text-base-content/50"></i>
                     </div>
