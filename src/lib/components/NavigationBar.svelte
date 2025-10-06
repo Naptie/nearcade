@@ -50,37 +50,37 @@
     ? 'bg-transparent'
     : 'bg-base-100/50 shadow lg:shadow-md'}"
 >
-  <div class="flex-1">
-    <SiteTitle class="text-3xl md:text-4xl" />
-  </div>
-  <div class="flex-none">
-    <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
-      <LocaleSwitch class="text-shadow-lg" />
-      <FancyButton
-        callback={() => {
-          window.dispatchEvent(new CustomEvent('nearcade-donate'));
-        }}
-        class="fa-solid fa-heart fa-lg text-shadow-lg"
-        btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden"
-        text={m.donate()}
-      />
-      <FancyButton
-        href={resolve('/globe')}
-        class="fa-solid fa-globe fa-lg text-shadow-lg"
-        text={m.globe()}
-      />
-      <FancyButton
-        href={resolve('/(main)/rankings')}
-        class="fa-solid fa-trophy fa-lg text-shadow-lg"
-        text={m.campus_rankings()}
-      />
-      <FancyButton
-        href={resolve('/')}
-        class="fa-solid fa-home fa-lg text-shadow-lg"
-        btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden"
-        text={m.home()}
-      />
-      <AuthModal size="lg" class="shadow-lg" />
+  <div class="relative flex-1">
+    <div class="absolute top-1/2 left-0 z-0 -translate-y-1/2">
+      <SiteTitle class="xs:text-2xl ss:text-3xl text-lg md:text-4xl" />
     </div>
+  </div>
+  <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
+    <LocaleSwitch class="text-shadow-lg" />
+    <FancyButton
+      callback={() => {
+        window.dispatchEvent(new CustomEvent('nearcade-donate'));
+      }}
+      class="fa-solid fa-heart fa-lg text-shadow-lg"
+      btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden"
+      text={m.donate()}
+    />
+    <FancyButton
+      href={resolve('/globe')}
+      class="fa-solid fa-globe fa-lg text-shadow-lg"
+      text={m.globe()}
+    />
+    <FancyButton
+      href={resolve('/(main)/rankings')}
+      class="fa-solid fa-trophy fa-lg text-shadow-lg"
+      text={m.campus_rankings()}
+    />
+    <FancyButton
+      href={resolve('/')}
+      class="fa-solid fa-home fa-lg text-shadow-lg"
+      btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden"
+      text={m.home()}
+    />
+    <AuthModal size="lg" class="shadow-lg" />
   </div>
 </nav>
