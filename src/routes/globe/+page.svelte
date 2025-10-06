@@ -45,9 +45,9 @@
   let isMobile = $derived(isTouchscreen());
 
   onMount(() => {
-    const interval = setInterval(() => {
-      now = new Date();
-    }, 1000);
+    // const interval = setInterval(() => {
+    //   now = new Date();
+    // }, 1000);
 
     const handleMouseMove = (e: MouseEvent) => {
       cursorPos = { x: e.clientX, y: e.clientY };
@@ -56,7 +56,7 @@
     window.addEventListener('mousemove', handleMouseMove);
 
     return () => {
-      clearInterval(interval);
+      // clearInterval(interval);
       window.removeEventListener('mousemove', handleMouseMove);
     };
   });
