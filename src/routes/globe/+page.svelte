@@ -6,6 +6,7 @@
     formatShopAddress,
     getGameName,
     getShopOpeningHours,
+    isTouchscreen,
     pageTitle
   } from '$lib/utils';
   import Globe from '$lib/components/Globe.svelte';
@@ -41,6 +42,7 @@
   let now = $state(new Date());
   let hoveredShop: (typeof shops)[number] | null = $state(null);
   let cursorPos = $state({ x: 0, y: 0 });
+  let isMobile = $derived(isTouchscreen());
 
   onMount(() => {
     const interval = setInterval(() => {
@@ -189,10 +191,7 @@
     return `${sign}${formatHourLiteral(Math.abs(hours))}`;
   })()}
 
-  <div
-    class="pointer-events-none fixed z-50"
-    style="left: {cursorPos.x + 5}px; top: {cursorPos.y + 5}px;"
-  >
+  {#snippet card()}
     <div
       class="card bg-base-200 min-w-0 border-2 shadow-md transition border-{getDensityTailwindColor(
         shop.density
@@ -268,6 +267,18 @@
         </div>
       </div>
     </div>
+  {/snippet}
+
+  <div
+    class="pointer-events-none fixed z-50"
+    class:hidden={isMobile}
+    style="left: {cursorPos.x + 5}px; top: {cursorPos.y + 5}px;"
+  >
+    {@render card()}
+  </div>
+
+  <div class="absolute inset-x-0 top-16" class:hidden={!isMobile}>
+    {@render card()}
   </div>
 {/if}
 

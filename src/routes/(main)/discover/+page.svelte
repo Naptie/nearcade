@@ -205,7 +205,7 @@
     );
   });
 
-  let isMobile = $derived.by(() => {
+  let isMobileView = $derived.by(() => {
     return browser && screenWidth < 768;
   });
 
@@ -267,7 +267,7 @@
 
   const openRouteGuidance = () => {
     routeGuidance.isOpen = true;
-    if (isMobile) {
+    if (isMobileView) {
       mapContainer?.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
@@ -647,7 +647,7 @@
               }, 3000);
 
               const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
-              if (shopElement && !(isMobile && routeGuidance.isOpen)) {
+              if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             });
@@ -733,7 +733,7 @@
                 }, 3000);
               }
               const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
-              if (shopElement && !(isMobile && routeGuidance.isOpen)) {
+              if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             });
@@ -1178,7 +1178,7 @@
               onclick={(event) => {
                 if ((event.target as Element)?.closest('button, a')) return;
                 selectedShopId = `${shop.source}-${shop.id}`;
-                if (!(isMobile && routeGuidance.isOpen))
+                if (!(isMobileView && routeGuidance.isOpen))
                   mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >

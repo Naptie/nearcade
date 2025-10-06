@@ -110,6 +110,8 @@ export const isDarkMode = (): boolean => {
   return darkModeMediaQuery?.matches;
 };
 
+export const isTouchscreen = (): boolean => window?.matchMedia('(pointer: coarse)').matches;
+
 export const parseRelativeTime = (date: Date, locale: string) => {
   const now = new Date();
   const diffInSeconds = Math.floor((date.getTime() - now.getTime()) / 1000);
