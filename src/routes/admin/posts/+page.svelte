@@ -123,7 +123,7 @@
             {#each data.posts as post (post.id)}
               <tr>
                 <td>
-                  <div class="flex flex-col gap-1 overflow-hidden">
+                  <div class="inline-flex flex-wrap gap-1 overflow-hidden">
                     <a
                       class="hover:text-accent line-clamp-2 font-medium transition-colors"
                       href={post.universityId
