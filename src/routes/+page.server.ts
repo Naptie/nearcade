@@ -1,51 +1,56 @@
 import type { PageServerLoad } from './$types';
-import type {
-  AttendanceData,
-  AttendanceReport,
-  ClubMember,
-  Shop,
-  ShopWithAttendance
-} from '$lib/types';
+import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import { ShopSource } from '$lib/constants';
+import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import type { Session } from '@auth/sveltekit';
 
 const getShopAttendanceData = async (
   shops: Shop[],
-  fetch: typeof window.fetch
+  session?: Session | null
 ): Promise<ShopWithAttendance[]> => {
   try {
-    return await Promise.all(
-      shops.map(async (shop) => {
-        const response = await fetch(`/api/shops/${shop.source}/${shop.id}/attendance`);
-        if (response.ok) {
-          const data = (await response.json()) as {
-            total: number;
-            registered: AttendanceData;
-            reported: AttendanceReport;
-          };
-          const latestReport = data.reported?.at(0);
-          return {
-            ...shop,
-            totalAttendance: data.total || 0,
-            currentReportedAttendance: latestReport
-              ? {
-                  reportedAt: latestReport.reportedAt,
-                  reportedBy: latestReport.reporter!,
-                  comment: latestReport.comment ?? null
-                }
-              : null
-          };
-        } else {
-          return {
-            ...shop,
-            totalAttendance: 0,
-            currentReportedAttendance: null
-          };
-        }
-      })
+    if (!redis || shops.length === 0) {
+      return shops.map((shop) => ({
+        ...shop,
+        totalAttendance: 0,
+        currentReportedAttendance: null
+      }));
+    }
+
+    // Use the new function to get attendance data for all shops at once
+    const attendanceData = await getShopsAttendanceData(
+      shops.map((shop) => ({ source: shop.source, id: shop.id })),
+      { fetchRegistered: false, fetchReported: true, session }
     );
+
+    return shops.map((shop) => {
+      const shopIdentifier = `${shop.source}-${shop.id}`;
+      const data = attendanceData.get(shopIdentifier);
+
+      if (data && data.reported.length > 0) {
+        const latestReport = data.reported[0];
+        return {
+          ...shop,
+          totalAttendance: data.total || 0,
+          currentReportedAttendance: latestReport
+            ? {
+                reportedAt: latestReport.reportedAt,
+                reportedBy: latestReport.reporter!,
+                comment: latestReport.comment ?? null
+              }
+            : null
+        };
+      } else {
+        return {
+          ...shop,
+          totalAttendance: data?.total || 0,
+          currentReportedAttendance: null
+        };
+      }
+    });
   } catch (error) {
     console.error('Failed to get attendance data:', error);
     return shops.map((shop) => ({
@@ -56,7 +61,7 @@ const getShopAttendanceData = async (
   }
 };
 
-export const load: PageServerLoad = async ({ parent, fetch }) => {
+export const load: PageServerLoad = async ({ parent }) => {
   const { session } = await parent();
 
   if (!session || !session.user) {
@@ -191,7 +196,7 @@ export const load: PageServerLoad = async ({ parent, fetch }) => {
       }
     }
 
-    const shopsWithAttendance = await getShopAttendanceData(allShops, fetch);
+    const shopsWithAttendance = await getShopAttendanceData(allShops, session);
 
     return {
       starredShops: toPlainArray(shopsWithAttendance)
