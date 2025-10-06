@@ -119,7 +119,7 @@ export const markNotificationsAsRead = async (
 };
 
 /**
- * Count pending join requests that a user can manage
+ * Count pending join requests that a user should manage
  */
 export const countPendingJoinRequests = async (
   client: MongoClient,
@@ -142,12 +142,6 @@ export const countPendingJoinRequests = async (
     return undefined;
   }
 
-  // Site admins can manage all join requests
-  if (user.userType === 'site_admin') {
-    return await db.collection('join_requests').countDocuments({ status: 'pending' });
-  }
-
-  // For non-site admins, apply scope-based filtering
   // Get user's club/university memberships where they have admin/moderator role
   const [clubMemberships, universityMemberships] = await Promise.all([
     db
