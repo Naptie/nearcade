@@ -38,7 +38,7 @@ export const actions: Actions = {
   updateProfile: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized', fieldErrors: {} });
+      return fail(401, { message: m.unauthorized(), fieldErrors: {} });
     }
 
     const user = session.user;
@@ -207,7 +207,7 @@ export const actions: Actions = {
 
       await usersCollection.updateOne({ _id: new ObjectId(user.id) }, { $set: updateData });
 
-      return { success: true, message: 'profile_updated' };
+      return { success: true };
     } catch (err) {
       console.error('Error updating profile:', err);
       return fail(500, {

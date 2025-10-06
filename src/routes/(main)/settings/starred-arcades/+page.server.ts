@@ -57,7 +57,7 @@ export const actions: Actions = {
   addArcade: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -69,11 +69,11 @@ export const actions: Actions = {
       const arcadeId = parseInt(arcadeIdRaw as string, 10);
 
       if (!arcadeSource) {
-        return fail(400, { message: 'Arcade source is required' });
+        return fail(400, { message: m.arcade_source_is_required() });
       }
 
       if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
-        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
+        return fail(400, { message: m.arcade_id_is_required_and_must_be_a_valid_integer() });
       }
 
       const db = mongo.db();
@@ -83,7 +83,7 @@ export const actions: Actions = {
       // Check if arcade exists
       const arcade = await shopsCollection.findOne({ id: arcadeId, source: arcadeSource });
       if (!arcade) {
-        return fail(404, { message: 'Arcade not found' });
+        return fail(404, { message: m.arcade_not_found() });
       }
 
       // Add arcade to user's starred list
@@ -95,17 +95,17 @@ export const actions: Actions = {
         }
       );
 
-      return { success: true, message: 'Arcade starred successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error starring arcade:', err);
-      return fail(500, { message: 'Failed to star arcade' });
+      return fail(500, { message: m.failed_to_star_arcade() });
     }
   },
 
   removeArcade: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -117,7 +117,7 @@ export const actions: Actions = {
       const arcadeSource = formData.get('arcadeSource') as ShopSource;
 
       if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
-        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
+        return fail(400, { message: m.arcade_id_is_required_and_must_be_a_valid_integer() });
       }
 
       const db = mongo.db();
@@ -132,10 +132,10 @@ export const actions: Actions = {
         }
       );
 
-      return { success: true, message: 'Arcade unstarred successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error unstarring arcade:', err);
-      return fail(500, { message: 'Failed to unstar arcade' });
+      return fail(500, { message: m.failed_to_unstar_arcade() });
     }
   }
 };

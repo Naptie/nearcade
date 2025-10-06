@@ -143,7 +143,7 @@ export const actions: Actions = {
   delete: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -151,7 +151,7 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!clubId) {
-        return fail(400, { message: 'Club ID is required' });
+        return fail(400, { message: m.club_id_is_required() });
       }
 
       const db = mongo.db();
@@ -166,7 +166,7 @@ export const actions: Actions = {
       }
 
       if (!hasPermission) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       // Delete club and related data
@@ -182,10 +182,10 @@ export const actions: Actions = {
         inviteLinksCollection.deleteMany({ type: 'club', targetId: clubId })
       ]);
 
-      return { success: true, message: 'Club deleted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error deleting club:', err);
-      return fail(500, { message: 'Failed to delete club' });
+      return fail(500, { message: m.failed_to_delete_club() });
     }
   }
 };

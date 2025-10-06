@@ -1,11 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
+import { m } from '$lib/paraglide/messages';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Authentication required');
+    error(401, m.unauthorized());
   }
 
   const userType = session.user.userType;

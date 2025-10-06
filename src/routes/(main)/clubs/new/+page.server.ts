@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import { resolve } from '$app/paths';
 import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = await locals.auth();
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   const universityId = url.searchParams.get('university');
 
   if (!universityId) {
-    error(400, 'University ID is required');
+    error(400, m.university_id_is_required());
   }
 
   try {
@@ -26,7 +27,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     const university = await universitiesCollection.findOne({ id: universityId });
 
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     return {
@@ -49,7 +50,7 @@ export const actions: Actions = {
   default: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -69,13 +70,13 @@ export const actions: Actions = {
       const postWritability = parseInt(formData.get('postWritability') as string);
 
       if (!name?.trim() || !slug?.trim() || !universityId?.trim()) {
-        return fail(400, { message: 'Name, slug, and university are required' });
+        return fail(400, { message: m.name_slug_and_university_are_required() });
       }
 
       // Validate slug format
       if (!/^[a-z0-9-]+$/.test(slug)) {
         return fail(400, {
-          message: 'Slug can only contain lowercase letters, numbers and hyphens'
+          message: m.slug_can_only_contain_lowercase_letters_numbers_and_hyphens()
         });
       }
 
@@ -86,13 +87,13 @@ export const actions: Actions = {
       // Verify university exists
       const university = await universitiesCollection.findOne({ id: universityId });
       if (!university) {
-        return fail(404, { message: 'University not found' });
+        return fail(404, { message: m.university_not_found() });
       }
 
       // Check if slug is unique
       const existingClub = await clubsCollection.findOne({ slug });
       if (existingClub) {
-        return fail(400, { message: 'This slug is already taken' });
+        return fail(400, { message: m.this_slug_is_already_taken() });
       }
 
       // Create club
@@ -128,7 +129,7 @@ export const actions: Actions = {
       });
     } catch (err) {
       console.error('Error creating club:', err);
-      return fail(500, { message: 'Failed to create club' });
+      return fail(500, { message: m.failed_to_create_club() });
     }
 
     redirect(302, resolve('/(main)/clubs/[id]', { id: slug }));

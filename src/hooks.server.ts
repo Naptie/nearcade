@@ -6,6 +6,7 @@ import { handle as handleAuth } from '$lib/auth/index.server';
 import { env } from '$env/dynamic/public';
 import redis from '$lib/db/redis.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
+import { m } from '$lib/paraglide/messages';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -16,7 +17,7 @@ const reportError: HandleServerError = ({ status, error }) => {
   }
   console.error(error);
   return {
-    message: 'An unexpected error occurred. Please try again later.',
+    message: m.unexpected_error(),
     code: 'INTERNAL_ERROR'
   };
 };

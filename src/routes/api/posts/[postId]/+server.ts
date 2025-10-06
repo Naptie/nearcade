@@ -19,6 +19,7 @@ import {
   getDefaultPostReadability,
   protect
 } from '$lib/utils';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -163,7 +164,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      error(401, 'Authentication required');
+      error(401, m.unauthorized());
     }
 
     const postId = params.postId;
@@ -288,7 +289,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   try {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      error(401, 'Authentication required');
+      error(401, m.unauthorized());
     }
 
     const postId = params.postId;

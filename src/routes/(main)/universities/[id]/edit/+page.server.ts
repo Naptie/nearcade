@@ -6,6 +6,7 @@ import { loginRedirect } from '$lib/utils/scoped';
 import { logUniversityChanges } from '$lib/utils/changelog.server';
 import { resolve } from '$app/paths';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -58,7 +59,7 @@ export const actions: Actions = {
   updateUniversity: async ({ request, locals, params }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -86,7 +87,7 @@ export const actions: Actions = {
       // Check permissions using new system
       const permissions = await checkUniversityPermission(user, id, mongo);
       if (!permissions.canEdit) {
-        return fail(403, { message: 'Insufficient privileges' });
+        return fail(403, { message: m.privilege_insufficient() });
       }
 
       // Validation
@@ -143,7 +144,7 @@ export const actions: Actions = {
 
       if (errors.length > 0) {
         return fail(400, {
-          message: 'Validation failed',
+          message: m.validation_error(),
           errors,
           formData: {
             name: name?.trim() || '',
@@ -176,7 +177,7 @@ export const actions: Actions = {
       )) as unknown as University | null;
 
       if (!currentUniversity) {
-        return fail(404, { message: 'University not found' });
+        return fail(404, { message: m.university_not_found() });
       }
 
       id = currentUniversity.id;
@@ -189,7 +190,7 @@ export const actions: Actions = {
         });
 
         if (existingUniversity) {
-          return fail(400, { message: 'This URL slug is already taken' });
+          return fail(400, { message: m.this_url_slug_is_already_taken() });
         }
       }
 
@@ -233,7 +234,7 @@ export const actions: Actions = {
         throw err;
       }
       console.error('Error updating university:', err);
-      return fail(500, { message: 'Failed to update university' });
+      return fail(500, { message: m.failed_to_update_university() });
     }
   }
 };

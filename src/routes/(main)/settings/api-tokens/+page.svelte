@@ -105,6 +105,30 @@
         return m.api_token_reset();
       case 'api_token_deleted':
         return m.api_token_deleted();
+      case 'expiration_date_must_be_future':
+        return m.expiration_date_must_be_future();
+      case 'maximum_expiration_one_year':
+        return m.maximum_expiration_one_year();
+      case 'invalid_expiration_option':
+        return m.invalid_expiration_option();
+      case 'error_creating_token':
+        return m.error_creating_token();
+      case 'error_renaming_token':
+        return m.error_renaming_token();
+      case 'token_id_required':
+        return m.token_id_required();
+      case 'user_or_tokens_not_found':
+        return m.user_or_tokens_not_found();
+      case 'token_not_found':
+        return m.token_not_found();
+      case 'cannot_reset_expired_token':
+        return m.cannot_reset_expired_token();
+      case 'error_resetting_token':
+        return m.error_resetting_token();
+      case 'error_deleting_token':
+        return m.error_deleting_token();
+      case 'unauthorized':
+        return m.unauthorized();
       case 'cancel':
         return m.cancel();
       case 'delete':

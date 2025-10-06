@@ -61,7 +61,7 @@ export const actions: Actions = {
   addArcade: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -73,11 +73,11 @@ export const actions: Actions = {
       const arcadeId = parseInt(arcadeIdRaw as string, 10);
 
       if (!arcadeSource) {
-        return fail(400, { message: 'Arcade source is required' });
+        return fail(400, { message: m.arcade_source_is_required() });
       }
 
       if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
-        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
+        return fail(400, { message: m.arcade_id_is_required_and_must_be_a_valid_integer() });
       }
 
       const db = mongo.db();
@@ -87,7 +87,7 @@ export const actions: Actions = {
       // Check if arcade exists
       const arcade = await shopsCollection.findOne({ id: arcadeId, source: arcadeSource });
       if (!arcade) {
-        return fail(404, { message: 'Arcade not found' });
+        return fail(404, { message: m.arcade_not_found() });
       }
 
       // Add arcade to user's frequenting list
@@ -99,17 +99,17 @@ export const actions: Actions = {
         }
       );
 
-      return { success: true, message: 'Arcade added to your frequenting list' };
+      return { success: true };
     } catch (err) {
       console.error('Error adding arcade:', err);
-      return fail(500, { message: 'Failed to add arcade' });
+      return fail(500, { message: m.failed_to_add_arcade() });
     }
   },
 
   removeArcade: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -121,11 +121,11 @@ export const actions: Actions = {
       const arcadeSource = formData.get('arcadeSource') as ShopSource;
 
       if (!arcadeSource) {
-        return fail(400, { message: 'Arcade source is required' });
+        return fail(400, { message: m.arcade_source_is_required() });
       }
 
       if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
-        return fail(400, { message: 'Arcade ID is required and must be a valid integer' });
+        return fail(400, { message: m.arcade_id_is_required_and_must_be_a_valid_integer() });
       }
 
       const db = mongo.db();
@@ -140,17 +140,17 @@ export const actions: Actions = {
         }
       );
 
-      return { success: true, message: 'Arcade removed from your frequenting list' };
+      return { success: true };
     } catch (err) {
       console.error('Error removing arcade:', err);
-      return fail(500, { message: 'Failed to remove arcade' });
+      return fail(500, { message: m.failed_to_remove_arcade() });
     }
   },
 
   updateSettings: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -167,11 +167,13 @@ export const actions: Actions = {
         discoveryInteractionThreshold < 1 ||
         discoveryInteractionThreshold > 100
       ) {
-        return fail(400, { message: 'Discovery interaction threshold must be between 1 and 100' });
+        return fail(400, {
+          message: m.discovery_interaction_threshold_must_be_between_1_and_100()
+        });
       }
 
       if (!attendanceThreshold || attendanceThreshold < 1 || attendanceThreshold > 100) {
-        return fail(400, { message: 'Attendance threshold must be between 1 and 100' });
+        return fail(400, { message: m.attendance_threshold_must_be_between_1_and_100() });
       }
 
       const db = mongo.db();
@@ -189,10 +191,10 @@ export const actions: Actions = {
         }
       );
 
-      return { success: true, message: 'Settings updated successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error updating settings:', err);
-      return fail(500, { message: 'Failed to update settings' });
+      return fail(500, { message: m.failed_to_update_settings() });
     }
   }
 };
