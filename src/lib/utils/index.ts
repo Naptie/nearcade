@@ -979,13 +979,15 @@ export const getNextTimeAtHour = (location: Location, hours: number[], basisHour
   let targetUtcMs = Date.UTC(year, month, date, hour, minute, 0, 0);
 
   // If that target time is not in the future (i.e. already passed or equal to now), move to next day
+  let i = 0;
   while (targetUtcMs <= now.getTime()) {
-    targetUtcMs = Date.UTC(year, month, date + 1, hour, minute, 0, 0);
+    targetUtcMs = Date.UTC(year, month, date + ++i, hour, minute, 0, 0);
   }
 
   // Otherwise, if the target time is too far in the future (more than 24 hours), move to previous day
+  i = 0;
   while (targetUtcMs - now.getTime() > 24 * 3600 * 1000) {
-    targetUtcMs = Date.UTC(year, month, date - 1, hour, minute, 0, 0);
+    targetUtcMs = Date.UTC(year, month, date - ++i, hour, minute, 0, 0);
   }
 
   return {
