@@ -1013,7 +1013,7 @@
         action="?/deleteCampus"
         use:enhance={() => {
           return async ({ result, update }) => {
-            update();
+            await update();
             if (result.type === 'success') {
               showDeleteConfirm = false;
               deletingCampusId = '';
