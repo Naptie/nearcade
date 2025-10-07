@@ -152,7 +152,7 @@
     <div class="p-8 text-center">
       <i class="fa-solid fa-clock-rotate-left text-base-content/30 mb-4 text-5xl"></i>
       <h4 class="mb-2 text-lg font-medium">{m.changelog_no_entries()}</h4>
-      <p class="text-base-content/60">{m.change_history_description()}</p>
+      <p class="text-base-content/60">{m.changelog_description()}</p>
     </div>
   {:else}
     <div class="divide-base-200 divide-y">

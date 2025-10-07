@@ -825,7 +825,7 @@
                     >
                       {#if isLoadingMoreMembers}
                         <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading_members()}
+                        {m.loading()}
                       {:else}
                         {m.load_more()}
                       {/if}

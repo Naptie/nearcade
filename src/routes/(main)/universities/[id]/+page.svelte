@@ -677,9 +677,9 @@
                     >
                       {#if isLoadingMoreClubs}
                         <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading_clubs()}
+                        {m.loading()}
                       {:else}
-                        {m.load_more_clubs()}
+                        {m.load_more()}
                       {/if}
                     </button>
                   </div>
@@ -930,7 +930,7 @@
                     >
                       {#if isLoadingMoreMembers}
                         <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading_members()}
+                        {m.loading()}
                       {:else}
                         {m.load_more()}
                       {/if}

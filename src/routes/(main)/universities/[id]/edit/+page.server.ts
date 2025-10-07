@@ -190,7 +190,7 @@ export const actions: Actions = {
         });
 
         if (existingUniversity) {
-          return fail(400, { message: m.this_url_slug_is_already_taken() });
+          return fail(400, { message: m.this_slug_is_already_taken() });
         }
       }
 
