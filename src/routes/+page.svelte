@@ -17,7 +17,8 @@
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
-    getShopOpeningHours
+    getShopOpeningHours,
+    isDarkMode
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
@@ -155,7 +156,7 @@
     if (googleMaps) {
       const map = new google.maps.Map(googleMaps, {
         zoom: 15,
-        colorScheme: google.maps.ColorScheme.FOLLOW_SYSTEM,
+        colorScheme: isDarkMode() ? 'DARK' : 'LIGHT',
         gestureHandling: 'greedy',
         streetViewControl: false
       });

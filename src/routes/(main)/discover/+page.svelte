@@ -567,7 +567,7 @@
           mapId: PUBLIC_GOOGLE_MAPS_MAP_ID,
           zoom: 10,
           center: { lat: data.location.latitude, lng: data.location.longitude },
-          colorScheme: google.maps.ColorScheme.FOLLOW_SYSTEM
+          colorScheme: isDarkMode() ? 'DARK' : 'LIGHT'
         });
 
         map = googleMap;
