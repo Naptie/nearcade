@@ -147,7 +147,7 @@
                 {@html ratingImage}
               </span>
             {:else if dxRating}
-              <span title={m.dx_rating()} class="skeleton h-[1.762rem] w-36 rounded-lg"></span>
+              <span title={m.dx_rating()} class="skeleton h-[1.762rem] w-36 rounded-md"></span>
             {/if}
           </div>
 
