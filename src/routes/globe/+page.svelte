@@ -163,6 +163,7 @@
     };
   })}
   onHover={(point) => {
+    if (isMobile) return;
     if (point !== null) {
       hoveredShop = (point as { shop: ShopWithExtras }).shop;
     } else {
@@ -172,10 +173,14 @@
   onClick={(point) => {
     if (point !== null) {
       const shop = (point as { shop: ShopWithExtras }).shop;
-      window.open(
-        resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: shop.id.toString() }),
-        adaptiveNewTab()
-      );
+      if (isMobile) {
+        hoveredShop = shop;
+      } else {
+        window.open(
+          resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: shop.id.toString() }),
+          adaptiveNewTab()
+        );
+      }
     }
   }}
 />
@@ -196,6 +201,7 @@
         source: shop.source,
         id: shop.id.toString()
       })}
+      target={adaptiveNewTab()}
       class="card bg-base-200 min-w-0 border-2 shadow-md transition border-{getDensityTailwindColor(
         shop.density
       )}/30 hover:border-primary"
