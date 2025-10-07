@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
@@ -41,6 +42,7 @@
     }
     return null;
   });
+  let ratingImage = $state<string | null>(null);
 
   // Check if can view activities
   const canViewActivities = $derived(data.isOwnProfile || data.user.isActivityPublic !== false);
@@ -106,6 +108,18 @@
     // Load activities when component mounts
     loadActivities();
   });
+
+  $effect(() => {
+    if (dxRating) {
+      fetch(dxRating).then((res) => {
+        if (res.ok) {
+          res.text().then((svg) => {
+            ratingImage = svg;
+          });
+        }
+      });
+    }
+  });
 </script>
 
 <svelte:head>
@@ -128,8 +142,12 @@
             <span class="badge text-nowrap {getUserTypeBadgeClass(data.user.userType)}">
               {getUserTypeLabel(data.user.userType)}
             </span>
-            {#if dxRating}
-              <img src={dxRating} alt="DX Rating" class="w-36" />
+            {#if ratingImage}
+              <span title={m.dx_rating()} class="w-36 font-bold">
+                {@html ratingImage}
+              </span>
+            {:else if dxRating}
+              <span title={m.dx_rating()} class="skeleton h-[1.762rem] w-36 rounded-lg"></span>
             {/if}
           </div>
 
