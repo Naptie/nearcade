@@ -182,7 +182,7 @@
           longitude: center.lng(),
           confirmed: false
         };
-        await convertCoordinates(location);
+        await convertCoordinates(location, amap);
         location.confirmed = true;
       });
 
@@ -203,7 +203,7 @@
     isLoading = true;
 
     if (convert) {
-      await convertCoordinates(location);
+      await convertCoordinates(location, amap);
     }
 
     goto(
