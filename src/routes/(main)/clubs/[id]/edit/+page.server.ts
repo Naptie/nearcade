@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading club for edit:', err);
-    error(500, m.error_failed_to_load_club_data());
+    error(500, m.failed_to_load_club_data());
   }
 };
 

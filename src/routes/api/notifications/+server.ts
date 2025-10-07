@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
 
   if (page < 1 || limit < 1 || limit > 100) {
-    error(400, m.error_invalid_page_or_limit_parameters());
+    error(400, m.invalid_page_or_limit_parameters());
   }
 
   try {
@@ -61,7 +61,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       throw err;
     }
     console.error('Error loading user notifications:', err);
-    error(500, m.error_failed_to_load_notifications());
+    error(500, m.failed_to_load_notifications());
   }
 };
 
@@ -80,12 +80,12 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       return json({ success: true });
     }
 
-    error(400, m.error_invalid_action());
+    error(400, m.invalid_action());
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     console.error('Error updating notifications:', err);
-    error(500, m.error_failed_to_update_notifications());
+    error(500, m.failed_to_update_notifications());
   }
 };

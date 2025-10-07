@@ -13,7 +13,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (page < 1 || limit < 1 || limit > 100) {
-    error(400, m.error_invalid_page_or_limit_parameters());
+    error(400, m.invalid_page_or_limit_parameters());
   }
 
   try {
@@ -38,7 +38,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     const canViewActivities = isOwnProfile || user.isActivityPublic !== false;
 
     if (!canViewActivities) {
-      error(403, m.error_activities_are_private());
+      error(403, m.activities_are_private());
     }
 
     // Calculate offset
@@ -70,6 +70,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading user activities:', err);
-    error(500, m.error_failed_to_load_activities());
+    error(500, m.failed_to_load_activities());
   }
 };

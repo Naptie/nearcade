@@ -16,14 +16,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const commentId = params.commentId;
     if (!commentId) {
-      error(400, m.error_invalid_comment_id());
+      error(400, m.invalid_comment_id());
     }
 
     const { voteType } = (await request.json()) as {
       voteType: 'upvote' | 'downvote';
     };
     if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      error(400, m.error_invalid_vote_type());
+      error(400, m.invalid_vote_type());
     }
 
     const db = mongo.db();
@@ -33,14 +33,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if comment exists
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      error(404, m.error_comment_not_found());
+      error(404, m.comment_not_found());
     }
 
     // Get the post to check permissions
     const postsCollection = db.collection('posts');
     const post = await postsCollection.findOne({ id: comment.postId });
     if (!post) {
-      error(404, m.error_post_not_found());
+      error(404, m.post_not_found());
     }
 
     const canRead = await canReadPost(
@@ -77,7 +77,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        error(403, m.error_post_is_locked());
+        error(403, m.post_is_locked());
       }
     }
 
@@ -188,7 +188,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Get updated vote counts
     const updatedComment = await commentsCollection.findOne({ id: commentId });
     if (!updatedComment) {
-      error(500, m.error_failed_to_get_updated_comment());
+      error(500, m.failed_to_get_updated_comment());
     }
 
     return json({
@@ -202,6 +202,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error voting on comment:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

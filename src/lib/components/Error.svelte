@@ -54,8 +54,8 @@
         };
       default:
         return {
-          title: m.error_unknown_title(),
-          description: m.error_unknown_description(),
+          title: m.unknown_title(),
+          description: m.unknown_description(),
           icon: 'fas fa-question-circle',
           color: 'text-base-content'
         };

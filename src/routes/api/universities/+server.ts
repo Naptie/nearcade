@@ -76,6 +76,6 @@ export const GET: RequestHandler = async ({ url }) => {
       throw err;
     }
     console.error('Error searching universities:', err);
-    error(500, m.error_failed_to_search_universities());
+    error(500, m.failed_to_search_universities());
   }
 };

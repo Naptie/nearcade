@@ -96,7 +96,7 @@ export const load = (async ({ params, locals }) => {
     .toArray();
 
   if (postResult.length === 0) {
-    throw error(404, m.error_post_not_found());
+    throw error(404, m.post_not_found());
   }
 
   const post = { ...postResult[0], author: protect(postResult[0].author) };

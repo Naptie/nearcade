@@ -123,6 +123,6 @@ export const GET: RequestHandler = async ({ url }) => {
       throw err;
     }
     console.error('Error getting rankings:', err);
-    error(500, m.error_failed_to_get_rankings());
+    error(500, m.failed_to_get_rankings());
   }
 };

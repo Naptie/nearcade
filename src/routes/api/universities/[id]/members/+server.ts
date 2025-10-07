@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!universityId) {
-      error(400, m.error_invalid_university_id());
+      error(400, m.invalid_university_id());
     }
 
     const db = mongo.db();
@@ -95,6 +95,6 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       throw err;
     }
     console.error('Error loading university members:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

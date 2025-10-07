@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const postId = params.postId;
     if (!postId) {
-      error(400, m.error_invalid_post_id());
+      error(400, m.invalid_post_id());
     }
 
     const { content, parentCommentId } = (await request.json()) as {
@@ -29,7 +29,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       parentCommentId?: string;
     };
     if (!content || !content.trim()) {
-      error(400, m.error_comment_content_is_required());
+      error(400, m.comment_content_is_required());
     }
 
     const db = mongo.db();
@@ -39,7 +39,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if post exists
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      error(404, m.error_post_not_found());
+      error(404, m.post_not_found());
     }
 
     // Check commenting permissions based on post writability
@@ -86,7 +86,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        error(403, m.error_post_is_locked());
+        error(403, m.post_is_locked());
       }
     }
 
@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (parentCommentId) {
       const parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment) {
-        error(404, m.error_parent_comment_not_found());
+        error(404, m.parent_comment_not_found());
       }
     }
 
@@ -177,6 +177,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error creating comment:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (page < 1 || limit < 1 || limit > 100) {
-    error(400, m.error_invalid_pagination_parameters());
+    error(400, m.invalid_pagination_parameters());
   }
 
   try {
@@ -34,6 +34,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
       throw err;
     }
     console.error('Error fetching changelog entries:', err);
-    error(500, m.error_failed_to_fetch_changelog_entries());
+    error(500, m.failed_to_fetch_changelog_entries());
   }
 };

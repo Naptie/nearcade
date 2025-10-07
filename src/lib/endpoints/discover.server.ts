@@ -8,12 +8,12 @@ export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
   const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
   if (!latParam || !lngParam) {
-    error(400, m.error_latitude_and_longitude_parameters_are_required());
+    error(400, m.latitude_and_longitude_parameters_are_required());
   }
 
   const validationResult = areValidCoordinates(latParam, lngParam);
   if (!validationResult.isValid) {
-    error(400, m.error_invalid_latitude_or_longitude_format());
+    error(400, m.invalid_latitude_or_longitude_format());
   }
 
   try {
@@ -68,6 +68,6 @@ export const loadShops = async ({ url }: { url: URL }) => {
       throw err;
     }
     console.error('Error loading shops:', err);
-    error(500, m.error_failed_to_load_shops_from_database());
+    error(500, m.failed_to_load_shops_from_database());
   }
 };

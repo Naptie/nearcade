@@ -91,6 +91,6 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, m.error_failed_to_load_university_data());
+    error(500, m.failed_to_load_university_data());
   }
 };

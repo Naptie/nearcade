@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, m.error_failed_to_load_university_information());
+    error(500, m.failed_to_load_university_information());
   }
 };
 

@@ -13,7 +13,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!clubId) {
-      error(400, m.error_invalid_club_id());
+      error(400, m.invalid_club_id());
     }
 
     const db = mongo.db();
@@ -97,6 +97,6 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       throw err;
     }
     console.error('Error loading club members:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ data, url, fetch }) => {
     const resp = await fetch(`${env.PUBLIC_API_BASE}/api/discover${url.search}`);
     if (!resp.ok) {
       console.error('Failed to fetch shops:', resp.status, resp.statusText);
-      error(resp.status, m.error_failed_to_fetch_shops());
+      error(resp.status, m.failed_to_fetch_shops());
     }
     data = await resp.json();
   }

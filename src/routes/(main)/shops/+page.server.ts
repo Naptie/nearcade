@@ -213,6 +213,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       throw err;
     }
     console.error('Error loading shops:', err);
-    error(500, m.error_failed_to_load_shops());
+    error(500, m.failed_to_load_shops());
   }
 };

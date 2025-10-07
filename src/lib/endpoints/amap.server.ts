@@ -7,7 +7,7 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
   try {
     // Check if the secret is configured
     if (!AMAP_SECRET) {
-      error(500, m.error_amap_secret_not_configured());
+      error(500, m.amap_secret_not_configured());
     }
 
     const pathname = url.pathname.replace(`${base}/_AMapService`, '');
@@ -34,7 +34,7 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
     if (!response.ok) {
       // Log the actual error for debugging
       console.error('AMap API request failed:', response.status, response.statusText);
-      error(response.status, m.error_amap_api_request_failed());
+      error(response.status, m.amap_api_request_failed());
     }
 
     // Get the response data
@@ -57,6 +57,6 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

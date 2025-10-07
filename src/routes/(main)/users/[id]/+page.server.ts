@@ -144,6 +144,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       throw err;
     }
     console.error('Error loading user profile:', err);
-    error(500, m.error_failed_to_load_user_profile());
+    error(500, m.failed_to_load_user_profile());
   }
 };

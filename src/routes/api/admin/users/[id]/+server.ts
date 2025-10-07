@@ -77,6 +77,6 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       throw err;
     }
     console.error('Error fetching user details:', err);
-    error(500, m.error_failed_to_fetch_user_details());
+    error(500, m.failed_to_fetch_user_details());
   }
 };

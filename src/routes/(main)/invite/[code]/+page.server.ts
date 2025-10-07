@@ -34,12 +34,12 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
     // Check if invite is expired
     if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
-      error(410, m.error_this_invite_link_has_expired());
+      error(410, m.this_invite_link_has_expired());
     }
 
     // Check if invite has reached max uses
     if (invite.maxUses && invite.currentUses >= invite.maxUses) {
-      error(410, m.error_this_invite_link_has_been_used_up());
+      error(410, m.this_invite_link_has_been_used_up());
     }
 
     // Get target information
@@ -81,6 +81,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading invite:', err);
-    error(500, m.error_failed_to_load_invite());
+    error(500, m.failed_to_load_invite());
   }
 };

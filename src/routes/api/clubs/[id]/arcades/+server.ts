@@ -76,6 +76,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
       throw err;
     }
     console.error('Error loading club arcades:', err);
-    error(500, m.error_failed_to_load_club_arcades());
+    error(500, m.failed_to_load_club_arcades());
   }
 };

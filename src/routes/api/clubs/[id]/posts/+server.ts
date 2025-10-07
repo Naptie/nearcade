@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!clubId) {
-      error(400, m.error_invalid_club_id());
+      error(400, m.invalid_club_id());
     }
 
     const db = mongo.db();
@@ -99,7 +99,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       throw err;
     }
     console.error('Error fetching club posts:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };
 
@@ -112,7 +112,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const clubId = params.id;
     if (!clubId) {
-      error(400, m.error_invalid_club_id());
+      error(400, m.invalid_club_id());
     }
 
     const { title, content, readability } = (await request.json()) as {
@@ -121,7 +121,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       readability?: PostReadability;
     };
     if (!title || !content) {
-      error(400, m.error_title_and_content_are_required());
+      error(400, m.title_and_content_are_required());
     }
 
     const db = mongo.db();
@@ -194,6 +194,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error creating club post:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

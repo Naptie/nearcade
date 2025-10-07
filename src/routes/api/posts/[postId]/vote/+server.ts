@@ -16,12 +16,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const postId = params.postId;
     if (!postId) {
-      error(400, m.error_invalid_post_id());
+      error(400, m.invalid_post_id());
     }
 
     const { voteType } = (await request.json()) as { voteType: 'upvote' | 'downvote' };
     if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      error(400, m.error_invalid_vote_type());
+      error(400, m.invalid_vote_type());
     }
 
     const db = mongo.db();
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if post exists
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      error(404, m.error_post_not_found());
+      error(404, m.post_not_found());
     }
 
     const canRead = await canReadPost(
@@ -66,7 +66,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        error(403, m.error_post_is_locked());
+        error(403, m.post_is_locked());
       }
     }
 
@@ -180,6 +180,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error voting on post:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

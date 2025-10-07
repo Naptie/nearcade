@@ -33,7 +33,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (!['university', 'club'].includes(type)) {
-      error(400, m.error_invalid_invite_type());
+      error(400, m.invalid_invite_type());
     }
 
     const db = mongo.db();
@@ -67,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       throw err;
     }
     console.error('Error creating invite:', err);
-    error(500, m.error_failed_to_create_invite());
+    error(500, m.failed_to_create_invite());
   }
 };
 
@@ -99,6 +99,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       throw err;
     }
     console.error('Error fetching invites:', err);
-    error(500, m.error_failed_to_fetch_invites());
+    error(500, m.failed_to_fetch_invites());
   }
 };

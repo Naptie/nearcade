@@ -14,14 +14,14 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
     const commentId = params.commentId;
     if (!commentId) {
-      error(400, m.error_invalid_comment_id());
+      error(400, m.invalid_comment_id());
     }
 
     const { content } = (await request.json()) as {
       content: string;
     };
     if (!content || !content.trim()) {
-      error(400, m.error_comment_content_is_required());
+      error(400, m.comment_content_is_required());
     }
 
     const db = mongo.db();
@@ -30,11 +30,11 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Check if comment exists and user owns it
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      error(404, m.error_comment_not_found());
+      error(404, m.comment_not_found());
     }
 
     if (comment.createdBy !== session.user.id) {
-      error(403, m.error_you_can_only_edit_your_own_comments());
+      error(403, m.you_can_only_edit_your_own_comments());
     }
 
     // Update comment
@@ -54,7 +54,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error updating comment:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };
 
@@ -67,7 +67,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 
     const commentId = params.commentId;
     if (!commentId) {
-      error(400, m.error_invalid_comment_id());
+      error(400, m.invalid_comment_id());
     }
 
     const db = mongo.db();
@@ -77,7 +77,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Check if comment exists and user owns it
     const comment = await commentsCollection.findOne({ id: commentId });
     if (!comment) {
-      error(404, m.error_comment_not_found());
+      error(404, m.comment_not_found());
     }
 
     // Check permissions (owner or canEdit)
@@ -85,7 +85,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     const isOwner = comment.createdBy === session.user.id;
     const post = await postsCollection.findOne({ id: comment.postId });
     if (!post) {
-      error(404, m.error_post_not_found());
+      error(404, m.post_not_found());
     }
 
     if (post.universityId) {
@@ -131,6 +131,6 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       throw err;
     }
     console.error('Error deleting comment:', err);
-    error(500, m.error_internal_server_error());
+    error(500, m.internal_server_error());
   }
 };

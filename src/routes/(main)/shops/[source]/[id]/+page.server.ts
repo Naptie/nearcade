@@ -12,13 +12,13 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    error(404, m.error_invalid_shop_source());
+    error(404, m.invalid_shop_source());
   }
 
   // Validate id
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
-    error(404, m.error_invalid_shop_id());
+    error(404, m.invalid_shop_id());
   }
 
   try {
@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     });
 
     if (!shop) {
-      error(404, m.error_shop_not_found());
+      error(404, m.shop_not_found());
     }
 
     const { session } = await parent();
@@ -54,6 +54,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       throw err;
     }
     console.error('Error loading shop:', err);
-    error(500, m.error_failed_to_load_shop());
+    error(500, m.failed_to_load_shop());
   }
 };
