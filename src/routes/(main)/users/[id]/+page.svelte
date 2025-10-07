@@ -143,7 +143,7 @@
               {getUserTypeLabel(data.user.userType)}
             </span>
             {#if ratingImage}
-              <span title={m.dx_rating()} class="w-36 font-bold">
+              <span title={m.dx_rating()} class="w-36 font-bold select-none">
                 {@html ratingImage}
               </span>
             {:else if dxRating}
