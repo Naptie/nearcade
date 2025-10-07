@@ -73,7 +73,7 @@ export const actions: Actions = {
   leaveUniversity: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -83,7 +83,7 @@ export const actions: Actions = {
       const universityId = formData.get('universityId') as string;
 
       if (!universityId) {
-        return fail(400, { message: 'University ID is required' });
+        return fail(400, { message: m.university_id_is_required() });
       }
 
       const db = mongo.db();
@@ -94,17 +94,17 @@ export const actions: Actions = {
         userId: user.id
       });
 
-      return { success: true, message: 'Left university successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error leaving university:', err);
-      return fail(500, { message: 'Failed to leave university' });
+      return fail(500, { message: m.failed_to_leave_university() });
     }
   },
 
   leaveClub: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -114,7 +114,7 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!clubId) {
-        return fail(400, { message: 'Club ID is required' });
+        return fail(400, { message: m.club_id_is_required() });
       }
 
       const db = mongo.db();
@@ -125,17 +125,17 @@ export const actions: Actions = {
         userId: user.id
       });
 
-      return { success: true, message: 'Left club successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error leaving club:', err);
-      return fail(500, { message: 'Failed to leave club' });
+      return fail(500, { message: m.failed_to_leave_club() });
     }
   },
 
   deleteAccount: async ({ locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -167,10 +167,10 @@ export const actions: Actions = {
       // Delete join requests
       await joinRequestsCollection.deleteMany({ userId: user.id });
 
-      return { success: true, message: 'Account deleted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error deleting account:', err);
-      return fail(500, { message: 'Failed to delete account' });
+      return fail(500, { message: m.failed_to_delete_account() });
     }
   }
 };

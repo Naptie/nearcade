@@ -4,6 +4,7 @@ import type { Club } from '$lib/types';
 import { checkClubPermission, toPlainObject } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -23,13 +24,13 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     });
 
     if (!club) {
-      error(404, 'Club not found');
+      error(404, m.club_not_found());
     }
 
     const userPermissions = await checkClubPermission(session.user, club, mongo);
 
     if (!userPermissions.canEdit) {
-      error(403, 'You do not have permission to edit this club');
+      error(403, m.you_do_not_have_permission_to_edit_this_club());
     }
 
     return {
@@ -41,7 +42,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading club for edit:', err);
-    error(500, 'Failed to load club data');
+    error(500, m.failed_to_load_club_data());
   }
 };
 
@@ -51,7 +52,7 @@ export const actions: Actions = {
     const session = await locals.auth();
 
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -69,7 +70,7 @@ export const actions: Actions = {
 
       if (!name?.trim() || !slug?.trim()) {
         return fail(400, {
-          message: 'Validation failed',
+          message: m.validation_error(),
           errors: ['Name and slug are required'],
           formData: {
             name: name?.trim() || '',
@@ -127,7 +128,7 @@ export const actions: Actions = {
 
       if (errors.length > 0) {
         return fail(400, {
-          message: 'Validation failed',
+          message: m.validation_error(),
           errors,
           formData: {
             name: name?.trim() || '',
@@ -153,11 +154,11 @@ export const actions: Actions = {
       });
 
       if (!club) {
-        return fail(404, { message: 'Club not found' });
+        return fail(404, { message: m.club_not_found() });
       }
 
       if (!session?.user || !(await checkClubPermission(session.user, club, mongo)).canEdit) {
-        return fail(403, { message: 'You do not have permission to edit this club' });
+        return fail(403, { message: m.you_do_not_have_permission_to_edit_this_club() });
       }
 
       id = club.id;
@@ -169,7 +170,7 @@ export const actions: Actions = {
           id: { $ne: id }
         });
         if (existingClub) {
-          return fail(400, { message: 'This slug is already taken' });
+          return fail(400, { message: m.this_slug_is_already_taken() });
         }
       }
 
@@ -197,12 +198,11 @@ export const actions: Actions = {
 
       return {
         success: true,
-        message: 'Club updated successfully',
         redirectSlug: slug.trim()
       };
     } catch (err) {
       console.error('Error updating club:', err);
-      return fail(500, { message: 'Failed to update club' });
+      return fail(500, { message: m.failed_to_update_club() });
     }
   }
 };

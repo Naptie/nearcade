@@ -104,19 +104,19 @@ export const actions: Actions = {
     const session = await locals.auth();
 
     if (!session?.user) {
-      return fail(401, { error: 'Unauthorized' });
+      return fail(401, { error: m.unauthorized() });
     }
 
     // Only site admins can delete universities
     if (session.user.userType !== 'site_admin') {
-      return fail(403, { error: 'Access denied' });
+      return fail(403, { error: m.access_denied() });
     }
 
     const formData = await request.formData();
     const universityId = formData.get('universityId') as string;
 
     if (!universityId) {
-      return fail(400, { error: 'University ID is required' });
+      return fail(400, { error: m.university_id_is_required() });
     }
 
     try {
@@ -125,7 +125,7 @@ export const actions: Actions = {
       // Get university details for logging
       const university = await db.collection('universities').findOne({ id: universityId });
       if (!university) {
-        return fail(404, { error: 'University not found' });
+        return fail(404, { error: m.university_not_found() });
       }
 
       // Get all clubs for this university first
@@ -161,7 +161,7 @@ export const actions: Actions = {
       return { success: true };
     } catch (error) {
       console.error('Error deleting university:', error);
-      return fail(500, { error: 'Failed to delete university' });
+      return fail(500, { error: m.failed_to_delete_university() });
     }
   }
 };

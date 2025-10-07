@@ -501,7 +501,7 @@
               {/if}
               {#if data.user.email && !data.user.email.endsWith('.nearcade')}
                 <div class="flex items-center gap-2 text-sm">
-                  <div class="flex w-4 justify-center">
+                  <div class="flex w-4 justify-center" title={m.email_address()}>
                     <i class="fa-solid fa-envelope text-base-content/50"></i>
                   </div>
                   <a

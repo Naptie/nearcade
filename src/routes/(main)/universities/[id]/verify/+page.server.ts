@@ -8,6 +8,7 @@ import mongo from '$lib/db/index.server';
 import redis from '$lib/db/redis.server';
 import { AUTH_SECRET } from '$env/static/private';
 import { createHmac } from 'crypto';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -41,7 +42,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     }
 
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     // Check permissions for the current user
@@ -90,6 +91,6 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, 'Failed to load university data');
+    error(500, m.failed_to_load_university_data());
   }
 };

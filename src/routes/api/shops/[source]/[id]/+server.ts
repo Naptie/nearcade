@@ -4,19 +4,20 @@ import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
 import type { RequestHandler } from './$types';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params }) => {
   const { source, id } = params;
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    error(404, 'Invalid shop source');
+    error(404, m.invalid_shop_source());
   }
 
   // Validate id
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
-    error(404, 'Invalid shop ID');
+    error(404, m.invalid_shop_id());
   }
 
   try {
@@ -30,7 +31,7 @@ export const GET: RequestHandler = async ({ params }) => {
     });
 
     if (!shop) {
-      error(404, 'Shop not found');
+      error(404, m.shop_not_found());
     }
 
     return json({
@@ -41,6 +42,6 @@ export const GET: RequestHandler = async ({ params }) => {
       throw err;
     }
     console.error('Error fetching shop:', err);
-    error(500, 'Failed to fetch shop');
+    error(500, m.failed_to_fetch_shop());
   }
 };

@@ -2,17 +2,18 @@ import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
   const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
   if (!latParam || !lngParam) {
-    error(400, 'Latitude and longitude parameters are required');
+    error(400, m.latitude_and_longitude_parameters_are_required());
   }
 
   const validationResult = areValidCoordinates(latParam, lngParam);
   if (!validationResult.isValid) {
-    error(400, 'Invalid latitude or longitude format');
+    error(400, m.invalid_latitude_or_longitude_format());
   }
 
   try {
@@ -67,6 +68,6 @@ export const loadShops = async ({ url }: { url: URL }) => {
       throw err;
     }
     console.error('Error loading shops:', err);
-    error(500, 'Failed to load shops from database');
+    error(500, m.failed_to_load_shops_from_database());
   }
 };

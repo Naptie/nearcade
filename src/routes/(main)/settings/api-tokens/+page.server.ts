@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
 
   if (!user) {
-    error(401, m.unauthorized());
+    error(401, m.error_401_title());
   }
 
   return {
@@ -23,7 +23,7 @@ export const actions: Actions = {
   createToken: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: 'unauthorized' });
     }
 
     try {
@@ -77,24 +77,24 @@ export const actions: Actions = {
           expiresAt = new Date(customDate);
           if (expiresAt <= now) {
             return fail(400, {
-              message: 'Expiration date must be in the future',
-              fieldErrors: { customDate: 'Expiration date must be in the future' }
+              message: 'expiration_date_must_be_future',
+              fieldErrors: { customDate: 'expiration_date_must_be_future' }
             });
           }
           // Check maximum 1 year limit
           const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
           if (expiresAt > oneYearFromNow) {
             return fail(400, {
-              message: 'Maximum expiration is 1 year',
-              fieldErrors: { customDate: 'Maximum expiration is 1 year' }
+              message: 'maximum_expiration_one_year',
+              fieldErrors: { customDate: 'maximum_expiration_one_year' }
             });
           }
           break;
         }
         default:
           return fail(400, {
-            message: 'Invalid expiration option',
-            fieldErrors: { expiration: 'Invalid expiration option' }
+            message: 'invalid_expiration_option',
+            fieldErrors: { expiration: 'invalid_expiration_option' }
           });
       }
 
@@ -130,7 +130,7 @@ export const actions: Actions = {
     } catch (err) {
       console.error('Error creating API token:', err);
       return fail(500, {
-        message: 'An error occurred while creating the token'
+        message: 'error_creating_token'
       });
     }
   },
@@ -138,7 +138,7 @@ export const actions: Actions = {
   renameToken: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: 'unauthorized' });
     }
 
     try {
@@ -185,7 +185,7 @@ export const actions: Actions = {
     } catch (err) {
       console.error('Error renaming API token:', err);
       return fail(500, {
-        message: 'An error occurred while renaming the token'
+        message: 'error_renaming_token'
       });
     }
   },
@@ -193,7 +193,7 @@ export const actions: Actions = {
   resetToken: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: 'unauthorized' });
     }
 
     try {
@@ -202,7 +202,7 @@ export const actions: Actions = {
 
       if (!tokenId) {
         return fail(400, {
-          message: 'Token ID is required'
+          message: 'token_id_required'
         });
       }
 
@@ -217,20 +217,20 @@ export const actions: Actions = {
 
       if (!user || !user.apiTokens) {
         return fail(404, {
-          message: 'User or tokens not found'
+          message: 'user_or_tokens_not_found'
         });
       }
 
       const existingToken = user.apiTokens.find((token) => token.id === tokenId);
       if (!existingToken) {
         return fail(404, {
-          message: 'Token not found'
+          message: 'token_not_found'
         });
       }
 
       if (existingToken.expiresAt < new Date()) {
         return fail(400, {
-          message: 'Cannot reset an expired token'
+          message: 'cannot_reset_expired_token'
         });
       }
 
@@ -266,7 +266,7 @@ export const actions: Actions = {
     } catch (err) {
       console.error('Error resetting API token:', err);
       return fail(500, {
-        message: 'An error occurred while resetting the token'
+        message: 'error_resetting_token'
       });
     }
   },
@@ -274,7 +274,7 @@ export const actions: Actions = {
   deleteToken: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: 'unauthorized' });
     }
 
     try {
@@ -283,7 +283,7 @@ export const actions: Actions = {
 
       if (!tokenId) {
         return fail(400, {
-          message: 'Token ID is required'
+          message: 'token_id_required'
         });
       }
 
@@ -306,7 +306,7 @@ export const actions: Actions = {
     } catch (err) {
       console.error('Error deleting API token:', err);
       return fail(500, {
-        message: 'An error occurred while deleting the token'
+        message: 'error_deleting_token'
       });
     }
   }

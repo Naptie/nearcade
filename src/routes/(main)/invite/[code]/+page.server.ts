@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { InviteLink, University, Club } from '$lib/types';
 import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { code } = params;
@@ -28,17 +29,17 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     );
 
     if (!invite) {
-      error(404, 'Invalid or expired invite link');
+      error(404, m.invalid_invite());
     }
 
     // Check if invite is expired
     if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
-      error(410, 'This invite link has expired');
+      error(410, m.this_invite_link_has_expired());
     }
 
     // Check if invite has reached max uses
     if (invite.maxUses && invite.currentUses >= invite.maxUses) {
-      error(410, 'This invite link has been used up');
+      error(410, m.this_invite_link_has_been_used_up());
     }
 
     // Get target information
@@ -67,7 +68,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     }
 
     if (!targetInfo) {
-      error(404, `${invite.type === 'university' ? 'University' : 'Club'} not found`);
+      error(404, invite.type === 'university' ? m.university_not_found() : m.club_not_found());
     }
 
     return {
@@ -80,6 +81,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading invite:', err);
-    error(500, 'Failed to load invite');
+    error(500, m.failed_to_load_invite());
   }
 };

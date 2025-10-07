@@ -12,6 +12,7 @@ import { PAGINATION } from '$lib/constants';
 import { logCampusChanges } from '$lib/utils/changelog.server';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -35,7 +36,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
 
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     const { session } = await parent();
@@ -117,7 +118,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, 'Failed to load university data');
+    error(500, m.failed_to_load_university_data());
   }
 };
 
@@ -125,7 +126,7 @@ export const actions: Actions = {
   addCampus: async ({ request, locals }) => {
     const user = (await locals.auth())?.user;
     if (!user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -143,11 +144,11 @@ export const actions: Actions = {
       // Check permissions using new system
       const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Insufficient privileges' });
+        return fail(403, { message: m.privilege_insufficient() });
       }
 
       if (!name || !address || !latitude || !longitude) {
-        return fail(400, { message: 'Missing required fields' });
+        return fail(400, { message: m.missing_required_fields() });
       }
 
       const db = mongo.db();
@@ -182,14 +183,14 @@ export const actions: Actions = {
       return { success: true };
     } catch (err) {
       console.error('Error adding campus:', err);
-      return fail(500, { message: 'Failed to add campus' });
+      return fail(500, { message: m.failed_to_add_campus() });
     }
   },
 
   updateCampus: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -209,11 +210,11 @@ export const actions: Actions = {
       // Check permissions using new system
       const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canEdit) {
-        return fail(403, { message: 'Insufficient privileges' });
+        return fail(403, { message: m.privilege_insufficient() });
       }
 
       if (!name || !address || !latitude || !longitude || !campusId) {
-        return fail(400, { message: 'Missing required fields' });
+        return fail(400, { message: m.missing_required_fields() });
       }
 
       const db = mongo.db();
@@ -227,7 +228,7 @@ export const actions: Actions = {
       const currentCampus = currentUniversity?.campuses?.find((c: Campus) => c.id === campusId);
 
       if (!currentCampus) {
-        return fail(404, { message: 'Campus not found' });
+        return fail(404, { message: m.campus_not_found() });
       }
 
       const updatedCampus: Campus = {
@@ -279,14 +280,14 @@ export const actions: Actions = {
       return { success: true };
     } catch (err) {
       console.error('Error updating campus:', err);
-      return fail(500, { message: 'Failed to update campus' });
+      return fail(500, { message: m.failed_to_update_campus() });
     }
   },
 
   deleteCampus: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -299,11 +300,11 @@ export const actions: Actions = {
       // Check permissions using new system - only managers can delete
       const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Insufficient privileges' });
+        return fail(403, { message: m.privilege_insufficient() });
       }
 
       if (!campusId) {
-        return fail(400, { message: 'Campus ID is required' });
+        return fail(400, { message: m.campus_id_is_required() });
       }
 
       const db = mongo.db();
@@ -312,13 +313,13 @@ export const actions: Actions = {
       // Check if this is the last campus
       const university = await universitiesCollection.findOne({ id: universityId });
       if (!university || university.campuses.length <= 1) {
-        return fail(400, { message: 'Cannot delete the last campus' });
+        return fail(400, { message: m.cannot_delete_the_last_campus() });
       }
 
       // Get campus data before deletion for changelog
       const campusToDelete = university.campuses.find((c: Campus) => c.id === campusId);
       if (!campusToDelete) {
-        return fail(404, { message: 'Campus not found' });
+        return fail(404, { message: m.campus_not_found() });
       }
 
       await universitiesCollection.updateOne({ id: universityId }, {
@@ -329,7 +330,7 @@ export const actions: Actions = {
       } as object);
 
       if (updateResult.modifiedCount === 0) {
-        return fail(404, { message: 'Campus not found or already deleted' });
+        return fail(404, { message: m.campus_not_found_or_already_deleted() });
       }
       // Log campus deletion to changelog
       await logCampusChanges(mongo, universityId, 'campus_deleted', campusToDelete, {
@@ -341,14 +342,14 @@ export const actions: Actions = {
       return { success: true };
     } catch (err) {
       console.error('Error deleting campus:', err);
-      return fail(500, { message: 'Failed to delete campus' });
+      return fail(500, { message: m.failed_to_delete_campus() });
     }
   },
 
   inviteMember: async ({ request, locals }) => {
     const session = await locals.auth();
     if (!session || !session.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     const user = session.user;
@@ -362,16 +363,16 @@ export const actions: Actions = {
       // Check permissions using new system - only managers can invite
       const permissions = await checkUniversityPermission(user, universityId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Insufficient privileges' });
+        return fail(403, { message: m.privilege_insufficient() });
       }
 
       if (!email || !memberType) {
-        return fail(400, { message: 'Email and member type are required' });
+        return fail(400, { message: m.email_and_member_type_are_required() });
       }
 
       // Validate member type
       if (!['student', 'moderator', 'admin'].includes(memberType)) {
-        return fail(400, { message: 'Invalid member type' });
+        return fail(400, { message: m.invalid_member_type() });
       }
 
       const db = mongo.db();
@@ -381,7 +382,7 @@ export const actions: Actions = {
       // Find user by email
       const targetUser = await usersCollection.findOne({ email });
       if (!targetUser) {
-        return fail(400, { message: 'User not found' });
+        return fail(400, { message: m.user_not_found() });
       }
 
       // Check if already a member
@@ -391,7 +392,7 @@ export const actions: Actions = {
       });
 
       if (existingMembership) {
-        return fail(400, { message: 'User is already a member' });
+        return fail(400, { message: m.user_is_already_a_member() });
       }
 
       // Create membership
@@ -410,14 +411,14 @@ export const actions: Actions = {
       return { success: true };
     } catch (err) {
       console.error('Error inviting member:', err);
-      return fail(500, { message: 'Failed to invite member' });
+      return fail(500, { message: m.failed_to_invite_member() });
     }
   },
 
   removeMember: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -426,13 +427,13 @@ export const actions: Actions = {
       const universityId = formData.get('universityId') as string;
 
       if (!targetUserId || !universityId) {
-        return fail(400, { message: 'User ID and University ID are required' });
+        return fail(400, { message: m.user_id_and_university_id_are_required() });
       }
 
       // Check permissions
       const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canEdit) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       // Verify target user is not admin/moderator if requester is not admin
@@ -445,7 +446,7 @@ export const actions: Actions = {
         });
 
         if (targetMember && ['admin', 'moderator'].includes(targetMember.memberType)) {
-          return fail(403, { message: 'Cannot remove admin or moderator members' });
+          return fail(403, { message: m.cannot_remove_admin_or_moderator_members() });
         }
       }
 
@@ -460,17 +461,17 @@ export const actions: Actions = {
 
       await updateUserType(targetUserId, mongo);
 
-      return { success: true, message: 'Member removed successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error removing member:', err);
-      return fail(500, { message: 'Failed to remove member' });
+      return fail(500, { message: m.failed_to_remove_member() });
     }
   },
 
   grantModerator: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -479,13 +480,13 @@ export const actions: Actions = {
       const universityId = formData.get('universityId') as string;
 
       if (!targetUserId || !universityId) {
-        return fail(400, { message: 'User ID and University ID are required' });
+        return fail(400, { message: m.user_id_and_university_id_are_required() });
       }
 
       // Only admins can grant moderator roles
       const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Only admins can grant moderator roles' });
+        return fail(403, { message: m.only_admins_can_grant_moderator_roles() });
       }
 
       const db = mongo.db();
@@ -500,17 +501,17 @@ export const actions: Actions = {
       // Update user type
       await updateUserType(targetUserId, mongo);
 
-      return { success: true, message: 'Moderator role granted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error granting moderator:', err);
-      return fail(500, { message: 'Failed to grant moderator role' });
+      return fail(500, { message: m.failed_to_grant_moderator_role() });
     }
   },
 
   revokeModerator: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -519,13 +520,13 @@ export const actions: Actions = {
       const universityId = formData.get('universityId') as string;
 
       if (!targetUserId || !universityId) {
-        return fail(400, { message: 'User ID and University ID are required' });
+        return fail(400, { message: m.user_id_and_university_id_are_required() });
       }
 
       // Only admins can revoke moderator roles
       const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Only admins can revoke moderator roles' });
+        return fail(403, { message: m.only_admins_can_revoke_moderator_roles() });
       }
 
       const db = mongo.db();
@@ -540,17 +541,17 @@ export const actions: Actions = {
       // Update user type
       await updateUserType(targetUserId, mongo);
 
-      return { success: true, message: 'Moderator role revoked successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error revoking moderator:', err);
-      return fail(500, { message: 'Failed to revoke moderator role' });
+      return fail(500, { message: m.failed_to_revoke_moderator_role() });
     }
   },
 
   grantAdmin: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -559,7 +560,7 @@ export const actions: Actions = {
       const universityId = formData.get('universityId') as string;
 
       if (!targetUserId || !universityId) {
-        return fail(400, { message: 'User ID and University ID are required' });
+        return fail(400, { message: m.user_id_and_university_id_are_required() });
       }
 
       // Check if current user is a site admin (site admins can grant admin without losing their status)
@@ -568,7 +569,7 @@ export const actions: Actions = {
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
       if (currentUser?.userType !== 'site_admin') {
-        return fail(403, { message: 'Only site admins can grant admin privileges' });
+        return fail(403, { message: m.only_site_admins_can_grant_admin_privileges() });
       }
 
       const membersCollection = db.collection('university_members');
@@ -581,17 +582,17 @@ export const actions: Actions = {
 
       await updateUserType(targetUserId, mongo);
 
-      return { success: true, message: 'Admin privileges granted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error granting admin:', err);
-      return fail(500, { message: 'Failed to grant admin privileges' });
+      return fail(500, { message: m.failed_to_grant_admin_privileges() });
     }
   },
 
   transferAdmin: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -600,13 +601,13 @@ export const actions: Actions = {
       const universityId = formData.get('universityId') as string;
 
       if (!targetUserId || !universityId) {
-        return fail(400, { message: 'User ID and University ID are required' });
+        return fail(400, { message: m.user_id_and_university_id_are_required() });
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
       const permissions = await checkUniversityPermission(session.user, universityId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Only admins can transfer admin privileges' });
+        return fail(403, { message: m.only_admins_can_transfer_admin_privileges() });
       }
 
       // Check if current user is a site admin (they should use grantAdmin instead)
@@ -616,7 +617,7 @@ export const actions: Actions = {
 
       if (currentUser?.userType === 'site_admin') {
         return fail(403, {
-          message: 'Site admins should use grant admin instead of transfer admin'
+          message: m.site_admins_should_use_grant_admin_instead_of_transfer_admin()
         });
       }
 
@@ -638,10 +639,10 @@ export const actions: Actions = {
 
       await updateUserType(targetUserId, mongo);
 
-      return { success: true, message: 'Admin privileges transferred successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error transferring admin:', err);
-      return fail(500, { message: 'Failed to transfer admin privileges' });
+      return fail(500, { message: m.failed_to_transfer_admin_privileges() });
     }
   }
 };

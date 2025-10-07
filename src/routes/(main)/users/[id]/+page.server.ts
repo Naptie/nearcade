@@ -4,6 +4,7 @@ import type { User } from '@auth/sveltekit';
 import type { University, UniversityMember, Shop } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { toPlainArray } from '$lib/utils';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const session = await locals.auth();
@@ -23,7 +24,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!user) {
-      error(404, 'User not found');
+      error(404, m.user_not_found());
     }
 
     const canViewAll = session?.user?.id === user.id || session?.user?.userType === 'site_admin';
@@ -143,6 +144,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       throw err;
     }
     console.error('Error loading user profile:', err);
-    error(500, 'Failed to load user profile');
+    error(500, m.failed_to_load_user_profile());
   }
 };

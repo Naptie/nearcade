@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const postId = params.postId;
     if (!postId) {
-      error(400, 'Invalid post ID');
+      error(400, m.invalid_post_id());
     }
 
     const { content, parentCommentId } = (await request.json()) as {
@@ -29,7 +29,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       parentCommentId?: string;
     };
     if (!content || !content.trim()) {
-      error(400, 'Comment content is required');
+      error(400, m.comment_content_is_required());
     }
 
     const db = mongo.db();
@@ -39,7 +39,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Check if post exists
     const post = await postsCollection.findOne({ id: postId });
     if (!post) {
-      error(404, 'Post not found');
+      error(404, m.post_not_found());
     }
 
     // Check commenting permissions based on post writability
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (!canComment) {
-      error(403, 'Permission denied');
+      error(403, m.permission_denied());
     }
 
     // Check if post is locked and user has permission to comment
@@ -86,7 +86,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
 
       if (!canInteract) {
-        error(403, 'Post is locked');
+        error(403, m.post_is_locked());
       }
     }
 
@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (parentCommentId) {
       const parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment) {
-        error(404, 'Parent comment not found');
+        error(404, m.parent_comment_not_found());
       }
     }
 
@@ -177,6 +177,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error creating comment:', err);
-    error(500, 'Internal server error');
+    error(500, m.internal_server_error());
   }
 };

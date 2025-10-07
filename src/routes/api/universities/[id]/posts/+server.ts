@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!universityId) {
-      error(400, 'Invalid university ID');
+      error(400, m.invalid_university_id());
     }
 
     const db = mongo.db();
@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     // Check post readability permissions - now using post-level readability
@@ -99,7 +99,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       throw err;
     }
     console.error('Error fetching university posts:', err);
-    error(500, 'Internal server error');
+    error(500, m.internal_server_error());
   }
 };
 
@@ -112,7 +112,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const universityId = params.id;
     if (!universityId) {
-      error(400, 'Invalid university ID');
+      error(400, m.invalid_university_id());
     }
 
     const { title, content, readability } = (await request.json()) as {
@@ -121,7 +121,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       readability?: PostReadability;
     };
     if (!title || !content) {
-      error(400, 'Title and content are required');
+      error(400, m.title_and_content_are_required());
     }
 
     const db = mongo.db();
@@ -133,14 +133,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     // Check post writability permissions
     const permissions = await checkUniversityPermission(session.user, university, mongo);
 
     if (!canWriteUnivPosts(permissions, university)) {
-      error(403, 'Permission denied');
+      error(403, m.permission_denied());
     }
 
     // Determine post readability
@@ -152,7 +152,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (
         !validatePostReadability(readability, orgReadability, permissions, session.user.userType)
       ) {
-        error(403, 'Cannot set post readability more open than organization setting');
+        error(403, m.cannot_set_post_readability_more_open_than_organization_setting());
       }
       postReadability = readability;
     } else {
@@ -184,6 +184,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw err;
     }
     console.error('Error creating university post:', err);
-    error(500, 'Internal server error');
+    error(500, m.internal_server_error());
   }
 };

@@ -5,19 +5,20 @@ import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
 import { getCurrentAttendance } from '$lib/utils/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { source, id } = params;
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    error(404, 'Invalid shop source');
+    error(404, m.invalid_shop_source());
   }
 
   // Validate id
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
-    error(404, 'Invalid shop ID');
+    error(404, m.invalid_shop_id());
   }
 
   try {
@@ -31,7 +32,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     });
 
     if (!shop) {
-      error(404, 'Shop not found');
+      error(404, m.shop_not_found());
     }
 
     const { session } = await parent();
@@ -53,6 +54,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       throw err;
     }
     console.error('Error loading shop:', err);
-    error(500, 'Failed to load shop');
+    error(500, m.failed_to_load_shop());
   }
 };

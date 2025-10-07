@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 interface CacheMetadata {
   _id: string;
@@ -122,6 +123,6 @@ export const GET: RequestHandler = async ({ url }) => {
       throw err;
     }
     console.error('Error getting rankings:', err);
-    error(500, 'Failed to get rankings');
+    error(500, m.failed_to_get_rankings());
   }
 };

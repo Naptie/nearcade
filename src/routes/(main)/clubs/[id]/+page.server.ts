@@ -17,6 +17,7 @@ import {
 import { PAGINATION, ShopSource } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
@@ -42,7 +43,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!club) {
-      error(404, 'Club not found');
+      error(404, m.club_not_found());
     }
 
     // Check user permissions if authenticated
@@ -115,7 +116,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       throw err;
     }
     console.error('Error loading club:', err);
-    error(500, 'Failed to load club data');
+    error(500, m.failed_to_load_club_data());
   }
 };
 
@@ -123,7 +124,7 @@ export const actions: Actions = {
   removeMember: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -132,13 +133,13 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!targetUserId || !clubId) {
-        return fail(400, { message: 'User ID and Club ID are required' });
+        return fail(400, { message: m.user_id_and_club_id_are_required() });
       }
 
       // Check permissions
       const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canEdit) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       // Verify target user is not admin/moderator if requester is not admin
@@ -151,7 +152,7 @@ export const actions: Actions = {
         });
 
         if (targetMember && ['admin', 'moderator'].includes(targetMember.memberType)) {
-          return fail(403, { message: 'Cannot remove admin or moderator members' });
+          return fail(403, { message: m.cannot_remove_admin_or_moderator_members() });
         }
       }
 
@@ -164,17 +165,17 @@ export const actions: Actions = {
         userId: targetUserId
       });
 
-      return { success: true, message: 'Member removed successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error removing member:', err);
-      return fail(500, { message: 'Failed to remove member' });
+      return fail(500, { message: m.failed_to_remove_member() });
     }
   },
 
   grantModerator: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -183,13 +184,13 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!targetUserId || !clubId) {
-        return fail(400, { message: 'User ID and Club ID are required' });
+        return fail(400, { message: m.user_id_and_club_id_are_required() });
       }
 
       // Only admins can grant moderator roles
       const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Only admins can grant moderator roles' });
+        return fail(403, { message: m.only_admins_can_grant_moderator_roles() });
       }
 
       const db = mongo.db();
@@ -201,17 +202,17 @@ export const actions: Actions = {
         { $set: { memberType: 'moderator' } }
       );
 
-      return { success: true, message: 'Moderator role granted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error granting moderator:', err);
-      return fail(500, { message: 'Failed to grant moderator role' });
+      return fail(500, { message: m.failed_to_grant_moderator_role() });
     }
   },
 
   revokeModerator: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -220,13 +221,13 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!targetUserId || !clubId) {
-        return fail(400, { message: 'User ID and Club ID are required' });
+        return fail(400, { message: m.user_id_and_club_id_are_required() });
       }
 
       // Only admins can revoke moderator roles
       const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Only admins can revoke moderator roles' });
+        return fail(403, { message: m.only_admins_can_revoke_moderator_roles() });
       }
 
       const db = mongo.db();
@@ -238,17 +239,17 @@ export const actions: Actions = {
         { $set: { memberType: 'member' } }
       );
 
-      return { success: true, message: 'Moderator role revoked successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error revoking moderator:', err);
-      return fail(500, { message: 'Failed to revoke moderator role' });
+      return fail(500, { message: m.failed_to_revoke_moderator_role() });
     }
   },
 
   grantAdmin: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -257,7 +258,7 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!targetUserId || !clubId) {
-        return fail(400, { message: 'User ID and Club ID are required' });
+        return fail(400, { message: m.user_id_and_club_id_are_required() });
       }
 
       // Check if current user is a site admin (site admins can grant admin without losing their status)
@@ -266,7 +267,7 @@ export const actions: Actions = {
       const currentUser = await usersCollection.findOne({ id: session.user.id });
 
       if (currentUser?.userType !== 'site_admin') {
-        return fail(403, { message: 'Only site admins can grant admin privileges' });
+        return fail(403, { message: m.only_site_admins_can_grant_admin_privileges() });
       }
 
       const membersCollection = db.collection('club_members');
@@ -277,17 +278,17 @@ export const actions: Actions = {
         { $set: { memberType: 'admin' } }
       );
 
-      return { success: true, message: 'Admin privileges granted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error granting admin:', err);
-      return fail(500, { message: 'Failed to grant admin privileges' });
+      return fail(500, { message: m.failed_to_grant_admin_privileges() });
     }
   },
 
   transferAdmin: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -296,13 +297,13 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!targetUserId || !clubId) {
-        return fail(400, { message: 'User ID and Club ID are required' });
+        return fail(400, { message: m.user_id_and_club_id_are_required() });
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
       const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canManage) {
-        return fail(403, { message: 'Only admins can transfer admin privileges' });
+        return fail(403, { message: m.only_admins_can_transfer_admin_privileges() });
       }
 
       // Check if current user is a site admin (they should use grantAdmin instead)
@@ -312,7 +313,7 @@ export const actions: Actions = {
 
       if (currentUser?.userType === 'site_admin') {
         return fail(403, {
-          message: 'Site admins should use grant admin instead of transfer admin'
+          message: m.site_admins_should_use_grant_admin_instead_of_transfer_admin()
         });
       }
 
@@ -330,17 +331,17 @@ export const actions: Actions = {
         { $set: { memberType: 'admin' } }
       );
 
-      return { success: true, message: 'Admin privileges transferred successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error transferring admin:', err);
-      return fail(500, { message: 'Failed to transfer admin privileges' });
+      return fail(500, { message: m.failed_to_transfer_admin_privileges() });
     }
   },
 
   addArcade: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -351,17 +352,17 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!arcadeSource) {
-        return fail(400, { message: 'Arcade source is required' });
+        return fail(400, { message: m.arcade_source_is_required() });
       }
 
       if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
-        return fail(400, { message: 'Arcade ID and Club ID are required' });
+        return fail(400, { message: m.arcade_id_and_club_id_are_required() });
       }
 
       // Check permissions
       const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canEdit) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       const db = mongo.db();
@@ -374,7 +375,7 @@ export const actions: Actions = {
         source: arcadeSource
       });
       if (!arcade) {
-        return fail(404, { message: 'Arcade not found' });
+        return fail(404, { message: m.arcade_not_found() });
       }
 
       // Add arcade to club's starred list
@@ -386,17 +387,17 @@ export const actions: Actions = {
         }
       );
 
-      return { success: true, message: 'Arcade added successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error adding arcade:', err);
-      return fail(500, { message: 'Failed to add arcade' });
+      return fail(500, { message: m.failed_to_add_arcade() });
     }
   },
 
   removeArcade: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -407,17 +408,17 @@ export const actions: Actions = {
       const clubId = formData.get('clubId') as string;
 
       if (!arcadeSource) {
-        return fail(400, { message: 'Arcade source is required' });
+        return fail(400, { message: m.arcade_source_is_required() });
       }
 
       if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
-        return fail(400, { message: 'Arcade ID and Club ID are required' });
+        return fail(400, { message: m.arcade_id_and_club_id_are_required() });
       }
 
       // Check permissions
       const permissions = await checkClubPermission(session.user, clubId, mongo);
       if (!permissions.canEdit) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       const db = mongo.db();
@@ -429,17 +430,17 @@ export const actions: Actions = {
         $set: { updatedAt: new Date() }
       } as Record<string, unknown>);
 
-      return { success: true, message: 'Arcade removed successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error removing arcade:', err);
-      return fail(500, { message: 'Failed to remove arcade' });
+      return fail(500, { message: m.failed_to_remove_arcade() });
     }
   },
 
   joinRequest: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -448,7 +449,7 @@ export const actions: Actions = {
       const requestMessage = formData.get('requestMessage') as string;
 
       if (!clubId) {
-        return fail(400, { message: 'Club ID is required' });
+        return fail(400, { message: m.club_id_is_required() });
       }
 
       const db = mongo.db();
@@ -460,11 +461,11 @@ export const actions: Actions = {
       // Check if club exists and accepts join requests
       const club = await clubsCollection.findOne({ id: clubId });
       if (!club) {
-        return fail(404, { message: 'Club not found' });
+        return fail(404, { message: m.club_not_found() });
       }
 
       if (!club.acceptJoinRequests) {
-        return fail(400, { message: 'This club does not accept join requests' });
+        return fail(400, { message: m.this_club_does_not_accept_join_requests() });
       }
 
       // Check if user is already a member
@@ -474,7 +475,7 @@ export const actions: Actions = {
       });
 
       if (existingMembership) {
-        return fail(400, { message: 'You are already a member of this club' });
+        return fail(400, { message: m.you_are_already_a_member_of_this_club() });
       }
 
       // Check if user is a member of the club's university
@@ -485,7 +486,7 @@ export const actions: Actions = {
 
       if (!universityMembership) {
         return fail(403, {
-          message: 'You must be a member of the hosting university to join this club'
+          message: m.you_must_be_a_member_of_the_hosting_university_to_join_this_club()
         });
       }
 
@@ -498,7 +499,7 @@ export const actions: Actions = {
       });
 
       if (existingRequest) {
-        return fail(400, { message: 'You already have a pending join request for this club' });
+        return fail(400, { message: m.you_already_have_a_pending_join_request_for_this_club() });
       }
 
       // Create join request
@@ -514,10 +515,10 @@ export const actions: Actions = {
 
       await joinRequestsCollection.insertOne(joinRequest);
 
-      return { success: true, message: 'Join request submitted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error creating join request:', err);
-      return fail(500, { message: 'Failed to submit join request' });
+      return fail(500, { message: m.failed_to_submit_join_request() });
     }
   }
 };

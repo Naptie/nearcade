@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { getUserActivities } from '$lib/utils/activity.server';
 import { PAGINATION } from '$lib/constants';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   const session = await locals.auth();
@@ -12,7 +13,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (page < 1 || limit < 1 || limit > 100) {
-    error(400, 'Invalid page or limit parameters');
+    error(400, m.invalid_page_or_limit_parameters());
   }
 
   try {
@@ -29,7 +30,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     }
 
     if (!user) {
-      error(404, 'User not found');
+      error(404, m.user_not_found());
     }
 
     // Check if viewing own profile or activities are public
@@ -37,7 +38,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     const canViewActivities = isOwnProfile || user.isActivityPublic !== false;
 
     if (!canViewActivities) {
-      error(403, 'Activities are private');
+      error(403, m.activities_are_private());
     }
 
     // Calculate offset
@@ -69,6 +70,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading user activities:', err);
-    error(500, 'Failed to load activities');
+    error(500, m.failed_to_load_activities());
   }
 };

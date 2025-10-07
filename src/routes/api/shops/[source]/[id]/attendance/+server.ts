@@ -43,7 +43,7 @@ const leave = async (user: User, shop: Shop) => {
   const pattern = `nearcade:attend:${source}-${id}:${user.id}:*`;
   const keys = await redis.keys(pattern);
   if (keys.length === 0) {
-    error(404, 'Attendance not found');
+    error(404, m.attendance_not_found());
   }
 
   // Only one active attendance per user per shop
@@ -52,7 +52,7 @@ const leave = async (user: User, shop: Shop) => {
   // Get the attendance data before deleting
   const attendanceDataStr = await redis.get(attendanceKey);
   if (!attendanceDataStr) {
-    error(404, 'Attendance not found');
+    error(404, m.attendance_not_found());
   }
 
   const attendanceData = JSON.parse(attendanceDataStr);
@@ -113,7 +113,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       matchedToken.shop.id.toString() !== params.id &&
       matchedToken.shop.source !== params.source
     ) {
-      error(403, 'Forbidden');
+      error(403, m.access_denied());
     }
     isOpenApiAccess = true;
     isClaimedShopAccess = matchedToken?.shop ? true : false;
@@ -123,7 +123,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         apiTokens: { $elemMatch: { token: userToken, expiresAt: { $gt: new Date() } } }
       });
       if (!attendingUser) {
-        error(404, 'Target user not found');
+        error(404, m.target_user_not_found());
       }
       isAttendingOnBehalf = true;
     }
@@ -143,21 +143,21 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       !Array.isArray(games) ||
       (games.every((g) => g.currentAttendances === undefined) && !plannedLeaveAt)
     ) {
-      error(400, 'Missing required parameters');
+      error(400, m.missing_required_parameters());
     }
 
     const source = params.source as ShopSource;
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
-      error(400, 'Invalid shop source');
+      error(400, m.invalid_shop_source());
     }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
-      error(400, 'Invalid shop ID');
+      error(400, m.invalid_shop_id());
     }
 
     // Validate shop exists
@@ -169,32 +169,32 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     });
 
     if (!shop) {
-      error(404, 'Shop not found');
+      error(404, m.shop_not_found());
     }
     if ((isClaimedShopAccess && !shop.isClaimed) || (!isClaimedShopAccess && shop.isClaimed)) {
-      error(403, 'Forbidden');
+      error(403, m.access_denied());
     }
 
     // Validate game exists in shop
     const shopGames = shop.games.filter((sg) => games.some((g) => g.id === sg.gameId));
     if (shopGames.length !== games.length) {
-      error(404, 'Games missing in shop');
+      error(404, m.games_missing_in_shop());
     }
 
     if (!redis) {
-      error(500, 'Redis not available');
+      error(500, m.redis_not_available());
     }
 
     const now = Date.now();
     const { open, close } = getShopOpeningHours(shop);
     if (now < open.getTime() || now > close.getTime()) {
-      error(400, 'Shop is currently closed');
+      error(400, m.shop_is_currently_closed());
     }
 
     if (!isOpenApiAccess && plannedLeaveAt) {
       // Check for existing attendance
       if (await getCurrentAttendance(user.id!)) {
-        error(409, 'User already has an active attendance');
+        error(409, m.user_already_has_an_active_attendance());
       }
 
       const plannedLeaveTime = new Date(plannedLeaveAt);
@@ -204,7 +204,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         plannedLeaveTime < open ||
         plannedLeaveTime > close
       ) {
-        error(400, 'Invalid planned leave time');
+        error(400, m.invalid_planned_leave_time());
       }
 
       await attend(user, shop, {
@@ -237,7 +237,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       }
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
       if (now < open.getTime() || now > close.getTime()) {
-        error(400, 'Shop is currently closed');
+        error(400, m.shop_is_currently_closed());
       }
       for (const game of games) {
         if (
@@ -246,7 +246,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           isNaN(game.currentAttendances) ||
           game.currentAttendances < 0
         ) {
-          error(400, `Invalid current attendances for game ${game.id}`);
+          error(400, m.invalid_current_attendances_for_game({ id: game.id }));
         }
         const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
         const attendanceData = {
@@ -303,7 +303,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       throw err;
     }
     console.error('Error creating attendance:', err);
-    error(500, 'Failed to create attendance');
+    error(500, m.failed_to_create_attendance());
   }
 };
 
@@ -319,18 +319,18 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
-      error(400, 'Invalid shop source');
+      error(400, m.invalid_shop_source());
     }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
-      error(400, 'Invalid shop ID');
+      error(400, m.invalid_shop_id());
     }
 
     if (!redis) {
-      error(500, 'Redis not available');
+      error(500, m.redis_not_available());
     }
 
     const db = mongo.db();
@@ -340,7 +340,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       id
     });
     if (!shop) {
-      error(404, 'Shop not found');
+      error(404, m.shop_not_found());
     }
 
     await leave(session.user, shop);
@@ -351,7 +351,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       throw err;
     }
     console.error('Error removing attendance:', err);
-    error(500, 'Failed to remove attendance');
+    error(500, m.failed_to_remove_attendance());
   }
 };
 
@@ -364,18 +364,18 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
-      error(400, 'Invalid shop source');
+      error(400, m.invalid_shop_source());
     }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
-      error(400, 'Invalid shop ID');
+      error(400, m.invalid_shop_id());
     }
 
     if (!redis) {
-      error(500, 'Redis not available');
+      error(500, m.redis_not_available());
     }
 
     const session = await locals.auth();
@@ -405,6 +405,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error getting attendance:', err);
-    error(500, 'Failed to get attendance');
+    error(500, m.failed_to_get_attendance());
   }
 };

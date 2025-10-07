@@ -4,6 +4,7 @@ import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
@@ -21,7 +22,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
 
     if (!club) {
-      error(404, 'Club not found');
+      error(404, m.club_not_found());
     }
 
     if (!club.starredArcades || club.starredArcades.length === 0) {
@@ -75,6 +76,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
       throw err;
     }
     console.error('Error loading club arcades:', err);
-    error(500, 'Failed to load club arcades');
+    error(500, m.failed_to_load_club_arcades());
   }
 };

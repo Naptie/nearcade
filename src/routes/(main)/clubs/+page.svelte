@@ -193,7 +193,7 @@
         <h3 class="mb-2 text-xl font-medium">{m.no_clubs_found()}</h3>
         <p class="text-base-content/60 mb-4">
           {#if data.query || data.selectedUniversityId}
-            {m.try_adjusting_search_criteria_clubs()}
+            {m.try_adjusting_search_criteria()}
           {:else}
             {m.no_clubs_created_yet()}
           {/if}

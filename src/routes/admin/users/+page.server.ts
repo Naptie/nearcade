@@ -147,12 +147,12 @@ export const actions: Actions = {
     const session = await locals.auth();
 
     if (!session?.user) {
-      return fail(401, { error: 'Unauthorized' });
+      return fail(401, { error: m.unauthorized() });
     }
 
     // Only site admins can update organization roles
     if (session.user.userType !== 'site_admin') {
-      return fail(403, { error: 'Access denied' });
+      return fail(403, { error: m.access_denied() });
     }
 
     const formData = await request.formData();
@@ -163,11 +163,11 @@ export const actions: Actions = {
     const action = formData.get('action') as string;
 
     if (!userId || !organizationType || !organizationId || !action) {
-      return fail(400, { error: 'Missing required fields' });
+      return fail(400, { error: m.missing_required_fields() });
     }
 
     if (!['university', 'club'].includes(organizationType)) {
-      return fail(400, { error: 'Invalid organization type' });
+      return fail(400, { error: m.invalid_organization_type() });
     }
 
     try {
@@ -179,7 +179,7 @@ export const actions: Actions = {
 
       if (action === 'add') {
         if (!memberType) {
-          return fail(400, { error: 'Member type required' });
+          return fail(400, { error: m.member_type_required() });
         }
 
         const validMemberTypes =
@@ -188,7 +188,7 @@ export const actions: Actions = {
             : ['member', 'moderator', 'admin'];
 
         if (!validMemberTypes.includes(memberType)) {
-          return fail(400, { error: 'Invalid member type' });
+          return fail(400, { error: m.invalid_member_type() });
         }
 
         // Check if membership already exists
@@ -214,7 +214,7 @@ export const actions: Actions = {
         }
       } else if (action === 'update') {
         if (!memberType) {
-          return fail(400, { error: 'Member type required' });
+          return fail(400, { error: m.member_type_required() });
         }
 
         const validMemberTypes =
@@ -223,7 +223,7 @@ export const actions: Actions = {
             : ['member', 'moderator', 'admin'];
 
         if (!validMemberTypes.includes(memberType)) {
-          return fail(400, { error: 'Invalid member type' });
+          return fail(400, { error: m.invalid_member_type() });
         }
 
         await db
@@ -240,7 +240,7 @@ export const actions: Actions = {
       return { success: true };
     } catch (error) {
       console.error('Error updating organization role:', error);
-      return fail(500, { error: 'Failed to update organization role' });
+      return fail(500, { error: m.failed_to_update_organization_role() });
     }
   },
 
@@ -248,24 +248,24 @@ export const actions: Actions = {
     const session = await locals.auth();
 
     if (!session?.user) {
-      return fail(401, { error: 'Unauthorized' });
+      return fail(401, { error: m.unauthorized() });
     }
 
     // Only site admins can delete users
     if (session.user.userType !== 'site_admin') {
-      return fail(403, { error: 'Access denied' });
+      return fail(403, { error: m.access_denied() });
     }
 
     const formData = await request.formData();
     const userId = formData.get('userId') as string;
 
     if (!userId) {
-      return fail(400, { error: 'User ID is required' });
+      return fail(400, { error: m.user_id_is_required() });
     }
 
     // Prevent self-deletion
     if (userId === session.user.id) {
-      return fail(400, { error: 'Cannot delete your own account' });
+      return fail(400, { error: m.cannot_delete_your_own_account() });
     }
 
     try {
@@ -274,7 +274,7 @@ export const actions: Actions = {
       // Check if user exists
       const user = await db.collection('users').findOne({ id: userId });
       if (!user) {
-        return fail(404, { error: 'User not found' });
+        return fail(404, { error: m.user_not_found() });
       }
 
       // Delete user and all related data
@@ -296,7 +296,7 @@ export const actions: Actions = {
       return { success: true };
     } catch (error) {
       console.error('Error deleting user:', error);
-      return fail(500, { error: 'Failed to delete user' });
+      return fail(500, { error: m.failed_to_delete_user() });
     }
   }
 };

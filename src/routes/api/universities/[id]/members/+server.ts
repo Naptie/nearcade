@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import type { University, UniversityMember } from '$lib/types';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -11,7 +12,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!universityId) {
-      error(400, 'Invalid university ID');
+      error(400, m.invalid_university_id());
     }
 
     const db = mongo.db();
@@ -23,7 +24,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: universityId }, { slug: universityId }]
     });
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     const session = await locals.auth();
@@ -94,6 +95,6 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       throw err;
     }
     console.error('Error loading university members:', err);
-    error(500, 'Internal server error');
+    error(500, m.internal_server_error());
   }
 };

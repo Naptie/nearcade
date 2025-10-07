@@ -4,6 +4,7 @@ import type { University } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -103,6 +104,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       throw err;
     }
     console.error('Error loading universities:', err);
-    error(500, 'Failed to load universities');
+    error(500, m.failed_to_load_universities());
   }
 };

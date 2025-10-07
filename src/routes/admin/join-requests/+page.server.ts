@@ -6,6 +6,7 @@ import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { notify } from '$lib/notifications/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -192,7 +193,7 @@ export const actions: Actions = {
   approve: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -201,7 +202,7 @@ export const actions: Actions = {
       const reviewNote = formData.get('reviewNote') as string;
 
       if (!requestId) {
-        return fail(400, { message: 'Request ID is required' });
+        return fail(400, { message: m.request_id_is_required() });
       }
 
       const db = mongo.db();
@@ -211,11 +212,11 @@ export const actions: Actions = {
       const joinRequest = await joinRequestsCollection.findOne({ id: requestId });
 
       if (!joinRequest) {
-        return fail(404, { message: 'Join request not found' });
+        return fail(404, { message: m.join_request_not_found() });
       }
 
       if (joinRequest.status !== 'pending') {
-        return fail(400, { message: 'Join request has already been processed' });
+        return fail(400, { message: m.join_request_has_already_been_processed() });
       }
 
       // Check permissions
@@ -235,7 +236,7 @@ export const actions: Actions = {
       }
 
       if (!hasPermission) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       // Create membership
@@ -329,17 +330,17 @@ export const actions: Actions = {
         console.error('Failed to send approval notification:', notificationError);
       }
 
-      return { success: true, message: 'Join request approved successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error approving join request:', err);
-      return fail(500, { message: 'Failed to approve join request' });
+      return fail(500, { message: m.failed_to_approve_join_request() });
     }
   },
 
   reject: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -348,7 +349,7 @@ export const actions: Actions = {
       const reviewNote = formData.get('reviewNote') as string;
 
       if (!requestId) {
-        return fail(400, { message: 'Request ID is required' });
+        return fail(400, { message: m.request_id_is_required() });
       }
 
       const db = mongo.db();
@@ -358,11 +359,11 @@ export const actions: Actions = {
       const joinRequest = await joinRequestsCollection.findOne({ id: requestId });
 
       if (!joinRequest) {
-        return fail(404, { message: 'Join request not found' });
+        return fail(404, { message: m.join_request_not_found() });
       }
 
       if (joinRequest.status !== 'pending') {
-        return fail(400, { message: 'Join request has already been processed' });
+        return fail(400, { message: m.join_request_has_already_been_processed() });
       }
 
       // Check permissions
@@ -382,7 +383,7 @@ export const actions: Actions = {
       }
 
       if (!hasPermission) {
-        return fail(403, { message: 'Insufficient permissions' });
+        return fail(403, { message: m.insufficient_permissions() });
       }
 
       // Update join request status
@@ -433,17 +434,17 @@ export const actions: Actions = {
         console.error('Failed to send rejection notification:', notificationError);
       }
 
-      return { success: true, message: 'Join request rejected successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error rejecting join request:', err);
-      return fail(500, { message: 'Failed to reject join request' });
+      return fail(500, { message: m.failed_to_reject_join_request() });
     }
   },
 
   delete: async ({ locals, request }) => {
     const session = await locals.auth();
     if (!session?.user?.id) {
-      return fail(401, { message: 'Unauthorized' });
+      return fail(401, { message: m.unauthorized() });
     }
 
     try {
@@ -451,7 +452,7 @@ export const actions: Actions = {
       const requestId = formData.get('requestId') as string;
 
       if (!requestId) {
-        return fail(400, { message: 'Request ID is required' });
+        return fail(400, { message: m.request_id_is_required() });
       }
 
       const db = mongo.db();
@@ -461,7 +462,7 @@ export const actions: Actions = {
       const joinRequest = await joinRequestsCollection.findOne({ id: requestId });
 
       if (!joinRequest) {
-        return fail(404, { message: 'Join request not found' });
+        return fail(404, { message: m.join_request_not_found() });
       }
 
       // Check permissions (only site admins or the request creator can delete)
@@ -481,17 +482,17 @@ export const actions: Actions = {
         }
 
         if (!hasPermission) {
-          return fail(403, { message: 'Insufficient permissions' });
+          return fail(403, { message: m.insufficient_permissions() });
         }
       }
 
       // Delete join request
       await joinRequestsCollection.deleteOne({ id: requestId });
 
-      return { success: true, message: 'Join request deleted successfully' };
+      return { success: true };
     } catch (err) {
       console.error('Error deleting join request:', err);
-      return fail(500, { message: 'Failed to delete join request' });
+      return fail(500, { message: m.failed_to_delete_join_request() });
     }
   }
 };

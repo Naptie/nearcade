@@ -29,11 +29,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     // Validate input
     if (!type || !targetId) {
-      error(400, 'Missing required fields');
+      error(400, m.missing_required_fields());
     }
 
     if (!['university', 'club'].includes(type)) {
-      error(400, 'Invalid invite type');
+      error(400, m.invalid_invite_type());
     }
 
     const db = mongo.db();
@@ -67,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       throw err;
     }
     console.error('Error creating invite:', err);
-    error(500, 'Failed to create invite');
+    error(500, m.failed_to_create_invite());
   }
 };
 
@@ -99,6 +99,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       throw err;
     }
     console.error('Error fetching invites:', err);
-    error(500, 'Failed to fetch invites');
+    error(500, m.failed_to_fetch_invites());
   }
 };

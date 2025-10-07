@@ -210,14 +210,14 @@ export const actions: Actions = {
     const session = await locals.auth();
 
     if (!session?.user) {
-      return fail(401, { error: 'Unauthorized' });
+      return fail(401, { error: m.unauthorized() });
     }
 
     const formData = await request.formData();
     const inviteId = formData.get('inviteId') as string;
 
     if (!inviteId) {
-      return fail(400, { error: 'Invite ID is required' });
+      return fail(400, { error: m.invite_id_is_required() });
     }
 
     try {
@@ -226,7 +226,7 @@ export const actions: Actions = {
       // Get invite details
       const invite = await db.collection('invite_links').findOne({ id: inviteId });
       if (!invite) {
-        return fail(404, { error: 'Invite not found' });
+        return fail(404, { error: m.invite_not_found() });
       }
 
       // Check permissions
@@ -249,7 +249,7 @@ export const actions: Actions = {
             }));
 
           if (!hasPermission) {
-            return fail(403, { error: 'Access denied' });
+            return fail(403, { error: m.access_denied() });
           }
         }
       }
@@ -260,7 +260,7 @@ export const actions: Actions = {
       return { success: true };
     } catch (error) {
       console.error('Error deleting invite:', error);
-      return fail(500, { error: 'Failed to delete invite' });
+      return fail(500, { error: m.failed_to_delete_invite() });
     }
   }
 };

@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    error(401, 'Authentication required');
+    error(401, m.unauthorized());
   }
 
   // Only site admins can manage arcade shops

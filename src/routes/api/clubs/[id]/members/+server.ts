@@ -4,6 +4,7 @@ import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import type { Club, ClubMember, UniversityMember } from '$lib/types';
 import { protect } from '$lib/utils';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -12,7 +13,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
 
     if (!clubId) {
-      error(400, 'Invalid club ID');
+      error(400, m.invalid_club_id());
     }
 
     const db = mongo.db();
@@ -24,7 +25,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       $or: [{ id: clubId }, { slug: clubId }]
     });
     if (!club) {
-      error(404, 'Club not found');
+      error(404, m.club_not_found());
     }
 
     const session = await locals.auth();
@@ -96,6 +97,6 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       throw err;
     }
     console.error('Error loading club members:', err);
-    error(500, 'Internal server error');
+    error(500, m.internal_server_error());
   }
 };

@@ -22,17 +22,17 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     const invite = await invitesCollection.findOne({ code, isActive: true });
 
     if (!invite) {
-      error(404, 'Invalid or expired invite link');
+      error(404, m.invalid_invite());
     }
 
     // Check if invite is expired
     if (invite.expiresAt && new Date() > new Date(invite.expiresAt)) {
-      error(410, 'This invite link has expired');
+      error(410, m.this_invite_link_has_expired());
     }
 
     // Check if invite has reached max uses
     if (invite.maxUses && invite.currentUses >= invite.maxUses) {
-      error(410, 'This invite link has been used up');
+      error(410, m.this_invite_link_has_been_used_up());
     }
 
     const userId = session.user.id!;
@@ -48,7 +48,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       });
 
       if (existingMember) {
-        error(400, 'You are already a member of this university');
+        error(400, m.you_are_already_a_member_of_this_university());
       }
 
       if (invite.requireApproval) {
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
         });
 
         if (existingRequest) {
-          error(400, 'You already have a pending join request for this university');
+          error(400, m.you_already_have_a_pending_join_request_for_this_university());
         }
 
         // Create join request
@@ -101,7 +101,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       });
 
       if (existingMember) {
-        error(400, 'You are already a member of this club');
+        error(400, m.you_are_already_a_member_of_this_club());
       }
 
       if (invite.requireApproval) {
@@ -115,7 +115,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
         });
 
         if (existingRequest) {
-          error(400, 'You already have a pending join request for this club');
+          error(400, m.you_already_have_a_pending_join_request_for_this_club());
         }
 
         // Create join request
@@ -191,6 +191,6 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       throw err;
     }
     console.error('Error redeeming invite:', err);
-    error(500, 'Failed to redeem invite');
+    error(500, m.failed_to_redeem_invite());
   }
 };
