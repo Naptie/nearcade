@@ -73,8 +73,8 @@ jobs:
 
           # Function to display usage
           usage() {
-              cat << USAGE
-          Usage: \$0 <backup-file.tar.gz> <mongodb-uri> [options]
+              cat << 'USAGE'
+          Usage: $0 <backup-file.tar.gz> <mongodb-uri> [options]
 
           Arguments:
               backup-file.tar.gz    Path to the backup archive file
@@ -89,32 +89,32 @@ jobs:
 
           Examples:
               # Basic restore
-              \$0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017/nearcade"
+              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017/nearcade"
 
               # Restore with drop (replace existing data)
-              \$0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017/nearcade" --drop
+              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017/nearcade" --drop
 
               # Restore to a different database
-              \$0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017" --db nearcade_restore
+              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017" --db nearcade_restore
 
           USAGE
               exit 1
           }
 
           # Check if help is requested
-          if [[ "\$1" == "-h" || "\$1" == "--help" ]]; then
+          if [[ "$1" == "-h" || "$1" == "--help" ]]; then
               usage
           fi
 
           # Check if required arguments are provided
-          if [ \$# -lt 2 ]; then
+          if [ $# -lt 2 ]; then
               print_error "Missing required arguments"
               echo ""
               usage
           fi
 
-          BACKUP_FILE="\$1"
-          MONGODB_URI="\$2"
+          BACKUP_FILE="$1"
+          MONGODB_URI="$2"
           shift 2
 
           # Parse optional arguments
@@ -123,14 +123,14 @@ jobs:
           DRY_RUN=false
           KEEP_EXTRACTED=false
 
-          while [[ \$# -gt 0 ]]; do
-              case \$1 in
+          while [[ $# -gt 0 ]]; do
+              case $1 in
                   --drop)
                       DROP_OPTION="--drop"
                       shift
                       ;;
                   --db)
-                      TARGET_DB="\$2"
+                      TARGET_DB="$2"
                       shift 2
                       ;;
                   --dry-run)
@@ -142,20 +142,20 @@ jobs:
                       shift
                       ;;
                   *)
-                      print_error "Unknown option: \$1"
+                      print_error "Unknown option: $1"
                       usage
                       ;;
               esac
           done
 
           # Validate backup file exists
-          if [ ! -f "\$BACKUP_FILE" ]; then
-              print_error "Backup file not found: \$BACKUP_FILE"
+          if [ ! -f "$BACKUP_FILE" ]; then
+              print_error "Backup file not found: $BACKUP_FILE"
               exit 1
           fi
 
           # Check if mongorestore is installed
-          if ! command -v mongorestore &> /dev/null; then
+          if ! command -v mongorestore >/dev/null 2>&1; then
               print_error "mongorestore is not installed"
               echo "Please install MongoDB Database Tools:"
               echo "  - Ubuntu/Debian: sudo apt-get install mongodb-database-tools"
@@ -165,70 +165,70 @@ jobs:
           fi
 
           # Create temporary directory for extraction
-          TEMP_DIR=\$(mktemp -d)
-          EXTRACT_DIR="\$TEMP_DIR/backup"
+          TEMP_DIR=$(mktemp -d)
+          EXTRACT_DIR="$TEMP_DIR/backup"
 
           print_info "Starting MongoDB backup restoration process"
-          print_info "Backup file: \$BACKUP_FILE"
-          print_info "MongoDB URI: \${MONGODB_URI%%\\?*}"  # Hide query parameters for security
+          print_info "Backup file: $BACKUP_FILE"
+          print_info "MongoDB URI: ${MONGODB_URI%%\?*}"  # Hide query parameters for security
 
           # Extract the backup archive
           print_info "Extracting backup archive to temporary directory..."
-          mkdir -p "\$EXTRACT_DIR"
-          tar -xzf "\$BACKUP_FILE" -C "\$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          tar -xzf "$BACKUP_FILE" -C "$EXTRACT_DIR"
 
-          if [ \$? -ne 0 ]; then
+          if [ $? -ne 0 ]; then
               print_error "Failed to extract backup archive"
-              rm -rf "\$TEMP_DIR"
+              rm -rf "$TEMP_DIR"
               exit 1
           fi
 
           print_info "Backup extracted successfully"
 
           # Detect database name from extracted structure
-          BACKUP_DB_NAME=\$(ls "\$EXTRACT_DIR" | head -n 1)
-          if [ -z "\$BACKUP_DB_NAME" ]; then
+          BACKUP_DB_NAME=$(ls "$EXTRACT_DIR" | head -n 1)
+          if [ -z "$BACKUP_DB_NAME" ]; then
               print_error "Could not detect database name from backup"
-              rm -rf "\$TEMP_DIR"
+              rm -rf "$TEMP_DIR"
               exit 1
           fi
 
-          print_info "Detected database in backup: \$BACKUP_DB_NAME"
+          print_info "Detected database in backup: $BACKUP_DB_NAME"
 
           # Determine target database
-          if [ -n "\$TARGET_DB" ]; then
-              print_info "Target database (override): \$TARGET_DB"
-              NSINCLUDE_OPTION="--nsInclude=\${BACKUP_DB_NAME}.* --nsFrom=\${BACKUP_DB_NAME}.* --nsTo=\${TARGET_DB}.*"
+          if [ -n "$TARGET_DB" ]; then
+              print_info "Target database (override): $TARGET_DB"
+              NSINCLUDE_OPTION="--nsInclude=${BACKUP_DB_NAME}.* --nsFrom=${BACKUP_DB_NAME}.* --nsTo=${TARGET_DB}.*"
           else
-              print_info "Target database: \$BACKUP_DB_NAME (from backup)"
+              print_info "Target database: $BACKUP_DB_NAME (from backup)"
               NSINCLUDE_OPTION=""
           fi
 
           # List collections in backup
           print_info "Collections in backup:"
-          for collection in "\$EXTRACT_DIR/\$BACKUP_DB_NAME"/*.bson; do
-              if [ -f "\$collection" ]; then
-                  basename "\$collection" .bson | sed 's/^/  - /'
+          for collection in "$EXTRACT_DIR/$BACKUP_DB_NAME"/*.bson; do
+              if [ -f "$collection" ]; then
+                  basename "$collection" .bson | sed 's/^/  - /'
               fi
           done
 
           # Dry run - show what would be done
-          if [ "\$DRY_RUN" = true ]; then
+          if [ "$DRY_RUN" = true ]; then
               print_warning "DRY RUN MODE - No actual restoration will occur"
               print_info "Would execute:"
-              echo "  mongorestore --uri=\"\\\${MONGODB_URI}\" \$DROP_OPTION \$NSINCLUDE_OPTION \"\$EXTRACT_DIR\""
-              rm -rf "\$TEMP_DIR"
+              echo "  mongorestore --uri=\"${MONGODB_URI}\" $DROP_OPTION $NSINCLUDE_OPTION \"$EXTRACT_DIR\""
+              rm -rf "$TEMP_DIR"
               exit 0
           fi
 
           # Confirm if drop option is used
-          if [ -n "\$DROP_OPTION" ]; then
+          if [ -n "$DROP_OPTION" ]; then
               print_warning "WARNING: --drop option is enabled. This will DELETE existing collections!"
               read -p "Are you sure you want to continue? (yes/no): " -r
               echo
-              if [[ ! \$REPLY =~ ^[Yy][Ee][Ss]\$ ]]; then
+              if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
                   print_info "Restoration cancelled by user"
-                  rm -rf "\$TEMP_DIR"
+                  rm -rf "$TEMP_DIR"
                   exit 0
               fi
           fi
@@ -237,22 +237,22 @@ jobs:
           print_info "Starting database restoration..."
           echo ""
 
-          if mongorestore --uri="\$MONGODB_URI" \$DROP_OPTION \$NSINCLUDE_OPTION "\$EXTRACT_DIR"; then
+          if mongorestore --uri="$MONGODB_URI" $DROP_OPTION $NSINCLUDE_OPTION "$EXTRACT_DIR"; then
               echo ""
               print_info "✓ Database restoration completed successfully!"
           else
               echo ""
               print_error "✗ Database restoration failed"
-              rm -rf "\$TEMP_DIR"
+              rm -rf "$TEMP_DIR"
               exit 1
           fi
 
           # Cleanup
-          if [ "\$KEEP_EXTRACTED" = true ]; then
-              print_info "Extracted files kept at: \$TEMP_DIR"
+          if [ "$KEEP_EXTRACTED" = true ]; then
+              print_info "Extracted files kept at: $TEMP_DIR"
           else
               print_info "Cleaning up temporary files..."
-              rm -rf "\$TEMP_DIR"
+              rm -rf "$TEMP_DIR"
           fi
 
           print_info "Restoration process complete"
