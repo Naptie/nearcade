@@ -39,6 +39,7 @@
   let contentElement: HTMLElement;
   let initialWidth = $state(NaN);
   let lastMeasured = $state(0);
+  let timeout = $state<ReturnType<typeof setTimeout> | null>(null);
 
   const measureButtonDimensions = () => {
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
@@ -97,13 +98,16 @@
       preloadData(href);
     }
     if (window.matchMedia('(hover: hover)').matches && !override) {
+      clearTimeout(timeout!);
       expanded = true;
     }
   };
 
   const handleMouseLeave = () => {
     if (!override) {
-      expanded = false;
+      timeout = setTimeout(() => {
+        expanded = false;
+      }, 300);
     }
   };
 
