@@ -89,10 +89,10 @@ jobs:
 
           Examples:
               # Basic restore
-              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017/nearcade"
+              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017"
 
               # Restore with drop (replace existing data)
-              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017/nearcade" --drop
+              $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017" --drop
 
               # Restore to a different database
               $0 db-backup-nearcade-20231025-120000.tar.gz "mongodb://localhost:27017" --db nearcade_restore
@@ -166,7 +166,6 @@ jobs:
 
           # Create temporary directory for extraction
           TEMP_DIR=$(mktemp -d)
-          EXTRACT_DIR="$TEMP_DIR/backup"
 
           print_info "Starting MongoDB backup restoration process"
           print_info "Backup file: $BACKUP_FILE"
@@ -174,8 +173,7 @@ jobs:
 
           # Extract the backup archive
           print_info "Extracting backup archive to temporary directory..."
-          mkdir -p "$EXTRACT_DIR"
-          tar -xzf "$BACKUP_FILE" -C "$EXTRACT_DIR"
+          tar -xzf "$BACKUP_FILE" -C "$TEMP_DIR"
 
           if [ $? -ne 0 ]; then
               print_error "Failed to extract backup archive"
@@ -186,7 +184,7 @@ jobs:
           print_info "Backup extracted successfully"
 
           # Detect database name from extracted structure
-          BACKUP_DB_NAME=$(ls "$EXTRACT_DIR" | head -n 1)
+          BACKUP_DB_NAME=$(ls "$TEMP_DIR" | head -n 1)
           if [ -z "$BACKUP_DB_NAME" ]; then
               print_error "Could not detect database name from backup"
               rm -rf "$TEMP_DIR"
@@ -195,22 +193,21 @@ jobs:
 
           print_info "Detected database in backup: $BACKUP_DB_NAME"
 
-          # Determine target database and build restore path
-          RESTORE_PATH="$EXTRACT_DIR/$BACKUP_DB_NAME"
+          # Set the restore directory to the specific database folder
+          DB_RESTORE_PATH="$TEMP_DIR/$BACKUP_DB_NAME"
 
+          # Determine target database and build restore options
           if [ -n "$TARGET_DB" ]; then
               print_info "Target database (override): $TARGET_DB"
-              NSINCLUDE_OPTION="--nsInclude=${BACKUP_DB_NAME}.* --nsFrom=${BACKUP_DB_NAME}.* --nsTo=${TARGET_DB}.*"
-              RESTORE_PATH="$EXTRACT_DIR"
+              DB_OPTION="--db=$TARGET_DB"
           else
               print_info "Target database: $BACKUP_DB_NAME (from backup)"
-              NSINCLUDE_OPTION="--nsInclude=${BACKUP_DB_NAME}.*"
-              RESTORE_PATH="$EXTRACT_DIR"
+              DB_OPTION="--db=$BACKUP_DB_NAME"
           fi
 
           # List collections in backup
           print_info "Collections in backup:"
-          for collection in "$EXTRACT_DIR/$BACKUP_DB_NAME"/*.bson; do
+          for collection in "$DB_RESTORE_PATH"/*.bson; do
               if [ -f "$collection" ]; then
                   basename "$collection" .bson | sed 's/^/  - /'
               fi
@@ -220,7 +217,7 @@ jobs:
           if [ "$DRY_RUN" = true ]; then
               print_warning "DRY RUN MODE - No actual restoration will occur"
               print_info "Would execute:"
-              echo "  mongorestore --uri=\"${MONGODB_URI}\" $DROP_OPTION $NSINCLUDE_OPTION \"$RESTORE_PATH\""
+              echo "  mongorestore --uri=\"${MONGODB_URI}\" $DROP_OPTION $DB_OPTION \"$DB_RESTORE_PATH\""
               rm -rf "$TEMP_DIR"
               exit 0
           fi
@@ -241,7 +238,7 @@ jobs:
           print_info "Starting database restoration..."
           echo ""
 
-          if mongorestore --uri="$MONGODB_URI" $DROP_OPTION $NSINCLUDE_OPTION "$RESTORE_PATH"; then
+          if mongorestore --uri="$MONGODB_URI" $DROP_OPTION $DB_OPTION "$DB_RESTORE_PATH"; then
               echo ""
               print_info "✓ Database restoration completed successfully!"
           else
