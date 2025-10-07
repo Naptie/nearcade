@@ -1,6 +1,7 @@
 <script lang="ts">
   import Header from '$lib/components/NavigationBar.svelte';
   import {
+    adaptiveNewTab,
     aggregateGames,
     formatHourLiteral,
     formatShopAddress,
@@ -173,7 +174,7 @@
       const shop = (point as { shop: ShopWithExtras }).shop;
       window.open(
         resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: shop.id.toString() }),
-        '_blank'
+        adaptiveNewTab()
       );
     }
   }}
@@ -190,10 +191,14 @@
   })()}
 
   {#snippet card()}
-    <div
+    <a
+      href={resolve('/(main)/shops/[source]/[id]', {
+        source: shop.source,
+        id: shop.id.toString()
+      })}
       class="card bg-base-200 min-w-0 border-2 shadow-md transition border-{getDensityTailwindColor(
         shop.density
-      )}/30"
+      )}/30 hover:border-primary"
     >
       <div class="card-body p-5">
         <!-- Shop Header -->
@@ -264,7 +269,7 @@
           {/if}
         </div>
       </div>
-    </div>
+    </a>
   {/snippet}
 
   <div

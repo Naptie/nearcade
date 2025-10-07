@@ -75,10 +75,6 @@
     isSearching = false;
   };
 
-  const getShopLink = (shop: Shop): string => {
-    return `/shops/${shop.source}/${shop.id}`;
-  };
-
   const getTotalMachines = (shop: Shop): number => {
     return shop.games.reduce((total, game) => total + game.quantity, 0);
   };
@@ -210,7 +206,10 @@
         {#each data.shops as shop (shop._id)}
           {@const aggregatedGames = aggregateGames(shop)}
           <a
-            href={getShopLink(shop)}
+            href={resolve('/(main)/shops/[source]/[id]', {
+              source: shop.source,
+              id: shop.id.toString()
+            })}
             class="card bg-base-200 border-primary/0 hover:border-primary min-w-0 border-2 shadow-sm transition hover:shadow-md"
           >
             <div class="card-body p-5">
