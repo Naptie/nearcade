@@ -2,180 +2,10 @@ import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-import { protect, toPlainArray } from '$lib/utils';
+import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import redis from '$lib/db/redis.server';
+import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { User } from '@auth/sveltekit';
-
-const getShopAttendanceData = async (shops: Shop[]) => {
-  if (!redis) {
-    // If Redis is not available, return empty attendance data
-    return shops.map((shop) => ({
-      ...shop,
-      currentAttendance: 0,
-      currentReportedAttendance: null
-    }));
-  }
-
-  try {
-    // Get all attendance keys for current attendance
-    const allKeys = await redis.keys('nearcade:attend:*');
-
-    // Create a map to store attendance counts per shop
-    const attendanceMap = new Map<string, number>();
-
-    // Count unique users per shop
-    for (const key of allKeys) {
-      // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
-      const keyParts = key.split(':');
-      if (keyParts.length === 6) {
-        const shopIdentifier = keyParts[2]; // source-id
-        const count = attendanceMap.get(shopIdentifier) || 0;
-        attendanceMap.set(shopIdentifier, count + 1);
-      }
-    }
-
-    // Build list of Redis keys for reported attendance
-    const reportedKeys: string[] = [];
-    const shopGameMap = new Map<string, Array<{ gameId: number; keyIndex: number }>>();
-
-    for (const shop of shops) {
-      const shopIdentifier = `${shop.source}-${shop.id}`;
-      const gameKeys: Array<{ gameId: number; keyIndex: number }> = [];
-
-      for (const game of shop.games) {
-        const reportKey = `nearcade:attend-report:${shopIdentifier}:${game.gameId}`;
-        gameKeys.push({ gameId: game.gameId, keyIndex: reportedKeys.length });
-        reportedKeys.push(reportKey);
-      }
-      shopGameMap.set(shopIdentifier, gameKeys);
-    }
-
-    // Use MGET to efficiently get all reported attendance values
-    let reportedValues: (string | null)[] = [];
-    if (reportedKeys.length > 0) {
-      const mgetResult = await redis.mGet(reportedKeys);
-      reportedValues = mgetResult as (string | null)[];
-    }
-
-    // Process reported attendance data and collect user IDs
-    const usersSet = new Set<string>();
-    const shopReportedData = new Map<
-      string,
-      {
-        total: number;
-        latestReportedAt: string | null;
-        latestReportedBy: string | null;
-        latestComment: string | null;
-      }
-    >();
-
-    for (const shop of shops) {
-      const shopIdentifier = `${shop.source}-${shop.id}`;
-      const gameKeys = shopGameMap.get(shopIdentifier) || [];
-
-      let total = 0;
-      let latestReportedAt: string | null = null;
-      let latestReportedBy: string | null = null;
-      let latestComment: string | null = null;
-
-      for (const { keyIndex } of gameKeys) {
-        const value = reportedValues[keyIndex];
-        if (value) {
-          try {
-            const parsed = JSON.parse(value) as {
-              currentAttendances: number;
-              reportedBy: string;
-              reportedAt: string;
-              comment: string | null;
-            };
-
-            total += parsed.currentAttendances;
-            usersSet.add(parsed.reportedBy);
-
-            if (!latestReportedAt || new Date(parsed.reportedAt) > new Date(latestReportedAt)) {
-              latestReportedAt = parsed.reportedAt;
-              latestReportedBy = parsed.reportedBy;
-              latestComment = parsed.comment;
-            }
-          } catch (parseError) {
-            console.error('Error parsing reported attendance data:', parseError);
-          }
-        }
-      }
-
-      shopReportedData.set(shopIdentifier, {
-        total,
-        latestReportedAt,
-        latestReportedBy,
-        latestComment
-      });
-    }
-
-    // Fetch all users in one go using $in operator
-    const userIds = Array.from(usersSet);
-    const usersMap = new Map<string, User>();
-
-    if (userIds.length > 0) {
-      const db = mongo.db();
-      const users = await db
-        .collection<User>('users')
-        .find({ id: { $in: userIds } })
-        .toArray();
-
-      for (const user of users) {
-        if (user.id) {
-          usersMap.set(user.id, protect(user));
-        }
-      }
-    }
-
-    // Combine attendance and reported data for each shop
-    return shops.map((shop) => {
-      const shopIdentifier = `${shop.source}-${shop.id}`;
-      const currentAttendance = attendanceMap.get(shopIdentifier) || 0;
-      const reportedData = shopReportedData.get(shopIdentifier);
-
-      let currentReportedAttendance: {
-        count: number;
-        reportedAt: string;
-        reportedBy: User;
-        comment: string | null;
-      } | null = null;
-
-      if (
-        reportedData &&
-        reportedData.total > 0 &&
-        reportedData.latestReportedAt &&
-        reportedData.latestReportedBy
-      ) {
-        const reportedBy = usersMap.get(reportedData.latestReportedBy);
-        if (reportedBy) {
-          currentReportedAttendance = {
-            count: reportedData.total,
-            reportedAt: reportedData.latestReportedAt,
-            reportedBy,
-            comment: reportedData.latestComment
-          };
-        }
-      }
-
-      return {
-        ...shop,
-        currentAttendance,
-        currentReportedAttendance
-      };
-    });
-  } catch (err) {
-    console.error('Error getting attendance data:', err);
-    // Return shops with zero attendance on error
-    return shops.map((shop) => ({
-      ...shop,
-      currentAttendance: 0,
-      currentReportedAttendance: null
-    }));
-  }
-};
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -211,13 +41,13 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       // Load all shops with pagination
       const baseFilter = titleIds.length > 0 ? titleIdsFilter : {};
       totalCount = await shopsCollection.countDocuments(baseFilter);
-      shops = (await shopsCollection
+      shops = await shopsCollection
         .find(baseFilter)
         .sort({ name: 1 })
         .collation({ locale: 'zh@collation=gb2312han' })
         .skip(skip)
         .limit(limit)
-        .toArray()) as unknown as Shop[];
+        .toArray();
     } else {
       // Search shops
       let searchResults: Shop[];
@@ -285,13 +115,13 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         };
 
         totalCount = await shopsCollection.countDocuments(searchQuery);
-        searchResults = (await shopsCollection
+        searchResults = await shopsCollection
           .find(searchQuery)
           .sort({ name: 1 })
           .collation({ locale: 'zh@collation=gb2312han' })
           .skip(skip)
           .limit(limit)
-          .toArray()) as unknown as Shop[];
+          .toArray();
       }
 
       shops = searchResults;
@@ -301,9 +131,71 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     }
 
     // Get real-time attendance data and reported attendance for all shops
-    const shopsWithAttendance = await getShopAttendanceData(shops);
-
     const { session } = await parent();
+
+    let shopsWithAttendance: (Shop & {
+      currentAttendance: number;
+      currentReportedAttendance: {
+        reportedAt: string;
+        reportedBy: User;
+        comment: string | null;
+      } | null;
+    })[];
+
+    try {
+      const attendanceDataMap = await getShopsAttendanceData(
+        shops.map((shop) => ({ source: shop.source, id: shop.id })),
+        {
+          fetchRegistered: true,
+          fetchReported: true,
+          session
+        }
+      );
+
+      shopsWithAttendance = shops.map((shop) => {
+        const shopIdentifier = `${shop.source}-${shop.id}`;
+        const attendanceData = attendanceDataMap.get(shopIdentifier);
+
+        if (!attendanceData) {
+          return {
+            ...shop,
+            currentAttendance: 0,
+            currentReportedAttendance: null
+          };
+        }
+
+        // Find the latest reported attendance across all games
+        const latestReport = attendanceData.reported.length > 0 ? attendanceData.reported[0] : null;
+
+        let currentReportedAttendance: {
+          reportedAt: string;
+          reportedBy: User;
+          comment: string | null;
+        } | null = null;
+
+        if (latestReport?.reporter) {
+          currentReportedAttendance = {
+            reportedAt: latestReport.reportedAt,
+            reportedBy: latestReport.reporter,
+            comment: latestReport.comment
+          };
+        }
+
+        return {
+          ...shop,
+          currentAttendance: attendanceData.total,
+          currentReportedAttendance
+        };
+      });
+    } catch (err) {
+      console.error('Error getting attendance data:', err);
+      // Return shops with zero attendance on error
+      shopsWithAttendance = shops.map((shop) => ({
+        ...shop,
+        currentAttendance: 0,
+        currentReportedAttendance: null
+      }));
+    }
 
     return {
       shops: toPlainArray(shopsWithAttendance),
