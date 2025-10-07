@@ -107,7 +107,7 @@
     if (!override) {
       timeout = setTimeout(() => {
         expanded = false;
-      }, 300);
+      }, 600);
     }
   };
 
