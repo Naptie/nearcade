@@ -562,6 +562,7 @@
       // Initialize Google Maps
       untrack(async () => {
         if (!google.maps) return;
+        await Promise.all(['core', 'maps', 'marker'].map((lib) => google.maps.importLibrary(lib)));
 
         const googleMap = new google.maps.Map(mapContainer!, {
           mapId: PUBLIC_GOOGLE_MAPS_MAP_ID,
@@ -571,7 +572,6 @@
         });
 
         map = googleMap;
-        await google.maps.importLibrary('marker');
 
         const originMarker = new google.maps.marker.AdvancedMarkerElement({
           position: { lat: data.location.latitude, lng: data.location.longitude },
