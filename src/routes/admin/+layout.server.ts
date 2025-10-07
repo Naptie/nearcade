@@ -19,7 +19,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
   ].includes(userType || '');
 
   if (!hasAccess) {
-    error(403, 'Access denied. Admin or moderator privileges required.');
+    error(403, m.error_access_denied_admin_or_moderator_privileges_required());
   }
 
   return {

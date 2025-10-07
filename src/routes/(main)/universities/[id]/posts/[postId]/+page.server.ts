@@ -9,6 +9,7 @@ import {
   PostReadability
 } from '$lib/types';
 import { error } from '@sveltejs/kit';
+import { m } from '$lib/paraglide/messages';
 import {
   canWriteUnivPosts,
   checkUniversityPermission,
@@ -31,7 +32,7 @@ export const load = (async ({ params, locals }) => {
   });
 
   if (!university) {
-    error(404, 'University not found');
+    error(404, m.university_not_found());
   }
 
   const session = await locals.auth();
@@ -95,7 +96,7 @@ export const load = (async ({ params, locals }) => {
     .toArray();
 
   if (postResult.length === 0) {
-    throw error(404, 'Post not found');
+    throw error(404, m.error_post_not_found());
   }
 
   const post = { ...postResult[0], author: protect(postResult[0].author) };

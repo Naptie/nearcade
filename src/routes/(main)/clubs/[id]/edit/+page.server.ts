@@ -24,13 +24,13 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     });
 
     if (!club) {
-      error(404, 'Club not found');
+      error(404, m.club_not_found());
     }
 
     const userPermissions = await checkClubPermission(session.user, club, mongo);
 
     if (!userPermissions.canEdit) {
-      error(403, 'You do not have permission to edit this club');
+      error(403, m.you_do_not_have_permission_to_edit_this_club());
     }
 
     return {
@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
       throw err;
     }
     console.error('Error loading club for edit:', err);
-    error(500, 'Failed to load club data');
+    error(500, m.error_failed_to_load_club_data());
   }
 };
 

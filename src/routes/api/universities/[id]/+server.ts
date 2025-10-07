@@ -3,6 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params }) => {
   const { id } = params;
@@ -23,7 +24,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     return json({ university });
@@ -32,6 +33,6 @@ export const GET: RequestHandler = async ({ params }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, 'Failed to load university data');
+    error(500, m.error_failed_to_load_university_data());
   }
 };

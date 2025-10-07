@@ -43,7 +43,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
 
     if (!club) {
-      error(404, 'Club not found');
+      error(404, m.club_not_found());
     }
 
     // Check user permissions if authenticated
@@ -116,7 +116,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       throw err;
     }
     console.error('Error loading club:', err);
-    error(500, 'Failed to load club data');
+    error(500, m.error_failed_to_load_club_data());
   }
 };
 

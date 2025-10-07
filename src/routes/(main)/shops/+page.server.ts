@@ -6,6 +6,7 @@ import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { User } from '@auth/sveltekit';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -212,6 +213,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       throw err;
     }
     console.error('Error loading shops:', err);
-    error(500, 'Failed to load shops');
+    error(500, m.error_failed_to_load_shops());
   }
 };

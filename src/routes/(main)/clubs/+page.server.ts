@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { Club, University } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -178,6 +179,6 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       throw err;
     }
     console.error('Error loading clubs:', err);
-    error(500, 'Failed to load clubs');
+    error(500, m.error_failed_to_load_clubs());
   }
 };

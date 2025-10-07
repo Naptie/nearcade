@@ -31,14 +31,14 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     )) as unknown as University | null;
 
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     // Check permissions for the current user
     const userPermissions = await checkUniversityPermission(user, university, mongo);
 
     if (!userPermissions.canEdit) {
-      error(403, 'Insufficient privileges');
+      error(403, m.privilege_insufficient());
     }
 
     return {
@@ -51,7 +51,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, 'Failed to load university data');
+    error(500, m.error_failed_to_load_university_data());
   }
 };
 

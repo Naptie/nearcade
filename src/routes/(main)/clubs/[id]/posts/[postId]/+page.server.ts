@@ -9,6 +9,7 @@ import {
   PostReadability
 } from '$lib/types';
 import { error } from '@sveltejs/kit';
+import { m } from '$lib/paraglide/messages';
 import {
   canWriteClubPosts,
   checkClubPermission,
@@ -31,7 +32,7 @@ export const load = (async ({ params, locals }) => {
   });
 
   if (!club) {
-    error(404, 'Club not found');
+    error(404, m.club_not_found());
   }
 
   const session = await locals.auth();
@@ -97,7 +98,7 @@ export const load = (async ({ params, locals }) => {
     .toArray();
 
   if (postResult.length === 0) {
-    error(404, 'Post not found');
+    error(404, m.error_post_not_found());
   }
 
   const post = { ...postResult[0], author: protect(postResult[0].author) };

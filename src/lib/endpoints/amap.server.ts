@@ -1,12 +1,13 @@
 import { base } from '$app/paths';
 import { AMAP_SECRET } from '$env/static/private';
 import { error, isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
+import { m } from '$lib/paraglide/messages';
 
 export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
   try {
     // Check if the secret is configured
     if (!AMAP_SECRET) {
-      error(500, 'AMap secret not configured');
+      error(500, m.error_amap_secret_not_configured());
     }
 
     const pathname = url.pathname.replace(`${base}/_AMapService`, '');
@@ -31,7 +32,9 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
     });
 
     if (!response.ok) {
-      error(response.status, `AMap API request failed: ${response.statusText}`);
+      // Log the actual error for debugging
+      console.error('AMap API request failed:', response.status, response.statusText);
+      error(response.status, m.error_amap_api_request_failed());
     }
 
     // Get the response data
@@ -54,6 +57,6 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
-    error(500, 'Internal server error');
+    error(500, m.error_internal_server_error());
   }
 };

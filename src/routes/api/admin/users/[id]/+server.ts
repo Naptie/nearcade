@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   const userId = params.id;
 
   if (!userId) {
-    error(400, 'User ID is required');
+    error(400, m.user_id_is_required());
   }
 
   try {
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const user = await db.collection('users').findOne({ id: userId });
 
     if (!user) {
-      error(404, 'User not found');
+      error(404, m.user_not_found());
     }
 
     // Get university memberships with university details
@@ -77,6 +77,6 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       throw err;
     }
     console.error('Error fetching user details:', err);
-    error(500, 'Failed to fetch user details');
+    error(500, m.error_failed_to_fetch_user_details());
   }
 };

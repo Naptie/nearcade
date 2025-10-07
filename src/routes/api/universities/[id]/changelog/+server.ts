@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { getChangelogEntries } from '$lib/utils/changelog.server';
 import mongo from '$lib/db/index.server';
 import { PAGINATION } from '$lib/constants';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   const { id } = params;
@@ -11,7 +12,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
 
   if (page < 1 || limit < 1 || limit > 100) {
-    error(400, 'Invalid pagination parameters');
+    error(400, m.error_invalid_pagination_parameters());
   }
 
   try {
@@ -33,6 +34,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
       throw err;
     }
     console.error('Error fetching changelog entries:', err);
-    error(500, 'Failed to fetch changelog entries');
+    error(500, m.error_failed_to_fetch_changelog_entries());
   }
 };

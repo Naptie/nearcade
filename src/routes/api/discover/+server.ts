@@ -1,6 +1,7 @@
 import { loadShops } from '$lib/endpoints/discover.server';
 import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ url }) => {
   try {
@@ -11,6 +12,6 @@ export const GET: RequestHandler = async ({ url }) => {
       throw err;
     }
     console.error('Error getting shops:', err);
-    error(500, 'Failed to get nearby shops');
+    error(500, m.error_failed_to_get_nearby_shops());
   }
 };

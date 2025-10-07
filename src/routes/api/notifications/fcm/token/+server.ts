@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     };
 
     if (!token || !action) {
-      error(400, 'Missing token or action');
+      error(400, m.error_missing_token_or_action());
     }
 
     if (action === 'store') {
@@ -28,13 +28,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       await removeFCMToken(mongo, session.user.id, token);
       return json({ success: true, message: 'FCM token removed' });
     } else {
-      error(400, 'Invalid action');
+      error(400, m.error_invalid_action());
     }
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
     }
     console.error('Error managing FCM token:', err);
-    error(500, 'Failed to manage FCM token');
+    error(500, m.error_failed_to_manage_fcm_token());
   }
 };

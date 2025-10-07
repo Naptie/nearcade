@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
 
     if (!university) {
-      error(404, 'University not found');
+      error(404, m.university_not_found());
     }
 
     const { session } = await parent();
@@ -118,7 +118,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       throw err;
     }
     console.error('Error loading university:', err);
-    error(500, 'Failed to load university data');
+    error(500, m.error_failed_to_load_university_data());
   }
 };
 

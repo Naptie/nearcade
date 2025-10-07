@@ -3,6 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
 import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q');
@@ -75,6 +76,6 @@ export const GET: RequestHandler = async ({ url }) => {
       throw err;
     }
     console.error('Error searching universities:', err);
-    error(500, 'Failed to search universities');
+    error(500, m.error_failed_to_search_universities());
   }
 };
