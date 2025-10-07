@@ -1,4 +1,4 @@
-name: MongoDB Backup
+name: Database Backup
 run-name: Backup MongoDB database
 
 on:
@@ -38,13 +38,13 @@ jobs:
       - name: Create compressed archive
         run: |
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          tar -czf mongodb-backup-${{ steps.db-info.outputs.db_name }}-${TIMESTAMP}.tar.gz -C backup .
-          echo "BACKUP_FILE=mongodb-backup-${{ steps.db-info.outputs.db_name }}-${TIMESTAMP}.tar.gz" >> $GITHUB_ENV
+          tar -czf db-backup-${{ steps.db-info.outputs.db_name }}-${TIMESTAMP}.tar.gz -C backup .
+          echo "BACKUP_FILE=db-backup-${{ steps.db-info.outputs.db_name }}-${TIMESTAMP}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload backup as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mongodb-backup-${{ steps.db-info.outputs.db_name }}-${{ github.run_number }}
-          path: mongodb-backup-*.tar.gz
-          retention-days: 30
+          name: db-backup-${{ steps.db-info.outputs.db_name }}-${{ github.run_number }}
+          path: db-backup-*.tar.gz
+          retention-days: 90
           compression-level: 0
