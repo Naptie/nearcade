@@ -121,7 +121,7 @@
 
         <!-- User Info -->
         <div class="flex-1">
-          <div class="mb-2 flex flex-wrap items-center gap-3">
+          <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-0.5">
             <h1 class="text-2xl font-bold sm:text-3xl">
               {getDisplayName(data.user)}
             </h1>
