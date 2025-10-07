@@ -1,0 +1,50 @@
+name: MongoDB Backup
+run-name: Backup MongoDB database
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install MongoDB tools
+        run: |
+          wget -qO - https://www.mongodb.org/static/pgp/server-8.0.asc | sudo apt-key add -
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-mongosh mongodb-database-tools
+
+      - name: Extract database name from MONGODB_URI
+        id: db-info
+        run: |
+          # Extract database name from MONGODB_URI query parameter
+          DB_NAME=$(echo "${{ secrets.MONGODB_URI }}" | grep -oP 'dbName=\K[^&]+' || echo "nearcade")
+          echo "db_name=$DB_NAME" >> $GITHUB_OUTPUT
+          echo "Database name: $DB_NAME"
+
+      - name: Create backup with mongodump
+        run: |
+          mkdir -p backup
+          mongodump --uri="${{ secrets.MONGODB_URI }}" --db="${{ steps.db-info.outputs.db_name }}" --out=backup/
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+      - name: Create compressed archive
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          tar -czf mongodb-backup-${{ steps.db-info.outputs.db_name }}-${TIMESTAMP}.tar.gz -C backup .
+          echo "BACKUP_FILE=mongodb-backup-${{ steps.db-info.outputs.db_name }}-${TIMESTAMP}.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload backup as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongodb-backup-${{ steps.db-info.outputs.db_name }}-${{ github.run_number }}
+          path: mongodb-backup-*.tar.gz
+          retention-days: 30
+          compression-level: 0
