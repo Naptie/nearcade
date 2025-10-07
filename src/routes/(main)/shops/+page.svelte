@@ -268,13 +268,13 @@
                   <i class="fa-solid fa-desktop"></i>
                   <span>{m.machines({ count: getTotalMachines(shop) })}</span>
                 </div>
-                {#if shop.currentReportedAttendance && shop.currentReportedAttendance.count >= shop.currentAttendance}
+                {#if shop.currentReportedAttendance}
                   <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
                     <div class="text-accent flex items-center gap-1">
                       <i class="fa-solid fa-user"></i>
                       <span
                         >{m.in_attendance({
-                          count: shop.currentReportedAttendance.count || 0
+                          count: shop.currentAttendance || 0
                         })}</span
                       >
                     </div>

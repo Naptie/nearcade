@@ -63,7 +63,8 @@
     method="POST"
     use:enhance={() => {
       isSubmitting = true;
-      return () => {
+      return async ({ update }) => {
+        await update();
         isSubmitting = false;
       };
     }}

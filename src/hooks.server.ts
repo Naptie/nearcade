@@ -7,6 +7,7 @@ import { env } from '$env/dynamic/public';
 import redis from '$lib/db/redis.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
+import { base } from '$app/paths';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -35,6 +36,22 @@ if (env.PUBLIC_SENTRY_DSN) {
   sentryHandleError = Sentry.handleErrorWithSentry(reportError);
 }
 
+const handleOptions: Handle = async ({ event, resolve }) => {
+  const { pathname } = event.url;
+
+  if (event.request.method === 'OPTIONS' && pathname.startsWith(`${base}/api/`)) {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Headers': '*'
+      }
+    });
+  }
+  return resolve(event);
+};
+
 const handleParaglide: Handle = ({ event, resolve }) =>
   paraglideMiddleware(event.request, ({ request, locale }) => {
     event.request = request;
@@ -52,11 +69,15 @@ const handleGoogleTag: Handle = ({ event, resolve }) => {
 
 const handleHeaders: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
-  try {
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  } catch {
-    // Intentionally ignore errors when setting headers
+  const { pathname } = event.url;
+  if (pathname.startsWith(`${base}/api/`)) {
+    try {
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', '*');
+    } catch {
+      // Intentionally ignore errors when setting headers
+    }
   }
   return response;
 };
@@ -86,6 +107,7 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = sequence(
+  handleOptions,
   ...(sentryHandle ? [sentryHandle] : []),
   handleParaglide,
   handleGoogleTag,
