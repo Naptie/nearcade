@@ -14,6 +14,7 @@
   import type { AMapContext, Campus, University } from '$lib/types';
   import {
     adaptiveNewTab,
+    convertCoordinates,
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
@@ -32,12 +33,12 @@
   let showCollapse = $state(false);
   let mode = $state(0);
   let radius = $state(10);
-  let location = $state({
-    name: '',
-    latitude: undefined as number | undefined,
-    longitude: undefined as number | undefined,
-    confirmed: true
-  });
+  let location = $state<{
+    name: string;
+    latitude: number;
+    longitude: number;
+    confirmed: boolean;
+  } | null>(null);
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
 
@@ -100,9 +101,12 @@
   };
 
   const selectUniversity = (university: University, campus: Campus) => {
-    location.name = `${university.name}${campus.name ? ` (${campus.name})` : ''}`;
-    location.latitude = campus.location.coordinates[1];
-    location.longitude = campus.location.coordinates[0];
+    location = {
+      name: `${university.name}${campus.name ? ` (${campus.name})` : ''}`,
+      latitude: campus.location.coordinates[1],
+      longitude: campus.location.coordinates[0],
+      confirmed: true
+    };
     universityQuery = location.name;
     universities = [];
   };
@@ -111,22 +115,16 @@
   $effect(() => {
     if (mode === 0) {
       // Reset location for "My Location" mode
-      location.name = m.my_location();
-      location.latitude = undefined;
-      location.longitude = undefined;
+      location = null;
       locationError = '';
     } else if (mode === 1) {
       // Reset for university mode
-      location.name = '';
-      location.latitude = undefined;
-      location.longitude = undefined;
+      location = null;
       universityQuery = '';
       universities = [];
     } else if (mode === 2) {
       // Reset for map mode
-      location.name = '';
-      location.latitude = undefined;
-      location.longitude = undefined;
+      location = null;
     }
   });
 
@@ -137,9 +135,12 @@
           var loc = event.data;
           if (loc && loc.module == 'locationPicker') {
             console.debug('Received location from map iframe:', loc);
-            location.name = loc.poiname;
-            location.latitude = loc.latlng.lat;
-            location.longitude = loc.latlng.lng;
+            location = {
+              name: loc.poiname,
+              latitude: loc.latlng.lat,
+              longitude: loc.latlng.lng,
+              confirmed: true
+            };
           }
         });
       };
@@ -172,16 +173,17 @@
           map.setCenter({ lat: 39.9042, lng: 116.4074 });
         }
       );
-      google.maps.event.addListener(map, 'idle', () => {
+      google.maps.event.addListener(map, 'idle', async () => {
         const center = map.getCenter();
         if (!center) return;
-        location.name = '';
-        location.latitude = center.lat();
-        location.longitude = center.lng();
-        location.confirmed = false;
-        convertCoordinates(location)?.then(() => {
-          location.confirmed = true;
-        });
+        location = {
+          name: '',
+          latitude: center.lat(),
+          longitude: center.lng(),
+          confirmed: false
+        };
+        await convertCoordinates(location);
+        location.confirmed = true;
       });
 
       return () => {
@@ -191,39 +193,13 @@
   });
 
   const handleGo = () => {
-    if (location.latitude && location.longitude) {
+    if (location) {
       go(false);
     }
   };
 
-  const convertCoordinates = (location: { latitude?: number; longitude?: number }) => {
-    if (amap && location.latitude !== undefined && location.longitude !== undefined) {
-      return new Promise<typeof location>((resolve, reject) => {
-        amap!.convertFrom(
-          [location.longitude, location.latitude],
-          'gps',
-          (
-            status: string,
-            response: { info: string; locations: { lat: number; lng: number }[] }
-          ) => {
-            if (status === 'complete' && response.info === 'ok') {
-              const result = response.locations[0];
-              location.latitude = result.lat;
-              location.longitude = result.lng;
-              resolve(location);
-            } else {
-              console.error('AMap conversion failed:', status, response);
-              reject(new Error('AMap conversion failed'));
-            }
-          }
-        );
-      });
-    } else {
-      console.warn('AMap not available or location not set, skipping conversion');
-    }
-  };
-
   const go = async (convert: boolean = true) => {
+    if (!location) return;
     isLoading = true;
 
     if (convert) {
@@ -457,9 +433,12 @@
                   locationError = '';
                   try {
                     const loc = await getMyLocation();
-                    location.name = m.my_location();
-                    location.latitude = loc.latitude;
-                    location.longitude = loc.longitude;
+                    location = {
+                      name: m.my_location(),
+                      latitude: loc.latitude,
+                      longitude: loc.longitude,
+                      confirmed: false
+                    };
                     go();
                   } catch (error) {
                     console.error('Error getting location:', error);
@@ -633,7 +612,7 @@
               </div>
             {/if}
             {#if mode !== 0}
-              {#if location.latitude !== undefined && location.longitude !== undefined}
+              {#if location}
                 <div
                   class="alert alert-soft mt-3 text-sm transition-colors {location.confirmed
                     ? 'alert-success'
@@ -650,7 +629,7 @@
               {/if}
               <button
                 class="btn btn-primary mt-3"
-                disabled={!(location.latitude && location.longitude) || isLoading}
+                disabled={!location || isLoading}
                 onclick={handleGo}
               >
                 {#if isLoading}
