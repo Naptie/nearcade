@@ -20,7 +20,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mongodb-mongosh mongodb-database-tools
 
-      - name: Extract database name from MONGODB_URI
+      - name: Extract database name
         id: db-info
         run: |
           # Extract database name from MONGODB_URI query parameter
@@ -28,7 +28,7 @@ jobs:
           echo "db_name=$DB_NAME" >> $GITHUB_OUTPUT
           echo "Database name: $DB_NAME"
 
-      - name: Create backup with mongodump
+      - name: Create backup
         run: |
           mkdir -p backup
           mongodump --uri="${{ secrets.MONGODB_URI }}" --db="${{ steps.db-info.outputs.db_name }}" --out=backup/
