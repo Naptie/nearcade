@@ -64,22 +64,26 @@
       class="fa-solid fa-heart fa-lg text-shadow-lg"
       btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden"
       text={m.donate()}
+      stayExpandedOnWideScreens
     />
     <FancyButton
       href={resolve('/globe')}
       class="fa-solid fa-globe fa-lg text-shadow-lg"
       text={m.globe()}
+      stayExpandedOnWideScreens
     />
     <FancyButton
       href={resolve('/(main)/rankings')}
       class="fa-solid fa-trophy fa-lg text-shadow-lg"
       text={m.campus_rankings()}
+      stayExpandedOnWideScreens
     />
     <FancyButton
       href={resolve('/')}
       class="fa-solid fa-home fa-lg text-shadow-lg"
       btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden"
       text={m.home()}
+      stayExpandedOnWideScreens
     />
     <AuthModal size="lg" class="shadow-lg" />
   </div>

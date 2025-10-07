@@ -66,5 +66,6 @@
     btnCls="btn-ghost btn-sm lg:btn-md"
     {content}
     callback={toggleTheme}
+    stayExpandedOnWideScreens
   />
 {/if}

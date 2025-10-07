@@ -35,6 +35,7 @@
     callback={() => {
       open = !open;
     }}
+    stayExpandedOnWideScreens
   />
   {#if open}
     <ul class="dropdown-content menu bg-base-200 rounded-box z-1 w-40 p-2 shadow-lg">

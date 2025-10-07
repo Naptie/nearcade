@@ -17,6 +17,7 @@
     callback?: () => void;
     expanded?: boolean;
     override?: boolean;
+    stayExpandedOnWideScreens?: boolean;
   }
 
   let {
@@ -31,7 +32,8 @@
     target,
     callback,
     expanded = $bindable(false),
-    override = false
+    override = false,
+    stayExpandedOnWideScreens = false
   }: Props = $props();
 
   let buttonElement: HTMLElement;
@@ -40,6 +42,9 @@
   let initialWidth = $state(NaN);
   let lastMeasured = $state(0);
   let timeout = $state<ReturnType<typeof setTimeout> | null>(null);
+  let windowWidth = $state(browser ? window.innerWidth : 0);
+  let isHovered = $state(false);
+  let stayExpanded = $derived(windowWidth >= 1280 && stayExpandedOnWideScreens);
 
   const measureButtonDimensions = () => {
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
@@ -99,52 +104,62 @@
     }
     if (window.matchMedia('(hover: hover)').matches && !override) {
       clearTimeout(timeout!);
-      expanded = true;
+      isHovered = true;
     }
   };
 
   const handleMouseLeave = () => {
     if (!override) {
       timeout = setTimeout(() => {
-        expanded = false;
+        isHovered = false;
       }, 600);
     }
   };
 
   onMount(() => {
-    if (browser) {
-      initialWidth = buttonElement.offsetWidth;
-      // Set initial width to avoid layout jank
-      buttonElement.style.width = 'var(--collapsed-width, 3rem)'; // Provide a fallback
+    initialWidth = buttonElement.offsetWidth;
+    // Set initial width to avoid layout jank
+    buttonElement.style.width = 'var(--collapsed-width, 3rem)'; // Provide a fallback
 
-      const setupMeasurements = () => {
-        // Run the initial measurement
+    const setupMeasurements = () => {
+      // Run the initial measurement
+      measureButtonDimensions();
+
+      // Create a ResizeObserver to automatically remeasure if the button size changes
+      const observer = new ResizeObserver(() => {
         measureButtonDimensions();
+      });
 
-        // Create a ResizeObserver to automatically remeasure if the button size changes
-        const observer = new ResizeObserver(() => {
-          measureButtonDimensions();
-        });
-
-        // Observe the button and its content for any size changes
-        observer.observe(buttonElement);
-        if (contentElement) {
-          observer.observe(contentElement);
-        }
-
-        return () => {
-          observer.disconnect();
-        };
-      };
-
-      // Wait for fonts to be ready, then run our setup
-      const cleanup = document.fonts.ready.then(setupMeasurements);
+      // Observe the button and its content for any size changes
+      observer.observe(buttonElement);
+      if (contentElement) {
+        observer.observe(contentElement);
+      }
 
       return () => {
-        // Ensure the observer is disconnected when the component is destroyed
-        cleanup.then((cleanupFn) => cleanupFn && cleanupFn());
+        observer.disconnect();
       };
+    };
+
+    // Wait for fonts to be ready, then run our setup
+    const cleanup = document.fonts.ready.then(setupMeasurements);
+
+    // Window resize observer for tracking window width in real-time
+    const handleResize = () => {
+      windowWidth = window.innerWidth;
+    };
+
+    if (stayExpandedOnWideScreens) {
+      window.addEventListener('resize', handleResize);
     }
+
+    return () => {
+      // Ensure the observer is disconnected when the component is destroyed
+      cleanup.then((cleanupFn) => cleanupFn && cleanupFn());
+      if (stayExpandedOnWideScreens) {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
   });
 
   $effect(() => {
@@ -160,6 +175,15 @@
       } else {
         buttonElement.style.width = 'var(--collapsed-width)';
       }
+    }
+  });
+
+  $effect(() => {
+    if ((stayExpanded || isHovered) && !override) {
+      expanded = true;
+    }
+    if (!stayExpanded && !isHovered && !override) {
+      expanded = false;
     }
   });
 </script>

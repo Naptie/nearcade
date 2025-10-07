@@ -36,6 +36,7 @@
   class={klass}
   text={name}
   {href}
+  stayExpandedOnWideScreens
 />
 
 {#if description || image}

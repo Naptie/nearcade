@@ -82,6 +82,7 @@
     }}
     class="fa-solid fa-user fa-{size} {klass}"
     text={m.sign_in()}
+    stayExpandedOnWideScreens
   />
 
   <dialog
@@ -158,6 +159,7 @@
         callback={() => {
           open = !open;
         }}
+        stayExpandedOnWideScreens
       />
     </div>
     {#if open}

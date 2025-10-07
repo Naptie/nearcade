@@ -271,12 +271,19 @@
       }}
       class="fa-solid fa-heart fa-lg"
       text={m.donate()}
+      stayExpandedOnWideScreens
     />
-    <FancyButton href={resolve('/globe')} class="fa-solid fa-globe fa-lg" text={m.globe()} />
+    <FancyButton
+      href={resolve('/globe')}
+      class="fa-solid fa-globe fa-lg"
+      text={m.globe()}
+      stayExpandedOnWideScreens
+    />
     <FancyButton
       href={resolve('/(main)/rankings')}
       class="fa-solid fa-trophy fa-lg"
       text={m.campus_rankings()}
+      stayExpandedOnWideScreens
     />
     <AuthModal size="lg" />
   </div>
@@ -750,6 +757,7 @@
       target="_blank"
       class="fa-brands fa-github fa-lg"
       text="GitHub"
+      stayExpandedOnWideScreens
     />
     <SocialMediaModal
       name="QQ"
