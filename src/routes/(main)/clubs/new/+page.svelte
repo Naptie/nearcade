@@ -18,8 +18,8 @@
   let avatarUrl = $state('');
   let backgroundColor = $state('#3b82f6');
   let acceptJoinRequests = $state(true);
-  let postReadability = $state('public');
-  let postWritability = $state('all_members');
+  let postReadability = $state(PostReadability.PUBLIC);
+  let postWritability = $state(PostWritability.CLUB_MEMBERS);
 
   // Auto-generate slug from name
   $effect(() => {
