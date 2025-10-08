@@ -31,7 +31,7 @@
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
   let amapError = $state<string | null>(null);
-  let darkMode = $state(isDarkMode());
+  let themeColorMeta: HTMLMetaElement;
 
   const amapContext: AMapContext = {
     get amap() {
@@ -59,9 +59,9 @@
       : 'https://unpkg.com/highlight.js/styles/github.css';
   };
 
-  const handleThemeChange = () => {
+  const handleThemeChange = (event: Event) => {
     setHighlightTheme();
-    darkMode = isDarkMode();
+    themeColorMeta.content = (event as CustomEvent).detail === 'dark' ? '#1B1618' : '#FFFFFF';
   };
 
   const handleWindowMessage = (event: { data: WindowMessage | undefined }) => {
@@ -204,7 +204,11 @@
 
 <svelte:head>
   <link rel="manifest" href="{base}/manifest.webmanifest" crossorigin="use-credentials" />
-  <meta name="theme-color" content={darkMode ? '#1B1618' : '#FFFFFF'} />
+  <meta
+    name="theme-color"
+    content={browser && isDarkMode() ? '#1B1618' : '#FFFFFF'}
+    bind:this={themeColorMeta}
+  />
   <script
     type="text/javascript"
     src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async"
