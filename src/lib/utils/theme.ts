@@ -15,8 +15,8 @@ export const DAISYUI_THEMES = {
 export const applyTheme = (mode: ThemeMode): void => {
   if (!browser) return;
 
-  const root = document.documentElement;
-  root.setAttribute('data-theme', DAISYUI_THEMES[mode]);
+  document.documentElement.setAttribute('data-theme', DAISYUI_THEMES[mode]);
+  window.dispatchEvent(new CustomEvent('nearcade-theme-change', { detail: mode }));
 };
 
 /**

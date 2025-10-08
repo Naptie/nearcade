@@ -78,8 +78,8 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#1B1717',
-        theme_color: '#1B1717',
+        background_color: '#1B1618',
+        theme_color: '#1B1618',
         lang: 'en',
         icons: [
           { src: 'logo-192.png', sizes: '192x192', type: 'image/png' },

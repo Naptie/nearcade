@@ -56,7 +56,7 @@ export async function sendFCMNotification(
       android: {
         notification: {
           icon: 'ic_notification',
-          color: '#1B1717'
+          color: '#1B1618'
         }
       },
       apns: {

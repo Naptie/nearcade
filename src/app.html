@@ -4,14 +4,18 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1B1618" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
     <script>
       (() => {
         try {
           const theme =
             localStorage.getItem('nearcade-theme') ||
             (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-          const root = document.documentElement;
-          root.setAttribute('data-theme', theme === 'dark' ? 'forest' : 'emerald');
+          document.documentElement.setAttribute(
+            'data-theme',
+            theme === 'dark' ? 'forest' : 'emerald'
+          );
         } catch {}
       })();
     </script>
