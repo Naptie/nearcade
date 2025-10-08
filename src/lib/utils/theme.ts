@@ -15,16 +15,8 @@ export const DAISYUI_THEMES = {
 export const applyTheme = (mode: ThemeMode): void => {
   if (!browser) return;
 
-  const root = document.documentElement;
-  root.setAttribute('data-theme', DAISYUI_THEMES[mode]);
-
-  const head = document.head;
-  const existingColorMetas = head.querySelectorAll('meta[name="theme-color"]');
-  existingColorMetas.forEach(meta => head.removeChild(meta));
-  const themeColorMeta = document.createElement('meta');
-  themeColorMeta.name = "theme-color";
-  themeColorMeta.content = mode === 'dark' ? '#1a1717' : '#ffffff';
-  head.appendChild(themeColorMeta);
+  document.documentElement.setAttribute('data-theme', DAISYUI_THEMES[mode]);
+  window.dispatchEvent(new CustomEvent('nearcade-theme-change', { detail: mode }));
 };
 
 /**

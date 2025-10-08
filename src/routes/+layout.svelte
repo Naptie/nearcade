@@ -26,10 +26,12 @@
     PUBLIC_FIREBASE_STORAGE_BUCKET
   } from '$env/static/public';
   import { getMessaging, getToken } from 'firebase/messaging';
+  import { isDarkMode } from '$lib/utils';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
   let amapError = $state<string | null>(null);
+  let darkMode = $state(isDarkMode());
 
   const amapContext: AMapContext = {
     get amap() {
@@ -57,6 +59,11 @@
       : 'https://unpkg.com/highlight.js/styles/github.css';
   };
 
+  const handleThemeChange = () => {
+    setHighlightTheme();
+    darkMode = isDarkMode();
+  };
+
   const handleWindowMessage = (event: { data: WindowMessage | undefined }) => {
     const msg = event.data;
     if (msg?.type === 'NAVIGATE' && msg.payload) {
@@ -69,7 +76,8 @@
   onMount(() => {
     setHighlightTheme();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    media.addEventListener('change', setHighlightTheme);
+    media.addEventListener('change', handleThemeChange);
+    window.addEventListener('nearcade-theme-change', handleThemeChange);
 
     // Initialize push notifications for logged-in users
     if (browser && data.session?.user) {
@@ -118,7 +126,8 @@
     }
 
     return () => {
-      media.removeEventListener('change', setHighlightTheme);
+      media.removeEventListener('change', handleThemeChange);
+      window.removeEventListener('nearcade-theme-change', handleThemeChange);
       navigator.serviceWorker.removeEventListener('message', handleWindowMessage);
     };
   });
@@ -195,7 +204,7 @@
 
 <svelte:head>
   <link rel="manifest" href="{base}/manifest.webmanifest" crossorigin="use-credentials" />
-  <meta name="theme-color" content="#1B1717" />
+  <meta name="theme-color" content={darkMode ? '#1B1618' : '#FFFFFF'} />
   <script
     type="text/javascript"
     src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async"
