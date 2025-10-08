@@ -236,7 +236,7 @@
           </div>
         </div>
       {:else}
-        <div class="prose not-md:prose-xs md:prose-sm max-w-none overflow-x-auto">
+        <div class="prose not-md:prose-xs md:prose-sm max-w-none overflow-x-auto break-all">
           {@html content}
         </div>
       {/if}
