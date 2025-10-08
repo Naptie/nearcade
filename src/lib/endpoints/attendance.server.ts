@@ -14,6 +14,7 @@ export interface AttendanceDataOptions {
 export interface ShopAttendanceResult {
   shopIdentifier: string; // format: "source-id"
   total: number;
+  games: Array<{ titleId: number; gameId: number; total: number }>;
   registered: AttendanceData;
   reported: AttendanceReport;
 }
@@ -74,6 +75,7 @@ export const getShopsAttendanceData = async (
     results.set(identifier, {
       shopIdentifier: identifier,
       total: 0,
+      games: [],
       registered: [],
       reported: []
     });
@@ -205,6 +207,18 @@ export const getShopsAttendanceData = async (
 
     if (result) {
       result.total = calculateShopTotal(shopDoc, result.registered, result.reported);
+      result.games = shopDoc.games.map((g) => {
+        const mostRecentReport = result.reported.filter((r) => r.gameId === g.gameId).at(0);
+        const reportedCount = mostRecentReport?.currentAttendances || 0;
+        if (shopDoc.isClaimed)
+          return { titleId: g.titleId, gameId: g.gameId, total: reportedCount };
+        const registeredCount = result.registered.filter(
+          (r) =>
+            r.gameId === g.gameId &&
+            (!mostRecentReport || new Date(r.attendedAt) > new Date(mostRecentReport.reportedAt))
+        ).length;
+        return { titleId: g.titleId, gameId: g.gameId, total: reportedCount + registeredCount };
+      });
     }
   }
 

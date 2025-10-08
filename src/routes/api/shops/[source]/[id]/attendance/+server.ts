@@ -355,7 +355,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   }
 };
 
-// GET endpoint to retrieve attendance data for a shop
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
     const fetchRegistered = ['0', 'false'].includes(url.searchParams.get('reported') || 'false');
@@ -380,7 +379,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     const session = await locals.auth();
 
-    // Use the new attendance function with a single shop
     const attendanceData = await getShopsAttendanceData([{ source, id }], {
       fetchRegistered,
       fetchReported,
@@ -388,15 +386,12 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     });
 
     const shopIdentifier = `${source}-${id}`;
-    const result = attendanceData.get(shopIdentifier);
-
-    if (!result) {
-      return json({ success: true, total: 0, registered: [], reported: [] });
-    }
+    const result = attendanceData.get(shopIdentifier)!;
 
     return json({
       success: true,
       total: result.total,
+      games: result.games,
       registered: result.registered,
       reported: result.reported
     });
