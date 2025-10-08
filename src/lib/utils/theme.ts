@@ -17,6 +17,14 @@ export const applyTheme = (mode: ThemeMode): void => {
 
   const root = document.documentElement;
   root.setAttribute('data-theme', DAISYUI_THEMES[mode]);
+
+  const head = document.head;
+  const existingColorMetas = head.querySelectorAll('meta[name="theme-color"]');
+  existingColorMetas.forEach(meta => head.removeChild(meta));
+  const themeColorMeta = document.createElement('meta');
+  themeColorMeta.name = "theme-color";
+  themeColorMeta.content = mode === 'dark' ? '#1a1717' : '#ffffff';
+  head.appendChild(themeColorMeta);
 };
 
 /**

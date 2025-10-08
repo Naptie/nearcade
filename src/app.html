@@ -14,6 +14,15 @@
             (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
           const root = document.documentElement;
           root.setAttribute('data-theme', theme === 'dark' ? 'forest' : 'emerald');
+          const head = document.head;
+          if (localStorage.getItem('nearcade-theme')) {
+            const existingColorMetas = head.querySelectorAll('meta[name="theme-color"]');
+            existingColorMetas.forEach(meta => head.removeChild(meta));
+            const themeColorMeta = document.createElement('meta');
+            themeColorMeta.name = "theme-color";
+            themeColorMeta.content = theme === 'dark' ? '#1a1717' : '#ffffff';
+            head.appendChild(themeColorMeta);
+          }
         } catch {}
       })();
     </script>
