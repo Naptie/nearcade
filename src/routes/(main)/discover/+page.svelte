@@ -14,7 +14,6 @@
   import {
     formatDistance,
     formatDuration,
-    isDarkMode,
     generateRouteCacheKey,
     getCachedRouteData,
     setCachedRouteData,
@@ -41,6 +40,7 @@
     ShopSource
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
+  import { isDarkMode } from '$lib/utils/scoped';
 
   let { data } = $props();
 

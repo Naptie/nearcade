@@ -10,7 +10,7 @@
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { fromPath, isDarkMode } from '$lib/utils/scoped';
   import { page } from '$app/state';
   import { goto, invalidateAll } from '$app/navigation';
   import { resolve, base } from '$app/paths';
@@ -26,7 +26,6 @@
     PUBLIC_FIREBASE_STORAGE_BUCKET
   } from '$env/static/public';
   import { getMessaging, getToken } from 'firebase/messaging';
-  import { isDarkMode } from '$lib/utils';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);

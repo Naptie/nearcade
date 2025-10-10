@@ -29,7 +29,6 @@ import { unified } from 'unified';
 import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
 import { enUS, ja, zhCN } from 'date-fns/locale';
-import { getStoredTheme } from './theme';
 
 export const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -104,15 +103,6 @@ export const calculateDistance = (
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
-};
-
-export const isDarkMode = (): boolean => {
-  const theme = getStoredTheme();
-  if (theme !== null) {
-    return theme === 'dark';
-  }
-  const darkModeMediaQuery = window?.matchMedia('(prefers-color-scheme: dark)');
-  return darkModeMediaQuery?.matches;
 };
 
 export const isTouchscreen = (): boolean => window?.matchMedia('(pointer: coarse)').matches;

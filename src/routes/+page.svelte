@@ -18,10 +18,9 @@
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
-    getShopOpeningHours,
-    isDarkMode
+    getShopOpeningHours
   } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { fromPath, isDarkMode } from '$lib/utils/scoped';
   import { getContext, untrack, onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
