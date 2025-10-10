@@ -61,11 +61,11 @@ const handleParaglide: Handle = ({ event, resolve }) =>
     });
   });
 
-const handleGoogleTag: Handle = ({ event, resolve }) => {
-  return resolve(event, {
-    transformPageChunk: ({ html }) => html.replace('%gtag.id%', env.PUBLIC_GOOGLE_TAG_ID ?? '')
-  });
-};
+// const handleGoogleTag: Handle = ({ event, resolve }) => {
+//   return resolve(event, {
+//     transformPageChunk: ({ html }) => html.replace('%gtag.id%', env.PUBLIC_GOOGLE_TAG_ID ?? '')
+//   });
+// };
 
 const handleHeaders: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
@@ -110,7 +110,7 @@ export const handle: Handle = sequence(
   handleOptions,
   ...(sentryHandle ? [sentryHandle] : []),
   handleParaglide,
-  handleGoogleTag,
+  // handleGoogleTag,
   handleAMap,
   handleUserShortcut,
   handleHeaders,
