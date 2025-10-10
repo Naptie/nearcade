@@ -637,42 +637,41 @@
                 {#if useGoogleMaps}
                   <!-- Search Bar for Google Maps -->
                   <div class="relative z-20 mb-3">
-                    <div class="relative">
+                    <label class="input input-bordered w-full">
                       <input
                         type="text"
                         bind:value={placeQuery}
                         oninput={handlePlaceQueryChange}
                         placeholder={m.search_place_placeholder()}
-                        class="input input-bordered w-full pr-10"
+                        class="grow"
                       />
                       {#if isSearchingPlaces}
-                        <span
-                          class="loading loading-spinner loading-sm absolute top-1/2 right-3 -translate-y-1/2"
-                        ></span>
+                        <span class="loading loading-spinner loading-sm z-10"></span>
                       {:else if placeQuery}
                         <button
-                          class="btn btn-ghost btn-circle btn-sm absolute top-1/2 right-1 -translate-y-1/2"
+                          class="btn btn-ghost btn-circle btn-sm z-10"
                           onclick={() => {
                             placeQuery = '';
                             places = [];
                           }}
+                          aria-label={m.clear_search()}
                         >
                           <i class="fa-solid fa-times"></i>
                         </button>
                       {/if}
-                    </div>
+                    </label>
                     {#if places.length > 0}
                       <div
                         class="bg-base-100 border-base-300 absolute top-full mt-1 w-full rounded-lg border shadow-lg"
                       >
                         {#each places as place (place.place_id)}
                           <button
-                            class="hover:bg-base-200 flex w-full items-start gap-3 border-b border-current/10 px-4 py-3 text-left transition-colors last:border-b-0"
+                            class="hover:bg-base-300 flex w-full cursor-pointer items-start gap-3 border-b border-current/10 px-4 py-3 text-left transition-colors last:border-b-0"
                             onclick={() => selectPlace(place)}
                           >
                             <i class="fa-solid fa-location-dot mt-1 opacity-50"></i>
                             <div class="min-w-0 flex-1">
-                              <div class="font-medium">{place.name}</div>
+                              <div class="text-base font-medium">{place.name}</div>
                               <div class="text-base-content/60 text-sm">
                                 {place.formatted_address}
                               </div>
