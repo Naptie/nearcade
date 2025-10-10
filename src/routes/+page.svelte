@@ -632,6 +632,7 @@
                 </div>
               </div>
             {:else if mode === 2}
+              <!-- Map mode container: width constraints only, height is on inner map div to allow search bar above -->
               <div class="relative mt-3 w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]">
                 {#if useGoogleMaps}
                   <!-- Search Bar for Google Maps -->
