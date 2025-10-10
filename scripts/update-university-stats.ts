@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
-import { ShopSource } from '../src/lib/constants';
+import type { ShopSource } from '../src/lib/constants';
 import type { University, UniversityMember, Club } from '../src/lib/types';
 
 if (!('MONGODB_URI' in process.env)) {
