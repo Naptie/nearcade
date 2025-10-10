@@ -60,6 +60,12 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
+  let placeQuery = $state('');
+  let places = $state<google.maps.places.PlaceResult[]>([]);
+  let isSearchingPlaces = $state(false);
+  let placeSearchTimeout: ReturnType<typeof setTimeout> | undefined;
+  let mapInstance = $state<google.maps.Map | null>(null);
+
   let now = $state(new Date());
 
   const searchUniversities = async (query: string, requestId: number) => {
@@ -110,6 +116,56 @@
     universities = [];
   };
 
+  const searchPlaces = async (query: string) => {
+    if (!mapInstance || query.trim().length === 0) {
+      places = [];
+      return;
+    }
+
+    isSearchingPlaces = true;
+    try {
+      const service = new google.maps.places.PlacesService(mapInstance);
+      const request: google.maps.places.TextSearchRequest = {
+        query: query,
+        location: mapInstance.getCenter() || undefined,
+        radius: 50000 // 50km radius for search
+      };
+
+      service.textSearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          places = results.slice(0, 5); // Limit to 5 results
+        } else {
+          places = [];
+        }
+        isSearchingPlaces = false;
+      });
+    } catch (error) {
+      console.error('Error searching places:', error);
+      places = [];
+      isSearchingPlaces = false;
+    }
+  };
+
+  const handlePlaceQueryChange = () => {
+    clearTimeout(placeSearchTimeout);
+    placeSearchTimeout = setTimeout(() => {
+      searchPlaces(placeQuery);
+    }, 300);
+  };
+
+  const selectPlace = (place: google.maps.places.PlaceResult) => {
+    if (!mapInstance || !place.geometry?.location) return;
+
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+
+    mapInstance.setCenter({ lat, lng });
+    mapInstance.setZoom(15);
+
+    placeQuery = place.name || '';
+    places = [];
+  };
+
   // Reset selections when mode changes
   $effect(() => {
     if (mode === 0) {
@@ -124,6 +180,8 @@
     } else if (mode === 2) {
       // Reset for map mode
       location = null;
+      placeQuery = '';
+      places = [];
     }
   });
 
@@ -160,6 +218,7 @@
         gestureHandling: 'greedy',
         streetViewControl: false
       });
+      mapInstance = map;
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const userLocation = {
@@ -176,7 +235,7 @@
         const center = map.getCenter();
         if (!center) return;
         location = {
-          name: '',
+          name: placeQuery || '',
           latitude: center.lat(),
           longitude: center.lng(),
           confirmed: false
@@ -187,6 +246,7 @@
 
       return () => {
         google.maps.event.clearInstanceListeners(map);
+        mapInstance = null;
       };
     }
   });
@@ -575,6 +635,55 @@
               <div
                 class="relative mt-3 h-[80vh] w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
               >
+                {#if useGoogleMaps}
+                  <!-- Search Bar for Google Maps -->
+                  <div class="relative z-20 mb-3">
+                    <div class="relative">
+                      <input
+                        type="text"
+                        bind:value={placeQuery}
+                        oninput={handlePlaceQueryChange}
+                        placeholder={m.search_place_placeholder()}
+                        class="input input-bordered w-full pr-10"
+                      />
+                      {#if isSearchingPlaces}
+                        <span
+                          class="loading loading-spinner loading-sm absolute top-1/2 right-3 -translate-y-1/2"
+                        ></span>
+                      {:else if placeQuery}
+                        <button
+                          class="btn btn-ghost btn-circle btn-sm absolute top-1/2 right-1 -translate-y-1/2"
+                          onclick={() => {
+                            placeQuery = '';
+                            places = [];
+                          }}
+                        >
+                          <i class="fa-solid fa-times"></i>
+                        </button>
+                      {/if}
+                    </div>
+                    {#if places.length > 0}
+                      <div
+                        class="bg-base-100 border-base-300 absolute top-full mt-1 w-full rounded-lg border shadow-lg"
+                      >
+                        {#each places as place (place.place_id)}
+                          <button
+                            class="hover:bg-base-200 flex w-full items-start gap-3 border-b border-current/10 px-4 py-3 text-left transition-colors last:border-b-0"
+                            onclick={() => selectPlace(place)}
+                          >
+                            <i class="fa-solid fa-location-dot mt-1 opacity-50"></i>
+                            <div class="min-w-0 flex-1">
+                              <div class="font-medium">{place.name}</div>
+                              <div class="text-base-content/60 text-sm">
+                                {place.formatted_address}
+                              </div>
+                            </div>
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
                 <button
                   class="btn btn-outline btn-circle not-hover:bg-base-300/25 absolute right-3 bottom-5 z-10 border-current/0 backdrop-blur-lg"
                   style="--size: 2.6rem"

@@ -210,7 +210,7 @@
   />
   <script
     type="text/javascript"
-    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&loading=async"
+    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async"
     defer
   ></script>
 </svelte:head>
