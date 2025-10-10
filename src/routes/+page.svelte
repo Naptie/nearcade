@@ -60,6 +60,12 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
+  let placeQuery = $state('');
+  let places = $state<google.maps.places.PlaceResult[]>([]);
+  let isSearchingPlaces = $state(false);
+  let placeSearchTimeout: ReturnType<typeof setTimeout> | undefined;
+  let mapInstance = $state<google.maps.Map | null>(null);
+
   let now = $state(new Date());
 
   const searchUniversities = async (query: string, requestId: number) => {
@@ -110,6 +116,56 @@
     universities = [];
   };
 
+  const searchPlaces = async (query: string) => {
+    if (!mapInstance || query.trim().length === 0) {
+      places = [];
+      return;
+    }
+
+    isSearchingPlaces = true;
+    try {
+      const service = new google.maps.places.PlacesService(mapInstance);
+      const request: google.maps.places.TextSearchRequest = {
+        query: query,
+        location: mapInstance.getCenter() || undefined,
+        radius: 50000 // 50km radius for search
+      };
+
+      service.textSearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          places = results.slice(0, 5); // Limit to 5 results
+        } else {
+          places = [];
+        }
+        isSearchingPlaces = false;
+      });
+    } catch (error) {
+      console.error('Error searching places:', error);
+      places = [];
+      isSearchingPlaces = false;
+    }
+  };
+
+  const handlePlaceQueryChange = () => {
+    clearTimeout(placeSearchTimeout);
+    placeSearchTimeout = setTimeout(() => {
+      searchPlaces(placeQuery);
+    }, 300);
+  };
+
+  const selectPlace = (place: google.maps.places.PlaceResult) => {
+    if (!mapInstance || !place.geometry?.location) return;
+
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+
+    mapInstance.setCenter({ lat, lng });
+    mapInstance.setZoom(15);
+
+    placeQuery = place.name || '';
+    places = [];
+  };
+
   // Reset selections when mode changes
   $effect(() => {
     if (mode === 0) {
@@ -124,6 +180,8 @@
     } else if (mode === 2) {
       // Reset for map mode
       location = null;
+      placeQuery = '';
+      places = [];
     }
   });
 
@@ -160,6 +218,7 @@
         gestureHandling: 'greedy',
         streetViewControl: false
       });
+      mapInstance = map;
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const userLocation = {
@@ -176,7 +235,7 @@
         const center = map.getCenter();
         if (!center) return;
         location = {
-          name: '',
+          name: placeQuery || '',
           latitude: center.lat(),
           longitude: center.lng(),
           confirmed: false
@@ -187,6 +246,7 @@
 
       return () => {
         google.maps.event.clearInstanceListeners(map);
+        mapInstance = null;
       };
     }
   });
@@ -287,7 +347,7 @@
     <AuthModal size="lg" />
   </div>
 
-  <div class="hero-content my-10 text-center">
+  <div class="hero-content my-10 text-center not-sm:px-0">
     <div class="flex max-w-fit flex-col gap-6">
       <SiteTitle class="text-6xl sm:text-8xl xl:text-9xl" />
       <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
@@ -346,7 +406,7 @@
           class="collapse-content flex flex-col items-center gap-4 pt-0 transition-[padding] duration-300"
           class:pt-4={showCollapse}
         >
-          <fieldset class="fieldset rounded-box w-full p-4 pt-2">
+          <fieldset class="fieldset rounded-box w-full p-4 pt-2" class:not-sm:px-0={mode === 2}>
             <div class="flex flex-col gap-1 sm:hidden">
               <span class="label w-full">{m.discover_from()}</span>
               <select class="select w-full" bind:value={mode}>
@@ -573,48 +633,97 @@
               </div>
             {:else if mode === 2}
               <div
-                class="relative mt-3 h-[80vh] w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
+                class="ss:w-[89vw] relative mt-3 w-[85vw] min-w-full sm:w-[75vw] md:w-[65vw] lg:w-[50vw]"
               >
-                <button
-                  class="btn btn-outline btn-circle not-hover:bg-base-300/25 absolute right-3 bottom-5 z-10 border-current/0 backdrop-blur-lg"
-                  style="--size: 2.6rem"
-                  class:btn-neutral={!useGoogleMaps}
-                  class:not-dark:btn-neutral={useGoogleMaps}
-                  aria-label={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
-                  title={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
-                  onclick={() => (useGoogleMaps = !useGoogleMaps)}
-                >
-                  {#if useGoogleMaps}
-                    <i class="fa-brands fa-qq fa-lg"></i>
-                  {:else}
-                    <i class="fa-brands fa-google fa-lg"></i>
-                  {/if}
-                </button>
                 {#if useGoogleMaps}
-                  <div
-                    id="gmap"
-                    bind:this={googleMaps}
-                    title={m.map_location_picker()}
-                    class="h-full w-full rounded-xl border"
-                  ></div>
-                  <div
-                    class="text-error absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl"
-                  >
-                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2">
-                      <i class="fa-solid fa-location-dot fa-lg"></i>
-                    </div>
+                  <div class="relative z-20 mb-3">
+                    <label class="input input-bordered w-full">
+                      <input
+                        type="text"
+                        bind:value={placeQuery}
+                        oninput={handlePlaceQueryChange}
+                        placeholder={m.search_place_placeholder()}
+                        class="grow"
+                      />
+                      {#if isSearchingPlaces}
+                        <span class="loading loading-spinner loading-sm z-10"></span>
+                      {:else if placeQuery}
+                        <button
+                          class="btn btn-ghost btn-circle btn-sm z-10"
+                          onclick={() => {
+                            placeQuery = '';
+                            places = [];
+                          }}
+                          aria-label={m.clear_search()}
+                        >
+                          <i class="fa-solid fa-times"></i>
+                        </button>
+                      {/if}
+                    </label>
+                    {#if places.length > 0}
+                      <div
+                        class="bg-base-100 border-base-300 absolute top-full mt-1 w-full rounded-lg border shadow-lg"
+                      >
+                        {#each places as place (place.place_id)}
+                          <button
+                            class="hover:bg-base-300 flex w-full cursor-pointer items-start gap-3 border-b border-current/10 px-4 py-3 text-left transition-colors last:border-b-0"
+                            onclick={() => selectPlace(place)}
+                          >
+                            <i class="fa-solid fa-location-dot mt-1 opacity-50"></i>
+                            <div class="min-w-0 flex-1">
+                              <div class="text-base font-medium">{place.name}</div>
+                              <div class="text-base-content/60 text-sm">
+                                {place.formatted_address}
+                              </div>
+                            </div>
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
                   </div>
-                {:else}
-                  <iframe
-                    id="qmap"
-                    frameborder="0"
-                    bind:this={tencentMaps}
-                    title={m.map_location_picker()}
-                    class="h-full w-full rounded-xl border"
-                    src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_TENCENT_MAPS_KEY}&referer=nearcade"
-                  >
-                  </iframe>
                 {/if}
+                <div class="relative h-[80vh]">
+                  <button
+                    class="btn btn-outline btn-circle not-hover:bg-base-300/25 absolute right-3 bottom-5 z-10 border-current/0 backdrop-blur-lg"
+                    style="--size: 2.6rem"
+                    class:btn-neutral={!useGoogleMaps}
+                    class:not-dark:btn-neutral={useGoogleMaps}
+                    aria-label={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
+                    title={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
+                    onclick={() => (useGoogleMaps = !useGoogleMaps)}
+                  >
+                    {#if useGoogleMaps}
+                      <i class="fa-brands fa-qq fa-lg"></i>
+                    {:else}
+                      <i class="fa-brands fa-google fa-lg"></i>
+                    {/if}
+                  </button>
+                  {#if useGoogleMaps}
+                    <div
+                      id="gmap"
+                      bind:this={googleMaps}
+                      title={m.map_location_picker()}
+                      class="h-full w-full rounded-xl border"
+                    ></div>
+                    <div
+                      class="text-error absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl"
+                    >
+                      <div class="absolute bottom-0 left-1/2 -translate-x-1/2">
+                        <i class="fa-solid fa-location-dot fa-lg"></i>
+                      </div>
+                    </div>
+                  {:else}
+                    <iframe
+                      id="qmap"
+                      frameborder="0"
+                      bind:this={tencentMaps}
+                      title={m.map_location_picker()}
+                      class="h-full w-full rounded-xl border"
+                      src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_TENCENT_MAPS_KEY}&referer=nearcade"
+                    >
+                    </iframe>
+                  {/if}
+                </div>
               </div>
             {/if}
             {#if mode !== 0}
