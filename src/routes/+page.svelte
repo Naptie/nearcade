@@ -632,9 +632,7 @@
                 </div>
               </div>
             {:else if mode === 2}
-              <div
-                class="relative mt-3 h-[80vh] w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]"
-              >
+              <div class="relative mt-3 w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]">
                 {#if useGoogleMaps}
                   <!-- Search Bar for Google Maps -->
                   <div class="relative z-20 mb-3">
@@ -684,46 +682,48 @@
                     {/if}
                   </div>
                 {/if}
-                <button
-                  class="btn btn-outline btn-circle not-hover:bg-base-300/25 absolute right-3 bottom-5 z-10 border-current/0 backdrop-blur-lg"
-                  style="--size: 2.6rem"
-                  class:btn-neutral={!useGoogleMaps}
-                  class:not-dark:btn-neutral={useGoogleMaps}
-                  aria-label={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
-                  title={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
-                  onclick={() => (useGoogleMaps = !useGoogleMaps)}
-                >
+                <div class="relative h-[80vh]">
+                  <button
+                    class="btn btn-outline btn-circle not-hover:bg-base-300/25 absolute right-3 bottom-5 z-10 border-current/0 backdrop-blur-lg"
+                    style="--size: 2.6rem"
+                    class:btn-neutral={!useGoogleMaps}
+                    class:not-dark:btn-neutral={useGoogleMaps}
+                    aria-label={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
+                    title={useGoogleMaps ? m.use_tencent_maps() : m.use_google_maps()}
+                    onclick={() => (useGoogleMaps = !useGoogleMaps)}
+                  >
+                    {#if useGoogleMaps}
+                      <i class="fa-brands fa-qq fa-lg"></i>
+                    {:else}
+                      <i class="fa-brands fa-google fa-lg"></i>
+                    {/if}
+                  </button>
                   {#if useGoogleMaps}
-                    <i class="fa-brands fa-qq fa-lg"></i>
-                  {:else}
-                    <i class="fa-brands fa-google fa-lg"></i>
-                  {/if}
-                </button>
-                {#if useGoogleMaps}
-                  <div
-                    id="gmap"
-                    bind:this={googleMaps}
-                    title={m.map_location_picker()}
-                    class="h-full w-full rounded-xl border"
-                  ></div>
-                  <div
-                    class="text-error absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl"
-                  >
-                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2">
-                      <i class="fa-solid fa-location-dot fa-lg"></i>
+                    <div
+                      id="gmap"
+                      bind:this={googleMaps}
+                      title={m.map_location_picker()}
+                      class="h-full w-full rounded-xl border"
+                    ></div>
+                    <div
+                      class="text-error absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl"
+                    >
+                      <div class="absolute bottom-0 left-1/2 -translate-x-1/2">
+                        <i class="fa-solid fa-location-dot fa-lg"></i>
+                      </div>
                     </div>
-                  </div>
-                {:else}
-                  <iframe
-                    id="qmap"
-                    frameborder="0"
-                    bind:this={tencentMaps}
-                    title={m.map_location_picker()}
-                    class="h-full w-full rounded-xl border"
-                    src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_TENCENT_MAPS_KEY}&referer=nearcade"
-                  >
-                  </iframe>
-                {/if}
+                  {:else}
+                    <iframe
+                      id="qmap"
+                      frameborder="0"
+                      bind:this={tencentMaps}
+                      title={m.map_location_picker()}
+                      class="h-full w-full rounded-xl border"
+                      src="https://apis.map.qq.com/tools/locpicker?search=1&type=1&key={PUBLIC_TENCENT_MAPS_KEY}&referer=nearcade"
+                    >
+                    </iframe>
+                  {/if}
+                </div>
               </div>
             {/if}
             {#if mode !== 0}
