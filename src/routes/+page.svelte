@@ -347,7 +347,7 @@
     <AuthModal size="lg" />
   </div>
 
-  <div class="hero-content my-10 text-center">
+  <div class="hero-content my-10 text-center not-sm:px-0">
     <div class="flex max-w-fit flex-col gap-6">
       <SiteTitle class="text-6xl sm:text-8xl xl:text-9xl" />
       <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
@@ -406,7 +406,7 @@
           class="collapse-content flex flex-col items-center gap-4 pt-0 transition-[padding] duration-300"
           class:pt-4={showCollapse}
         >
-          <fieldset class="fieldset rounded-box w-full p-4 pt-2">
+          <fieldset class="fieldset rounded-box w-full p-4 pt-2" class:not-sm:px-0={mode === 2}>
             <div class="flex flex-col gap-1 sm:hidden">
               <span class="label w-full">{m.discover_from()}</span>
               <select class="select w-full" bind:value={mode}>
@@ -632,10 +632,10 @@
                 </div>
               </div>
             {:else if mode === 2}
-              <!-- Map mode container: width constraints only, height is on inner map div to allow search bar above -->
-              <div class="relative mt-3 w-[75vw] min-w-full sm:w-[70vw] md:w-[65vw] lg:w-[50vw]">
+              <div
+                class="ss:w-[89vw] relative mt-3 w-[85vw] min-w-full sm:w-[75vw] md:w-[65vw] lg:w-[50vw]"
+              >
                 {#if useGoogleMaps}
-                  <!-- Search Bar for Google Maps -->
                   <div class="relative z-20 mb-3">
                     <label class="input input-bordered w-full">
                       <input
