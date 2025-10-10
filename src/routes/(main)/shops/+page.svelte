@@ -153,7 +153,7 @@
         <input
           type="text"
           bind:value={searchQuery}
-          placeholder={m.search_shop()}
+          placeholder={m.search_shops()}
           class="input input-bordered w-full"
         />
       </div>
