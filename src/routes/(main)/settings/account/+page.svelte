@@ -145,7 +145,7 @@
 
   <!-- Club Memberships -->
   <div class="bg-base-200 mb-6 rounded-lg">
-    <h2 class="mb-4 text-xl font-semibold">{m.club_memberships()}</h2>
+    <h2 class="mb-4 text-xl font-semibold">{m.club_associations()}</h2>
 
     {#if data.clubs && data.clubs.length > 0}
       <div class="space-y-3">
