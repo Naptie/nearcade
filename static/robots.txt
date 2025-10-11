@@ -7,6 +7,3 @@ Disallow: /admin/
 
 # Disallow API endpoints
 Disallow: /api/
-
-# Crawl delay
-Crawl-delay: 1
