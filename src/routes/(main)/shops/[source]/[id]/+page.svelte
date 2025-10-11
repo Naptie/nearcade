@@ -317,6 +317,11 @@
 
 <svelte:head>
   <title>{pageTitle(shop.name, m.shop_details())}</title>
+  <meta name="description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+  <meta property="og:title" content={pageTitle(shop.name, m.shop_details())} />
+  <meta property="og:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+  <meta name="twitter:title" content={pageTitle(shop.name, m.shop_details())} />
+  <meta name="twitter:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">

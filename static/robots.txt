@@ -1,0 +1,12 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin pages
+Disallow: /admin/
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Crawl delay
+Crawl-delay: 1

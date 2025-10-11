@@ -289,6 +289,14 @@
 <svelte:head>
   <title>{pageTitle(data.university.name)}</title>
   <meta name="description" content={data.university.description || data.university.name} />
+  <meta property="og:title" content={pageTitle(data.university.name)} />
+  <meta property="og:description" content={data.university.description || data.university.name} />
+  {#if data.university.avatarUrl}
+    <meta property="og:image" content={data.university.avatarUrl} />
+    <meta name="twitter:image" content={data.university.avatarUrl} />
+  {/if}
+  <meta name="twitter:title" content={pageTitle(data.university.name)} />
+  <meta name="twitter:description" content={data.university.description || data.university.name} />
 </svelte:head>
 
 <!-- University Header -->

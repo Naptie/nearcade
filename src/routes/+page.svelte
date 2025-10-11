@@ -319,6 +319,11 @@
 
 <svelte:head>
   <title>{m.app_name()}</title>
+  <meta name="description" content={m.greeting()} />
+  <meta property="og:title" content={m.app_name()} />
+  <meta property="og:description" content={m.greeting()} />
+  <meta name="twitter:title" content={m.app_name()} />
+  <meta name="twitter:description" content={m.greeting()} />
 </svelte:head>
 
 <div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">

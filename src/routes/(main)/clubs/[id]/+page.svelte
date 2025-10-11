@@ -345,6 +345,20 @@
     name="description"
     content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
   />
+  <meta property="og:title" content={pageTitle(data.club.name)} />
+  <meta
+    property="og:description"
+    content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
+  />
+  {#if data.club.avatarUrl}
+    <meta property="og:image" content={data.club.avatarUrl} />
+    <meta name="twitter:image" content={data.club.avatarUrl} />
+  {/if}
+  <meta name="twitter:title" content={pageTitle(data.club.name)} />
+  <meta
+    name="twitter:description"
+    content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
+  />
 </svelte:head>
 
 <!-- Club Header -->

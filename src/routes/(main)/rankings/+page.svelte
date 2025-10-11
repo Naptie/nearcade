@@ -195,6 +195,11 @@
 
 <svelte:head>
   <title>{pageTitle(m.campus_rankings())}</title>
+  <meta name="description" content={m.campus_rankings_description()} />
+  <meta property="og:title" content={pageTitle(m.campus_rankings())} />
+  <meta property="og:description" content={m.campus_rankings_description()} />
+  <meta name="twitter:title" content={pageTitle(m.campus_rankings())} />
+  <meta name="twitter:description" content={m.campus_rankings_description()} />
 </svelte:head>
 
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
