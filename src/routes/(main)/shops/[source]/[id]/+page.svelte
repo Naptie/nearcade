@@ -57,9 +57,9 @@
   let totalAttendance = $state(0);
   let openingHours = $derived(getShopOpeningHours(shop));
   let now = $state(new Date());
-  let isShopOpen = $derived.by(() => {
-    return openingHours && now >= openingHours.open && now <= openingHours.close;
-  });
+  let isShopOpen = $derived(
+    openingHours && now >= openingHours.openTolerated && now <= openingHours.closeTolerated
+  );
   let otherShop = $derived.by(() => {
     if (!data.currentAttendance) return false;
     const attendance = data.currentAttendance;

@@ -186,8 +186,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const now = Date.now();
-    const { open, close } = getShopOpeningHours(shop);
-    if (now < open.getTime() || now > close.getTime()) {
+    const { openTolerated, closeTolerated } = getShopOpeningHours(shop);
+    if (now < openTolerated.getTime() || now > closeTolerated.getTime()) {
       error(400, m.shop_is_currently_closed());
     }
 
@@ -201,8 +201,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
       if (
         plannedLeaveTime < new Date(Date.now() + 8 * 60 * 1000) ||
-        plannedLeaveTime < open ||
-        plannedLeaveTime > close
+        plannedLeaveTime < openTolerated ||
+        plannedLeaveTime > closeTolerated
       ) {
         error(400, m.invalid_planned_leave_time());
       }
@@ -236,7 +236,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
       }
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
-      if (now < open.getTime() || now > close.getTime()) {
+      if (now < openTolerated.getTime() || now > closeTolerated.getTime()) {
         error(400, m.shop_is_currently_closed());
       }
       for (const game of games) {
@@ -255,7 +255,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           reportedAt: new Date().toISOString(),
           comment: comment || null
         };
-        const ttlSeconds = Math.max(Math.floor((close.getTime() - now) / 1000), 60); // Minimum 60 seconds
+        const ttlSeconds = Math.max(Math.floor((closeTolerated.getTime() - now) / 1000), 60); // Minimum 60 seconds
 
         // Store attendance in Redis
         await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
@@ -270,7 +270,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             await attend(attendingUser, shop, {
               games: [{ id: game.id }],
               attendedAt: new Date(),
-              plannedLeaveAt: close
+              plannedLeaveAt: closeTolerated
             });
           } else {
             await leave(attendingUser, shop);

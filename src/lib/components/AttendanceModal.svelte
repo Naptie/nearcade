@@ -79,7 +79,7 @@
 </script>
 
 {#if isOpen}
-  {@const { open, close } = getShopOpeningHours(shop)}
+  {@const { openTolerated, closeTolerated } = getShopOpeningHours(shop)}
   <!-- Modal backdrop -->
   <div class="modal modal-open">
     <div class="modal-box max-w-lg">
@@ -131,11 +131,12 @@
           <span class="label-text font-medium">{m.planned_leave_time()}</span>
           <span
             class="label-text-alt text-base-content/60 text-right"
-            class:text-error={now < open || now > new Date(close.getTime() - 10 * 60 * 1000)}
+            class:text-error={now < openTolerated ||
+              now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)}
           >
-            {now < open || now > close
+            {now < openTolerated || now > closeTolerated
               ? m.shop_closed()
-              : now > new Date(close.getTime() - 10 * 60 * 1000)
+              : now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)
                 ? m.shop_closing()
                 : m.planned_leave_time_help({
                     time: formatTime(latestPlannedLeave),
@@ -156,8 +157,8 @@
           class:input-error={(plannedLeaveAt &&
             (new Date(plannedLeaveAt) <= earliestPlannedLeave ||
               new Date(plannedLeaveAt) > latestPlannedLeave)) ||
-            now < open ||
-            now > new Date(close.getTime() - 10 * 60 * 1000)}
+            now < openTolerated ||
+            now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)}
           bind:value={plannedLeaveAt}
           min={toLocalTime(earliestPlannedLeave)}
           max={toLocalTime(latestPlannedLeave)}
@@ -189,8 +190,8 @@
             !plannedLeaveAt ||
             new Date(plannedLeaveAt) <= earliestPlannedLeave ||
             new Date(plannedLeaveAt) > latestPlannedLeave ||
-            now < open ||
-            now > new Date(close.getTime() - 10 * 60 * 1000) ||
+            now < openTolerated ||
+            now > new Date(closeTolerated.getTime() - 10 * 60 * 1000) ||
             isSubmitting}
         >
           {#if isSubmitting}

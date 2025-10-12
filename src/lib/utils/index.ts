@@ -1005,10 +1005,15 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
   const {
     hours: [open, close]
   } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
+  const toleranceMs = 30 * 60 * 1000; // 30 minutes tolerance
+  const openTolerated = new Date(open.getTime() - toleranceMs);
+  const closeTolerated = new Date(close.getTime() + toleranceMs);
 
   return {
     open,
     close,
+    openTolerated,
+    closeTolerated,
     offsetHours: offsetHours,
     openLocal: formatHourLiteral(openingHours[0] ?? 0),
     closeLocal: formatHourLiteral(openingHours[1] ?? 0)

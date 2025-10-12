@@ -776,7 +776,9 @@
             {#each data.starredShops as shop (shop._id)}
               {@const openingHours = getShopOpeningHours(shop)}
               {@const isShopOpen =
-                openingHours && now >= openingHours.open && now <= openingHours.close}
+                openingHours &&
+                now >= openingHours.openTolerated &&
+                now <= openingHours.closeTolerated}
               {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
               <div
                 class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance

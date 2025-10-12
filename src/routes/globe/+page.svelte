@@ -94,7 +94,8 @@
 
   const getShopDensity = (shop: Omit<ShopWithExtras, 'density'>) => {
     const openingHours = shop.openingHoursParsed;
-    if (!openingHours || now < openingHours.open || now > openingHours.close) return 0;
+    if (!openingHours || now < openingHours.openTolerated || now > openingHours.closeTolerated)
+      return 0;
     const density = shop.games
       .reduce((acc, game) => {
         if (acc.has(game.titleId)) {
