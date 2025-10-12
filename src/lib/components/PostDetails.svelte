@@ -427,6 +427,10 @@
 <svelte:head>
   <title>{pageTitle(post.title, organizationName)}</title>
   <meta name="description" content={post.content.substring(0, 200)} />
+  <meta property="og:title" content={pageTitle(post.title, organizationName)} />
+  <meta property="og:description" content={post.content.substring(0, 200)} />
+  <meta name="twitter:title" content={pageTitle(post.title, organizationName)} />
+  <meta name="twitter:description" content={post.content.substring(0, 200)} />
 </svelte:head>
 
 <BackToTopButton />
