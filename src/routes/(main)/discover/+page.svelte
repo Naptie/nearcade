@@ -1031,21 +1031,27 @@
     )}
   </title>
   <meta name="description" content={m.greeting()} />
-  <meta property="og:title" content={pageTitle(
-    data.location.name
-      ? m.arcades_near({
-          name: data.location.name
-        })
-      : m.nearby_arcades()
-  )} />
+  <meta
+    property="og:title"
+    content={pageTitle(
+      data.location.name
+        ? m.arcades_near({
+            name: data.location.name
+          })
+        : m.nearby_arcades()
+    )}
+  />
   <meta property="og:description" content={m.greeting()} />
-  <meta name="twitter:title" content={pageTitle(
-    data.location.name
-      ? m.arcades_near({
-          name: data.location.name
-        })
-      : m.nearby_arcades()
-  )} />
+  <meta
+    name="twitter:title"
+    content={pageTitle(
+      data.location.name
+        ? m.arcades_near({
+            name: data.location.name
+          })
+        : m.nearby_arcades()
+    )}
+  />
   <meta name="twitter:description" content={m.greeting()} />
 </svelte:head>
 
