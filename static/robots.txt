@@ -2,6 +2,9 @@
 User-agent: *
 Allow: /
 
+# Disallow the discover page
+Disallow: /discover
+
 # Disallow admin pages
 Disallow: /admin/
 
