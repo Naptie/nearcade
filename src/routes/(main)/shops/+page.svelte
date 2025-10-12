@@ -87,6 +87,10 @@
 <svelte:head>
   <title>{pageTitle(m.browse_shops())}</title>
   <meta name="description" content={m.browse_search_shops()} />
+  <meta property="og:title" content={pageTitle(m.browse_shops())} />
+  <meta property="og:description" content={m.browse_search_shops()} />
+  <meta name="twitter:title" content={pageTitle(m.browse_shops())} />
+  <meta name="twitter:description" content={m.browse_search_shops()} />
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">

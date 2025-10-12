@@ -49,6 +49,10 @@
 <svelte:head>
   <title>{pageTitle(m.browse_clubs())}</title>
   <meta name="description" content={m.browse_search_clubs()} />
+  <meta property="og:title" content={pageTitle(m.browse_clubs())} />
+  <meta property="og:description" content={m.browse_search_clubs()} />
+  <meta name="twitter:title" content={pageTitle(m.browse_clubs())} />
+  <meta name="twitter:description" content={m.browse_search_clubs()} />
 </svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">

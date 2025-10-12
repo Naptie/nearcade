@@ -1,0 +1,12 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow the discover page
+Disallow: /discover
+
+# Disallow admin pages
+Disallow: /admin/
+
+# Disallow API endpoints
+Disallow: /api/
