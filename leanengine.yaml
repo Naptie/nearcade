@@ -1,7 +1,11 @@
 runtime: nodejs
 install: npm install tsx
-build: echo ''
+build:
+  - |
+    curl -L $MEILISEARCH_BINARY -o meilisearch
+    chmod +x meilisearch
 run: |
+  ~/meilisearch --http-addr 'localhost:7770' --master-key $MEILISEARCH_API_KEY 3>&1 1>&2 2>&3 3>&- &
   HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity REDIS_URI=$REDIS_URL_main node build &
   REDIS_URI=$REDIS_URL_main npm run maintain-attendance &
   REDIS_URI=$REDIS_URL_main npm run ssv-poll

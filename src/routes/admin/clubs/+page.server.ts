@@ -5,6 +5,7 @@ import { checkClubPermission, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = await locals.auth();
@@ -179,7 +180,8 @@ export const actions: Actions = {
         clubsCollection.deleteOne({ id: clubId }),
         clubMembersCollection.deleteMany({ clubId: clubId }),
         joinRequestsCollection.deleteMany({ type: 'club', targetId: clubId }),
-        inviteLinksCollection.deleteMany({ type: 'club', targetId: clubId })
+        inviteLinksCollection.deleteMany({ type: 'club', targetId: clubId }),
+        meili.index<Club>('clubs').deleteDocument(clubId)
       ]);
 
       return { success: true };

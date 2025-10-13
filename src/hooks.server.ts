@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/sveltekit';
 import { redirect, type Handle, type HandleServerError, type ServerInit } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { handle as handleAuth } from '$lib/auth/index.server';
+import { init as initMeili } from '$lib/db/meili.server';
 import { env } from '$env/dynamic/public';
 import redis from '$lib/db/redis.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
@@ -123,4 +124,5 @@ export const init: ServerInit = async () => {
   if (!redis.isOpen) {
     await redis.connect();
   }
+  await initMeili();
 };
