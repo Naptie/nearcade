@@ -7,6 +7,7 @@ import mongo from '$lib/db/index.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { User } from '@auth/sveltekit';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -50,56 +51,22 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         .limit(limit)
         .toArray();
     } else {
-      // Search shops
-      let searchResults: Shop[];
-
       try {
-        // Try Atlas Search first
-        const aggregationPipeline: object[] = [
-          {
-            $search: {
-              index: 'default',
-              compound: {
-                should: [
-                  {
-                    text: {
-                      query: query,
-                      path: 'name',
-                      score: { boost: { value: 2 } }
-                    }
-                  },
-                  {
-                    text: {
-                      query: query,
-                      path: 'address.general'
-                    }
-                  },
-                  {
-                    text: {
-                      query: query,
-                      path: 'address.detailed'
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        ];
-
-        // Add titleIds filter if present
+        let filter: string | undefined;
         if (titleIds.length > 0) {
-          aggregationPipeline.push({ $match: titleIdsFilter });
+          const filters = titleIds.map((id) => `games.titleId = ${id}`);
+          filter = filters.join(' AND ');
         }
 
-        aggregationPipeline.push(
-          { $sort: { score: { $meta: 'searchScore' }, name: 1 } },
-          { $skip: skip },
-          { $limit: limit }
-        );
+        // Search using Meilisearch
+        const searchResults = await meili.index<Shop>('shops').search(query, {
+          filter,
+          limit,
+          offset: skip
+        });
 
-        searchResults = (await shopsCollection
-          .aggregate(aggregationPipeline)
-          .toArray()) as unknown as Shop[];
+        shops = searchResults.hits;
+        totalCount = searchResults.estimatedTotalHits;
       } catch {
         // Fallback to regex search
         const searchQuery = {
@@ -116,18 +83,13 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         };
 
         totalCount = await shopsCollection.countDocuments(searchQuery);
-        searchResults = await shopsCollection
+        shops = await shopsCollection
           .find(searchQuery)
           .sort({ name: 1 })
           .collation({ locale: 'zh@collation=gb2312han' })
           .skip(skip)
           .limit(limit)
           .toArray();
-      }
-
-      shops = searchResults;
-      if (!totalCount!) {
-        totalCount = shops.length + (shops.length === limit ? 1 : 0);
       }
     }
 

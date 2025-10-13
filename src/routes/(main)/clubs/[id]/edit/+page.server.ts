@@ -5,6 +5,7 @@ import { checkClubPermission, toPlainObject } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -195,6 +196,9 @@ export const actions: Actions = {
       }
 
       await clubsCollection.updateOne({ id }, { $set: updateData });
+      await meili
+        .index<Club>('clubs')
+        .updateDocuments([toPlainObject({ ...club, ...updateData })], { primaryKey: 'id' });
 
       return {
         success: true,

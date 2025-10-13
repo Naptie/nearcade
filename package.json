@@ -86,6 +86,7 @@
     "firebase-admin": "^13.4.0",
     "globe.gl": "^2.44.0",
     "mailparser": "^3.7.4",
+    "meilisearch": "^0.53.0",
     "mongodb": "^6.17.0",
     "nanoid": "^5.1.5",
     "node-imap": "^0.9.6",

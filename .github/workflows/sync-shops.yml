@@ -93,3 +93,7 @@ jobs:
         working-directory: scraper
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+  trigger-publish:
+    needs: [sync-bemanicn, sync-ziv]
+    uses: ./.github/workflows/publish.yml

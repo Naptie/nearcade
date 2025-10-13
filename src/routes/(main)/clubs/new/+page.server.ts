@@ -6,6 +6,8 @@ import { resolve } from '$app/paths';
 import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
+import { toPlainObject } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = await locals.auth();
@@ -115,7 +117,10 @@ export const actions: Actions = {
         createdBy: user.id
       };
 
-      await clubsCollection.insertOne(club);
+      const result = await clubsCollection.insertOne(club);
+      await meili
+        .index<Club>('clubs')
+        .addDocuments([toPlainObject({ _id: result.insertedId, ...club })], { primaryKey: 'id' });
 
       // Add creator as admin member
       const clubMembersCollection = db.collection('club_members');

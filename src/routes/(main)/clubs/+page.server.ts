@@ -4,6 +4,7 @@ import type { Club, University } from '$lib/types';
 import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -28,74 +29,19 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 
     if (query.trim().length > 0) {
       try {
-        // Try Atlas Search first
-        const pipeline = [
-          {
-            $search: {
-              index: 'default',
-              compound: {
-                should: [
-                  {
-                    text: {
-                      query,
-                      path: 'name',
-                      score: { boost: { value: 2 } }
-                    }
-                  },
-                  {
-                    text: {
-                      query,
-                      path: 'description'
-                    }
-                  }
-                ]
-              }
-            }
-          },
-          { $match: baseFilter },
-          { $sort: { name: 1 } },
-          { $skip: skip },
-          { $limit: limit }
-        ];
+        let filter: string | undefined;
+        if (universityId) {
+          filter = `universityId = ${universityId}`;
+        }
 
-        clubs = (await clubsCollection
-          .aggregate(pipeline, {
-            collation: { locale: 'zh@collation=gb2312han' }
-          })
-          .toArray()) as (Club & {
-          universityName?: string;
-          universityAvatarUrl?: string | null;
-        })[];
+        const searchResults = await meili.index<Club>('clubs').search(query, {
+          filter,
+          limit,
+          offset: skip
+        });
 
-        // Get total count using $search + $match
-        const countPipeline = [
-          {
-            $search: {
-              index: 'default',
-              compound: {
-                should: [
-                  {
-                    text: {
-                      query,
-                      path: 'name',
-                      score: { boost: { value: 2 } }
-                    }
-                  },
-                  {
-                    text: {
-                      query,
-                      path: 'description'
-                    }
-                  }
-                ]
-              }
-            }
-          },
-          { $match: baseFilter },
-          { $count: 'count' }
-        ];
-        const countResult = await clubsCollection.aggregate(countPipeline).toArray();
-        totalCount = countResult[0]?.count ?? 0;
+        clubs = searchResults.hits;
+        totalCount = searchResults.estimatedTotalHits;
       } catch {
         // Fallback to regex search
         const searchQuery: Record<string, unknown> = { ...baseFilter };

@@ -1,12 +1,13 @@
 import { error, fail, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { PostReadability, PostWritability, type University } from '$lib/types';
-import { checkUniversityPermission } from '$lib/utils';
+import { checkUniversityPermission, toPlainObject } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import { logUniversityChanges } from '$lib/utils/changelog.server';
 import { resolve } from '$app/paths';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -227,6 +228,11 @@ export const actions: Actions = {
       });
 
       await universitiesCollection.updateOne({ id }, { $set: updateData });
+      await meili
+        .index<University>('universities')
+        .updateDocuments([toPlainObject({ ...currentUniversity, ...updateData })], {
+          primaryKey: 'id'
+        });
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {

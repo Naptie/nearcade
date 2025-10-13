@@ -5,6 +5,7 @@ import { PAGINATION } from '$lib/constants';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -30,40 +31,15 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         .limit(limit)
         .toArray()) as unknown as University[];
     } else {
-      // Search universities
-      let searchResults: University[];
-
       try {
-        // Try Atlas Search first
-        searchResults = (await universitiesCollection
-          .aggregate([
-            {
-              $search: {
-                index: 'default',
-                compound: {
-                  should: [
-                    {
-                      text: {
-                        query: query,
-                        path: 'name',
-                        score: { boost: { value: 2 } }
-                      }
-                    },
-                    {
-                      text: {
-                        query: query,
-                        path: 'campuses.name'
-                      }
-                    }
-                  ]
-                }
-              }
-            },
-            { $sort: { score: { $meta: 'searchScore' }, studentsCount: -1, clubsCount: -1 } },
-            { $skip: skip },
-            { $limit: limit }
-          ])
-          .toArray()) as unknown as University[];
+        // Search using Meilisearch
+        const searchResults = await meili.index<University>('universities').search(query, {
+          limit,
+          offset: skip
+        });
+
+        universities = searchResults.hits;
+        totalCount = searchResults.estimatedTotalHits;
       } catch {
         // Fallback to regex search
         const searchQuery = {
@@ -74,17 +50,12 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         };
 
         totalCount = await universitiesCollection.countDocuments(searchQuery);
-        searchResults = (await universitiesCollection
+        universities = (await universitiesCollection
           .find(searchQuery)
           .sort({ studentsCount: -1, clubsCount: -1 })
           .skip(skip)
           .limit(limit)
           .toArray()) as unknown as University[];
-      }
-
-      universities = searchResults;
-      if (!totalCount!) {
-        totalCount = universities.length + (universities.length === limit ? 1 : 0);
       }
     }
 

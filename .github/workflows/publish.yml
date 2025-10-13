@@ -17,6 +17,7 @@ on:
       - 'vite.config.ts'
       - '.github/workflows/publish.yml'
   workflow_dispatch:
+  workflow_call:
 
 defaults:
   run:
