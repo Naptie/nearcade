@@ -68,6 +68,9 @@ export const getShopsAttendanceData = async (
   }
 
   const results = new Map<string, ShopAttendanceResult>();
+  if (shops.length === 0) {
+    return results;
+  }
 
   // Initialize results for all shops
   for (const shop of shops) {
