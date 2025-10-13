@@ -9,3 +9,4 @@ run: |
   HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity REDIS_URI=$REDIS_URL_main node build &
   REDIS_URI=$REDIS_URL_main npm run maintain-attendance &
   REDIS_URI=$REDIS_URL_main npm run ssv-poll
+exposeEnvironmentsOnBuild: true
