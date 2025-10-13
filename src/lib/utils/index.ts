@@ -1152,11 +1152,6 @@ export const protect = <T extends User | undefined>(user: T): T => {
     'autoDiscovery',
     'apiTokens'
   ];
-  for (const prop of propertiesToRemove) {
-    if (prop in user) {
-      delete (user as never)[prop];
-    }
-  }
   if (user.isEmailPublic !== true) {
     delete user.email;
   }
@@ -1165,6 +1160,11 @@ export const protect = <T extends User | undefined>(user: T): T => {
   }
   if (user.isStarredArcadePublic === false) {
     delete user.starredArcades;
+  }
+  for (const prop of propertiesToRemove) {
+    if (prop in user) {
+      delete (user as never)[prop];
+    }
   }
   return user;
 };
