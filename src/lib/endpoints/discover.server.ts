@@ -88,7 +88,7 @@ export const loadShops = async ({ url }: { url: URL }) => {
             currentReportedAttendance: latestReport
               ? {
                   reportedAt: latestReport.reportedAt,
-                  reportedBy: latestReport.reporter!,
+                  reportedBy: toPlainObject(latestReport.reporter!),
                   comment: latestReport.comment ?? null
                 }
               : null
