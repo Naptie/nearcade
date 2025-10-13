@@ -817,6 +817,7 @@
   "qq_description": "Join our QQ group for discussions and updates.",
   "ranking": "Rank",
   "rankings_being_updated": "Rankings are being updated in the background. Please wait.",
+  "realtime_attendance": "Attendance IRT",
   "recent_activity": "Recent Activity",
   "redis_not_available": "Redis not available",
   "registration_date": "Registration Date",

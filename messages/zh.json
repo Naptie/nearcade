@@ -809,6 +809,7 @@
   "qq_description": "有关本网站的问题答疑、数据纠正、功能建议等请在以下 QQ 群中讨论交流！",
   "ranking": "排名",
   "rankings_being_updated": "排名正在后台更新中，请稍候。",
+  "realtime_attendance": "实时在勤人数",
   "recent_activity": "最近活动",
   "redis_not_available": "Redis 不可用",
   "registration_date": "注册日期",

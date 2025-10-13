@@ -23,7 +23,8 @@
     sanitizeHTML,
     formatShopAddress,
     getGameName,
-    adaptiveNewTab
+    adaptiveNewTab,
+    getShopOpeningHours
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -41,10 +42,13 @@
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
+  import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
 
   let { data } = $props();
 
   let screenWidth = $state(0);
+
+  let now = $state(new Date());
 
   // Determine if all shops are from 'ziv' source to enable Google Maps
   const useGoogleMaps = $derived(
@@ -479,6 +483,10 @@
     window.addEventListener('resize', handleResize);
     window.addEventListener('amap-loaded', assignAMap);
 
+    const interval = setInterval(() => {
+      now = new Date();
+    }, 1000);
+
     // Load Google Maps if needed
     if (
       useGoogleMaps &&
@@ -505,6 +513,7 @@
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('amap-loaded', assignAMap);
+      clearInterval(interval);
     };
   });
 
@@ -1144,6 +1153,9 @@
             <th class="text-left">
               {m.shop()}
             </th>
+            <th class="text-center not-sm:hidden">
+              {m.realtime_attendance()}
+            </th>
             <th class="text-center">
               {#if transportMethod}
                 {m.travel_time()}
@@ -1159,6 +1171,44 @@
         </thead>
         <tbody>
           {#each sortedShops.filter((shop) => selectedTitleIds.length === 0 || selectedTitleIds.every( (id) => shop.games.some((g) => g.titleId === id) )) as shop (shop._id)}
+            {@const openingHours = getShopOpeningHours(shop)}
+            {@const isShopOpen =
+              openingHours &&
+              now >= openingHours.openTolerated &&
+              now <= openingHours.closeTolerated}
+            {#snippet attendance(klass = 'text-sm')}
+              {#if isShopOpen}
+                {@const currentAttendance = shop.totalAttendance || 0}
+                {@const reportedAttendance = shop.currentReportedAttendance}
+                {#if reportedAttendance}
+                  <AttendanceReportBlame {reportedAttendance} class="tooltip-right">
+                    <div class="text-accent not-sm:hidden {klass}">
+                      {m.in_attendance({ count: currentAttendance })}
+                    </div>
+                    <div class="text-accent sm:hidden {klass}">
+                      <i class="fa-solid fa-user"></i>
+                      {currentAttendance}
+                    </div>
+                  </AttendanceReportBlame>
+                {:else}
+                  <div
+                    class="text-base-content/60 not-sm:hidden {klass}"
+                    class:text-primary={currentAttendance > 0}
+                  >
+                    {m.in_attendance({ count: currentAttendance })}
+                  </div>
+                  <div
+                    class="text-base-content/60 sm:hidden {klass}"
+                    class:text-primary={currentAttendance > 0}
+                  >
+                    <i class="fa-solid fa-user"></i>
+                    {currentAttendance}
+                  </div>
+                {/if}
+              {:else}
+                <div class="text-error {klass}">{m.closed()}</div>
+              {/if}
+            {/snippet}
             <tr
               id="shop-{shop.id}"
               class="group cursor-pointer transition-all select-none {highlightedShopId ===
@@ -1186,33 +1236,38 @@
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
-                    <div
-                      class="xs:not-dark:inline-flex xs:dark:block hidden text-sm opacity-50 not-dark:items-center not-dark:gap-1"
-                    >
+                    <div class="xs:flex hidden flex-wrap items-center gap-1 text-sm">
+                      <span class="opacity-50">{shop.source.toUpperCase()} #{shop.id}</span>
+                      <span class="opacity-50 sm:hidden">·</span>
+                      <span
+                        class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 sm:hidden"
+                      >
+                        {@render attendance('text-xs')}
+                      </span>
                       {#if transportMethod}
                         {@const hasTravelData =
                           travelData[`${shop.source}-${shop.id}`] !== undefined}
                         {@const distance =
                           travelData[`${shop.source}-${shop.id}`]?.distance ?? shop.distance}
-                        <span>{shop.source.toUpperCase()} #{shop.id}</span>
-                        <span class="not-dark:hidden"> · </span>
+                        <span class="opacity-50">·</span>
                         <span
-                          class="not-dark:badge not-dark:badge-sm not-dark:badge-soft whitespace-nowrap {!hasTravelData
+                          class="whitespace-nowrap transition-opacity not-hover:opacity-50 {!hasTravelData
                             ? ''
                             : distance < avgTravelDistance / 1.5
-                              ? 'not-dark:badge-success dark:text-success'
+                              ? 'text-success'
                               : distance < avgTravelDistance * 1.5
-                                ? 'not-dark:badge-warning dark:text-warning'
-                                : 'not-dark:badge-error dark:text-error'}"
+                                ? 'text-warning'
+                                : 'text-error'}"
                         >
                           {formatDistance(distance, 2)}
                         </span>
-                      {:else}
-                        {shop.source.toUpperCase()} #{shop.id}
                       {/if}
                     </div>
                   </div>
                 </div>
+              </td>
+              <td class="text-center not-sm:hidden">
+                {@render attendance()}
               </td>
               <td class="text-center">
                 {#if transportMethod}

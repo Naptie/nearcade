@@ -809,6 +809,7 @@
   "qq_description": "このウェブサイトに関する質問、データ修正、機能提案などは、以下の QQ グループで議論・交流してください！",
   "ranking": "ランキング",
   "rankings_being_updated": "ランキングはバックグラウンドで更新中です。しばらくお待ちください。",
+  "realtime_attendance": "リアルタイムチェックイン人数",
   "recent_activity": "最近のアクティビティ",
   "redis_not_available": "Redis は利用できません",
   "registration_date": "登録日",
