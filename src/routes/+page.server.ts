@@ -7,7 +7,7 @@ import { ShopSource } from '$lib/constants';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { Session } from '@auth/sveltekit';
 
-const getShopAttendanceData = async (
+const getAttendanceData = async (
   shops: Shop[],
   session?: Session | null
 ): Promise<ShopWithAttendance[]> => {
@@ -20,7 +20,6 @@ const getShopAttendanceData = async (
       }));
     }
 
-    // Use the new function to get attendance data for all shops at once
     const attendanceData = await getShopsAttendanceData(
       shops.map((shop) => ({ source: shop.source, id: shop.id })),
       { fetchRegistered: false, fetchReported: true, session }
@@ -196,7 +195,7 @@ export const load: PageServerLoad = async ({ parent }) => {
       }
     }
 
-    const shopsWithAttendance = await getShopAttendanceData(allShops, session);
+    const shopsWithAttendance = await getAttendanceData(allShops, session);
 
     return {
       starredShops: toPlainArray(shopsWithAttendance)
