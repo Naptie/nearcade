@@ -85,6 +85,8 @@ jobs:
           AUTH_QQ_SECRET: ${{ secrets.AUTH_QQ_SECRET }}
           AUTH_QQ_PROXY: ${{ secrets.AUTH_QQ_PROXY }}
           REDIS_URI: ${{ secrets.REDIS_URI }}
+          MEILISEARCH_HOST: ${{ secrets.MEILISEARCH_HOST }}
+          MEILISEARCH_API_KEY: ${{ secrets.MEILISEARCH_API_KEY }}
           GSAK_BASE64: ${{ secrets.GSAK_BASE64 }}
           FCM_PROXY: ${{ secrets.FCM_PROXY }}
 
