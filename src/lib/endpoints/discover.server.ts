@@ -44,7 +44,8 @@ export const loadShops = async ({ url }: { url: URL }) => {
       totalAttendance?: number;
       currentReportedAttendance?: {
         reportedAt: string;
-        reportedBy: User;
+        reportedBy: string;
+        reporter: User;
         comment: string | null;
       } | null;
     })[] = shops.map((shop) => {
@@ -88,7 +89,8 @@ export const loadShops = async ({ url }: { url: URL }) => {
             currentReportedAttendance: latestReport
               ? {
                   reportedAt: latestReport.reportedAt,
-                  reportedBy: toPlainObject(latestReport.reporter!),
+                  reportedBy: latestReport.reportedBy,
+                  reporter: toPlainObject(latestReport.reporter!),
                   comment: latestReport.comment ?? null
                 }
               : null

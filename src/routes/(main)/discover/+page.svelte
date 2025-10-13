@@ -1181,7 +1181,13 @@
                 {@const currentAttendance = shop.totalAttendance || 0}
                 {@const reportedAttendance = shop.currentReportedAttendance}
                 {#if reportedAttendance}
-                  <AttendanceReportBlame {reportedAttendance} class="tooltip-right">
+                  <AttendanceReportBlame
+                    reportedAttendance={{
+                      ...reportedAttendance,
+                      reportedBy: reportedAttendance.reporter
+                    }}
+                    class="tooltip-right"
+                  >
                     <div class="text-accent not-sm:hidden {klass}">
                       {m.in_attendance({ count: currentAttendance })}
                     </div>
