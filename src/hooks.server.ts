@@ -9,6 +9,7 @@ import redis from '$lib/db/redis.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
+import { isOSSAvailable } from '$lib/oss';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -125,4 +126,5 @@ export const init: ServerInit = async () => {
     await redis.connect();
   }
   await initMeili();
+  console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
 };
