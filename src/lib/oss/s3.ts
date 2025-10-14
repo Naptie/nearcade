@@ -15,8 +15,8 @@ interface S3Config {
 let s3: S3Client | undefined = undefined;
 export let isS3Initialized = false;
 
-const s3Config: S3Config | undefined = env.OSS_S3_CONFIG
-  ? JSON.parse(env.OSS_S3_CONFIG)
+const s3Config: S3Config | undefined = env.OSS_S3_BASE64
+  ? JSON.parse(Buffer.from(env.OSS_S3_BASE64, 'base64').toString('utf8'))
   : undefined;
 
 if (s3Config) {
