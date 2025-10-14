@@ -57,3 +57,7 @@ code,
 .katex-display {
   @apply overflow-x-auto overflow-y-clip;
 }
+
+.katex-html .base {
+  @apply py-0.25;
+}
