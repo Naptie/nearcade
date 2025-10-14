@@ -174,6 +174,37 @@ Please join the following QQ group for discussions.
     REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
+    **Meilisearch:**
+
+    ```env
+    MEILISEARCH_HOST = "http://localhost:7700"
+    MEILISEARCH_API_KEY = "your_api_key"
+    ```
+
+    **Object Storage Service:**
+
+    ```env
+    # Setup either LeanCloud or S3; prefers S3 if both have valid configuration
+
+    # LeanCloud
+    OSS_LEANCLOUD_APP_ID = "your_leancloud_app_id"
+    OSS_LEANCLOUD_APP_KEY = "your_leancloud_app_key"
+    OSS_LEANCLOUD_SERVER_URL = "https://oss.example.com"
+
+    # S3 config JSON (use Base64 encoding)
+    # Example:
+    # {
+    #   "endpoint": "https://s3.example.amazonaws.com",
+    #   "region": "cn-example-2",
+    #   "bucket": "your-bucket-name-or-endpoint", // If bucketEndpoint is true, this should be the full URL
+    #   "accessKeyId": "your-access-key-id",
+    #   "secretAccessKey": "your-secret-access-key",
+    #   "bucketEndpoint": false,
+    #   "forcePathStyle": true
+    # }
+    OSS_S3_BASE64 = "your_base64_content"
+    ```
+
     **Firebase Cloud Messaging:**
 
     ```env

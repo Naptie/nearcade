@@ -173,6 +173,37 @@
     REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
+    **Meilisearch 配置:**
+
+    ```env
+    MEILISEARCH_HOST = "http://localhost:7700"
+    MEILISEARCH_API_KEY = "your_api_key"
+    ```
+
+    **OSS 配置:**
+
+    ```env
+    # LeanCloud 与 S3 二选一，二者均提供时优先选择 S3
+
+    # LeanCloud 配置
+    OSS_LEANCLOUD_APP_ID = "your_leancloud_app_id"
+    OSS_LEANCLOUD_APP_KEY = "your_leancloud_app_key"
+    OSS_LEANCLOUD_SERVER_URL = "https://oss.example.com"
+
+    # S3 配置 JSON (使用 Base64 编码)
+    # 示例:
+    # {
+    #   "endpoint": "https://s3.example.amazonaws.com",
+    #   "region": "cn-example-2",
+    #   "bucket": "your-bucket-name-or-endpoint", // 如果 bucketEndpoint 为 true，该项应为完整的 URL
+    #   "accessKeyId": "your-access-key-id",
+    #   "secretAccessKey": "your-secret-access-key",
+    #   "bucketEndpoint": false,
+    #   "forcePathStyle": true
+    # }
+    OSS_S3_BASE64 = "your_base64_content"
+    ```
+
     **Firebase Cloud Messaging 配置:**
 
     ```env
