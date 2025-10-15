@@ -468,7 +468,7 @@
                   locale: getFnsLocale(getLocale())
                 })}
                 {#if post.updatedAt && post.updatedAt !== post.createdAt}
-                  <span class="ml-1">({m.edited()})</span>
+                  <span class="text-base-content/40 ml-1">({m.edited()})</span>
                 {/if}
               </div>
             </div>
