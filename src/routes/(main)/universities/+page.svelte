@@ -97,7 +97,7 @@
             class="card bg-base-200 ring-primary/0 group hover:ring-primary shadow-sm ring-2 transition hover:shadow-md"
           >
             <div
-              class="group-hover:from-primary from-warning dark:from-warning/30 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-55% transition-colors"
+              class="group-hover:from-primary from-warning/50 dark:from-warning/30 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-55% transition-colors"
               style:opacity="{(university._rankingScore || 0) * 20}%"
             ></div>
             <div class="card-body p-6">
