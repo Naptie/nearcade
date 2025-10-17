@@ -11,6 +11,8 @@
     forest --prefersdark;
 }
 
+@custom-variant dark (&:where([data-theme=forest], [data-theme=forest] *));
+
 @theme {
   --breakpoint-2xs: 15rem;
   --breakpoint-xs: 20rem;
@@ -63,5 +65,5 @@ code,
 }
 
 .text-highlight {
-  @apply text-warning hover:text-primary/90 group-hover:text-primary transition-colors;
+  @apply text-accent dark:text-warning hover:text-primary/90 group-hover:text-primary transition-colors;
 }
