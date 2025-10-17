@@ -23,7 +23,7 @@ import { ROUTE_CACHE_STORE } from '$lib/constants';
 import type { User } from '@auth/sveltekit';
 import { customAlphabet, nanoid } from 'nanoid';
 import rehypeParse from 'rehype-parse';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { unified } from 'unified';
 import tzlookup from '@photostructure/tz-lookup';
@@ -866,13 +866,106 @@ export const adaptiveNewTab = () => (isStandalone() ? '_self' : '_blank');
 
 const processor = unified()
   .use(rehypeParse, { fragment: true })
-  .use(rehypeSanitize)
+  .use(rehypeSanitize, {
+    ...defaultSchema,
+    attributes: {
+      ...defaultSchema.attributes,
+      span: [...(defaultSchema.attributes?.span || []), ['className', 'text-highlight']]
+    }
+  })
   .use(rehypeStringify);
 
-export const sanitizeHTML = async (input: string) => {
+export const sanitizeHTML = async (input: string | undefined) => {
   if (!input) return '';
   const sanitized = String(await processor.process(input));
   return sanitized.replace(/<br>(?:\r?\n)*<br>/g, '<br>');
+};
+
+/**
+ * Recursively walks an arbitrary value (object/array/primitive) and sanitizes
+ * all string fields using sanitizeHTML. Handles cycles and preserves non-plain
+ * objects (Date, RegExp, etc.) by returning them as-is.
+ */
+export const sanitizeRecursive = async <T>(input: T): Promise<T> => {
+  const seen = new WeakMap<object, unknown>();
+
+  const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+    Object.prototype.toString.call(v) === '[object Object]';
+
+  const walk = async (value: unknown): Promise<unknown> => {
+    if (value === null || value === undefined) return value;
+
+    if (typeof value === 'string') {
+      return await sanitizeHTML(value);
+    }
+
+    if (typeof value !== 'object') {
+      // primitives (number, boolean, symbol, bigint, function)
+      return value;
+    }
+
+    // preserve Date, RegExp, etc.
+    if (value instanceof Date || value instanceof RegExp) return value;
+
+    if (seen.has(value as object)) return seen.get(value as object) as unknown;
+
+    if (Array.isArray(value)) {
+      const arr = value as unknown[];
+      // placeholder array to handle cycles
+      const result: unknown[] = [];
+      seen.set(value as object, result);
+      for (let i = 0; i < arr.length; i++) {
+        result[i] = await walk(arr[i]);
+      }
+      return result;
+    }
+
+    if (isPlainObject(value)) {
+      const obj = value as Record<string, unknown>;
+      const result: Record<string, unknown> = {};
+      seen.set(value as object, result);
+      const entries = Object.entries(obj);
+      await Promise.all(
+        entries.map(async ([k, v]) => {
+          result[k] = await walk(v);
+        })
+      );
+      return result;
+    }
+
+    // For non-plain objects (Map, Set, class instances), try reasonable conversions:
+    if (value instanceof Map) {
+      const map = value as Map<unknown, unknown>;
+      const result = new Map();
+      seen.set(value as object, result);
+      for (const [k, v] of map.entries()) {
+        const newK = await walk(k);
+        const newV = await walk(v);
+        result.set(newK, newV);
+      }
+      return result;
+    }
+
+    if (value instanceof Set) {
+      const set = value as Set<unknown>;
+      const result = new Set();
+      seen.set(value as object, result);
+      for (const v of set.values()) {
+        result.add(await walk(v));
+      }
+      return result;
+    }
+
+    // Fallback: attempt to copy enumerable properties (arrays handled above)
+    const fallback: Record<string, unknown> = {};
+    seen.set(value as object, fallback);
+    for (const key of Object.keys(value)) {
+      fallback[key] = await walk((value as Record<string, unknown>)[key]);
+    }
+    return fallback;
+  };
+
+  return (await walk(input)) as T;
 };
 
 export const formatHourLiteral = (hourNum: number) => {

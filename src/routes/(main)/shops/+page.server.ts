@@ -2,7 +2,7 @@ import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-import { toPlainArray } from '$lib/utils';
+import { sanitizeHTML, sanitizeRecursive, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { User } from '@auth/sveltekit';
@@ -73,14 +73,19 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           showRankingScore: true
         });
 
-        shops = searchResults.hits.map(
-          (hit) =>
-            ({
-              ...hit,
-              ...(hit._formatted
-                ? { nameHl: hit._formatted.name, addressHl: hit._formatted.address }
-                : {})
-            }) as (typeof shops)[number]
+        shops = await Promise.all(
+          searchResults.hits.map(
+            async (hit) =>
+              ({
+                ...hit,
+                ...(hit._formatted
+                  ? {
+                      nameHl: await sanitizeHTML(hit._formatted.name),
+                      addressHl: await sanitizeRecursive(hit._formatted.address)
+                    }
+                  : {})
+              }) as (typeof shops)[number]
+          )
         );
         totalCount = searchResults.estimatedTotalHits;
       } catch {

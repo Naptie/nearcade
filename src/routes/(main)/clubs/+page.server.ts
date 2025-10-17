@@ -1,7 +1,7 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Club, University } from '$lib/types';
-import { toPlainObject } from '$lib/utils';
+import { sanitizeHTML, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
@@ -48,14 +48,19 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           showRankingScore: true
         });
 
-        clubs = searchResults.hits.map(
-          (hit) =>
-            ({
-              ...hit,
-              ...(hit._formatted
-                ? { nameHl: hit._formatted.name, descriptionHl: hit._formatted.description }
-                : {})
-            }) as (typeof clubs)[number]
+        clubs = await Promise.all(
+          searchResults.hits.map(
+            async (hit) =>
+              ({
+                ...hit,
+                ...(hit._formatted
+                  ? {
+                      nameHl: await sanitizeHTML(hit._formatted.name),
+                      descriptionHl: await sanitizeHTML(hit._formatted.description)
+                    }
+                  : {})
+              }) as (typeof clubs)[number]
+          )
         );
         totalCount = searchResults.estimatedTotalHits;
       } catch {

@@ -2,7 +2,7 @@ import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { University } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
-import { toPlainArray } from '$lib/utils';
+import { sanitizeHTML, sanitizeRecursive, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
@@ -53,18 +53,20 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           showRankingScore: true
         });
 
-        universities = searchResults.hits.map(
-          (hit) =>
-            ({
-              ...hit,
-              ...(hit._formatted
-                ? {
-                    nameHl: hit._formatted.name,
-                    descriptionHl: hit._formatted.description,
-                    campusesHl: hit._formatted.campuses
-                  }
-                : {})
-            }) as (typeof universities)[number]
+        universities = await Promise.all(
+          searchResults.hits.map(
+            async (hit) =>
+              ({
+                ...hit,
+                ...(hit._formatted
+                  ? {
+                      nameHl: await sanitizeHTML(hit._formatted.name),
+                      descriptionHl: await sanitizeHTML(hit._formatted.description),
+                      campusesHl: await sanitizeRecursive(hit._formatted.campuses)
+                    }
+                  : {})
+              }) as (typeof universities)[number]
+          )
         );
         totalCount = searchResults.estimatedTotalHits;
       } catch {
