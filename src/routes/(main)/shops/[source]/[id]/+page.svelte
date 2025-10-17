@@ -770,7 +770,7 @@
                       >{m.current_players()} ({countedAttendance})</span
                     >
                     {#if reportedAttendance !== undefined}
-                      <AttendanceReportBlame {reportedAttendance}>
+                      <AttendanceReportBlame {reportedAttendance} class="not-md:tooltip-left">
                         <span class="text-accent text-sm font-medium">
                           {m.in_attendance({ count: reportedAttendance?.count || 0 })}
                         </span>
