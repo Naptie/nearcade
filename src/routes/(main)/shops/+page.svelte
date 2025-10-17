@@ -226,7 +226,7 @@
                 <div class="flex items-center justify-between gap-2">
                   <div class="min-w-0 flex-1">
                     <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                      {@html shop.nameHl}
+                      {@html shop.nameHl || shop.name}
                     </h3>
                   </div>
                   <button
