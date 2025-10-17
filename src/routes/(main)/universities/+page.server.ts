@@ -17,7 +17,12 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
 
-    let universities: University[];
+    let universities: (University & {
+      _rankingScore?: number;
+      nameHl?: University['name'];
+      descriptionHl?: University['description'];
+      campusesHl?: University['campuses'];
+    })[];
     let totalCount: number;
 
     if (query.trim().length === 0) {
@@ -35,10 +40,32 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         // Search using Meilisearch
         const searchResults = await meili.index<University>('universities').search(query, {
           limit,
-          offset: skip
+          offset: skip,
+          attributesToHighlight: [
+            'name',
+            'description',
+            'campuses.province',
+            'campuses.city',
+            'campuses.district'
+          ],
+          highlightPreTag: '<span class="text-highlight">',
+          highlightPostTag: '</span>',
+          showRankingScore: true
         });
 
-        universities = searchResults.hits;
+        universities = searchResults.hits.map(
+          (hit) =>
+            ({
+              ...hit,
+              ...(hit._formatted
+                ? {
+                    nameHl: hit._formatted.name,
+                    descriptionHl: hit._formatted.description,
+                    campusesHl: hit._formatted.campuses
+                  }
+                : {})
+            }) as (typeof universities)[number]
+        );
         totalCount = searchResults.estimatedTotalHits;
       } catch {
         // Fallback to regex search

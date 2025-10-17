@@ -93,8 +93,12 @@
         {#each data.universities as university (university.id)}
           <a
             href={resolve('/(main)/universities/[id]', { id: university.slug || university.id })}
-            class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
+            class="card bg-base-200 ring-primary/0 group hover:ring-primary shadow-sm ring-2 transition hover:shadow-md"
           >
+            <div
+              class="group-hover:from-primary from-warning/55 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-55% transition-colors"
+              style:opacity="{(university._rankingScore || 0) * 10}%"
+            ></div>
             <div class="card-body p-6">
               <!-- University Header -->
               <div class="mb-4 flex items-center gap-3">
@@ -106,10 +110,11 @@
                   </div>
                 {/if}
                 <div class="min-w-0 flex-1">
-                  <h3 class="card-title text-lg leading-tight">
-                    <span class="font-semibold">
-                      {university.name}
-                    </span>
+                  <h3
+                    class="card-title gap-0 text-lg leading-tight font-semibold"
+                    title={university.name}
+                  >
+                    {@html university.nameHl || university.name}
                   </h3>
                   <div class="mt-1 flex flex-wrap gap-1">
                     {#if university.is985}
@@ -142,38 +147,40 @@
                 {/if}
 
                 {#if university.campuses && university.campuses.length > 0}
+                  {@const campusesHl = university.campusesHl || university.campuses}
                   <div>
                     <span class="text-base-content/60">{m.campus_location()}:</span>
                     <span class="ml-1">
-                      {#if university.campuses.length === 1}
-                        {formatRegionLabel({
-                          province: university.campuses[0].province,
-                          city: university.campuses[0].city,
-                          district: university.campuses[0].district
+                      {#if campusesHl.length === 1}
+                        {@html formatRegionLabel({
+                          province: campusesHl[0].province,
+                          city: campusesHl[0].city,
+                          district: campusesHl[0].district
                         })}
-                      {:else if university.campuses.find((campus) => !campus.name)}
-                        {@const mainCampus = university.campuses.find((campus) => !campus.name)!}
-                        {formatRegionLabel({
+                      {:else if campusesHl.find((campus) => !campus.name)}
+                        {@const mainCampus = campusesHl.find((campus) => !campus.name)!}
+                        {@html formatRegionLabel({
                           province: mainCampus.province,
                           city: mainCampus.city,
                           district: mainCampus.district
                         })}
                       {:else}
                         {@const addressCounts = university.campuses.reduce(
-                          (map, campus) =>
-                            map.set(
-                              `${campus.province}-${campus.city}-${campus.district}`,
-                              (map.get(`${campus.province}-${campus.city}-${campus.district}`) ||
-                                0) + 1
-                            ),
-                          new Map()
+                          (map, campus, i) =>
+                            map.set(`${campus.province}-${campus.city}-${campus.district}`, {
+                              campus: campusesHl[i],
+                              count:
+                                (map.get(`${campus.province}-${campus.city}-${campus.district}`)
+                                  ?.count || 0) + 1
+                            }),
+                          new Map<string, { campus: (typeof campusesHl)[number]; count: number }>()
                         )}
                         {#if addressCounts.size > 0}
-                          {@const mostCommonEntry = Array.from(addressCounts.entries()).reduce(
-                            (max, current) => (current[1] > max[1] ? current : max)
+                          {@const mostCommonEntry = Array.from(addressCounts.values()).reduce(
+                            (max, current) => (current.count > max.count ? current : max)
                           )}
-                          {@const [province, city, district] = mostCommonEntry[0].split('-')}
-                          {formatRegionLabel({ province, city, district })}
+                          {@const { province, city, district } = mostCommonEntry.campus}
+                          {@html formatRegionLabel({ province, city, district })}
                           {#if addressCounts.size > 1}
                             <span class="text-base-content/60">(+{addressCounts.size - 1})</span>
                           {/if}
@@ -186,8 +193,11 @@
 
               <!-- Description -->
               {#if university.description}
-                <p class="text-base-content/80 mt-3 line-clamp-2 text-sm">
-                  {university.description}
+                <p
+                  class="text-base-content/80 mt-3 line-clamp-2 text-sm"
+                  title={university.description}
+                >
+                  {@html university.descriptionHl || university.description}
                 </p>
               {/if}
             </div>
