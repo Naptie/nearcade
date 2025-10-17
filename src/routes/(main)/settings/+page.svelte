@@ -392,7 +392,7 @@
           </label>
           <p class="text-base-content/70 text-sm">{m.social_links_description()}</p>
         </div>
-        {#if socialLinks.length < 4}
+        {#if socialLinks.length < 8}
           <button type="button" class="btn btn-soft btn-success btn-sm" onclick={addSocialLink}>
             <i class="fa-solid fa-plus"></i>
             {m.add()}
