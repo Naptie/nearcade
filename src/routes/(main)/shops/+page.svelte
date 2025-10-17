@@ -217,7 +217,7 @@
             class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
           >
             <div
-              class="group-hover:from-primary from-warning/55 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-70% transition-colors"
+              class="group-hover:from-primary from-warning/55 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-55% transition-colors"
               style:opacity="{(shop._rankingScore || 0) * 10}%"
             ></div>
             <div class="card-body p-5">
