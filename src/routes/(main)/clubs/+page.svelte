@@ -120,8 +120,12 @@
         {#each data.clubs as club (club.id)}
           <a
             href={resolve('/(main)/clubs/[id]', { id: club.slug || club.id })}
-            class="card bg-base-200 border-primary/0 hover:border-primary border-2 shadow-sm transition hover:shadow-md"
+            class="card bg-base-200 ring-primary/0 group hover:ring-primary shadow-sm ring-2 transition hover:shadow-md"
           >
+            <div
+              class="group-hover:from-primary from-warning/55 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-55% transition-colors"
+              style:opacity="{(club._rankingScore || 0) * 10}%"
+            ></div>
             <div class="card-body p-6">
               <!-- Club Header -->
               <div class="flex items-center justify-between">
@@ -137,10 +141,11 @@
                     </div>
                   {/if}
                   <div>
-                    <h3 class="card-title text-lg leading-tight">
-                      <span class="font-semibold">
-                        {club.name}
-                      </span>
+                    <h3
+                      class="card-title gap-0 text-lg leading-tight font-semibold"
+                      title={club.name}
+                    >
+                      {@html club.nameHl || club.name}
                     </h3>
                     <div class="text-base-content/60 text-sm">
                       {club.universityName || m.unknown_university()}
@@ -151,8 +156,8 @@
 
               <!-- Description -->
               {#if club.description}
-                <p class="text-base-content/80 line-clamp-3 text-sm">
-                  {club.description}
+                <p class="text-base-content/80 line-clamp-3 text-sm" title={club.description}>
+                  {@html club.descriptionHl || club.description}
                 </p>
               {/if}
             </div>

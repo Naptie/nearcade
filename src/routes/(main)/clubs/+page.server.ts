@@ -18,7 +18,11 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     const clubsCollection = db.collection<Club>('clubs');
     const universitiesCollection = db.collection<University>('universities');
 
-    let clubs: (Club & { universityName?: string; universityAvatarUrl?: string | null })[] = [];
+    let clubs: (Club & { universityName?: string; universityAvatarUrl?: string | null } & {
+      _rankingScore?: number;
+      nameHl?: Club['name'];
+      descriptionHl?: Club['description'];
+    })[] = [];
     let totalCount = 0;
 
     // Build base filter
@@ -37,10 +41,22 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         const searchResults = await meili.index<Club>('clubs').search(query, {
           filter,
           limit,
-          offset: skip
+          offset: skip,
+          attributesToHighlight: ['name', 'description'],
+          highlightPreTag: '<span class="text-highlight">',
+          highlightPostTag: '</span>',
+          showRankingScore: true
         });
 
-        clubs = searchResults.hits;
+        clubs = searchResults.hits.map(
+          (hit) =>
+            ({
+              ...hit,
+              ...(hit._formatted
+                ? { nameHl: hit._formatted.name, descriptionHl: hit._formatted.description }
+                : {})
+            }) as (typeof clubs)[number]
+        );
         totalCount = searchResults.estimatedTotalHits;
       } catch {
         // Fallback to regex search
