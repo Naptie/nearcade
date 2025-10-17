@@ -214,15 +214,19 @@
               source: shop.source,
               id: shop.id.toString()
             })}
-            class="card bg-base-200 border-primary/0 hover:border-primary min-w-0 border-2 shadow-sm transition hover:shadow-md"
+            class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
           >
+            <div
+              class="group-hover:from-primary from-warning/55 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br to-transparent to-70% transition-colors"
+              style:opacity="{(shop._rankingScore || 0) * 10}%"
+            ></div>
             <div class="card-body p-5">
               <!-- Shop Header -->
               <div class="mb-2 flex flex-col">
                 <div class="flex items-center justify-between gap-2">
                   <div class="min-w-0 flex-1">
                     <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                      {shop.name}
+                      {@html shop.nameHl}
                     </h3>
                   </div>
                   <button
@@ -240,7 +244,7 @@
                 <div class="text-base-content/80 flex items-start gap-2 text-sm">
                   <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
                   <span class="line-clamp-2">
-                    {formatShopAddress(shop)}
+                    {@html formatShopAddress(shop)}
                   </span>
                 </div>
               </div>

@@ -61,3 +61,7 @@ code,
 .katex-html .base {
   @apply py-0.25;
 }
+
+.text-highlight {
+  @apply text-warning hover:text-primary/90 group-hover:text-primary transition-colors;
+}

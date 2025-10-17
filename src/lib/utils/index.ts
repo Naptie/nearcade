@@ -893,12 +893,16 @@ export const formatHourLiteral = (hourNum: number) => {
 /**
  * Formats a shop's general address array into a readable string
  */
-export const formatShopAddress = (shop: Shop, detailed = false): string => {
+export const formatShopAddress = (
+  shop: Shop & { addressHl?: Shop['address'] },
+  detailed = false
+): string => {
+  const address = shop.addressHl || shop.address;
   const addressParts: string[] = [];
 
-  if (shop.address?.general) {
+  if (address?.general) {
     const seen = new Set<string>();
-    for (const part of shop.address.general) {
+    for (const part of address.general) {
       if (!part) continue;
       const trimmed = part.trim();
       if (!trimmed) continue;
@@ -913,8 +917,8 @@ export const formatShopAddress = (shop: Shop, detailed = false): string => {
 
   return addressParts.length > 0
     ? (reverse
-        ? (detailed ? shop.address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
-        : addressParts.join(' · ') + (detailed ? '\n' + shop.address.detailed : '')
+        ? (detailed ? address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
+        : addressParts.join(' · ') + (detailed ? '\n' + address.detailed : '')
       ).trim()
     : '';
 };

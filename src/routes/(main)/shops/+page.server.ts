@@ -26,7 +26,11 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
-    let shops: Shop[];
+    let shops: (Shop & {
+      _rankingScore?: number;
+      nameHl?: Shop['name'];
+      addressHl?: Shop['address'];
+    })[];
     let totalCount: number;
 
     // Build base filter for titleIds
@@ -62,10 +66,22 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         const searchResults = await meili.index<Shop>('shops').search(query, {
           filter,
           limit,
-          offset: skip
+          offset: skip,
+          attributesToHighlight: ['name', 'address.general', 'address.detailed'],
+          highlightPreTag: '<span class="text-highlight">',
+          highlightPostTag: '</span>',
+          showRankingScore: true
         });
 
-        shops = searchResults.hits;
+        shops = searchResults.hits.map(
+          (hit) =>
+            ({
+              ...hit,
+              ...(hit._formatted
+                ? { nameHl: hit._formatted.name, addressHl: hit._formatted.address }
+                : {})
+            }) as (typeof shops)[number]
+        );
         totalCount = searchResults.estimatedTotalHits;
       } catch {
         // Fallback to regex search
@@ -96,7 +112,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     // Get real-time attendance data and reported attendance for all shops
     const { session } = await parent();
 
-    let shopsWithAttendance: (Shop & {
+    let shopsWithAttendance: ((typeof shops)[number] & {
       currentAttendance: number;
       currentReportedAttendance: {
         reportedAt: string;

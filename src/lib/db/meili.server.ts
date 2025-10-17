@@ -25,8 +25,33 @@ export const init = async () => {
   const clubIndex = meili.index('clubs');
 
   // Configure filterable attributes for titleIds filtering
-  await shopIndex.updateFilterableAttributes(['games.titleId']);
-  await clubIndex.updateFilterableAttributes(['universityId']);
+  await shopIndex.updateSettings({
+    searchableAttributes: [
+      'name',
+      'address.general',
+      'address.detailed',
+      'games.name',
+      'games.version',
+      'comment'
+    ],
+    filterableAttributes: ['games.titleId']
+  });
+  await universityIndex.updateSettings({
+    searchableAttributes: [
+      'name',
+      'description',
+      'slug',
+      'website',
+      'campuses.province',
+      'campuses.city',
+      'campuses.district',
+      'campuses.address'
+    ]
+  });
+  await clubIndex.updateSettings({
+    searchableAttributes: ['name', 'description', 'slug', 'website'],
+    filterableAttributes: ['universityId']
+  });
 
   // Add documents
   await shopIndex.addDocuments(toPlainArray(shops), { primaryKey: '_id' });
