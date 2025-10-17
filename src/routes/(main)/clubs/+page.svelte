@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
