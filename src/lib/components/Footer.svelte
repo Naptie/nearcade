@@ -14,7 +14,7 @@
       target="_blank"
       class="text-xs opacity-40 transition-opacity hover:opacity-70"
     >
-      <i class="fab fa-github"></i>
+      <i class="fa-brands fa-github"></i>
       GitHub
     </a>
   </div>
