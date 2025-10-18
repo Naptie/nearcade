@@ -345,14 +345,14 @@
 
         <div class="flex items-center gap-2">
           <!-- Join Button for eligible users -->
-          {#if data.user && data.userPermissions.canJoin > 0 && !data.userPermissions.verificationEmail}
+          {#if !data.user || (data.userPermissions.canJoin > 0 && !data.userPermissions.verificationEmail)}
             <a
               href={resolve('/(main)/universities/[id]/verify', {
                 id: data.university.slug || data.university.id
               })}
               class="btn btn-ghost"
             >
-              {#if data.userPermissions.canJoin === 2}
+              {#if !data.user || data.userPermissions.canJoin === 2}
                 <i class="fa-solid fa-plus text-shadow-lg"></i>
                 {m.verify_and_join()}
               {:else}
