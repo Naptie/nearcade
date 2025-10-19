@@ -257,6 +257,7 @@
   // Set minimum date for custom expiration (today)
   const today = new Date().toISOString().split('T')[0];
   // Set maximum date (1 year from now)
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const oneYearDate = new Date();
   oneYearDate.setFullYear(oneYearDate.getFullYear() + 1);
   const maxDate = oneYearDate.toISOString().split('T')[0];
