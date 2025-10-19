@@ -23,6 +23,12 @@ export default ts.config(
     rules: { 'no-undef': 'off' }
   },
   {
+    files: ['**/*.svelte'],
+    rules: {
+      'svelte/no-navigation-without-resolve': 'off'
+    }
+  },
+  {
     files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
     languageOptions: {
       parserOptions: {
