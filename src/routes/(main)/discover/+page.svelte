@@ -626,6 +626,11 @@
             const infoWindow = new google.maps!.InfoWindow({
               content: createShopInfoWindowContent(shop)
             });
+            infoWindow.addListener('closeclick', () => {
+              if (selectedShopId === `${shop.source}-${shop.id}`) {
+                selectedShopId = null;
+              }
+            });
 
             markers[`${shop.source}-${shop.id}`] = { marker, infoWindow, zIndex };
 
