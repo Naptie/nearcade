@@ -638,7 +638,7 @@
               </div>
             {:else if mode === 2}
               <div
-                class="ss:w-[89vw] relative mt-3 w-[85vw] min-w-full sm:w-[75vw] md:w-[65vw] lg:w-[50vw]"
+                class="ss:w-[89vw] relative mt-3 w-[85vw] max-w-6xl min-w-full sm:w-[75vw] md:w-[65vw] lg:w-[50vw]"
               >
                 {#if useGoogleMaps}
                   <div class="relative z-20 mb-3">
