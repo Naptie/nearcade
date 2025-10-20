@@ -60,7 +60,7 @@
     </span>
     {#if reportedAttendance.comment}
       <div class="divider -my-1.25"></div>
-      <div class="text-xs break-words whitespace-pre-wrap opacity-70">
+      <div class="text-xs break-all whitespace-pre-wrap opacity-70">
         {reportedAttendance.comment}
       </div>
     {/if}
