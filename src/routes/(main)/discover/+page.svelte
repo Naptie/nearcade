@@ -1247,7 +1247,7 @@
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
-                    <div class="xs:flex hidden flex-wrap items-center gap-1 text-sm">
+                    <span class="text-sm">
                       <span class="opacity-50">{shop.source.toUpperCase()} #{shop.id}</span>
                       <span class="opacity-50 sm:hidden">·</span>
                       <span
@@ -1273,7 +1273,7 @@
                           {formatDistance(distance, 2)}
                         </span>
                       {/if}
-                    </div>
+                    </span>
                   </div>
                 </div>
               </td>
