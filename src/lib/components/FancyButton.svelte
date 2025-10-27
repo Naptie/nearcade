@@ -264,7 +264,7 @@
       transform: none !important;
     }
     .content {
-      @apply !opacity-0;
+      @apply opacity-0!;
     }
   }
 </style>

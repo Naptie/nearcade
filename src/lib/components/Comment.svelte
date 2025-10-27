@@ -174,7 +174,7 @@
             <summary class="btn btn-ghost btn-circle btn-xs" aria-label={m.actions()}>
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </summary>
-            <ul class="dropdown-content menu bg-base-200 rounded-box z-[1] w-48 p-2 shadow">
+            <ul class="dropdown-content menu bg-base-200 rounded-box z-1 w-48 p-2 shadow">
               {#if canReply}
                 <li>
                   <button onclick={handleReply} class="text-primary">

@@ -526,7 +526,7 @@
 </script>
 
 <div
-  class="pointer-events-auto fixed z-[1000] w-fit transition-transform duration-300 ease-out will-change-transform not-md:right-0 not-md:bottom-0 not-md:left-0 not-md:w-screen not-md:max-w-full md:top-0 md:right-0 md:bottom-0 {shop
+  class="pointer-events-auto fixed z-1000 w-fit transition-transform duration-300 ease-out will-change-transform not-md:right-0 not-md:bottom-0 not-md:left-0 not-md:w-screen not-md:max-w-full md:top-0 md:right-0 md:bottom-0 {shop
     ? 'opacity-100'
     : 'opacity-0'} {isOpen
     ? 'not-md:translate-y-0 md:translate-x-0'
@@ -631,7 +631,7 @@
                     <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
                       <!-- Main step header -->
                       <div class="flex items-center gap-3">
-                        <div class="flex-shrink-0">
+                        <div class="shrink-0">
                           {#if segment.transit_mode === 'SUBWAY'}
                             <div
                               class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white shadow-lg"
@@ -773,7 +773,7 @@
                     {@const segment = s as ProcessedSegment}
                     <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
                       <div class="flex items-center gap-3">
-                        <div class="flex-shrink-0">
+                        <div class="shrink-0">
                           {#if transportMethod === 'walking'}
                             <div
                               class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
@@ -832,7 +832,7 @@
                               {#each segment.steps as step, stepIndex (stepIndex)}
                                 <div class="flex items-center gap-2 text-xs sm:text-sm">
                                   <div
-                                    class="flex h-6 w-6 flex-shrink-0 items-center justify-center {step.isSignificant
+                                    class="flex h-6 w-6 shrink-0 items-center justify-center {step.isSignificant
                                       ? 'text-base-content'
                                       : 'text-base-content/80'}"
                                   >

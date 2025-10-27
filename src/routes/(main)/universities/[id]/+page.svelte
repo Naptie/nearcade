@@ -304,7 +304,7 @@
   class="relative overflow-hidden pt-12"
   style:background-color={data.university.backgroundColor || ''}
 >
-  <div class="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"></div>
+  <div class="absolute inset-0 bg-linear-to-r from-black/20 to-transparent"></div>
   <div class="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
     <div class="flex flex-col items-center gap-6 sm:flex-row">
       <!-- University Avatar -->
@@ -863,7 +863,7 @@
                                 <i class="fa-solid fa-ellipsis-vertical"></i>
                               </div>
                               <ul
-                                class="dropdown-content menu bg-base-200 rounded-box z-[1] w-64 p-2 shadow"
+                                class="dropdown-content menu bg-base-200 rounded-box z-1 w-64 p-2 shadow"
                               >
                                 {#if memberActions.grantModerator}
                                   <li>

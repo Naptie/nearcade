@@ -167,7 +167,7 @@
         >
           <div class="flex gap-3">
             <!-- Action icon -->
-            <div class="flex-shrink-0">
+            <div class="shrink-0">
               <div class="bg-base-200 flex h-8 w-8 items-center justify-center rounded-full">
                 <i class="fa-solid {getActionIcon(entry.action)} text-xs"></i>
               </div>
@@ -219,7 +219,7 @@
                 </div>
 
                 <!-- Timestamp -->
-                <div class="text-base-content/60 flex-shrink-0 text-xs">
+                <div class="text-base-content/60 shrink-0 text-xs">
                   {formatDistanceToNow(entry.createdAt, {
                     addSuffix: true,
                     locale: getFnsLocale(getLocale())

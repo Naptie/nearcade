@@ -97,7 +97,7 @@
   class="bg-base-100 hover:bg-base-200/50 flex items-center gap-3 rounded-lg p-3 transition-colors"
 >
   <!-- User Avatar -->
-  <div class="flex-shrink-0">
+  <div class="shrink-0">
     <UserAvatar
       user={{
         image: notification.actorImage,
@@ -144,7 +144,7 @@
 
   <!-- Icon and Timestamp -->
   <div class="flex h-full flex-col items-end gap-1">
-    <div class="flex-shrink-0">
+    <div class="shrink-0">
       <i class="{icon} text-base-content/60"></i>
     </div>
     <span class="text-base-content/50 text-xs">

@@ -36,7 +36,7 @@
       name: 'Phira',
       icon: 'phira.png',
       class:
-        'bg-gradient-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
+        'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
     }
   ].map((provider) => ({
     ...provider,

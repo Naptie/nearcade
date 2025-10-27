@@ -253,11 +253,11 @@
 
 <div
   class="bg-base-100 hover:bg-base-200/50 flex items-start gap-3 rounded-lg p-3 transition {activity.isLive
-    ? 'ring-warning hover:ring-warning/50 bg-gradient-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 ring-2 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+    ? 'ring-warning hover:ring-warning/50 bg-linear-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 ring-2 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
     : ''}"
 >
   <!-- Activity Icon -->
-  <div class="mt-1 flex-shrink-0">
+  <div class="mt-1 shrink-0">
     <i class="{icon} text-base-content/60" class:text-warning={activity.isLive}></i>
   </div>
 
@@ -328,7 +328,7 @@
   </div>
 
   <!-- Timestamp -->
-  <div class="flex-shrink-0">
+  <div class="shrink-0">
     <span class="text-base-content/50 text-xs">
       {formatDistanceToNow(activity.createdAt, {
         addSuffix: true,

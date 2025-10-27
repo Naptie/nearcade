@@ -13,7 +13,7 @@
   </span>
 {/snippet}
 
-<div class="tooltip px-0.25 {klass}" data-tip={m.verified()}>
+<div class="tooltip px-px {klass}" data-tip={m.verified()}>
   {#if href}
     <a {href}>
       {@render mark()}

@@ -12,7 +12,7 @@
 
 <a class="font-semibold tracking-tight select-none text-shadow-lg {klass}" href={resolve('/')}>
   <span
-    class="bg-gradient-to-br from-sky-500 via-purple-500 to-rose-500 bg-clip-text pr-[0.03em] text-transparent"
+    class="bg-linear-to-br from-sky-500 via-purple-500 to-rose-500 bg-clip-text pr-[0.03em] text-transparent"
   >
     {firstPart}
   </span><span>{secondPart}</span>

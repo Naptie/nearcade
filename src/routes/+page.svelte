@@ -326,7 +326,7 @@
   <meta name="twitter:description" content={m.greeting()} />
 </svelte:head>
 
-<div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-gradient-to-br">
+<div class="hero from-base-200 via-base-100 to-base-200 relative min-h-screen bg-linear-to-br">
   <div class="absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
     <LocaleSwitch />
     <FancyButton
@@ -787,7 +787,7 @@
               {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
               <div
                 class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
-                  ? 'border-warning hover:border-warning/50 bg-gradient-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+                  ? 'border-warning hover:border-warning/50 bg-linear-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
                   : ''}"
               >
                 <a
