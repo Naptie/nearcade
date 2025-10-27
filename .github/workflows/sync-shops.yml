@@ -3,15 +3,44 @@ run-name: Synchronize shops data
 
 on:
   schedule:
-    # Runs at 17:00 UTC every Sunday
-    - cron: '0 17 * * 0'
+    # Runs at 5:00 UTC every day
+    - cron: '0 5 * * *'
+    # Runs at 17:00 UTC every day
+    - cron: '0 17 * * *'
   workflow_dispatch:
+    inputs:
+      incremental:
+        description: 'Run incremental sync'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   sync-bemanicn:
     runs-on: windows-latest
 
     steps:
+      - name: Determine sync mode
+        id: mode
+        run: |
+          # Check if this is a manual workflow dispatch with an input
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            # Use the input value from workflow_dispatch
+            $incremental = "${{ inputs.incremental }}"
+            echo "incremental=$incremental" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            # Scheduled run: check time and date
+            $hour = (Get-Date).ToUniversalTime().Hour
+            $day = (Get-Date).ToUniversalTime().Day
+            
+            # Set INCREMENTAL to 'false' only at 17:00 UTC on the 1st of the month
+            if ($hour -eq 17 -and $day -eq 1) {
+              echo "incremental=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            } else {
+              echo "incremental=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            }
+          }
+
       - name: Checkout scraper repository
         uses: actions/checkout@v4
         with:
@@ -56,6 +85,7 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
+          INCREMENTAL: ${{ steps.mode.outputs.incremental }}
 
   sync-ziv:
     runs-on: ubuntu-latest
