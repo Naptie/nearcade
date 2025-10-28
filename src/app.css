@@ -37,7 +37,7 @@ code,
 }
 
 .prose pre code {
-  @apply text-base-content !bg-transparent !p-0 text-sm;
+  @apply text-base-content bg-transparent! p-0! text-sm;
 }
 
 .not-md:prose-xs pre code {
@@ -61,7 +61,7 @@ code,
 }
 
 .katex-html .base {
-  @apply py-0.25;
+  @apply py-px;
 }
 
 .text-highlight {
