@@ -77,8 +77,44 @@ jobs:
 
       - name: Build and run the scraper
         run: |
+          retry_cmd() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+
+            local -a cmd=()
+            local arg
+            for arg in "$@"; do
+              read -r -a parts <<< "$arg"
+              local p
+              for p in "${parts[@]}"; do
+                cmd+=("$p")
+              done
+            done
+
+            while true; do
+              echo "Attempt $attempt/$max_attempts: ${cmd[*]}"
+              if "${cmd[@]}"; then
+                return 0
+              fi
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "Command failed after $attempt attempts: ${cmd[*]}" >&2
+                return 1
+              fi
+              echo "Command failed. Retrying in ${delay}s..."
+              sleep "$delay"
+              attempt=$((attempt+1))
+              delay=$((delay*2))
+            done
+          }
+
           pnpm build
-          pnpm start
+          
+          if [ "${{ steps.mode.outputs.incremental }}" = "true" ]; then
+            retry_cmd pnpm start
+          else
+            pnpm start
+          fi
         working-directory: scraper
         env:
           PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
