@@ -76,6 +76,7 @@ jobs:
           PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
 
       - name: Build and run the scraper
+        shell: bash
         run: |
           retry_cmd() {
             local max_attempts=3
