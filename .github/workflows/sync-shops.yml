@@ -95,6 +95,7 @@ jobs:
 
             while true; do
               echo "Attempt $attempt/$max_attempts: ${cmd[*]}"
+              export RETRY_ATTEMPT=$attempt
               if "${cmd[@]}"; then
                 return 0
               fi
@@ -110,12 +111,7 @@ jobs:
           }
 
           pnpm build
-
-          if [ "${{ steps.mode.outputs.incremental }}" = "true" ]; then
-            retry_cmd pnpm start
-          else
-            pnpm start
-          fi
+          retry_cmd pnpm start
         working-directory: scraper
         env:
           PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
