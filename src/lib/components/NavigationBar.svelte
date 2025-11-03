@@ -9,6 +9,13 @@
   import AuthModal from '$lib/components/AuthModal.svelte';
   import { beforeNavigate } from '$app/navigation';
 
+  // Gradient blur configuration
+  const BLUR_LAYERS = 20;
+  const LAYER_HEIGHT_PERCENT = 100 / BLUR_LAYERS;
+  const MAX_BLUR_PX = 24;
+  const BLUR_DECREMENT_PX = MAX_BLUR_PX / BLUR_LAYERS;
+  const layerIndices = Array.from({ length: BLUR_LAYERS }, (_, i) => i);
+
   let scrollY = $state(0);
   let isAtTop = $derived(scrollY <= 10);
   let orgHasCustomBackground = $state<boolean | null>(null);
@@ -52,10 +59,12 @@
 >
   <!-- Gradient blur layers -->
   <div class="pointer-events-none absolute inset-0 z-0">
-    {#each Array.from({ length: 20 }, (_, i) => i) as index (index)}
+    {#each layerIndices as index (index)}
       <div
         class="absolute left-0 w-full transition-all duration-200"
-        style="top: {index * 5}%; height: 5%; backdrop-filter: blur({24 - index * 1.2}px);"
+        style="top: {index *
+          LAYER_HEIGHT_PERCENT}%; height: {LAYER_HEIGHT_PERCENT}%; backdrop-filter: blur({MAX_BLUR_PX -
+          index * BLUR_DECREMENT_PX}px);"
       ></div>
     {/each}
   </div>
