@@ -9,6 +9,23 @@
   import AuthModal from '$lib/components/AuthModal.svelte';
   import { beforeNavigate } from '$app/navigation';
 
+  // Gradient blur configuration with exponential blur values
+  // Each layer uses CSS mask to create smooth transitions and avoid edge artifacts
+  const maxRadius = 64;
+  const iterations = 16;
+  const blurLayers = Array.from({ length: iterations }, (_, i) => ({
+    blur: maxRadius / (4 * maxRadius) ** (i / (iterations - 1)),
+    maskStops: [
+      Math.max(0, ((i - 2) * 100) / iterations),
+      Math.max(0, ((i - 1) * 100) / iterations),
+      (i * 100) / iterations,
+      ((i + 1) * 100) / iterations
+    ]
+    // ... or reverse for the liquid glass effect
+    // .toReversed()
+    // .map((stop) => 100 - stop)
+  }));
+
   let scrollY = $state(0);
   let isAtTop = $derived(scrollY <= 10);
   let orgHasCustomBackground = $state<boolean | null>(null);
@@ -46,16 +63,30 @@
 </script>
 
 <nav
-  class="navbar fixed top-0 z-[999] w-full px-6 backdrop-blur-xl transition-all duration-200 {textWhite} {isAtTop
-    ? 'bg-transparent'
-    : 'bg-base-100/50 shadow lg:shadow-md'}"
+  class="navbar fixed top-0 z-999 w-full px-6 transition-colors duration-200 {textWhite} bg-linear-to-t from-transparent {isAtTop
+    ? 'to-transparent'
+    : 'to-base-100/50'}"
 >
-  <div class="relative flex-1">
+  <div class="pointer-events-none absolute inset-0 z-0">
+    {#each blurLayers as layer, index (index)}
+      <div
+        class="absolute inset-0"
+        style="backdrop-filter: blur({layer.blur}px); mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
+          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+          .maskStops[2]}%, rgba(0,0,0,0) {layer
+          .maskStops[3]}%); -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
+          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
+      ></div>
+    {/each}
+  </div>
+
+  <div class="relative z-10 flex-1">
     <div class="absolute top-1/2 left-0 z-0 -translate-y-1/2">
       <SiteTitle class="xs:text-2xl ss:text-3xl text-lg md:text-4xl" />
     </div>
   </div>
-  <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
+  <div class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
     <LocaleSwitch class="text-shadow-lg" btnCls="text-shadow-lg" />
     <FancyButton
       callback={() => {
