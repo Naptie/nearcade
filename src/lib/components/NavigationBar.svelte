@@ -11,16 +11,20 @@
 
   // Gradient blur configuration with exponential blur values
   // Each layer uses CSS mask to create smooth transitions and avoid edge artifacts
-  const blurLayers = [
-    { blur: 0.5, maskStops: [0, 12.5, 25, 37.5] },
-    { blur: 1, maskStops: [12.5, 25, 37.5, 50] },
-    { blur: 2, maskStops: [25, 37.5, 50, 62.5] },
-    { blur: 4, maskStops: [37.5, 50, 62.5, 75] },
-    { blur: 8, maskStops: [50, 62.5, 75, 87.5] },
-    { blur: 16, maskStops: [62.5, 75, 87.5, 100] },
-    { blur: 32, maskStops: [75, 87.5, 100, 100] },
-    { blur: 64, maskStops: [87.5, 100, 100, 100] }
-  ];
+  const maxRadius = 64;
+  const iterations = 16;
+  const blurLayers = Array.from({ length: iterations }, (_, i) => ({
+    blur: maxRadius / (4 * maxRadius) ** (i / (iterations - 1)),
+    maskStops: [
+      Math.max(0, ((i - 2) * 100) / iterations),
+      Math.max(0, ((i - 1) * 100) / iterations),
+      (i * 100) / iterations,
+      ((i + 1) * 100) / iterations
+    ]
+    // ... or reverse for the liquid glass effect
+    // .toReversed()
+    // .map((stop) => 100 - stop)
+  }));
 
   let scrollY = $state(0);
   let isAtTop = $derived(scrollY <= 10);
@@ -59,15 +63,14 @@
 </script>
 
 <nav
-  class="navbar fixed top-0 z-[999] w-full px-6 transition-all duration-200 {textWhite} {isAtTop
-    ? 'bg-transparent'
-    : 'bg-base-100/50 shadow lg:shadow-md'}"
+  class="navbar fixed top-0 z-999 w-full px-6 transition-colors duration-200 {textWhite} bg-linear-to-t from-transparent {isAtTop
+    ? 'to-transparent'
+    : 'to-base-100/50'}"
 >
-  <!-- Gradient blur layers with CSS masks to avoid edge artifacts -->
   <div class="pointer-events-none absolute inset-0 z-0">
     {#each blurLayers as layer, index (index)}
       <div
-        class="absolute inset-0 transition-all duration-200"
+        class="absolute inset-0"
         style="backdrop-filter: blur({layer.blur}px); mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
           .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
           .maskStops[2]}%, rgba(0,0,0,0) {layer
