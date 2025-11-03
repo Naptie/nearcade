@@ -87,35 +87,41 @@
     </div>
   </div>
   <div class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
-    <LocaleSwitch class="text-shadow-lg" />
+    <LocaleSwitch class="text-shadow-lg" btnCls="text-shadow-lg" />
     <FancyButton
       callback={() => {
         window.dispatchEvent(new CustomEvent('nearcade-donate'));
       }}
       class="fa-solid fa-heart fa-lg text-shadow-lg"
-      btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden"
+      btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden text-shadow-lg"
       text={m.donate()}
       stayExpandedOnWideScreens
     />
     <FancyButton
       href={resolve('/globe')}
       class="fa-solid fa-globe fa-lg text-shadow-lg"
+      btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
       text={m.globe()}
       stayExpandedOnWideScreens
     />
     <FancyButton
       href={resolve('/(main)/rankings')}
       class="fa-solid fa-trophy fa-lg text-shadow-lg"
+      btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
       text={m.campus_rankings()}
       stayExpandedOnWideScreens
     />
     <FancyButton
       href={resolve('/')}
       class="fa-solid fa-home fa-lg text-shadow-lg"
-      btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden"
+      btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden text-shadow-lg"
       text={m.home()}
       stayExpandedOnWideScreens
     />
-    <AuthModal size="lg" class="shadow-lg" />
+    <AuthModal
+      size="lg"
+      class="text-shadow-lg"
+      btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
+    />
   </div>
 </nav>

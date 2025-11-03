@@ -10,9 +10,10 @@
   interface Props {
     size?: string;
     class?: string;
+    btnCls?: string;
   }
 
-  let { size = 'lg', class: klass = '' }: Props = $props();
+  let { size = 'lg', class: klass = '', btnCls }: Props = $props();
 
   let session = $derived(page.data.session);
   let open = $state(false);
@@ -81,6 +82,7 @@
       dialogElement?.showModal();
     }}
     class="fa-solid fa-user fa-{size} {klass}"
+    {btnCls}
     text={m.sign_in()}
     stayExpandedOnWideScreens
   />

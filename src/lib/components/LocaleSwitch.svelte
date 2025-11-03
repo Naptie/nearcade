@@ -3,7 +3,7 @@
   import { getLocale, locales, setLocale } from '$lib/paraglide/runtime';
   import FancyButton from './FancyButton.svelte';
 
-  let { class: klass = '' } = $props();
+  let { class: klass = '', btnCls = '' } = $props();
 
   let open = $state(false);
 </script>
@@ -30,7 +30,7 @@
   {/snippet}
   <FancyButton
     class="fa-solid fa-language fa-lg {klass}"
-    btnCls="btn-ghost btn-sm lg:btn-md gap-2"
+    btnCls="btn-ghost btn-sm lg:btn-md gap-2 {btnCls}"
     {content}
     callback={() => {
       open = !open;
