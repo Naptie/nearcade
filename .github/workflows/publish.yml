@@ -46,7 +46,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm i
+        run: pnpm i --frozen-lockfile --prod
 
       - name: Create build
         run: pnpm build
