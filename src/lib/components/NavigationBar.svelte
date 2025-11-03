@@ -9,12 +9,18 @@
   import AuthModal from '$lib/components/AuthModal.svelte';
   import { beforeNavigate } from '$app/navigation';
 
-  // Gradient blur configuration
-  const BLUR_LAYERS = 20;
-  const LAYER_HEIGHT_PERCENT = 100 / BLUR_LAYERS;
-  const MAX_BLUR_PX = 24;
-  const BLUR_DECREMENT_PX = MAX_BLUR_PX / BLUR_LAYERS;
-  const layerIndices = Array.from({ length: BLUR_LAYERS }, (_, i) => i);
+  // Gradient blur configuration with exponential blur values
+  // Each layer uses CSS mask to create smooth transitions and avoid edge artifacts
+  const blurLayers = [
+    { blur: 0.5, maskStops: [0, 12.5, 25, 37.5] },
+    { blur: 1, maskStops: [12.5, 25, 37.5, 50] },
+    { blur: 2, maskStops: [25, 37.5, 50, 62.5] },
+    { blur: 4, maskStops: [37.5, 50, 62.5, 75] },
+    { blur: 8, maskStops: [50, 62.5, 75, 87.5] },
+    { blur: 16, maskStops: [62.5, 75, 87.5, 100] },
+    { blur: 32, maskStops: [75, 87.5, 100, 100] },
+    { blur: 64, maskStops: [87.5, 100, 100, 100] }
+  ];
 
   let scrollY = $state(0);
   let isAtTop = $derived(scrollY <= 10);
@@ -57,14 +63,17 @@
     ? 'bg-transparent'
     : 'bg-base-100/50 shadow lg:shadow-md'}"
 >
-  <!-- Gradient blur layers -->
+  <!-- Gradient blur layers with CSS masks to avoid edge artifacts -->
   <div class="pointer-events-none absolute inset-0 z-0">
-    {#each layerIndices as index (index)}
+    {#each blurLayers as layer, index (index)}
       <div
-        class="absolute left-0 w-full transition-all duration-200"
-        style="top: {index *
-          LAYER_HEIGHT_PERCENT}%; height: {LAYER_HEIGHT_PERCENT}%; backdrop-filter: blur({MAX_BLUR_PX -
-          index * BLUR_DECREMENT_PX}px);"
+        class="absolute inset-0 transition-all duration-200"
+        style="backdrop-filter: blur({layer.blur}px); mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
+          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+          .maskStops[2]}%, rgba(0,0,0,0) {layer
+          .maskStops[3]}%); -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
+          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
       ></div>
     {/each}
   </div>
