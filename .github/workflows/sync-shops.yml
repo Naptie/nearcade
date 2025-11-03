@@ -33,8 +33,8 @@ jobs:
             $hour = (Get-Date).ToUniversalTime().Hour
             $day = (Get-Date).ToUniversalTime().Day
             
-            # Set INCREMENTAL to 'false' only at 17:00 UTC on the 1st of the month
-            if ($hour -eq 17 -and $day -eq 1) {
+            # Set INCREMENTAL to 'false' only at 5:00 UTC on the 1st of the month
+            if ($hour -eq 5 -and $day -eq 1) {
               echo "incremental=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
             } else {
               echo "incremental=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
