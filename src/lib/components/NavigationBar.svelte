@@ -46,16 +46,26 @@
 </script>
 
 <nav
-  class="navbar fixed top-0 z-[999] w-full px-6 backdrop-blur-xl transition-all duration-200 {textWhite} {isAtTop
+  class="navbar fixed top-0 z-[999] w-full px-6 transition-all duration-200 {textWhite} {isAtTop
     ? 'bg-transparent'
     : 'bg-base-100/50 shadow lg:shadow-md'}"
 >
-  <div class="relative flex-1">
+  <!-- Gradient blur layers -->
+  <div class="pointer-events-none absolute inset-0 z-0">
+    {#each Array.from({ length: 20 }, (_, i) => i) as index (index)}
+      <div
+        class="absolute left-0 w-full transition-all duration-200"
+        style="top: {index * 5}%; height: 5%; backdrop-filter: blur({24 - index * 1.2}px);"
+      ></div>
+    {/each}
+  </div>
+
+  <div class="relative z-10 flex-1">
     <div class="absolute top-1/2 left-0 z-0 -translate-y-1/2">
       <SiteTitle class="xs:text-2xl ss:text-3xl text-lg md:text-4xl" />
     </div>
   </div>
-  <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
+  <div class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
     <LocaleSwitch class="text-shadow-lg" />
     <FancyButton
       callback={() => {
