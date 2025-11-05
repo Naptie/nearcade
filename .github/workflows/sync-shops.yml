@@ -15,7 +15,7 @@ on:
         type: boolean
         default: true
       bcn_shop_ids:
-        description: 'Comma-separated list of shop IDs'
+        description: 'Specific shops to sync'
         required: false
         type: string
 
