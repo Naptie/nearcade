@@ -14,6 +14,10 @@ on:
         required: false
         type: boolean
         default: true
+      bcn_shop_ids:
+        description: 'Comma-separated list of shop IDs'
+        required: false
+        type: string
 
 jobs:
   sync-bemanicn:
@@ -119,6 +123,7 @@ jobs:
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
           INCREMENTAL: ${{ steps.mode.outputs.incremental }}
+          SHOPS: ${{ inputs.bcn_shop_ids }}
 
   sync-ziv:
     runs-on: ubuntu-latest
