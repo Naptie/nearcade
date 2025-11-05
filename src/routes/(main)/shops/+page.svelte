@@ -256,7 +256,9 @@
                     {@const gameInfo = getGameInfo(game.titleId)}
                     {#if gameInfo}
                       <div class="badge badge-soft badge-sm">
-                        <span class="max-w-16 truncate">{getGameName(gameInfo.key)}</span>
+                        <span class="max-w-16 truncate">
+                          {getGameName(gameInfo.key) || game.name}
+                        </span>
                         <span class="text-xs opacity-70">×{game.quantity}</span>
                       </div>
                     {/if}

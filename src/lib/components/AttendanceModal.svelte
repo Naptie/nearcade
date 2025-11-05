@@ -114,7 +114,7 @@
                   {game.name}
                 </div>
                 <div class="text-base-content/60 text-sm">
-                  {getGameName(gameInfo?.key)} · {game.version} · {m.machines({
+                  {getGameName(gameInfo?.key) || game.name} · {game.version} · {m.machines({
                     count: game.quantity
                   })}
                 </div>

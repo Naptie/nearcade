@@ -665,7 +665,7 @@
                     )}
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60 truncate">
-                      {getGameName(gameInfo?.key)}
+                      {getGameName(gameInfo?.key) || game.name}
                     </span>
                     {#if reportedAttendance}
                       <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
@@ -744,9 +744,9 @@
                   <div class="group-hover:text-accent flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-gamepad"></i>
                     {#if game.version}
-                      <span>{getGameName(gameInfo?.key)} · {game.version}</span>
+                      <span>{getGameName(gameInfo?.key) || game.name} · {game.version}</span>
                     {:else}
-                      <span>{getGameName(gameInfo?.key)}</span>
+                      <span>{getGameName(gameInfo?.key) || game.name}</span>
                     {/if}
                   </div>
                   {#if costs[game.gameId]}
