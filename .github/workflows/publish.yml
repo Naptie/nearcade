@@ -27,7 +27,7 @@ jobs:
   build:
     name: Build Application
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'workflow_call'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
