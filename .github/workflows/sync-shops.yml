@@ -2,11 +2,6 @@ name: Sync Shops
 run-name: Synchronize shops data
 
 on:
-  schedule:
-    # Runs at 5:00 UTC every day
-    - cron: '0 5 * * *'
-    # Runs at 17:00 UTC every day
-    - cron: '0 17 * * *'
   workflow_dispatch:
     inputs:
       incremental:
