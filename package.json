@@ -126,5 +126,5 @@
       "firebase": "patches/firebase.patch"
     }
   },
-  "packageManager": "pnpm@10.20.0"
+  "packageManager": "pnpm@10.21.0"
 }
