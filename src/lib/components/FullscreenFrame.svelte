@@ -11,7 +11,9 @@
   let previewElement = $state<HTMLElement | null>(null);
   let windowWidth = $state(0);
   let previewWidth = $state(1);
-  let scaleFactor = $derived((windowWidth * 0.8) / previewWidth);
+  let scaleFactor = $derived(
+    Math.min(windowWidth * (0.2 * Math.exp(-windowWidth) + 0.8), 1280) / previewWidth
+  );
 
   const [send, receive] = crossfade({
     duration: 400,
