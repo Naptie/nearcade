@@ -20,6 +20,8 @@
   import { onMount } from 'svelte';
   import type { Shop } from '$lib/types';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
+  import Hover3D from '$lib/components/Hover3D.svelte';
+  import FullscreenFrame from '$lib/components/FullscreenFrame.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -139,13 +141,23 @@
             <h1 class="text-2xl font-bold sm:text-3xl">
               {getDisplayName(data.user)}
             </h1>
-            <span class="badge text-nowrap {getUserTypeBadgeClass(data.user.userType)}">
-              {getUserTypeLabel(data.user.userType)}
-            </span>
-            {#if ratingImage}
-              <span title={m.dx_rating()} class="w-36 font-bold select-none">
-                {@html ratingImage}
+            <Hover3D>
+              <span
+                class="badge badge-soft border-2 border-current/20 text-nowrap select-none {getUserTypeBadgeClass(
+                  data.user.userType
+                )}"
+              >
+                {getUserTypeLabel(data.user.userType)}
               </span>
+            </Hover3D>
+            {#if ratingImage}
+              <FullscreenFrame>
+                <Hover3D>
+                  <div title={m.dx_rating()} class="w-36 font-bold select-none">
+                    {@html ratingImage}
+                  </div>
+                </Hover3D>
+              </FullscreenFrame>
             {:else if dxRating}
               <span title={m.dx_rating()} class="skeleton h-[1.762rem] w-36 rounded-md"></span>
             {/if}

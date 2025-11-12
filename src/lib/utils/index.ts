@@ -658,7 +658,7 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
     case 'student':
       return 'badge-neutral';
     default:
-      return 'badge-soft';
+      return '';
   }
 };
 
