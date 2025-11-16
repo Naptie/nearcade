@@ -10,6 +10,7 @@ import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
 import { isOSSAvailable } from '$lib/oss';
+import { decompressLocationData } from '$lib/utils/url';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -96,6 +97,41 @@ const handleAMap: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
+const handleDiscoverShortcut: Handle = async ({ event, resolve }) => {
+  const { pathname, search } = event.url; // `search` is the raw string, e.g., "?d=..."
+
+  // We check for the root path '/' and a search query starting with '?d='
+  if (pathname === '/' && search.startsWith('?d=')) {
+    // Get the raw, non-decoded 'd' value
+    const d = search.substring(3);
+    let targetUrl: string | null = null;
+
+    try {
+      // Decompress the data
+      const { latitude, longitude, radius, name } = decompressLocationData(d);
+
+      // Build the target URL
+      const targetParams = new URLSearchParams();
+      targetParams.set('latitude', latitude.toString());
+      targetParams.set('longitude', longitude.toString());
+      targetParams.set('radius', radius.toString());
+      targetParams.set('name', name);
+
+      targetUrl = `/discover?${targetParams.toString()}`;
+    } catch (error) {
+      console.error('Failed to decompress shortcut URL:', error);
+    }
+
+    if (targetUrl) {
+      // Redirect to the constructed discover URL
+      redirect(308, targetUrl);
+    }
+  }
+
+  // Otherwise, proceed with normal request handling
+  return resolve(event);
+};
+
 const handleUserShortcut: Handle = async ({ event, resolve }) => {
   const { pathname, search } = event.url;
 
@@ -114,6 +150,7 @@ export const handle: Handle = sequence(
   handleParaglide,
   // handleGoogleTag,
   handleAMap,
+  handleDiscoverShortcut,
   handleUserShortcut,
   handleHeaders,
   handleAuth
