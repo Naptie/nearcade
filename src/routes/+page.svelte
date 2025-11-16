@@ -24,6 +24,7 @@
   import { getContext, untrack, onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import { getLocale } from '$lib/paraglide/runtime';
 
   let { data }: { data: PageData } = $props();
 
@@ -354,7 +355,11 @@
 
   <div class="hero-content my-10 text-center not-sm:px-0">
     <div class="flex max-w-fit flex-col gap-6">
-      <SiteTitle class="text-6xl sm:text-8xl xl:text-9xl" />
+      <SiteTitle
+        class="text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'
+          ? 'xs:px-10 sm:px-14 md:px-18'
+          : ''}"
+      />
       <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
         {m.greeting()}
       </p>

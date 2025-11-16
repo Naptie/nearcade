@@ -13,7 +13,7 @@
 
 <a
   class="{getLocale() === 'zh'
-    ? 'xs:px-10 font-extrabold sm:px-14 md:px-18'
+    ? 'font-extrabold'
     : 'font-semibold'} tracking-tight select-none text-shadow-lg {klass}"
   href={resolve('/')}
 >
