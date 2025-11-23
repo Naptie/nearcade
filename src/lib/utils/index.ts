@@ -1053,6 +1053,9 @@ export const getCurrentTimeByLocation = (location: Location) => {
   return { nowShifted, offsetHours };
 };
 
+const toleranceMsForShopOpen = 30 * 60 * 1000; // 30 minutes tolerance
+const toleranceMsForShopClose = 150 * 60 * 1000; // 2.5 hours tolerance
+
 /**
  * Calculate the next occurrence of the specified hour in the location's local time.
  * If that hour today has already passed, returns tomorrow at that hour.
@@ -1070,15 +1073,15 @@ export const getNextTimeAtHour = (location: Location, hours: number[], basisHour
 
   let targetUtcMs = Date.UTC(year, month, date, hour, minute, 0, 0);
 
-  // If that target time is not in the future (i.e. already passed or equal to now), move to next day
+  // If that target time is not in the future, move to next day
   let i = 0;
-  while (targetUtcMs <= now.getTime()) {
+  while (targetUtcMs + toleranceMsForShopClose <= now.getTime()) {
     targetUtcMs = Date.UTC(year, month, date + ++i, hour, minute, 0, 0);
   }
 
   // Otherwise, if the target time is too far in the future (more than 24 hours), move to previous day
   i = 0;
-  while (targetUtcMs - now.getTime() > 24 * 3600 * 1000) {
+  while (targetUtcMs - toleranceMsForShopOpen - now.getTime() > 24 * 3600 * 1000) {
     targetUtcMs = Date.UTC(year, month, date - ++i, hour, minute, 0, 0);
   }
 
@@ -1102,10 +1105,8 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
   const {
     hours: [open, close]
   } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
-  const toleranceMsForOpen = 30 * 60 * 1000; // 30 minutes tolerance
-  const toleranceMsForClose = 150 * 60 * 1000; // 2.5 hours tolerance
-  const openTolerated = new Date(open.getTime() - toleranceMsForOpen);
-  const closeTolerated = new Date(close.getTime() + toleranceMsForClose);
+  const openTolerated = new Date(open.getTime() - toleranceMsForShopOpen);
+  const closeTolerated = new Date(close.getTime() + toleranceMsForShopClose);
 
   return {
     open,
