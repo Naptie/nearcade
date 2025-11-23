@@ -1102,9 +1102,10 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
   const {
     hours: [open, close]
   } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
-  const toleranceMs = 30 * 60 * 1000; // 30 minutes tolerance
-  const openTolerated = new Date(open.getTime() - toleranceMs);
-  const closeTolerated = new Date(close.getTime() + toleranceMs);
+  const toleranceMsForOpen = 30 * 60 * 1000; // 30 minutes tolerance
+  const toleranceMsForClose = 150 * 60 * 1000; // 2.5 hours tolerance
+  const openTolerated = new Date(open.getTime() - toleranceMsForOpen);
+  const closeTolerated = new Date(close.getTime() + toleranceMsForClose);
 
   return {
     open,
