@@ -14,7 +14,14 @@ export interface AttendanceDataOptions {
 export interface ShopAttendanceResult {
   shopIdentifier: string; // format: "source-id"
   total: number;
-  games: Array<{ titleId: number; gameId: number; name: string; version: string; total: number }>;
+  games: Array<{
+    titleId: number;
+    gameId: number;
+    name: string;
+    version: string;
+    quantity: number;
+    total: number;
+  }>;
   registered: AttendanceData;
   reported: AttendanceReport;
 }
@@ -219,6 +226,7 @@ export const getShopsAttendanceData = async (
             gameId: g.gameId,
             name: g.name,
             version: g.version,
+            quantity: g.quantity,
             total: reportedCount
           };
         const registeredCount = result.registered.filter(
@@ -231,6 +239,7 @@ export const getShopsAttendanceData = async (
           gameId: g.gameId,
           name: g.name,
           version: g.version,
+          quantity: g.quantity,
           total: reportedCount + registeredCount
         };
       });
