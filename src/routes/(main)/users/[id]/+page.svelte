@@ -143,7 +143,7 @@
             </h1>
             <Hover3D>
               <span
-                class="badge badge-soft border-2 border-current/20 text-nowrap select-none {getUserTypeBadgeClass(
+                class="badge border-2 border-current/20 text-nowrap select-none {getUserTypeBadgeClass(
                   data.user.userType
                 )}"
               >

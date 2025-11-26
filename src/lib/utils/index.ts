@@ -646,17 +646,17 @@ export const getUserTypeLabel = (role: string | undefined) => {
 export const getUserTypeBadgeClass = (userType: string | undefined) => {
   switch (userType) {
     case 'site_admin':
-      return 'badge-error';
+      return 'badge-soft badge-error';
     case 'school_admin':
-      return 'badge-warning';
+      return 'badge-soft badge-warning';
     case 'school_moderator':
-      return 'badge-info';
+      return 'badge-soft badge-info';
     case 'club_admin':
-      return 'badge-success';
+      return 'badge-soft badge-success';
     case 'club_moderator':
-      return 'badge-accent';
+      return 'badge-soft badge-accent';
     case 'student':
-      return 'badge-neutral';
+      return 'not-dark:badge-soft badge-neutral';
     default:
       return '';
   }
