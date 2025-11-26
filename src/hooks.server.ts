@@ -10,6 +10,7 @@ import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
 import { isOSSAvailable } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
+import { building, dev } from '$app/environment';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -158,6 +159,8 @@ export const handle: Handle = sequence(
 export const handleError: HandleServerError = sentryHandleError ?? reportError;
 
 export const init: ServerInit = async () => {
-  await initMeili();
-  console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
+  if (building || dev) {
+    await initMeili();
+    console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
+  }
 };
