@@ -5,7 +5,6 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 import { handle as handleAuth } from '$lib/auth/index.server';
 import { init as initMeili } from '$lib/db/meili.server';
 import { env } from '$env/dynamic/public';
-import redis from '$lib/db/redis.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
@@ -159,9 +158,6 @@ export const handle: Handle = sequence(
 export const handleError: HandleServerError = sentryHandleError ?? reportError;
 
 export const init: ServerInit = async () => {
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
   await initMeili();
   console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
 };

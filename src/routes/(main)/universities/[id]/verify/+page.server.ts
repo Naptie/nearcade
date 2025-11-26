@@ -66,6 +66,9 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const expires = new Date(today);
     expires.setUTCDate(today.getUTCDate() + 1);
 
+    if (!redis.isOpen) {
+      await redis.connect();
+    }
     const status = (await redis.get(`nearcade:ssv:${university.id}:${user.id}`)) as
       | 'success'
       | 'processing'
@@ -75,6 +78,8 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       | 'domain_mismatch'
       | 'already_verified'
       | null;
+
+    redis.close();
 
     return {
       university,

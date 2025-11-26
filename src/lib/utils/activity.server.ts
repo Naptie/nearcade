@@ -542,6 +542,10 @@ export async function getUserActivities(
       });
     });
 
+    if (!redis.isOpen) {
+      await redis.connect();
+    }
+
     const attendancePattern = `nearcade:attend:*:${userId}:*`;
     const keys = await redis.keys(attendancePattern);
     if (keys.length > 0) {
@@ -581,6 +585,8 @@ export async function getUserActivities(
       }
     }
   }
+
+  redis.close();
 
   // Sort all activities by creation time (descending) and apply pagination
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

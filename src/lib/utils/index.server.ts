@@ -7,7 +7,13 @@ export const getCurrentAttendance = async (userId: string) => {
   const attendancePattern = `nearcade:attend:*:${userId}:*`;
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
+
+  if (!redis.isOpen) {
+    await redis.connect();
+  }
   const keys = await redis.keys(attendancePattern);
+  redis.close();
+
   if (keys.length > 0) {
     const keyParts = keys[0].split(':');
     const [source, id] = keyParts[2].split('-');

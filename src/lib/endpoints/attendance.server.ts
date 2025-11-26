@@ -73,6 +73,9 @@ export const getShopsAttendanceData = async (
   if (!redis) {
     throw new Error('Redis not available');
   }
+  if (!redis.isOpen) {
+    await redis.connect();
+  }
 
   const results = new Map<string, ShopAttendanceResult>();
   if (shops.length === 0) {
@@ -246,6 +249,8 @@ export const getShopsAttendanceData = async (
     }
   }
 
+  redis.close();
+
   return results;
 };
 
@@ -259,6 +264,9 @@ export const getAllShopsAttendanceData = async (): Promise<
 > => {
   if (!redis) {
     throw new Error('Redis not available');
+  }
+  if (!redis.isOpen) {
+    await redis.connect();
   }
 
   const results = new Map<string, Array<{ gameId: number; total: number }>>();
@@ -400,6 +408,8 @@ export const getAllShopsAttendanceData = async (): Promise<
 
     results.set(identifier, gameAttendances);
   }
+
+  redis.close();
 
   return results;
 };

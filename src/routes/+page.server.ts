@@ -78,6 +78,9 @@ export const load: PageServerLoad = async ({ parent }) => {
     // Get user's current attendance from Redis
     let currentlyAttendingShop: ShopWithAttendance | null = null;
     if (redis) {
+      if (!redis.isOpen) {
+        await redis.connect();
+      }
       try {
         // Get Redis keys for user's current attendance
         const userAttendanceKeys = await redis.keys(`nearcade:attend:*:${user.id}:*`);
@@ -111,6 +114,8 @@ export const load: PageServerLoad = async ({ parent }) => {
         }
       } catch (redisError) {
         console.error('Error getting user attendance from Redis:', redisError);
+      } finally {
+        redis.close();
       }
     }
 
