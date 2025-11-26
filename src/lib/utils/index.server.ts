@@ -12,7 +12,9 @@ export const getCurrentAttendance = async (userId: string) => {
     await redis.connect();
   }
   const keys = await redis.keys(attendancePattern);
-  redis.close();
+  if (redis.isOpen) {
+    redis.close();
+  }
 
   if (keys.length > 0) {
     const keyParts = keys[0].split(':');

@@ -79,7 +79,9 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       | 'already_verified'
       | null;
 
-    redis.close();
+    if (redis.isOpen) {
+      redis.close();
+    }
 
     return {
       university,

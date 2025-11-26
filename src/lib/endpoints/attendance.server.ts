@@ -249,7 +249,9 @@ export const getShopsAttendanceData = async (
     }
   }
 
-  redis.close();
+  if (redis.isOpen) {
+    redis.close();
+  }
 
   return results;
 };
@@ -409,7 +411,9 @@ export const getAllShopsAttendanceData = async (): Promise<
     results.set(identifier, gameAttendances);
   }
 
-  redis.close();
+  if (redis.isOpen) {
+    redis.close();
+  }
 
   return results;
 };

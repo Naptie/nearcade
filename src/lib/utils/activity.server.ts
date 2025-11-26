@@ -586,7 +586,9 @@ export async function getUserActivities(
     }
   }
 
-  redis.close();
+  if (redis.isOpen) {
+    redis.close();
+  }
 
   // Sort all activities by creation time (descending) and apply pagination
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
