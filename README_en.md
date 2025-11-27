@@ -164,14 +164,19 @@ Please join the following QQ group for discussions.
     AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # Optional redirect proxy
     ```
 
-    **IMAP and Redis (For Student Status Verification):**
+    **Redis:**
+
+    ```env
+    REDIS_URI = "redis://username:password@127.0.0.1:6379"
+    ```
+
+    **IMAP (For Student Status Verification):**
 
     ```env
     IMAP_HOST = "imap.example.com"
     IMAP_PORT = "993"
     IMAP_USER = "your_imap_user@example.com"
     IMAP_PASSWORD = "your_imap_password"
-    REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
     **Meilisearch:**
