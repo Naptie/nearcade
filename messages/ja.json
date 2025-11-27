@@ -202,6 +202,8 @@
   "attendance": "チェックイン",
   "attendance_details": "{duration} チェックイン中\n{leave} に退出予定",
   "attendance_details_one_liner": "{duration} チェックイン中；{leave} に退出予定",
+  "attendance_history": "出席履歴",
+  "attendance_history_description": "この店舗の出席報告履歴",
   "attendance_not_found": "チェックインが見つかりません",
   "attendance_threshold": "チェックイン回数のしきい値",
   "attendance_threshold_description": "あるゲームセンターにこの回数チェックインすると、自動的によく行くゲームセンターリストに追加されます",
@@ -691,6 +693,7 @@
   "next_page": "次のページ",
   "no": "いいえ",
   "no_arcades_found": "ゲームセンターが見つかりません",
+  "no_attendance_history": "出席履歴はまだありません",
   "no_club_description": "クラブの説明はありません",
   "no_clubs_created_yet": "まだクラブは作成されていません",
   "no_clubs_found": "クラブが見つかりません",
@@ -825,6 +828,16 @@
   "report_current_attendance": "現在のチェックイン人数を報告",
   "report_details": "{user} が {time} に報告",
   "report_issue": "問題を報告",
+  "reported_by_user": "{user} さんが報告",
+  "reported_players": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 人"
+      }
+    }
+  ],
   "request_id_is_required": "リクエスト ID は必須です",
   "require_approval": "管理者の承認が必要",
   "reset": "リセット",

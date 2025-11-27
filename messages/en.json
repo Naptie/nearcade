@@ -204,6 +204,8 @@
   "attendance": "Attendance",
   "attendance_details": "In attendance for {duration}\nPlanned leave at {leave}",
   "attendance_details_one_liner": "In attendance for {duration}; planned leave at {leave}",
+  "attendance_history": "Attendance History",
+  "attendance_history_description": "History of attendance reports for this shop",
   "attendance_not_found": "Attendance not found",
   "attendance_threshold": "Attendance Threshold",
   "attendance_threshold_description": "Number of times you need to attend an arcade before it's automatically added to your frequenting list",
@@ -699,6 +701,7 @@
   "next_page": "Next page",
   "no": "No",
   "no_arcades_found": "No Arcades Found",
+  "no_attendance_history": "No attendance history yet",
   "no_club_description": "No club description available",
   "no_clubs_created_yet": "No clubs have been created yet",
   "no_clubs_found": "No clubs found",
@@ -833,6 +836,17 @@
   "report_current_attendance": "Report Current Attendance",
   "report_details": "Reported by {user} {time}",
   "report_issue": "Report Issue",
+  "reported_by_user": "Reported by {user}",
+  "reported_players": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} player",
+        "countPlural=other": "{count} players"
+      }
+    }
+  ],
   "request_id_is_required": "Request ID is required",
   "require_approval": "Require admin approval",
   "reset": "Reset",
