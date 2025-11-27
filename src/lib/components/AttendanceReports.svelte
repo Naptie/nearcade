@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { adaptiveNewTab, getFnsLocale, getGameName } from '$lib/utils';
+  import { adaptiveNewTab, formatDateTime, getFnsLocale, getGameName } from '$lib/utils';
   import { formatDistanceToNow } from 'date-fns';
   import { onMount } from 'svelte';
   import UserAvatar from './UserAvatar.svelte';
@@ -107,12 +107,14 @@
                   target={adaptiveNewTab()}
                 />
               </div>
-              <span class="text-base-content/60 shrink-0 text-xs">
-                {formatDistanceToNow(new Date(report.reportedAt), {
-                  addSuffix: true,
-                  locale: getFnsLocale(getLocale())
-                })}
-              </span>
+              <div class="tooltip not-md:tooltip-left" data-tip={formatDateTime(report.reportedAt)}>
+                <span class="text-base-content/60 shrink-0 text-xs">
+                  {formatDistanceToNow(new Date(report.reportedAt), {
+                    addSuffix: true,
+                    locale: getFnsLocale(getLocale())
+                  })}
+                </span>
+              </div>
             </div>
 
             <div class="text-base-content/80 space-y-1 text-sm">
