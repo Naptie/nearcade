@@ -35,6 +35,7 @@
   import type { User } from '@auth/sveltekit';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
+  import AttendanceReports from '$lib/components/AttendanceReports.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -691,6 +692,9 @@
             {/if}
           </div>
         </div>
+
+        <!-- Attendance Reports -->
+        <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
       </div>
     </div>
 

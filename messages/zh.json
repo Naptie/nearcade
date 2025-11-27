@@ -203,6 +203,8 @@
   "attendance_details": "在勤 {duration}\n计划离开于 {leave}",
   "attendance_details_one_liner": "在勤 {duration}；计划离开于 {leave}",
   "attendance_not_found": "未找到出勤记录",
+  "attendance_reports": "人数上报历史",
+  "attendance_reports_description": "该店铺的在勤人数上报记录",
   "attendance_threshold": "出勤次数阈值",
   "attendance_threshold_description": "您在某机厅出勤该次数后，系统会自动将其添加到您的常去机厅列表",
   "attendance_threshold_must_be_between_1_and_100": "出勤阈值必须在 1 到 100 之间",
@@ -691,6 +693,7 @@
   "next_page": "下一页",
   "no": "否",
   "no_arcades_found": "未找到机厅",
+  "no_attendance_reports": "暂无人数上报历史",
   "no_club_description": "暂无社团描述",
   "no_clubs_created_yet": "还没有创建任何社团",
   "no_clubs_found": "未找到社团",
@@ -825,6 +828,16 @@
   "report_current_attendance": "报告当前在勤人数",
   "report_details": "由 {user} 报告于 {time}",
   "report_issue": "报告问题",
+  "reported_by_user": "由 {user} 报告",
+  "reported_players": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["count"],
+      "match": {
+        "count=*": "{count} 人"
+      }
+    }
+  ],
   "request_id_is_required": "申请 ID 为必填项",
   "require_approval": "需要管理员审批",
   "reset": "重置",
