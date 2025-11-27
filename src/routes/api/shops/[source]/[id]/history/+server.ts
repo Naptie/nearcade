@@ -15,6 +15,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
     }
 
     const idRaw = params.id;
+    if (!idRaw) {
+      error(400, m.invalid_shop_id());
+    }
     const id = parseInt(idRaw);
 
     if (isNaN(id)) {
