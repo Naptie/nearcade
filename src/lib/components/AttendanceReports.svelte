@@ -57,7 +57,7 @@
         hasMore = result.pagination.hasMore;
       }
     } catch (err) {
-      console.error('Failed to fetch attendance history:', err);
+      console.error('Failed to fetch attendance reports:', err);
     } finally {
       isLoading = false;
     }
