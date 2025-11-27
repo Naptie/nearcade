@@ -38,11 +38,11 @@
   let hasMore = $state(false);
   let page = $state(1);
 
-  const fetchHistory = async (pageNum: number) => {
+  const fetchReports = async (pageNum: number) => {
     isLoading = true;
     try {
       const response = await fetch(
-        fromPath(`/api/shops/${shopSource}/${shopId}/history?page=${pageNum}&limit=10`)
+        fromPath(`/api/shops/${shopSource}/${shopId}/history?page=${pageNum}&limit=5`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
@@ -65,7 +65,7 @@
 
   const loadMore = () => {
     page += 1;
-    fetchHistory(page);
+    fetchReports(page);
   };
 
   const getGameTitle = (titleId: number) => {
@@ -74,14 +74,16 @@
   };
 
   onMount(() => {
-    fetchHistory(1);
+    fetchReports(1);
   });
 </script>
 
 <div class="card bg-base-200">
   <div class="card-body p-6">
-    <h3 class="mb-2 text-lg font-semibold">{m.attendance_history()}</h3>
-    <p class="text-base-content/60 mb-4 text-sm">{m.attendance_history_description()}</p>
+    <div class="mb-4 flex flex-col gap-px">
+      <h3 class="text-lg font-semibold">{m.attendance_reports()}</h3>
+      <p class="text-base-content/60 text-sm">{m.attendance_reports_description()}</p>
+    </div>
 
     {#if isLoading && reports.length === 0}
       <div class="flex items-center justify-center py-8">
@@ -90,7 +92,7 @@
     {:else if reports.length === 0}
       <div class="text-base-content/60 py-8 text-center">
         <i class="fa-solid fa-history mb-2 text-2xl"></i>
-        <p>{m.no_attendance_history()}</p>
+        <p>{m.no_attendance_reports()}</p>
       </div>
     {:else}
       <div class="space-y-3">
@@ -122,7 +124,7 @@
                       <span class="text-base-content/50">({game.version})</span>
                     {/if}
                   </span>
-                  <span class="text-accent shrink-0 font-medium">
+                  <span class="text-base-content shrink-0 font-medium">
                     {m.reported_players({ count: game.currentAttendances })}
                   </span>
                 </div>
@@ -131,8 +133,8 @@
 
             {#if report.comment}
               <div class="border-base-content/10 mt-2 border-t pt-2">
-                <p class="text-base-content/60 text-xs italic">
-                  "{report.comment}"
+                <p class="text-base-content/60 text-xs">
+                  {report.comment}
                 </p>
               </div>
             {/if}

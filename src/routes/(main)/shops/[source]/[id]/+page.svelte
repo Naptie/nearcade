@@ -35,7 +35,7 @@
   import type { User } from '@auth/sveltekit';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
-  import AttendanceHistory from '$lib/components/AttendanceHistory.svelte';
+  import AttendanceReports from '$lib/components/AttendanceReports.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -693,8 +693,8 @@
           </div>
         </div>
 
-        <!-- Attendance History -->
-        <AttendanceHistory shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
+        <!-- Attendance Reports -->
+        <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
       </div>
     </div>
 
