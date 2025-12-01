@@ -1,4 +1,3 @@
-import { base } from '$app/paths';
 import { AMAP_SECRET } from '$env/static/private';
 import { error, isHttpError, isRedirect, type RequestEvent } from '@sveltejs/kit';
 import { m } from '$lib/paraglide/messages';
@@ -10,7 +9,7 @@ export const handleAMapRequest = async ({ url, fetch }: RequestEvent) => {
       error(500, m.amap_secret_not_configured());
     }
 
-    const pathname = url.pathname.replace(`${base}/_AMapService`, '');
+    const pathname = url.pathname.replace('/_AMapService', '');
 
     // Build the target URL - proxy to https://restapi.amap.com/
     const targetUrl = new URL(`https://restapi.amap.com${pathname}`);
