@@ -34,6 +34,9 @@ importers:
       '@aws-sdk/lib-storage':
         specifier: ^3.932.0
         version: 3.932.0(@aws-sdk/client-s3@3.932.0)
+      '@edgeone/sveltekit':
+        specifier: ^1.0.0
+        version: 1.0.0(@sveltejs/kit@2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(rollup@4.53.2)
       '@fontsource-variable/jetbrains-mono':
         specifier: ^5.2.8
         version: 5.2.8
@@ -1045,6 +1048,11 @@ packages:
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
+
+  '@edgeone/sveltekit@1.0.0':
+    resolution: {integrity: sha512-o1jRB+aoe0hhKkyTLqDo9IA+/O27mokLK76XE9tw22IFu5j+GEia6v50uKhwQyU7NqAye9bQhYd5LqzGb5EHlA==}
+    peerDependencies:
+      '@sveltejs/kit': ^2.4.0
 
   '@emnapi/runtime@1.7.1':
     resolution: {integrity: sha512-PVtJr5CmLwYAU9PZDMITZoR5iAOShYREoR45EyyLrbntV50mdePTgUn4AmOw90Ifcj+x2kRjdzr1HP3RrNiHGA==}
@@ -7750,6 +7758,15 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.9
 
   '@dimforge/rapier3d-compat@0.12.0': {}
+
+  '@edgeone/sveltekit@1.0.0(@sveltejs/kit@2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(rollup@4.53.2)':
+    dependencies:
+      '@sveltejs/kit': 2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6))
+      '@vercel/nft': 0.30.3(rollup@4.53.2)
+    transitivePeerDependencies:
+      - encoding
+      - rollup
+      - supports-color
 
   '@emnapi/runtime@1.7.1':
     dependencies:
