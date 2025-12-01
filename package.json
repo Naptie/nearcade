@@ -124,7 +124,8 @@
     ],
     "patchedDependencies": {
       "@inlang/paraglide-js": "patches/@inlang__paraglide-js.patch",
-      "firebase": "patches/firebase.patch"
+      "firebase": "patches/firebase.patch",
+      "@auth/sveltekit": "patches/@auth__sveltekit.patch"
     }
   },
   "packageManager": "pnpm@10.21.0"

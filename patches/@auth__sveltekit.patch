@@ -1,0 +1,35 @@
+diff --git a/dist/env.js b/dist/env.js
+index a1a26c80305ed6c96cb4352a2cdea717362f47db..aa3d647b37d3ed07c99ee4256a0594748162d4b5 100644
+--- a/dist/env.js
++++ b/dist/env.js
+@@ -3,9 +3,11 @@ import { dev, building } from "$app/environment";
+ import { base } from "$app/paths";
+ export function setEnvDefaults(envObject, config) {
+     config.trustHost ??= dev;
+-    config.basePath = `${base}/auth`;
++    if (!config.basePath && !envObject.AUTH_URL) {
++        config.basePath = `${base}/auth`;
++    }
+     config.skipCSRFCheck = skipCSRFCheck;
+     if (building)
+         return;
+-    coreSetEnvDefaults(envObject, config);
++    coreSetEnvDefaults(envObject, config, true);
+ }
+diff --git a/src/lib/env.ts b/src/lib/env.ts
+index 642d85ef02bf9e5efd6942dcb88bb93a2fc6d027..f861f80fe8816b346f34929eadbb24ad5f445573 100644
+--- a/src/lib/env.ts
++++ b/src/lib/env.ts
+@@ -8,8 +8,10 @@ export function setEnvDefaults(
+   config: SvelteKitAuthConfig
+ ) {
+   config.trustHost ??= dev
+-  config.basePath = `${base}/auth`
++  if (!config.basePath && !envObject.AUTH_URL) {
++    config.basePath = `${base}/auth`
++  }
+   config.skipCSRFCheck = skipCSRFCheck
+   if (building) return
+-  coreSetEnvDefaults(envObject, config)
++  coreSetEnvDefaults(envObject, config, true)
+ }

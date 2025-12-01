@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
+  '@auth/sveltekit':
+    hash: 6f42e55dc02506ddf365916504e9b763515105ff6f663b4f3514b584ccfd494d
+    path: patches/@auth__sveltekit.patch
   '@inlang/paraglide-js':
     hash: a62c6872f9e91935ce5b8cd605822d9412b9d009b47da15ba8eb914e328a82a5
     path: patches/@inlang__paraglide-js.patch
@@ -27,7 +30,7 @@ importers:
         version: 3.11.1(mongodb@6.21.0)(nodemailer@7.0.10)
       '@auth/sveltekit':
         specifier: ^1.11.1
-        version: 1.11.1(@sveltejs/kit@2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(nodemailer@7.0.10)(svelte@5.43.6)
+        version: 1.11.1(patch_hash=6f42e55dc02506ddf365916504e9b763515105ff6f663b4f3514b584ccfd494d)(@sveltejs/kit@2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(nodemailer@7.0.10)(svelte@5.43.6)
       '@aws-sdk/client-s3':
         specifier: ^3.932.0
         version: 3.932.0
@@ -6579,7 +6582,7 @@ snapshots:
       - '@simplewebauthn/server'
       - nodemailer
 
-  '@auth/sveltekit@1.11.1(@sveltejs/kit@2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(nodemailer@7.0.10)(svelte@5.43.6)':
+  '@auth/sveltekit@1.11.1(patch_hash=6f42e55dc02506ddf365916504e9b763515105ff6f663b4f3514b584ccfd494d)(@sveltejs/kit@2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(nodemailer@7.0.10)(svelte@5.43.6)':
     dependencies:
       '@auth/core': 0.41.1(nodemailer@7.0.10)
       '@sveltejs/kit': 2.48.5(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)))(svelte@5.43.6)(vite@7.2.2(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6))
