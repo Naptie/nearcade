@@ -10,7 +10,7 @@
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
-  import { isDarkMode } from '$lib/utils/scoped';
+  import { fromPath, isDarkMode } from '$lib/utils/scoped';
   import { page } from '$app/state';
   import { goto, invalidateAll } from '$app/navigation';
   import { resolve, base } from '$app/paths';
@@ -92,7 +92,7 @@
     }
 
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
-      serviceHost: '/_AMapService'
+      serviceHost: fromPath('/_AMapService')
     };
 
     // Load AMap by default
