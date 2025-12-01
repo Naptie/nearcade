@@ -23,101 +23,108 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
   const session = await locals.auth();
 
-  try {
-    const db = mongo.db();
-    const clubsCollection = db.collection<Club>('clubs');
-    const membersCollection = db.collection<ClubMember>('club_members');
-    const universitiesCollection = db.collection<University>('universities');
-    const universityMembersCollection = db.collection<UniversityMember>('university_members');
-    const shopsCollection = db.collection<Shop>('shops');
+  // Stream the club data
+  const clubData = (async () => {
+    try {
+      const db = mongo.db();
+      const clubsCollection = db.collection<Club>('clubs');
+      const membersCollection = db.collection<ClubMember>('club_members');
+      const universitiesCollection = db.collection<University>('universities');
+      const universityMembersCollection = db.collection<UniversityMember>('university_members');
+      const shopsCollection = db.collection<Shop>('shops');
 
-    // Try to find club by ID first, then by slug
-    let club = await clubsCollection.findOne({
-      id: id
-    });
-
-    if (!club) {
-      club = await clubsCollection.findOne({
-        slug: id
+      // Try to find club by ID first, then by slug
+      let club = await clubsCollection.findOne({
+        id: id
       });
-    }
 
-    if (!club) {
-      error(404, m.club_not_found());
-    }
-
-    // Check user permissions if authenticated
-    const userPermissions = session?.user
-      ? await checkClubPermission(session.user, club, mongo)
-      : { canEdit: false, canManage: false, canJoin: 0 as const };
-
-    // Get university information
-    const university = await universitiesCollection.findOne({
-      id: club.universityId
-    });
-
-    // Get university membership if user is authenticated
-    const universityMembership = session?.user
-      ? await universityMembersCollection.findOne({
-          universityId: club.universityId,
-          userId: session.user.id
-        })
-      : null;
-
-    // Get member statistics
-    const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
-
-    const members = await getClubMembersWithUserData(club.id, mongo, {
-      limit: PAGINATION.PAGE_SIZE,
-      userFilter: universityMembership?.memberType
-        ? {}
-        : {
-            isUniversityPublic: true
-          }
-    });
-
-    // Get starred arcades with pagination
-    let starredArcades: Shop[] = [];
-    if (club.starredArcades && club.starredArcades.length > 0) {
-      // Convert string IDs to numbers for shop queries
-      const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade.id));
-
-      if (arcades.length > 0) {
-        starredArcades = toPlainArray(
-          await shopsCollection
-            .find({
-              $or: arcades.map((arcade) => {
-                return { $and: [{ source: arcade.source }, { id: arcade.id }] };
-              })
-            })
-            .limit(PAGINATION.PAGE_SIZE)
-            .toArray()
-        );
+      if (!club) {
+        club = await clubsCollection.findOne({
+          slug: id
+        });
       }
-    }
 
-    // Update calculated fields
-    club.membersCount = totalMembers;
+      if (!club) {
+        throw error(404, m.club_not_found());
+      }
 
-    return {
-      club: toPlainObject(club),
-      university: toPlainObject(university),
-      members,
-      starredArcades,
-      stats: {
-        totalMembers
-      },
-      user: session?.user || null,
-      userPermissions,
-      canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, mongo)
-    };
-  } catch (err) {
-    if (err && (isHttpError(err) || isRedirect(err))) {
-      throw err;
+      // Check user permissions if authenticated
+      const userPermissions = session?.user
+        ? await checkClubPermission(session.user, club, mongo)
+        : { canEdit: false, canManage: false, canJoin: 0 as const };
+
+      // Get university information
+      const university = await universitiesCollection.findOne({
+        id: club.universityId
+      });
+
+      // Get university membership if user is authenticated
+      const universityMembership = session?.user
+        ? await universityMembersCollection.findOne({
+            universityId: club.universityId,
+            userId: session.user.id
+          })
+        : null;
+
+      // Get member statistics
+      const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
+
+      const members = await getClubMembersWithUserData(club.id, mongo, {
+        limit: PAGINATION.PAGE_SIZE,
+        userFilter: universityMembership?.memberType
+          ? {}
+          : {
+              isUniversityPublic: true
+            }
+      });
+
+      // Get starred arcades with pagination
+      let starredArcades: Shop[] = [];
+      if (club.starredArcades && club.starredArcades.length > 0) {
+        // Convert string IDs to numbers for shop queries
+        const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade.id));
+
+        if (arcades.length > 0) {
+          starredArcades = toPlainArray(
+            await shopsCollection
+              .find({
+                $or: arcades.map((arcade) => {
+                  return { $and: [{ source: arcade.source }, { id: arcade.id }] };
+                })
+              })
+              .limit(PAGINATION.PAGE_SIZE)
+              .toArray()
+          );
+        }
+      }
+
+      // Update calculated fields
+      club.membersCount = totalMembers;
+
+      return {
+        club: toPlainObject(club),
+        university: toPlainObject(university),
+        members,
+        starredArcades,
+        stats: {
+          totalMembers
+        },
+        userPermissions,
+        canWritePosts: await canWriteClubPosts(userPermissions, club, session?.user, mongo)
+      };
+    } catch (err) {
+      if (err && (isHttpError(err) || isRedirect(err))) {
+        throw err;
+      }
+      console.error('Error loading club:', err);
+      throw error(500, m.failed_to_load_club_data());
     }
-    console.error('Error loading club:', err);
-    error(500, m.failed_to_load_club_data());
-  }
+  })();
+
+  return {
+    clubData,
+    user: session?.user || null
+  };
 };
 
 export const actions: Actions = {

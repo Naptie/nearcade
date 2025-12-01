@@ -17,109 +17,117 @@ import { m } from '$lib/paraglide/messages';
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
 
-  try {
-    const db = mongo.db();
-    const universitiesCollection = db.collection('universities');
-    const membersCollection = db.collection('university_members');
-    const clubsCollection = db.collection('clubs');
-    const shopsCollection = db.collection('shops');
+  // Get session data immediately
+  const { session } = await parent();
+  const user = session?.user;
 
-    // Try to find university by ID first, then by slug
-    let university = (await universitiesCollection.findOne({
-      id: id
-    })) as unknown as University | null;
+  // Stream the university data
+  const universityData = (async () => {
+    try {
+      const db = mongo.db();
+      const universitiesCollection = db.collection('universities');
+      const membersCollection = db.collection('university_members');
+      const clubsCollection = db.collection('clubs');
+      const shopsCollection = db.collection('shops');
 
-    if (!university) {
-      university = (await universitiesCollection.findOne({
-        slug: id
+      // Try to find university by ID first, then by slug
+      let university = (await universitiesCollection.findOne({
+        id: id
       })) as unknown as University | null;
-    }
 
-    if (!university) {
-      error(404, m.university_not_found());
-    }
-
-    const { session } = await parent();
-    const user = session?.user;
-
-    // Check permissions for the current user
-    let userPermissions: {
-      canEdit: boolean;
-      canManage: boolean;
-      canJoin: 0 | 1 | 2;
-      role?: string;
-      verificationEmail?: string;
-      verifiedAt?: Date;
-    } = {
-      canEdit: false,
-      canManage: false,
-      canJoin: 0
-    };
-    if (user) {
-      userPermissions = await checkUniversityPermission(user, university.id, mongo);
-    }
-
-    // Get member statistics and list with user data joined
-    const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
-    const members = await getUniversityMembersWithUserData(university.id, mongo, {
-      limit: PAGINATION.PAGE_SIZE,
-      sort: { joinedAt: -1 },
-      userFilter: userPermissions.role
-        ? {}
-        : {
-            isUniversityPublic: true
-          }
-    });
-
-    // Get clubs belonging to this university
-    const totalClubs = await clubsCollection.countDocuments({ universityId: university.id });
-    const clubs = (await clubsCollection
-      .find({ universityId: university.id })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .toArray()) as unknown as Club[];
-
-    university.studentsCount = totalMembers;
-
-    // Get frequenting arcades for the university
-    let frequentingArcades: Shop[] = [];
-    if (university.frequentingArcades && university.frequentingArcades.length > 0) {
-      const frequentingArcadeIdentifiers = university.frequentingArcades.slice(
-        0,
-        PAGINATION.PAGE_SIZE
-      );
-      frequentingArcades = (await shopsCollection
-        .find({
-          $or: frequentingArcadeIdentifiers.map((identifier: { id: number; source: string }) => ({
-            id: identifier.id,
-            source: identifier.source
-          }))
-        })
-        .toArray()) as unknown as Shop[];
-    }
-
-    return {
-      university: toPlainObject(university),
-      user,
-      userPermissions,
-      members,
-      clubs: toPlainArray(clubs),
-      frequentingArcades: toPlainArray(frequentingArcades),
-      stats: {
-        totalMembers,
-        totalClubs,
-        clubsCount: university.clubsCount || 0,
-        frequentingArcadesCount:
-          (university.frequentingArcades && university.frequentingArcades.length) || 0
+      if (!university) {
+        university = (await universitiesCollection.findOne({
+          slug: id
+        })) as unknown as University | null;
       }
-    };
-  } catch (err) {
-    if (err && (isHttpError(err) || isRedirect(err))) {
-      throw err;
+
+      if (!university) {
+        throw error(404, m.university_not_found());
+      }
+
+      // Check permissions for the current user
+      let userPermissions: {
+        canEdit: boolean;
+        canManage: boolean;
+        canJoin: 0 | 1 | 2;
+        role?: string;
+        verificationEmail?: string;
+        verifiedAt?: Date;
+      } = {
+        canEdit: false,
+        canManage: false,
+        canJoin: 0
+      };
+      if (user) {
+        userPermissions = await checkUniversityPermission(user, university.id, mongo);
+      }
+
+      // Get member statistics and list with user data joined
+      const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
+      const members = await getUniversityMembersWithUserData(university.id, mongo, {
+        limit: PAGINATION.PAGE_SIZE,
+        sort: { joinedAt: -1 },
+        userFilter: userPermissions.role
+          ? {}
+          : {
+              isUniversityPublic: true
+            }
+      });
+
+      // Get clubs belonging to this university
+      const totalClubs = await clubsCollection.countDocuments({ universityId: university.id });
+      const clubs = (await clubsCollection
+        .find({ universityId: university.id })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .toArray()) as unknown as Club[];
+
+      university.studentsCount = totalMembers;
+
+      // Get frequenting arcades for the university
+      let frequentingArcades: Shop[] = [];
+      if (university.frequentingArcades && university.frequentingArcades.length > 0) {
+        const frequentingArcadeIdentifiers = university.frequentingArcades.slice(
+          0,
+          PAGINATION.PAGE_SIZE
+        );
+        frequentingArcades = (await shopsCollection
+          .find({
+            $or: frequentingArcadeIdentifiers.map((identifier: { id: number; source: string }) => ({
+              id: identifier.id,
+              source: identifier.source
+            }))
+          })
+          .toArray()) as unknown as Shop[];
+      }
+
+      return {
+        university: toPlainObject(university),
+        userPermissions,
+        members,
+        clubs: toPlainArray(clubs),
+        frequentingArcades: toPlainArray(frequentingArcades),
+        stats: {
+          totalMembers,
+          totalClubs,
+          clubsCount: university.clubsCount || 0,
+          frequentingArcadesCount:
+            (university.frequentingArcades && university.frequentingArcades.length) || 0
+        }
+      };
+    } catch (err) {
+      if (err && (isHttpError(err) || isRedirect(err))) {
+        throw err;
+      }
+      console.error('Error loading university:', err);
+      throw error(500, m.failed_to_load_university_data());
     }
-    console.error('Error loading university:', err);
-    error(500, m.failed_to_load_university_data());
-  }
+  })();
+
+  return {
+    universityData,
+    user
+  };
 };
 
 export const actions: Actions = {

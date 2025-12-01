@@ -179,177 +179,224 @@
 
   <!-- Results -->
   <div class="space-y-6">
-    {#if data.shops.length > 0}
-      <!-- Results Header -->
+    {#await data.shopsData}
+      <!-- Loading State with Skeleton -->
       <div class="flex items-center justify-between">
-        <div class="text-base-content/60 text-sm">
-          {#if data.query}
-            {m.showing_results_for({ query: data.query })}
-          {:else if data.titleIds.length > 0}
-            <div class="inline-flex flex-wrap items-center gap-2">
-              {@html m.showing_shops_with_games({
-                games: GAMES.filter((g) => data.titleIds.includes(g.id))
-                  .map(
-                    (g) =>
-                      `<span class="badge badge-soft badge-sm px-1.75">${getGameName(g.key)}</span>`
-                  )
-                  .join('')
-              })}
-            </div>
-          {:else}
-            {m.showing_all_shops()}
-          {/if}
-        </div>
-        <div class="text-base-content/60 text-sm">
-          {m.shops_available({ count: data.totalCount })}
-        </div>
+        <div class="skeleton h-4 w-48"></div>
+        <div class="skeleton h-4 w-32"></div>
       </div>
 
-      <!-- Shop Grid -->
+      <!-- Shop Grid Skeleton -->
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {#each data.shops as shop (shop._id)}
-          {@const aggregatedGames = aggregateGames(shop)}
-          <a
-            href={resolve('/(main)/shops/[source]/[id]', {
-              source: shop.source,
-              id: shop.id.toString()
-            })}
-            class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
-          >
-            <div
-              class="group-hover:from-primary from-warning/50 dark:from-warning/30 pointer-events-none absolute inset-0 rounded-2xl bg-linear-to-br to-transparent to-55% transition-colors"
-              style:opacity="{(shop._rankingScore || 0) * 20}%"
-            ></div>
+        <!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+        {#each Array(6) as _, idx (idx)}
+          <div class="card bg-base-200 min-w-0 shadow-sm">
             <div class="card-body p-5">
-              <!-- Shop Header -->
-              <div class="mb-2 flex flex-col">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="min-w-0 flex-1">
-                    <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                      {@html shop.nameHl || shop.name}
-                    </h3>
-                  </div>
-                  <button
-                    class="btn btn-soft btn-sm btn-circle"
-                    onclick={(e) => {
-                      e.preventDefault();
-                      window.open(getShopSourceUrl(shop), '_blank');
-                    }}
-                    aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
-                  >
-                    <i class="fa-solid fa-external-link-alt"></i>
-                  </button>
-                </div>
-
-                <div class="text-base-content/80 flex items-start gap-2 text-sm">
-                  <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
-                  <span class="line-clamp-2">
-                    {@html formatShopAddress(shop)}
-                  </span>
-                </div>
+              <div class="mb-2 flex flex-col gap-2">
+                <div class="skeleton h-6 w-3/4"></div>
+                <div class="skeleton h-4 w-full"></div>
               </div>
+              <div class="mb-1 flex flex-wrap gap-2">
+                <div class="skeleton h-6 w-20"></div>
+                <div class="skeleton h-6 w-16"></div>
+                <div class="skeleton h-6 w-24"></div>
+              </div>
+              <div class="mt-auto flex items-center justify-between gap-1">
+                <div class="skeleton h-4 w-24"></div>
+                <div class="skeleton h-4 w-20"></div>
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:then shopsData}
+      {#if shopsData.shops.length > 0}
+        <!-- Results Header -->
+        <div class="flex items-center justify-between">
+          <div class="text-base-content/60 text-sm">
+            {#if data.query}
+              {m.showing_results_for({ query: data.query })}
+            {:else if data.titleIds.length > 0}
+              <div class="inline-flex flex-wrap items-center gap-2">
+                {@html m.showing_shops_with_games({
+                  games: GAMES.filter((g) => data.titleIds.includes(g.id))
+                    .map(
+                      (g) =>
+                        `<span class="badge badge-soft badge-sm px-1.75">${getGameName(g.key)}</span>`
+                    )
+                    .join('')
+                })}
+              </div>
+            {:else}
+              {m.showing_all_shops()}
+            {/if}
+          </div>
+          <div class="text-base-content/60 text-sm">
+            {m.shops_available({ count: shopsData.totalCount })}
+          </div>
+        </div>
 
-              <!-- Games Info -->
-              <div class="mb-1">
-                <div class="flex flex-wrap gap-2">
-                  {#each aggregatedGames.slice(0, 6) as game (game.titleId)}
-                    {@const gameInfo = getGameInfo(game.titleId)}
-                    {#if gameInfo}
+        <!-- Shop Grid -->
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {#each shopsData.shops as shop (shop._id)}
+            {@const aggregatedGames = aggregateGames(shop)}
+            <a
+              href={resolve('/(main)/shops/[source]/[id]', {
+                source: shop.source,
+                id: shop.id.toString()
+              })}
+              class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
+            >
+              <div
+                class="group-hover:from-primary from-warning/50 dark:from-warning/30 pointer-events-none absolute inset-0 rounded-2xl bg-linear-to-br to-transparent to-55% transition-colors"
+                style:opacity="{(shop._rankingScore || 0) * 20}%"
+              ></div>
+              <div class="card-body p-5">
+                <!-- Shop Header -->
+                <div class="mb-2 flex flex-col">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <h3 class="truncate text-lg font-semibold" title={shop.name}>
+                        {@html shop.nameHl || shop.name}
+                      </h3>
+                    </div>
+                    <button
+                      class="btn btn-soft btn-sm btn-circle"
+                      onclick={(e) => {
+                        e.preventDefault();
+                        window.open(getShopSourceUrl(shop), '_blank');
+                      }}
+                      aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
+                    >
+                      <i class="fa-solid fa-external-link-alt"></i>
+                    </button>
+                  </div>
+
+                  <div class="text-base-content/80 flex items-start gap-2 text-sm">
+                    <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
+                    <span class="line-clamp-2">
+                      {@html formatShopAddress(shop)}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Games Info -->
+                <div class="mb-1">
+                  <div class="flex flex-wrap gap-2">
+                    {#each aggregatedGames.slice(0, 6) as game (game.titleId)}
+                      {@const gameInfo = getGameInfo(game.titleId)}
+                      {#if gameInfo}
+                        <div class="badge badge-soft badge-sm">
+                          <span class="max-w-16 truncate">
+                            {getGameName(gameInfo.key) || game.name}
+                          </span>
+                          <span class="text-xs opacity-70">×{game.quantity}</span>
+                        </div>
+                      {/if}
+                    {/each}
+                    {#if aggregatedGames.length > 6}
                       <div class="badge badge-soft badge-sm">
-                        <span class="max-w-16 truncate">
-                          {getGameName(gameInfo.key) || game.name}
-                        </span>
-                        <span class="text-xs opacity-70">×{game.quantity}</span>
+                        +{aggregatedGames.length - 6}
                       </div>
                     {/if}
-                  {/each}
-                  {#if aggregatedGames.length > 6}
-                    <div class="badge badge-soft badge-sm">
-                      +{aggregatedGames.length - 6}
+                  </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="mt-auto flex items-center justify-between gap-1 text-sm">
+                  <div class="text-base-content/60 flex items-center gap-1">
+                    <i class="fa-solid fa-desktop"></i>
+                    <span>{m.machines({ count: getTotalMachines(shop) })}</span>
+                  </div>
+                  {#if shop.currentReportedAttendance}
+                    <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
+                      <div class="text-accent flex items-center gap-1">
+                        <i class="fa-solid fa-user"></i>
+                        <span
+                          >{m.in_attendance({
+                            count: shop.currentAttendance || 0
+                          })}</span
+                        >
+                      </div>
+                    </AttendanceReportBlame>
+                  {:else}
+                    <div
+                      class="text-base-content/60 flex items-center gap-1"
+                      class:text-primary={shop.currentAttendance > 0}
+                    >
+                      <i class="fa-solid fa-user"></i>
+                      <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
                     </div>
                   {/if}
                 </div>
               </div>
+            </a>
+          {/each}
+        </div>
 
-              <!-- Stats -->
-              <div class="mt-auto flex items-center justify-between gap-1 text-sm">
-                <div class="text-base-content/60 flex items-center gap-1">
-                  <i class="fa-solid fa-desktop"></i>
-                  <span>{m.machines({ count: getTotalMachines(shop) })}</span>
-                </div>
-                {#if shop.currentReportedAttendance}
-                  <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
-                    <div class="text-accent flex items-center gap-1">
-                      <i class="fa-solid fa-user"></i>
-                      <span
-                        >{m.in_attendance({
-                          count: shop.currentAttendance || 0
-                        })}</span
-                      >
-                    </div>
-                  </AttendanceReportBlame>
-                {:else}
-                  <div
-                    class="text-base-content/60 flex items-center gap-1"
-                    class:text-primary={shop.currentAttendance > 0}
-                  >
-                    <i class="fa-solid fa-user"></i>
-                    <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
-                  </div>
-                {/if}
-              </div>
+        <!-- Pagination -->
+        {#if shopsData.totalCount > PAGINATION.PAGE_SIZE}
+          <div class="flex justify-center">
+            <div class="join">
+              {#if shopsData.hasPrevPage}
+                <button
+                  class="join-item btn"
+                  onclick={() => handlePageChange(shopsData.currentPage - 1)}
+                  aria-label={m.previous_page()}
+                >
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+              {/if}
+
+              <button class="join-item btn btn-active">
+                {shopsData.currentPage} / {Math.ceil(shopsData.totalCount / PAGINATION.PAGE_SIZE)}
+              </button>
+
+              {#if shopsData.hasNextPage}
+                <button
+                  class="join-item btn"
+                  onclick={() => handlePageChange(shopsData.currentPage + 1)}
+                  aria-label={m.next_page()}
+                >
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              {/if}
             </div>
-          </a>
-        {/each}
-      </div>
-
-      <!-- Pagination -->
-      {#if data.totalCount > PAGINATION.PAGE_SIZE}
-        <div class="flex justify-center">
-          <div class="join">
-            {#if data.hasPrevPage}
-              <button
-                class="join-item btn"
-                onclick={() => handlePageChange(data.currentPage - 1)}
-                aria-label={m.previous_page()}
-              >
-                <i class="fa-solid fa-chevron-left"></i>
-              </button>
-            {/if}
-
-            <button class="join-item btn btn-active">
-              {data.currentPage} / {Math.ceil(data.totalCount / PAGINATION.PAGE_SIZE)}
-            </button>
-
-            {#if data.hasNextPage}
-              <button
-                class="join-item btn"
-                onclick={() => handlePageChange(data.currentPage + 1)}
-                aria-label={m.next_page()}
-              >
-                <i class="fa-solid fa-chevron-right"></i>
-              </button>
-            {/if}
           </div>
+        {/if}
+      {:else}
+        <!-- No Results -->
+        <div class="py-12 text-center">
+          <div class="text-base-content/40 mb-4">
+            <i class="fa-solid fa-store text-4xl"></i>
+          </div>
+          <h3 class="mb-2 text-xl font-semibold">
+            {#if data.query}
+              {m.no_shops_found_for({ query: data.query })}
+            {:else}
+              {m.no_shops_available()}
+            {/if}
+          </h3>
+          <p class="text-base-content/60">
+            {m.try_different_search_or_check_later()}
+          </p>
         </div>
       {/if}
-    {:else}
-      <!-- No Results -->
+    {:catch err}
+      <!-- Error State -->
       <div class="py-12 text-center">
-        <div class="text-base-content/40 mb-4">
-          <i class="fa-solid fa-store text-4xl"></i>
+        <div class="text-error mb-4">
+          <i class="fa-solid fa-exclamation-triangle text-4xl"></i>
         </div>
-        <h3 class="mb-2 text-xl font-semibold">
-          {#if data.query}
-            {m.no_shops_found_for({ query: data.query })}
-          {:else}
-            {m.no_shops_available()}
-          {/if}
-        </h3>
-        <p class="text-base-content/60">
-          {m.try_different_search_or_check_later()}
+        <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_shops()}</h3>
+        <p class="text-base-content/60 mb-4">
+          {err?.message || m.an_error_occurred()}
         </p>
+        <button class="btn btn-primary" onclick={() => window.location.reload()}>
+          <i class="fa-solid fa-refresh"></i>
+          {m.try_again()}
+        </button>
       </div>
-    {/if}
+    {/await}
   </div>
 </div>

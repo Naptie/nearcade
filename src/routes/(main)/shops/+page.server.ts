@@ -22,180 +22,189 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         .filter((id) => !isNaN(id))
     : [];
 
-  try {
-    const db = mongo.db();
-    const shopsCollection = db.collection<Shop>('shops');
+  // Get session data immediately for quick initial render
+  const { session } = await parent();
 
-    let shops: (Shop & {
-      _rankingScore?: number;
-      nameHl?: Shop['name'];
-      addressHl?: Shop['address'];
-    })[];
-    let totalCount: number;
+  // Stream the shops data
+  const shopsData = (async () => {
+    try {
+      const db = mongo.db();
+      const shopsCollection = db.collection<Shop>('shops');
 
-    // Build base filter for titleIds
-    const titleIdsFilter =
-      titleIds.length > 0
-        ? {
-            $and: titleIds.map((titleId) => ({
-              'games.titleId': titleId
-            }))
-          }
-        : {};
+      let shops: (Shop & {
+        _rankingScore?: number;
+        nameHl?: Shop['name'];
+        addressHl?: Shop['address'];
+      })[];
+      let totalCount: number;
 
-    if (query.trim().length === 0) {
-      // Load all shops with pagination
-      const baseFilter = titleIds.length > 0 ? titleIdsFilter : {};
-      totalCount = await shopsCollection.countDocuments(baseFilter);
-      shops = await shopsCollection
-        .find(baseFilter)
-        .sort({ name: 1 })
-        .collation({ locale: 'zh@collation=gb2312han' })
-        .skip(skip)
-        .limit(limit)
-        .toArray();
-    } else {
-      try {
-        let filter: string | undefined;
-        if (titleIds.length > 0) {
-          const filters = titleIds.map((id) => `games.titleId = ${id}`);
-          filter = filters.join(' AND ');
-        }
+      // Build base filter for titleIds
+      const titleIdsFilter =
+        titleIds.length > 0
+          ? {
+              $and: titleIds.map((titleId) => ({
+                'games.titleId': titleId
+              }))
+            }
+          : {};
 
-        // Search using Meilisearch
-        const searchResults = await meili.index<Shop>('shops').search(query, {
-          filter,
-          limit,
-          offset: skip,
-          attributesToHighlight: ['name', 'address.general', 'address.detailed'],
-          highlightPreTag: '<span class="text-highlight">',
-          highlightPostTag: '</span>',
-          showRankingScore: true
-        });
-
-        shops = await Promise.all(
-          searchResults.hits.map(
-            async (hit) =>
-              ({
-                ...hit,
-                ...(hit._formatted
-                  ? {
-                      nameHl: await sanitizeHTML(hit._formatted.name),
-                      addressHl: await sanitizeRecursive(hit._formatted.address)
-                    }
-                  : {})
-              }) as (typeof shops)[number]
-          )
-        );
-        totalCount = searchResults.estimatedTotalHits;
-      } catch {
-        // Fallback to regex search
-        const searchQuery = {
-          $and: [
-            {
-              $or: [
-                { name: { $regex: query, $options: 'i' } },
-                { 'address.general': { $elemMatch: { $regex: query, $options: 'i' } } },
-                { 'address.detailed': { $regex: query, $options: 'i' } }
-              ]
-            },
-            ...(titleIds.length > 0 ? [titleIdsFilter] : [])
-          ]
-        };
-
-        totalCount = await shopsCollection.countDocuments(searchQuery);
+      if (query.trim().length === 0) {
+        // Load all shops with pagination
+        const baseFilter = titleIds.length > 0 ? titleIdsFilter : {};
+        totalCount = await shopsCollection.countDocuments(baseFilter);
         shops = await shopsCollection
-          .find(searchQuery)
+          .find(baseFilter)
           .sort({ name: 1 })
           .collation({ locale: 'zh@collation=gb2312han' })
           .skip(skip)
           .limit(limit)
           .toArray();
-      }
-    }
+      } else {
+        try {
+          let filter: string | undefined;
+          if (titleIds.length > 0) {
+            const filters = titleIds.map((id) => `games.titleId = ${id}`);
+            filter = filters.join(' AND ');
+          }
 
-    // Get real-time attendance data and reported attendance for all shops
-    const { session } = await parent();
+          // Search using Meilisearch
+          const searchResults = await meili.index<Shop>('shops').search(query, {
+            filter,
+            limit,
+            offset: skip,
+            attributesToHighlight: ['name', 'address.general', 'address.detailed'],
+            highlightPreTag: '<span class="text-highlight">',
+            highlightPostTag: '</span>',
+            showRankingScore: true
+          });
 
-    let shopsWithAttendance: ((typeof shops)[number] & {
-      currentAttendance: number;
-      currentReportedAttendance: {
-        reportedAt: string;
-        reportedBy: User;
-        comment: string | null;
-      } | null;
-    })[];
-
-    try {
-      const attendanceDataMap = await getShopsAttendanceData(
-        shops.map((shop) => ({ source: shop.source, id: shop.id })),
-        {
-          fetchRegistered: true,
-          fetchReported: true,
-          session
-        }
-      );
-
-      shopsWithAttendance = shops.map((shop) => {
-        const shopIdentifier = `${shop.source}-${shop.id}`;
-        const attendanceData = attendanceDataMap.get(shopIdentifier);
-
-        if (!attendanceData) {
-          return {
-            ...shop,
-            currentAttendance: 0,
-            currentReportedAttendance: null
+          shops = await Promise.all(
+            searchResults.hits.map(
+              async (hit) =>
+                ({
+                  ...hit,
+                  ...(hit._formatted
+                    ? {
+                        nameHl: await sanitizeHTML(hit._formatted.name),
+                        addressHl: await sanitizeRecursive(hit._formatted.address)
+                      }
+                    : {})
+                }) as (typeof shops)[number]
+            )
+          );
+          totalCount = searchResults.estimatedTotalHits;
+        } catch {
+          // Fallback to regex search
+          const searchQuery = {
+            $and: [
+              {
+                $or: [
+                  { name: { $regex: query, $options: 'i' } },
+                  { 'address.general': { $elemMatch: { $regex: query, $options: 'i' } } },
+                  { 'address.detailed': { $regex: query, $options: 'i' } }
+                ]
+              },
+              ...(titleIds.length > 0 ? [titleIdsFilter] : [])
+            ]
           };
+
+          totalCount = await shopsCollection.countDocuments(searchQuery);
+          shops = await shopsCollection
+            .find(searchQuery)
+            .sort({ name: 1 })
+            .collation({ locale: 'zh@collation=gb2312han' })
+            .skip(skip)
+            .limit(limit)
+            .toArray();
         }
+      }
 
-        // Find the latest reported attendance across all games
-        const latestReport = attendanceData.reported.length > 0 ? attendanceData.reported[0] : null;
-
-        let currentReportedAttendance: {
+      // Get real-time attendance data and reported attendance for all shops
+      let shopsWithAttendance: ((typeof shops)[number] & {
+        currentAttendance: number;
+        currentReportedAttendance: {
           reportedAt: string;
           reportedBy: User;
           comment: string | null;
-        } | null = null;
+        } | null;
+      })[];
 
-        if (latestReport?.reporter) {
-          currentReportedAttendance = {
-            reportedAt: latestReport.reportedAt,
-            reportedBy: latestReport.reporter,
-            comment: latestReport.comment
+      try {
+        const attendanceDataMap = await getShopsAttendanceData(
+          shops.map((shop) => ({ source: shop.source, id: shop.id })),
+          {
+            fetchRegistered: true,
+            fetchReported: true,
+            session
+          }
+        );
+
+        shopsWithAttendance = shops.map((shop) => {
+          const shopIdentifier = `${shop.source}-${shop.id}`;
+          const attendanceData = attendanceDataMap.get(shopIdentifier);
+
+          if (!attendanceData) {
+            return {
+              ...shop,
+              currentAttendance: 0,
+              currentReportedAttendance: null
+            };
+          }
+
+          // Find the latest reported attendance across all games
+          const latestReport =
+            attendanceData.reported.length > 0 ? attendanceData.reported[0] : null;
+
+          let currentReportedAttendance: {
+            reportedAt: string;
+            reportedBy: User;
+            comment: string | null;
+          } | null = null;
+
+          if (latestReport?.reporter) {
+            currentReportedAttendance = {
+              reportedAt: latestReport.reportedAt,
+              reportedBy: latestReport.reporter,
+              comment: latestReport.comment
+            };
+          }
+
+          return {
+            ...shop,
+            currentAttendance: attendanceData.total,
+            currentReportedAttendance
           };
-        }
-
-        return {
+        });
+      } catch (err) {
+        console.error('Error getting attendance data:', err);
+        // Return shops with zero attendance on error
+        shopsWithAttendance = shops.map((shop) => ({
           ...shop,
-          currentAttendance: attendanceData.total,
-          currentReportedAttendance
-        };
-      });
-    } catch (err) {
-      console.error('Error getting attendance data:', err);
-      // Return shops with zero attendance on error
-      shopsWithAttendance = shops.map((shop) => ({
-        ...shop,
-        currentAttendance: 0,
-        currentReportedAttendance: null
-      }));
-    }
+          currentAttendance: 0,
+          currentReportedAttendance: null
+        }));
+      }
 
-    return {
-      shops: toPlainArray(shopsWithAttendance),
-      totalCount,
-      currentPage: page,
-      hasNextPage: skip + shops.length < totalCount,
-      hasPrevPage: page > 1,
-      query,
-      titleIds,
-      user: session?.user
-    };
-  } catch (err) {
-    if (err && (isHttpError(err) || isRedirect(err))) {
-      throw err;
+      return {
+        shops: toPlainArray(shopsWithAttendance),
+        totalCount,
+        currentPage: page,
+        hasNextPage: skip + shops.length < totalCount,
+        hasPrevPage: page > 1
+      };
+    } catch (err) {
+      if (err && (isHttpError(err) || isRedirect(err))) {
+        throw err;
+      }
+      console.error('Error loading shops:', err);
+      throw error(500, m.failed_to_load_shops());
     }
-    console.error('Error loading shops:', err);
-    error(500, m.failed_to_load_shops());
-  }
+  })();
+
+  return {
+    shopsData,
+    query,
+    titleIds,
+    user: session?.user
+  };
 };

@@ -39,7 +39,27 @@
 
   let { data }: { data: PageData } = $props();
 
-  let shop = $derived(data.shop);
+  // Wait for shop data and handle loading/error states separately
+  let shopDataResolved = $state<Awaited<typeof data.shopData> | null>(null);
+  let shopDataError = $state<Error | null>(null);
+  let shopDataLoading = $state(true);
+
+  $effect(() => {
+    shopDataLoading = true;
+    shopDataError = null;
+    data.shopData
+      .then((resolved) => {
+        shopDataResolved = resolved;
+        shopDataLoading = false;
+      })
+      .catch((err) => {
+        shopDataError = err;
+        shopDataLoading = false;
+      });
+  });
+
+  let shop = $derived(shopDataResolved?.shop);
+  let currentAttendanceFromServer = $derived(shopDataResolved?.currentAttendance);
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);
   let showAttendanceModal = $state(false);
@@ -56,15 +76,15 @@
     }>
   >([]);
   let totalAttendance = $state(0);
-  let openingHours = $derived(getShopOpeningHours(shop));
+  let openingHours = $derived(shop && getShopOpeningHours(shop));
   let now = $state(new Date());
   let isShopOpen = $derived(
     openingHours && now >= openingHours.openTolerated && now <= openingHours.closeTolerated
   );
   let otherShop = $derived.by(() => {
-    if (!data.currentAttendance) return false;
-    const attendance = data.currentAttendance;
-    return attendance.shop.source !== shop.source || attendance.shop.id !== shop.id
+    if (!currentAttendanceFromServer) return false;
+    const attendance = currentAttendanceFromServer;
+    return shop && (attendance.shop.source !== shop.source || attendance.shop.id !== shop.id)
       ? attendance
       : false;
   });
@@ -90,9 +110,10 @@
   let distance = $state<number | null>(null); // Distance to shop
   let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
   let locationError = $state<string | null>(null);
-  let shopComment = $state({ sanitized: false, content: data.shop.comment });
+  let shopComment = $state({ sanitized: false, content: '' });
 
   const getAttendanceData = async () => {
+    if (!shop) return;
     try {
       const attendanceResponse = await fetch(
         fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`)
@@ -132,24 +153,26 @@
   };
 
   onMount(() => {
-    getAttendanceData();
-    sanitizeHTML(shop.comment).then((content) => {
-      shopComment = { sanitized: true, content };
-    });
+    if (shop) {
+      getAttendanceData();
+      sanitizeHTML(shop.comment).then((content) => {
+        shopComment = { sanitized: true, content };
+      });
+
+      Promise.all(
+        shop.games.map(async (game) => {
+          costs[game.gameId] = await sanitizeHTML(game.cost);
+        })
+      );
+
+      // Check user location proximity to shop
+      checkUserProximity();
+    }
 
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
       radius = parseInt(savedRadius);
     }
-
-    Promise.all(
-      shop.games.map(async (game) => {
-        costs[game.gameId] = await sanitizeHTML(game.cost);
-      })
-    );
-
-    // Check user location proximity to shop
-    checkUserProximity();
 
     const interval = setInterval(() => {
       now = new Date();
@@ -158,6 +181,7 @@
   });
 
   const checkUserProximity = async () => {
+    if (!shop) return;
     try {
       // Get user's current location
       const location = await getMyLocation();
@@ -216,7 +240,7 @@
   };
 
   const handleAttend = async (games: number[], plannedLeaveAt: Date) => {
-    if (!data.user) return;
+    if (!data.user || !shop) return;
 
     isLoading = 1;
     try {
@@ -245,7 +269,7 @@
   };
 
   const handleLeave = async () => {
-    if (!data.user) return;
+    if (!data.user || !shop) return;
 
     isLoading = 1;
     try {
@@ -267,7 +291,7 @@
   };
 
   const handleReportAttendance = async () => {
-    if (!data.user || !selectedGameForReport) return;
+    if (!data.user || !selectedGameForReport || !shop) return;
 
     isLoading = 2;
     try {
@@ -317,604 +341,672 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle(shop.name, m.shop_details())}</title>
-  <meta name="description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
-  <meta property="og:title" content={pageTitle(shop.name, m.shop_details())} />
-  <meta property="og:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
-  <meta name="twitter:title" content={pageTitle(shop.name, m.shop_details())} />
-  <meta name="twitter:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+  {#if shop}
+    <title>{pageTitle(shop.name, m.shop_details())}</title>
+    <meta name="description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+    <meta property="og:title" content={pageTitle(shop.name, m.shop_details())} />
+    <meta property="og:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+    <meta name="twitter:title" content={pageTitle(shop.name, m.shop_details())} />
+    <meta name="twitter:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+  {:else}
+    <title>{pageTitle(m.shop_details())}</title>
+  {/if}
 </svelte:head>
 
-<div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
-  <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
-    {#snippet attend(klass = 'w-full')}
-      {#if userAttendance}
-        <button
-          class="btn btn-error btn-soft {klass}"
-          onclick={() => handleLeave()}
-          disabled={isLoading === 1}
-        >
-          {#if isLoading === 1}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <i class="fa-solid fa-stop"></i>
-          {/if}
-          {m.leave()}
-        </button>
-      {:else}
-        <div
-          class="tooltip-error {klass}"
-          class:tooltip={!isShopOpen || shop.isClaimed || !!otherShop || isUserNearShop === false}
-          data-tip={isShopOpen
-            ? otherShop
-              ? m.attending_other_shop({
-                  shopName: otherShop.shop.name,
-                  attendedAt: formatTime(otherShop.attendedAt)
-                })
-              : isUserNearShop === false && distance
-                ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
-                : shop.isClaimed
-                  ? m.attend_claimed()
-                  : ''
-            : m.shop_closed()}
-        >
-          <button
-            class="btn btn-primary w-full"
-            onclick={() => (showAttendanceModal = true)}
-            disabled={!isShopOpen ||
-              shop.isClaimed ||
-              !!otherShop ||
-              isLoading === 1 ||
-              !isUserNearShop}
-          >
-            <i class="fa-solid fa-play"></i>
-            {m.attend()}
-          </button>
-        </div>
-      {/if}
-    {/snippet}
-    {#snippet header(isMain = true)}
-      <!-- Shop Header -->
-      <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
-        <div class="mb-4 flex items-center justify-between gap-2">
-          <h1 class="text-3xl font-bold">
-            {shop.name}
-            {#if shop.isClaimed}
-              {#snippet badge()}
-                <span class="badge badge-success badge-soft">
-                  <i class="fa-solid fa-check-circle"></i>
-                  <span class="text-sm">{m.claimed()}</span>
-                </span>
-              {/snippet}
-              <div
-                class="tooltip tooltip-right text-base-content/60 font-normal not-md:hidden"
-                data-tip={m.claimed_description()}
-              >
-                {@render badge()}
+{#if shopDataLoading}
+  <!-- Loading State with Skeleton -->
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="mb-8">
+      <div class="skeleton mb-4 h-10 w-3/4"></div>
+      <div class="alert alert-success alert-soft">
+        <div class="skeleton h-16 w-full"></div>
+      </div>
+    </div>
+    <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
+      <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
+        <div class="space-y-6">
+          <div class="card bg-base-200">
+            <div class="card-body p-6">
+              <div class="skeleton mb-4 h-6 w-32"></div>
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-full"></div>
+                <div class="skeleton h-4 w-full"></div>
+                <div class="skeleton h-4 w-full"></div>
               </div>
-              <div class="md:hidden" title={m.claimed_description()}>
-                {@render badge()}
-              </div>
-            {/if}
-          </h1>
-          <span class="text-base-content/60 text-right not-md:hidden">
-            {shop.source.toUpperCase()} #{shop.id}
-          </span>
-          {@render attend('max-w-[40vw] min-w-24 tooltip-left md:hidden')}
-        </div>
-
-        <div
-          class="alert alert-success alert-soft flex flex-col items-start gap-2 text-[1.03125rem] leading-normal"
-        >
-          <div class="flex items-start gap-2">
-            <div class="w-4 text-center">
-              <i class="fa-solid fa-location-dot mt-0.75 shrink-0"></i>
             </div>
-            <span class="whitespace-pre-line">{formatShopAddress(shop, true)}</span>
           </div>
-        </div>
-
-        {#if shopComment.content}
-          <div class="text-base-content/80 mt-4">
-            <p class="whitespace-pre-line" class:prose={shopComment.sanitized}>
-              {#if shopComment.sanitized}
-                {@html shopComment.content}
-              {:else}
-                {shopComment.content}
-              {/if}
-            </p>
-          </div>
-        {/if}
-
-        <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <a
-              href="{resolve('/(main)/discover')}?longitude={shop.location
-                ?.coordinates[0]}&latitude={shop.location
-                ?.coordinates[1]}&name={shop.name}&radius={radius}"
-              target={adaptiveNewTab()}
-              class="btn btn-accent btn-soft"
-            >
-              <i class="fa-solid fa-map-location-dot"></i>
-              {m.explore_nearby()}
-            </a>
-            {#if data.user}
-              {@const isStarred = data.user.starredArcades?.some(
-                (a) => a.id === shop.id && a.source === shop.source
-              )}
-              {@const toggleStar = async () => {
-                isLoading = 3;
-                try {
-                  const formData = new FormData();
-                  formData.append('arcadeSource', shop.source);
-                  formData.append('arcadeId', shop.id.toString());
-                  const response = await fetch(
-                    resolve('/(main)/settings/starred-arcades') +
-                      (isStarred ? '?/removeArcade' : '?/addArcade'),
-                    {
-                      method: 'POST',
-                      body: formData
-                    }
-                  );
-                  if (response.ok) {
-                    await invalidateAll();
-                  }
-                } catch (err) {
-                  console.log('Error starring arcade:', err);
-                } finally {
-                  isLoading = 0;
-                }
-              }}
-              <button
-                class="btn btn-warning btn-soft group"
-                class:hover:btn-error={isStarred}
-                disabled={isLoading === 3}
-                onclick={toggleStar}
-              >
-                <span class="loading loading-spinner loading-sm" class:hidden={isLoading !== 3}
-                ></span>
-                <span
-                  class:hidden={!isStarred || isLoading === 3}
-                  class:not-group-hover:hidden={isStarred}
-                >
-                  <i class="fa-solid fa-trash"></i>
-                </span>
-                <span
-                  class:group-hover:hidden={isStarred}
-                  class:not-group-hover:hidden={!isStarred}
-                  class:hidden={isLoading === 3}
-                >
-                  <i class="fa-solid fa-star"></i>
-                </span>
-                <span
-                  class:hidden={isStarred || isLoading === 3}
-                  class:group-hover:hidden={!isStarred}
-                >
-                  <i class="fa-regular fa-star"></i>
-                </span>
-                <span
-                  class:not-group-hover:hidden={isStarred && isLoading !== 3}
-                  class:hidden={!isStarred}
-                >
-                  {m.unstar()}
-                </span>
-                <span
-                  class:group-hover:hidden={isStarred}
-                  class:hidden={isStarred && isLoading === 3}
-                >
-                  {isStarred ? m.starred() : m.star()}
-                </span>
-              </button>
-            {/if}
-          </div>
-          <a
-            href={getShopSourceUrl(shop)}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-primary btn-soft"
-            title={m.view_on_source({ source: shop.source.toUpperCase() })}
-          >
-            <i class="fa-solid fa-external-link-alt"></i>
-            <span class="hidden sm:block md:hidden lg:block">
-              {m.view_on_source({ source: shop.source.toUpperCase() })}
-            </span>
-          </a>
         </div>
       </div>
-    {/snippet}
+      <div class="md:col-span-3 lg:col-span-2">
+        <div class="space-y-4">
+          <!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+          {#each Array(3) as _, idx (idx)}
+            <div class="card bg-base-200">
+              <div class="card-body p-6">
+                <div class="skeleton h-8 w-1/2"></div>
+                <div class="skeleton mt-4 h-20 w-full"></div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  </div>
+{:else if shopDataError}
+  <!-- Error State -->
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="py-12 text-center">
+      <div class="text-error mb-4">
+        <i class="fa-solid fa-exclamation-triangle text-4xl"></i>
+      </div>
+      <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_shop()}</h3>
+      <p class="text-base-content/60 mb-4">
+        {shopDataError.message || m.an_error_occurred()}
+      </p>
+      <button class="btn btn-primary" onclick={() => window.location.reload()}>
+        <i class="fa-solid fa-refresh"></i>
+        {m.try_again()}
+      </button>
+    </div>
+  </div>
+{:else if shop}
+  <!-- Loaded Content -->
 
-    {@render header(false)}
-
-    <!-- Sidebar -->
-    <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
-      <div class="sticky top-20 space-y-6">
-        <!-- Shop Information -->
-        <div class="card bg-base-200">
-          <div class="card-body p-6">
-            <h3 class="mb-2 text-lg font-semibold">{m.shop_info()}</h3>
-
-            <div class="space-y-2">
-              {#if openingHours}
-                {@const offset = (() => {
-                  const minutes = now.getTimezoneOffset();
-                  const sign = minutes <= 0 ? '+' : '-';
-                  return `${sign}${formatHourLiteral(Math.abs(minutes / 60))}`;
-                })()}
-                {@const offsetLocal = (() => {
-                  const hours = openingHours.offsetHours;
-                  const sign = hours >= 0 ? '+' : '-';
-                  return `${sign}${formatHourLiteral(Math.abs(hours))}`;
-                })()}
-                <div class="group flex items-center justify-between gap-1">
-                  <span class="text-base-content/60 truncate group-hover:hidden"
-                    >{m.opening_hours()} (UTC{offset})</span
-                  >
-                  <span
-                    class="text-base-content/60 truncate not-group-hover:hidden"
-                    title={m.local_time()}>{m.opening_hours()} (UTC{offsetLocal})</span
-                  >
-                  <span class="text-right font-semibold group-hover:hidden"
-                    >{formatTime(openingHours.open)} – {formatTime(openingHours.close)}</span
-                  >
-                  <span class="text-right font-semibold not-group-hover:hidden"
-                    >{openingHours.openLocal} – {openingHours.closeLocal}</span
-                  >
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
+      {#snippet attend(klass = 'w-full')}
+        {#if userAttendance}
+          <button
+            class="btn btn-error btn-soft {klass}"
+            onclick={() => handleLeave()}
+            disabled={isLoading === 1}
+          >
+            {#if isLoading === 1}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <i class="fa-solid fa-stop"></i>
+            {/if}
+            {m.leave()}
+          </button>
+        {:else}
+          <div
+            class="tooltip-error {klass}"
+            class:tooltip={!isShopOpen || shop.isClaimed || !!otherShop || isUserNearShop === false}
+            data-tip={isShopOpen
+              ? otherShop
+                ? m.attending_other_shop({
+                    shopName: otherShop.shop.name,
+                    attendedAt: formatTime(otherShop.attendedAt)
+                  })
+                : isUserNearShop === false && distance
+                  ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
+                  : shop.isClaimed
+                    ? m.attend_claimed()
+                    : ''
+              : m.shop_closed()}
+          >
+            <button
+              class="btn btn-primary w-full"
+              onclick={() => (showAttendanceModal = true)}
+              disabled={!isShopOpen ||
+                shop.isClaimed ||
+                !!otherShop ||
+                isLoading === 1 ||
+                !isUserNearShop}
+            >
+              <i class="fa-solid fa-play"></i>
+              {m.attend()}
+            </button>
+          </div>
+        {/if}
+      {/snippet}
+      {#snippet header(isMain = true)}
+        <!-- Shop Header -->
+        <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
+          <div class="mb-4 flex items-center justify-between gap-2">
+            <h1 class="text-3xl font-bold">
+              {shop.name}
+              {#if shop.isClaimed}
+                {#snippet badge()}
+                  <span class="badge badge-success badge-soft">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span class="text-sm">{m.claimed()}</span>
+                  </span>
+                {/snippet}
+                <div
+                  class="tooltip tooltip-right text-base-content/60 font-normal not-md:hidden"
+                  data-tip={m.claimed_description()}
+                >
+                  {@render badge()}
+                </div>
+                <div class="md:hidden" title={m.claimed_description()}>
+                  {@render badge()}
                 </div>
               {/if}
+            </h1>
+            <span class="text-base-content/60 text-right not-md:hidden">
+              {shop.source.toUpperCase()} #{shop.id}
+            </span>
+            {@render attend('max-w-[40vw] min-w-24 tooltip-left md:hidden')}
+          </div>
 
-              <div class="flex items-center justify-between gap-1">
-                <span class="text-base-content/60 truncate">{m.data_source()}</span>
-                <span class="text-right font-semibold">{shop.source.toUpperCase()}</span>
+          <div
+            class="alert alert-success alert-soft flex flex-col items-start gap-2 text-[1.03125rem] leading-normal"
+          >
+            <div class="flex items-start gap-2">
+              <div class="w-4 text-center">
+                <i class="fa-solid fa-location-dot mt-0.75 shrink-0"></i>
               </div>
+              <span class="whitespace-pre-line">{formatShopAddress(shop, true)}</span>
+            </div>
+          </div>
 
-              {#if shop.createdAt}
+          {#if shopComment.content}
+            <div class="text-base-content/80 mt-4">
+              <p class="whitespace-pre-line" class:prose={shopComment.sanitized}>
+                {#if shopComment.sanitized}
+                  {@html shopComment.content}
+                {:else}
+                  {shopComment.content}
+                {/if}
+              </p>
+            </div>
+          {/if}
+
+          <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <a
+                href="{resolve('/(main)/discover')}?longitude={shop.location
+                  ?.coordinates[0]}&latitude={shop.location
+                  ?.coordinates[1]}&name={shop.name}&radius={radius}"
+                target={adaptiveNewTab()}
+                class="btn btn-accent btn-soft"
+              >
+                <i class="fa-solid fa-map-location-dot"></i>
+                {m.explore_nearby()}
+              </a>
+              {#if data.user}
+                {@const isStarred = data.user.starredArcades?.some(
+                  (a) => a.id === shop.id && a.source === shop.source
+                )}
+                {@const toggleStar = async () => {
+                  isLoading = 3;
+                  try {
+                    const formData = new FormData();
+                    formData.append('arcadeSource', shop.source);
+                    formData.append('arcadeId', shop.id.toString());
+                    const response = await fetch(
+                      resolve('/(main)/settings/starred-arcades') +
+                        (isStarred ? '?/removeArcade' : '?/addArcade'),
+                      {
+                        method: 'POST',
+                        body: formData
+                      }
+                    );
+                    if (response.ok) {
+                      await invalidateAll();
+                    }
+                  } catch (err) {
+                    console.log('Error starring arcade:', err);
+                  } finally {
+                    isLoading = 0;
+                  }
+                }}
+                <button
+                  class="btn btn-warning btn-soft group"
+                  class:hover:btn-error={isStarred}
+                  disabled={isLoading === 3}
+                  onclick={toggleStar}
+                >
+                  <span class="loading loading-spinner loading-sm" class:hidden={isLoading !== 3}
+                  ></span>
+                  <span
+                    class:hidden={!isStarred || isLoading === 3}
+                    class:not-group-hover:hidden={isStarred}
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                  </span>
+                  <span
+                    class:group-hover:hidden={isStarred}
+                    class:not-group-hover:hidden={!isStarred}
+                    class:hidden={isLoading === 3}
+                  >
+                    <i class="fa-solid fa-star"></i>
+                  </span>
+                  <span
+                    class:hidden={isStarred || isLoading === 3}
+                    class:group-hover:hidden={!isStarred}
+                  >
+                    <i class="fa-regular fa-star"></i>
+                  </span>
+                  <span
+                    class:not-group-hover:hidden={isStarred && isLoading !== 3}
+                    class:hidden={!isStarred}
+                  >
+                    {m.unstar()}
+                  </span>
+                  <span
+                    class:group-hover:hidden={isStarred}
+                    class:hidden={isStarred && isLoading === 3}
+                  >
+                    {isStarred ? m.starred() : m.star()}
+                  </span>
+                </button>
+              {/if}
+            </div>
+            <a
+              href={getShopSourceUrl(shop)}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-primary btn-soft"
+              title={m.view_on_source({ source: shop.source.toUpperCase() })}
+            >
+              <i class="fa-solid fa-external-link-alt"></i>
+              <span class="hidden sm:block md:hidden lg:block">
+                {m.view_on_source({ source: shop.source.toUpperCase() })}
+              </span>
+            </a>
+          </div>
+        </div>
+      {/snippet}
+
+      {@render header(false)}
+
+      <!-- Sidebar -->
+      <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
+        <div class="sticky top-20 space-y-6">
+          <!-- Shop Information -->
+          <div class="card bg-base-200">
+            <div class="card-body p-6">
+              <h3 class="mb-2 text-lg font-semibold">{m.shop_info()}</h3>
+
+              <div class="space-y-2">
+                {#if openingHours}
+                  {@const offset = (() => {
+                    const minutes = now.getTimezoneOffset();
+                    const sign = minutes <= 0 ? '+' : '-';
+                    return `${sign}${formatHourLiteral(Math.abs(minutes / 60))}`;
+                  })()}
+                  {@const offsetLocal = (() => {
+                    const hours = openingHours.offsetHours;
+                    const sign = hours >= 0 ? '+' : '-';
+                    return `${sign}${formatHourLiteral(Math.abs(hours))}`;
+                  })()}
+                  <div class="group flex items-center justify-between gap-1">
+                    <span class="text-base-content/60 truncate group-hover:hidden"
+                      >{m.opening_hours()} (UTC{offset})</span
+                    >
+                    <span
+                      class="text-base-content/60 truncate not-group-hover:hidden"
+                      title={m.local_time()}>{m.opening_hours()} (UTC{offsetLocal})</span
+                    >
+                    <span class="text-right font-semibold group-hover:hidden"
+                      >{formatTime(openingHours.open)} – {formatTime(openingHours.close)}</span
+                    >
+                    <span class="text-right font-semibold not-group-hover:hidden"
+                      >{openingHours.openLocal} – {openingHours.closeLocal}</span
+                    >
+                  </div>
+                {/if}
+
                 <div class="flex items-center justify-between gap-1">
-                  <span class="text-base-content/60 truncate">{m.created()}</span>
+                  <span class="text-base-content/60 truncate">{m.data_source()}</span>
+                  <span class="text-right font-semibold">{shop.source.toUpperCase()}</span>
+                </div>
+
+                {#if shop.createdAt}
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-base-content/60 truncate">{m.created()}</span>
+                    <span class="text-right font-semibold"
+                      >{formatDistanceToNow(shop.createdAt, {
+                        addSuffix: true,
+                        locale: getFnsLocale(getLocale())
+                      })}</span
+                    >
+                  </div>
+                {/if}
+
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate">{m.updated()}</span>
                   <span class="text-right font-semibold"
-                    >{formatDistanceToNow(shop.createdAt, {
+                    >{formatDistanceToNow(shop.updatedAt, {
                       addSuffix: true,
                       locale: getFnsLocale(getLocale())
                     })}</span
                   >
                 </div>
-              {/if}
-
-              <div class="flex items-center justify-between gap-1">
-                <span class="text-base-content/60 truncate">{m.updated()}</span>
-                <span class="text-right font-semibold"
-                  >{formatDistanceToNow(shop.updatedAt, {
-                    addSuffix: true,
-                    locale: getFnsLocale(getLocale())
-                  })}</span
-                >
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Shop Statistics -->
-        <div class="card bg-base-200 not-md:hidden">
-          <div class="card-body p-6">
-            <h3 class="mb-2 text-lg font-semibold">{m.shop_statistics()}</h3>
+          <!-- Shop Statistics -->
+          <div class="card bg-base-200 not-md:hidden">
+            <div class="card-body p-6">
+              <h3 class="mb-2 text-lg font-semibold">{m.shop_statistics()}</h3>
 
-            <div class="space-y-2">
-              <div class="flex items-center justify-between gap-1">
-                <span class="text-base-content/60 truncate">{m.total_games()}</span>
-                <span class="text-right font-semibold">{shop.games.length}</span>
-              </div>
-
-              <div class="flex items-center justify-between gap-1">
-                <span class="text-base-content/60 truncate">{m.total_machines()}</span>
-                <span class="text-right font-semibold"
-                  >{shop.games.reduce((total, game) => total + game.quantity, 0)}</span
-                >
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Attendance -->
-        <div class="card bg-base-200">
-          <div class="card-body p-6">
-            <h3 class="mb-4 text-lg font-semibold">{m.attendance()}</h3>
-
-            <div class="py-4 text-center">
-              {#if attendanceReport.length > 0}
-                {@const reportedAttendance = {
-                  reportedBy: attendanceReport[0].reporter,
-                  reportedAt: attendanceReport[0].reportedAt,
-                  comment: attendanceReport[0].comment
-                }}
-                <AttendanceReportBlame {reportedAttendance}>
-                  <div class="text-accent mb-2 text-3xl font-bold">
-                    {totalAttendance}
-                  </div>
-                </AttendanceReportBlame>
-              {:else}
-                <div class="text-primary mb-2 text-3xl font-bold">{totalAttendance}</div>
-              {/if}
-              <div class="text-base-content/60 text-sm">{m.players_currently_playing()}</div>
-            </div>
-
-            {#if shop.games.length > 0}
-              {@const aggregatedGames = aggregateGames(shop)}
-              <div class="space-y-2 text-sm">
-                {#each aggregatedGames as game (game.titleId)}
-                  {@const gameInfo = getGameInfo(game.titleId)}
-                  {@const gameAttendance = shop.games.reduce(
-                    (total, g) =>
-                      g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
-                    0
-                  )}
-                  {@const reportedAttendance = reportedAttendances
-                    .reduce(
-                      (acc, cur) => {
-                        if (shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId) {
-                          acc.push(cur);
-                        }
-                        return acc;
-                      },
-                      [] as typeof reportedAttendances
-                    )
-                    .reduce(
-                      (mostRecent, current) =>
-                        !mostRecent ||
-                        new Date(current.reportedAt) > new Date(mostRecent.reportedAt)
-                          ? { ...current, count: (current.count || 0) + (mostRecent?.count || 0) }
-                          : mostRecent,
-                      undefined as (typeof reportedAttendances)[number] | undefined
-                    )}
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="text-base-content/60 truncate">
-                      {getGameName(gameInfo?.key) || game.name}
-                    </span>
-                    {#if reportedAttendance}
-                      <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
-                        <span class="text-accent font-medium">
-                          {reportedAttendance.count || 0} / {game.quantity}
-                        </span>
-                      </AttendanceReportBlame>
-                    {:else}
-                      <span class="font-medium" class:text-primary={gameAttendance > 0}>
-                        {gameAttendance} / {game.quantity}
-                      </span>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            {/if}
-
-            <!-- Attend button -->
-            {#if data.user}
-              <div class="border-base-content/10 mt-4 border-t pt-4">
-                {@render attend()}
-              </div>
-            {/if}
-          </div>
-        </div>
-
-        <!-- Attendance Reports -->
-        <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="md:col-span-3 lg:col-span-2">
-      {@render header()}
-
-      <!-- Games Section -->
-      {#if shop.games.length > 0}
-        <div class="flex flex-col gap-4">
-          {#each shop.games as game, i (i)}
-            {@const gameInfo = getGameInfo(game.titleId)}
-            {@const countedAttendance = getGameAttendance(game.gameId)}
-            {@const reportedAttendance = reportedAttendances.find((g) => g.id === game.gameId)}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              class="card bg-base-200 group hover:border-primary border-2 border-current/0 shadow-none transition-all hover:shadow-lg"
-              onmouseenter={() => (hovered[game.gameId] = true)}
-              onmouseleave={() => (hovered[game.gameId] = false)}
-            >
-              <div class="card-body p-6">
-                <div class="flex items-center justify-between gap-2">
-                  <h3 class="truncate text-xl font-semibold">
-                    {game.name}
-                  </h3>
-                  <div class="flex items-center gap-1">
-                    {#if data.user && isShopOpen && isUserNearShop && !shop.isClaimed}
-                      <FancyButton
-                        callback={() =>
-                          openReportModal({
-                            id: game.gameId,
-                            name: game.name,
-                            version: game.version
-                          })}
-                        class="fa-solid fa-chart-simple"
-                        btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
-                        text={m.report_current_attendance()}
-                        expanded={hovered[game.gameId] || false}
-                        override
-                      />
-                    {/if}
-                    <div
-                      class="btn btn-neutral btn-active btn-soft btn-sm cursor-default text-base"
-                    >
-                      ×{game.quantity}
-                    </div>
-                  </div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate">{m.total_games()}</span>
+                  <span class="text-right font-semibold">{shop.games.length}</span>
                 </div>
 
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate">{m.total_machines()}</span>
+                  <span class="text-right font-semibold"
+                    >{shop.games.reduce((total, game) => total + game.quantity, 0)}</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attendance -->
+          <div class="card bg-base-200">
+            <div class="card-body p-6">
+              <h3 class="mb-4 text-lg font-semibold">{m.attendance()}</h3>
+
+              <div class="py-4 text-center">
+                {#if attendanceReport.length > 0}
+                  {@const reportedAttendance = {
+                    reportedBy: attendanceReport[0].reporter,
+                    reportedAt: attendanceReport[0].reportedAt,
+                    comment: attendanceReport[0].comment
+                  }}
+                  <AttendanceReportBlame {reportedAttendance}>
+                    <div class="text-accent mb-2 text-3xl font-bold">
+                      {totalAttendance}
+                    </div>
+                  </AttendanceReportBlame>
+                {:else}
+                  <div class="text-primary mb-2 text-3xl font-bold">{totalAttendance}</div>
+                {/if}
+                <div class="text-base-content/60 text-sm">{m.players_currently_playing()}</div>
+              </div>
+
+              {#if shop.games.length > 0}
+                {@const aggregatedGames = aggregateGames(shop)}
                 <div class="space-y-2 text-sm">
-                  <div class="group-hover:text-accent flex items-center gap-2 transition-colors">
-                    <i class="fa-solid fa-gamepad"></i>
-                    {#if game.version}
-                      <span>{getGameName(gameInfo?.key) || game.name} · {game.version}</span>
-                    {:else}
-                      <span>{getGameName(gameInfo?.key) || game.name}</span>
-                    {/if}
-                  </div>
-                  {#if costs[game.gameId]}
-                    <div class="group-hover:text-warning flex items-center gap-2 transition-colors">
-                      <i class="fa-solid fa-coins"></i>
-                      {@html costs[game.gameId]}
-                    </div>
-                  {/if}
-                  {#if game.comment}
-                    <div class="flex items-center gap-2 whitespace-pre-line">
-                      <i class="fa-solid fa-circle-info"></i>
-                      {game.comment}
-                    </div>
-                  {/if}
-                </div>
-
-                <!-- Attendance Section -->
-                <div class="border-base-content/10 mt-4 border-t pt-4">
-                  <div class="flex items-center justify-between">
-                    <span class="text-base-content/60 text-sm"
-                      >{m.current_players()} ({countedAttendance})</span
-                    >
-                    {#if reportedAttendance !== undefined}
-                      <AttendanceReportBlame {reportedAttendance} class="not-md:tooltip-left">
-                        <span class="text-accent text-sm font-medium">
-                          {m.in_attendance({ count: reportedAttendance?.count || 0 })}
-                        </span>
-                      </AttendanceReportBlame>
-                    {:else}
-                      <span class="text-sm font-medium">
-                        {m.in_attendance({ count: countedAttendance })}
-                      </span>
-                    {/if}
-                  </div>
-
-                  <!-- Detailed attendance list for this game -->
-                  {#if attendanceData}
-                    {@const attendees = attendanceData.filter(
-                      (attendee) => attendee.gameId === game.gameId
+                  {#each aggregatedGames as game (game.titleId)}
+                    {@const gameInfo = getGameInfo(game.titleId)}
+                    {@const gameAttendance = shop.games.reduce(
+                      (total, g) =>
+                        g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
+                      0
                     )}
-                    {#if attendees.length > 0}
-                      <div class="border-base-content/10 mt-3">
-                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                          {#each attendees as attendee (attendee.userId)}
-                            <div class="tooltip w-fit">
-                              <div class="tooltip-content px-3 whitespace-pre-line">
-                                {m.attendance_details({
-                                  duration: formatDistanceToNow(attendee.attendedAt, {
-                                    locale: getFnsLocale(getLocale())
-                                  }),
-                                  leave: formatTime(attendee.plannedLeaveAt)
-                                })}
-                              </div>
-                              <div class="w-fit">
-                                <UserAvatar
-                                  user={attendee.user || { displayName: attendee.userId }}
-                                  size="sm"
-                                  showName
-                                  target={adaptiveNewTab()}
-                                />
-                              </div>
-                            </div>
-                          {/each}
-                        </div>
+                    {@const reportedAttendance = reportedAttendances
+                      .reduce(
+                        (acc, cur) => {
+                          if (
+                            shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId
+                          ) {
+                            acc.push(cur);
+                          }
+                          return acc;
+                        },
+                        [] as typeof reportedAttendances
+                      )
+                      .reduce(
+                        (mostRecent, current) =>
+                          !mostRecent ||
+                          new Date(current.reportedAt) > new Date(mostRecent.reportedAt)
+                            ? { ...current, count: (current.count || 0) + (mostRecent?.count || 0) }
+                            : mostRecent,
+                        undefined as (typeof reportedAttendances)[number] | undefined
+                      )}
+                    <div class="flex items-center justify-between gap-1">
+                      <span class="text-base-content/60 truncate">
+                        {getGameName(gameInfo?.key) || game.name}
+                      </span>
+                      {#if reportedAttendance}
+                        <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                          <span class="text-accent font-medium">
+                            {reportedAttendance.count || 0} / {game.quantity}
+                          </span>
+                        </AttendanceReportBlame>
+                      {:else}
+                        <span class="font-medium" class:text-primary={gameAttendance > 0}>
+                          {gameAttendance} / {game.quantity}
+                        </span>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+
+              <!-- Attend button -->
+              {#if data.user}
+                <div class="border-base-content/10 mt-4 border-t pt-4">
+                  {@render attend()}
+                </div>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Attendance Reports -->
+          <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="md:col-span-3 lg:col-span-2">
+        {@render header()}
+
+        <!-- Games Section -->
+        {#if shop.games.length > 0}
+          <div class="flex flex-col gap-4">
+            {#each shop.games as game, i (i)}
+              {@const gameInfo = getGameInfo(game.titleId)}
+              {@const countedAttendance = getGameAttendance(game.gameId)}
+              {@const reportedAttendance = reportedAttendances.find((g) => g.id === game.gameId)}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="card bg-base-200 group hover:border-primary border-2 border-current/0 shadow-none transition-all hover:shadow-lg"
+                onmouseenter={() => (hovered[game.gameId] = true)}
+                onmouseleave={() => (hovered[game.gameId] = false)}
+              >
+                <div class="card-body p-6">
+                  <div class="flex items-center justify-between gap-2">
+                    <h3 class="truncate text-xl font-semibold">
+                      {game.name}
+                    </h3>
+                    <div class="flex items-center gap-1">
+                      {#if data.user && isShopOpen && isUserNearShop && !shop.isClaimed}
+                        <FancyButton
+                          callback={() =>
+                            openReportModal({
+                              id: game.gameId,
+                              name: game.name,
+                              version: game.version
+                            })}
+                          class="fa-solid fa-chart-simple"
+                          btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
+                          text={m.report_current_attendance()}
+                          expanded={hovered[game.gameId] || false}
+                          override
+                        />
+                      {/if}
+                      <div
+                        class="btn btn-neutral btn-active btn-soft btn-sm cursor-default text-base"
+                      >
+                        ×{game.quantity}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-2 text-sm">
+                    <div class="group-hover:text-accent flex items-center gap-2 transition-colors">
+                      <i class="fa-solid fa-gamepad"></i>
+                      {#if game.version}
+                        <span>{getGameName(gameInfo?.key) || game.name} · {game.version}</span>
+                      {:else}
+                        <span>{getGameName(gameInfo?.key) || game.name}</span>
+                      {/if}
+                    </div>
+                    {#if costs[game.gameId]}
+                      <div
+                        class="group-hover:text-warning flex items-center gap-2 transition-colors"
+                      >
+                        <i class="fa-solid fa-coins"></i>
+                        {@html costs[game.gameId]}
                       </div>
                     {/if}
-                  {/if}
+                    {#if game.comment}
+                      <div class="flex items-center gap-2 whitespace-pre-line">
+                        <i class="fa-solid fa-circle-info"></i>
+                        {game.comment}
+                      </div>
+                    {/if}
+                  </div>
+
+                  <!-- Attendance Section -->
+                  <div class="border-base-content/10 mt-4 border-t pt-4">
+                    <div class="flex items-center justify-between">
+                      <span class="text-base-content/60 text-sm"
+                        >{m.current_players()} ({countedAttendance})</span
+                      >
+                      {#if reportedAttendance !== undefined}
+                        <AttendanceReportBlame {reportedAttendance} class="not-md:tooltip-left">
+                          <span class="text-accent text-sm font-medium">
+                            {m.in_attendance({ count: reportedAttendance?.count || 0 })}
+                          </span>
+                        </AttendanceReportBlame>
+                      {:else}
+                        <span class="text-sm font-medium">
+                          {m.in_attendance({ count: countedAttendance })}
+                        </span>
+                      {/if}
+                    </div>
+
+                    <!-- Detailed attendance list for this game -->
+                    {#if attendanceData}
+                      {@const attendees = attendanceData.filter(
+                        (attendee) => attendee.gameId === game.gameId
+                      )}
+                      {#if attendees.length > 0}
+                        <div class="border-base-content/10 mt-3">
+                          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {#each attendees as attendee (attendee.userId)}
+                              <div class="tooltip w-fit">
+                                <div class="tooltip-content px-3 whitespace-pre-line">
+                                  {m.attendance_details({
+                                    duration: formatDistanceToNow(attendee.attendedAt, {
+                                      locale: getFnsLocale(getLocale())
+                                    }),
+                                    leave: formatTime(attendee.plannedLeaveAt)
+                                  })}
+                                </div>
+                                <div class="w-fit">
+                                  <UserAvatar
+                                    user={attendee.user || { displayName: attendee.userId }}
+                                    size="sm"
+                                    showName
+                                    target={adaptiveNewTab()}
+                                  />
+                                </div>
+                              </div>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                    {/if}
+                  </div>
                 </div>
               </div>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="py-8 text-center">
-          <div class="text-base-content/40 mb-2">
-            <i class="fa-solid fa-gamepad text-4xl"></i>
+            {/each}
           </div>
-          <p class="text-base-content/60">{m.no_games_available()}</p>
-        </div>
-      {/if}
+        {:else}
+          <div class="py-8 text-center">
+            <div class="text-base-content/40 mb-2">
+              <i class="fa-solid fa-gamepad text-4xl"></i>
+            </div>
+            <p class="text-base-content/60">{m.no_games_available()}</p>
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Attendance Modal -->
-<AttendanceModal
-  bind:isOpen={showAttendanceModal}
-  {shop}
-  {now}
-  onClose={() => (showAttendanceModal = false)}
-  onAttend={handleAttend}
-/>
+  <!-- Attendance Modal -->
+  <AttendanceModal
+    bind:isOpen={showAttendanceModal}
+    {shop}
+    {now}
+    onClose={() => (showAttendanceModal = false)}
+    onAttend={handleAttend}
+  />
 
-<!-- Report Attendance Modal -->
-{#if showReportAttendanceModal && selectedGameForReport}
-  <div class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="mb-4 text-lg font-bold">
-        {m.report_current_attendance()}
-      </h3>
+  <!-- Report Attendance Modal -->
+  {#if showReportAttendanceModal && selectedGameForReport}
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="mb-4 text-lg font-bold">
+          {m.report_current_attendance()}
+        </h3>
 
-      <div class="mb-4">
-        <p class="text-base-content/70 mb-2 flex items-center gap-2 text-sm">
-          <i class="fa-solid fa-gamepad"></i>
-          <span
-            ><strong>{selectedGameForReport.name}</strong> · {selectedGameForReport.version}</span
+        <div class="mb-4">
+          <p class="text-base-content/70 mb-2 flex items-center gap-2 text-sm">
+            <i class="fa-solid fa-gamepad"></i>
+            <span
+              ><strong>{selectedGameForReport.name}</strong> · {selectedGameForReport.version}</span
+            >
+          </p>
+          <p class="text-base-content/70 mb-4 text-sm">
+            {m.report_attendance_description()}
+          </p>
+
+          <label class="form-control w-full">
+            <div class="label">
+              <span class="label-text">{m.current_players()}</span>
+            </div>
+            <input
+              type="number"
+              min="0"
+              max="50"
+              bind:value={reportedAttendance}
+              class="input input-bordered w-full"
+              placeholder="1"
+            />
+          </label>
+        </div>
+
+        <div class="modal-action">
+          <button
+            class="btn btn-ghost"
+            onclick={() => {
+              showReportAttendanceModal = false;
+              selectedGameForReport = null;
+            }}
+            disabled={isLoading === 2}
           >
-        </p>
-        <p class="text-base-content/70 mb-4 text-sm">
-          {m.report_attendance_description()}
-        </p>
-
-        <label class="form-control w-full">
-          <div class="label">
-            <span class="label-text">{m.current_players()}</span>
-          </div>
-          <input
-            type="number"
-            min="0"
-            max="50"
-            bind:value={reportedAttendance}
-            class="input input-bordered w-full"
-            placeholder="1"
-          />
-        </label>
+            {m.cancel()}
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick={handleReportAttendance}
+            disabled={isLoading === 2 || reportedAttendance < 0}
+          >
+            {#if isLoading === 2}
+              <span class="loading loading-spinner loading-xs"></span>
+            {/if}
+            {m.submit()}
+          </button>
+        </div>
       </div>
-
-      <div class="modal-action">
-        <button
-          class="btn btn-ghost"
-          onclick={() => {
-            showReportAttendanceModal = false;
-            selectedGameForReport = null;
-          }}
-          disabled={isLoading === 2}
-        >
-          {m.cancel()}
-        </button>
-        <button
-          class="btn btn-primary"
-          onclick={handleReportAttendance}
-          disabled={isLoading === 2 || reportedAttendance < 0}
-        >
-          {#if isLoading === 2}
-            <span class="loading loading-spinner loading-xs"></span>
-          {/if}
-          {m.submit()}
-        </button>
-      </div>
-    </div>
-    <div
-      class="modal-backdrop"
-      role="button"
-      tabindex="0"
-      onclick={() => {
-        showReportAttendanceModal = false;
-        selectedGameForReport = null;
-      }}
-      onkeydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+      <div
+        class="modal-backdrop"
+        role="button"
+        tabindex="0"
+        onclick={() => {
           showReportAttendanceModal = false;
           selectedGameForReport = null;
-        }
-      }}
-    ></div>
-  </div>
+        }}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            showReportAttendanceModal = false;
+            selectedGameForReport = null;
+          }
+        }}
+      ></div>
+    </div>
+  {/if}
 {/if}
