@@ -11,7 +11,7 @@
     pageTitle
   } from '$lib/utils';
   import Globe from '$lib/components/Globe.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import Footer from '$lib/components/Footer.svelte';
   import { m } from '$lib/paraglide/messages.js';
   import type { Shop } from '$lib/types/index.js';
@@ -32,24 +32,15 @@
 
   let shopDataResolved = $state<Awaited<typeof data.shopData> | null>(null);
   let attendanceDataResolved = $state<Awaited<typeof data.attendanceData> | null>(null);
-
-  let shops = $derived.by<ShopWithExtras[] | null>(() => {
-    if (!shopDataResolved) return null;
-    return shopDataResolved.map((shop) => {
-      const attendances = attendanceDataResolved?.get(`${shop.source}-${shop.id}`) || [];
-      const shopWithExtras = {
-        ...shop,
-        attendances,
-        openingHoursParsed: getShopOpeningHours(shop),
-        currentAttendance: attendances.reduce((sum, att) => sum + att.total, 0),
-        density: 0
-      };
-      return {
-        ...shopWithExtras,
-        density: getShopDensity(shopWithExtras)
-      };
-    });
-  });
+  let shops = $state<
+    | {
+        shop: ShopWithExtras;
+        location: { latitude: number; longitude: number };
+        amount: number;
+        color: string;
+      }[]
+    | null
+  >(null);
   let now = $state(new Date());
   let hoveredShop: ShopWithExtras | null = $state(null);
   let cursorPos = $state({ x: 0, y: 0 });
@@ -78,6 +69,40 @@
     });
     data.attendanceData.then((resolved) => {
       attendanceDataResolved = resolved;
+    });
+  });
+
+  $effect(() => {
+    if (!shopDataResolved) return;
+    const attendanceData = attendanceDataResolved;
+    untrack(() => {
+      shops = shopDataResolved!.map((shop) => {
+        const attendances = attendanceData?.get(`${shop.source}-${shop.id}`) || [];
+        const shopWithExtras = {
+          ...shop,
+          attendances,
+          openingHoursParsed: getShopOpeningHours(shop),
+          currentAttendance: attendances.reduce((sum, att) => sum + att.total, 0),
+          density: 0
+        };
+        const positions = shop.games.reduce(
+          (acc, game) => acc + (game.titleId === 1 || game.titleId === 31 ? 2 : 1) * game.quantity,
+          0
+        );
+        const density = getShopDensity(shopWithExtras);
+        return {
+          shop: {
+            ...shopWithExtras,
+            density
+          },
+          location: {
+            latitude: shop.location.coordinates[1],
+            longitude: shop.location.coordinates[0]
+          },
+          amount: positions,
+          color: getDensityColor(density)
+        };
+      });
     });
   });
 
@@ -172,21 +197,7 @@
   </div>
 {:else}
   <Globe
-    data={shops.map((shop) => {
-      const positions = shop.games.reduce(
-        (acc, game) => acc + (game.titleId === 1 || game.titleId === 31 ? 2 : 1) * game.quantity,
-        0
-      );
-      return {
-        shop,
-        location: {
-          latitude: shop.location.coordinates[1],
-          longitude: shop.location.coordinates[0]
-        },
-        amount: positions,
-        color: getDensityColor(shop.density)
-      };
-    })}
+    data={shops}
     onHover={(point) => {
       if (isMobile) return;
       if (point !== null) {
