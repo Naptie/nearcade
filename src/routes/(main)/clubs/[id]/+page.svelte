@@ -70,7 +70,9 @@
   // Infinite scrolling state for starred arcades
   let displayedArcades = $derived(clubDataResolved?.starredArcades || []);
   let isLoadingMoreArcades = $state(false);
-  let hasMoreArcades = $state((clubDataResolved?.starredArcades?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreArcades = $derived(
+    (clubDataResolved?.starredArcades?.length || 0) >= PAGINATION.PAGE_SIZE
+  );
   let currentArcadesPage = $state(1);
 
   // Arcade search state
@@ -132,13 +134,15 @@
 
   // Infinite scrolling for members
   const loadMoreMembers = async () => {
-    if (isLoadingMoreMembers || !hasMoreMembers) return;
+    if (isLoadingMoreMembers || !hasMoreMembers || !clubDataResolved) return;
 
     isLoadingMoreMembers = true;
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        fromPath(`/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/members?page=${nextPage}`)
+        fromPath(
+          `/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/members?page=${nextPage}`
+        )
       );
 
       if (response.ok) {
@@ -163,13 +167,15 @@
 
   // Infinite scrolling for starred arcades
   const loadMoreArcades = async () => {
-    if (isLoadingMoreArcades || !hasMoreArcades) return;
+    if (isLoadingMoreArcades || !hasMoreArcades || !clubDataResolved) return;
 
     isLoadingMoreArcades = true;
     try {
       const nextPage = currentArcadesPage + 1;
       const response = await fetch(
-        fromPath(`/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/arcades?page=${nextPage}`)
+        fromPath(
+          `/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/arcades?page=${nextPage}`
+        )
       );
 
       if (response.ok) {
@@ -236,7 +242,7 @@
 
   // Handle arcade management actions
   const handleArcadeAction = async (action: string, arcadeSource: string, arcadeId: number) => {
-    if (!arcadeSource || !arcadeId) return;
+    if (!arcadeSource || !arcadeId || !clubDataResolved) return;
 
     const formData = new FormData();
     formData.append('clubId', clubDataResolved.club.id);
@@ -301,7 +307,7 @@
 
   // Handle role management actions with form submission
   const handleRoleAction = async (action: string, memberId: string) => {
-    if (!memberId) return;
+    if (!memberId || !clubDataResolved) return;
 
     const formData = new FormData();
     formData.append('clubId', clubDataResolved.club.id);
@@ -365,12 +371,14 @@
     <title>{pageTitle(clubDataResolved.club.name)}</title>
     <meta
       name="description"
-      content={clubDataResolved.club.description || `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+      content={clubDataResolved.club.description ||
+        `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
     />
     <meta property="og:title" content={pageTitle(clubDataResolved.club.name)} />
     <meta
       property="og:description"
-      content={clubDataResolved.club.description || `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+      content={clubDataResolved.club.description ||
+        `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
     />
     {#if clubDataResolved.club.avatarUrl}
       <meta property="og:image" content={clubDataResolved.club.avatarUrl} />
@@ -379,10 +387,11 @@
     <meta name="twitter:title" content={pageTitle(clubDataResolved.club.name)} />
     <meta
       name="twitter:description"
-      content={clubDataResolved.club.description || `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+      content={clubDataResolved.club.description ||
+        `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
     />
   {:else}
-    <title>{pageTitle(m.club_details())}</title>
+    <title>{pageTitle(m.club())}</title>
   {/if}
 </svelte:head>
 
@@ -410,12 +419,9 @@
       </div>
       <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_club_data()}</h3>
       <p class="text-base-content/60 mb-4">
-        {clubDataError.message || m.an_error_occurred()}
+        {clubDataError.message || m.error_occurred()}
       </p>
-      <button
-        class="btn btn-primary"
-        onclick={() => window.location.reload()}
-      >
+      <button class="btn btn-primary" onclick={() => window.location.reload()}>
         <i class="fa-solid fa-refresh"></i>
         {m.try_again()}
       </button>
@@ -423,661 +429,668 @@
   </div>
 {:else if clubDataResolved}
   <!-- Loaded Content -->
-<!-- Club Header -->
-<div
-  class="relative overflow-hidden pt-12"
-  style:background-color={clubDataResolved.club.backgroundColor || ''}
->
-  <div class="absolute inset-0 bg-linear-to-r from-black/20 to-transparent"></div>
-  <div class="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-    <div class="flex flex-col items-center gap-6 sm:flex-row">
-      <!-- Club Avatar -->
-      {#if clubDataResolved.club.avatarUrl || clubDataResolved.university?.avatarUrl}
-        <div class="shrink-0">
-          <img
-            src={clubDataResolved.club.avatarUrl || clubDataResolved.university?.avatarUrl}
-            alt="{clubDataResolved.club.avatarUrl ? clubDataResolved.club.name : clubDataResolved.university?.name} {m.logo()}"
-            class="h-24 w-24 rounded-full shadow-lg sm:h-32 sm:w-32"
-          />
-        </div>
-      {/if}
-
-      <!-- Club Info -->
-      <div
-        class="flex flex-1 flex-col items-center justify-between gap-2 sm:flex-row {clubDataResolved.club
-          .backgroundColor
-          ? 'text-white'
-          : 'text-base-content dark:text-white'}"
-      >
-        <div class="flex flex-col not-sm:text-center">
-          <h1 class="text-3xl font-bold text-shadow-lg sm:text-4xl lg:text-5xl">
-            {clubDataResolved.club.name}
-          </h1>
-
-          {#if clubDataResolved.university}
-            <a
-              href={resolve('/(main)/universities/[id]', {
-                id: clubDataResolved.university.slug || clubDataResolved.university.id
-              })}
-              class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
-            >
-              {clubDataResolved.university.name}
-            </a>
-          {/if}
-        </div>
-
-        <div class="flex items-center gap-2">
-          <!-- Join Button for eligible users -->
-          {#if data.user && clubDataResolved.userPermissions.canJoin === 2}
-            <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
-              <i class="fa-solid fa-plus text-shadow-lg"></i>
-              {m.join_club()}
-            </button>
-          {:else if clubDataResolved.userPermissions.canJoin === 1}
-            <div class="badge badge-warning">
-              <i class="fa-solid fa-clock"></i>
-              {m.join_request_sent()}
-            </div>
-          {/if}
-
-          <!-- Edit Club Button for privileged users -->
-          {#if userPrivileges.canEdit}
-            <a
-              href={resolve('/(main)/clubs/[id]/edit', { id: clubDataResolved.club.slug || clubDataResolved.club.id })}
-              class="btn btn-circle btn-lg btn-ghost"
-              title="{m.edit()} {m.club()}"
-              aria-label="{m.edit()} {m.club()}"
-            >
-              <i class="fa-solid fa-edit text-shadow-lg"></i>
-            </a>
-          {/if}
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{#snippet sidebar(cls = '')}
-  <!-- Sidebar -->
-  <div class="md:col-span-3 {cls}">
-    <div class="sticky top-4 space-y-6">
-      <!-- Club Overview -->
-      <div class="bg-base-200 rounded-lg p-4">
-        <h3 class="mb-3 flex items-center gap-2 font-semibold">
-          <i class="fa-solid fa-info-circle"></i>
-          {m.overview()}
-        </h3>
-
-        <!-- Basic Information -->
-        <div class="space-y-3">
-          {#if clubDataResolved.club.description}
-            <div>
-              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-                {m.club_introduction()}
-              </div>
-              <div class="text-sm leading-relaxed break-all">
-                {clubDataResolved.club.description}
-              </div>
-            </div>
-            <div class="divider my-2"></div>
-          {:else}
-            <div>
-              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-                {m.club_introduction()}
-              </div>
-              <div class="text-base-content/60 text-sm italic">
-                {m.no_club_description()}
-              </div>
-            </div>
-            <div class="divider my-2"></div>
-          {/if}
-
-          <div>
-            <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-              {m.member_count()}
-            </div>
-            <div class="text-sm font-medium">
-              {m.member_count_people({ count: clubDataResolved.stats.totalMembers })}
-            </div>
-          </div>
-
-          <div>
-            <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-              {m.starred_arcades_count()}
-            </div>
-            <div class="text-sm font-medium">
-              {m.starred_arcades_count_shops({ count: clubDataResolved.club.starredArcades.length })}
-            </div>
-          </div>
-
-          {#if clubDataResolved.club.createdAt}
-            <div>
-              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-                {m.registration_date()}
-              </div>
-              <div class="text-sm font-medium">{formatDate(clubDataResolved.club.createdAt)}</div>
-            </div>
-          {/if}
-        </div>
-
-        <!-- Links -->
-        {#if clubDataResolved.club.website}
-          <div class="divider my-2"></div>
-          <div class="border-base-300">
-            <a
-              href={clubDataResolved.club.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="btn btn-soft btn-sm hover:bg-primary hover:text-primary-content w-full gap-2 dark:hover:bg-white dark:hover:text-black"
-            >
-              <i class="fa-solid fa-globe"></i>
-              {m.website()}
-              <i class="fa-solid fa-external-link fa-xs"></i>
-            </a>
+  <!-- Club Header -->
+  <div
+    class="relative overflow-hidden pt-12"
+    style:background-color={clubDataResolved.club.backgroundColor || ''}
+  >
+    <div class="absolute inset-0 bg-linear-to-r from-black/20 to-transparent"></div>
+    <div class="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div class="flex flex-col items-center gap-6 sm:flex-row">
+        <!-- Club Avatar -->
+        {#if clubDataResolved.club.avatarUrl || clubDataResolved.university?.avatarUrl}
+          <div class="shrink-0">
+            <img
+              src={clubDataResolved.club.avatarUrl || clubDataResolved.university?.avatarUrl}
+              alt="{clubDataResolved.club.avatarUrl
+                ? clubDataResolved.club.name
+                : clubDataResolved.university?.name} {m.logo()}"
+              class="h-24 w-24 rounded-full shadow-lg sm:h-32 sm:w-32"
+            />
           </div>
         {/if}
-      </div>
 
-      <!-- Stats -->
-      <div class="bg-base-200 rounded-lg p-4">
-        <h3 class="mb-3 flex items-center gap-2 font-semibold">
-          <i class="fa-solid fa-chart-simple"></i>
-          {m.statistics()}
-        </h3>
-        <div class="grid grid-cols-2 gap-3 text-center">
-          <div class="bg-base-100 rounded-lg p-3">
-            <div class="text-base-content text-lg font-bold">
-              {clubDataResolved.stats.totalMembers}
-            </div>
-            <div class="text-base-content/60 text-xs">
-              {m.members()}
-            </div>
+        <!-- Club Info -->
+        <div
+          class="flex flex-1 flex-col items-center justify-between gap-2 sm:flex-row {clubDataResolved
+            .club.backgroundColor
+            ? 'text-white'
+            : 'text-base-content dark:text-white'}"
+        >
+          <div class="flex flex-col not-sm:text-center">
+            <h1 class="text-3xl font-bold text-shadow-lg sm:text-4xl lg:text-5xl">
+              {clubDataResolved.club.name}
+            </h1>
+
+            {#if clubDataResolved.university}
+              <a
+                href={resolve('/(main)/universities/[id]', {
+                  id: clubDataResolved.university.slug || clubDataResolved.university.id
+                })}
+                class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
+              >
+                {clubDataResolved.university.name}
+              </a>
+            {/if}
           </div>
-          <div class="bg-base-100 rounded-lg p-3">
-            <div class="text-base-content text-lg font-bold">
-              {clubDataResolved.club.starredArcades.length}
-            </div>
-            <div class="text-base-content/60 text-xs">
-              {m.starred_arcades()}
-            </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Join Button for eligible users -->
+            {#if data.user && clubDataResolved.userPermissions.canJoin === 2}
+              <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
+                <i class="fa-solid fa-plus text-shadow-lg"></i>
+                {m.join_club()}
+              </button>
+            {:else if clubDataResolved.userPermissions.canJoin === 1}
+              <div class="badge badge-warning">
+                <i class="fa-solid fa-clock"></i>
+                {m.join_request_sent()}
+              </div>
+            {/if}
+
+            <!-- Edit Club Button for privileged users -->
+            {#if userPrivileges.canEdit}
+              <a
+                href={resolve('/(main)/clubs/[id]/edit', {
+                  id: clubDataResolved.club.slug || clubDataResolved.club.id
+                })}
+                class="btn btn-circle btn-lg btn-ghost"
+                title="{m.edit()} {m.club()}"
+                aria-label="{m.edit()} {m.club()}"
+              >
+                <i class="fa-solid fa-edit text-shadow-lg"></i>
+              </a>
+            {/if}
           </div>
         </div>
       </div>
     </div>
   </div>
-{/snippet}
 
-<!-- Main Content -->
-<div class="mx-auto max-w-7xl min-w-3xs px-4 py-8 sm:px-6 lg:px-8">
-  <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
-    {@render sidebar('not-md:hidden')}
-    <!-- Main Content Area -->
-    <div class="md:col-span-9">
-      <!-- Tabs -->
-      <div class="tabs tabs-lifted mb-6 overflow-x-auto">
-        {#each tabs as tab (tab.id)}
-          <button
-            class="tab tab-lifted whitespace-nowrap transition-colors"
-            class:tab-active={activeTab === tab.id}
-            onclick={() => changeTab(tab.id)}
-          >
-            <i class="fa-solid {tab.icon} mr-2"></i>
-            {tab.label}
-          </button>
-        {/each}
-      </div>
+  {#snippet sidebar(cls = '')}
+    <!-- Sidebar -->
+    <div class="md:col-span-3 {cls}">
+      <div class="sticky top-4 space-y-6">
+        <!-- Club Overview -->
+        <div class="bg-base-200 rounded-lg p-4">
+          <h3 class="mb-3 flex items-center gap-2 font-semibold">
+            <i class="fa-solid fa-info-circle"></i>
+            {m.overview()}
+          </h3>
 
-      <!-- Tab Content -->
-      <div class="bg-base-200 rounded-lg p-6">
-        {#if activeTab === 'posts'}
-          <PostsList
-            organizationType="club"
-            organizationId={clubDataResolved.club.id}
-            organizationName={clubDataResolved.club.name}
-            organizationSlug={clubDataResolved.club.slug}
-            organizationReadability={clubDataResolved.club.postReadability}
-            canManage={userPrivileges.canManage}
-            currentUserId={data.user?.id}
-            canCreatePost={clubDataResolved.canWritePosts}
-            initialPosts={[]}
-          />
-        {:else if activeTab === 'arcades'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-gamepad"></i>
-                {m.starred_arcades()}
-              </h3>
-              <div class="flex items-center gap-3">
-                <div class="text-base-content/60 text-sm">
-                  {m.shops({ count: clubDataResolved.club.starredArcades.length })}
+          <!-- Basic Information -->
+          <div class="space-y-3">
+            {#if clubDataResolved?.club.description}
+              <div>
+                <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                  {m.club_introduction()}
                 </div>
-                {#if userPrivileges.canEdit}
-                  <button
-                    class="btn btn-primary btn-sm btn-soft not-xs:btn-circle"
-                    onclick={() => (showAddArcadeModal = true)}
-                  >
-                    <i class="fa-solid fa-plus"></i>
-                    <span class="not-xs:hidden">{m.add_arcade()}</span>
-                  </button>
-                {/if}
+                <div class="text-sm leading-relaxed break-all">
+                  {clubDataResolved.club.description}
+                </div>
+              </div>
+              <div class="divider my-2"></div>
+            {:else}
+              <div>
+                <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                  {m.club_introduction()}
+                </div>
+                <div class="text-base-content/60 text-sm italic">
+                  {m.no_club_description()}
+                </div>
+              </div>
+              <div class="divider my-2"></div>
+            {/if}
+
+            <div>
+              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                {m.member_count()}
+              </div>
+              <div class="text-sm font-medium">
+                {m.member_count_people({ count: clubDataResolved?.stats.totalMembers || '' })}
               </div>
             </div>
 
-            <!-- Arcade List -->
-            <div class="bg-base-100 rounded-lg">
-              {#if displayedArcades && displayedArcades.length > 0}
-                <div class="divide-base-200 divide-y">
-                  {#each displayedArcades as shop (shop._id)}
-                    <div class="flex items-center justify-between p-4">
-                      <a
-                        href={resolve('/(main)/shops/[source]/[id]', {
-                          source: shop.source,
-                          id: shop.id.toString()
-                        })}
-                        target={adaptiveNewTab()}
-                        class="group flex flex-1 items-center gap-3"
-                      >
-                        <div class="flex-1">
-                          <h4 class="group-hover:text-accent font-medium transition-colors">
-                            {shop.name}
-                          </h4>
-                          {#if shop.games && shop.games.length > 0}
-                            {@const aggregatedGames = aggregateGames(shop)}
-                            <div class="mt-1 flex flex-wrap gap-1">
-                              {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
-                                <span class="badge badge-xs badge-soft">
-                                  {game.name}
-                                </span>
-                              {/each}
-                              {#if aggregatedGames.length > 3}
-                                <span class="badge badge-xs badge-soft">
-                                  +{aggregatedGames.length - 3}
-                                </span>
-                              {/if}
-                            </div>
-                          {/if}
-                        </div>
-                      </a>
-                      <div class="flex gap-2">
-                        <a
-                          href="{resolve('/(main)/discover')}?longitude={shop.location
-                            ?.coordinates[0]}&latitude={shop.location
-                            ?.coordinates[1]}&name={shop.name}&radius={radius}"
-                          target={adaptiveNewTab()}
-                          class="btn btn-soft btn-circle btn-sm"
-                          title={m.explore_nearby()}
-                          aria-label={m.explore_nearby()}
-                        >
-                          <i class="fa-solid fa-map-location-dot"></i>
-                        </a>
-                        {#if userPrivileges.canEdit}
-                          <button
-                            class="btn btn-soft btn-circle btn-sm btn-error"
-                            onclick={() => handleArcadeAction('removeArcade', shop.source, shop.id)}
-                            title={m.remove_arcade()}
-                            aria-label={m.remove_arcade()}
-                          >
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        {/if}
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-
-                {#if hasMoreArcades}
-                  <div class="p-4 text-center">
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      onclick={loadMoreArcades}
-                      disabled={isLoadingMoreArcades}
-                    >
-                      {#if isLoadingMoreArcades}
-                        <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading()}
-                      {:else}
-                        {m.load_more()}
-                      {/if}
-                    </button>
-                  </div>
-                {/if}
-              {:else}
-                <div class="p-6">
-                  <div class="py-8 text-center">
-                    <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
-                    <h4 class="text-lg font-medium">{m.no_starred_arcades()}</h4>
-                    {#if userPrivileges.canEdit}
-                      <p class="text-base-content/60 mt-2 mb-4">
-                        {m.add_arcade_to_get_started()}
-                      </p>
-                      <button
-                        class="btn btn-primary btn-sm btn-soft"
-                        onclick={() => (showAddArcadeModal = true)}
-                      >
-                        <i class="fa-solid fa-plus"></i>
-                        {m.add_arcade()}
-                      </button>
-                    {/if}
-                  </div>
-                </div>
-              {/if}
+            <div>
+              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                {m.starred_arcades_count()}
+              </div>
+              <div class="text-sm font-medium">
+                {m.starred_arcades_count_shops({
+                  count: clubDataResolved?.club.starredArcades.length || ''
+                })}
+              </div>
             </div>
+
+            {#if clubDataResolved?.club.createdAt}
+              <div>
+                <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                  {m.registration_date()}
+                </div>
+                <div class="text-sm font-medium">{formatDate(clubDataResolved.club.createdAt)}</div>
+              </div>
+            {/if}
           </div>
-        {:else if activeTab === 'members'}
-          <div class="space-y-6">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-semibold">
-                <i class="fa-solid fa-user"></i>
+
+          <!-- Links -->
+          {#if clubDataResolved?.club.website}
+            <div class="divider my-2"></div>
+            <div class="border-base-300">
+              <a
+                href={clubDataResolved.club.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-soft btn-sm hover:bg-primary hover:text-primary-content w-full gap-2 dark:hover:bg-white dark:hover:text-black"
+              >
+                <i class="fa-solid fa-globe"></i>
+                {m.website()}
+                <i class="fa-solid fa-external-link fa-xs"></i>
+              </a>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Stats -->
+        <div class="bg-base-200 rounded-lg p-4">
+          <h3 class="mb-3 flex items-center gap-2 font-semibold">
+            <i class="fa-solid fa-chart-simple"></i>
+            {m.statistics()}
+          </h3>
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-base-100 rounded-lg p-3">
+              <div class="text-base-content text-lg font-bold">
+                {clubDataResolved?.stats.totalMembers}
+              </div>
+              <div class="text-base-content/60 text-xs">
                 {m.members()}
-              </h3>
-              <div class="flex items-center gap-3">
-                <div class="text-base-content/60 text-sm">
-                  {m.member_count_people({ count: clubDataResolved.stats.totalMembers })}
+              </div>
+            </div>
+            <div class="bg-base-100 rounded-lg p-3">
+              <div class="text-base-content text-lg font-bold">
+                {clubDataResolved?.club.starredArcades.length}
+              </div>
+              <div class="text-base-content/60 text-xs">
+                {m.starred_arcades()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/snippet}
+
+  <!-- Main Content -->
+  <div class="mx-auto max-w-7xl min-w-3xs px-4 py-8 sm:px-6 lg:px-8">
+    <div class="flex flex-col gap-8 md:grid md:grid-cols-12 md:gap-8">
+      {@render sidebar('not-md:hidden')}
+      <!-- Main Content Area -->
+      <div class="md:col-span-9">
+        <!-- Tabs -->
+        <div class="tabs tabs-lifted mb-6 overflow-x-auto">
+          {#each tabs as tab (tab.id)}
+            <button
+              class="tab tab-lifted whitespace-nowrap transition-colors"
+              class:tab-active={activeTab === tab.id}
+              onclick={() => changeTab(tab.id)}
+            >
+              <i class="fa-solid {tab.icon} mr-2"></i>
+              {tab.label}
+            </button>
+          {/each}
+        </div>
+
+        <!-- Tab Content -->
+        <div class="bg-base-200 rounded-lg p-6">
+          {#if activeTab === 'posts'}
+            <PostsList
+              organizationType="club"
+              organizationId={clubDataResolved.club.id}
+              organizationName={clubDataResolved.club.name}
+              organizationSlug={clubDataResolved.club.slug}
+              organizationReadability={clubDataResolved.club.postReadability}
+              canManage={userPrivileges.canManage}
+              currentUserId={data.user?.id}
+              canCreatePost={clubDataResolved.canWritePosts}
+              initialPosts={[]}
+            />
+          {:else if activeTab === 'arcades'}
+            <div class="space-y-6">
+              <div class="flex items-center justify-between">
+                <h3 class="flex items-center gap-2 text-lg font-semibold">
+                  <i class="fa-solid fa-gamepad"></i>
+                  {m.starred_arcades()}
+                </h3>
+                <div class="flex items-center gap-3">
+                  <div class="text-base-content/60 text-sm">
+                    {m.shops({ count: clubDataResolved.club.starredArcades.length })}
+                  </div>
+                  {#if userPrivileges.canEdit}
+                    <button
+                      class="btn btn-primary btn-sm btn-soft not-xs:btn-circle"
+                      onclick={() => (showAddArcadeModal = true)}
+                    >
+                      <i class="fa-solid fa-plus"></i>
+                      <span class="not-xs:hidden">{m.add_arcade()}</span>
+                    </button>
+                  {/if}
                 </div>
-                {#if userPrivileges.canManage}
-                  <button
-                    class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
-                    onclick={() => (showInviteModal = true)}
-                  >
-                    <i class="fa-solid fa-plus"></i>
-                    <span class="not-xs:hidden">{m.invite_members()}</span>
-                  </button>
+              </div>
+
+              <!-- Arcade List -->
+              <div class="bg-base-100 rounded-lg">
+                {#if displayedArcades && displayedArcades.length > 0}
+                  <div class="divide-base-200 divide-y">
+                    {#each displayedArcades as shop (shop._id)}
+                      <div class="flex items-center justify-between p-4">
+                        <a
+                          href={resolve('/(main)/shops/[source]/[id]', {
+                            source: shop.source,
+                            id: shop.id.toString()
+                          })}
+                          target={adaptiveNewTab()}
+                          class="group flex flex-1 items-center gap-3"
+                        >
+                          <div class="flex-1">
+                            <h4 class="group-hover:text-accent font-medium transition-colors">
+                              {shop.name}
+                            </h4>
+                            {#if shop.games && shop.games.length > 0}
+                              {@const aggregatedGames = aggregateGames(shop)}
+                              <div class="mt-1 flex flex-wrap gap-1">
+                                {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
+                                  <span class="badge badge-xs badge-soft">
+                                    {game.name}
+                                  </span>
+                                {/each}
+                                {#if aggregatedGames.length > 3}
+                                  <span class="badge badge-xs badge-soft">
+                                    +{aggregatedGames.length - 3}
+                                  </span>
+                                {/if}
+                              </div>
+                            {/if}
+                          </div>
+                        </a>
+                        <div class="flex gap-2">
+                          <a
+                            href="{resolve('/(main)/discover')}?longitude={shop.location
+                              ?.coordinates[0]}&latitude={shop.location
+                              ?.coordinates[1]}&name={shop.name}&radius={radius}"
+                            target={adaptiveNewTab()}
+                            class="btn btn-soft btn-circle btn-sm"
+                            title={m.explore_nearby()}
+                            aria-label={m.explore_nearby()}
+                          >
+                            <i class="fa-solid fa-map-location-dot"></i>
+                          </a>
+                          {#if userPrivileges.canEdit}
+                            <button
+                              class="btn btn-soft btn-circle btn-sm btn-error"
+                              onclick={() =>
+                                handleArcadeAction('removeArcade', shop.source, shop.id)}
+                              title={m.remove_arcade()}
+                              aria-label={m.remove_arcade()}
+                            >
+                              <i class="fa-solid fa-trash"></i>
+                            </button>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+
+                  {#if hasMoreArcades}
+                    <div class="p-4 text-center">
+                      <button
+                        class="btn btn-ghost btn-sm"
+                        onclick={loadMoreArcades}
+                        disabled={isLoadingMoreArcades}
+                      >
+                        {#if isLoadingMoreArcades}
+                          <span class="loading loading-spinner loading-sm"></span>
+                          {m.loading()}
+                        {:else}
+                          {m.load_more()}
+                        {/if}
+                      </button>
+                    </div>
+                  {/if}
+                {:else}
+                  <div class="p-6">
+                    <div class="py-8 text-center">
+                      <i class="fa-solid fa-gamepad text-base-content/30 mb-4 text-5xl"></i>
+                      <h4 class="text-lg font-medium">{m.no_starred_arcades()}</h4>
+                      {#if userPrivileges.canEdit}
+                        <p class="text-base-content/60 mt-2 mb-4">
+                          {m.add_arcade_to_get_started()}
+                        </p>
+                        <button
+                          class="btn btn-primary btn-sm btn-soft"
+                          onclick={() => (showAddArcadeModal = true)}
+                        >
+                          <i class="fa-solid fa-plus"></i>
+                          {m.add_arcade()}
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
                 {/if}
               </div>
             </div>
+          {:else if activeTab === 'members'}
+            <div class="space-y-6">
+              <div class="flex items-center justify-between">
+                <h3 class="flex items-center gap-2 text-lg font-semibold">
+                  <i class="fa-solid fa-user"></i>
+                  {m.members()}
+                </h3>
+                <div class="flex items-center gap-3">
+                  <div class="text-base-content/60 text-sm">
+                    {m.member_count_people({ count: clubDataResolved.stats.totalMembers })}
+                  </div>
+                  {#if userPrivileges.canManage}
+                    <button
+                      class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
+                      onclick={() => (showInviteModal = true)}
+                    >
+                      <i class="fa-solid fa-plus"></i>
+                      <span class="not-xs:hidden">{m.invite_members()}</span>
+                    </button>
+                  {/if}
+                </div>
+              </div>
 
-            <!-- Member List -->
-            <div class="bg-base-100 rounded-lg">
-              {#if displayedMembers && displayedMembers.length > 0}
-                <div class="divide-base-200 divide-y">
-                  {#each displayedMembers as member (member.userId)}
-                    <div class="flex items-center justify-between gap-1 p-4">
-                      <div class="overflow-hidden">
-                        <UserAvatar user={member.user} showName size="md" />
-                      </div>
-
-                      <div class="flex items-center gap-1">
-                        <!-- Member Type Badge -->
-                        <div
-                          class="badge {member.memberType === 'admin'
-                            ? 'badge-error'
-                            : member.memberType === 'moderator'
-                              ? 'badge-warning'
-                              : 'badge-neutral'} badge-sm text-nowrap"
-                        >
-                          {member.memberType === 'admin'
-                            ? m.admin()
-                            : member.memberType === 'moderator'
-                              ? m.moderator()
-                              : m.member()}
+              <!-- Member List -->
+              <div class="bg-base-100 rounded-lg">
+                {#if displayedMembers && displayedMembers.length > 0}
+                  <div class="divide-base-200 divide-y">
+                    {#each displayedMembers as member (member.userId)}
+                      <div class="flex items-center justify-between gap-1 p-4">
+                        <div class="overflow-hidden">
+                          <UserAvatar user={member.user} showName size="md" />
                         </div>
 
-                        <!-- Actions for privileged users -->
-                        {#if userPrivileges.canManage && member.user?.id !== data.user?.id}
-                          {@const memberActions = canManageMember(member)}
-                          {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
-                            <div class="dropdown dropdown-end">
-                              <div
-                                tabindex="0"
-                                role="button"
-                                class="btn btn-ghost btn-circle btn-sm"
-                              >
-                                <i class="fa-solid fa-ellipsis-vertical"></i>
-                              </div>
-                              <ul
-                                class="dropdown-content menu bg-base-200 rounded-box z-1 w-64 p-2 shadow"
-                              >
-                                {#if memberActions.grantModerator}
-                                  <li>
-                                    <button
-                                      onclick={() => openGrantModeratorModal(member)}
-                                      class="text-success"
-                                    >
-                                      <i class="fa-solid fa-user-shield"></i>
-                                      {m.grant_moderator()}
-                                    </button>
-                                  </li>
-                                {/if}
-                                {#if memberActions.revokeModerator}
-                                  <li>
-                                    <button
-                                      onclick={() => openRevokeModeratorModal(member)}
-                                      class="text-warning"
-                                    >
-                                      <i class="fa-solid fa-user-minus"></i>
-                                      {m.revoke_moderator()}
-                                    </button>
-                                  </li>
-                                {/if}
-                                {#if memberActions.grantAdmin}
-                                  <li>
-                                    <button
-                                      onclick={() => openGrantAdminModal(member)}
-                                      class="text-primary"
-                                    >
-                                      <i class="fa-solid fa-crown"></i>
-                                      {m.grant_admin()}
-                                    </button>
-                                  </li>
-                                {/if}
-                                {#if memberActions.transferAdmin}
-                                  <li>
-                                    <button
-                                      onclick={() => openTransferAdminModal(member)}
-                                      class="text-info"
-                                    >
-                                      <i class="fa-solid fa-crown"></i>
-                                      {m.transfer_admin()}
-                                    </button>
-                                  </li>
-                                {/if}
-                                {#if memberActions.remove}
-                                  <li>
-                                    <button
-                                      onclick={() => openRemoveMemberModal(member)}
-                                      class="text-error"
-                                    >
-                                      <i class="fa-solid fa-user-times"></i>
-                                      {m.remove_member()}
-                                    </button>
-                                  </li>
-                                {/if}
-                              </ul>
-                            </div>
-                          {/if}
-                        {/if}
-                      </div>
-                    </div>
-                  {/each}
-                </div>
+                        <div class="flex items-center gap-1">
+                          <!-- Member Type Badge -->
+                          <div
+                            class="badge {member.memberType === 'admin'
+                              ? 'badge-error'
+                              : member.memberType === 'moderator'
+                                ? 'badge-warning'
+                                : 'badge-neutral'} badge-sm text-nowrap"
+                          >
+                            {member.memberType === 'admin'
+                              ? m.admin()
+                              : member.memberType === 'moderator'
+                                ? m.moderator()
+                                : m.member()}
+                          </div>
 
-                {#if hasMoreMembers}
-                  <div class="p-4 text-center">
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      onclick={loadMoreMembers}
-                      disabled={isLoadingMoreMembers}
-                    >
-                      {#if isLoadingMoreMembers}
-                        <span class="loading loading-spinner loading-sm"></span>
-                        {m.loading()}
-                      {:else}
-                        {m.load_more()}
+                          <!-- Actions for privileged users -->
+                          {#if userPrivileges.canManage && member.user?.id !== data.user?.id}
+                            {@const memberActions = canManageMember(member)}
+                            {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
+                              <div class="dropdown dropdown-end">
+                                <div
+                                  tabindex="0"
+                                  role="button"
+                                  class="btn btn-ghost btn-circle btn-sm"
+                                >
+                                  <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </div>
+                                <ul
+                                  class="dropdown-content menu bg-base-200 rounded-box z-1 w-64 p-2 shadow"
+                                >
+                                  {#if memberActions.grantModerator}
+                                    <li>
+                                      <button
+                                        onclick={() => openGrantModeratorModal(member)}
+                                        class="text-success"
+                                      >
+                                        <i class="fa-solid fa-user-shield"></i>
+                                        {m.grant_moderator()}
+                                      </button>
+                                    </li>
+                                  {/if}
+                                  {#if memberActions.revokeModerator}
+                                    <li>
+                                      <button
+                                        onclick={() => openRevokeModeratorModal(member)}
+                                        class="text-warning"
+                                      >
+                                        <i class="fa-solid fa-user-minus"></i>
+                                        {m.revoke_moderator()}
+                                      </button>
+                                    </li>
+                                  {/if}
+                                  {#if memberActions.grantAdmin}
+                                    <li>
+                                      <button
+                                        onclick={() => openGrantAdminModal(member)}
+                                        class="text-primary"
+                                      >
+                                        <i class="fa-solid fa-crown"></i>
+                                        {m.grant_admin()}
+                                      </button>
+                                    </li>
+                                  {/if}
+                                  {#if memberActions.transferAdmin}
+                                    <li>
+                                      <button
+                                        onclick={() => openTransferAdminModal(member)}
+                                        class="text-info"
+                                      >
+                                        <i class="fa-solid fa-crown"></i>
+                                        {m.transfer_admin()}
+                                      </button>
+                                    </li>
+                                  {/if}
+                                  {#if memberActions.remove}
+                                    <li>
+                                      <button
+                                        onclick={() => openRemoveMemberModal(member)}
+                                        class="text-error"
+                                      >
+                                        <i class="fa-solid fa-user-times"></i>
+                                        {m.remove_member()}
+                                      </button>
+                                    </li>
+                                  {/if}
+                                </ul>
+                              </div>
+                            {/if}
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+
+                  {#if hasMoreMembers}
+                    <div class="p-4 text-center">
+                      <button
+                        class="btn btn-ghost btn-sm"
+                        onclick={loadMoreMembers}
+                        disabled={isLoadingMoreMembers}
+                      >
+                        {#if isLoadingMoreMembers}
+                          <span class="loading loading-spinner loading-sm"></span>
+                          {m.loading()}
+                        {:else}
+                          {m.load_more()}
+                        {/if}
+                      </button>
+                    </div>
+                  {/if}
+                {:else}
+                  <div class="p-6">
+                    <div class="py-8 text-center">
+                      <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
+                      <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
+                      {#if userPrivileges.canManage}
+                        <p class="text-base-content/60 mt-2 mb-4">
+                          {m.member_management_description()}
+                        </p>
+                        <button
+                          class="btn btn-primary btn-sm btn-soft"
+                          onclick={() => (showInviteModal = true)}
+                        >
+                          <i class="fa-solid fa-plus"></i>
+                          {m.invite_members()}
+                        </button>
                       {/if}
-                    </button>
+                    </div>
                   </div>
                 {/if}
-              {:else}
-                <div class="p-6">
-                  <div class="py-8 text-center">
-                    <i class="fa-solid fa-user text-base-content/30 mb-4 text-5xl"></i>
-                    <h4 class="text-lg font-medium">{m.no_members_yet()}</h4>
-                    {#if userPrivileges.canManage}
-                      <p class="text-base-content/60 mt-2 mb-4">
-                        {m.member_management_description()}
-                      </p>
-                      <button
-                        class="btn btn-primary btn-sm btn-soft"
-                        onclick={() => (showInviteModal = true)}
-                      >
-                        <i class="fa-solid fa-plus"></i>
-                        {m.invite_members()}
-                      </button>
-                    {/if}
-                  </div>
-                </div>
-              {/if}
+              </div>
             </div>
-          </div>
-        {/if}
-      </div>
-    </div>
-    {@render sidebar('md:hidden')}
-  </div>
-</div>
-
-<!-- Invite Link Modal -->
-<InviteLinkModal
-  bind:isOpen={showInviteModal}
-  type="club"
-  targetId={clubDataResolved.club.id}
-  targetName={clubDataResolved.club.name}
-/>
-
-<!-- Role Management Modals -->
-<RoleManagementModals
-  {showRemoveMemberModal}
-  {showGrantModeratorModal}
-  {showRevokeModeratorModal}
-  {showGrantAdminModal}
-  {showTransferAdminModal}
-  {selectedMember}
-  onClose={closeModals}
-  onSubmit={handleRoleAction}
-/>
-
-<!-- Add Arcade Modal -->
-<div class="modal" class:modal-open={showAddArcadeModal}>
-  <div class="modal-box max-w-4xl">
-    <div class="mb-6 flex items-center justify-between">
-      <h3 class="text-lg font-bold">
-        <i class="fa-solid fa-gamepad mr-2"></i>
-        {m.add_arcade()}
-      </h3>
-      <button
-        class="btn btn-ghost btn-circle btn-sm"
-        onclick={() => {
-          showAddArcadeModal = false;
-          clearSearch();
-        }}
-        aria-label={m.close()}
-      >
-        <i class="fa-solid fa-times"></i>
-      </button>
-    </div>
-
-    <!-- Search Section -->
-    <div class="mb-6">
-      <div class="mb-4 flex gap-2">
-        <div class="flex-1">
-          <input
-            type="text"
-            placeholder={m.search_arcades_placeholder()}
-            class="input input-bordered w-full"
-            bind:value={searchQuery}
-            oninput={handleSearchInput}
-          />
+          {/if}
         </div>
+      </div>
+      {@render sidebar('md:hidden')}
+    </div>
+  </div>
+
+  <!-- Invite Link Modal -->
+  <InviteLinkModal
+    bind:isOpen={showInviteModal}
+    type="club"
+    targetId={clubDataResolved.club.id}
+    targetName={clubDataResolved.club.name}
+  />
+
+  <!-- Role Management Modals -->
+  <RoleManagementModals
+    {showRemoveMemberModal}
+    {showGrantModeratorModal}
+    {showRevokeModeratorModal}
+    {showGrantAdminModal}
+    {showTransferAdminModal}
+    {selectedMember}
+    onClose={closeModals}
+    onSubmit={handleRoleAction}
+  />
+
+  <!-- Add Arcade Modal -->
+  <div class="modal" class:modal-open={showAddArcadeModal}>
+    <div class="modal-box max-w-4xl">
+      <div class="mb-6 flex items-center justify-between">
+        <h3 class="text-lg font-bold">
+          <i class="fa-solid fa-gamepad mr-2"></i>
+          {m.add_arcade()}
+        </h3>
         <button
-          class="btn btn-ghost"
-          onclick={clearSearch}
-          disabled={!searchQuery}
-          aria-label={m.clear_search()}
+          class="btn btn-ghost btn-circle btn-sm"
+          onclick={() => {
+            showAddArcadeModal = false;
+            clearSearch();
+          }}
+          aria-label={m.close()}
         >
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
 
-      {#if isSearching}
-        <div class="flex items-center justify-center py-8">
-          <span class="loading loading-spinner loading-lg"></span>
+      <!-- Search Section -->
+      <div class="mb-6">
+        <div class="mb-4 flex gap-2">
+          <div class="flex-1">
+            <input
+              type="text"
+              placeholder={m.search_arcades_placeholder()}
+              class="input input-bordered w-full"
+              bind:value={searchQuery}
+              oninput={handleSearchInput}
+            />
+          </div>
+          <button
+            class="btn btn-ghost"
+            onclick={clearSearch}
+            disabled={!searchQuery}
+            aria-label={m.clear_search()}
+          >
+            <i class="fa-solid fa-times"></i>
+          </button>
         </div>
-      {:else if searchResults.length > 0}
-        <div class="max-h-96 space-y-2 overflow-y-auto">
-          {#each searchResults as shop (shop._id)}
-            <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
-              <div class="flex-1">
-                <h4 class="font-medium">{shop.name}</h4>
-                <p class="text-base-content/60 text-sm">
-                  {shop.source.toUpperCase()} #{shop.id}
-                </p>
-                {#if shop.games && shop.games.length > 0}
-                  {@const aggregatedGames = aggregateGames(shop)}
-                  <div class="mt-1 flex flex-wrap gap-1">
-                    {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
-                      <span class="badge badge-xs badge-ghost">
-                        {game.name}
-                      </span>
-                    {/each}
-                    {#if aggregatedGames.length > 3}
-                      <span class="badge badge-xs badge-ghost">
-                        +{aggregatedGames.length - 3}
-                      </span>
-                    {/if}
-                  </div>
+
+        {#if isSearching}
+          <div class="flex items-center justify-center py-8">
+            <span class="loading loading-spinner loading-lg"></span>
+          </div>
+        {:else if searchResults.length > 0}
+          <div class="max-h-96 space-y-2 overflow-y-auto">
+            {#each searchResults as shop (shop._id)}
+              <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
+                <div class="flex-1">
+                  <h4 class="font-medium">{shop.name}</h4>
+                  <p class="text-base-content/60 text-sm">
+                    {shop.source.toUpperCase()} #{shop.id}
+                  </p>
+                  {#if shop.games && shop.games.length > 0}
+                    {@const aggregatedGames = aggregateGames(shop)}
+                    <div class="mt-1 flex flex-wrap gap-1">
+                      {#each aggregatedGames.slice(0, 3) as game (game.titleId)}
+                        <span class="badge badge-xs badge-ghost">
+                          {game.name}
+                        </span>
+                      {/each}
+                      {#if aggregatedGames.length > 3}
+                        <span class="badge badge-xs badge-ghost">
+                          +{aggregatedGames.length - 3}
+                        </span>
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
+                {#if !clubDataResolved.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
+                  <button
+                    class="btn btn-primary btn-soft btn-sm"
+                    onclick={() => {
+                      handleArcadeAction('addArcade', shop.source, shop.id);
+                      showAddArcadeModal = false;
+                      clearSearch();
+                    }}
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    {m.add()}
+                  </button>
+                {:else}
+                  <span class="badge badge-success">
+                    <i class="fa-solid fa-check"></i>
+                    {m.already_added()}
+                  </span>
                 {/if}
               </div>
-              {#if !clubDataResolved.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
-                <button
-                  class="btn btn-primary btn-soft btn-sm"
-                  onclick={() => {
-                    handleArcadeAction('addArcade', shop.source, shop.id);
-                    showAddArcadeModal = false;
-                    clearSearch();
-                  }}
-                >
-                  <i class="fa-solid fa-plus"></i>
-                  {m.add()}
-                </button>
-              {:else}
-                <span class="badge badge-success">
-                  <i class="fa-solid fa-check"></i>
-                  {m.already_added()}
-                </span>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {:else if searchQuery && !isSearching}
-        <div class="text-base-content/60 py-8 text-center">
-          <i class="fa-solid fa-search mb-2 text-2xl"></i>
-          <p>{m.no_arcades_found()}</p>
-        </div>
-      {/if}
-    </div>
+            {/each}
+          </div>
+        {:else if searchQuery && !isSearching}
+          <div class="text-base-content/60 py-8 text-center">
+            <i class="fa-solid fa-search mb-2 text-2xl"></i>
+            <p>{m.no_arcades_found()}</p>
+          </div>
+        {/if}
+      </div>
 
-    <div class="modal-action">
-      <button
-        class="btn"
-        onclick={() => {
-          showAddArcadeModal = false;
-          clearSearch();
-        }}
-      >
-        {m.close()}
-      </button>
+      <div class="modal-action">
+        <button
+          class="btn"
+          onclick={() => {
+            showAddArcadeModal = false;
+            clearSearch();
+          }}
+        >
+          {m.close()}
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Join Request Modal -->
-<JoinRequestModal
-  bind:isOpen={showJoinRequestModal}
-  clubId={clubDataResolved.club.id}
-  clubName={clubDataResolved.club.name}
-  onSuccess={() => {
-    invalidateAll();
-  }}
-/>
+  <!-- Join Request Modal -->
+  <JoinRequestModal
+    bind:isOpen={showJoinRequestModal}
+    clubId={clubDataResolved.club.id}
+    clubName={clubDataResolved.club.name}
+    onSuccess={() => {
+      invalidateAll();
+    }}
+  />
 {/if}
