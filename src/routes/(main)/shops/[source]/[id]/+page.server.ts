@@ -21,39 +21,47 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     error(404, m.invalid_shop_id());
   }
 
-  try {
-    const db = mongo.db();
-    const shopsCollection = db.collection<Shop>('shops');
+  // Get session data immediately
+  const { session } = await parent();
 
-    // Find the shop by source and id
-    const shop = await shopsCollection.findOne({
-      source: source as ShopSource,
-      id: shopId
-    });
+  // Stream the shop data
+  const shopData = (async () => {
+    try {
+      const db = mongo.db();
+      const shopsCollection = db.collection<Shop>('shops');
 
-    if (!shop) {
-      error(404, m.shop_not_found());
+      // Find the shop by source and id
+      const shop = await shopsCollection.findOne({
+        source: source as ShopSource,
+        id: shopId
+      });
+
+      if (!shop) {
+        throw error(404, m.shop_not_found());
+      }
+
+      let userAttendance: { shop: Shop; attendedAt: Date } | null = null;
+      if (session?.user?.id) {
+        userAttendance = await getCurrentAttendance(session.user.id);
+      }
+
+      return {
+        shop: toPlainObject(shop),
+        currentAttendance: userAttendance
+          ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
+          : null
+      };
+    } catch (err) {
+      if (err && (isHttpError(err) || isRedirect(err))) {
+        throw err;
+      }
+      console.error('Error loading shop:', err);
+      throw error(500, m.failed_to_load_shop());
     }
+  })();
 
-    const { session } = await parent();
-
-    let userAttendance: { shop: Shop; attendedAt: Date } | null = null;
-    if (session?.user?.id) {
-      userAttendance = await getCurrentAttendance(session.user.id);
-    }
-
-    return {
-      shop: toPlainObject(shop),
-      user: session?.user,
-      currentAttendance: userAttendance
-        ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
-        : null
-    };
-  } catch (err) {
-    if (err && (isHttpError(err) || isRedirect(err))) {
-      throw err;
-    }
-    console.error('Error loading shop:', err);
-    error(500, m.failed_to_load_shop());
-  }
+  return {
+    shopData,
+    user: session?.user
+  };
 };
