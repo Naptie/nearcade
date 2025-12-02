@@ -356,29 +356,28 @@
 {#if shopDataLoading}
   <!-- Loading State with Skeleton -->
   <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
-    <div class="mb-8">
-      <div class="skeleton mb-4 h-10 w-3/4"></div>
-      <div class="alert alert-success alert-soft">
-        <div class="skeleton h-16 w-full"></div>
-      </div>
-    </div>
     <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
       <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
         <div class="space-y-6">
-          <div class="card bg-base-200">
-            <div class="card-body p-6">
-              <div class="skeleton mb-4 h-6 w-32"></div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-full"></div>
-                <div class="skeleton h-4 w-full"></div>
-                <div class="skeleton h-4 w-full"></div>
+          <!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+          {#each Array(3) as _, idx (idx)}
+            <div class="card bg-base-200">
+              <div class="card-body p-6">
+                <div class="skeleton mb-4 h-6 w-32"></div>
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-full"></div>
+                  <div class="skeleton h-4 w-full"></div>
+                  <div class="skeleton h-4 w-full"></div>
+                </div>
               </div>
             </div>
-          </div>
+          {/each}
         </div>
       </div>
       <div class="md:col-span-3 lg:col-span-2">
         <div class="space-y-4">
+          <div class="skeleton mb-4 h-10 w-3/4"></div>
+          <div class="alert alert-success alert-soft h-18 w-full"></div>
           <!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
           {#each Array(3) as _, idx (idx)}
             <div class="card bg-base-200">
