@@ -21,6 +21,25 @@
 
   let { data }: { data: PageData } = $props();
 
+  // Wait for university data and handle loading/error states
+  let universityDataResolved = $state<Awaited<typeof data.universityData> | null>(null);
+  let universityDataError = $state<Error | null>(null);
+  let universityDataLoading = $state(true);
+
+  $effect(() => {
+    universityDataLoading = true;
+    universityDataError = null;
+    data.universityData
+      .then((resolved) => {
+        universityDataResolved = resolved;
+        universityDataLoading = false;
+      })
+      .catch((err) => {
+        universityDataError = err;
+        universityDataLoading = false;
+      });
+  });
+
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'campuses', label: m.campuses(), icon: 'fa-building' },
@@ -53,31 +72,31 @@
   let selectedMember = $state<UniversityMemberWithUser | null>(null);
 
   // Infinite scrolling state
-  let displayedMembers = $derived(data.members || []);
-  let displayedClubs = $derived(data.clubs || []);
-  let displayedFrequentingArcades = $derived(data.frequentingArcades || []);
+  let displayedMembers = $derived(universityDataResolved?.members || []);
+  let displayedClubs = $derived(universityDataResolved?.clubs || []);
+  let displayedFrequentingArcades = $derived(universityDataResolved?.frequentingArcades || []);
   let isLoadingMoreMembers = $state(false);
   let isLoadingMoreClubs = $state(false);
-  let hasMoreMembers = $derived((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
-  let hasMoreClubs = $derived((data.clubs?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreMembers = $derived((universityDataResolved?.members?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreClubs = $derived((universityDataResolved?.clubs?.length || 0) >= PAGINATION.PAGE_SIZE);
   let currentMembersPage = $state(1);
   let currentClubsPage = $state(1);
 
   // Check user privileges
   let userPrivileges = $derived.by(() => {
     if (!data.user) return { canEdit: false, canManage: false };
-    return data.userPermissions;
+    return universityDataResolved?.userPermissions || { canEdit: false, canManage: false, canJoin: 0 };
   });
 
   // Check if user can write posts based on university postWritability setting
-  let canWritePosts = $derived(canWriteUnivPosts(data.userPermissions, data.university));
+  let canWritePosts = $derived(universityDataResolved ? canWriteUnivPosts(universityDataResolved.userPermissions, universityDataResolved.university) : false);
 
   // Load search radius from localStorage
   onMount(() => {
     if (browser) {
       window.dispatchEvent(
         new CustomEvent('nearcade-org-background', {
-          detail: { hasCustomBackground: !!data.university.backgroundColor }
+          detail: { hasCustomBackground: !!universityDataResolved.university.backgroundColor }
         })
       );
       const savedRadius = localStorage.getItem('nearcade-radius');
@@ -139,11 +158,11 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        fromPath(`/api/universities/${data.university.id}/members?page=${nextPage}`)
+        fromPath(`/api/universities/${universityDataResolved.university.id}/members?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
-          members: typeof data.members;
+          members: typeof universityDataResolved.members;
           hasMore: boolean;
           page: number;
         };
@@ -168,11 +187,11 @@
     try {
       const nextPage = currentClubsPage + 1;
       const response = await fetch(
-        fromPath(`/api/universities/${data.university.id}/clubs?page=${nextPage}`)
+        fromPath(`/api/universities/${universityDataResolved.university.id}/clubs?page=${nextPage}`)
       );
       if (response.ok) {
         const result = (await response.json()) as {
-          clubs: typeof data.clubs;
+          clubs: typeof universityDataResolved.clubs;
           hasMore: boolean;
           page: number;
         };
@@ -230,7 +249,7 @@
     if (!memberId) return;
 
     const formData = new FormData();
-    formData.append('universityId', data.university.id);
+    formData.append('universityId', universityDataResolved.university.id);
     formData.append('userId', memberId);
 
     try {
@@ -265,8 +284,8 @@
         transferAdmin: false
       };
 
-    const isCurrentUserAdmin = data.userPermissions?.role === 'admin' || false;
-    const isCurrentUserModerator = data.userPermissions?.role === 'moderator' || false;
+    const isCurrentUserAdmin = universityDataResolved.userPermissions?.role === 'admin' || false;
+    const isCurrentUserModerator = universityDataResolved.userPermissions?.role === 'moderator' || false;
     const isCurrentUserSiteAdmin = data.user?.userType === 'site_admin';
     const isMemberAdmin = member.memberType === 'admin';
     const isMemberModerator = member.memberType === 'moderator';
@@ -287,32 +306,73 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle(data.university.name)}</title>
-  <meta name="description" content={data.university.description || data.university.name} />
-  <meta property="og:title" content={pageTitle(data.university.name)} />
-  <meta property="og:description" content={data.university.description || data.university.name} />
-  {#if data.university.avatarUrl}
-    <meta property="og:image" content={data.university.avatarUrl} />
-    <meta name="twitter:image" content={data.university.avatarUrl} />
+  {#if universityDataResolved}
+    <title>{pageTitle(universityDataResolved.university.name)}</title>
+    <meta name="description" content={universityDataResolved.university.description || universityDataResolved.university.name} />
+    <meta property="og:title" content={pageTitle(universityDataResolved.university.name)} />
+    <meta property="og:description" content={universityDataResolved.university.description || universityDataResolved.university.name} />
+    {#if universityDataResolved.university.avatarUrl}
+      <meta property="og:image" content={universityDataResolved.university.avatarUrl} />
+      <meta name="twitter:image" content={universityDataResolved.university.avatarUrl} />
+    {/if}
+    <meta name="twitter:title" content={pageTitle(universityDataResolved.university.name)} />
+    <meta name="twitter:description" content={universityDataResolved.university.description || universityDataResolved.university.name} />
+  {:else}
+    <title>{pageTitle(m.university_details())}</title>
   {/if}
-  <meta name="twitter:title" content={pageTitle(data.university.name)} />
-  <meta name="twitter:description" content={data.university.description || data.university.name} />
 </svelte:head>
 
+{#if universityDataLoading}
+  <!-- Loading State with Skeleton -->
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="flex items-center gap-6">
+      <div class="skeleton h-32 w-32 shrink-0 rounded-full"></div>
+      <div class="flex-1 space-y-3">
+        <div class="skeleton h-10 w-3/4"></div>
+        <div class="skeleton h-6 w-1/2"></div>
+      </div>
+    </div>
+    <div class="mt-8 space-y-4">
+      <div class="skeleton h-12 w-full"></div>
+      <div class="skeleton h-64 w-full"></div>
+    </div>
+  </div>
+{:else if universityDataError}
+  <!-- Error State -->
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="py-12 text-center">
+      <div class="text-error mb-4">
+        <i class="fa-solid fa-exclamation-triangle text-4xl"></i>
+      </div>
+      <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_university_data()}</h3>
+      <p class="text-base-content/60 mb-4">
+        {universityDataError.message || m.an_error_occurred()}
+      </p>
+      <button
+        class="btn btn-primary"
+        onclick={() => window.location.reload()}
+      >
+        <i class="fa-solid fa-refresh"></i>
+        {m.try_again()}
+      </button>
+    </div>
+  </div>
+{:else if universityDataResolved}
+  <!-- Loaded Content -->
 <!-- University Header -->
 <div
   class="relative overflow-hidden pt-12"
-  style:background-color={data.university.backgroundColor || ''}
+  style:background-color={universityDataResolved.university.backgroundColor || ''}
 >
   <div class="absolute inset-0 bg-linear-to-r from-black/20 to-transparent"></div>
   <div class="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
     <div class="flex flex-col items-center gap-6 sm:flex-row">
       <!-- University Avatar -->
-      {#if data.university.avatarUrl}
+      {#if universityDataResolved.university.avatarUrl}
         <div class="shrink-0">
           <img
-            src={data.university.avatarUrl}
-            alt="{data.university.name} {m.logo()}"
+            src={universityDataResolved.university.avatarUrl}
+            alt="{universityDataResolved.university.name} {m.logo()}"
             class="h-24 w-24 rounded-full bg-white shadow-lg sm:h-32 sm:w-32"
           />
         </div>
@@ -320,24 +380,24 @@
 
       <!-- University Info -->
       <div
-        class="flex flex-1 flex-col items-center justify-between gap-3 sm:flex-row {data.university
+        class="flex flex-1 flex-col items-center justify-between gap-3 sm:flex-row {universityDataResolved.university
           .backgroundColor
           ? 'text-white'
           : 'text-base-content dark:text-white'}"
       >
         <div class="flex flex-col gap-2 not-sm:items-center not-sm:text-center">
           <h1 class="text-3xl font-bold text-shadow-lg sm:text-4xl lg:text-5xl">
-            {data.university.name}
+            {universityDataResolved.university.name}
           </h1>
 
           <div class="flex gap-1 text-nowrap">
-            {#if data.university.is985}
+            {#if universityDataResolved.university.is985}
               <span class="badge badge-primary badge-sm">{m.badge_985()}</span>
             {/if}
-            {#if data.university.is211}
+            {#if universityDataResolved.university.is211}
               <span class="badge badge-secondary badge-sm">{m.badge_211()}</span>
             {/if}
-            {#if data.university.isDoubleFirstClass}
+            {#if universityDataResolved.university.isDoubleFirstClass}
               <span class="badge badge-accent badge-sm">{m.badge_double_first_class()}</span>
             {/if}
           </div>
@@ -345,14 +405,14 @@
 
         <div class="flex items-center gap-2">
           <!-- Join Button for eligible users -->
-          {#if !data.user || (data.userPermissions.canJoin > 0 && !data.userPermissions.verificationEmail)}
+          {#if !data.user || (universityDataResolved.userPermissions.canJoin > 0 && !universityDataResolved.userPermissions.verificationEmail)}
             <a
               href={resolve('/(main)/universities/[id]/verify', {
-                id: data.university.slug || data.university.id
+                id: universityDataResolved.university.slug || universityDataResolved.university.id
               })}
               class="btn btn-ghost"
             >
-              {#if !data.user || data.userPermissions.canJoin === 2}
+              {#if !data.user || universityDataResolved.userPermissions.canJoin === 2}
                 <i class="fa-solid fa-plus text-shadow-lg"></i>
                 {m.verify_and_join()}
               {:else}
@@ -366,7 +426,7 @@
           {#if userPrivileges.canEdit}
             <a
               href={resolve('/(main)/universities/[id]/edit', {
-                id: data.university.slug || data.university.id
+                id: universityDataResolved.university.slug || universityDataResolved.university.id
               })}
               class="btn btn-circle btn-lg btn-ghost"
               title={m.edit_university_info()}
@@ -394,13 +454,13 @@
 
         <!-- Basic Information -->
         <div class="space-y-3">
-          {#if data.university.description}
+          {#if universityDataResolved.university.description}
             <div>
               <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
                 {m.school_introduction()}
               </div>
               <div class="text-sm leading-relaxed">
-                {data.university.description}
+                {universityDataResolved.university.description}
               </div>
             </div>
             <div class="divider my-2"></div>
@@ -410,7 +470,7 @@
             <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
               {m.school_type()}
             </div>
-            <div class="text-sm font-medium">{data.university.type}</div>
+            <div class="text-sm font-medium">{universityDataResolved.university.type}</div>
           </div>
 
           <div>
@@ -418,7 +478,7 @@
               {m.discipline_category()}
             </div>
             <div class="text-sm font-medium">
-              {data.university.majorCategory || m.uncategorized()}
+              {universityDataResolved.university.majorCategory || m.uncategorized()}
             </div>
           </div>
 
@@ -427,7 +487,7 @@
               {m.running_nature()}
             </div>
             <div class="text-sm font-medium">
-              {data.university.natureOfRunning || m.unknown()}
+              {universityDataResolved.university.natureOfRunning || m.unknown()}
             </div>
           </div>
 
@@ -435,16 +495,16 @@
             <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
               {m.governing_body()}
             </div>
-            <div class="text-sm font-medium">{data.university.affiliation}</div>
+            <div class="text-sm font-medium">{universityDataResolved.university.affiliation}</div>
           </div>
         </div>
 
         <!-- Links -->
-        {#if data.university.website}
+        {#if universityDataResolved.university.website}
           <div class="divider my-2"></div>
           <div class="border-base-300">
             <a
-              href={data.university.website}
+              href={universityDataResolved.university.website}
               target="_blank"
               rel="noopener noreferrer"
               class="btn btn-soft btn-sm hover:bg-primary hover:text-primary-content w-full gap-2 dark:hover:bg-white dark:hover:text-black"
@@ -466,7 +526,7 @@
         <div class="grid grid-cols-2 gap-3 text-center">
           <div class="bg-base-100 rounded-lg p-3">
             <div class="text-base-content text-lg font-bold">
-              {data.university.campuses.length}
+              {universityDataResolved.university.campuses.length}
             </div>
             <div class="text-base-content/60 text-xs">
               {m.campuses()}
@@ -474,7 +534,7 @@
           </div>
           <div class="bg-base-100 rounded-lg p-3">
             <div class="text-base-content text-lg font-bold">
-              {data.stats.frequentingArcadesCount}
+              {universityDataResolved.stats.frequentingArcadesCount}
             </div>
             <div class="text-base-content/60 text-xs">
               {m.frequenting_arcades()}
@@ -482,7 +542,7 @@
           </div>
           <div class="bg-base-100 rounded-lg p-3">
             <div class="text-base-content text-lg font-bold">
-              {data.stats.totalMembers}
+              {universityDataResolved.stats.totalMembers}
             </div>
             <div class="text-base-content/60 text-xs">
               {m.members()}
@@ -491,7 +551,7 @@
 
           <div class="bg-base-100 rounded-lg p-3">
             <div class="text-base-content text-lg font-bold">
-              {data.stats.clubsCount}
+              {universityDataResolved.stats.clubsCount}
             </div>
             <div class="text-base-content/60 text-xs">
               {m.clubs()}
@@ -528,10 +588,10 @@
         {#if activeTab === 'posts'}
           <PostsList
             organizationType="university"
-            organizationId={data.university.id}
-            organizationName={data.university.name}
-            organizationSlug={data.university.slug}
-            organizationReadability={data.university.postReadability}
+            organizationId={universityDataResolved.university.id}
+            organizationName={universityDataResolved.university.name}
+            organizationSlug={universityDataResolved.university.slug}
+            organizationReadability={universityDataResolved.university.postReadability}
             currentUserId={data.user?.id}
             canManage={userPrivileges.canManage}
             canCreatePost={canWritePosts}
@@ -558,7 +618,7 @@
             </div>
 
             <div class="grid gap-4">
-              {#each data.university.campuses as campus (campus.id)}
+              {#each universityDataResolved.university.campuses as campus (campus.id)}
                 <div class="bg-base-100 rounded-lg p-4">
                   <div class="flex items-center justify-between">
                     <div class="flex-1">
@@ -577,7 +637,7 @@
                           href="{resolve('/(main)/discover')}?latitude={campus.location
                             .coordinates[1]}&longitude={campus.location
                             .coordinates[0]}&radius={searchRadius}&name={encodeURIComponent(
-                            `${data.university.name}${campus.name ? ` (${campus.name})` : ''}`
+                            `${universityDataResolved.university.name}${campus.name ? ` (${campus.name})` : ''}`
                           )}"
                           target={adaptiveNewTab()}
                         >
@@ -599,7 +659,7 @@
                       {/if}
 
                       <!-- Delete Campus Button for admins -->
-                      {#if userPrivileges.canManage && data.university.campuses.length > 1}
+                      {#if userPrivileges.canManage && universityDataResolved.university.campuses.length > 1}
                         <button
                           class="btn btn-circle btn-soft btn-error btn-sm"
                           onclick={() => confirmDeleteCampus(campus.id)}
@@ -624,11 +684,11 @@
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-base-content/60 text-sm">
-                  {m.club_count({ count: data.stats.totalClubs })}
+                  {m.club_count({ count: universityDataResolved.stats.totalClubs })}
                 </div>
                 {#if userPrivileges.canManage}
                   <a
-                    href="{resolve('/(main)/clubs/new')}?university={data.university.id}"
+                    href="{resolve('/(main)/clubs/new')}?university={universityDataResolved.university.id}"
                     class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
                   >
                     <i class="fa-solid fa-plus"></i>
@@ -702,7 +762,7 @@
                         {m.create_club_to_get_started()}
                       </p>
                       <a
-                        href="{resolve('/(main)/clubs/new')}?university={data.university.id}"
+                        href="{resolve('/(main)/clubs/new')}?university={universityDataResolved.university.id}"
                         class="btn btn-primary btn-sm btn-soft"
                       >
                         <i class="fa-solid fa-plus"></i>
@@ -726,7 +786,7 @@
                 {m.frequenting_arcades()}
               </h3>
               <div class="text-base-content/60 text-sm">
-                {m.shops({ count: data.stats.frequentingArcadesCount })}
+                {m.shops({ count: universityDataResolved.stats.frequentingArcadesCount })}
               </div>
             </div>
 
@@ -800,7 +860,7 @@
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-base-content/60 text-sm">
-                  {m.member_count_people({ count: data.stats.totalMembers })}
+                  {m.member_count_people({ count: universityDataResolved.stats.totalMembers })}
                 </div>
                 {#if userPrivileges.canManage}
                   <button
@@ -826,7 +886,7 @@
                           <VerifiedCheckMark
                             href={member.userId === data.user?.id
                               ? resolve('/(main)/universities/[id]/verify', {
-                                  id: data.university.slug || data.university.id
+                                  id: universityDataResolved.university.slug || universityDataResolved.university.id
                                 })
                               : ''}
                             class="tooltip-right text-sm"
@@ -980,7 +1040,7 @@
             </div>
 
             <!-- Changelog entries -->
-            <ChangelogView universityId={data.university.id} />
+            <ChangelogView universityId={universityDataResolved.university.id} />
           </div>
         {/if}
       </div>
@@ -993,7 +1053,7 @@
 <CampusEditModal
   bind:open={isCampusModalOpen}
   campus={editingCampus}
-  universityId={data.university.id}
+  universityId={universityDataResolved.university.id}
   isEditMode={!!editingCampus}
   onSuccess={() => {
     isCampusModalOpen = false;
@@ -1033,7 +1093,7 @@
           };
         }}
       >
-        <input type="hidden" name="universityId" value={data.university.id} />
+        <input type="hidden" name="universityId" value={universityDataResolved.university.id} />
         <input type="hidden" name="campusId" value={deletingCampusId} />
         <button type="submit" class="btn btn-error">
           {m.delete()}
@@ -1047,8 +1107,8 @@
 <InviteLinkModal
   bind:isOpen={showInviteModal}
   type="university"
-  targetId={data.university.id}
-  targetName={data.university.name}
+  targetId={universityDataResolved.university.id}
+  targetName={universityDataResolved.university.name}
 />
 
 <!-- Role Management Modals -->
@@ -1062,3 +1122,4 @@
   onClose={closeModals}
   onSubmit={handleRoleAction}
 />
+{/if}

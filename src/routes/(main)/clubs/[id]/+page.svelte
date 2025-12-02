@@ -18,6 +18,25 @@
 
   let { data }: { data: PageData } = $props();
 
+  // Wait for club data and handle loading/error states
+  let clubDataResolved = $state<Awaited<typeof data.clubData> | null>(null);
+  let clubDataError = $state<Error | null>(null);
+  let clubDataLoading = $state(true);
+
+  $effect(() => {
+    clubDataLoading = true;
+    clubDataError = null;
+    data.clubData
+      .then((resolved) => {
+        clubDataResolved = resolved;
+        clubDataLoading = false;
+      })
+      .catch((err) => {
+        clubDataError = err;
+        clubDataLoading = false;
+      });
+  });
+
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
     { id: 'arcades', label: m.starred_arcades(), icon: 'fa-gamepad' },
@@ -43,15 +62,15 @@
   let selectedMember = $state<ClubMemberWithUser | null>(null);
 
   // Infinite scrolling state for members
-  let displayedMembers = $derived(data.members || []);
+  let displayedMembers = $derived(clubDataResolved?.members || []);
   let isLoadingMoreMembers = $state(false);
-  let hasMoreMembers = $derived((data.members?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreMembers = $derived((clubDataResolved?.members?.length || 0) >= PAGINATION.PAGE_SIZE);
   let currentMembersPage = $state(1);
 
   // Infinite scrolling state for starred arcades
-  let displayedArcades = $derived(data.starredArcades);
+  let displayedArcades = $derived(clubDataResolved?.starredArcades || []);
   let isLoadingMoreArcades = $state(false);
-  let hasMoreArcades = $state((data.starredArcades?.length || 0) >= PAGINATION.PAGE_SIZE);
+  let hasMoreArcades = $state((clubDataResolved?.starredArcades?.length || 0) >= PAGINATION.PAGE_SIZE);
   let currentArcadesPage = $state(1);
 
   // Arcade search state
@@ -64,17 +83,19 @@
   // Check user privileges
   let userPrivileges = $derived.by(() => {
     if (!data.user) return { canEdit: false, canManage: false };
-    return data.userPermissions;
+    return clubDataResolved?.userPermissions || { canEdit: false, canManage: false, canJoin: 0 };
   });
 
   let radius = $state(10);
 
   onMount(async () => {
-    window.dispatchEvent(
-      new CustomEvent('nearcade-org-background', {
-        detail: { hasCustomBackground: !!data.club.backgroundColor }
-      })
-    );
+    if (clubDataResolved) {
+      window.dispatchEvent(
+        new CustomEvent('nearcade-org-background', {
+          detail: { hasCustomBackground: !!clubDataResolved.club.backgroundColor }
+        })
+      );
+    }
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
       radius = parseInt(savedRadius);
@@ -117,12 +138,12 @@
     try {
       const nextPage = currentMembersPage + 1;
       const response = await fetch(
-        fromPath(`/api/clubs/${data.club.slug || data.club.id}/members?page=${nextPage}`)
+        fromPath(`/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/members?page=${nextPage}`)
       );
 
       if (response.ok) {
         const result = (await response.json()) as {
-          members: typeof data.members;
+          members: typeof clubDataResolved.members;
           hasMore: boolean;
           page: number;
         };
@@ -148,12 +169,12 @@
     try {
       const nextPage = currentArcadesPage + 1;
       const response = await fetch(
-        fromPath(`/api/clubs/${data.club.slug || data.club.id}/arcades?page=${nextPage}`)
+        fromPath(`/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/arcades?page=${nextPage}`)
       );
 
       if (response.ok) {
         const result = (await response.json()) as {
-          arcades: typeof data.starredArcades;
+          arcades: typeof clubDataResolved.starredArcades;
           hasMore: boolean;
           page: number;
         };
@@ -218,7 +239,7 @@
     if (!arcadeSource || !arcadeId) return;
 
     const formData = new FormData();
-    formData.append('clubId', data.club.id);
+    formData.append('clubId', clubDataResolved.club.id);
     formData.append('arcadeId', arcadeId.toString());
     formData.append('arcadeSource', arcadeSource);
 
@@ -283,7 +304,7 @@
     if (!memberId) return;
 
     const formData = new FormData();
-    formData.append('clubId', data.club.id);
+    formData.append('clubId', clubDataResolved.club.id);
     formData.append('userId', memberId);
 
     try {
@@ -340,41 +361,82 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle(data.club.name)}</title>
-  <meta
-    name="description"
-    content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
-  />
-  <meta property="og:title" content={pageTitle(data.club.name)} />
-  <meta
-    property="og:description"
-    content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
-  />
-  {#if data.club.avatarUrl}
-    <meta property="og:image" content={data.club.avatarUrl} />
-    <meta name="twitter:image" content={data.club.avatarUrl} />
+  {#if clubDataResolved}
+    <title>{pageTitle(clubDataResolved.club.name)}</title>
+    <meta
+      name="description"
+      content={clubDataResolved.club.description || `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+    />
+    <meta property="og:title" content={pageTitle(clubDataResolved.club.name)} />
+    <meta
+      property="og:description"
+      content={clubDataResolved.club.description || `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+    />
+    {#if clubDataResolved.club.avatarUrl}
+      <meta property="og:image" content={clubDataResolved.club.avatarUrl} />
+      <meta name="twitter:image" content={clubDataResolved.club.avatarUrl} />
+    {/if}
+    <meta name="twitter:title" content={pageTitle(clubDataResolved.club.name)} />
+    <meta
+      name="twitter:description"
+      content={clubDataResolved.club.description || `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+    />
+  {:else}
+    <title>{pageTitle(m.club_details())}</title>
   {/if}
-  <meta name="twitter:title" content={pageTitle(data.club.name)} />
-  <meta
-    name="twitter:description"
-    content={data.club.description || `${data.club.name} - ${m.meta_description_club()}`}
-  />
 </svelte:head>
 
+{#if clubDataLoading}
+  <!-- Loading State with Skeleton -->
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="flex items-center gap-6">
+      <div class="skeleton h-32 w-32 shrink-0 rounded-full"></div>
+      <div class="flex-1 space-y-3">
+        <div class="skeleton h-10 w-3/4"></div>
+        <div class="skeleton h-6 w-1/2"></div>
+      </div>
+    </div>
+    <div class="mt-8 space-y-4">
+      <div class="skeleton h-12 w-full"></div>
+      <div class="skeleton h-64 w-full"></div>
+    </div>
+  </div>
+{:else if clubDataError}
+  <!-- Error State -->
+  <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
+    <div class="py-12 text-center">
+      <div class="text-error mb-4">
+        <i class="fa-solid fa-exclamation-triangle text-4xl"></i>
+      </div>
+      <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_club_data()}</h3>
+      <p class="text-base-content/60 mb-4">
+        {clubDataError.message || m.an_error_occurred()}
+      </p>
+      <button
+        class="btn btn-primary"
+        onclick={() => window.location.reload()}
+      >
+        <i class="fa-solid fa-refresh"></i>
+        {m.try_again()}
+      </button>
+    </div>
+  </div>
+{:else if clubDataResolved}
+  <!-- Loaded Content -->
 <!-- Club Header -->
 <div
   class="relative overflow-hidden pt-12"
-  style:background-color={data.club.backgroundColor || ''}
+  style:background-color={clubDataResolved.club.backgroundColor || ''}
 >
   <div class="absolute inset-0 bg-linear-to-r from-black/20 to-transparent"></div>
   <div class="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
     <div class="flex flex-col items-center gap-6 sm:flex-row">
       <!-- Club Avatar -->
-      {#if data.club.avatarUrl || data.university?.avatarUrl}
+      {#if clubDataResolved.club.avatarUrl || clubDataResolved.university?.avatarUrl}
         <div class="shrink-0">
           <img
-            src={data.club.avatarUrl || data.university?.avatarUrl}
-            alt="{data.club.avatarUrl ? data.club.name : data.university?.name} {m.logo()}"
+            src={clubDataResolved.club.avatarUrl || clubDataResolved.university?.avatarUrl}
+            alt="{clubDataResolved.club.avatarUrl ? clubDataResolved.club.name : clubDataResolved.university?.name} {m.logo()}"
             class="h-24 w-24 rounded-full shadow-lg sm:h-32 sm:w-32"
           />
         </div>
@@ -382,36 +444,36 @@
 
       <!-- Club Info -->
       <div
-        class="flex flex-1 flex-col items-center justify-between gap-2 sm:flex-row {data.club
+        class="flex flex-1 flex-col items-center justify-between gap-2 sm:flex-row {clubDataResolved.club
           .backgroundColor
           ? 'text-white'
           : 'text-base-content dark:text-white'}"
       >
         <div class="flex flex-col not-sm:text-center">
           <h1 class="text-3xl font-bold text-shadow-lg sm:text-4xl lg:text-5xl">
-            {data.club.name}
+            {clubDataResolved.club.name}
           </h1>
 
-          {#if data.university}
+          {#if clubDataResolved.university}
             <a
               href={resolve('/(main)/universities/[id]', {
-                id: data.university.slug || data.university.id
+                id: clubDataResolved.university.slug || clubDataResolved.university.id
               })}
               class="cursor-pointer text-lg text-white/90 underline decoration-transparent decoration-[1.5px] underline-offset-3 transition-colors hover:text-white hover:decoration-white"
             >
-              {data.university.name}
+              {clubDataResolved.university.name}
             </a>
           {/if}
         </div>
 
         <div class="flex items-center gap-2">
           <!-- Join Button for eligible users -->
-          {#if data.user && data.userPermissions.canJoin === 2}
+          {#if data.user && clubDataResolved.userPermissions.canJoin === 2}
             <button class="btn btn-ghost" onclick={() => (showJoinRequestModal = true)}>
               <i class="fa-solid fa-plus text-shadow-lg"></i>
               {m.join_club()}
             </button>
-          {:else if data.userPermissions.canJoin === 1}
+          {:else if clubDataResolved.userPermissions.canJoin === 1}
             <div class="badge badge-warning">
               <i class="fa-solid fa-clock"></i>
               {m.join_request_sent()}
@@ -421,7 +483,7 @@
           <!-- Edit Club Button for privileged users -->
           {#if userPrivileges.canEdit}
             <a
-              href={resolve('/(main)/clubs/[id]/edit', { id: data.club.slug || data.club.id })}
+              href={resolve('/(main)/clubs/[id]/edit', { id: clubDataResolved.club.slug || clubDataResolved.club.id })}
               class="btn btn-circle btn-lg btn-ghost"
               title="{m.edit()} {m.club()}"
               aria-label="{m.edit()} {m.club()}"
@@ -448,13 +510,13 @@
 
         <!-- Basic Information -->
         <div class="space-y-3">
-          {#if data.club.description}
+          {#if clubDataResolved.club.description}
             <div>
               <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
                 {m.club_introduction()}
               </div>
               <div class="text-sm leading-relaxed break-all">
-                {data.club.description}
+                {clubDataResolved.club.description}
               </div>
             </div>
             <div class="divider my-2"></div>
@@ -475,7 +537,7 @@
               {m.member_count()}
             </div>
             <div class="text-sm font-medium">
-              {m.member_count_people({ count: data.stats.totalMembers })}
+              {m.member_count_people({ count: clubDataResolved.stats.totalMembers })}
             </div>
           </div>
 
@@ -484,26 +546,26 @@
               {m.starred_arcades_count()}
             </div>
             <div class="text-sm font-medium">
-              {m.starred_arcades_count_shops({ count: data.club.starredArcades.length })}
+              {m.starred_arcades_count_shops({ count: clubDataResolved.club.starredArcades.length })}
             </div>
           </div>
 
-          {#if data.club.createdAt}
+          {#if clubDataResolved.club.createdAt}
             <div>
               <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
                 {m.registration_date()}
               </div>
-              <div class="text-sm font-medium">{formatDate(data.club.createdAt)}</div>
+              <div class="text-sm font-medium">{formatDate(clubDataResolved.club.createdAt)}</div>
             </div>
           {/if}
         </div>
 
         <!-- Links -->
-        {#if data.club.website}
+        {#if clubDataResolved.club.website}
           <div class="divider my-2"></div>
           <div class="border-base-300">
             <a
-              href={data.club.website}
+              href={clubDataResolved.club.website}
               target="_blank"
               rel="noopener noreferrer"
               class="btn btn-soft btn-sm hover:bg-primary hover:text-primary-content w-full gap-2 dark:hover:bg-white dark:hover:text-black"
@@ -525,7 +587,7 @@
         <div class="grid grid-cols-2 gap-3 text-center">
           <div class="bg-base-100 rounded-lg p-3">
             <div class="text-base-content text-lg font-bold">
-              {data.stats.totalMembers}
+              {clubDataResolved.stats.totalMembers}
             </div>
             <div class="text-base-content/60 text-xs">
               {m.members()}
@@ -533,7 +595,7 @@
           </div>
           <div class="bg-base-100 rounded-lg p-3">
             <div class="text-base-content text-lg font-bold">
-              {data.club.starredArcades.length}
+              {clubDataResolved.club.starredArcades.length}
             </div>
             <div class="text-base-content/60 text-xs">
               {m.starred_arcades()}
@@ -570,13 +632,13 @@
         {#if activeTab === 'posts'}
           <PostsList
             organizationType="club"
-            organizationId={data.club.id}
-            organizationName={data.club.name}
-            organizationSlug={data.club.slug}
-            organizationReadability={data.club.postReadability}
+            organizationId={clubDataResolved.club.id}
+            organizationName={clubDataResolved.club.name}
+            organizationSlug={clubDataResolved.club.slug}
+            organizationReadability={clubDataResolved.club.postReadability}
             canManage={userPrivileges.canManage}
             currentUserId={data.user?.id}
-            canCreatePost={data.canWritePosts}
+            canCreatePost={clubDataResolved.canWritePosts}
             initialPosts={[]}
           />
         {:else if activeTab === 'arcades'}
@@ -588,7 +650,7 @@
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-base-content/60 text-sm">
-                  {m.shops({ count: data.club.starredArcades.length })}
+                  {m.shops({ count: clubDataResolved.club.starredArcades.length })}
                 </div>
                 {#if userPrivileges.canEdit}
                   <button
@@ -711,7 +773,7 @@
               </h3>
               <div class="flex items-center gap-3">
                 <div class="text-base-content/60 text-sm">
-                  {m.member_count_people({ count: data.stats.totalMembers })}
+                  {m.member_count_people({ count: clubDataResolved.stats.totalMembers })}
                 </div>
                 {#if userPrivileges.canManage}
                   <button
@@ -879,8 +941,8 @@
 <InviteLinkModal
   bind:isOpen={showInviteModal}
   type="club"
-  targetId={data.club.id}
-  targetName={data.club.name}
+  targetId={clubDataResolved.club.id}
+  targetName={clubDataResolved.club.name}
 />
 
 <!-- Role Management Modals -->
@@ -966,7 +1028,7 @@
                   </div>
                 {/if}
               </div>
-              {#if !data.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
+              {#if !clubDataResolved.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
                 <button
                   class="btn btn-primary btn-soft btn-sm"
                   onclick={() => {
@@ -1012,9 +1074,10 @@
 <!-- Join Request Modal -->
 <JoinRequestModal
   bind:isOpen={showJoinRequestModal}
-  clubId={data.club.id}
-  clubName={data.club.name}
+  clubId={clubDataResolved.club.id}
+  clubName={clubDataResolved.club.name}
   onSuccess={() => {
     invalidateAll();
   }}
 />
+{/if}
