@@ -260,7 +260,7 @@
         </div>
         <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_clubs()}</h3>
         <p class="text-base-content/60 mb-4">
-          {err?.message || m.an_error_occurred()}
+          {err?.message || m.error_occurred()}
         </p>
         <button class="btn btn-primary" onclick={() => window.location.reload()}>
           <i class="fa-solid fa-refresh"></i>

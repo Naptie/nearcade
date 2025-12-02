@@ -401,7 +401,7 @@
       </div>
       <h3 class="mb-2 text-xl font-semibold">{m.failed_to_load_shop()}</h3>
       <p class="text-base-content/60 mb-4">
-        {shopDataError.message || m.an_error_occurred()}
+        {shopDataError.message || m.error_occurred()}
       </p>
       <button class="btn btn-primary" onclick={() => window.location.reload()}>
         <i class="fa-solid fa-refresh"></i>
@@ -411,7 +411,6 @@
   </div>
 {:else if shop}
   <!-- Loaded Content -->
-
   <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
     <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
       {#snippet attend(klass = 'w-full')}
