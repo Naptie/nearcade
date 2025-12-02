@@ -18,7 +18,11 @@
   import { resolve } from '$app/paths';
   import { GAMES } from '$lib/constants';
 
-  type ShopWithExtras = (typeof data.shops)[number] & {
+  type ShopWithExtras = Shop & {
+    attendances: {
+      gameId: number;
+      total: number;
+    }[];
     openingHoursParsed: ReturnType<typeof getShopOpeningHours>;
     currentAttendance: number;
     density: number;
@@ -26,12 +30,18 @@
 
   let { data } = $props();
 
-  let shops = $derived.by<ShopWithExtras[]>(() => {
-    return data.shops.map((shop) => {
+  let shopDataResolved = $state<Awaited<typeof data.shopData> | null>(null);
+  let attendanceDataResolved = $state<Awaited<typeof data.attendanceData> | null>(null);
+
+  let shops = $derived.by<ShopWithExtras[] | null>(() => {
+    if (!shopDataResolved) return null;
+    return shopDataResolved.map((shop) => {
+      const attendances = attendanceDataResolved?.get(`${shop.source}-${shop.id}`) || [];
       const shopWithExtras = {
         ...shop,
+        attendances,
         openingHoursParsed: getShopOpeningHours(shop),
-        currentAttendance: shop.attendances.reduce((sum, att) => sum + att.total, 0),
+        currentAttendance: attendances.reduce((sum, att) => sum + att.total, 0),
         density: 0
       };
       return {
@@ -41,7 +51,7 @@
     });
   });
   let now = $state(new Date());
-  let hoveredShop: (typeof shops)[number] | null = $state(null);
+  let hoveredShop: ShopWithExtras | null = $state(null);
   let cursorPos = $state({ x: 0, y: 0 });
   let isMobile = $derived(isTouchscreen());
 
@@ -60,6 +70,15 @@
       // clearInterval(interval);
       window.removeEventListener('mousemove', handleMouseMove);
     };
+  });
+
+  $effect(() => {
+    data.shopData.then((resolved) => {
+      shopDataResolved = resolved;
+    });
+    data.attendanceData.then((resolved) => {
+      attendanceDataResolved = resolved;
+    });
   });
 
   const getDensityColor = (density: number) => {
@@ -147,44 +166,50 @@
 
 <Header />
 
-<Globe
-  data={shops.map((shop) => {
-    const positions = shop.games.reduce(
-      (acc, game) => acc + (game.titleId === 1 || game.titleId === 31 ? 2 : 1) * game.quantity,
-      0
-    );
-    return {
-      shop,
-      location: {
-        latitude: shop.location.coordinates[1],
-        longitude: shop.location.coordinates[0]
-      },
-      amount: positions,
-      color: getDensityColor(shop.density)
-    };
-  })}
-  onHover={(point) => {
-    if (isMobile) return;
-    if (point !== null) {
-      hoveredShop = (point as { shop: ShopWithExtras }).shop;
-    } else {
-      hoveredShop = null;
-    }
-  }}
-  onClick={(point) => {
-    if (point !== null) {
-      const shop = (point as { shop: ShopWithExtras }).shop;
-      if (isMobile) {
-        hoveredShop = shop;
+{#if !shops}
+  <div class="flex h-screen w-screen items-center justify-center">
+    <div class="loading loading-spinner loading-xl"></div>
+  </div>
+{:else}
+  <Globe
+    data={shops.map((shop) => {
+      const positions = shop.games.reduce(
+        (acc, game) => acc + (game.titleId === 1 || game.titleId === 31 ? 2 : 1) * game.quantity,
+        0
+      );
+      return {
+        shop,
+        location: {
+          latitude: shop.location.coordinates[1],
+          longitude: shop.location.coordinates[0]
+        },
+        amount: positions,
+        color: getDensityColor(shop.density)
+      };
+    })}
+    onHover={(point) => {
+      if (isMobile) return;
+      if (point !== null) {
+        hoveredShop = (point as { shop: ShopWithExtras }).shop;
       } else {
-        window.open(
-          resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: shop.id.toString() }),
-          adaptiveNewTab()
-        );
+        hoveredShop = null;
       }
-    }
-  }}
-/>
+    }}
+    onClick={(point) => {
+      if (point !== null) {
+        const shop = (point as { shop: ShopWithExtras }).shop;
+        if (isMobile) {
+          hoveredShop = shop;
+        } else {
+          window.open(
+            resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: shop.id.toString() }),
+            adaptiveNewTab()
+          );
+        }
+      }
+    }}
+  />
+{/if}
 
 {#if hoveredShop}
   {@const shop = hoveredShop}
