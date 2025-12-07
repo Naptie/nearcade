@@ -114,9 +114,15 @@ const ensureRedisConnected = async () => {
   if (!redis.isOpen) await redis.connect();
 };
 
-const report = async (key: string, value: string, expire: number = 60 * 60 * 24) => {
+const report = async (
+  key: string,
+  value: string,
+  closeConnection = true,
+  expire: number = 60 * 60 * 24
+) => {
   console.log(`[SSV Report] ${key} - ${value}`);
   await redis.set(key, value, { EX: expire });
+  if (closeConnection) await redis.quit();
 };
 
 const mongo = new MongoClient(MONGODB_URI!);
@@ -279,7 +285,7 @@ const processEmail = async (parsed: ParsedMail) => {
 
   const key = `nearcade:ssv:${universityId}:${userId}`;
   await ensureRedisConnected();
-  await report(key, 'processing');
+  await report(key, 'processing', false);
 
   // Security checks
 
