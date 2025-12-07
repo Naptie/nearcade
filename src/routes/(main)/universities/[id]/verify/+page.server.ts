@@ -80,7 +80,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
       | null;
 
     if (redis.isOpen) {
-      redis.close();
+      redis.quit();
     }
 
     return {

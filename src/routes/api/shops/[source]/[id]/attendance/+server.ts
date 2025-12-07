@@ -40,7 +40,7 @@ const attend = async (
   }
   await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
   if (redis.isOpen) {
-    redis.close();
+    redis.quit();
   }
 };
 
@@ -53,7 +53,7 @@ const leave = async (user: User, shop: Shop) => {
   const keys = await redis.keys(pattern);
   if (keys.length === 0) {
     if (redis.isOpen) {
-      redis.close();
+      redis.quit();
     }
     error(404, m.attendance_not_found());
   }
@@ -65,7 +65,7 @@ const leave = async (user: User, shop: Shop) => {
   const attendanceDataStr = await redis.get(attendanceKey);
   if (!attendanceDataStr) {
     if (redis.isOpen) {
-      redis.close();
+      redis.quit();
     }
     error(404, m.attendance_not_found());
   }
@@ -75,7 +75,7 @@ const leave = async (user: User, shop: Shop) => {
   // Delete from Redis
   await redis.del(attendanceKey);
   if (redis.isOpen) {
-    redis.close();
+    redis.quit();
   }
 
   // Add to MongoDB attendances collection
@@ -281,7 +281,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
         await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
         if (redis.isOpen) {
-          redis.close();
+          redis.quit();
         }
 
         if (

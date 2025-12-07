@@ -250,7 +250,7 @@ export const getShopsAttendanceData = async (
   }
 
   if (redis.isOpen) {
-    redis.close();
+    redis.quit();
   }
 
   return results;
@@ -412,7 +412,7 @@ export const getAllShopsAttendanceData = async (): Promise<
   }
 
   if (redis.isOpen) {
-    redis.close();
+    redis.quit();
   }
 
   return results;

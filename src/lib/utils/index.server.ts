@@ -13,7 +13,7 @@ export const getCurrentAttendance = async (userId: string) => {
   }
   const keys = await redis.keys(attendancePattern);
   if (redis.isOpen) {
-    redis.close();
+    redis.quit();
   }
 
   if (keys.length > 0) {
