@@ -116,7 +116,7 @@ export const load: PageServerLoad = async ({ parent }) => {
         console.error('Error getting user attendance from Redis:', redisError);
       } finally {
         if (redis.isOpen) {
-          redis.quit();
+          redis.close();
         }
       }
     }

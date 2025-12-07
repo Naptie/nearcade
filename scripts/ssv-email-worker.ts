@@ -122,7 +122,7 @@ const report = async (
 ) => {
   console.log(`[SSV Report] ${key} - ${value}`);
   await redis.set(key, value, { EX: expire });
-  if (closeConnection) await redis.quit();
+  if (closeConnection && redis.isOpen) await redis.close();
 };
 
 const mongo = new MongoClient(MONGODB_URI!);

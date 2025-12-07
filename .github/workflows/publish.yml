@@ -8,6 +8,7 @@ on:
       - 'messages/**'
       - 'patches/**'
       - 'project.inlang/**'
+      - 'scripts/**'
       - 'src/**'
       - 'static/**'
       - 'leanengine.yaml'

@@ -125,7 +125,7 @@ const handleAttendanceExpiration = async (expiredKey: string) => {
 const stopSubscriber = async () => {
   if (subscriberClient) {
     await subscriberClient.unsubscribe();
-    await subscriberClient.quit();
+    await subscriberClient.close();
     subscriberClient = null;
     isSubscriberStarted = false;
     console.log('[Attendance] Redis subscriber stopped');
