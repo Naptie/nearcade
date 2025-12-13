@@ -159,7 +159,7 @@
         }, 0);
         const positions =
           games.reduce((sum, g) => sum + g.quantity, 0) *
-          (games[0].titleId === 1 || games[0].titleId === 31 ? 2 : 1);
+          (GAMES.find((game) => game.id === games[0].titleId)?.seats || 1);
         return attendances / positions;
       })
       .reduce((max, curr) => (isNaN(curr) ? max : Math.max(max, curr)), 0);

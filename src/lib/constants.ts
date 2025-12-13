@@ -1,10 +1,10 @@
 // Game constants for arcade machine types
 export const GAMES = [
-  { id: 1, key: 'maimai_dx' },
-  { id: 3, key: 'chunithm' },
-  { id: 31, key: 'taiko_no_tatsujin' },
-  { id: 4, key: 'sound_voltex' },
-  { id: 17, key: 'wacca' }
+  { id: 1, key: 'maimai_dx', seats: 2 },
+  { id: 3, key: 'chunithm', seats: 1 },
+  { id: 31, key: 'taiko_no_tatsujin', seats: 2 },
+  { id: 4, key: 'sound_voltex', seats: 1 },
+  { id: 17, key: 'wacca', seats: 1 }
 ] as const;
 
 export const USER_TYPES = [

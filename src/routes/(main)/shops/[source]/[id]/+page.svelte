@@ -726,6 +726,8 @@
                 <div class="space-y-2 text-sm">
                   {#each aggregatedGames as game (game.titleId)}
                     {@const gameInfo = getGameInfo(game.titleId)}
+                    {@const positions =
+                      game.quantity * (GAMES.find((g) => g.id === game.titleId)?.seats || 1)}
                     {@const gameAttendance = shop.games.reduce(
                       (total, g) =>
                         g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
@@ -758,12 +760,12 @@
                       {#if reportedAttendance}
                         <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
                           <span class="text-accent font-medium">
-                            {reportedAttendance.count || 0} / {game.quantity}
+                            {reportedAttendance.count || 0} / {positions}
                           </span>
                         </AttendanceReportBlame>
                       {:else}
                         <span class="font-medium" class:text-primary={gameAttendance > 0}>
-                          {gameAttendance} / {game.quantity}
+                          {gameAttendance} / {positions}
                         </span>
                       {/if}
                     </div>
