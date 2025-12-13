@@ -40,6 +40,10 @@ code,
   @apply text-base-content bg-transparent! p-0! text-sm;
 }
 
+.prose p img {
+  @apply inline;
+}
+
 .not-md:prose-xs pre code {
   @apply text-xs;
 }
