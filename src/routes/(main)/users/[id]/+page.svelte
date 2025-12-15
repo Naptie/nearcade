@@ -5,6 +5,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import {
     adaptiveNewTab,
+    formatDate,
     getDisplayName,
     getFnsLocale,
     getUserTypeBadgeClass,
@@ -198,7 +199,7 @@
           {#if data.user.joinedAt}
             <p class="text-base-content/60 flex items-center gap-2 text-sm">
               <i class="fa-solid fa-calendar"></i>
-              {m.joined_on({ date: new Date(data.user.joinedAt).toLocaleDateString() })}
+              {m.joined_on({ date: formatDate(data.user.joinedAt) })}
             </p>
           {/if}
 

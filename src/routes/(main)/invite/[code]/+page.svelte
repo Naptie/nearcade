@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import { adaptiveNewTab, getDisplayName, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, formatDate, getDisplayName, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
 
   let { data }: { data: PageData } = $props();
@@ -58,7 +58,7 @@
     if (data.invite.expiresAt) {
       const expiryDate = new Date(data.invite.expiresAt);
       if (expiryDate > new Date()) {
-        return m.invite_expires({ date: expiryDate.toLocaleDateString() });
+        return m.invite_expires({ date: formatDate(expiryDate) });
       } else {
         return m.expired();
       }

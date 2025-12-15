@@ -117,7 +117,9 @@
               </div>
               <div class="group-hover:text-accent transition-colors">
                 <h3 class="font-medium">{university.name}</h3>
-                <p class="text-sm opacity-60">{university.type}</p>
+                <p class="text-sm opacity-60">
+                  {m.joined_on({ date: formatDate(university.joinedAt) })}
+                </p>
               </div>
             </a>
             <button

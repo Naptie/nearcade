@@ -50,7 +50,10 @@ export const load: PageServerLoad = async ({ parent }) => {
 
     return {
       userProfile,
-      universities,
+      universities: universities.map((university) => ({
+        ...university,
+        joinedAt: universityMemberships.find((m) => m.universityId === university.id)!.joinedAt
+      })),
       clubs: clubs.map((club) => ({
         id: club.id,
         name: club.name,

@@ -6,7 +6,7 @@
   import type { PageData } from './$types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { page } from '$app/state';
-  import { adaptiveNewTab, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, formatDate, pageTitle } from '$lib/utils';
 
   let { data }: { data: PageData } = $props();
 
@@ -213,7 +213,7 @@
 
                 <td class="not-lg:hidden">
                   <div class="text-sm">
-                    {new Date(post.createdAt).toLocaleDateString()}
+                    {formatDate(post.createdAt)}
                   </div>
                 </td>
 
