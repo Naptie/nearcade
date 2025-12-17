@@ -34,6 +34,7 @@ export interface Game {
   comment: string;
   quantity: number;
   cost: string;
+  updatedAt: Date;
 }
 
 export interface Campus {
@@ -412,16 +413,16 @@ export interface Activity {
   _id?: string | ObjectId;
   id: string;
   type:
-    | 'post'
-    | 'comment'
-    | 'reply'
-    | 'post_vote'
-    | 'comment_vote'
-    | 'changelog'
-    | 'university_join'
-    | 'club_join'
-    | 'club_create'
-    | 'shop_attendance';
+  | 'post'
+  | 'comment'
+  | 'reply'
+  | 'post_vote'
+  | 'comment_vote'
+  | 'changelog'
+  | 'university_join'
+  | 'club_join'
+  | 'club_create'
+  | 'shop_attendance';
   createdAt: Date;
   userId: string;
 
@@ -526,7 +527,7 @@ export type AttendanceReport = Array<{
 export interface AttendanceRecord {
   _id?: string;
   userId: string;
-  games: { gameId: number; name: string; version: string }[];
+  games: { gameId: number; name: string; version: string; updatedAt: Date }[];
   attendedAt: Date;
   leftAt: Date;
   shop: { id: number; source: ShopSource };
@@ -535,7 +536,7 @@ export interface AttendanceRecord {
 export interface AttendanceReportRecord {
   _id?: string | ObjectId;
   shop: { id: number; source: ShopSource };
-  games: { gameId: number; name: string; version: string; currentAttendances: number }[];
+  games: { gameId: number; name: string; version: string; currentAttendances: number; updatedAt: Date }[];
   comment: string | null;
   reportedBy: string; // User ID
   reportedAt: Date;

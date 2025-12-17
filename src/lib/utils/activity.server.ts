@@ -165,12 +165,12 @@ export async function getUserActivities(
       { $limit: limit }
     ])
     .toArray()) as (Comment & {
-    post?: Post[];
-    parentComment?: Comment[];
-    parentCommentAuthor?: User[];
-    university?: University[];
-    club?: Club[];
-  })[];
+      post?: Post[];
+      parentComment?: Comment[];
+      parentCommentAuthor?: User[];
+      university?: University[];
+      club?: Club[];
+    })[];
 
   comments.forEach((comment) => {
     const post = comment.post?.[0];
@@ -306,12 +306,12 @@ export async function getUserActivities(
       { $limit: limit }
     ])
     .toArray()) as (CommentVote & {
-    comment?: Comment[];
-    post?: Post[];
-    commentAuthor?: User[];
-    university?: University[];
-    club?: Club[];
-  })[];
+      comment?: Comment[];
+      post?: Post[];
+      commentAuthor?: User[];
+      university?: University[];
+      club?: Club[];
+    })[];
 
   commentVotes.forEach((vote) => {
     const comment = vote.comment?.[0];
@@ -565,7 +565,8 @@ export async function getUserActivities(
               return {
                 gameId: game.id,
                 name: shopGame ? shopGame.name : 'Unknown Game',
-                version: shopGame ? shopGame.version : ''
+                version: shopGame ? shopGame.version : '',
+                updatedAt: shopGame ? shopGame.updatedAt : new Date()
               };
             })
           );

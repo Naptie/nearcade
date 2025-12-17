@@ -11,7 +11,7 @@
   interface AttendanceReport {
     _id: string;
     shop: { id: number; source: ShopSource };
-    games: { gameId: number; name: string; version: string; currentAttendances: number }[];
+    games: { gameId: number; name: string; version: string; currentAttendances: number; updatedAt: string }[];
     comment: string | null;
     reportedBy: string;
     reportedAt: string;
@@ -128,6 +128,12 @@
                   </span>
                   <span class="text-base-content shrink-0 font-medium">
                     {m.reported_players({ count: game.currentAttendances })}
+                    <span class="text-base-content/50 text-xs ml-1">
+                      {formatDistanceToNow(new Date(game.updatedAt), {
+                        addSuffix: true,
+                        locale: getFnsLocale(getLocale())
+                      })}
+                    </span>
                   </span>
                 </div>
               {/each}

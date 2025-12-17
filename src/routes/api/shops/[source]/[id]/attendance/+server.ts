@@ -267,10 +267,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           error(400, m.invalid_current_attendances_for_game({ id: game.id }));
         }
         const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
+        const nowIso = new Date().toISOString();
         const attendanceData = {
           currentAttendances: game.currentAttendances,
+          updatedAt: nowIso,
           reportedBy: user.id,
-          reportedAt: new Date().toISOString(),
+          reportedAt: nowIso,
           comment: comment || null
         };
         const ttlSeconds = Math.max(Math.floor((closeTolerated.getTime() - now) / 1000), 60); // Minimum 60 seconds
@@ -301,7 +303,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           }
         }
       }
-
+      const now = new Date();
       const attendanceReportsCollection =
         db.collection<AttendanceReportRecord>('attendance_reports');
       await attendanceReportsCollection.insertOne({
@@ -312,12 +314,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             gameId: game.id,
             name: shopGame ? shopGame.name : 'Unknown Game',
             version: shopGame ? shopGame.version : '',
-            currentAttendances: game.currentAttendances || 0
+            currentAttendances: game.currentAttendances || 0,
+            updatedAt: now
           };
         }),
         comment: comment || null,
         reportedBy: user.id!,
-        reportedAt: new Date()
+        reportedAt: now
       });
     }
 
