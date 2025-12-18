@@ -267,12 +267,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           error(400, m.invalid_current_attendances_for_game({ id: game.id }));
         }
         const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
-        const nowIso = new Date().toISOString();
         const attendanceData = {
           currentAttendances: game.currentAttendances,
-          updatedAt: nowIso,
           reportedBy: user.id,
-          reportedAt: nowIso,
+          reportedAt: new Date().toISOString(),
           comment: comment || null
         };
         const ttlSeconds = Math.max(Math.floor((closeTolerated.getTime() - now) / 1000), 60); // Minimum 60 seconds
