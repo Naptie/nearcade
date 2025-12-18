@@ -65,14 +65,17 @@
   };
 
   onMount(() => {
-    if (page.url.searchParams.get('login') === '1') {
-      login();
-    }
     window.addEventListener('nearcade-login', login);
 
     return () => {
       window.removeEventListener('nearcade-login', login);
     };
+  });
+
+  $effect(() => {
+    if (page.url.searchParams.get('login') === '1') {
+      login();
+    }
   });
 </script>
 
