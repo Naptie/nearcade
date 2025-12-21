@@ -153,6 +153,18 @@
   };
 
   onMount(() => {
+    const savedRadius = localStorage.getItem('nearcade-radius');
+    if (savedRadius) {
+      radius = parseInt(savedRadius);
+    }
+
+    const interval = setInterval(() => {
+      now = new Date();
+    }, 1000);
+    return () => clearInterval(interval);
+  });
+
+  $effect(() => {
     if (shop) {
       getAttendanceData();
       sanitizeHTML(shop.comment).then((content) => {
@@ -168,16 +180,6 @@
       // Check user location proximity to shop
       checkUserProximity();
     }
-
-    const savedRadius = localStorage.getItem('nearcade-radius');
-    if (savedRadius) {
-      radius = parseInt(savedRadius);
-    }
-
-    const interval = setInterval(() => {
-      now = new Date();
-    }, 1000);
-    return () => clearInterval(interval);
   });
 
   const checkUserProximity = async () => {
