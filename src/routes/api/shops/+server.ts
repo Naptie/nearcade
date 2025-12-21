@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
-import { toPlainArray } from '$lib/utils';
+import { getShopOpeningHours, getShopTimezone, toPlainArray } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -10,6 +10,8 @@ export const GET: RequestHandler = async ({ url }) => {
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
   const skip = (page - 1) * limit;
+
+  const includeTimeInfo = url.searchParams.get('includeTimeInfo') !== 'false';
 
   try {
     const db = mongo.db();
@@ -94,8 +96,32 @@ export const GET: RequestHandler = async ({ url }) => {
       }
     }
 
+    const now = new Date();
+
     return json({
-      shops: toPlainArray(shops),
+      shops: toPlainArray(
+        shops.map((shop) => {
+          const extraTimeInfo = (() => {
+            if (!includeTimeInfo)
+              return {} as Partial<{
+                timezone: { name: string; offset: number };
+                isOpen: boolean;
+              }>;
+            const openingHours = getShopOpeningHours(shop);
+            const isOpen = now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
+            const timezoneName = getShopTimezone(shop.location);
+            return {
+              timezone: { name: timezoneName, offset: openingHours.offsetHours },
+              isOpen
+            };
+          })();
+
+          return {
+            ...shop,
+            ...extraTimeInfo
+          };
+        })
+      ),
       totalCount,
       currentPage: page,
       hasNextPage: skip + shops.length < totalCount,

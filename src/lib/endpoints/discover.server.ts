@@ -1,6 +1,12 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Game, Shop } from '$lib/types';
-import { areValidCoordinates, calculateDistance, toPlainObject } from '$lib/utils';
+import {
+  areValidCoordinates,
+  calculateDistance,
+  toPlainObject,
+  getShopOpeningHours,
+  getShopTimezone
+} from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from './attendance.server';
@@ -19,6 +25,7 @@ export const loadShops = async ({ url }: { url: URL }) => {
   }
 
   const fetchAttendance = url.searchParams.get('fetchAttendance') !== 'false';
+  const includeTimeInfo = url.searchParams.get('includeTimeInfo') !== 'false';
 
   try {
     const { latitude, longitude } = validationResult;
@@ -38,6 +45,8 @@ export const loadShops = async ({ url }: { url: URL }) => {
       })
       .toArray()) as unknown as Shop[];
 
+    const now = new Date();
+
     let enrichedShops: (Shop & {
       distance: number;
       games: (Game & { totalAttendance?: number })[];
@@ -48,22 +57,37 @@ export const loadShops = async ({ url }: { url: URL }) => {
         reporter: User;
         comment: string | null;
       } | null;
+      timezone?: { name: string; offset: number };
+      isOpen?: boolean;
     })[] = shops.map((shop) => {
       const coordinates = shop.location?.coordinates;
 
+      const extraTimeInfo = (() => {
+        if (!includeTimeInfo)
+          return {} as Partial<{
+            timezone: { name: string; offset: number };
+            isOpen: boolean;
+          }>;
+        const openingHours = getShopOpeningHours(shop);
+        const isOpen = now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
+        const timezoneName = getShopTimezone(shop.location);
+        return {
+          timezone: { name: timezoneName, offset: openingHours.offsetHours },
+          isOpen
+        };
+      })();
+
+      let distance = Infinity;
+
       if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
         const [shopLng, shopLat] = coordinates; // GeoJSON format is [longitude, latitude]
-        const distance = calculateDistance(latitude, longitude, shopLat, shopLng);
-
-        return {
-          ...toPlainObject(shop),
-          distance: distance
-        };
+        distance = calculateDistance(latitude, longitude, shopLat, shopLng);
       }
 
       return {
         ...toPlainObject(shop),
-        distance: Infinity
+        ...extraTimeInfo,
+        distance
       };
     });
 

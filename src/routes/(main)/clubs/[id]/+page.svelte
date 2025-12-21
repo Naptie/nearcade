@@ -207,7 +207,9 @@
 
     isSearching = true;
     try {
-      const response = await fetch(fromPath(`/api/shops?q=${encodeURIComponent(query)}`));
+      const response = await fetch(
+        fromPath(`/api/shops?q=${encodeURIComponent(query)}&includeTimeInfo=false`)
+      );
       if (response.ok) {
         const results = (await response.json()) as { shops: Shop[] };
         searchResults = results.shops || [];

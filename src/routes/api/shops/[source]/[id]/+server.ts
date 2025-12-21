@@ -1,12 +1,12 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
-import { toPlainObject } from '$lib/utils';
+import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
   const { source, id } = params;
 
   // Validate source
@@ -19,6 +19,8 @@ export const GET: RequestHandler = async ({ params }) => {
   if (isNaN(shopId)) {
     error(404, m.invalid_shop_id());
   }
+
+  const includeTimeInfo = url.searchParams.get('includeTimeInfo') !== 'false';
 
   try {
     const db = mongo.db();
@@ -34,8 +36,25 @@ export const GET: RequestHandler = async ({ params }) => {
       error(404, m.shop_not_found());
     }
 
+    const now = new Date();
+
+    const extraTimeInfo = (() => {
+      if (!includeTimeInfo)
+        return {} as Partial<{
+          timezone: { name: string; offset: number };
+          isOpen: boolean;
+        }>;
+      const openingHours = getShopOpeningHours(shop);
+      const isOpen = now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
+      const timezoneName = getShopTimezone(shop.location);
+      return {
+        timezone: { name: timezoneName, offset: openingHours.offsetHours },
+        isOpen
+      };
+    })();
+
     return json({
-      shop: toPlainObject(shop)
+      shop: { ...toPlainObject(shop), ...extraTimeInfo }
     });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
