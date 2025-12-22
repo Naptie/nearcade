@@ -412,10 +412,7 @@
         class:mt-0={showCollapse}
         class:opacity-0={!showCollapse}
       >
-        <div
-          class="collapse-content flex flex-col items-center gap-4 pt-0 transition-[padding] duration-300"
-          class:pt-4={showCollapse}
-        >
+        <div class="collapse-content flex flex-col items-center gap-4" class:pt-4={showCollapse}>
           <fieldset class="fieldset rounded-box w-full p-4 pt-2" class:not-sm:px-0={mode === 2}>
             <div class="flex flex-col gap-1 sm:hidden">
               <span class="label w-full">{m.discover_from()}</span>
@@ -780,7 +777,7 @@
           class:opacity-0={showCollapse}
         >
           <div
-            class="collapse-content flex max-w-full min-w-full flex-col items-center gap-2 pt-0 transition-[padding] duration-300 sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw]"
+            class="collapse-content flex max-w-full min-w-full flex-col items-center gap-2 sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw]"
             class:pt-4={!showCollapse}
           >
             {#each data.starredShops as shop (shop._id)}
