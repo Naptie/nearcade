@@ -8,8 +8,7 @@ if (!env.REDIS_URI) {
 const url = env.REDIS_URI;
 
 /**
- * Creates and configures a Redis client with proper reconnection handling
- * for persistent Node.js deployments (non-serverless environments).
+ * Creates and configures a Redis client with proper reconnection handling.
  *
  * The client automatically reconnects on connection loss or timeout,
  * using exponential backoff with a maximum delay of 10 seconds.
