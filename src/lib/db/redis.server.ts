@@ -49,13 +49,14 @@ const createRedisClient = () => {
 type RedisClient = ReturnType<typeof createRedisClient>;
 
 let redis: RedisClient;
+let connectPromise: Promise<void> | null = null;
 
 if (process.env.NODE_ENV === 'development') {
   // In development mode, use a global variable so that the value
   // is preserved across module reloads caused by HMR (Hot Module Replacement).
   const globalWithRedis = global as typeof globalThis & {
     _redisClient?: RedisClient;
-    _redisConnectPromise?: Promise<void>;
+    _redisConnectPromise?: Promise<void> | null;
   };
 
   if (!globalWithRedis._redisClient) {
@@ -64,29 +65,52 @@ if (process.env.NODE_ENV === 'development') {
     globalWithRedis._redisConnectPromise = globalWithRedis._redisClient
       .connect()
       .then(() => {
-        // Intentionally empty - connection successful
+        globalWithRedis._redisConnectPromise = null;
       })
       .catch((err) => {
+        globalWithRedis._redisConnectPromise = null;
         console.error('[Redis] Initial connection failed:', err);
       });
   }
   redis = globalWithRedis._redisClient;
+  connectPromise = globalWithRedis._redisConnectPromise ?? null;
 } else {
   // In production mode, it's best to not use a global variable.
   redis = createRedisClient();
-  // Connect immediately
-  redis.connect().catch((err) => {
-    console.error('[Redis] Initial connection failed:', err);
-  });
+  // Connect immediately and cache the promise
+  connectPromise = redis
+    .connect()
+    .then(() => {
+      connectPromise = null;
+    })
+    .catch((err) => {
+      connectPromise = null;
+      console.error('[Redis] Initial connection failed:', err);
+    });
 }
 
 /**
  * Ensures the Redis client is connected before performing operations.
  * This function should be called before any Redis operation.
+ * Uses a cached connection promise to prevent multiple concurrent connection attempts.
  */
 export const ensureConnected = async (): Promise<void> => {
+  // If there's an ongoing connection attempt, wait for it
+  if (connectPromise) {
+    await connectPromise;
+  }
+  // If still not open after awaiting, try to connect
   if (!redis.isOpen) {
-    await redis.connect();
+    connectPromise = redis
+      .connect()
+      .then(() => {
+        connectPromise = null;
+      })
+      .catch((err) => {
+        connectPromise = null;
+        throw err;
+      });
+    await connectPromise;
   }
 };
 
