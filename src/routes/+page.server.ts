@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import redis from '$lib/db/redis.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
 import { ShopSource } from '$lib/constants';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { Session } from '@auth/sveltekit';
@@ -78,9 +78,7 @@ export const load: PageServerLoad = async ({ parent }) => {
     // Get user's current attendance from Redis
     let currentlyAttendingShop: ShopWithAttendance | null = null;
     if (redis) {
-      if (!redis.isOpen) {
-        await redis.connect();
-      }
+      await ensureConnected();
       try {
         // Get Redis keys for user's current attendance
         const userAttendanceKeys = await redis.keys(`nearcade:attend:*:${user.id}:*`);
@@ -114,10 +112,6 @@ export const load: PageServerLoad = async ({ parent }) => {
         }
       } catch (redisError) {
         console.error('Error getting user attendance from Redis:', redisError);
-      } finally {
-        if (redis.isOpen) {
-          redis.close();
-        }
       }
     }
 

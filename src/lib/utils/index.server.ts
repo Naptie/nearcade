@@ -1,6 +1,6 @@
 import type { ShopSource } from '$lib/constants';
 import mongo from '$lib/db/index.server';
-import redis from '$lib/db/redis.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { Shop } from '$lib/types';
 
 export const getCurrentAttendance = async (userId: string) => {
@@ -8,13 +8,8 @@ export const getCurrentAttendance = async (userId: string) => {
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
 
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
+  await ensureConnected();
   const keys = await redis.keys(attendancePattern);
-  if (redis.isOpen) {
-    redis.close();
-  }
 
   if (keys.length > 0) {
     const keyParts = keys[0].split(':');
