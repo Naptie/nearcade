@@ -1,4 +1,4 @@
-import redis from '$lib/db/redis.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
 import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
 import type { User, Session } from '@auth/sveltekit';
@@ -73,9 +73,7 @@ export const getShopsAttendanceData = async (
   if (!redis) {
     throw new Error('Redis not available');
   }
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
+  await ensureConnected();
 
   const results = new Map<string, ShopAttendanceResult>();
   if (shops.length === 0) {
@@ -249,10 +247,6 @@ export const getShopsAttendanceData = async (
     }
   }
 
-  if (redis.isOpen) {
-    redis.close();
-  }
-
   return results;
 };
 
@@ -267,9 +261,7 @@ export const getAllShopsAttendanceData = async (): Promise<
   if (!redis) {
     throw new Error('Redis not available');
   }
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
+  await ensureConnected();
 
   const results = new Map<string, Array<{ gameId: number; total: number }>>();
 
@@ -409,10 +401,6 @@ export const getAllShopsAttendanceData = async (): Promise<
     }
 
     results.set(identifier, gameAttendances);
-  }
-
-  if (redis.isOpen) {
-    redis.close();
   }
 
   return results;

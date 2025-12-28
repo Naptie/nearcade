@@ -16,7 +16,7 @@ import {
 } from '$lib/types';
 import type { User } from '@auth/sveltekit';
 import { getDisplayName, protect } from '.';
-import redis from '$lib/db/redis.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { ShopSource } from '$lib/constants';
 
 /**
@@ -542,9 +542,7 @@ export async function getUserActivities(
       });
     });
 
-    if (!redis.isOpen) {
-      await redis.connect();
-    }
+    await ensureConnected();
 
     const attendancePattern = `nearcade:attend:*:${userId}:*`;
     const keys = await redis.keys(attendancePattern);
@@ -584,10 +582,6 @@ export async function getUserActivities(
         }
       }
     }
-  }
-
-  if (redis.isOpen) {
-    redis.close();
   }
 
   // Sort all activities by creation time (descending) and apply pagination

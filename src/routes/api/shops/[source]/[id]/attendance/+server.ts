@@ -1,7 +1,7 @@
 import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import redis from '$lib/db/redis.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { AttendanceRecord, AttendanceReportRecord, Shop } from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
@@ -35,26 +35,16 @@ const attend = async (
   const ttlSeconds = Math.max(Math.floor((plannedLeave - Date.now()) / 1000), 60); // Minimum 60 seconds
 
   // Store attendance in Redis with expiration
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
+  await ensureConnected();
   await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
-  if (redis.isOpen) {
-    redis.close();
-  }
 };
 
 const leave = async (user: User, shop: Shop) => {
   const { source, id } = shop;
   const pattern = `nearcade:attend:${source}-${id}:${user.id}:*`;
-  if (!redis.isOpen) {
-    await redis.connect();
-  }
+  await ensureConnected();
   const keys = await redis.keys(pattern);
   if (keys.length === 0) {
-    if (redis.isOpen) {
-      redis.close();
-    }
     error(404, m.attendance_not_found());
   }
 
@@ -64,9 +54,6 @@ const leave = async (user: User, shop: Shop) => {
   // Get the attendance data before deleting
   const attendanceDataStr = await redis.get(attendanceKey);
   if (!attendanceDataStr) {
-    if (redis.isOpen) {
-      redis.close();
-    }
     error(404, m.attendance_not_found());
   }
 
@@ -74,9 +61,6 @@ const leave = async (user: User, shop: Shop) => {
 
   // Delete from Redis
   await redis.del(attendanceKey);
-  if (redis.isOpen) {
-    redis.close();
-  }
 
   // Add to MongoDB attendances collection
   const db = mongo.db();
@@ -276,13 +260,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const ttlSeconds = Math.max(Math.floor((closeTolerated.getTime() - now) / 1000), 60); // Minimum 60 seconds
 
         // Store attendance in Redis
-        if (!redis.isOpen) {
-          await redis.connect();
-        }
+        await ensureConnected();
         await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
-        if (redis.isOpen) {
-          redis.close();
-        }
 
         if (
           isAttendingOnBehalf &&
