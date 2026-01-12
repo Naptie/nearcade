@@ -128,5 +128,5 @@
       "@auth/sveltekit": "patches/@auth__sveltekit.patch"
     }
   },
-  "packageManager": "pnpm@10.21.0"
+  "packageManager": "pnpm@10.28.0"
 }
