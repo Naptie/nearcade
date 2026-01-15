@@ -7,7 +7,8 @@ import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url }) => {
-  const { source, id } = params;
+  const { source: sourceRaw, id } = params;
+  const source = sourceRaw.toLowerCase().trim();
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {
