@@ -113,7 +113,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     if (
       matchedToken?.shop &&
       matchedToken.shop.id.toString() !== params.id &&
-      matchedToken.shop.source !== params.source
+      matchedToken.shop.source !== params.source.toLowerCase().trim()
     ) {
       error(403, m.access_denied());
     }
@@ -148,7 +148,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(400, m.missing_required_parameters());
     }
 
-    const source = params.source as ShopSource;
+    const source = params.source.toLowerCase().trim() as ShopSource;
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
@@ -318,7 +318,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   }
 
   try {
-    const source = params.source as ShopSource;
+    const source = params.source.toLowerCase().trim() as ShopSource;
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
@@ -362,7 +362,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
     const fetchRegistered = ['0', 'false'].includes(url.searchParams.get('reported') || 'false');
     const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'true');
-    const source = params.source as ShopSource;
+    const source = params.source.toLowerCase().trim() as ShopSource;
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {

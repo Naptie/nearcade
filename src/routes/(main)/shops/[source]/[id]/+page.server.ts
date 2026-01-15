@@ -8,7 +8,8 @@ import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
-  const { source, id } = params;
+  const { source: sourceRaw, id } = params;
+  const source = sourceRaw.toLowerCase().trim();
 
   // Validate source
   if (!Object.values(ShopSource).includes(source as ShopSource)) {

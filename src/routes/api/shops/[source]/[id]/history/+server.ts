@@ -7,7 +7,7 @@ import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
-    const source = params.source as ShopSource;
+    const source = params.source.toLowerCase().trim() as ShopSource;
 
     // Validate shop source
     if (!Object.values(ShopSource).includes(source)) {
