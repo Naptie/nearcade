@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
   import { pageTitle } from '$lib/utils';
+  import { resolve } from '$app/paths';
 
   let { data }: { data: PageData } = $props();
 </script>
@@ -37,10 +38,6 @@
             </div>
           </div>
         {/if}
-
-        <p class="text-base-content/60 mt-6 text-sm">
-          {m.attend_registration_close_hint()}
-        </p>
       {:else}
         <!-- Error State -->
         <div class="text-error mb-4">
@@ -75,14 +72,26 @@
             {m.unexpected_error()}
           </p>
         {/if}
-
-        <div class="mt-6">
-          <a href="/" class="btn btn-primary">
-            <i class="fa-solid fa-home"></i>
-            {m.go_home()}
-          </a>
-        </div>
       {/if}
+
+      <div class="mt-6 flex items-center justify-center gap-2">
+        {#if data.shop}
+          <a
+            href={resolve('/(main)/shops/[source]/[id]', {
+              source: data.shop.source,
+              id: data.shop.id.toString()
+            })}
+            class="btn btn-primary"
+          >
+            <i class="fa-solid fa-store"></i>
+            {m.shop_details()}
+          </a>
+        {/if}
+        <a href={resolve('/')} class="btn btn-secondary btn-soft">
+          <i class="fa-solid fa-home"></i>
+          {m.go_home()}
+        </a>
+      </div>
     </div>
   </div>
 </div>

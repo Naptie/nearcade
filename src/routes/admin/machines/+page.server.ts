@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Machine, Shop } from '$lib/types';
-import { toPlainArray, toPlainObject } from '$lib/utils';
+import { serialNumber, toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
@@ -118,9 +118,6 @@ export const actions = {
       return fail(404, { error: m.shop_not_found() });
     }
 
-    // Generate unique serial number
-    const serialNumber = nanoid(12).toUpperCase();
-
     const machinesCollection = db.collection<Machine>('machines');
 
     const machine: Machine = {
@@ -128,7 +125,7 @@ export const actions = {
       name,
       shopSource,
       shopId,
-      serialNumber,
+      serialNumber: serialNumber(),
       isActivated: false,
       createdAt: new Date(),
       updatedAt: new Date()

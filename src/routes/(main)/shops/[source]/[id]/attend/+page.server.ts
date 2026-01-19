@@ -64,12 +64,19 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     };
   }
 
+  // Get shop details
+  const db = mongo.db();
+  const shop = await db.collection<Shop>('shops').findOne({
+    source: source as ShopSource,
+    id: shopId
+  });
+
   // Check if already registered
-  if (registration.userId) {
+  if (registration.userId && registration.userId !== session.user.id) {
     return {
       status: 'error' as const,
       errorCode: 'already_registered',
-      shop: null,
+      shop: shop ? { name: shop.name, source: shop.source, id: shop.id } : null,
       slotIndex: registration.slotIndex
     };
   }
@@ -77,31 +84,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   // Store the user ID in the registration
   registration.userId = session.user.id;
 
-  // Calculate remaining TTL
-  const expiresAt = new Date(registration.expiresAt);
-  const ttlMs = expiresAt.getTime() - Date.now();
-
-  if (ttlMs <= 0) {
-    // Token has expired
-    await redis.del(`${REGISTRATION_KEY_PREFIX}${token}`);
-    return {
-      status: 'error' as const,
-      errorCode: 'expired_or_invalid',
-      shop: null,
-      slotIndex: null
-    };
-  }
-
   // Update Redis with userId
-  const ttlSeconds = Math.ceil(ttlMs / 1000);
-  await redis.setEx(`${REGISTRATION_KEY_PREFIX}${token}`, ttlSeconds, JSON.stringify(registration));
-
-  // Get shop details
-  const db = mongo.db();
-  const shop = await db.collection<Shop>('shops').findOne({
-    source: source as ShopSource,
-    id: shopId
-  });
+  await redis.setEx(`${REGISTRATION_KEY_PREFIX}${token}`, 5 * 60, JSON.stringify(registration));
 
   return {
     status: 'success' as const,
