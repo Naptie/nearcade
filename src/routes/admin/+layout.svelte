@@ -72,6 +72,13 @@
       requiresSiteAdmin: true
     },
     {
+      id: 'machines',
+      label: m.admin_machines(),
+      icon: 'fa-server',
+      href: resolve('/admin/machines'),
+      requiresSiteAdmin: true
+    },
+    {
       id: 'invites',
       label: m.admin_invites(),
       icon: 'fa-link',

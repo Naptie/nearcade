@@ -30,7 +30,8 @@ import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
 import { enUS, ja, zhCN } from 'date-fns/locale';
 
-export const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+export const alphabetUppercase = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+export const alphabet = alphabetUppercase + 'abcdefghijklmnopqrstuvwxyz';
 
 export const postId = () => {
   return customAlphabet(alphabet, 14)();
@@ -38,6 +39,10 @@ export const postId = () => {
 
 export const commentId = () => {
   return customAlphabet(alphabet, 18)();
+};
+
+export const serialNumber = (): string => {
+  return customAlphabet(alphabetUppercase, 12)();
 };
 
 /**
