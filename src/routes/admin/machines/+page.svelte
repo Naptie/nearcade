@@ -262,7 +262,7 @@
             isSubmitting = false;
             if (result.type === 'success') {
               showCreateModal = false;
-              createForm = { name: '', shopSource: ShopSource.BEMANICN, shopId: '' };
+              createForm = { name: '', shopSource: ShopSource.BEMANICN as string, shopId: '' };
               await invalidateAll();
             } else {
               await update();
