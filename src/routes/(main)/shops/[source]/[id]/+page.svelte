@@ -21,7 +21,7 @@
   } from '$lib/utils';
   import { ATTENDANCE_RADIUS_KM, GAMES } from '$lib/constants';
   import { getContext } from 'svelte';
-  import type { AMapContext } from '$lib/types';
+  import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
@@ -95,6 +95,12 @@
   let userAttendance = $state<boolean>(false);
   let costs: Record<string, string> = $state({});
 
+  // Queue data for claimed shops
+  type EnrichedQueueMember = QueueMember & { user?: User | null };
+  type EnrichedQueuePosition = Omit<QueuePosition, 'members'> & { members: EnrichedQueueMember[] };
+  type EnrichedQueueRecord = Omit<QueueRecord, 'queue'> & { queue: EnrichedQueuePosition[] };
+  let queueData = $state<EnrichedQueueRecord[]>([]);
+
   // Update user attendance status
   $effect(() => {
     if (data.user && attendanceData) {
@@ -152,6 +158,22 @@
     }
   };
 
+  const getQueueData = async () => {
+    if (!shop || !shop.isClaimed) return;
+    try {
+      const queueResponse = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/queues`));
+      if (queueResponse.ok) {
+        const result = (await queueResponse.json()) as {
+          success: boolean;
+          queues: EnrichedQueueRecord[];
+        };
+        queueData = result.queues || [];
+      }
+    } catch (err) {
+      console.warn('Failed to load queue data:', err);
+    }
+  };
+
   onMount(() => {
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
@@ -166,6 +188,10 @@
 
   $effect(() => {
     if (shop) {
+      // For claimed shops, fetch queue data; otherwise fetch attendance data
+      if (shop.isClaimed) {
+        getQueueData();
+      }
       getAttendanceData();
       sanitizeHTML(shop.comment).then((content) => {
         shopComment = { sanitized: true, content };
@@ -331,11 +357,47 @@
     showReportAttendanceModal = true;
   };
 
-  // Refresh attendance data every 30 seconds
+  // Helper to get queue data for a specific game
+  const getGameQueue = (gameId: number) => {
+    return queueData.find((q) => q.gameId === gameId);
+  };
+
+  // Get status badge class
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'playing':
+        return 'badge-success';
+      case 'queued':
+        return 'badge-warning';
+      case 'deferred':
+        return 'badge-neutral';
+      default:
+        return 'badge-ghost';
+    }
+  };
+
+  // Get status label
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'playing':
+        return m.queue_status_playing();
+      case 'queued':
+        return m.queue_status_queued();
+      case 'deferred':
+        return m.queue_status_deferred();
+      default:
+        return status;
+    }
+  };
+
+  // Refresh data every 30 seconds
   $effect(() => {
     if (!browser) return;
 
     const interval = setInterval(() => {
+      if (shop?.isClaimed) {
+        getQueueData();
+      }
       getAttendanceData();
     }, 30000);
     return () => clearInterval(interval);
@@ -860,55 +922,107 @@
                     {/if}
                   </div>
 
-                  <!-- Attendance Section -->
+                  <!-- Queue/Attendance Section -->
                   <div class="border-base-content/10 mt-4 border-t pt-4">
-                    <div class="flex items-center justify-between">
-                      <span class="text-base-content/60 text-sm"
-                        >{m.current_players()} ({countedAttendance})</span
-                      >
-                      {#if reportedAttendance !== undefined}
-                        <AttendanceReportBlame {reportedAttendance} class="not-md:tooltip-left">
-                          <span class="text-accent text-sm font-medium">
-                            {m.in_attendance({ count: reportedAttendance?.count || 0 })}
-                          </span>
-                        </AttendanceReportBlame>
-                      {:else}
-                        <span class="text-sm font-medium">
-                          {m.in_attendance({ count: countedAttendance })}
-                        </span>
-                      {/if}
-                    </div>
-
-                    <!-- Detailed attendance list for this game -->
-                    {#if attendanceData}
-                      {@const attendees = attendanceData.filter(
-                        (attendee) => attendee.gameId === game.gameId
-                      )}
-                      {#if attendees.length > 0}
-                        <div class="border-base-content/10 mt-3">
-                          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                            {#each attendees as attendee (attendee.userId)}
-                              <div class="tooltip w-fit">
-                                <div class="tooltip-content px-3 whitespace-pre-line">
-                                  {m.attendance_details({
-                                    duration: formatDistanceToNow(attendee.attendedAt, {
-                                      locale: getFnsLocale(getLocale())
-                                    }),
-                                    leave: formatTime(attendee.plannedLeaveAt)
-                                  })}
-                                </div>
-                                <div class="w-fit">
-                                  <UserAvatar
-                                    user={attendee.user || { displayName: attendee.userId }}
-                                    size="sm"
-                                    showName
-                                    target={adaptiveNewTab()}
-                                  />
-                                </div>
-                              </div>
-                            {/each}
-                          </div>
+                    {#if shop.isClaimed}
+                      <!-- Queue display for claimed shops -->
+                      {@const gameQueue = getGameQueue(game.gameId)}
+                      {#if gameQueue && gameQueue.queue.length > 0}
+                        {@const playingCount = gameQueue.queue
+                          .filter((p) => p.status === 'playing')
+                          .reduce((sum, p) => sum + p.members.length, 0)}
+                        <div class="flex items-center justify-between">
+                          <span class="text-base-content/60 text-sm">{m.queue()}</span>
+                          <span class="text-sm font-medium"
+                            >{m.in_attendance({ count: playingCount })}</span
+                          >
                         </div>
+                        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {#each gameQueue.queue as position, i (i)}
+                            <div
+                              class="bg-base-100 flex items-center gap-2 rounded-full px-3 py-2"
+                              class:col-span-full={position.members.length > 1}
+                              class:sm:col-span-2={position.members.length > 1}
+                              class:lg:col-span-3={position.members.length > 1}
+                            >
+                              <span class="badge badge-sm {getStatusBadgeClass(position.status)}">
+                                #{position.position} · {getStatusLabel(position.status)}
+                              </span>
+                              <div class="flex flex-1 flex-wrap items-center gap-2">
+                                {#each position.members as member, j (j)}
+                                  {#if member.user}
+                                    <UserAvatar
+                                      user={member.user}
+                                      size="xs"
+                                      showName
+                                      target={adaptiveNewTab()}
+                                    />
+                                  {:else}
+                                    <span class="text-base-content/60 text-sm">
+                                      {member.slotIndex}
+                                    </span>
+                                  {/if}
+                                {/each}
+                              </div>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else}
+                        <div class="flex items-center justify-between">
+                          <span class="text-base-content/60 text-sm">{m.queue()}</span>
+                          <span class="text-base-content/60 text-sm">{m.no_queue_data()}</span>
+                        </div>
+                      {/if}
+                    {:else}
+                      <!-- Standard attendance display for unclaimed shops -->
+                      <div class="flex items-center justify-between">
+                        <span class="text-base-content/60 text-sm"
+                          >{m.current_players()} ({countedAttendance})</span
+                        >
+                        {#if reportedAttendance !== undefined}
+                          <AttendanceReportBlame {reportedAttendance} class="not-md:tooltip-left">
+                            <span class="text-accent text-sm font-medium">
+                              {m.in_attendance({ count: reportedAttendance?.count || 0 })}
+                            </span>
+                          </AttendanceReportBlame>
+                        {:else}
+                          <span class="text-sm font-medium">
+                            {m.in_attendance({ count: countedAttendance })}
+                          </span>
+                        {/if}
+                      </div>
+
+                      <!-- Detailed attendance list for this game -->
+                      {#if attendanceData}
+                        {@const attendees = attendanceData.filter(
+                          (attendee) => attendee.gameId === game.gameId
+                        )}
+                        {#if attendees.length > 0}
+                          <div class="border-base-content/10 mt-3">
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {#each attendees as attendee (attendee.userId)}
+                                <div class="tooltip w-fit">
+                                  <div class="tooltip-content px-3 whitespace-pre-line">
+                                    {m.attendance_details({
+                                      duration: formatDistanceToNow(attendee.attendedAt, {
+                                        locale: getFnsLocale(getLocale())
+                                      }),
+                                      leave: formatTime(attendee.plannedLeaveAt)
+                                    })}
+                                  </div>
+                                  <div class="w-fit">
+                                    <UserAvatar
+                                      user={attendee.user || { displayName: attendee.userId }}
+                                      size="sm"
+                                      showName
+                                      target={adaptiveNewTab()}
+                                    />
+                                  </div>
+                                </div>
+                              {/each}
+                            </div>
+                          </div>
+                        {/if}
                       {/if}
                     {/if}
                   </div>

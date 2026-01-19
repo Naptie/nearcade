@@ -569,4 +569,55 @@ export interface ShopWithAttendance extends Shop {
   isInAttendance?: boolean;
 }
 
+// Kiosk machine for queue management
+export interface Machine {
+  _id?: string | ObjectId;
+  id: string;
+  name: string;
+  shopSource: ShopSource;
+  shopId: number;
+  serialNumber: string; // Auto-generated, used for activation
+  apiSecret?: string; // Auto-generated upon activation
+  isActivated: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Queue status for players
+export type QueueStatus = 'playing' | 'queued' | 'deferred';
+
+// Queue member (player slot)
+export interface QueueMember {
+  slotIndex: string;
+  userId: string | null;
+}
+
+// Queue position (can have multiple players for multi-seat games)
+export interface QueuePosition {
+  position: number;
+  status: QueueStatus;
+  members: QueueMember[];
+}
+
+// Queue record for a specific game in a shop
+export interface QueueRecord {
+  _id?: string | ObjectId;
+  shopSource: ShopSource;
+  shopId: number;
+  gameId: number;
+  queue: QueuePosition[];
+  updatedAt: Date;
+  updatedByMachineId: string;
+}
+
+// Attendance registration token stored in Redis
+export interface AttendanceRegistration {
+  shopSource: string;
+  shopId: string;
+  machineId: string;
+  slotIndex: string;
+  expiresAt: string;
+  userId?: string;
+}
+
 export * from './amap';
