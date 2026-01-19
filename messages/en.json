@@ -206,7 +206,6 @@
   "attend_claimed": "This shop has been claimed. Please check in through the in-shop machine.",
   "attend_registration": "Attendance Registration",
   "attend_registration_already_registered": "This slot has already been registered by another user.",
-  "attend_registration_close_hint": "You can now close this page and return to the kiosk.",
   "attend_registration_expired_or_invalid": "The QR code has expired or is invalid. Please request a new one from the kiosk.",
   "attend_registration_failed": "Registration Failed",
   "attend_registration_invalid_shop": "This QR code is not valid for this shop.",

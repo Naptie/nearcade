@@ -14,6 +14,8 @@
   let searchQuery = $state(data.search || '');
   let searchTimeout: ReturnType<typeof setTimeout>;
 
+  let copied = $state<string | null>(null);
+
   // Modal states
   let showCreateModal = $state(false);
   let showEditModal = $state(false);
@@ -61,6 +63,12 @@
 
   const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
+    copied = text;
+    setTimeout(() => {
+      if (copied === text) {
+        copied = null;
+      }
+    }, 2000);
   };
 </script>
 
@@ -136,13 +144,22 @@
                 </td>
                 <td>
                   <div class="flex items-center gap-2">
-                    <code class="text-sm">{machine.serialNumber}</code>
+                    <code class="text-sm">
+                      {(machine.serialNumber ?? '').match(/.{1,4}/g)?.join('-') ||
+                        machine.serialNumber}
+                    </code>
                     <button
-                      class="btn btn-ghost btn-xs"
+                      class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
+                      class:btn-success={copied === machine.serialNumber}
+                      class:btn-active={copied === machine.serialNumber}
                       onclick={() => copyToClipboard(machine.serialNumber)}
                       title={m.copy()}
                     >
-                      <i class="fa-solid fa-copy"></i>
+                      {#if copied === machine.serialNumber}
+                        <i class="fa-solid fa-check fa-lg"></i>
+                      {:else}
+                        <i class="fa-solid fa-copy fa-lg"></i>
+                      {/if}
                     </button>
                   </div>
                 </td>
@@ -400,7 +417,10 @@
             <div class="text-sm">
               <div class="flex justify-between py-1">
                 <span class="opacity-60">{m.serial_number()}</span>
-                <code>{selectedMachine.serialNumber}</code>
+                <code>
+                  {(selectedMachine.serialNumber ?? '').match(/.{1,4}/g)?.join('-') ||
+                    selectedMachine.serialNumber}
+                </code>
               </div>
               <div class="flex justify-between py-1">
                 <span class="opacity-60">{m.bound_shop()}</span>

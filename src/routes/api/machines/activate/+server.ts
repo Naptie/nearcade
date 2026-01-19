@@ -5,8 +5,8 @@ import type { Machine, Shop } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 
-export const POST: RequestHandler = async ({ params }) => {
-  const { serialNumber } = params;
+export const POST: RequestHandler = async ({ url }) => {
+  const serialNumber = url.searchParams.get('sn');
 
   if (!serialNumber) {
     error(400, m.missing_required_parameters());

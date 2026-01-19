@@ -6,6 +6,8 @@ import type { Machine, AttendanceRegistration, Shop } from '$lib/types';
 import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
+import type { User } from '@auth/sveltekit';
+import { protect } from '$lib/utils';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 const MAX_EXPIRATION_SECONDS = 2 * 60; // 2 minutes
@@ -42,7 +44,6 @@ const validateMachineAuth = async (
   return machine;
 };
 
-// POST: Issue a time-sensitive token for QR code attendance
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
     const source = params.source.toLowerCase().trim() as ShopSource;
@@ -63,10 +64,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     const body = (await request.json()) as {
       slotIndex: string;
-      expiresInSeconds?: number;
+      expires?: number;
     };
 
-    const { slotIndex, expiresInSeconds } = body;
+    const { slotIndex, expires } = body;
 
     if (!slotIndex || typeof slotIndex !== 'string') {
       error(400, m.missing_required_parameters());
@@ -74,7 +75,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Calculate expiration (max 2 minutes)
     const ttlSeconds = Math.min(
-      Math.max(expiresInSeconds || MAX_EXPIRATION_SECONDS, 10),
+      Math.max(expires || MAX_EXPIRATION_SECONDS, 10),
       MAX_EXPIRATION_SECONDS
     );
 
@@ -116,7 +117,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
   }
 };
 
-// GET: Long-poll for userId registration (returns Redis entry)
 export const GET: RequestHandler = async ({ params, request, url }) => {
   try {
     const source = params.source.toLowerCase().trim() as ShopSource;
@@ -155,9 +155,16 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
       error(403, m.access_denied());
     }
 
+    let user: User | undefined = undefined;
+    if (registration.userId) {
+      const db = mongo.db();
+      const usersCollection = db.collection('users');
+      user = (await usersCollection.findOne({ id: registration.userId })) ?? undefined;
+    }
+
     return json({
       success: true,
-      registration
+      registration: user ? { ...registration, user: protect(user) } : registration
     });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
@@ -168,7 +175,6 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
   }
 };
 
-// DELETE: Revoke registration token
 export const DELETE: RequestHandler = async ({ params, request, url }) => {
   try {
     const source = params.source.toLowerCase().trim() as ShopSource;
