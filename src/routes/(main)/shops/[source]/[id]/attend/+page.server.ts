@@ -1,10 +1,11 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
 import type { AttendanceRegistration, Shop } from '$lib/types';
 import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
+import { loginRedirect } from '$lib/utils/scoped';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 
@@ -33,9 +34,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   const session = await locals.auth();
 
   if (!session?.user) {
-    // Redirect to login with return URL
-    const returnUrl = url.pathname + url.search;
-    redirect(302, `/session?callbackUrl=${encodeURIComponent(returnUrl)}`);
+    throw loginRedirect(url);
   }
 
   // Get registration from Redis
