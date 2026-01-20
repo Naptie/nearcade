@@ -4,7 +4,6 @@ import type { UniversityMember, University, Club, ClubMember } from '$lib/types'
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
-import { ObjectId } from 'mongodb';
 
 // Define the type for linked accounts
 interface LinkedAccount {
@@ -53,7 +52,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
         const db = mongo.db();
         const accountsCollection = db.collection('accounts');
         const existingWechat = await accountsCollection.findOne({
-          userId: new ObjectId(user._id as string),
+          userId: user._id,
           provider: 'wechat'
         });
 
@@ -62,7 +61,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
         } else {
           // Bind WeChat account
           await accountsCollection.insertOne({
-            userId: new ObjectId(user._id as string),
+            userId: user._id,
             type: 'oauth',
             provider: 'wechat',
             providerAccountId: wechatData.openId
@@ -90,10 +89,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 
     // Get linked accounts for the user
     const linkedAccountsRaw = await accountsCollection
-      .find(
-        { userId: new ObjectId(user._id as string) },
-        { projection: { provider: 1, providerAccountId: 1, _id: 0 } }
-      )
+      .find({ userId: user._id }, { projection: { provider: 1, providerAccountId: 1, _id: 0 } })
       .toArray();
 
     const linkedAccounts: LinkedAccount[] = linkedAccountsRaw.map((acc) => ({
