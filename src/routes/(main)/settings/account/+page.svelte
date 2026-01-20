@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { invalidateAll, goto } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { base, resolve } from '$app/paths';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
@@ -16,6 +16,9 @@
   let showWeChatBindModal = $state(false);
   let leavingUniversityId = $state('');
   let leavingClubId = $state('');
+
+  // Store WeChat bind result in local state to prevent it from disappearing when URL changes
+  let wechatBindResult = $state(data.wechatBindResult);
 
   const confirmLeaveUniversity = (universityId: string) => {
     leavingUniversityId = universityId;
@@ -41,13 +44,18 @@
     });
   };
 
-  // Clear wechatToken from URL after processing
+  // Function to dismiss the WeChat bind alert
+  const dismissWechatAlert = () => {
+    wechatBindResult = null;
+  };
+
+  // Clean up the URL parameter after showing the result (but keep the alert visible)
   $effect(() => {
     if (data.wechatBindResult && page.url.searchParams.has('wechatToken')) {
-      // Remove the wechatToken from URL without navigating
+      // Remove the wechatToken from URL without navigating (keeps history clean)
       const newUrl = new URL(page.url);
       newUrl.searchParams.delete('wechatToken');
-      goto(newUrl.pathname, { replaceState: true });
+      history.replaceState(history.state, '', newUrl.href);
     }
   });
 </script>
@@ -242,24 +250,27 @@
     <p class="text-base-content/70 mb-4 text-sm">{m.linked_accounts_description()}</p>
 
     <!-- WeChat Bind Result Alert -->
-    {#if data.wechatBindResult}
-      <div class="alert mb-4 {data.wechatBindResult.success ? 'alert-success' : 'alert-error'}">
+    {#if wechatBindResult}
+      <div class="alert mb-4 {wechatBindResult.success ? 'alert-success' : 'alert-error'}">
         <i
-          class="fa-solid {data.wechatBindResult.success
+          class="fa-solid {wechatBindResult.success
             ? 'fa-check-circle'
             : 'fa-exclamation-triangle'}"
         ></i>
         <span>
-          {#if data.wechatBindResult.message === 'wechat_bound_successfully'}
+          {#if wechatBindResult.message === 'wechat_bound_successfully'}
             {m.wechat_bound_successfully()}
-          {:else if data.wechatBindResult.message === 'wechat_already_bound'}
+          {:else if wechatBindResult.message === 'wechat_already_bound'}
             {m.wechat_already_bound()}
-          {:else if data.wechatBindResult.message === 'wechat_token_invalid_or_expired'}
+          {:else if wechatBindResult.message === 'wechat_token_invalid_or_expired'}
             {m.wechat_token_invalid_or_expired()}
           {:else}
             {m.wechat_bind_error()}
           {/if}
         </span>
+        <button class="btn btn-ghost btn-sm btn-circle" onclick={dismissWechatAlert}>
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
     {/if}
 
