@@ -51,6 +51,27 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
     }
   }),
   trustHost: true,
+  events: {
+    linkAccount: async ({ user, profile }) => {
+      // When a new account is linked, check if the user's email needs to be updated
+      // QQ users have fake emails ending with @qq.nearcade
+      const db = mongo.db();
+      const usersCollection = db.collection<User>('users');
+
+      const dbUser = await usersCollection.findOne({ _id: new ObjectId(user.id as string) });
+
+      if (dbUser?.email?.endsWith('@qq.nearcade') && profile?.email) {
+        // Update the user's email to the one from the newly linked account
+        await usersCollection.updateOne(
+          { _id: new ObjectId(user.id as string) },
+          { $set: { email: profile.email } }
+        );
+        console.log(
+          `[Auth] Updated email for user ${user.id} from ${dbUser.email} to ${profile.email}`
+        );
+      }
+    }
+  },
   callbacks: {
     session: async ({ session, user }) => {
       const userId = session.userId;
