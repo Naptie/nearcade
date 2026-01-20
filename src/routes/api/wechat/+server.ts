@@ -95,9 +95,11 @@ export const POST = async ({ request }) => {
       // Fall back to the Host header
       const hostHeader = request.headers.get('host');
       if (hostHeader) {
-        // Determine protocol (assume https in production)
+        // Determine protocol from X-Forwarded-Proto header (set by reverse proxies)
+        // Default to https in production, http only for localhost development
+        const forwardedProto = request.headers.get('x-forwarded-proto');
         const isSecure =
-          request.headers.get('x-forwarded-proto') === 'https' || hostHeader.includes('localhost');
+          forwardedProto === 'https' || (!forwardedProto && !hostHeader.startsWith('localhost:'));
         host = `${isSecure ? 'https' : 'http'}://${hostHeader}`;
       }
     }
@@ -109,6 +111,7 @@ export const POST = async ({ request }) => {
     const createTime = Math.floor(Date.now() / 1000);
 
     // Construct XML response
+    // Note: Chinese text is intentional as WeChat users are Chinese speakers
     const responseXml = `<xml>
   <ToUserName><![CDATA[${fromUserName}]]></ToUserName>
   <FromUserName><![CDATA[${toUserName}]]></FromUserName>
@@ -129,12 +132,14 @@ export const POST = async ({ request }) => {
 
 /**
  * Simple XML parser for WeChat messages
- * Extracts values from XML tags
+ * This parser is sufficient for WeChat's fixed XML format which uses a flat
+ * structure with optional CDATA wrapping. WeChat's XML messages follow a
+ * consistent pattern that doesn't require a full XML parser.
  */
 function parseXML(xml: string): Record<string, string> {
   const result: Record<string, string> = {};
 
-  // Match all XML tags and their content
+  // Match all XML tags and their content (with optional CDATA wrapping)
   const regex = /<(\w+)>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/\1>/g;
   let match;
 
