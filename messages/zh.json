@@ -1197,7 +1197,7 @@
   "wechat_bind_step_3": "点击收到的链接完成绑定",
   "wechat_bound_successfully": "微信账号绑定成功",
   "wechat_donation_qr": "微信赞助二维码",
-  "wechat_qr_placeholder": "公众号二维码",
+  "wechat_official_account_qr_code": "公众号二维码",
   "wechat_token_invalid_or_expired": "微信绑定令牌无效或已过期",
   "yes": "是",
   "you_already_have_a_pending_join_request_for_this_club": "您已有该社团的待处理加入申请",

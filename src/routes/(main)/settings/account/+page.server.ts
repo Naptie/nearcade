@@ -4,6 +4,7 @@ import type { UniversityMember, University, Club, ClubMember } from '$lib/types'
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
+import { ObjectId } from 'mongodb';
 
 // Define the type for linked accounts
 interface LinkedAccount {
@@ -52,7 +53,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
         const db = mongo.db();
         const accountsCollection = db.collection('accounts');
         const existingWechat = await accountsCollection.findOne({
-          userId: user._id,
+          userId: new ObjectId(user.id),
           provider: 'wechat'
         });
 
@@ -61,7 +62,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
         } else {
           // Bind WeChat account
           await accountsCollection.insertOne({
-            userId: user._id,
+            userId: new ObjectId(user.id),
             type: 'oauth',
             provider: 'wechat',
             providerAccountId: wechatData.openId
@@ -89,7 +90,10 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 
     // Get linked accounts for the user
     const linkedAccountsRaw = await accountsCollection
-      .find({ userId: user._id }, { projection: { provider: 1, providerAccountId: 1, _id: 0 } })
+      .find(
+        { userId: new ObjectId(user.id) },
+        { projection: { provider: 1, providerAccountId: 1, _id: 0 } }
+      )
       .toArray();
 
     const linkedAccounts: LinkedAccount[] = linkedAccountsRaw.map((acc) => ({
@@ -149,8 +153,8 @@ export const load: PageServerLoad = async ({ parent, url }) => {
     return {
       userProfile,
       needsEmailUpdate,
-      linkedAccounts: [],
-      boundProviders: [],
+      linkedAccounts: [] as LinkedAccount[],
+      boundProviders: [] as string[],
       availableProviders: SUPPORTED_PROVIDERS,
       canBindWechat: true,
       wechatBindResult,
@@ -244,10 +248,10 @@ export const actions: Actions = {
       await usersCollection.deleteOne({ id: user.id });
 
       // Delete associated accounts
-      await accountsCollection.deleteMany({ userId: user._id });
+      await accountsCollection.deleteMany({ userId: new ObjectId(user.id) });
 
       // Delete sessions
-      await sessionsCollection.deleteMany({ userId: user._id });
+      await sessionsCollection.deleteMany({ userId: new ObjectId(user.id) });
 
       // Delete university memberships
       await universityMembersCollection.deleteMany({ userId: user.id });

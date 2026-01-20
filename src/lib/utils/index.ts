@@ -30,6 +30,44 @@ import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
 import { enUS, ja, zhCN } from 'date-fns/locale';
 
+export const getProviders = (bind = false) =>
+  [
+    { name: 'QQ', icon: 'fa-qq' },
+    ...(bind
+      ? [
+          {
+            id: 'wechat',
+            name: m.social_platform_wechat(),
+            icon: 'fa-weixin',
+            class: 'hover:bg-[#07C160] hover:text-white'
+          }
+        ]
+      : []),
+    { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
+    { name: 'GitHub', icon: 'fa-github' },
+    {
+      name: 'Discord',
+      icon: 'fa-discord',
+      class: 'hover:bg-[#5865F2] hover:text-white'
+    },
+    {
+      name: 'osu!',
+      icon: 'osu.svg',
+      class: 'hover:bg-[#DA5892] hover:text-white'
+    },
+    {
+      name: 'Phira',
+      icon: 'phira.png',
+      class:
+        'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
+    }
+  ].map((provider) => ({
+    ...provider,
+    id: provider.id || provider.name.toLowerCase().replace(/[^a-z]/g, ''),
+    class:
+      provider.class || 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'
+  }));
+
 export const alphabetUppercase = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const alphabet = alphabetUppercase + 'abcdefghijklmnopqrstuvwxyz';
 

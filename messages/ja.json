@@ -1197,7 +1197,7 @@
   "wechat_bind_step_3": "受信したリンクをクリックして紐付けを完了",
   "wechat_bound_successfully": "WeChat アカウントの紐付けが完了しました",
   "wechat_donation_qr": "WeChat 寄付用 QR コード",
-  "wechat_qr_placeholder": "公式アカウント QR コード",
+  "wechat_official_account_qr_code": "公式アカウント QR コード",
   "wechat_token_invalid_or_expired": "WeChat 紐付けトークンが無効または期限切れです",
   "yes": "はい",
   "you_already_have_a_pending_join_request_for_this_club": "このクラブへの参加リクエストは既に申請されています",

@@ -1215,7 +1215,7 @@
   "wechat_bind_step_3": "Click the link you receive to complete binding",
   "wechat_bound_successfully": "WeChat account bound successfully",
   "wechat_donation_qr": "WeChat Donation QR Code",
-  "wechat_qr_placeholder": "Official Account QR Code",
+  "wechat_official_account_qr_code": "Official Account QR Code",
   "wechat_token_invalid_or_expired": "WeChat binding token is invalid or expired",
   "yes": "Yes",
   "you_already_have_a_pending_join_request_for_this_club": "You already have a pending join request for this club",

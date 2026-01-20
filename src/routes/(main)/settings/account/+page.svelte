@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll, goto } from '$app/navigation';
-  import { resolve } from '$app/paths';
+  import { base, resolve } from '$app/paths';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
-  import { formatDate, getUserTypeLabel, pageTitle } from '$lib/utils';
+  import { formatDate, getProviders, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { signIn, signOut } from '@auth/sveltekit/client';
   import type { PageData } from './$types';
 
@@ -25,34 +25,6 @@
   const confirmLeaveClub = (clubId: string) => {
     leavingClubId = clubId;
     showLeaveClubConfirm = true;
-  };
-
-  // Helper function to get provider display name
-  const getProviderDisplayName = (provider: string): string => {
-    const names: Record<string, string> = {
-      qq: 'QQ',
-      github: 'GitHub',
-      'microsoft-entra-id': 'Microsoft',
-      phira: 'Phira',
-      osu: 'osu!',
-      discord: 'Discord',
-      wechat: m.social_platform_wechat()
-    };
-    return names[provider] || provider;
-  };
-
-  // Helper function to get provider icon
-  const getProviderIcon = (provider: string): string => {
-    const icons: Record<string, string> = {
-      qq: 'fa-brands fa-qq',
-      github: 'fa-brands fa-github',
-      'microsoft-entra-id': 'fa-brands fa-microsoft',
-      phira: 'fa-solid fa-gamepad',
-      osu: 'fa-solid fa-circle',
-      discord: 'fa-brands fa-discord',
-      wechat: 'fa-brands fa-weixin'
-    };
-    return icons[provider] || 'fa-solid fa-link';
   };
 
   // Handle binding a new platform via OAuth
@@ -266,7 +238,7 @@
 
   <!-- Linked Accounts -->
   <div class="bg-base-200 mb-6 rounded-lg">
-    <h2 class="mb-4 text-xl font-semibold">{m.linked_accounts()}</h2>
+    <h2 class="text-xl font-semibold">{m.linked_accounts()}</h2>
     <p class="text-base-content/70 mb-4 text-sm">{m.linked_accounts_description()}</p>
 
     <!-- WeChat Bind Result Alert -->
@@ -301,16 +273,24 @@
 
     <!-- Currently Bound Accounts -->
     {#if data.boundProviders && data.boundProviders.length > 0}
-      <div class="space-y-3">
+      <div class="space-y-1">
         <h3 class="text-base-content/70 text-sm font-medium">{m.bound_platforms()}</h3>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {#each data.boundProviders as provider (provider)}
+          {#each getProviders(true).filter( (p) => data.boundProviders.includes(p.id) ) as provider (provider)}
             <div class="bg-base-100 flex items-center gap-3 rounded-lg p-3">
               <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
-                <i class="{getProviderIcon(provider)} text-success"></i>
+                {#if provider.icon.startsWith('fa-')}
+                  <i class="fa-brands fa-lg {provider.icon}"></i>
+                {:else}
+                  <img
+                    src="{base}/{provider.icon}"
+                    alt="{provider.name} {m.provider_logo()}"
+                    class="h-7 w-7 rounded-full"
+                  />
+                {/if}
               </div>
               <div class="flex-1">
-                <span class="font-medium">{getProviderDisplayName(provider)}</span>
+                <span class="font-medium">{provider.name}</span>
                 <p class="text-success text-xs">{m.bound()}</p>
               </div>
               <i class="fa-solid fa-check text-success"></i>
@@ -322,41 +302,34 @@
 
     <!-- Available Providers to Bind -->
     {#if (data.availableProviders && data.availableProviders.length > 0) || data.canBindWechat}
-      <div class="mt-4 space-y-3">
+      <div class="mt-4 space-y-1">
         <h3 class="text-base-content/70 text-sm font-medium">{m.available_to_bind()}</h3>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {#each data.availableProviders || [] as provider (provider)}
+          {#each getProviders(true).filter((p) => data.availableProviders.includes(p.id) || (data.canBindWechat && p.id === 'wechat')) || [] as provider (provider)}
             <button
-              class="bg-base-100 hover:bg-base-300 flex items-center gap-3 rounded-lg p-3 transition-colors"
-              onclick={() => handleBindPlatform(provider)}
+              class="bg-base-100 group flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors {provider.class}"
+              onclick={() => handleBindPlatform(provider.id)}
             >
-              <div class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full">
-                <i class={getProviderIcon(provider)}></i>
+              <div
+                class="not-group-hover:bg-base-300 flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+              >
+                {#if provider.icon.startsWith('fa-')}
+                  <i class="fa-brands fa-lg {provider.icon}"></i>
+                {:else}
+                  <img
+                    src="{base}/{provider.icon}"
+                    alt="{provider.name} {m.provider_logo()}"
+                    class="h-7 w-7 rounded-full"
+                  />
+                {/if}
               </div>
               <div class="flex-1 text-left">
-                <span class="font-medium">{getProviderDisplayName(provider)}</span>
-                <p class="text-base-content/60 text-xs">{m.click_to_bind()}</p>
+                <span class="font-medium">{provider.name}</span>
+                <p class="text-xs text-current/60">{m.click_to_bind()}</p>
               </div>
-              <i class="fa-solid fa-plus text-primary"></i>
+              <i class="fa-solid fa-plus text-primary mix-blend-difference"></i>
             </button>
           {/each}
-
-          <!-- WeChat Special Bind Button -->
-          {#if data.canBindWechat}
-            <button
-              class="bg-base-100 hover:bg-base-300 flex items-center gap-3 rounded-lg p-3 transition-colors"
-              onclick={() => handleBindPlatform('wechat')}
-            >
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
-                <i class="fa-brands fa-weixin text-green-500"></i>
-              </div>
-              <div class="flex-1 text-left">
-                <span class="font-medium">{m.social_platform_wechat()}</span>
-                <p class="text-base-content/60 text-xs">{m.click_to_bind()}</p>
-              </div>
-              <i class="fa-solid fa-plus text-primary"></i>
-            </button>
-          {/if}
         </div>
       </div>
     {/if}
@@ -505,31 +478,30 @@
       <p class="text-base-content/70 mb-4">{m.wechat_bind_instructions()}</p>
 
       <!-- QR Code Placeholder -->
-      <div class="bg-base-200 mx-auto flex h-48 w-48 items-center justify-center rounded-lg">
-        <div class="text-center">
-          <i class="fa-brands fa-weixin mb-2 text-4xl text-green-500"></i>
-          <p class="text-base-content/50 text-sm">{m.wechat_qr_placeholder()}</p>
-        </div>
-      </div>
+      <img
+        src="{base}/wechat-official-account.jpg"
+        alt={m.wechat_official_account_qr_code()}
+        class="mx-auto h-48 w-48 rounded-lg"
+      />
 
       <div class="mt-4 space-y-2 text-sm">
         <p class="flex items-start gap-2">
           <span
-            class="bg-primary text-primary-content flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
+            class="bg-base-300 text-base-content flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
             >1</span
           >
           <span>{m.wechat_bind_step_1()}</span>
         </p>
         <p class="flex items-start gap-2">
           <span
-            class="bg-primary text-primary-content flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
+            class="bg-base-300 text-base-content flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
             >2</span
           >
           <span>{m.wechat_bind_step_2()}</span>
         </p>
         <p class="flex items-start gap-2">
           <span
-            class="bg-primary text-primary-content flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
+            class="bg-base-300 text-base-content flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
             >3</span
           >
           <span>{m.wechat_bind_step_3()}</span>
