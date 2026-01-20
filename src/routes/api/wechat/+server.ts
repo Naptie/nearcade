@@ -2,12 +2,61 @@ import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { nanoid } from 'nanoid';
+import { parseString } from 'xml2js';
 import crypto from 'crypto';
 
 // WeChat verification token - should be set in environment
-const WECHAT_TOKEN = env.AUTH_WECHAT_TOKEN || '';
+const WECHAT_TOKEN = env.WECHAT_TOKEN || '';
 // Token expiry time in seconds (5 minutes)
 const WECHAT_TOKEN_EXPIRY = 300;
+/**
+ * Supported WeChat Message Types
+ */
+type WeChatMsgType =
+  | 'text'
+  | 'image'
+  | 'voice'
+  | 'video'
+  | 'shortvideo'
+  | 'location'
+  | 'link'
+  | 'event';
+
+/**
+ * Common WeChat Event Types
+ */
+type WeChatEventType = 'SUBSCRIBE' | 'UNSUBSCRIBE' | 'SCAN' | 'LOCATION' | 'CLICK' | 'VIEW';
+
+/**
+ * Type definition for the parsed WeChat XML structure.
+ * Note: xml2js parses all values as strings by default.
+ */
+interface WeChatMessage {
+  // Common fields
+  ToUserName: string;
+  FromUserName: string;
+  CreateTime: string;
+  MsgType: WeChatMsgType;
+
+  // Standard Message fields
+  Content?: string; // For text
+  MsgId?: string; // For standard messages
+  PicUrl?: string; // For image
+  MediaId?: string; // For media
+
+  // Event specific fields
+  Event?: WeChatEventType;
+  EventKey?: string; // For CLICK or SCAN
+  Ticket?: string; // For SCAN (QR Code)
+
+  // Location fields
+  Latitude?: string;
+  Longitude?: string;
+  Precision?: string;
+
+  // Allow dynamic access for obscure fields
+  [key: string]: unknown;
+}
 
 /**
  * GET handler for WeChat server verification
@@ -20,7 +69,7 @@ export const GET = async ({ url }) => {
   const echostr = url.searchParams.get('echostr') || '';
 
   if (!WECHAT_TOKEN) {
-    console.error('[WeChat] AUTH_WECHAT_TOKEN not configured');
+    console.error('[WeChat] WECHAT_TOKEN not configured');
     return new Response('Server configuration error', { status: 500 });
   }
 
@@ -49,7 +98,7 @@ export const GET = async ({ url }) => {
  */
 export const POST = async ({ request }) => {
   if (!WECHAT_TOKEN) {
-    console.error('[WeChat] AUTH_WECHAT_TOKEN not configured');
+    console.error('[WeChat] WECHAT_TOKEN not configured');
     return new Response('success', { headers: { 'Content-Type': 'text/plain' } });
   }
 
@@ -57,7 +106,7 @@ export const POST = async ({ request }) => {
     const xmlBody = await request.text();
 
     // Parse XML body
-    const xml = parseXML(xmlBody);
+    const xml = await parseXML(xmlBody);
 
     // Check if this is a menu click event for binding
     const msgType = xml.MsgType;
@@ -130,23 +179,28 @@ export const POST = async ({ request }) => {
   }
 };
 
-/**
- * Simple XML parser for WeChat messages
- * This parser is sufficient for WeChat's fixed XML format which uses a flat
- * structure with optional CDATA wrapping. WeChat's XML messages follow a
- * consistent pattern that doesn't require a full XML parser.
- */
-function parseXML(xml: string): Record<string, string> {
-  const result: Record<string, string> = {};
+const parseXML = async (xml: string): Promise<WeChatMessage> => {
+  return new Promise((resolve, reject) => {
+    parseString(
+      xml,
+      {
+        explicitArray: false, // Prevents creating arrays for single child nodes
+        trim: true, // Trims whitespace from values
+        ignoreAttrs: true // WeChat XML usually doesn't use attributes, just tags
+      },
+      (err: Error | null, result: { xml: WeChatMessage }) => {
+        if (err) {
+          return reject(err);
+        }
 
-  // Match all XML tags and their content (with optional CDATA wrapping)
-  const regex = /<(\w+)>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/\1>/g;
-  let match;
+        // Validate that the root 'xml' tag exists
+        if (!result || !result.xml) {
+          return reject(new Error('Invalid WeChat XML structure'));
+        }
 
-  while ((match = regex.exec(xml)) !== null) {
-    const [, tag, value] = match;
-    result[tag] = value;
-  }
-
-  return result;
-}
+        // Return the inner object directly
+        resolve(result.xml);
+      }
+    );
+  });
+};
