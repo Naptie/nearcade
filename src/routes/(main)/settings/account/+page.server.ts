@@ -2,9 +2,20 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { UniversityMember, University, Club, ClubMember } from '$lib/types';
 import mongo from '$lib/db/index.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
+import { ObjectId } from 'mongodb';
 
-export const load: PageServerLoad = async ({ parent }) => {
+// Define the type for linked accounts
+interface LinkedAccount {
+  provider: string;
+  providerAccountId: string;
+}
+
+// Define the supported providers for binding
+const SUPPORTED_PROVIDERS = ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord'];
+
+export const load: PageServerLoad = async ({ parent, url }) => {
   const { user } = await parent();
 
   if (!user) {
@@ -23,10 +34,78 @@ export const load: PageServerLoad = async ({ parent }) => {
     lastActiveAt: user.lastActiveAt
   };
 
+  // Check if email needs to be replaced (QQ fake email)
+  const needsEmailUpdate = user.email?.endsWith('@qq.nearcade') ?? false;
+
+  // Handle WeChat token if present in URL
+  const wechatToken = url.searchParams.get('wechatToken');
+  let wechatBindResult: { success: boolean; message?: string } | null = null;
+
+  if (wechatToken) {
+    try {
+      await ensureConnected();
+      const wechatDataStr = await redis.get(`wechat_bind:${wechatToken}`);
+
+      if (wechatDataStr) {
+        const wechatData = JSON.parse(wechatDataStr) as { openId: string; token: string };
+
+        // Check if WeChat is already bound
+        const db = mongo.db();
+        const accountsCollection = db.collection('accounts');
+        const existingWechat = await accountsCollection.findOne({
+          userId: new ObjectId(user._id as string),
+          provider: 'wechat'
+        });
+
+        if (existingWechat) {
+          wechatBindResult = { success: false, message: 'wechat_already_bound' };
+        } else {
+          // Bind WeChat account
+          await accountsCollection.insertOne({
+            userId: new ObjectId(user._id as string),
+            type: 'oauth',
+            provider: 'wechat',
+            providerAccountId: wechatData.openId
+          });
+
+          // Delete the token from Redis
+          await redis.del(`wechat_bind:${wechatToken}`);
+
+          wechatBindResult = { success: true, message: 'wechat_bound_successfully' };
+        }
+      } else {
+        wechatBindResult = { success: false, message: 'wechat_token_invalid_or_expired' };
+      }
+    } catch (err) {
+      console.error('Error processing WeChat bind:', err);
+      wechatBindResult = { success: false, message: 'wechat_bind_error' };
+    }
+  }
+
   try {
     const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
     const clubsCollection = db.collection<Club>('clubs');
+    const accountsCollection = db.collection('accounts');
+
+    // Get linked accounts for the user
+    const linkedAccountsRaw = await accountsCollection
+      .find(
+        { userId: new ObjectId(user._id as string) },
+        { projection: { provider: 1, providerAccountId: 1, _id: 0 } }
+      )
+      .toArray();
+
+    const linkedAccounts: LinkedAccount[] = linkedAccountsRaw.map((acc) => ({
+      provider: acc.provider as string,
+      providerAccountId: acc.providerAccountId as string
+    }));
+
+    // Determine which providers are bound
+    const boundProviders = linkedAccounts.map((acc) => acc.provider);
+
+    // Determine which providers can be added
+    const availableProviders = SUPPORTED_PROVIDERS.filter((p) => !boundProviders.includes(p));
 
     // Get university info if user is associated with one
     const universityMembersCollection = db.collection<UniversityMember>('university_members');
@@ -50,6 +129,13 @@ export const load: PageServerLoad = async ({ parent }) => {
 
     return {
       userProfile,
+      needsEmailUpdate,
+      linkedAccounts,
+      boundProviders,
+      availableProviders,
+      // Include wechat in available if not already bound
+      canBindWechat: !boundProviders.includes('wechat'),
+      wechatBindResult,
       universities: universities.map((university) => ({
         ...university,
         joinedAt: universityMemberships.find((m) => m.universityId === university.id)!.joinedAt
@@ -66,6 +152,12 @@ export const load: PageServerLoad = async ({ parent }) => {
     console.error('Error loading account settings:', err);
     return {
       userProfile,
+      needsEmailUpdate,
+      linkedAccounts: [],
+      boundProviders: [],
+      availableProviders: SUPPORTED_PROVIDERS,
+      canBindWechat: true,
+      wechatBindResult,
       university: null,
       clubs: []
     };
