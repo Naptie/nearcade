@@ -229,8 +229,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
       const prevStatus = prevInfo.position.status;
       const newStatus = newInfo.position.status;
-      const prevGameId = prevInfo.gameId;
-      const newGameId = newInfo.gameId;
+      const prevMachineName = prevInfo.position.machineName;
+      const newMachineName = newInfo.position.machineName;
       const prevPosition = prevInfo.position.position;
       const newPosition = newInfo.position.position;
       const prevMembers = prevInfo.position.members.map((m) => m.slotIndex).sort();
@@ -265,7 +265,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       // Condition c: Position progression within same queue
       if (
         !shouldNotify &&
-        prevGameId === newGameId &&
+        prevMachineName === newMachineName &&
         prevStatus === newStatus &&
         newPosition < prevPosition
       ) {
@@ -274,11 +274,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
         statusMessage = ahead === 0 ? '您是下一位！请准备' : `前面还有 ${ahead} 组`;
       }
 
-      // Condition d: Queue switching (moved to different game)
-      if (!shouldNotify && prevGameId !== newGameId) {
-        const gameName = shop.games.find((g) => g.gameId === newGameId)?.name || '其他游戏';
+      // Condition d: Queue switching (moved to different machine)
+      if (!shouldNotify && prevMachineName !== newMachineName) {
         shouldNotify = true;
-        statusMessage = `您已切换到 ${gameName} 的队列`;
+        statusMessage = `您已切换到 ${newMachineName} 的队列`;
       }
 
       // Condition e: Members list updated (new playmates)
