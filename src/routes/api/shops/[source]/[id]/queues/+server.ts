@@ -4,10 +4,10 @@ import mongo from '$lib/db/index.server';
 import type { Machine, QueueRecord, Shop, QueuePosition } from '$lib/types';
 import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
-import { toPlainArray } from '$lib/utils';
 import { sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '@auth/sveltekit';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
+import { toPlainObject } from '$lib/utils';
 
 // Helper to validate machine API secret and check shop binding
 const validateMachineAuth = async (
@@ -189,9 +189,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Get previous queue state for comparison
     const queuesCollection = db.collection<QueueRecord>('queues');
-    const previousQueues = await queuesCollection
-      .find({ shopSource: source, shopId: id })
-      .toArray();
+    const previousData = await queuesCollection.findOne({ shopSource: source, shopId: id });
+    const previousQueues = previousData ? previousData.games : [];
 
     // Build lookup maps for comparison
     const previousQueuesMap = new Map<number, QueuePosition[]>();
@@ -298,24 +297,24 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Update all queue records
     const now = new Date();
-    for (const queueData of newQueuesData) {
-      await queuesCollection.updateOne(
-        { shopSource: source, shopId: id, gameId: queueData.gameId },
-        {
-          $set: {
-            queue: queueData.queue,
-            updatedAt: now,
-            updatedByMachineId: machine.id
-          },
-          $setOnInsert: {
-            shopSource: source,
-            shopId: id,
-            gameId: queueData.gameId
-          }
+    await queuesCollection.updateOne(
+      { shopSource: source, shopId: id },
+      {
+        $set: {
+          games: newQueuesData.map((queueData) => ({
+            gameId: queueData.gameId,
+            queue: queueData.queue
+          })),
+          updatedAt: now,
+          updatedBy: machine.id
         },
-        { upsert: true }
-      );
-    }
+        $setOnInsert: {
+          shopSource: source,
+          shopId: id
+        }
+      },
+      { upsert: true }
+    );
 
     // Send notifications asynchronously (don't await to avoid blocking response)
     // Note: Delivery is not guaranteed as notifications are fire-and-forget
@@ -363,7 +362,8 @@ export const GET: RequestHandler = async ({ params }) => {
     const usersCollection = db.collection<User>('users');
 
     // Get all queues for this shop
-    const queues = await queuesCollection.find({ shopSource: source, shopId: id }).toArray();
+    const data = await queuesCollection.findOne({ shopSource: source, shopId: id });
+    const queues = data ? data.games : [];
 
     // Collect all user IDs from queues
     const userIds = new Set<string>();
@@ -397,14 +397,14 @@ export const GET: RequestHandler = async ({ params }) => {
         ...position,
         members: position.members.map((member) => ({
           ...member,
-          user: member.userId ? userMap.get(member.userId) || null : null
+          user: member.userId ? toPlainObject(userMap.get(member.userId) || null) : null
         }))
       }))
     }));
 
     return json({
       success: true,
-      queues: toPlainArray(enrichedQueues)
+      queues: enrichedQueues
     });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
