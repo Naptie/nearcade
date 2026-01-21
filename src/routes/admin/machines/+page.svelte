@@ -265,113 +265,111 @@
 </div>
 
 <!-- Create Machine Modal -->
-{#if showCreateModal}
-  <div class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="mb-4 text-lg font-bold">{m.create_machine()}</h3>
+<div class="modal" class:modal-open={showCreateModal}>
+  <div class="modal-box">
+    <h3 class="mb-4 text-lg font-bold">{m.create_machine()}</h3>
 
-      <form
-        method="POST"
-        action="?/create"
-        use:enhance={() => {
-          isSubmitting = true;
-          return async ({ result, update }) => {
-            isSubmitting = false;
-            if (result.type === 'success') {
-              showCreateModal = false;
-              createForm = { name: '', shopSource: ShopSource.BEMANICN as string, shopId: '' };
-              await invalidateAll();
-            } else {
-              await update();
-            }
-          };
-        }}
-      >
-        <div class="space-y-4">
-          <div class="form-control">
-            <label class="label" for="create-name">
-              <span class="label-text">{m.machine_name()}</span>
-            </label>
-            <input
-              id="create-name"
-              name="name"
-              type="text"
-              class="input input-bordered w-full"
-              placeholder={m.machine_name_placeholder()}
-              bind:value={createForm.name}
-              required
-            />
-          </div>
-
-          <div class="form-control">
-            <label class="label" for="create-shop-source">
-              <span class="label-text">{m.shop_source()}</span>
-            </label>
-            <select
-              id="create-shop-source"
-              name="shopSource"
-              class="select select-bordered w-full"
-              bind:value={createForm.shopSource}
-              required
-            >
-              {#each Object.values(ShopSource) as source (source)}
-                <option value={source}>{source.toUpperCase()}</option>
-              {/each}
-            </select>
-          </div>
-
-          <div class="form-control">
-            <label class="label" for="create-shop-id">
-              <span class="label-text">{m.shop_id()}</span>
-            </label>
-            <input
-              id="create-shop-id"
-              name="shopId"
-              type="number"
-              class="input input-bordered w-full"
-              placeholder={m.shop_id_placeholder()}
-              bind:value={createForm.shopId}
-              required
-            />
-          </div>
-
-          {#if form?.error}
-            <div class="alert alert-error">
-              <i class="fa-solid fa-exclamation-circle"></i>
-              <span>{form.error}</span>
-            </div>
-          {/if}
-        </div>
-
-        <div class="modal-action">
-          <button
-            type="button"
-            class="btn btn-ghost"
-            onclick={() => (showCreateModal = false)}
-            disabled={isSubmitting}
-          >
-            {m.cancel()}
-          </button>
-          <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
-            {#if isSubmitting}
-              <span class="loading loading-spinner loading-xs"></span>
-            {/if}
-            {m.create()}
-          </button>
-        </div>
-      </form>
-    </div>
-    <div
-      class="modal-backdrop"
-      role="button"
-      tabindex="0"
-      onclick={() => (showCreateModal = false)}
-      onkeydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') showCreateModal = false;
+    <form
+      method="POST"
+      action="?/create"
+      use:enhance={() => {
+        isSubmitting = true;
+        return async ({ result, update }) => {
+          isSubmitting = false;
+          if (result.type === 'success') {
+            showCreateModal = false;
+            createForm = { name: '', shopSource: ShopSource.BEMANICN as string, shopId: '' };
+            await invalidateAll();
+          } else {
+            await update();
+          }
+        };
       }}
-    ></div>
+    >
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label" for="create-name">
+            <span class="label-text">{m.machine_name()}</span>
+          </label>
+          <input
+            id="create-name"
+            name="name"
+            type="text"
+            class="input input-bordered w-full"
+            placeholder={m.machine_name_placeholder()}
+            bind:value={createForm.name}
+            required
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label" for="create-shop-source">
+            <span class="label-text">{m.shop_source()}</span>
+          </label>
+          <select
+            id="create-shop-source"
+            name="shopSource"
+            class="select select-bordered w-full"
+            bind:value={createForm.shopSource}
+            required
+          >
+            {#each Object.values(ShopSource) as source (source)}
+              <option value={source}>{source.toUpperCase()}</option>
+            {/each}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label" for="create-shop-id">
+            <span class="label-text">{m.shop_id()}</span>
+          </label>
+          <input
+            id="create-shop-id"
+            name="shopId"
+            type="number"
+            class="input input-bordered w-full"
+            placeholder={m.shop_id_placeholder()}
+            bind:value={createForm.shopId}
+            required
+          />
+        </div>
+
+        {#if form?.error}
+          <div class="alert alert-error">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <span>{form.error}</span>
+          </div>
+        {/if}
+      </div>
+
+      <div class="modal-action">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          onclick={() => (showCreateModal = false)}
+          disabled={isSubmitting}
+        >
+          {m.cancel()}
+        </button>
+        <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
+          {#if isSubmitting}
+            <span class="loading loading-spinner loading-xs"></span>
+          {/if}
+          {m.create()}
+        </button>
+      </div>
+    </form>
   </div>
-{/if}
+  <div
+    class="modal-backdrop"
+    role="button"
+    tabindex="0"
+    onclick={() => (showCreateModal = false)}
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') showCreateModal = false;
+    }}
+  ></div>
+</div>
 
 <!-- Edit Machine Modal -->
 {#if showEditModal && selectedMachine}
