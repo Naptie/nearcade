@@ -5,6 +5,8 @@ import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
 import { ObjectId } from 'mongodb';
+import { sendWeChatTemplateMessage } from '$lib/utils/index.server';
+import { WECHAT_TEMPLATE_BIND_RESULT } from '$env/static/private';
 
 // Define the type for linked accounts
 interface LinkedAccount {
@@ -72,6 +74,11 @@ export const load: PageServerLoad = async ({ parent, url }) => {
           await redis.del(`wechat_bind:${wechatToken}`);
 
           wechatBindResult = { success: true, message: 'wechat_bound_successfully' };
+
+          await sendWeChatTemplateMessage(user.id, WECHAT_TEMPLATE_BIND_RESULT, {
+            username: `${user.displayName || `@${user.name}`}${user.displayName !== user.name ? ` (@${user.name})` : ''}`,
+            userId: user.id || ''
+          });
         }
       } else {
         wechatBindResult = { success: false, message: 'wechat_token_invalid_or_expired' };
