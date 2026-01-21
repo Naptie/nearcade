@@ -208,7 +208,7 @@
   });
 
   const checkUserProximity = async () => {
-    if (!shop) return;
+    if (!shop || shop.isClaimed) return;
     try {
       // Get user's current location
       const location = await getMyLocation();
@@ -511,10 +511,10 @@
                     shopName: otherShop.shop.name,
                     attendedAt: formatTime(otherShop.attendedAt)
                   })
-                : isUserNearShop === false && distance
-                  ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
-                  : shop.isClaimed
-                    ? m.attend_claimed()
+                : shop.isClaimed
+                  ? m.attend_claimed()
+                  : isUserNearShop === false && distance
+                    ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
                     : ''
               : m.shop_closed()}
           >
