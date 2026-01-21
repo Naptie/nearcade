@@ -1,9 +1,9 @@
 import { env } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { nanoid } from 'nanoid';
 import { parseString } from 'xml2js';
 import crypto from 'crypto';
+import { getHost } from '$lib/utils/index.server.js';
 
 // WeChat verification token - should be set in environment
 const WECHAT_TOKEN = env.WECHAT_TOKEN || '';
@@ -138,23 +138,8 @@ export const POST = async ({ request }) => {
     });
     await redis.setEx(`wechat_bind:${token}`, WECHAT_TOKEN_EXPIRY, bindData);
 
-    // Determine the host for the bind URL
-    let host: string | undefined = publicEnv.PUBLIC_HOST;
-    if (!host) {
-      // Fall back to the Host header
-      const hostHeader = request.headers.get('host');
-      if (hostHeader) {
-        // Determine protocol from X-Forwarded-Proto header (set by reverse proxies)
-        // Default to https in production, http only for localhost development
-        const forwardedProto = request.headers.get('x-forwarded-proto');
-        const isSecure =
-          forwardedProto === 'https' || (!forwardedProto && !hostHeader.startsWith('localhost:'));
-        host = `${isSecure ? 'https' : 'http'}://${hostHeader}`;
-      }
-    }
-
     // Construct the bind URL
-    const bindUrl = `${host}/settings/account?wechatToken=${token}`;
+    const bindUrl = `${getHost(request)}/settings/account?wechatToken=${token}`;
 
     // Get current timestamp in seconds
     const createTime = Math.floor(Date.now() / 1000);
