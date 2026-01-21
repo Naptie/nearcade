@@ -136,7 +136,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       error(400, m.missing_required_parameters());
     }
 
-    // Validate queue structure for all games
+    // Validate queue structure for all games (in the update payload)
     for (const queueData of newQueuesData) {
       if (typeof queueData.gameId !== 'number' || !Array.isArray(queueData.queue)) {
         error(400, m.invalid_queue_format());
@@ -192,24 +192,34 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const previousData = await queuesCollection.findOne({ shopSource: source, shopId: id });
     const previousQueues = previousData ? previousData.games : [];
 
-    // Build lookup maps for comparison
-    const previousQueuesMap = new Map<number, QueuePosition[]>();
-    for (const q of previousQueues) {
-      previousQueuesMap.set(q.gameId, q.queue);
+    // Create a Map of the final state to ensure we retain unchanged queues
+    const finalQueuesMap = new Map<number, QueuePosition[]>();
+
+    for (const prevQueue of previousQueues) {
+      finalQueuesMap.set(prevQueue.gameId, prevQueue.queue);
     }
 
+    for (const newQueue of newQueuesData) {
+      finalQueuesMap.set(newQueue.gameId, newQueue.queue);
+    }
+
+    const mergedQueues = Array.from(finalQueuesMap.entries()).map(([gameId, queue]) => ({
+      gameId,
+      queue
+    }));
+
     // Get all slot indices that existed before and after
+    // We compare previous state vs the *partial update* (newQueuesData) for notifications.
+    // This ensures we only generate notifications for the games that actually reported changes.
     const previousSlots = getAllSlotIndices(
       previousQueues.map((q) => ({ gameId: q.gameId, queue: q.queue }))
     );
     const newSlots = getAllSlotIndices(newQueuesData);
 
     // Determine which slots are existing (not newly added or removed)
-    // Note: Newly added or removed cards (condition a) should NOT receive notifications,
-    // so we only process slots that exist in both previous and new queues
     const existingSlots = new Set([...newSlots].filter((s) => previousSlots.has(s)));
 
-    // Process notifications for existing slots (those not newly added or removed)
+    // Process notifications for existing slots within the updated queues
     const notificationsToSend: Array<{
       userId: string | null;
       machineName: string | undefined;
@@ -222,6 +232,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
         slotIndex,
         previousQueues.map((q) => ({ gameId: q.gameId, queue: q.queue }))
       );
+      // We look up the new position in the change set.
+      // If a user moved to a queue not in the change set, we won't notify here, which is safer for partial updates.
       const newInfo = findMemberPosition(slotIndex, newQueuesData);
 
       if (!prevInfo || !newInfo) continue;
@@ -246,19 +258,16 @@ export const POST: RequestHandler = async ({ params, request }) => {
       // Condition b: Status changes
       if (prevStatus !== newStatus) {
         if (prevStatus === 'queued' && newStatus === 'playing') {
-          // queued -> playing: Notify "it's your turn"
           shouldNotify = true;
           statusMessage = '轮到您了！请前往机台开始游戏';
         } else if (
           (prevStatus === 'queued' && newStatus === 'deferred') ||
           (prevStatus === 'deferred' && newStatus === 'queued')
         ) {
-          // Status switch between queued and deferred
           shouldNotify = true;
           statusMessage =
             newStatus === 'deferred' ? '您的排队状态已变更为延后' : '您的排队状态已恢复';
         }
-        // playing -> any other: DO NOT notify (condition b)
       }
 
       // Condition c: Position progression within same queue
@@ -269,17 +278,17 @@ export const POST: RequestHandler = async ({ params, request }) => {
         newPosition < prevPosition
       ) {
         shouldNotify = true;
-        const ahead = newPosition - 1; // Position 1 means 0 ahead
+        const ahead = newPosition - 1;
         statusMessage = ahead === 0 ? '您是下一位！请准备' : `前面还有 ${ahead} 组`;
       }
 
-      // Condition d: Queue switching (moved to different machine)
+      // Condition d: Queue switching
       if (!shouldNotify && prevMachineName !== newMachineName) {
         shouldNotify = true;
         statusMessage = `您已切换到 ${newMachineName} 的队列`;
       }
 
-      // Condition e: Members list updated (new playmates)
+      // Condition e: Members list updated
       if (!shouldNotify && JSON.stringify(prevMembers) !== JSON.stringify(newMembers)) {
         shouldNotify = true;
         statusMessage = `您的同组玩家有变动，当前共 ${newMembers.length} 人`;
@@ -295,16 +304,13 @@ export const POST: RequestHandler = async ({ params, request }) => {
       }
     }
 
-    // Update all queue records
+    // Update all queue records with the MERGED data
     const now = new Date();
     await queuesCollection.updateOne(
       { shopSource: source, shopId: id },
       {
         $set: {
-          games: newQueuesData.map((queueData) => ({
-            gameId: queueData.gameId,
-            queue: queueData.queue
-          })),
+          games: mergedQueues,
           updatedAt: now,
           updatedBy: machine.id
         },
@@ -316,8 +322,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       { upsert: true }
     );
 
-    // Send notifications asynchronously (don't await to avoid blocking response)
-    // Note: Delivery is not guaranteed as notifications are fire-and-forget
+    // Send notifications asynchronously
     for (const notification of notificationsToSend) {
       sendQueueNotification(
         notification.userId,
@@ -330,8 +335,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    // notificationsQueued indicates how many notifications were attempted,
-    // not necessarily how many were successfully delivered
     return json({ success: true, notificationsQueued: notificationsToSend.length });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
