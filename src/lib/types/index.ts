@@ -606,10 +606,9 @@ export interface QueueRecord {
   _id?: string | ObjectId;
   shopSource: ShopSource;
   shopId: number;
-  gameId: number;
-  queue: QueuePosition[];
+  games: { gameId: number; queue: QueuePosition[] }[];
   updatedAt: Date;
-  updatedByMachineId: string;
+  updatedBy: string;
 }
 
 // Attendance registration token stored in Redis

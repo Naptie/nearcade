@@ -100,7 +100,9 @@
   // Queue data for claimed shops
   type EnrichedQueueMember = QueueMember & { user?: User | null };
   type EnrichedQueuePosition = Omit<QueuePosition, 'members'> & { members: EnrichedQueueMember[] };
-  type EnrichedQueueRecord = Omit<QueueRecord, 'queue'> & { queue: EnrichedQueuePosition[] };
+  type EnrichedQueueRecord = Omit<QueueRecord['games'][number], 'queue'> & {
+    queue: EnrichedQueuePosition[];
+  };
   let queueData = $state<EnrichedQueueRecord[]>([]);
 
   // Update user attendance status
