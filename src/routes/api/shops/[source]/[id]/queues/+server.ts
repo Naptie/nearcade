@@ -7,7 +7,7 @@ import { m } from '$lib/paraglide/messages';
 import { toPlainArray } from '$lib/utils';
 import { sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '@auth/sveltekit';
-import { env } from '$env/dynamic/private';
+import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 
 // Helper to validate machine API secret and check shop binding
 const validateMachineAuth = async (
@@ -86,10 +86,10 @@ const sendQueueNotification = async (
   statusMessage: string,
   shopName: string
 ) => {
-  if (!userId || !env.WECHAT_TEMPLATE_QUEUE_NOTIFICATION) return;
+  if (!userId) return;
 
   try {
-    await sendWeChatTemplateMessage(userId, env.WECHAT_TEMPLATE_QUEUE_NOTIFICATION, {
+    await sendWeChatTemplateMessage(userId, WECHAT_TEMPLATE_QUEUE_NOTIFICATION, {
       shop: shopName,
       machine: machineName || '未知机台',
       slot: slotIndex,
