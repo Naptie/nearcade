@@ -594,7 +594,9 @@ export interface QueueMember {
 
 // Queue position (can have multiple players for multi-seat games)
 export interface QueuePosition {
+  machineName: string;
   position: number;
+  isPublic: boolean;
   status: QueueStatus;
   members: QueueMember[];
 }

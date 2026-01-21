@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { signOut } from '@auth/sveltekit/client';
   import { resolve, base } from '$app/paths';
-  import { getDisplayName, isAdminOrModerator } from '$lib/utils';
+  import { getDisplayName, isAdminOrModerator, getProviders } from '$lib/utils';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -18,33 +18,6 @@
   let session = $derived(page.data.session);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
-
-  const providers = [
-    { name: 'QQ', icon: 'fa-qq' },
-    { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
-    { name: 'GitHub', icon: 'fa-github' },
-    {
-      name: 'Discord',
-      icon: 'fa-discord',
-      class: 'hover:bg-[#5865F2] hover:text-white'
-    },
-    {
-      name: 'osu!',
-      icon: 'osu.svg',
-      class: 'hover:bg-[#DA5892] hover:text-white'
-    },
-    {
-      name: 'Phira',
-      icon: 'phira.png',
-      class:
-        'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
-    }
-  ].map((provider) => ({
-    ...provider,
-    id: provider.id || provider.name.toLowerCase().replace(/[^a-z]/g, ''),
-    class:
-      provider.class || 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'
-  }));
 
   // Close modal when clicking backdrop
   const handleDialogClick = (event: MouseEvent) => {
@@ -110,7 +83,7 @@
       <div class="text-center">
         <h3 class="mb-4 text-lg font-bold">{m.sign_in()}</h3>
         <div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
-          {#each providers as provider (provider.id)}
+          {#each getProviders() as provider (provider.id)}
             <form method="POST" action={resolve('/session/signin')}>
               <input type="hidden" name="providerId" value={provider.id} />
               <button

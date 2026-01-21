@@ -90,6 +90,8 @@ jobs:
           MEILISEARCH_API_KEY: ${{ secrets.MEILISEARCH_API_KEY }}
           GSAK_BASE64: ${{ secrets.GSAK_BASE64 }}
           FCM_PROXY: ${{ secrets.FCM_PROXY }}
+          WECHAT_TEMPLATE_BIND_RESULT: ${{ secrets.WECHAT_TEMPLATE_BIND_RESULT }}
+          WECHAT_TEMPLATE_QUEUE_NOTIFICATION: ${{ secrets.WECHAT_TEMPLATE_QUEUE_NOTIFICATION }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

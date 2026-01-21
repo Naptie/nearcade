@@ -16,6 +16,7 @@
     "m": "tsx ./scripts/manage-messages.js",
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
     "ssv-poll": "tsx ./scripts/ssv-email-worker.ts",
+    "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
     "maintain-attendance": "tsx ./scripts/attendance-maintainer.ts",
     "calc-uni-stats": "tsx ./scripts/update-university-stats.ts",
     "migrate-notifications": "tsx ./scripts/migrate-notifications.ts",
@@ -41,6 +42,7 @@
     "@types/three": "^0.180.0",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
+    "@types/xml2js": "^0.4.14",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
@@ -112,6 +114,7 @@
     "three": "^0.180.0",
     "topojson-client": "^3.1.0",
     "unified": "^11.0.5",
+    "xml2js": "^0.6.2",
     "zod": "^4.1.12"
   },
   "pnpm": {
