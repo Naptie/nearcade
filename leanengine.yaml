@@ -8,5 +8,6 @@ run: |
   ./meilisearch --http-addr 'localhost:7700' --master-key $MEILISEARCH_API_KEY 3>&1 1>&2 2>&3 3>&- &
   npm run maintain-attendance &
   npm run ssv-poll &
+  npm run wechat-refresh &
   (sleep 1; HOST=0.0.0.0 PORT=$LEANCLOUD_APP_PORT BODY_SIZE_LIMIT=Infinity node build)
 exposeEnvironmentsOnBuild: true
