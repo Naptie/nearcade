@@ -365,13 +365,11 @@
   const getPositionClass = (status: string, isPublic: boolean) => {
     switch (status) {
       case 'playing':
-        return 'bg-success/20 border-success';
+        return 'bg-orange-500/20 border-orange-500';
       case 'queued':
-        return isPublic ? 'bg-warning/20 border-warning' : 'bg-secondary/20 border-secondary';
-      case 'deferred':
-        return 'bg-base-content/10 border-base-content/30';
+        return isPublic ? 'bg-cyan-500/20 border-cyan-500' : 'bg-violet-500/20 border-violet-500';
       default:
-        return 'bg-base-100 border-base-content/10';
+        return 'bg-gray-500/20 border-gray-500';
     }
   };
 
@@ -389,31 +387,18 @@
     }
   };
 
-  // Helper to get total attendance from queue data (count of members with 'playing' status)
+  // Helper to get total attendance from queue data
   const getQueueTotalAttendance = (): number => {
-    let total = 0;
-    for (const queue of queueData) {
-      for (const position of queue.queue) {
-        if (position.status === 'playing') {
-          total += position.members.length;
-        }
-      }
-    }
-    return total;
+    return queueData.reduce((total, queue) => {
+      return total + queue.queue.reduce((count, position) => count + position.members.length, 0);
+    }, 0);
   };
 
   // Helper to get game attendance from queue data
   const getQueueGameAttendance = (gameId: number): number => {
     const gameQueue = queueData.find((q) => q.gameId === gameId);
     if (!gameQueue) return 0;
-
-    let count = 0;
-    for (const position of gameQueue.queue) {
-      if (position.status === 'playing') {
-        count += position.members.length;
-      }
-    }
-    return count;
+    return gameQueue.queue.reduce((count, position) => count + position.members.length, 0);
   };
 
   // Derived total attendance for claimed shops (from queue) or regular shops (from attendance data)
@@ -899,7 +884,9 @@
           </div>
 
           <!-- Attendance Reports -->
-          <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
+          {#if !shop.isClaimed}
+            <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
+          {/if}
         </div>
       </div>
 
@@ -980,19 +967,20 @@
                       <!-- Queue display for claimed shops -->
                       {@const gameQueue = getGameQueue(game.gameId)}
                       {#if gameQueue && gameQueue.queue.length > 0}
-                        {@const playingCount = gameQueue.queue
-                          .filter((p) => p.status === 'playing')
-                          .reduce((sum, p) => sum + p.members.length, 0)}
+                        {@const playingCount = gameQueue.queue.reduce(
+                          (sum, p) => sum + p.members.length,
+                          0
+                        )}
                         <div class="flex items-center justify-between">
                           <span class="text-base-content/60 text-sm">{m.queue()}</span>
                           <span class="text-sm font-medium"
                             >{m.in_attendance({ count: playingCount })}</span
                           >
                         </div>
-                        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="mt-3 flex flex-wrap gap-2">
                           {#each gameQueue.queue as position, i (i)}
                             <div
-                              class="tooltip relative rounded-lg border-2 px-3 py-2 {getPositionClass(
+                              class="tooltip relative h-15 rounded-lg border-2 px-4 py-2 {getPositionClass(
                                 position.status,
                                 position.isPublic ?? true
                               )}"
@@ -1006,25 +994,32 @@
                               <!-- Private indicator (lock icon in purple triangle) -->
                               {#if !(position.isPublic ?? true)}
                                 <div
-                                  class="bg-secondary absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center overflow-hidden rounded-bl-lg"
+                                  class="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center overflow-hidden rounded-tr-lg rounded-bl-lg {position.status ===
+                                  'playing'
+                                    ? 'bg-orange-500'
+                                    : position.status === 'queued'
+                                      ? 'bg-violet-500'
+                                      : 'bg-gray-500'}"
                                 >
                                   <i class="fa-solid fa-lock text-[10px] text-white"></i>
                                 </div>
                               {/if}
-                              <div class="flex flex-1 flex-wrap items-center gap-2">
+                              <div class="flex h-full flex-1 items-center justify-center gap-2">
                                 {#each position.members as member, j (j)}
                                   {#if j > 0}
                                     <div class="divider divider-horizontal mx-0"></div>
                                   {/if}
                                   {#if member.user}
-                                    <UserAvatar
-                                      user={member.user}
-                                      size="xs"
-                                      showName
-                                      target={adaptiveNewTab()}
-                                    />
+                                    <div class="max-w-fit">
+                                      <UserAvatar
+                                        user={member.user}
+                                        size="xs"
+                                        showName
+                                        target={adaptiveNewTab()}
+                                      />
+                                    </div>
                                   {:else}
-                                    <span class="text-base-content/60 text-sm">
+                                    <span class="text-lg font-bold">
                                       {member.slotIndex}
                                     </span>
                                   {/if}
