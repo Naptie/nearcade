@@ -361,17 +361,17 @@
     return queueData.find((q) => q.gameId === gameId);
   };
 
-  // Get status badge class
-  const getStatusBadgeClass = (status: string) => {
+  // Get position styling class based on status and privacy
+  const getPositionClass = (status: string, isPublic: boolean) => {
     switch (status) {
       case 'playing':
-        return 'badge-success';
+        return 'bg-success/20 border-success';
       case 'queued':
-        return 'badge-warning';
+        return isPublic ? 'bg-warning/20 border-warning' : 'bg-secondary/20 border-secondary';
       case 'deferred':
-        return 'badge-neutral';
+        return 'bg-base-content/10 border-base-content/30';
       default:
-        return 'badge-ghost';
+        return 'bg-base-100 border-base-content/10';
     }
   };
 
@@ -992,18 +992,29 @@
                         <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {#each gameQueue.queue as position, i (i)}
                             <div
-                              class="bg-base-100 flex items-center gap-2 rounded-full px-3 py-2"
+                              class="tooltip relative rounded-lg border-2 px-3 py-2 {getPositionClass(
+                                position.status,
+                                position.isPublic ?? true
+                              )}"
                               class:col-span-full={position.members.length > 1}
                               class:sm:col-span-2={position.members.length > 1}
                               class:lg:col-span-3={position.members.length > 1}
                             >
-                              <span class="badge badge-sm {getStatusBadgeClass(position.status)}">
+                              <div class="tooltip-content px-3 whitespace-nowrap">
                                 #{position.position} · {getStatusLabel(position.status)}
-                              </span>
-                              <div class="flex flex-1 flex-wrap items-center">
+                              </div>
+                              <!-- Private indicator (lock icon in purple triangle) -->
+                              {#if !(position.isPublic ?? true)}
+                                <div
+                                  class="bg-secondary absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center overflow-hidden rounded-bl-lg"
+                                >
+                                  <i class="fa-solid fa-lock text-[10px] text-white"></i>
+                                </div>
+                              {/if}
+                              <div class="flex flex-1 flex-wrap items-center gap-2">
                                 {#each position.members as member, j (j)}
                                   {#if j > 0}
-                                    <div class="divider divider-horizontal mx-1"></div>
+                                    <div class="divider divider-horizontal mx-0"></div>
                                   {/if}
                                   {#if member.user}
                                     <UserAvatar
