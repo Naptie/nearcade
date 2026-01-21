@@ -283,11 +283,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
       // Condition e: Members list updated (new playmates)
       if (!shouldNotify && JSON.stringify(prevMembers) !== JSON.stringify(newMembers)) {
-        const otherMembers = newMembers.filter((m) => m !== slotIndex);
-        if (otherMembers.length > 0) {
-          shouldNotify = true;
-          statusMessage = `您的同组玩家有变动，当前共 ${newMembers.length} 人`;
-        }
+        shouldNotify = true;
+        statusMessage = `您的同组玩家有变动，当前共 ${newMembers.length} 人`;
       }
 
       if (shouldNotify && userId) {
