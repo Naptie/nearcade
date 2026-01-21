@@ -7,6 +7,7 @@ import { m } from '$lib/paraglide/messages';
 import { ObjectId } from 'mongodb';
 import { sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import { WECHAT_TEMPLATE_BIND_RESULT } from '$env/static/private';
+import { PUBLIC_HOST } from '$env/static/public';
 
 // Define the type for linked accounts
 interface LinkedAccount {
@@ -75,10 +76,15 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 
           wechatBindResult = { success: true, message: 'wechat_bound_successfully' };
 
-          await sendWeChatTemplateMessage(user.id, WECHAT_TEMPLATE_BIND_RESULT, {
-            username: `${user.displayName || `@${user.name}`}${user.displayName !== user.name ? ` (@${user.name})` : ''}`,
-            userId: user.id || ''
-          });
+          await sendWeChatTemplateMessage(
+            user.id,
+            WECHAT_TEMPLATE_BIND_RESULT,
+            {
+              username: `${user.displayName || `@${user.name}`}${user.displayName !== user.name ? ` (@${user.name})` : ''}`,
+              userId: user.id || ''
+            },
+            `${PUBLIC_HOST}/settings/account`
+          );
         }
       } else {
         wechatBindResult = { success: false, message: 'wechat_token_invalid_or_expired' };
