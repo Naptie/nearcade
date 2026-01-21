@@ -119,7 +119,7 @@
   let shopComment = $state({ sanitized: false, content: '' });
 
   const getAttendanceData = async () => {
-    if (!shop) return;
+    if (!shop || shop.isClaimed) return;
     try {
       const attendanceResponse = await fetch(
         fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`)
@@ -142,13 +142,11 @@
               id: g.gameId,
               count:
                 (reportedAttendance.count || 0) +
-                (shop.isClaimed
-                  ? 0
-                  : attendanceData.filter(
-                      (a) =>
-                        a.gameId === g.gameId &&
-                        new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
-                    ).length)
+                attendanceData.filter(
+                  (a) =>
+                    a.gameId === g.gameId &&
+                    new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
+                ).length
             };
           })
           .filter((r) => r !== undefined) as typeof reportedAttendances;
@@ -191,8 +189,9 @@
       // For claimed shops, fetch queue data; otherwise fetch attendance data
       if (shop.isClaimed) {
         getQueueData();
+      } else {
+        getAttendanceData();
       }
-      getAttendanceData();
       sanitizeHTML(shop.comment).then((content) => {
         shopComment = { sanitized: true, content };
       });
@@ -394,12 +393,7 @@
   $effect(() => {
     if (!browser) return;
 
-    const interval = setInterval(() => {
-      if (shop?.isClaimed) {
-        getQueueData();
-      }
-      getAttendanceData();
-    }, 30000);
+    const interval = setInterval(shop?.isClaimed ? getQueueData : getAttendanceData, 30000);
     return () => clearInterval(interval);
   });
 </script>
