@@ -36,6 +36,8 @@
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
+  import { flip } from 'svelte/animate';
+  import { fade } from 'svelte/transition';
 
   let { data }: { data: PageData } = $props();
 
@@ -978,15 +980,16 @@
                           >
                         </div>
                         <div class="mt-3 flex flex-wrap gap-2">
-                          {#each gameQueue.queue as position, i (i)}
+                          {#each gameQueue.queue as position (position.members
+                            .map((m) => m.slotIndex)
+                            .join('-'))}
                             <div
                               class="tooltip relative h-15 rounded-lg border-2 px-4 py-2 {getPositionClass(
                                 position.status,
                                 position.isPublic ?? true
                               )}"
-                              class:col-span-full={position.members.length > 1}
-                              class:sm:col-span-2={position.members.length > 1}
-                              class:lg:col-span-3={position.members.length > 1}
+                              animate:flip={{ duration: 200 }}
+                              transition:fade={{ duration: 200 }}
                             >
                               <div class="tooltip-content px-3 whitespace-nowrap">
                                 #{position.position} · {getStatusLabel(position.status)}
@@ -1005,8 +1008,8 @@
                                 </div>
                               {/if}
                               <div class="flex h-full flex-1 items-center justify-center gap-2">
-                                {#each position.members as member, j (j)}
-                                  {#if j > 0}
+                                {#each position.members as member, i (i)}
+                                  {#if i > 0}
                                     <div class="divider divider-horizontal mx-0"></div>
                                   {/if}
                                   {#if member.user}
