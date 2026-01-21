@@ -249,31 +249,6 @@
     <h2 class="text-xl font-semibold">{m.linked_accounts()}</h2>
     <p class="text-base-content/70 mb-4 text-sm">{m.linked_accounts_description()}</p>
 
-    <!-- WeChat Bind Result Alert -->
-    {#if wechatBindResult}
-      <div class="alert mb-4 {wechatBindResult.success ? 'alert-success' : 'alert-error'}">
-        <i
-          class="fa-solid {wechatBindResult.success
-            ? 'fa-check-circle'
-            : 'fa-exclamation-triangle'}"
-        ></i>
-        <span>
-          {#if wechatBindResult.message === 'wechat_bound_successfully'}
-            {m.wechat_bound_successfully()}
-          {:else if wechatBindResult.message === 'wechat_already_bound'}
-            {m.wechat_already_bound()}
-          {:else if wechatBindResult.message === 'wechat_token_invalid_or_expired'}
-            {m.wechat_token_invalid_or_expired()}
-          {:else}
-            {m.wechat_bind_error()}
-          {/if}
-        </span>
-        <button class="btn btn-ghost btn-sm btn-circle" onclick={dismissWechatAlert}>
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    {/if}
-
     <!-- Email Update Notice for QQ Users -->
     {#if data.needsEmailUpdate}
       <div class="alert alert-warning mb-4">
@@ -372,6 +347,39 @@
     </div>
   </div>
 </div>
+
+<!-- WeChat Bind Result Modal -->
+{#if wechatBindResult}
+  <div class="modal modal-open">
+    <div class="modal-box text-center">
+      <button
+        class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
+        onclick={dismissWechatAlert}
+        aria-label={m.close()}
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="py-4">
+        <i
+          class="fa-solid mb-4 text-5xl {wechatBindResult.success
+            ? 'fa-check-circle text-success'
+            : 'fa-exclamation-triangle text-error'}"
+        ></i>
+        <p class="text-lg font-bold">
+          {#if wechatBindResult.message === 'wechat_bound_successfully'}
+            {m.wechat_bound_successfully()}
+          {:else if wechatBindResult.message === 'wechat_already_bound'}
+            {m.wechat_already_bound()}
+          {:else if wechatBindResult.message === 'wechat_token_invalid_or_expired'}
+            {m.wechat_token_invalid_or_expired()}
+          {:else}
+            {m.wechat_bind_error()}
+          {/if}
+        </p>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- Leave University Confirmation Modal -->
 <div class="modal" class:modal-open={showLeaveUniversityConfirm}>
