@@ -1209,7 +1209,7 @@
   "website_placeholder": "https://www.example.edu.cn",
   "wechat_already_bound": "WeChat account is already bound",
   "wechat_bind_error": "An error occurred while binding WeChat",
-  "wechat_bind_instructions": "Scan the QR code below with WeChat to follow our official account, then tap the 'Bind' button in the menu to complete the binding.",
+  "wechat_bind_instructions": "Scan the QR code below with WeChat to follow our official account, then tap the '绑定账号' button in the menu to complete the binding.",
   "wechat_bind_step_1": "Follow our WeChat official account",
   "wechat_bind_step_2": "Tap the 'Bind' button in the menu",
   "wechat_bind_step_3": "Click the link you receive to complete binding",
