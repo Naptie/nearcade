@@ -597,6 +597,8 @@ export interface QueuePosition {
   position: number;
   status: QueueStatus;
   members: QueueMember[];
+  machineName?: string; // Name of the physical machine
+  isPrivate?: boolean; // Whether this position's user info should be hidden
 }
 
 // Queue record for a specific game in a shop

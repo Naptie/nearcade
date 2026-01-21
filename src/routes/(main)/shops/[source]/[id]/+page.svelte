@@ -389,6 +389,38 @@
     }
   };
 
+  // Helper to get total attendance from queue data (count of members with 'playing' status)
+  const getQueueTotalAttendance = (): number => {
+    let total = 0;
+    for (const queue of queueData) {
+      for (const position of queue.queue) {
+        if (position.status === 'playing') {
+          total += position.members.length;
+        }
+      }
+    }
+    return total;
+  };
+
+  // Helper to get game attendance from queue data
+  const getQueueGameAttendance = (gameId: number): number => {
+    const gameQueue = queueData.find((q) => q.gameId === gameId);
+    if (!gameQueue) return 0;
+
+    let count = 0;
+    for (const position of gameQueue.queue) {
+      if (position.status === 'playing') {
+        count += position.members.length;
+      }
+    }
+    return count;
+  };
+
+  // Derived total attendance for claimed shops (from queue) or regular shops (from attendance data)
+  let displayTotalAttendance = $derived(
+    shop?.isClaimed ? getQueueTotalAttendance() : totalAttendance
+  );
+
   // Refresh data every 30 seconds
   $effect(() => {
     if (!browser) return;
@@ -762,7 +794,10 @@
               <h3 class="mb-4 text-lg font-semibold">{m.attendance()}</h3>
 
               <div class="py-4 text-center">
-                {#if attendanceReport.length > 0}
+                {#if shop.isClaimed}
+                  <!-- For claimed shops, show queue-based attendance -->
+                  <div class="text-primary mb-2 text-3xl font-bold">{displayTotalAttendance}</div>
+                {:else if attendanceReport.length > 0}
                   {@const reportedAttendance = {
                     reportedBy: attendanceReport[0].reporter,
                     reportedAt: attendanceReport[0].reportedAt,
@@ -786,47 +821,70 @@
                     {@const gameInfo = getGameInfo(game.titleId)}
                     {@const positions =
                       game.quantity * (GAMES.find((g) => g.id === game.titleId)?.seats || 1)}
-                    {@const gameAttendance = shop.games.reduce(
-                      (total, g) =>
-                        g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
-                      0
-                    )}
-                    {@const reportedAttendance = reportedAttendances
-                      .reduce(
-                        (acc, cur) => {
-                          if (
-                            shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId
-                          ) {
-                            acc.push(cur);
-                          }
-                          return acc;
-                        },
-                        [] as typeof reportedAttendances
-                      )
-                      .reduce(
-                        (mostRecent, current) =>
-                          !mostRecent ||
-                          new Date(current.reportedAt) > new Date(mostRecent.reportedAt)
-                            ? { ...current, count: (current.count || 0) + (mostRecent?.count || 0) }
-                            : mostRecent,
-                        undefined as (typeof reportedAttendances)[number] | undefined
+                    {#if shop.isClaimed}
+                      <!-- For claimed shops, show queue-based per-game attendance -->
+                      {@const queueGameAttendance = shop.games.reduce(
+                        (total, g) =>
+                          g.titleId === game.titleId
+                            ? total + getQueueGameAttendance(g.gameId)
+                            : total,
+                        0
                       )}
-                    <div class="flex items-center justify-between gap-1">
-                      <span class="text-base-content/60 truncate">
-                        {getGameName(gameInfo?.key) || game.name}
-                      </span>
-                      {#if reportedAttendance}
-                        <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
-                          <span class="text-accent font-medium">
-                            {reportedAttendance.count || 0} / {positions}
-                          </span>
-                        </AttendanceReportBlame>
-                      {:else}
-                        <span class="font-medium" class:text-primary={gameAttendance > 0}>
-                          {gameAttendance} / {positions}
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-base-content/60 truncate">
+                          {getGameName(gameInfo?.key) || game.name}
                         </span>
-                      {/if}
-                    </div>
+                        <span class="font-medium" class:text-primary={queueGameAttendance > 0}>
+                          {queueGameAttendance} / {positions}
+                        </span>
+                      </div>
+                    {:else}
+                      <!-- For regular shops, show attendance/reported data -->
+                      {@const gameAttendance = shop.games.reduce(
+                        (total, g) =>
+                          g.titleId === game.titleId ? total + getGameAttendance(g.gameId) : total,
+                        0
+                      )}
+                      {@const reportedAttendance = reportedAttendances
+                        .reduce(
+                          (acc, cur) => {
+                            if (
+                              shop.games.find((g) => g.gameId === cur.id)?.titleId === game.titleId
+                            ) {
+                              acc.push(cur);
+                            }
+                            return acc;
+                          },
+                          [] as typeof reportedAttendances
+                        )
+                        .reduce(
+                          (mostRecent, current) =>
+                            !mostRecent ||
+                            new Date(current.reportedAt) > new Date(mostRecent.reportedAt)
+                              ? {
+                                  ...current,
+                                  count: (current.count || 0) + (mostRecent?.count || 0)
+                                }
+                              : mostRecent,
+                          undefined as (typeof reportedAttendances)[number] | undefined
+                        )}
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-base-content/60 truncate">
+                          {getGameName(gameInfo?.key) || game.name}
+                        </span>
+                        {#if reportedAttendance}
+                          <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                            <span class="text-accent font-medium">
+                              {reportedAttendance.count || 0} / {positions}
+                            </span>
+                          </AttendanceReportBlame>
+                        {:else}
+                          <span class="font-medium" class:text-primary={gameAttendance > 0}>
+                            {gameAttendance} / {positions}
+                          </span>
+                        {/if}
+                      </div>
+                    {/if}
                   {/each}
                 </div>
               {/if}
