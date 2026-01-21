@@ -20,6 +20,7 @@ export const getHost = (request: Request) => {
       host = `${isSecure ? 'https' : 'http'}://${hostHeader}`;
     }
   }
+  return host;
 };
 
 export const getCurrentAttendance = async (userId: string) => {
