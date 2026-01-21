@@ -1193,7 +1193,7 @@
   "wechat_bind_error": "微信绑定过程中发生错误",
   "wechat_bind_instructions": "请使用微信扫描以下二维码关注我们的公众号，然后点击菜单中的「绑定账号」按钮完成绑定。",
   "wechat_bind_step_1": "关注我们的微信公众号",
-  "wechat_bind_step_2": "点击菜单中的「绑定」按钮",
+  "wechat_bind_step_2": "点击菜单中的「绑定账号」按钮",
   "wechat_bind_step_3": "点击收到的链接完成绑定",
   "wechat_bound_successfully": "微信账号绑定成功",
   "wechat_donation_qr": "微信赞助二维码",

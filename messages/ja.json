@@ -1193,7 +1193,7 @@
   "wechat_bind_error": "WeChat の紐付け中にエラーが発生しました",
   "wechat_bind_instructions": "下の QR コードを WeChat でスキャンして公式アカウントをフォローし、メニューの「绑定账号」ボタンをタップして紐付けを完了してください。",
   "wechat_bind_step_1": "WeChat 公式アカウントをフォロー",
-  "wechat_bind_step_2": "メニューの「紐付け」ボタンをタップ",
+  "wechat_bind_step_2": "メニューの「绑定账号」ボタンをタップ",
   "wechat_bind_step_3": "受信したリンクをクリックして紐付けを完了",
   "wechat_bound_successfully": "WeChat アカウントの紐付けが完了しました",
   "wechat_donation_qr": "WeChat 寄付用 QR コード",
