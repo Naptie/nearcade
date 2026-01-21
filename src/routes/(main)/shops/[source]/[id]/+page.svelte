@@ -1000,8 +1000,11 @@
                               <span class="badge badge-sm {getStatusBadgeClass(position.status)}">
                                 #{position.position} · {getStatusLabel(position.status)}
                               </span>
-                              <div class="flex flex-1 flex-wrap items-center gap-2">
+                              <div class="flex flex-1 flex-wrap items-center">
                                 {#each position.members as member, j (j)}
+                                  {#if j > 0}
+                                    <div class="divider divider-horizontal mx-1"></div>
+                                  {/if}
                                   {#if member.user}
                                     <UserAvatar
                                       user={member.user}

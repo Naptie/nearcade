@@ -90,11 +90,10 @@ const sendQueueNotification = async (
 
   try {
     await sendWeChatTemplateMessage(userId, env.WECHAT_TEMPLATE_QUEUE_NOTIFICATION, {
-      first: shopName,
-      keyword1: machineName || '未知机台',
-      keyword2: slotIndex,
-      keyword3: statusMessage,
-      remark: '点击查看详情'
+      shop: shopName,
+      machine: machineName || '未知机台',
+      slot: slotIndex,
+      status: statusMessage
     });
   } catch (err) {
     console.error(
@@ -104,7 +103,6 @@ const sendQueueNotification = async (
   }
 };
 
-// New request body type for report-them-all style
 interface QueueGameData {
   gameId: number;
   queue: QueuePosition[];
@@ -158,7 +156,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
           error(400, m.invalid_queue_format());
         }
 
-        if (position.isPrivate !== undefined && typeof position.isPrivate !== 'boolean') {
+        if (position.isPublic !== undefined && typeof position.isPublic !== 'boolean') {
           error(400, m.invalid_queue_format());
         }
 
@@ -242,9 +240,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
       const member = newInfo.position.members.find((m) => m.slotIndex === slotIndex);
       const userId = member?.userId || null;
       const machineName = newInfo.position.machineName;
-
-      // Skip if position is private
-      if (newInfo.position.isPrivate) continue;
 
       let shouldNotify = false;
       let statusMessage = '';
