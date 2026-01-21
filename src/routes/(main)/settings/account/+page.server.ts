@@ -5,9 +5,8 @@ import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
 import { ObjectId } from 'mongodb';
-import { sendWeChatTemplateMessage } from '$lib/utils/index.server';
+import { getHost, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import { WECHAT_TEMPLATE_BIND_RESULT } from '$env/static/private';
-import { PUBLIC_HOST } from '$env/static/public';
 
 // Define the type for linked accounts
 interface LinkedAccount {
@@ -18,7 +17,7 @@ interface LinkedAccount {
 // Define the supported providers for binding
 const SUPPORTED_PROVIDERS = ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord'];
 
-export const load: PageServerLoad = async ({ parent, url }) => {
+export const load: PageServerLoad = async ({ parent, url, request }) => {
   const { user } = await parent();
 
   if (!user) {
@@ -83,7 +82,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
               username: `${user.displayName || `@${user.name}`}${user.displayName !== user.name ? ` (@${user.name})` : ''}`,
               userId: user.id || ''
             },
-            `${PUBLIC_HOST}/settings/account`
+            `${getHost(request)}/settings/account`
           );
         }
       } else {

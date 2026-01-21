@@ -1,8 +1,26 @@
+import { env } from '$env/dynamic/public';
 import type { ShopSource } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { Shop } from '$lib/types';
 import { ObjectId } from 'mongodb';
+
+export const getHost = (request: Request) => {
+  // Determine the host for the bind URL
+  let host: string | undefined = env.PUBLIC_HOST;
+  if (!host) {
+    // Fall back to the Host header
+    const hostHeader = request.headers.get('host');
+    if (hostHeader) {
+      // Determine protocol from X-Forwarded-Proto header (set by reverse proxies)
+      // Default to https in production, http only for localhost development
+      const forwardedProto = request.headers.get('x-forwarded-proto');
+      const isSecure =
+        forwardedProto === 'https' || (!forwardedProto && !hostHeader.startsWith('localhost:'));
+      host = `${isSecure ? 'https' : 'http'}://${hostHeader}`;
+    }
+  }
+};
 
 export const getCurrentAttendance = async (userId: string) => {
   const attendancePattern = `nearcade:attend:*:${userId}:*`;
