@@ -84,17 +84,22 @@ const sendQueueNotification = async (
   machineName: string | undefined,
   slotIndex: string,
   statusMessage: string,
-  shopName: string
+  shop: Shop
 ) => {
   if (!userId) return;
 
   try {
-    await sendWeChatTemplateMessage(userId, WECHAT_TEMPLATE_QUEUE_NOTIFICATION, {
-      shop: shopName,
-      machine: machineName || '未知机台',
-      slot: slotIndex,
-      status: statusMessage
-    });
+    await sendWeChatTemplateMessage(
+      userId,
+      WECHAT_TEMPLATE_QUEUE_NOTIFICATION,
+      {
+        shop: shop.name,
+        machine: machineName || '未知机台',
+        slot: slotIndex,
+        status: statusMessage
+      },
+      `${getHost(request)}/shops/${shop.source}/${shop.id}`
+    );
   } catch (err) {
     console.error(
       `Failed to send WeChat queue notification to user ${userId} (slot: ${slotIndex}):`,
@@ -329,7 +334,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         notification.machineName,
         notification.slotIndex,
         notification.statusMessage,
-        shop.name
+        shop
       ).catch((err) =>
         console.error(`Failed to queue notification for slot ${notification.slotIndex}:`, err)
       );
