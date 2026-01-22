@@ -4,7 +4,7 @@ import mongo from '$lib/db/index.server';
 import type { Machine, QueueRecord, Shop, QueuePosition } from '$lib/types';
 import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
-import { sendWeChatTemplateMessage } from '$lib/utils/index.server';
+import { getHost, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '@auth/sveltekit';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
@@ -84,7 +84,8 @@ const sendQueueNotification = async (
   machineName: string | undefined,
   slotIndex: string,
   statusMessage: string,
-  shop: Shop
+  shop: Shop,
+  request: Request
 ) => {
   if (!userId) return;
 
@@ -334,7 +335,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
         notification.machineName,
         notification.slotIndex,
         notification.statusMessage,
-        shop
+        shop,
+        request
       ).catch((err) =>
         console.error(`Failed to queue notification for slot ${notification.slotIndex}:`, err)
       );
