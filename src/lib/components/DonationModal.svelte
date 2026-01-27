@@ -7,7 +7,7 @@
 
   let dialogElement: HTMLDialogElement;
 
-  const DISMISS_DURATION_DAYS = 14;
+  const DISMISS_DURATION_DAYS = 30;
 
   $effect(() => {
     if (!browser || !dialogElement) return;
