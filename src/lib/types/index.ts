@@ -374,7 +374,7 @@ export interface Comment {
   _id?: string | ObjectId;
   id: string;
   postId?: string;
-  shopSource?: string;
+  shopSource?: ShopSource;
   shopId?: number;
   content: string; // Markdown content
   createdBy: string; // User ID

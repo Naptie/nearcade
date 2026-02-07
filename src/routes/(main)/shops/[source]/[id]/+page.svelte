@@ -21,12 +21,7 @@
   } from '$lib/utils';
   import { ATTENDANCE_RADIUS_KM, GAMES, ShopSource } from '$lib/constants';
   import { getContext } from 'svelte';
-  import type {
-    AMapContext,
-    QueueRecord,
-    QueuePosition,
-    QueueMember
-  } from '$lib/types';
+  import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';

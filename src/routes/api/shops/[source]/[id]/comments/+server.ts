@@ -126,7 +126,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Create new comment
     const newComment: Comment = {
       id: commentId(),
-      shopSource: source,
+      shopSource: source as ShopSource,
       shopId: shopId,
       content: content.trim(),
       createdBy: session.user.id,
