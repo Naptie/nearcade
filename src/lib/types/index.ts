@@ -23,6 +23,7 @@ export interface Shop {
   isClaimed?: boolean;
   createdAt?: Date;
   updatedAt: Date;
+  syncedAt: Date;
   source: ShopSource;
 }
 
@@ -372,7 +373,9 @@ export interface PostVote {
 export interface Comment {
   _id?: string | ObjectId;
   id: string;
-  postId: string;
+  postId?: string;
+  shopSource?: string;
+  shopId?: number;
   content: string; // Markdown content
   createdBy: string; // User ID
   createdAt: Date;

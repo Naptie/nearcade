@@ -19,9 +19,14 @@
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
-  import { ATTENDANCE_RADIUS_KM, GAMES } from '$lib/constants';
+  import { ATTENDANCE_RADIUS_KM, GAMES, ShopSource } from '$lib/constants';
   import { getContext } from 'svelte';
-  import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
+  import type {
+    AMapContext,
+    QueueRecord,
+    QueuePosition,
+    QueueMember
+  } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
@@ -38,6 +43,8 @@
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
   import { flip } from 'svelte/animate';
   import { fade } from 'svelte/transition';
+  import Comment from '$lib/components/Comment.svelte';
+  import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -417,6 +424,143 @@
     const interval = setInterval(shop?.isClaimed ? getQueueData : getAttendanceData, 30000);
     return () => clearInterval(interval);
   });
+
+  // Comment section state
+  let comments = $derived(shopDataResolved?.comments ?? []);
+  let newCommentContent = $state('');
+  let isSubmittingComment = $state(false);
+  let commentError = $state('');
+  let replyingTo = $state<string | null>(null);
+  let replyContent = $state('');
+  let isSubmittingReply = $state(false);
+  let isCommentsRendered = $state(false);
+
+  onMount(() => {
+    isCommentsRendered = true;
+  });
+
+  const handleCommentSubmit = async () => {
+    if (!data.user || !shop || !newCommentContent.trim() || isSubmittingComment) return;
+
+    isSubmittingComment = true;
+    commentError = '';
+
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/comments`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newCommentContent.trim() })
+      });
+
+      if (response.ok) {
+        newCommentContent = '';
+        invalidateAll();
+      } else {
+        const errorData = (await response.json()) as { message: string };
+        commentError = errorData.message || m.failed_to_post_comment();
+      }
+    } catch {
+      commentError = m.network_error_try_again();
+    } finally {
+      isSubmittingComment = false;
+    }
+  };
+
+  const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
+    if (!data.user) return;
+
+    try {
+      const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteType })
+      });
+
+      if (response.ok) {
+        invalidateAll();
+      }
+    } catch (error) {
+      console.error('Error voting on comment:', error);
+    }
+  };
+
+  const handleCommentReply = (commentId: string) => {
+    replyingTo = commentId;
+    replyContent = '';
+  };
+
+  const submitReply = async () => {
+    if (!data.user || !shop || !replyContent.trim() || !replyingTo || isSubmittingReply) return;
+
+    isSubmittingReply = true;
+    commentError = '';
+
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/comments`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: replyContent.trim(),
+          parentCommentId: replyingTo
+        })
+      });
+
+      if (response.ok) {
+        replyingTo = null;
+        replyContent = '';
+        invalidateAll();
+      } else {
+        const errorData = (await response.json()) as { message: string };
+        commentError = errorData.message || m.failed_to_post_comment();
+      }
+    } catch {
+      commentError = m.network_error_try_again();
+    } finally {
+      isSubmittingReply = false;
+    }
+  };
+
+  const handleCommentEdit = async (commentId: string, newContent: string) => {
+    if (!data.user) return;
+
+    try {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as { message: string };
+        throw new Error(errorData.message || 'Failed to edit comment');
+      }
+
+      invalidateAll();
+    } catch (error) {
+      console.error('Error editing comment:', error);
+      throw error;
+    }
+  };
+
+  const handleCommentDelete = async (commentId: string) => {
+    if (!data.user) return;
+
+    try {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as { message: string };
+        alert(errorData.message || 'Failed to delete comment');
+      } else {
+        invalidateAll();
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      alert(m.network_error_try_again());
+    }
+  };
 </script>
 
 <svelte:head>
@@ -602,6 +746,32 @@
                 <i class="fa-solid fa-map-location-dot"></i>
                 {m.explore_nearby()}
               </a>
+              {#if shop.source === ShopSource.ZIV}
+                <a
+                  href="https://www.google.com/maps/search/?api=1&query={encodeURIComponent(
+                    `${shop.name} ${formatShopAddress(shop)}`
+                  )}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn-neutral btn-soft"
+                >
+                  <i class="fa-solid fa-map-location-dot"></i>
+                  {m.view_in_google_maps()}
+                </a>
+              {:else}
+                <a
+                  href="https://uri.amap.com/marker?position={shop.location.coordinates[0]},{shop
+                    .location.coordinates[1]}&name={encodeURIComponent(
+                    shop.name
+                  )}&src=nearcade&callnative=1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn-neutral btn-soft"
+                >
+                  <i class="fa-solid fa-map-location-dot"></i>
+                  {m.view_in_amap()}
+                </a>
+              {/if}
               {#if data.user}
                 {@const isStarred = data.user.starredArcades?.some(
                   (a) => a.id === shop.id && a.source === shop.source
@@ -747,6 +917,16 @@
                   <span class="text-base-content/60 truncate">{m.updated()}</span>
                   <span class="text-right font-semibold"
                     >{formatDistanceToNow(shop.updatedAt, {
+                      addSuffix: true,
+                      locale: getFnsLocale(getLocale())
+                    })}</span
+                  >
+                </div>
+
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-base-content/60 truncate">{m.synced()}</span>
+                  <span class="text-right font-semibold"
+                    >{formatDistanceToNow(shop.syncedAt, {
                       addSuffix: true,
                       locale: getFnsLocale(getLocale())
                     })}</span
@@ -1104,6 +1284,154 @@
             <p class="text-base-content/60">{m.no_games_available()}</p>
           </div>
         {/if}
+
+        <!-- Comments Section -->
+        <section class="mt-8">
+          <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold">
+            <i class="fa-solid fa-comments"></i>
+            {m.comments()} ({comments.length})
+          </h2>
+
+          <!-- Add comment form -->
+          {#if data.user}
+            <div class="bg-base-100 mb-6 rounded-xl p-4">
+              {#if commentError}
+                <div class="alert alert-error mb-4">
+                  <i class="fa-solid fa-exclamation-triangle"></i>
+                  <span>{commentError}</span>
+                </div>
+              {/if}
+
+              <MarkdownEditor
+                bind:value={newCommentContent}
+                placeholder={m.comment_placeholder()}
+                disabled={isSubmittingComment}
+                minHeight="min-h-[100px]"
+              />
+
+              <div class="mt-3 flex justify-end">
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick={handleCommentSubmit}
+                  disabled={isSubmittingComment || !newCommentContent.trim()}
+                >
+                  {#if isSubmittingComment}
+                    <span class="loading loading-spinner loading-sm"></span>
+                  {:else}
+                    <i class="fa-solid fa-paper-plane"></i>
+                  {/if}
+                  {m.post_comment()}
+                </button>
+              </div>
+            </div>
+          {:else}
+            <div class="bg-base-200 mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
+              <i class="fa-solid fa-comment text-base-content/40 text-2xl"></i>
+              <button
+                class="text-base-content/60 hover:link-accent cursor-pointer text-sm transition-colors"
+                onclick={() => {
+                  window.dispatchEvent(new CustomEvent('nearcade-login'));
+                }}
+              >
+                {m.login_to_comment()}
+              </button>
+            </div>
+          {/if}
+
+          <!-- Comments list -->
+          {#if comments.length > 0}
+            <div class="space-y-1">
+              {#each comments.filter((c) => !c.parentCommentId) as comment (comment.id)}
+                <div>
+                  <Comment
+                    {comment}
+                    currentUserId={data.user?.id}
+                    canReply={!!data.user}
+                    canEdit={false}
+                    onVote={data.user ? handleCommentVote : undefined}
+                    onReply={data.user ? handleCommentReply : undefined}
+                    onEdit={handleCommentEdit}
+                    onDelete={handleCommentDelete}
+                    isPostRendered={isCommentsRendered}
+                    depth={0}
+                  />
+
+                  <!-- Reply form -->
+                  {#if replyingTo === comment.id}
+                    <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
+                      {#if commentError}
+                        <div class="alert alert-error mb-4">
+                          <i class="fa-solid fa-exclamation-triangle"></i>
+                          <span>{commentError}</span>
+                        </div>
+                      {/if}
+
+                      <MarkdownEditor
+                        bind:value={replyContent}
+                        placeholder={m.reply_to_comment()}
+                        disabled={isSubmittingReply}
+                        minHeight="min-h-[100px]"
+                      />
+
+                      <div class="mt-3 flex items-center justify-end">
+                        <div class="flex gap-2">
+                          <button
+                            class="btn btn-ghost btn-sm"
+                            onclick={() => {
+                              replyingTo = null;
+                              replyContent = '';
+                            }}
+                            disabled={isSubmittingReply}
+                          >
+                            {m.cancel()}
+                          </button>
+                          <button
+                            class="btn btn-primary btn-sm"
+                            onclick={submitReply}
+                            disabled={isSubmittingReply || !replyContent.trim()}
+                          >
+                            {#if isSubmittingReply}
+                              <span class="loading loading-spinner loading-sm"></span>
+                            {:else}
+                              <i class="fa-solid fa-paper-plane"></i>
+                            {/if}
+                            {m.reply()}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  {/if}
+
+                  <!-- Nested replies -->
+                  {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
+                    <Comment
+                      comment={reply}
+                      currentUserId={data.user?.id}
+                      canReply={!!data.user}
+                      canEdit={false}
+                      onVote={data.user ? handleCommentVote : undefined}
+                      onReply={data.user ? handleCommentReply : undefined}
+                      onEdit={handleCommentEdit}
+                      onDelete={handleCommentDelete}
+                      isPostRendered={isCommentsRendered}
+                      depth={1}
+                    />
+                  {/each}
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="bg-base-100 rounded-xl p-8 text-center">
+              <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
+              <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
+              {#if data.user}
+                <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+              {:else}
+                <p class="text-base-content/60">{m.login_to_comment()}</p>
+              {/if}
+            </div>
+          {/if}
+        </section>
       </div>
     </div>
   </div>
