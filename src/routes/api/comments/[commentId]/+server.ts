@@ -83,24 +83,30 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Check permissions (owner or canEdit)
     let canDelete = false;
     const isOwner = comment.createdBy === session.user.id;
-    const post = await postsCollection.findOne({ id: comment.postId });
-    if (!post) {
-      error(404, m.post_not_found());
-    }
 
-    if (post.universityId) {
-      const university = await db
-        .collection<University>('universities')
-        .findOne({ id: post.universityId });
-      if (university) {
-        const permissions = await checkUniversityPermission(session.user, university, mongo);
-        canDelete = isOwner || permissions.canEdit;
+    if (comment.shopSource) {
+      // Shop comment: only the owner can delete
+      canDelete = isOwner;
+    } else {
+      const post = await postsCollection.findOne({ id: comment.postId });
+      if (!post) {
+        error(404, m.post_not_found());
       }
-    } else if (post.clubId) {
-      const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
-      if (club) {
-        const permissions = await checkClubPermission(session.user, club, mongo);
-        canDelete = isOwner || permissions.canEdit;
+
+      if (post.universityId) {
+        const university = await db
+          .collection<University>('universities')
+          .findOne({ id: post.universityId });
+        if (university) {
+          const permissions = await checkUniversityPermission(session.user, university, mongo);
+          canDelete = isOwner || permissions.canEdit;
+        }
+      } else if (post.clubId) {
+        const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+        if (club) {
+          const permissions = await checkClubPermission(session.user, club, mongo);
+          canDelete = isOwner || permissions.canEdit;
+        }
       }
     }
 
@@ -116,14 +122,16 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Delete votes on the comment
     await db.collection<CommentVote>('comment_votes').deleteMany({ commentId });
 
-    // Update post comment count
-    await postsCollection.updateOne(
-      { id: comment.postId },
-      {
-        $inc: { commentCount: -deleteResult.deletedCount },
-        $set: { updatedAt: new Date() }
-      }
-    );
+    // Update post comment count (only for post comments)
+    if (comment.postId) {
+      await postsCollection.updateOne(
+        { id: comment.postId },
+        {
+          $inc: { commentCount: -deleteResult.deletedCount },
+          $set: { updatedAt: new Date() }
+        }
+      );
+    }
 
     return json({ success: true });
   } catch (err) {

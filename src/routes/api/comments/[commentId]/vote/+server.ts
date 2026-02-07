@@ -1,7 +1,7 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import { type Club, type Comment, type CommentVote, type University } from '$lib/types';
+import { type Club, type Comment, type CommentVote, type Post, type University } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
@@ -36,48 +36,51 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(404, m.comment_not_found());
     }
 
-    // Get the post to check permissions
-    const postsCollection = db.collection('posts');
-    const post = await postsCollection.findOne({ id: comment.postId });
-    if (!post) {
-      error(404, m.post_not_found());
-    }
-
-    const canRead = await canReadPost(
-      post.readability,
-      { universityId: post.universityId, clubId: post.clubId },
-      session?.user,
-      mongo
-    );
-
-    if (!canRead) {
-      error(403, m.permission_denied());
-    }
-
-    // Check if post is locked and user has permission to interact
-    if (post.isLocked) {
-      let canInteract = false;
-
-      if (post.universityId) {
-        const university = await db
-          .collection<University>('universities')
-          .findOne({ id: post.universityId });
-        if (university) {
-          const { checkUniversityPermission } = await import('$lib/utils');
-          const permissions = await checkUniversityPermission(session.user, university, mongo);
-          canInteract = permissions.canEdit;
-        }
-      } else if (post.clubId) {
-        const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
-        if (club) {
-          const { checkClubPermission } = await import('$lib/utils');
-          const permissions = await checkClubPermission(session.user, club, mongo);
-          canInteract = permissions.canEdit;
-        }
+    // Get the post to check permissions (only for post comments)
+    let post: Post | null = null;
+    if (comment.postId) {
+      const postsCollection = db.collection<Post>('posts');
+      post = await postsCollection.findOne({ id: comment.postId });
+      if (!post) {
+        error(404, m.post_not_found());
       }
 
-      if (!canInteract) {
-        error(403, m.post_is_locked());
+      const canRead = await canReadPost(
+        post.readability,
+        { universityId: post.universityId, clubId: post.clubId },
+        session?.user,
+        mongo
+      );
+
+      if (!canRead) {
+        error(403, m.permission_denied());
+      }
+
+      // Check if post is locked and user has permission to interact
+      if (post.isLocked) {
+        let canInteract = false;
+
+        if (post.universityId) {
+          const university = await db
+            .collection<University>('universities')
+            .findOne({ id: post.universityId });
+          if (university) {
+            const { checkUniversityPermission } = await import('$lib/utils');
+            const permissions = await checkUniversityPermission(session.user, university, mongo);
+            canInteract = permissions.canEdit;
+          }
+        } else if (post.clubId) {
+          const club = await db.collection<Club>('clubs').findOne({ id: post.clubId });
+          if (club) {
+            const { checkClubPermission } = await import('$lib/utils');
+            const permissions = await checkClubPermission(session.user, club, mongo);
+            canInteract = permissions.canEdit;
+          }
+        }
+
+        if (!canInteract) {
+          error(403, m.post_is_locked());
+        }
       }
     }
 
