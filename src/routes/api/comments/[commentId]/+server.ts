@@ -114,13 +114,22 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       error(403, m.permission_denied());
     }
 
+    // Find all comment IDs to be deleted (parent + replies)
+    const commentsToDelete = await commentsCollection
+      .find({ $or: [{ id: commentId }, { parentCommentId: commentId }] })
+      .project({ id: 1 })
+      .toArray();
+    const commentIdsToDelete = commentsToDelete.map((c) => c.id);
+
     // Delete comment and all its replies
     const deleteResult = await commentsCollection.deleteMany({
       $or: [{ id: commentId }, { parentCommentId: commentId }]
     });
 
-    // Delete votes on the comment
-    await db.collection<CommentVote>('comment_votes').deleteMany({ commentId });
+    // Delete votes on the comment and its replies
+    await db
+      .collection<CommentVote>('comment_votes')
+      .deleteMany({ commentId: { $in: commentIdsToDelete } });
 
     // Update post comment count (only for post comments)
     if (comment.postId) {

@@ -115,11 +115,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(404, m.shop_not_found());
     }
 
-    // If replying to a comment, check if parent comment exists
+    // If replying to a comment, check if parent comment exists and belongs to this shop
     if (parentCommentId) {
       const parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment) {
         error(404, m.parent_comment_not_found());
+      }
+      if (parentComment.shopSource !== source || parentComment.shopId !== shopId) {
+        error(400, m.parent_comment_not_found());
       }
     }
 
