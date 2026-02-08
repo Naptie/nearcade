@@ -115,6 +115,7 @@ jobs:
         env:
           PNPM_STORE: ${{ steps.pnpm-store.outputs.path }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          SSC_SECRET: ${{ secrets.BS_SSC_SECRET }}
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
           INCREMENTAL: ${{ steps.mode.outputs.incremental }}
