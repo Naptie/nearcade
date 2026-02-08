@@ -571,7 +571,7 @@
   {/if}
 </svelte:head>
 
-{#if shopDataLoading}
+{#if !shopDataResolved && shopDataLoading}
   <!-- Loading State with Skeleton -->
   <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
     <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
@@ -677,6 +677,20 @@
         {/if}
       {/snippet}
       {#snippet header(isMain = true)}
+        {@const [link, label] =
+          shop.source === ShopSource.ZIV
+            ? [
+                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  `${shop.name} ${formatShopAddress(shop)}`
+                )}`,
+                m.view_in_google_maps()
+              ]
+            : [
+                `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${
+                  shop.location.coordinates[1]
+                }&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`,
+                m.view_in_amap()
+              ]}
         <!-- Shop Header -->
         <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
           <div class="mb-4 flex items-center justify-between gap-2">
@@ -741,32 +755,6 @@
                 <i class="fa-solid fa-map-location-dot"></i>
                 {m.explore_nearby()}
               </a>
-              {#if shop.source === ShopSource.ZIV}
-                <a
-                  href="https://www.google.com/maps/search/?api=1&query={encodeURIComponent(
-                    `${shop.name} ${formatShopAddress(shop)}`
-                  )}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="btn btn-neutral btn-soft"
-                >
-                  <i class="fa-solid fa-map-location-dot"></i>
-                  {m.view_in_google_maps()}
-                </a>
-              {:else}
-                <a
-                  href="https://uri.amap.com/marker?position={shop.location.coordinates[0]},{shop
-                    .location.coordinates[1]}&name={encodeURIComponent(
-                    shop.name
-                  )}&src=nearcade&callnative=1"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="btn btn-neutral btn-soft"
-                >
-                  <i class="fa-solid fa-map-location-dot"></i>
-                  {m.view_in_amap()}
-                </a>
-              {/if}
               {#if data.user}
                 {@const isStarred = data.user.starredArcades?.some(
                   (a) => a.id === shop.id && a.source === shop.source
@@ -836,18 +824,30 @@
                 </button>
               {/if}
             </div>
-            <a
-              href={getShopSourceUrl(shop)}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="btn btn-primary btn-soft"
-              title={m.view_on_source({ source: shop.source.toUpperCase() })}
-            >
-              <i class="fa-solid fa-external-link-alt"></i>
-              <span class="hidden sm:block md:hidden lg:block">
-                {m.view_on_source({ source: shop.source.toUpperCase() })}
-              </span>
-            </a>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <a
+                href={getShopSourceUrl(shop)}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-secondary btn-soft"
+                title={m.view_on_source({ source: shop.source.toUpperCase() })}
+              >
+                <i class="fa-solid fa-external-link-alt"></i>
+                <span class="hidden sm:block md:hidden lg:block">
+                  {m.view_on_source({ source: shop.source.toUpperCase() })}
+                </span>
+              </a>
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-primary btn-soft"
+              >
+                <i class="fa-solid fa-external-link-alt"></i>
+                {label}
+              </a>
+            </div>
           </div>
         </div>
       {/snippet}
