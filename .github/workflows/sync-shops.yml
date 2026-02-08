@@ -13,6 +13,11 @@ on:
         description: 'Specific shops to sync'
         required: false
         type: string
+      force_refresh:
+        description: 'Force a full refresh'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   sync-bemanicn:
@@ -119,6 +124,7 @@ jobs:
           BEMANICN_EMAIL: ${{ secrets.BS_EMAIL }}
           BEMANICN_PASSWORD: ${{ secrets.BS_PASSWORD }}
           INCREMENTAL: ${{ steps.mode.outputs.incremental }}
+          FORCE_REFRESH: ${{ inputs.force_refresh }}
           SHOPS: ${{ inputs.bcn_shop_ids }}
 
   sync-ziv:
