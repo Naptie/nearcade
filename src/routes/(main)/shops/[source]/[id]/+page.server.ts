@@ -1,7 +1,7 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { Shop } from '$lib/types';
-import { toPlainObject } from '$lib/utils';
+import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
+import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { ShopSource } from '$lib/constants';
 import { getCurrentAttendance } from '$lib/utils/index.server';
@@ -46,11 +46,67 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         userAttendance = await getCurrentAttendance(session.user.id);
       }
 
+      // Load comments for this shop
+      const commentsCollection = db.collection<Comment>('comments');
+      const comments = await commentsCollection
+        .aggregate<CommentWithAuthorAndVote>([
+          {
+            $match: { shopSource: source, shopId: shopId }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'createdBy',
+              foreignField: 'id',
+              as: 'authorData'
+            }
+          },
+          {
+            $lookup: {
+              from: 'comment_votes',
+              localField: 'id',
+              foreignField: 'commentId',
+              as: 'commentVoteData'
+            }
+          },
+          {
+            $addFields: {
+              author: {
+                $arrayElemAt: ['$authorData', 0]
+              },
+              vote: {
+                $arrayElemAt: [
+                  {
+                    $filter: {
+                      input: '$commentVoteData',
+                      as: 'vote',
+                      cond: { $eq: ['$$vote.userId', session?.user?.id ?? ''] }
+                    }
+                  },
+                  0
+                ]
+              }
+            }
+          },
+          {
+            $project: {
+              authorData: 0,
+              commentVoteData: 0
+            }
+          },
+          {
+            $sort: { createdAt: 1 }
+          }
+        ])
+        .toArray()
+        .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
+
       return {
         shop: toPlainObject(shop),
         currentAttendance: userAttendance
           ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
-          : null
+          : null,
+        comments: toPlainArray(comments)
       };
     } catch (err) {
       if (err && (isHttpError(err) || isRedirect(err))) {
