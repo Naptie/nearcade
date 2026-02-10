@@ -123,6 +123,8 @@
           });
         }
       });
+    } else {
+      ratingImage = null;
     }
   });
 </script>
