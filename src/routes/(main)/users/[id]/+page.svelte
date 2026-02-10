@@ -62,10 +62,9 @@
     }
 
     try {
-      const userId = data.user.name ? `@${data.user.name}` : data.user.id;
       const response = await fetch(
         resolve('/api/users/[id]/activities', {
-          id: userId || ''
+          id: data.user.id || ''
         }) + `?page=${page}&limit=10`
       );
 
@@ -107,9 +106,12 @@
     if (savedRadius) {
       radius = parseInt(savedRadius);
     }
+  });
 
-    // Load activities when component mounts
-    loadActivities();
+  $effect(() => {
+    if (data && data.user) {
+      loadActivities();
+    }
   });
 
   $effect(() => {
