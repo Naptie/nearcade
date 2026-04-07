@@ -4,6 +4,7 @@ import adapterVercel from '@sveltejs/adapter-vercel';
 import adapterCloudflare from '@sveltejs/adapter-cloudflare';
 import adapterEdgeOne from '@edgeone/sveltekit';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import 'dotenv/config';
 
 const base = process.env.PATH_BASE || '';
 
