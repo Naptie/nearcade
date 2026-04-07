@@ -11,7 +11,6 @@ import { base } from '$app/paths';
 import { isOSSAvailable } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
 import { building, dev } from '$app/environment';
-import 'dotenv/config';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
