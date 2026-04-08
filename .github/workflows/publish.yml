@@ -162,3 +162,17 @@ jobs:
           retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}"
           retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}"
           retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod
+
+  meilisearch-refresh:
+    name: Refresh MeiliSearch Indexes
+    runs-on: ubuntu-latest
+    needs: leancloud-publish
+    concurrency:
+      group: meilisearch-refresh
+      cancel-in-progress: false
+    steps:
+      - name: Refresh MeiliSearch Indexes
+        run: |
+          curl -X POST "https://nearcade.phizone.cn/api/meilisearch/refresh" \
+          -H "Authorization: Bearer ${{ secrets.SSC_SECRET }}"
+          echo "MeiliSearch indexes refresh triggered"
