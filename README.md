@@ -91,7 +91,6 @@
 - MongoDB 实例
 - 高德地图 JS API 密钥和秘密
 - 腾讯地图 API 密钥
-- Sentry DSN (可选)
 - OAuth 提供商的凭据 (包括 GitHub, Microsoft Entra ID, Discord, osu!, Phira, QQ)
 
 ### 安装步骤
