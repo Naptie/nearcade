@@ -1,5 +1,5 @@
 name: Publish
-run-name: Publish to LeanCloud and Sentry
+run-name: Publish to LeanCloud
 on:
   push:
     branches:
@@ -58,7 +58,6 @@ jobs:
           PUBLIC_TENCENT_MAPS_KEY: ${{ vars.PUBLIC_TENCENT_MAPS_KEY }}
           PUBLIC_GOOGLE_MAPS_MAP_ID: ${{ vars.PUBLIC_GOOGLE_MAPS_MAP_ID }}
           PUBLIC_GOOGLE_MAPS_API_KEY: ${{ vars.PUBLIC_GOOGLE_MAPS_API_KEY }}
-          PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
           PUBLIC_FIREBASE_API_KEY: ${{ vars.PUBLIC_FIREBASE_API_KEY }}
           PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.PUBLIC_FIREBASE_PROJECT_ID }}
           PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.PUBLIC_FIREBASE_AUTH_DOMAIN }}
@@ -163,32 +162,3 @@ jobs:
           retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}"
           retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}"
           retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod
-
-  # sentry-publish:
-  #   name: Publish to Sentry
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   concurrency:
-  #     group: sentry-publish
-  #     cancel-in-progress: false
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-
-  #     - name: Download build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-files
-  #         path: build/
-
-  #     - name: Create Sentry release
-  #       uses: getsentry/action-release@v1
-  #       env:
-  #         SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-  #         SENTRY_ORG: phizone
-  #         SENTRY_PROJECT: nearcade
-  #       with:
-  #         environment: production
-  #         sourcemaps: './build'

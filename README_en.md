@@ -91,7 +91,6 @@ Please join the following QQ group for discussions.
 - MongoDB instance
 - AMap JS API key & secret
 - Tencent Maps API key
-- Sentry DSN (optional)
 - Credentials for OAuth providers (including GitHub, Microsoft Entra ID, Discord, osu!, Phira, and QQ)
 
 ### Installation

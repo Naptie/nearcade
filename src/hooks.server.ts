@@ -1,10 +1,8 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import * as Sentry from '@sentry/sveltekit';
 import { redirect, type Handle, type HandleServerError, type ServerInit } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { handle as handleAuth } from '$lib/auth/index.server';
 import { init as initMeili } from '$lib/db/meili.server';
-import { env } from '$env/dynamic/public';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
@@ -26,19 +24,6 @@ const reportError: HandleServerError = ({ status, error }) => {
     code: 'INTERNAL_ERROR'
   };
 };
-
-let sentryHandle: Handle | undefined = undefined;
-let sentryHandleError: HandleServerError | undefined = undefined;
-
-if (env.PUBLIC_SENTRY_DSN) {
-  Sentry.init({
-    dsn: env.PUBLIC_SENTRY_DSN,
-    tracesSampleRate: 1
-  });
-
-  sentryHandle = Sentry.sentryHandle();
-  sentryHandleError = Sentry.handleErrorWithSentry(reportError);
-}
 
 const handleOptions: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
@@ -147,7 +132,6 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
 
 export const handle: Handle = sequence(
   handleOptions,
-  ...(sentryHandle ? [sentryHandle] : []),
   handleParaglide,
   // handleGoogleTag,
   handleAMap,
@@ -157,7 +141,7 @@ export const handle: Handle = sequence(
   handleAuth
 );
 
-export const handleError: HandleServerError = sentryHandleError ?? reportError;
+export const handleError: HandleServerError = reportError;
 
 export const init: ServerInit = async () => {
   if (building || dev) {

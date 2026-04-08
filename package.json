@@ -81,7 +81,6 @@
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@inlang/paraglide-js": "^2.15.0",
     "@photostructure/tz-lookup": "^11.5.0",
-    "@sentry/sveltekit": "^9.47.1",
     "crypto-js": "^4.2.0",
     "daisyui": "^5.5.19",
     "date-fns": "^4.1.0",
