@@ -221,12 +221,18 @@ const startPolling = () => {
 
       const fetch = imap.fetch(results, { bodies: '' });
 
-      fetch.on('message', (msg, seqno) => {
+      fetch.on('message', (msg) => {
         const chunks: Buffer[] = [];
+        let uid: number;
+
         msg.on('body', (stream) => {
           stream.on('data', (chunk) => {
             chunks.push(Buffer.from(chunk));
           });
+        });
+
+        msg.once('attributes', (attrs) => {
+          uid = attrs.uid;
         });
 
         msg.once('end', async () => {
@@ -237,9 +243,9 @@ const startPolling = () => {
           } catch (err) {
             console.error('[SSV] Processing error:', err);
           } finally {
-            imap.addFlags(seqno, '\\Seen', (err) => {
+            imap.addFlags(uid, '\\Seen', (err) => {
               if (err) {
-                console.error(`[SSV] Failed to mark message ${seqno} as read:`, err);
+                console.error(`[SSV] Failed to mark message ${uid} as read:`, err);
               }
             });
           }
