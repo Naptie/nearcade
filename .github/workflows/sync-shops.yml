@@ -164,7 +164,7 @@ jobs:
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
 
-  trigger-publish:
+  trigger-refresh:
     needs: [sync-bemanicn, sync-ziv]
-    uses: ./.github/workflows/publish.yml
+    uses: ./.github/workflows/meilisearch-refresh.yml
     secrets: inherit

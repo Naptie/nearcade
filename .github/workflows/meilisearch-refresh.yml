@@ -1,0 +1,23 @@
+name: Refresh MeiliSearch Indexes
+run-name: Refresh MeiliSearch Indexes
+on:
+  workflow_dispatch:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  meilisearch-refresh:
+    name: Refresh MeiliSearch Indexes
+    runs-on: ubuntu-latest
+    concurrency:
+      group: meilisearch-refresh
+      cancel-in-progress: false
+    steps:
+      - name: Refresh MeiliSearch Indexes
+        run: |
+          curl -X POST "https://nearcade.phizone.cn/api/meilisearch/refresh" \
+          -H "Authorization: Bearer ${{ secrets.SSC_SECRET }}"
+          echo "MeiliSearch indexes refresh triggered"
