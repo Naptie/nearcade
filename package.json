@@ -130,5 +130,10 @@
       "firebase": "patches/firebase.patch"
     }
   },
+  "overrides": {
+    "vite-plugin-devtools-json": {
+      "vite": "$vite"
+    }
+  },
   "packageManager": "pnpm@10.33.0"
 }
