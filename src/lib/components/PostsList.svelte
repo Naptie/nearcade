@@ -31,9 +31,9 @@
     initialPosts = []
   }: Props = $props();
 
-  let posts = $state<PostWithAuthor[]>(initialPosts);
+  let posts = $derived<PostWithAuthor[]>(initialPosts);
   let isLoading = $state(true);
-  let hasMore = $state(initialPosts.length >= PAGINATION.PAGE_SIZE);
+  let hasMore = $derived(initialPosts.length >= PAGINATION.PAGE_SIZE);
   let currentPage = $state(1);
   let showCreateModal = $state(false);
   let error = $state('');

@@ -11,9 +11,9 @@
 
   let { data }: { data: PageData } = $props();
 
-  let searchQuery = $state(data.query);
+  let searchQuery = $derived(data.query);
   let isSearching = $state(false);
-  let selectedUniversityId = $state(data.selectedUniversityId);
+  let selectedUniversityId = $derived(data.selectedUniversityId);
 
   const handleSearch = async (event: Event) => {
     event.preventDefault();

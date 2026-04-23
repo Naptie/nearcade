@@ -24,11 +24,11 @@
 
   let { data } = $props();
 
-  let sortBy: SortCriteria = $state(data.sortBy);
-  let radiusFilter: RadiusFilter = $state(data.radius);
-  let displayedRankings: UniversityRankingData[] = $state(data.rankings);
-  let hasMore = $state(data.hasMore);
-  let nextCursor = $state(data.nextCursor);
+  let sortBy: SortCriteria = $derived(data.sortBy);
+  let radiusFilter: RadiusFilter = $derived(data.radius);
+  let displayedRankings: UniversityRankingData[] = $derived(data.rankings);
+  let hasMore = $derived(data.hasMore);
+  let nextCursor = $derived(data.nextCursor);
   let isLoading = $state(false);
   let isLoadingMore = $state(false);
   let hoveredRowId: number | null = $state(null);

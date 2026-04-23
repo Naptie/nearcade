@@ -29,17 +29,17 @@
 
   let title = $state('');
   let content = $state('');
-  let readability = $state<PostReadability>(getDefaultPostReadability(organizationReadability));
+  let readability = $derived<PostReadability>(getDefaultPostReadability(organizationReadability));
   let isSubmitting = $state(false);
   let error = $state('');
 
-  const readabilityOptions = [
+  const readabilityOptions = $derived([
     { value: PostReadability.PUBLIC, label: m.post_readability_public() },
     { value: PostReadability.UNIV_MEMBERS, label: m.post_readability_university_members() },
     ...(organizationType === 'club'
       ? [{ value: PostReadability.CLUB_MEMBERS, label: m.post_readability_club_members() }]
       : [])
-  ];
+  ]);
 
   const reset = () => {
     title = '';

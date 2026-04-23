@@ -28,7 +28,7 @@
   });
 
   // Sidebar navigation items
-  const navigationItems = [
+  const navigationItems = $derived([
     {
       id: 'dashboard',
       label: m.admin_dashboard(),
@@ -93,7 +93,7 @@
       requiresSiteAdmin: false,
       count: data.session?.session.pendingJoinRequests
     }
-  ];
+  ]);
 
   // Filter navigation items based on user permissions
   const visibleItems = $derived(

@@ -10,8 +10,8 @@
 
   let { data }: { data: PageData } = $props();
 
-  let searchQuery = $state(data.search || '');
-  let selectedStatus = $state(data.status || 'all');
+  let searchQuery = $derived(data.search || '');
+  let selectedStatus = $derived(data.status || 'all');
   let searchTimeout: ReturnType<typeof setTimeout>;
   let copiedId = $state<string | null>(null);
 

@@ -21,8 +21,8 @@
 
   let { data }: { data: PageData } = $props();
 
-  let searchQuery = $state(data.search || '');
-  let selectedUserType = $state(data.userType || 'all');
+  let searchQuery = $derived(data.search || '');
+  let selectedUserType = $derived(data.userType || 'all');
   let searchTimeout: ReturnType<typeof setTimeout>;
 
   const handleSearchInput = () => {

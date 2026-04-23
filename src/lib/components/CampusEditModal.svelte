@@ -37,7 +37,7 @@
   >(undefined);
 
   // Form data
-  let formData = $state({
+  let formData = $derived({
     name: campus?.name || '',
     address: campus?.address || '',
     latitude: campus?.location.coordinates[1] || 0,

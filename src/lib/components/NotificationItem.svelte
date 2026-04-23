@@ -17,7 +17,7 @@
 
   let { notification }: Props = $props();
 
-  let content = $state(notification.content || '');
+  let content = $derived(notification.content || '');
 
   let context = $derived.by(() => {
     if (notification.universityName) {

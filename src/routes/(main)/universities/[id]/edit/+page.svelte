@@ -14,7 +14,7 @@
   let errors = $state<string[]>([]);
 
   // Form data
-  let formData = $state({
+  let formData = $derived({
     name: data.university.name,
     type: data.university.type,
     majorCategory: data.university.majorCategory || '',
@@ -33,7 +33,7 @@
   });
 
   // Track whether user wants to set a custom background color
-  let useCustomBackgroundColor = $state(!!data.university.backgroundColor);
+  let useCustomBackgroundColor = $derived(!!data.university.backgroundColor);
 
   const handleCancel = () => {
     goto(resolve('/(main)/universities/[id]', { id: data.university.slug || data.university.id }));

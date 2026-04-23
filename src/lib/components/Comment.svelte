@@ -42,7 +42,7 @@
   let content = $state('');
   let showMenu = $state(false);
   let isEditing = $state(false);
-  let editContent = $state(comment.content);
+  let editContent = $derived(comment.content);
   let isSavingEdit = $state(false);
   let showDeleteConfirm = $state(false);
   let showHighlight = $state(false);

@@ -66,12 +66,12 @@
   let replyContent = $state('');
   let isSubmittingReply = $state(false);
   let componentMounted = $state(true);
-  let localPost = $state(post);
+  let localPost = $derived(post);
   let showManageMenu = $state(false);
   let isEditingPost = $state(false);
-  let editTitle = $state(post.title);
-  let editContent = $state(post.content);
-  let editReadability = $state(post.readability);
+  let editTitle = $derived(post.title);
+  let editContent = $derived(post.content);
+  let editReadability = $derived(post.readability);
   let isSavingPost = $state(false);
   let showDeletePostConfirm = $state(false);
   let isPostRendered = $state(false);
@@ -109,13 +109,13 @@
     }
   });
 
-  const readabilityOptions = [
+  const readabilityOptions = $derived([
     { value: PostReadability.PUBLIC, label: m.post_readability_public() },
     { value: PostReadability.UNIV_MEMBERS, label: m.post_readability_university_members() },
     ...(organizationType === 'club'
       ? [{ value: PostReadability.CLUB_MEMBERS, label: m.post_readability_club_members() }]
       : [])
-  ];
+  ]);
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     if (!currentUserId || isVoting) return;

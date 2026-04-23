@@ -9,7 +9,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  let searchQuery = $state(data.search || '');
+  let searchQuery = $derived(data.search || '');
   let searchTimeout: ReturnType<typeof setTimeout>;
   let selectedUniversity = $state('');
   let showCreateModal = $state(false);

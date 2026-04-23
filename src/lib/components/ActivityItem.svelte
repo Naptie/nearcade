@@ -16,7 +16,7 @@
 
   let { activity }: Props = $props();
 
-  let content = $state(activity.commentContent || '');
+  let content = $derived(activity.commentContent || '');
 
   let icon = $derived.by(() => {
     switch (activity.type) {

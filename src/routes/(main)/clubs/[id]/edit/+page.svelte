@@ -13,18 +13,18 @@
   let errors = $state<string[]>([]);
 
   // Form data initialized from existing club data
-  let name = $state(data.club.name);
-  let slug = $state(data.club.slug || '');
-  let description = $state(data.club.description || '');
-  let website = $state(data.club.website || '');
-  let avatarUrl = $state(data.club.avatarUrl || '');
-  let backgroundColor = $state(data.club.backgroundColor || '#3b82f6');
-  let acceptJoinRequests = $state(data.club.acceptJoinRequests);
-  let postReadability = $state(data.club.postReadability);
-  let postWritability = $state(data.club.postWritability);
+  let name = $derived(data.club.name);
+  let slug = $derived(data.club.slug || '');
+  let description = $derived(data.club.description || '');
+  let website = $derived(data.club.website || '');
+  let avatarUrl = $derived(data.club.avatarUrl || '');
+  let backgroundColor = $derived(data.club.backgroundColor || '#3b82f6');
+  let acceptJoinRequests = $derived(data.club.acceptJoinRequests);
+  let postReadability = $derived(data.club.postReadability);
+  let postWritability = $derived(data.club.postWritability);
 
   // Track whether user wants to set a custom background color
-  let useCustomBackgroundColor = $state(!!data.club.backgroundColor);
+  let useCustomBackgroundColor = $derived(!!data.club.backgroundColor);
 </script>
 
 <svelte:head>

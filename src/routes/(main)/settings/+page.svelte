@@ -12,41 +12,41 @@
   let showSuccess = $state(false);
 
   // Form data with error handling
-  let displayName = $state(data.userProfile?.displayName || '');
-  let bio = $state(data.userProfile?.bio || '');
-  let username = $state(data.userProfile?.name || '');
-  let isEmailPublic = $state(data.userProfile?.isEmailPublic || false);
-  let isActivityPublic = $state(data.userProfile?.isActivityPublic !== false);
-  let isFootprintPublic = $state(data.userProfile?.isFootprintPublic || false);
-  let isUniversityPublic = $state(data.userProfile?.isUniversityPublic !== false);
-  let isFrequentingArcadePublic = $state(data.userProfile?.isFrequentingArcadePublic !== false);
-  let isStarredArcadePublic = $state(data.userProfile?.isStarredArcadePublic !== false);
+  let displayName = $derived(data.userProfile?.displayName || '');
+  let bio = $derived(data.userProfile?.bio || '');
+  let username = $derived(data.userProfile?.name || '');
+  let isEmailPublic = $derived(data.userProfile?.isEmailPublic || false);
+  let isActivityPublic = $derived(data.userProfile?.isActivityPublic !== false);
+  let isFootprintPublic = $derived(data.userProfile?.isFootprintPublic || false);
+  let isUniversityPublic = $derived(data.userProfile?.isUniversityPublic !== false);
+  let isFrequentingArcadePublic = $derived(data.userProfile?.isFrequentingArcadePublic !== false);
+  let isStarredArcadePublic = $derived(data.userProfile?.isStarredArcadePublic !== false);
 
   // Social links
-  let socialLinks = $state(data.userProfile?.socialLinks || []);
+  let socialLinks = $derived(data.userProfile?.socialLinks || []);
 
   // Notification settings
-  let notificationTypeComments = $state(
+  let notificationTypeComments = $derived(
     data.userProfile?.notificationTypes
       ? data.userProfile.notificationTypes.includes('COMMENTS')
       : true
   );
-  let notificationTypeReplies = $state(
+  let notificationTypeReplies = $derived(
     data.userProfile?.notificationTypes
       ? data.userProfile.notificationTypes.includes('REPLIES')
       : true
   );
-  let notificationTypePostVotes = $state(
+  let notificationTypePostVotes = $derived(
     data.userProfile?.notificationTypes
       ? data.userProfile.notificationTypes.includes('POST_VOTES')
       : true
   );
-  let notificationTypeCommentVotes = $state(
+  let notificationTypeCommentVotes = $derived(
     data.userProfile?.notificationTypes
       ? data.userProfile.notificationTypes.includes('COMMENT_VOTES')
       : true
   );
-  let notificationTypeJoinRequests = $state(
+  let notificationTypeJoinRequests = $derived(
     data.userProfile?.notificationTypes
       ? data.userProfile.notificationTypes.includes('JOIN_REQUESTS')
       : true
@@ -246,7 +246,7 @@
               <img src={data.userProfile.image} alt={m.profile_image()} />
             {:else}
               <div
-                class="bg-primary text-primary-content flex items-center justify-center text-2xl font-bold"
+                class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-2xl font-bold"
               >
                 {data.userProfile.name?.charAt(0)?.toUpperCase() || '?'}
               </div>
