@@ -158,9 +158,9 @@ jobs:
             done
           }
 
-          retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}"
-          retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}"
-          retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod
+          retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}" > /dev/null 2>&1
+          retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}" > /dev/null 2>&1
+          retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod > /dev/null 2>&1
 
   meilisearch-refresh:
     needs: leancloud-publish
