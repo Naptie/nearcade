@@ -16,9 +16,24 @@ import { qqProvider } from './qq';
 import { githubProvider } from './github';
 import { phiraProvider } from './phira';
 import type { User } from './types';
+import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
+
+function withProfileCache<T extends Record<string, unknown>>(
+  providerId: string,
+  mapFn: (profile: T) => { email: string; image?: string; [key: string]: unknown }
+) {
+  return async (profile: T) => {
+    const mapped = mapFn(profile);
+    const accountId = String((profile as Record<string, unknown>).id ?? '');
+    if (accountId) {
+      await cacheOAuthProfile(providerId, accountId, { email: mapped.email, image: mapped.image });
+    }
+    return mapped;
+  };
+}
 
 function discordProvider() {
   const discordUrl = 'https://discord.com';
@@ -33,7 +48,7 @@ function discordProvider() {
     tokenUrl: `${baseUrl}/api/oauth2/token`,
     userInfoUrl: `${baseUrl}/api/users/@me`,
     scopes: ['identify', 'email'],
-    mapProfileToUser(profile: Record<string, unknown>) {
+    mapProfileToUser: withProfileCache('discord', (profile: Record<string, unknown>) => {
       const p = profile as {
         id: string;
         global_name: string | null;
@@ -50,7 +65,7 @@ function discordProvider() {
         image,
         emailVerified: !!p.email
       };
-    }
+    })
   };
 }
 
@@ -61,7 +76,14 @@ function microsoftEntraIdProvider() {
     clientId: env.AUTH_MICROSOFT_ENTRA_ID_ID!,
     clientSecret: env.AUTH_MICROSOFT_ENTRA_ID_SECRET!,
     discoveryUrl: `${issuer}/.well-known/openid-configuration`,
-    scopes: ['openid', 'profile', 'email']
+    scopes: ['openid', 'profile', 'email'],
+    mapProfileToUser: withProfileCache('microsoft-entra-id', (profile: Record<string, unknown>) => {
+      return {
+        name: (profile.name as string) ?? undefined,
+        email: profile.email as string,
+        image: (profile.picture as string) ?? undefined
+      };
+    })
   };
 }
 
@@ -74,7 +96,7 @@ function osuProvider() {
     tokenUrl: 'https://osu.ppy.sh/oauth/token',
     userInfoUrl: 'https://osu.ppy.sh/api/v2/me',
     scopes: ['identify'],
-    mapProfileToUser(profile: Record<string, unknown>) {
+    mapProfileToUser: withProfileCache('osu', (profile: Record<string, unknown>) => {
       const p = profile as { id: number; username: string; avatar_url: string };
       return {
         name: p.username,
@@ -82,7 +104,7 @@ function osuProvider() {
         image: p.avatar_url,
         emailVerified: false
       };
-    }
+    })
   };
 }
 
@@ -176,6 +198,37 @@ export const auth = betterAuth({
     sveltekitCookies(getRequestEvent)
   ],
   databaseHooks: {
+    account: {
+      create: {
+        after: async (account) => {
+          const profile = await getCachedOAuthProfile(account.providerId, account.accountId);
+          if (!profile) return;
+
+          const db = mongo.db();
+          const currentUser = await db
+            .collection('users')
+            .findOne({ _id: new ObjectId(account.userId) });
+          if (!currentUser) return;
+
+          const updates: Record<string, unknown> = {};
+          const hasPlaceholderEmail = !currentUser.email || currentUser.email.endsWith('.nearcade');
+          const hasRealNewEmail = profile.email && !profile.email.endsWith('.nearcade');
+          if (hasPlaceholderEmail && hasRealNewEmail) {
+            updates.email = profile.email;
+            updates.emailVerified = true;
+          }
+          if (!currentUser.image && profile.image) {
+            updates.image = profile.image;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await db
+              .collection('users')
+              .updateOne({ _id: new ObjectId(account.userId) }, { $set: updates });
+          }
+        }
+      }
+    },
     user: {
       create: {
         after: async (user) => {
@@ -215,14 +268,6 @@ export const auth = betterAuth({
               }
             }
           );
-        }
-      },
-      update: {
-        before: async (user) => {
-          console.log(user);
-          if (user.email && !user.email.endsWith('.nearcade')) {
-            return { data: user as Record<string, unknown> };
-          }
         }
       }
     }

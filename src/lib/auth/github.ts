@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
+import { cacheOAuthProfile } from './profile-cache';
 
 interface GitHubEmail {
   email: string;
@@ -49,13 +50,17 @@ export function githubProvider(): GenericOAuthConfig {
         }
       }
 
-      return {
+      const result = {
         id: profile.id.toString(),
         name: profile.name ?? profile.login,
         email: profile.email,
         image: profile.avatar_url,
         emailVerified: false
       };
+      if (result.email) {
+        await cacheOAuthProfile('github', result.id, { email: result.email, image: result.image });
+      }
+      return result;
     }
   };
 }

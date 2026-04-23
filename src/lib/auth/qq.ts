@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
+import { cacheOAuthProfile } from './profile-cache';
 
 export interface QQProfile {
   is_lost: number;
@@ -65,13 +66,15 @@ export function qqProvider(): GenericOAuthConfig {
       const response = await fetch(url);
       const profile = (await response.json()) as QQProfile;
 
-      return {
+      const result = {
         id: openid,
         name: profile.nickname,
         email: openid + '@qq.nearcade',
         image: profile.figureurl_2 ?? profile.figureurl,
         emailVerified: false
       };
+      await cacheOAuthProfile('qq', openid, { email: result.email, image: result.image });
+      return result;
     }
   };
 }

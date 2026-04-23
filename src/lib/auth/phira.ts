@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
+import { cacheOAuthProfile } from './profile-cache';
 
 export interface PhiraProfile {
   id: number;
@@ -45,13 +46,15 @@ export function phiraProvider(): GenericOAuthConfig {
         accessTokenExpiresAt: new Date(Date.now() + data.expiresIn * 1000)
       };
     },
-    mapProfileToUser(profile: Record<string, unknown>) {
+    async mapProfileToUser(profile: Record<string, unknown>) {
       const p = profile as unknown as PhiraProfile;
-      return {
+      const mapped = {
         name: p.name,
         email: p.email,
         image: p.avatar ?? undefined
       };
+      await cacheOAuthProfile('phira', String(p.id), { email: mapped.email, image: mapped.image });
+      return mapped;
     }
   };
 }
