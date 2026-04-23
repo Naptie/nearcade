@@ -14,7 +14,7 @@ import { m } from '$lib/paraglide/messages';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }

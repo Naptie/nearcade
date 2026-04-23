@@ -6,7 +6,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());

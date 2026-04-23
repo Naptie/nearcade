@@ -15,7 +15,7 @@
     pageTitle
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
-  import type { User } from '@auth/sveltekit';
+  import type { User } from '$lib/auth/types';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
 

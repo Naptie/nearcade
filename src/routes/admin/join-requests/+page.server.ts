@@ -9,7 +9,7 @@ import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  const session = await locals.auth();
+  const session = locals.session;
   const user = session?.user;
 
   if (!user) {
@@ -191,7 +191,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
   approve: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -338,7 +338,7 @@ export const actions: Actions = {
   },
 
   reject: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -442,7 +442,7 @@ export const actions: Actions = {
   },
 
   delete: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }

@@ -17,7 +17,7 @@ interface CreateInviteRequest {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -72,7 +72,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());

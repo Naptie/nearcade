@@ -1,14 +1,14 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { toPlainArray, updateUserType } from '$lib/utils';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { USER_TYPES } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -144,7 +144,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
   updateOrganizationRole: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
 
     if (!session?.user) {
       return fail(401, { error: m.unauthorized() });
@@ -245,7 +245,7 @@ export const actions: Actions = {
   },
 
   deleteUser: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
 
     if (!session?.user) {
       return fail(401, { error: m.unauthorized() });

@@ -6,7 +6,7 @@ import { PAGINATION } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
   const { id } = params;
 
   const page = parseInt(url.searchParams.get('page') || '1');

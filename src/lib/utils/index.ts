@@ -20,7 +20,7 @@ import {
   PostReadability
 } from '$lib/types';
 import { ROUTE_CACHE_STORE } from '$lib/constants';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { customAlphabet, nanoid } from 'nanoid';
 import rehypeParse from 'rehype-parse';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';

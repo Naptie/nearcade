@@ -8,7 +8,7 @@ import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -142,7 +142,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
   delete: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }

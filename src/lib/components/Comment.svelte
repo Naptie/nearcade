@@ -150,7 +150,7 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
           <a
-            href={resolve('/(main)/users/[id]', { id: '@' + comment.author.name })}
+            href={resolve('/(main)/users/[id]', { id: '@' + comment.author?.name })}
             class="hover:text-accent font-medium transition-colors"
           >
             {getDisplayName(comment.author)}

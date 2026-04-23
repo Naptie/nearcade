@@ -5,7 +5,7 @@ import { PAGINATION } from '$lib/constants';
 import { sanitizeHTML, sanitizeRecursive, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 

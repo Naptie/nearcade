@@ -3,7 +3,7 @@ import type { UniversityMember, ClubMember } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
   const user = session?.user;
 
   if (!user) {

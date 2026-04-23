@@ -1,7 +1,8 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type HandleServerError, type ServerInit } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
-import { handle as handleAuth } from '$lib/auth/index.server';
+import { auth } from '$lib/auth/index.server';
+import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { init as initMeili } from '$lib/db/meili.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
@@ -127,6 +128,13 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
 
   // Otherwise, proceed with normal request handling
   return resolve(event);
+};
+
+const handleAuth: Handle = async ({ event, resolve }) => {
+  const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
+  event.locals.session = session as App.Locals['session'];
+  event.locals.user = (session?.user as App.Locals['user']) ?? null;
+  return svelteKitHandler({ event, resolve, auth, building });
 };
 
 export const handle: Handle = sequence(

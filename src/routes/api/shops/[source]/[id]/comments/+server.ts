@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       error(400, m.invalid_shop_id());
     }
 
-    const session = await locals.auth();
+    const session = locals.session;
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
 
@@ -83,7 +83,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }

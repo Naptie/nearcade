@@ -2,10 +2,11 @@
   import { m } from '$lib/paraglide/messages';
   import FancyButton from './FancyButton.svelte';
   import { page } from '$app/state';
-  import { signOut } from '@auth/sveltekit/client';
+  import { authClient } from '$lib/auth/client';
   import { resolve, base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator, getProviders } from '$lib/utils';
   import { onMount } from 'svelte';
+    import type { auth } from '$lib/auth/index.server';
 
   interface Props {
     size?: string;
@@ -15,7 +16,7 @@
 
   let { size = 'lg', class: klass = '', btnCls }: Props = $props();
 
-  let session = $derived(page.data.session);
+  let session = $derived(page.data.session as typeof auth.$Infer.Session);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
 
@@ -52,7 +53,7 @@
   });
 </script>
 
-{#if !session || !session.user || session.expires < new Date().toISOString()}
+{#if !session || !session.user}
   <FancyButton
     callback={() => {
       dialogElement?.showModal();
@@ -84,31 +85,35 @@
         <h3 class="mb-4 text-lg font-bold">{m.sign_in()}</h3>
         <div class="grid grid-cols-1 gap-4 px-4 md:grid-cols-2">
           {#each getProviders() as provider (provider.id)}
-            <form method="POST" action={resolve('/session/signin')}>
-              <input type="hidden" name="providerId" value={provider.id} />
-              <button
-                type="submit"
-                class="btn btn-outline not-2xs:btn-circle btn-t w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
-              >
-                {#if provider.icon.startsWith('fa-')}
-                  <i class="fa-brands fa-lg {provider.icon}"></i>
-                {:else}
-                  <img
-                    src="{base}/{provider.icon}"
-                    alt="{provider.name} {m.provider_logo()}"
-                    class="h-5 w-5 rounded-full"
-                  />
-                {/if}
-                <p class="not-sm:hidden">{m.sign_in_with({ provider: provider.name })}</p>
-                <p class="not-2xs:hidden sm:hidden">{provider.name}</p>
-              </button>
-            </form>
+            <button
+              type="button"
+              onclick={() => {
+                authClient.signIn.oauth2({
+                  providerId: provider.id,
+                  callbackURL: page.url.pathname
+                });
+              }}
+              class="btn btn-outline not-2xs:btn-circle btn-t w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
+            >
+              {#if provider.icon.startsWith('fa-')}
+                <i class="fa-brands fa-lg {provider.icon}"></i>
+              {:else}
+                <img
+                  src="{base}/{provider.icon}"
+                  alt="{provider.name} {m.provider_logo()}"
+                  class="h-5 w-5 rounded-full"
+                />
+              {/if}
+              <p class="not-sm:hidden">{m.sign_in_with({ provider: provider.name })}</p>
+              <p class="not-2xs:hidden sm:hidden">{provider.name}</p>
+            </button>
           {/each}
         </div>
       </div>
     </div>
   </dialog>
 {:else}
+{@const { pendingJoinRequests, unreadNotifications } = session.session}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div
     class="dropdown dropdown-end"
@@ -121,11 +126,11 @@
     }}
   >
     <div class="indicator group">
-      {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
+      {#if pendingJoinRequests && pendingJoinRequests > 0}
         <span
           class="indicator-item status status-warning top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
         ></span>
-      {:else if session.unreadNotifications > 0}
+      {:else if unreadNotifications > 0}
         <span
           class="indicator-item status status-success top-1.5 right-1.5 z-10 transition-opacity group-hover:opacity-0"
         ></span>
@@ -158,11 +163,11 @@
                 <i class="fa-solid fa-shield-halved"></i>
                 {m.admin_panel()}
               </div>
-              {#if session.pendingJoinRequests && session.pendingJoinRequests > 0}
+              {#if pendingJoinRequests && pendingJoinRequests > 0}
                 <span
                   class="badge badge-sm dark:not-group-hover:badge-soft badge-warning transition-colors"
                 >
-                  {session.pendingJoinRequests}
+                  {pendingJoinRequests}
                 </span>
               {/if}
             </a>
@@ -175,11 +180,11 @@
               <i class="fa-solid fa-bell"></i>
               {m.notifications()}
             </div>
-            {#if session.unreadNotifications > 0}
+            {#if unreadNotifications > 0}
               <span
                 class="badge badge-sm dark:not-group-hover:badge-soft badge-primary transition-colors"
               >
-                {session.unreadNotifications}
+                {unreadNotifications}
               </span>
             {/if}
           </a>
@@ -189,9 +194,10 @@
           </a>
           <button
             class="inline-flex items-center gap-2"
-            onclick={() => {
-              signOut();
+            onclick={async () => {
+              await authClient.signOut();
               open = false;
+              window.location.reload();
             }}
           >
             <i class="fa-solid fa-arrow-right-from-bracket"></i>

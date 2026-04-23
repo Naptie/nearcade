@@ -7,7 +7,7 @@ import { PAGINATION } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -66,7 +66,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());

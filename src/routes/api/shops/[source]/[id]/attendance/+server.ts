@@ -5,7 +5,7 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { AttendanceRecord, AttendanceReportRecord, Shop } from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
 import { ShopSource } from '$lib/constants';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
@@ -86,7 +86,7 @@ const leave = async (user: User, shop: Shop) => {
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
   let user = session?.user;
   let attendingUser = null;
   let isOpenApiAccess = false;
@@ -311,7 +311,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -380,7 +380,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       error(500, m.redis_not_available());
     }
 
-    const session = await locals.auth();
+    const session = locals.session;
 
     const attendanceData = await getShopsAttendanceData([{ source, id }], {
       fetchRegistered,

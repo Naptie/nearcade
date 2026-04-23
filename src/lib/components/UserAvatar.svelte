@@ -4,12 +4,14 @@
   import { getDisplayName } from '$lib/utils';
 
   interface Props {
-    user: {
-      image?: string | null;
-      displayName?: string | null;
-      name?: string | null;
-      lastActiveAt?: Date | string | null;
-    };
+    user:
+      | {
+          image?: string | null;
+          displayName?: string | null;
+          name?: string | null;
+          lastActiveAt?: Date | string | null;
+        }
+      | undefined;
     showName?: boolean;
     indicator?: string;
     align?: 'left' | 'right';
@@ -82,13 +84,13 @@
   {#snippet avatar()}
     <!-- Avatar -->
     <div class="relative shrink-0">
-      <div class="avatar {user.image ? '' : 'placeholder'}">
+      <div class="avatar {user?.image ? '' : 'placeholder'}">
         <div
-          class="relative rounded-full {avatarSizeClasses[size]} {user.image
+          class="relative rounded-full {avatarSizeClasses[size]} {user?.image
             ? ''
             : 'bg-neutral text-neutral-content'}"
         >
-          {#if user.image}
+          {#if user?.image}
             <img src={user.image} alt="{getDisplayName(user)} {m.avatar()}" />
           {:else}
             <span
@@ -111,7 +113,7 @@
       {/if}
 
       <!-- Online indicator -->
-      {#if user.lastActiveAt}
+      {#if user?.lastActiveAt}
         {@const isOnline = Date.now() - new Date(user.lastActiveAt).getTime() < 2 * 60 * 1000}
         {#if isOnline}
           <div
@@ -134,7 +136,7 @@
       class="group-hover/useravatar:text-accent min-w-0 flex-1 transition-colors"
       class:text-right={align === 'right'}
     >
-      {#if user.displayName}
+      {#if user?.displayName}
         <div class="truncate font-medium">
           {user.displayName}
         </div>
@@ -143,7 +145,7 @@
             @{user.name}
           </div>
         {/if}
-      {:else if user.name}
+      {:else if user?.name}
         <div class="truncate font-medium">
           @{user.name}
         </div>
@@ -162,7 +164,7 @@
 
 {#if target !== null}
   <a
-    href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
+    href={resolve('/(main)/users/[id]', { id: '@' + user?.name })}
     {target}
     class="group/useravatar flex items-center {gapClasses[size]} {className}"
     class:w-full={showName}

@@ -1,7 +1,7 @@
 import type { ObjectId } from 'mongodb';
 import type { RADIUS_OPTIONS, ShopSource, GAMES } from '../constants';
 import type { TransportSearchResult } from './amap';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 
 export interface Location {
   type: 'Point';
@@ -201,14 +201,7 @@ export interface ClubMember {
 
 // Composite type with user data joined
 export interface ClubMemberWithUser extends ClubMember {
-  user: {
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    email: string | null;
-    image: string | null;
-    userType?: UserType;
-  };
+  user: User | undefined;
 }
 
 export interface InviteLink {
@@ -245,14 +238,7 @@ export interface UniversityMember {
 
 // Composite type with user data joined
 export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verificationEmail'> {
-  user: {
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    email: string | null;
-    image: string | null;
-    userType?: UserType;
-  };
+  user: User | undefined;
 }
 
 export interface JoinRequest {
@@ -271,24 +257,8 @@ export interface JoinRequest {
 
 // Composite type with user data joined
 export interface JoinRequestWithUser extends JoinRequest {
-  user: {
-    _id: string;
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    email: string | null;
-    image: string | null;
-    userType?: UserType;
-  };
-  reviewer?: {
-    _id: string;
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    email: string | null;
-    image: string | null;
-    userType?: UserType;
-  };
+  user: User | undefined;
+  reviewer?: User;
 }
 
 export interface ChangelogEntry {
@@ -350,14 +320,7 @@ export interface Post {
 
 // Composite type with author data joined
 export interface PostWithAuthor extends Post {
-  author: {
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    email: string | null;
-    image: string | null;
-    userType?: UserType;
-  };
+  author: User | undefined;
 }
 
 export interface PostVote {
@@ -389,14 +352,7 @@ export interface Comment {
 
 // Composite type with author data joined
 export interface CommentWithAuthorAndVote extends Comment {
-  author: {
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    email: string | null;
-    image: string | null;
-    userType?: UserType;
-  };
+  author: User | undefined;
   vote?: CommentVote;
 }
 

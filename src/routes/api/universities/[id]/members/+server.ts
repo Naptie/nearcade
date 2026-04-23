@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
       error(404, m.university_not_found());
     }
 
-    const session = await locals.auth();
+    const session = locals.session;
     let isUniversityMember = false;
     if (session?.user) {
       const userMembership = await membersCollection.findOne({

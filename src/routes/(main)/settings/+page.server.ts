@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 export const actions: Actions = {
   updateProfile: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized(), fieldErrors: {} });
     }

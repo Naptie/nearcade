@@ -5,7 +5,8 @@
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getProviders, getUserTypeLabel, pageTitle } from '$lib/utils';
-  import { signIn, signOut } from '@auth/sveltekit/client';
+  import { goto } from '$app/navigation';
+  import { authClient } from '$lib/auth/client';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -38,9 +39,10 @@
       return;
     }
 
-    // For other providers, use OAuth sign-in flow (Auth.js will auto-link when logged in)
-    await signIn(provider, {
-      redirectTo: page.url.pathname
+    // For other providers, use OAuth sign-in flow (Better Auth will auto-link when logged in)
+    await authClient.signIn.oauth2({
+      providerId: provider,
+      callbackURL: page.url.pathname
     });
   };
 
@@ -475,7 +477,8 @@
           showDeleteConfirm = false;
           return async ({ result }) => {
             if (result.type === 'success') {
-              await signOut({ redirectTo: resolve('/') });
+              await authClient.signOut();
+              goto(resolve('/'));
             }
           };
         }}

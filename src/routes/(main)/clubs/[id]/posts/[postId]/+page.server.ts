@@ -35,7 +35,7 @@ export const load = (async ({ params, locals }) => {
     error(404, m.club_not_found());
   }
 
-  const session = await locals.auth();
+  const session = locals.session;
   const match: Record<string, unknown> = {
     id: postId,
     clubId: club.id,

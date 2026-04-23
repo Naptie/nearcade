@@ -32,7 +32,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
   import FancyButton from '$lib/components/FancyButton.svelte';
-  import type { User } from '@auth/sveltekit';
+  import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';

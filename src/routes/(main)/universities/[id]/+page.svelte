@@ -942,7 +942,7 @@
                           </div>
 
                           <!-- Actions for privileged users -->
-                          {#if userPrivileges.canManage && member.user.id !== data.user?.id}
+                          {#if userPrivileges.canManage && member.user?.id !== data.user?.id}
                             {@const memberActions = canManageMember(member)}
                             {#if memberActions.remove || memberActions.grantModerator || memberActions.revokeModerator || memberActions.grantAdmin || memberActions.transferAdmin}
                               <div class="dropdown dropdown-end">

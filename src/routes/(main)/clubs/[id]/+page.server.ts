@@ -21,7 +21,7 @@ import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
-  const session = await locals.auth();
+  const session = locals.session;
 
   // Stream the club data
   const clubData = (async () => {
@@ -129,7 +129,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 export const actions: Actions = {
   removeMember: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -180,7 +180,7 @@ export const actions: Actions = {
   },
 
   grantModerator: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -217,7 +217,7 @@ export const actions: Actions = {
   },
 
   revokeModerator: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -254,7 +254,7 @@ export const actions: Actions = {
   },
 
   grantAdmin: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -293,7 +293,7 @@ export const actions: Actions = {
   },
 
   transferAdmin: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -346,7 +346,7 @@ export const actions: Actions = {
   },
 
   addArcade: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -402,7 +402,7 @@ export const actions: Actions = {
   },
 
   removeArcade: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -445,7 +445,7 @@ export const actions: Actions = {
   },
 
   joinRequest: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       return fail(401, { message: m.unauthorized() });
     }

@@ -1,7 +1,7 @@
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
 import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
-import type { User, Session } from '@auth/sveltekit';
+import type { User, Session } from '$lib/auth/types';
 import { protect } from '$lib/utils';
 import type { ShopSource } from '$lib/constants';
 

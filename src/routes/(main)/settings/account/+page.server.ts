@@ -8,7 +8,7 @@ import { ObjectId } from 'mongodb';
 import { getHost, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import { WECHAT_TEMPLATE_BIND_RESULT } from '$env/static/private';
 
-// Define the type for linked accounts
+// Define the type for linked accounts (Better Auth schema)
 interface LinkedAccount {
   provider: string;
   providerAccountId: string;
@@ -55,8 +55,8 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
         const db = mongo.db();
         const accountsCollection = db.collection('accounts');
         const existingWechat = await accountsCollection.findOne({
-          userId: new ObjectId(user.id),
-          provider: 'wechat'
+          userId: user.id,
+          providerId: 'wechat'
         });
 
         if (existingWechat) {
@@ -64,10 +64,11 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
         } else {
           // Bind WeChat account
           await accountsCollection.insertOne({
-            userId: new ObjectId(user.id),
-            type: 'oauth',
-            provider: 'wechat',
-            providerAccountId: wechatData.openId
+            userId: user.id,
+            providerId: 'wechat',
+            accountId: wechatData.openId,
+            createdAt: new Date(),
+            updatedAt: new Date()
           });
 
           // Delete the token from Redis
@@ -102,15 +103,12 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
 
     // Get linked accounts for the user
     const linkedAccountsRaw = await accountsCollection
-      .find(
-        { userId: new ObjectId(user.id) },
-        { projection: { provider: 1, providerAccountId: 1, _id: 0 } }
-      )
+      .find({ userId: user.id }, { projection: { providerId: 1, accountId: 1, _id: 0 } })
       .toArray();
 
     const linkedAccounts: LinkedAccount[] = linkedAccountsRaw.map((acc) => ({
-      provider: acc.provider as string,
-      providerAccountId: acc.providerAccountId as string
+      provider: acc.providerId as string,
+      providerAccountId: acc.accountId as string
     }));
 
     // Determine which providers are bound
@@ -178,7 +176,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
 
 export const actions: Actions = {
   leaveUniversity: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -209,7 +207,7 @@ export const actions: Actions = {
   },
 
   leaveClub: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -240,7 +238,7 @@ export const actions: Actions = {
   },
 
   deleteAccount: async ({ locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -257,13 +255,13 @@ export const actions: Actions = {
       const joinRequestsCollection = db.collection('join_requests');
 
       // Delete user profile
-      await usersCollection.deleteOne({ id: user.id });
+      await usersCollection.deleteOne({ _id: new ObjectId(user.id) });
 
       // Delete associated accounts
-      await accountsCollection.deleteMany({ userId: new ObjectId(user.id) });
+      await accountsCollection.deleteMany({ userId: user.id });
 
       // Delete sessions
-      await sessionsCollection.deleteMany({ userId: new ObjectId(user.id) });
+      await sessionsCollection.deleteMany({ userId: user.id });
 
       // Delete university memberships
       await universityMembersCollection.deleteMany({ userId: user.id });

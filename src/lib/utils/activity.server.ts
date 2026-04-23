@@ -14,7 +14,7 @@ import {
   PostReadability,
   type AttendanceRecord
 } from '$lib/types';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { getDisplayName, protect } from '.';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { ShopSource } from '$lib/constants';

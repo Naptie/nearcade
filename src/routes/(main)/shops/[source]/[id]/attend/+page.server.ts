@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   }
 
   // Check login status
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     throw loginRedirect(url);

@@ -1,13 +1,13 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import type { University, UniversityMember, Shop } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { toPlainArray } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
   const { id } = params;
 
   try {

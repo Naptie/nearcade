@@ -9,7 +9,7 @@ import meili from '$lib/db/meili.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session || !session.user) {
     throw loginRedirect(url);
@@ -50,7 +50,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 export const actions: Actions = {
   default: async ({ request, params, locals }) => {
     let { id } = params;
-    const session = await locals.auth();
+    const session = locals.session;
 
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });

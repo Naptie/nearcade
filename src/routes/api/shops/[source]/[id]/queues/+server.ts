@@ -5,7 +5,7 @@ import type { Machine, QueueRecord, Shop, QueuePosition } from '$lib/types';
 import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 import { getHost, sendWeChatTemplateMessage } from '$lib/utils/index.server';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
 

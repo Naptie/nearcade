@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { customAlphabet, nanoid } from 'nanoid';
 import type { PageServerLoad, Actions } from './$types';
 import mongo from '$lib/db/index.server';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { alphabet } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 export const actions: Actions = {
   createToken: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: 'unauthorized' });
     }
@@ -136,7 +136,7 @@ export const actions: Actions = {
   },
 
   renameToken: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: 'unauthorized' });
     }
@@ -191,7 +191,7 @@ export const actions: Actions = {
   },
 
   resetToken: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: 'unauthorized' });
     }
@@ -272,7 +272,7 @@ export const actions: Actions = {
   },
 
   deleteToken: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: 'unauthorized' });
     }

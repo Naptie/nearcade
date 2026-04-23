@@ -3,11 +3,11 @@ import type { PageServerLoad, Actions } from './$types';
 import type { InviteLink } from '$lib/types';
 import { protect, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -207,7 +207,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
   delete: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
 
     if (!session?.user) {
       return fail(401, { error: m.unauthorized() });

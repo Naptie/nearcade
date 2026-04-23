@@ -6,7 +6,7 @@ import type { Machine, AttendanceRegistration, Shop } from '$lib/types';
 import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { protect } from '$lib/utils';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
@@ -158,7 +158,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
     let user: User | undefined = undefined;
     if (registration.userId) {
       const db = mongo.db();
-      const usersCollection = db.collection('users');
+      const usersCollection = db.collection<User>('users');
       user = (await usersCollection.findOne({ id: registration.userId })) ?? undefined;
     }
 

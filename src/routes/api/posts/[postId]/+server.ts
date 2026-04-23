@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
     const commentsCollection = db.collection<Comment>('comments');
-    const session = await locals.auth();
+    const session = locals.session;
 
     // Get post with author info
     const postResult = await postsCollection
@@ -162,7 +162,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 // PUT /api/posts/[postId] - Edit post (title/content) or manage post (pin/lock)
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }
@@ -287,7 +287,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 // DELETE /api/posts/[postId] - Delete post
 export const DELETE: RequestHandler = async ({ locals, params }) => {
   try {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }

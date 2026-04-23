@@ -132,7 +132,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
 export const actions: Actions = {
   addCampus: async ({ request, locals }) => {
-    const user = (await locals.auth())?.user;
+    const user = locals.session?.user;
     if (!user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -196,7 +196,7 @@ export const actions: Actions = {
   },
 
   updateCampus: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -293,7 +293,7 @@ export const actions: Actions = {
   },
 
   deleteCampus: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -355,7 +355,7 @@ export const actions: Actions = {
   },
 
   inviteMember: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -424,7 +424,7 @@ export const actions: Actions = {
   },
 
   removeMember: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -477,7 +477,7 @@ export const actions: Actions = {
   },
 
   grantModerator: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -517,7 +517,7 @@ export const actions: Actions = {
   },
 
   revokeModerator: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -557,7 +557,7 @@ export const actions: Actions = {
   },
 
   grantAdmin: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -598,7 +598,7 @@ export const actions: Actions = {
   },
 
   transferAdmin: async ({ locals, request }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user) {
       return fail(401, { message: m.unauthorized() });
     }

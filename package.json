@@ -71,8 +71,6 @@
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
     "@amap/amap-jsapi-types": "^0.0.15",
-    "@auth/mongodb-adapter": "^3.11.1",
-    "@auth/sveltekit": "^1.11.1",
     "@aws-sdk/client-s3": "^3.1009.0",
     "@aws-sdk/lib-storage": "^3.1009.0",
     "@edgeone/sveltekit": "^1.0.0",
@@ -82,6 +80,7 @@
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@inlang/paraglide-js": "^2.15.0",
     "@photostructure/tz-lookup": "^11.5.0",
+    "better-auth": "^1.6.7",
     "crypto-js": "^4.2.0",
     "daisyui": "^5.5.19",
     "date-fns": "^4.1.0",
@@ -120,14 +119,15 @@
     "onlyBuiltDependencies": [
       "@firebase/util",
       "@tailwindcss/oxide",
+      "core-js-pure",
       "esbuild",
       "protobufjs",
+      "sharp",
       "workerd"
     ],
     "patchedDependencies": {
       "@inlang/paraglide-js": "patches/@inlang__paraglide-js.patch",
-      "firebase": "patches/firebase.patch",
-      "@auth/sveltekit": "patches/@auth__sveltekit.patch"
+      "firebase": "patches/firebase.patch"
     }
   },
   "packageManager": "pnpm@10.33.0"

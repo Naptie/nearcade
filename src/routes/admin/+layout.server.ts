@@ -3,7 +3,7 @@ import type { LayoutServerLoad } from './$types';
 import { m } from '$lib/paraglide/messages';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());

@@ -4,7 +4,7 @@ import type { UniversityMember, ClubMember, PostWithAuthor, Club, University } f
 import { protect, toPlainArray } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  const session = await locals.auth();
+  const session = locals.session;
   const user = session?.user;
 
   if (!user) {

@@ -457,7 +457,7 @@
             <UserAvatar user={post.author} size="md" showName={false} />
             <div>
               <a
-                href={resolve('/(main)/users/[id]', { id: '@' + post.author.name })}
+                href={resolve('/(main)/users/[id]', { id: '@' + post.author?.name })}
                 class="hover:text-accent font-medium transition-colors"
               >
                 {getDisplayName(post.author)}

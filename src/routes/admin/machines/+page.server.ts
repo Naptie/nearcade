@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid';
 import { ShopSource } from '$lib/constants';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user) {
     error(401, m.unauthorized());
@@ -86,7 +86,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions = {
   create: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user || session.user.userType !== 'site_admin') {
       return fail(403, { error: m.access_denied() });
     }
@@ -137,7 +137,7 @@ export const actions = {
   },
 
   update: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user || session.user.userType !== 'site_admin') {
       return fail(403, { error: m.access_denied() });
     }
@@ -166,7 +166,7 @@ export const actions = {
   },
 
   delete: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user || session.user.userType !== 'site_admin') {
       return fail(403, { error: m.access_denied() });
     }

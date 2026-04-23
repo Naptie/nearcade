@@ -5,7 +5,7 @@ import { storeFCMToken, removeFCMToken } from '$lib/notifications/fcm.server';
 import { m } from '$lib/paraglide/messages';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const session = await locals.auth();
+  const session = locals.session;
 
   if (!session?.user?.id) {
     error(401, m.unauthorized());

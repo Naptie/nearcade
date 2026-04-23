@@ -7,7 +7,7 @@ import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { code } = params;
-  const session = await locals.auth();
+  const session = locals.session;
 
   // If user is not signed in, redirect to sign in
   if (!session?.user) {

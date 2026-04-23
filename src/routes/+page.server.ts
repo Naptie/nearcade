@@ -5,7 +5,7 @@ import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { ShopSource } from '$lib/constants';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import type { Session } from '@auth/sveltekit';
+import type { Session } from '$lib/auth/types';
 
 const getAttendanceData = async (
   shops: Shop[],

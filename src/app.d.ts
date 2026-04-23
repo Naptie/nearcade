@@ -3,7 +3,10 @@
 declare global {
   namespace App {
     // interface Error {}
-    // interface Locals {}
+    interface Locals {
+      session: import('$lib/auth/types').Session | null;
+      user: import('$lib/auth/types').User | null;
+    }
     // interface PageData {}
     // interface PageState {}
     // interface Platform {}

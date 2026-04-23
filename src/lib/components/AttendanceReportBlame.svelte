@@ -4,7 +4,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import { adaptiveNewTab, getDisplayName, getFnsLocale } from '$lib/utils';
-  import type { User } from '@auth/sveltekit';
+  import type { User } from '$lib/auth/types';
   import { formatDistanceToNow } from 'date-fns';
   import { onMount, type Snippet } from 'svelte';
 

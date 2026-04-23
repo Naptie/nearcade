@@ -16,7 +16,7 @@ import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
-    const session = await locals.auth();
+    const session = locals.session;
     const universityId = params.id;
     const page = parseInt(url.searchParams.get('page') || '1');
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
@@ -105,7 +105,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }

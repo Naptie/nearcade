@@ -58,7 +58,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
 
 export const actions: Actions = {
   updateUniversity: async ({ request, locals, params }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }

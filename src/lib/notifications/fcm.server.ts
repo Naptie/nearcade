@@ -3,7 +3,7 @@
  */
 import type { MongoClient } from 'mongodb';
 import type { Notification } from '$lib/types';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import { getMessaging, type BatchResponse } from 'firebase-admin/messaging';
 import app from './firebase.server';
 import mongo from '$lib/db/index.server';

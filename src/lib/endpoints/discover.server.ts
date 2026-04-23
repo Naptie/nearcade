@@ -10,7 +10,7 @@ import {
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from './attendance.server';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 
 export const loadShops = async ({ url }: { url: URL }) => {
   const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');

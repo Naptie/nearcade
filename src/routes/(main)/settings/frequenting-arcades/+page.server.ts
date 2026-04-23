@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { Shop } from '$lib/types';
-import type { User } from '@auth/sveltekit';
+import type { User } from '$lib/auth/types';
 import mongo from '$lib/db/index.server';
 import type { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
@@ -59,7 +59,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 export const actions: Actions = {
   addArcade: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -107,7 +107,7 @@ export const actions: Actions = {
   },
 
   removeArcade: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
@@ -148,7 +148,7 @@ export const actions: Actions = {
   },
 
   updateSettings: async ({ request, locals }) => {
-    const session = await locals.auth();
+    const session = locals.session;
     if (!session || !session.user) {
       return fail(401, { message: m.unauthorized() });
     }
