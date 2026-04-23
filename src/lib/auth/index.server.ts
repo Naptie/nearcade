@@ -32,7 +32,25 @@ function discordProvider() {
     authorizationUrl: `${discordUrl}/oauth2/authorize`,
     tokenUrl: `${baseUrl}/api/oauth2/token`,
     userInfoUrl: `${baseUrl}/api/users/@me`,
-    scopes: ['identify', 'email']
+    scopes: ['identify', 'email'],
+    mapProfileToUser(profile: Record<string, unknown>) {
+      const p = profile as {
+        id: string;
+        global_name: string | null;
+        username: string;
+        avatar: string | null;
+        email?: string;
+      };
+      const image = p.avatar
+        ? `https://cdn.discordapp.com/avatars/${p.id}/${p.avatar}.webp`
+        : undefined;
+      return {
+        name: p.global_name ?? p.username,
+        email: p.email ?? `${p.id}@discord.nearcade`,
+        image,
+        emailVerified: !!p.email
+      };
+    }
   };
 }
 
@@ -55,7 +73,16 @@ function osuProvider() {
     authorizationUrl: 'https://osu.ppy.sh/oauth/authorize',
     tokenUrl: 'https://osu.ppy.sh/oauth/token',
     userInfoUrl: 'https://osu.ppy.sh/api/v2/me',
-    scopes: ['identify']
+    scopes: ['identify'],
+    mapProfileToUser(profile: Record<string, unknown>) {
+      const p = profile as { id: number; username: string; avatar_url: string };
+      return {
+        name: p.username,
+        email: `${p.id}@osu.nearcade`,
+        image: p.avatar_url,
+        emailVerified: false
+      };
+    }
   };
 }
 
@@ -93,6 +120,24 @@ export const auth = betterAuth({
       fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
       socialLinks: { type: 'json', required: false, input: false },
       apiTokens: { type: 'json', required: false, input: false }
+    },
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (user) => {
+        const db = mongo.db();
+        const universityMembersCollection = db.collection('university_members');
+        const clubMembersCollection = db.collection('club_members');
+        const joinRequestsCollection = db.collection('join_requests');
+
+        // Delete university memberships
+        await universityMembersCollection.deleteMany({ userId: user.id });
+
+        // Delete club memberships
+        await clubMembersCollection.deleteMany({ userId: user.id });
+
+        // Delete join requests
+        await joinRequestsCollection.deleteMany({ userId: user.id });
+      }
     }
   },
   plugins: [
@@ -174,7 +219,8 @@ export const auth = betterAuth({
       },
       update: {
         before: async (user) => {
-          if (user.email && !user.email.endsWith('@qq.nearcade')) {
+          console.log(user);
+          if (user.email && !user.email.endsWith('.nearcade')) {
             return { data: user as Record<string, unknown> };
           }
         }

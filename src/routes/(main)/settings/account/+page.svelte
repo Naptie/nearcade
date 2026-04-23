@@ -5,7 +5,6 @@
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getProviders, getUserTypeLabel, pageTitle } from '$lib/utils';
-  import { goto } from '$app/navigation';
   import { authClient } from '$lib/auth/client';
   import type { PageData } from './$types';
 
@@ -17,9 +16,10 @@
   let showWeChatBindModal = $state(false);
   let leavingUniversityId = $state('');
   let leavingClubId = $state('');
+  let isDeletingAccount = $state(false);
 
   // Store WeChat bind result in local state to prevent it from disappearing when URL changes
-  let wechatBindResult = $state(data.wechatBindResult);
+  let wechatBindResult = $derived(data.wechatBindResult);
 
   const confirmLeaveUniversity = (universityId: string) => {
     leavingUniversityId = universityId;
@@ -90,7 +90,7 @@
                 <img src={profile.image} alt={profile.name} />
               {:else}
                 <div
-                  class="bg-neutral w-full h-full text-neutral-content flex items-center justify-center text-xl"
+                  class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-xl"
                 >
                   {profile.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
@@ -261,14 +261,26 @@
 
     <!-- Currently Bound Accounts -->
     {#if data.boundProviders && data.boundProviders.length > 0}
+      {@const boundProviders = getProviders(true).filter((p) => data.boundProviders.includes(p.id))}
       <div class="space-y-1">
         <h3 class="text-base-content/70 text-sm font-medium">{m.bound_platforms()}</h3>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {#each getProviders(true).filter( (p) => data.boundProviders.includes(p.id) ) as provider (provider)}
-            <div class="bg-base-100 flex items-center gap-3 rounded-lg p-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
+          {#each boundProviders as provider (provider)}
+            <button
+              class="bg-base-100 group hover:bg-error flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors"
+              class:pointer-events-none={boundProviders.length === 1}
+              onclick={async () => {
+                await authClient.unlinkAccount({ providerId: provider.id });
+                await invalidateAll();
+              }}
+            >
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-full not-group-hover:bg-green-500/20"
+              >
                 {#if provider.icon.startsWith('fa-')}
-                  <i class="fa-brands fa-lg {provider.icon}"></i>
+                  <i
+                    class="fa-brands fa-lg transition-colors group-hover:text-white {provider.icon}"
+                  ></i>
                 {:else}
                   <img
                     src="{base}/{provider.icon}"
@@ -277,12 +289,22 @@
                   />
                 {/if}
               </div>
-              <div class="flex-1">
-                <span class="font-medium">{provider.name}</span>
-                <p class="text-success text-xs">{m.bound()}</p>
+              <div class="flex-1 text-left">
+                <span class="font-medium transition-colors group-hover:text-white"
+                  >{provider.name}</span
+                >
+                <p class="text-success text-xs group-hover:hidden">{m.bound()}</p>
+                <p class="text-xs text-current/60 not-group-hover:hidden">{m.click_to_unbind()}</p>
               </div>
-              <i class="fa-solid fa-check text-success"></i>
-            </div>
+              <div class="grid place-items-center">
+                <i
+                  class="fa-solid fa-check text-success col-start-1 row-start-1 transition-opacity group-hover:opacity-0"
+                ></i>
+                <i
+                  class="fa-solid fa-minus text-error col-start-1 row-start-1 opacity-0 mix-blend-difference transition-opacity group-hover:opacity-100"
+                ></i>
+              </div>
+            </button>
           {/each}
         </div>
       </div>
@@ -470,24 +492,26 @@
       <button class="btn btn-ghost" onclick={() => (showDeleteConfirm = false)}>
         {m.cancel()}
       </button>
-      <form
-        method="POST"
-        action="?/deleteAccount"
-        use:enhance={() => {
-          showDeleteConfirm = false;
-          return async ({ result }) => {
-            if (result.type === 'success') {
-              await authClient.signOut();
-              goto(resolve('/'));
-            }
-          };
+      <button
+        class="btn btn-error btn-soft"
+        class:btn-disabled={isDeletingAccount}
+        onclick={() => {
+          isDeletingAccount = true;
+          authClient.deleteUser().then(() => {
+            isDeletingAccount = false;
+            authClient.signOut().then(() => {
+              location.href = resolve('/(main)');
+            });
+          });
         }}
       >
-        <button type="submit" class="btn btn-error btn-soft">
+        {#if isDeletingAccount}
+          <span class="loading loading-spinner"></span>
+        {:else}
           <i class="fa-solid fa-trash"></i>
-          {m.delete_permanently()}
-        </button>
-      </form>
+        {/if}
+        {m.delete_permanently()}
+      </button>
     </div>
   </div>
 </div>

@@ -103,7 +103,10 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
 
     // Get linked accounts for the user
     const linkedAccountsRaw = await accountsCollection
-      .find({ userId: new ObjectId(user.id) }, { projection: { providerId: 1, accountId: 1, _id: 0 } })
+      .find(
+        { userId: new ObjectId(user.id) },
+        { projection: { providerId: 1, accountId: 1, _id: 0 } }
+      )
       .toArray();
 
     const linkedAccounts: LinkedAccount[] = linkedAccountsRaw.map((acc) => ({
@@ -234,48 +237,6 @@ export const actions: Actions = {
     } catch (err) {
       console.error('Error leaving club:', err);
       return fail(500, { message: m.failed_to_leave_club() });
-    }
-  },
-
-  deleteAccount: async ({ locals }) => {
-    const session = locals.session;
-    if (!session || !session.user) {
-      return fail(401, { message: m.unauthorized() });
-    }
-
-    const user = session.user;
-
-    try {
-      const db = mongo.db();
-      const usersCollection = db.collection('users');
-      const accountsCollection = db.collection('accounts');
-      const sessionsCollection = db.collection('sessions');
-      const universityMembersCollection = db.collection('university_members');
-      const clubMembersCollection = db.collection('club_members');
-      const joinRequestsCollection = db.collection('join_requests');
-
-      // Delete user profile
-      await usersCollection.deleteOne({ _id: new ObjectId(user.id) });
-
-      // Delete associated accounts
-      await accountsCollection.deleteMany({ userId: user.id });
-
-      // Delete sessions
-      await sessionsCollection.deleteMany({ userId: user.id });
-
-      // Delete university memberships
-      await universityMembersCollection.deleteMany({ userId: user.id });
-
-      // Delete club memberships
-      await clubMembersCollection.deleteMany({ userId: user.id });
-
-      // Delete join requests
-      await joinRequestsCollection.deleteMany({ userId: user.id });
-
-      return { success: true };
-    } catch (err) {
-      console.error('Error deleting account:', err);
-      return fail(500, { message: m.failed_to_delete_account() });
     }
   }
 };
