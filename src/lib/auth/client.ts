@@ -1,7 +1,8 @@
 import { createAuthClient } from 'better-auth/svelte';
-import { genericOAuthClient } from 'better-auth/client/plugins';
+import { genericOAuthClient, inferAdditionalFields } from 'better-auth/client/plugins';
+import type { auth } from './index.server';
 
 export const authClient = createAuthClient({
   basePath: '/api/auth',
-  plugins: [genericOAuthClient()]
+  plugins: [genericOAuthClient(), inferAdditionalFields<typeof auth>()]
 });

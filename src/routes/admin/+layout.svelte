@@ -91,7 +91,7 @@
       icon: 'fa-user-plus',
       href: resolve('/admin/join-requests'),
       requiresSiteAdmin: false,
-      count: data.session?.pendingJoinRequests
+      count: data.session?.session.pendingJoinRequests
     }
   ];
 

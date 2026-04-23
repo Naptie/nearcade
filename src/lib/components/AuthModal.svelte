@@ -6,7 +6,7 @@
   import { resolve, base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator, getProviders } from '$lib/utils';
   import { onMount } from 'svelte';
-  import type { auth } from '$lib/auth/index.server';
+  import type { AuthSession } from '$lib/auth/types';
 
   interface Props {
     size?: string;
@@ -16,7 +16,7 @@
 
   let { size = 'lg', class: klass = '', btnCls }: Props = $props();
 
-  let session = $derived(page.data.session as typeof auth.$Infer.Session);
+  let session = $derived(page.data.session as AuthSession | null);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
 

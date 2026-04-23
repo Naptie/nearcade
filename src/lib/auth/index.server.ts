@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { betterAuth } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
@@ -73,6 +72,29 @@ export const auth = betterAuth({
       trustedProviders: ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord']
     }
   },
+  user: {
+    additionalFields: {
+      displayName: { type: 'string', required: false },
+      userType: { type: 'string', required: false },
+      bio: { type: 'string', required: false },
+      joinedAt: { type: 'date', required: false, input: false },
+      lastActiveAt: { type: 'date', required: false, input: false },
+      frequentingArcades: { type: 'json', required: false, input: false },
+      starredArcades: { type: 'json', required: false, input: false },
+      autoDiscovery: { type: 'json', required: false, input: false },
+      isEmailPublic: { type: 'boolean', required: false },
+      isActivityPublic: { type: 'boolean', required: false },
+      isFootprintPublic: { type: 'boolean', required: false },
+      isUniversityPublic: { type: 'boolean', required: false },
+      isFrequentingArcadePublic: { type: 'boolean', required: false },
+      isStarredArcadePublic: { type: 'boolean', required: false },
+      notificationTypes: { type: 'json', required: false, input: false },
+      fcmTokens: { type: 'json', required: false, input: false },
+      fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
+      socialLinks: { type: 'json', required: false, input: false },
+      apiTokens: { type: 'json', required: false, input: false }
+    }
+  },
   plugins: [
     genericOAuth({
       config: [
@@ -86,59 +108,23 @@ export const auth = betterAuth({
     }),
     customSession(async ({ user, session }) => {
       const userId = user.id;
-      const db = mongo.db();
-      const usersCollection = db.collection<User>('users');
-
-      const dbUser = await usersCollection.findOne({
-        _id: new ObjectId(userId)
-      });
-
-      if (!dbUser) {
-        return {
-          user,
-          session: {
-            ...session,
-            unreadNotifications: 0,
-            pendingJoinRequests: 0
-          }
-        };
-      }
 
       const now = Date.now();
       const lastUpdate = lastActiveUpdates.get(userId) ?? 0;
       if (now - lastUpdate > LAST_ACTIVE_DEBOUNCE_MS) {
         lastActiveUpdates.set(userId, now);
-        await usersCollection.updateOne(
-          { _id: new ObjectId(userId) },
-          { $set: { lastActiveAt: new Date() } }
-        );
+        const db = mongo.db();
+        await db
+          .collection('users')
+          .updateOne({ _id: new ObjectId(userId) }, { $set: { lastActiveAt: new Date() } });
       }
 
-      const {
-        _id,
-        email,
-        id: _dbId,
-        emailVerified: _ev,
-        createdAt: _ca,
-        updatedAt: _ua,
-        ...rest
-      } = dbUser;
-      const enrichedUser = {
-        ...rest,
-        _id: userId,
-        id: userId,
-        email: email || '',
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      };
-
       return {
-        user: enrichedUser,
+        user,
         session: {
           ...session,
           unreadNotifications: await countUnreadNotifications(mongo, userId),
-          pendingJoinRequests: await countPendingJoinRequests(mongo, enrichedUser as User)
+          pendingJoinRequests: await countPendingJoinRequests(mongo, userId)
         }
       };
     }),
@@ -188,7 +174,6 @@ export const auth = betterAuth({
       },
       update: {
         before: async (user) => {
-          // Allow Better Auth to update email from fake QQ address to real one
           if (user.email && !user.email.endsWith('@qq.nearcade')) {
             return { data: user as Record<string, unknown> };
           }

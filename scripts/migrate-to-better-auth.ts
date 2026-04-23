@@ -166,11 +166,33 @@ async function migrate() {
     await sessions.deleteMany({});
     console.log('  Sessions cleared');
 
+    // --- User additional fields defaults ---
+    console.log('\nBackfilling additional field defaults for users...');
+    const defaultFields = {
+      isEmailPublic: false,
+      isActivityPublic: true,
+      isFootprintPublic: false,
+      isUniversityPublic: true,
+      isFrequentingArcadePublic: true,
+      isStarredArcadePublic: true
+    };
+
+    let fieldsBackfilled = 0;
+    for (const [field, defaultValue] of Object.entries(defaultFields)) {
+      const result = await users.updateMany(
+        { [field]: { $exists: false } },
+        { $set: { [field]: defaultValue } }
+      );
+      fieldsBackfilled += result.modifiedCount;
+    }
+    console.log(`  Backfilled ${fieldsBackfilled} missing field values across all users`);
+
     // --- Summary ---
     console.log('\n--- Migration complete ---');
     console.log(`Users: ${userCount} total, ${usersUpdated} updated`);
     console.log(`Accounts: ${accountCount} total, ${accountsUpdated} updated`);
     console.log(`Sessions: ${sessionCount} dropped`);
+    console.log(`Fields backfilled: ${fieldsBackfilled}`);
     console.log('\nAll users will need to re-login after deploying the new code.');
   } finally {
     await client.close();

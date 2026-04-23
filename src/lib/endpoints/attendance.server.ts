@@ -1,14 +1,14 @@
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
 import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
-import type { User, Session } from '$lib/auth/types';
+import type { User, AuthSession } from '$lib/auth/types';
 import { protect } from '$lib/utils';
 import type { ShopSource } from '$lib/constants';
 
 export interface AttendanceDataOptions {
   fetchRegistered?: boolean;
   fetchReported?: boolean;
-  session?: Session | null;
+  session?: AuthSession | null;
 }
 
 export interface ShopAttendanceResult {

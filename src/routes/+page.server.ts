@@ -5,11 +5,11 @@ import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { ShopSource } from '$lib/constants';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import type { Session } from '$lib/auth/types';
+import type { AuthSession } from '$lib/auth/types';
 
 const getAttendanceData = async (
   shops: Shop[],
-  session?: Session | null
+  session?: AuthSession | null
 ): Promise<ShopWithAttendance[]> => {
   try {
     if (!redis || shops.length === 0) {

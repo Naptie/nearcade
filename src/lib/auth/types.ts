@@ -5,12 +5,12 @@ import type { ObjectId } from 'mongodb';
 export interface User {
   id: string;
   _id?: string | ObjectId;
-  name: string | null;
+  name: string;
   email?: string;
-  emailVerified?: boolean;
+  emailVerified: boolean;
   image?: string | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
   displayName?: string | null;
   userType?: UserType;
   bio?: string | null;
@@ -46,10 +46,19 @@ export interface User {
 }
 
 export interface Session {
+  id: string;
   expiresAt: Date;
   token: string;
   createdAt: Date;
   updatedAt: Date;
+  ipAddress: string | null;
+  userAgent: string | null;
+  userId: string;
   unreadNotifications: number;
   pendingJoinRequests: number;
+}
+
+export interface AuthSession {
+  user: User;
+  session: Session;
 }

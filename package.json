@@ -33,7 +33,7 @@
     "@sveltejs/kit": "^2.57.1",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.2.4",
+    "@tailwindcss/vite": "0.0.0-insiders.f3fdda2",
     "@types/crypto-js": "^4.2.2",
     "@types/google.maps": "^3.64.0",
     "@types/mailparser": "^3.4.6",
