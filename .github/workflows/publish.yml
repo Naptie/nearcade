@@ -83,7 +83,6 @@ jobs:
           AUTH_PHIRA_SECRET: ${{ secrets.AUTH_PHIRA_SECRET }}
           AUTH_QQ_ID: ${{ secrets.AUTH_QQ_ID }}
           AUTH_QQ_SECRET: ${{ secrets.AUTH_QQ_SECRET }}
-          AUTH_QQ_PROXY: ${{ secrets.AUTH_QQ_PROXY }}
           REDIS_URI: ${{ secrets.REDIS_URI }}
           MEILISEARCH_HOST: ${{ secrets.MEILISEARCH_HOST }}
           MEILISEARCH_API_KEY: ${{ secrets.MEILISEARCH_API_KEY }}
