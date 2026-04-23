@@ -46,7 +46,7 @@ jobs:
           }
 
       - name: Checkout scraper repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Naptie/bemanicn-scraper
           path: scraper
@@ -54,13 +54,13 @@ jobs:
           fetch-depth: 1
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: '10.21.0'
           run_install: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
@@ -132,7 +132,7 @@ jobs:
 
     steps:
       - name: Checkout scraper repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: KXCVZNMX/ziv-scraper
           path: scraper
@@ -140,13 +140,13 @@ jobs:
           fetch-depth: 1
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: '10.21.0'
           run_install: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
           cache: 'pnpm'
