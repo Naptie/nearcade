@@ -133,6 +133,9 @@
   "overrides": {
     "vite-plugin-devtools-json": {
       "vite": "$vite"
+    },
+    "vite-plugin-pwa": {
+      "vite": "$vite"
     }
   },
   "packageManager": "pnpm@10.33.0"
