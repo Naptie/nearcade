@@ -3,7 +3,7 @@
 @import '@fontsource-variable/noto-sans-sc';
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
-@plugin "@tailwindcss/typography";
+@plugin '@tailwindcss/typography';
 
 @plugin 'daisyui' {
   themes:

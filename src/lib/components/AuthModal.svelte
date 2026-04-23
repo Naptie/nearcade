@@ -6,7 +6,7 @@
   import { resolve, base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator, getProviders } from '$lib/utils';
   import { onMount } from 'svelte';
-    import type { auth } from '$lib/auth/index.server';
+  import type { auth } from '$lib/auth/index.server';
 
   interface Props {
     size?: string;
@@ -113,7 +113,7 @@
     </div>
   </dialog>
 {:else}
-{@const { pendingJoinRequests, unreadNotifications } = session.session}
+  {@const { pendingJoinRequests, unreadNotifications } = session.session}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div
     class="dropdown dropdown-end"

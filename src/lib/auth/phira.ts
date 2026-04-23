@@ -20,7 +20,7 @@ export function phiraProvider(): GenericOAuthConfig {
     tokenUrl: 'https://api.phira.cn/oauth/token',
     userInfoUrl: 'https://api.phira.cn/me',
     scopes: ['1'],
-    async getToken({ code, redirectURI }) {
+    async getToken({ code }) {
       const url = new URL('https://api.phira.cn/oauth/token');
       url.searchParams.set('client_id', clientId);
       url.searchParams.set('client_secret', clientSecret);
