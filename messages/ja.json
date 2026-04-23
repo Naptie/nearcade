@@ -462,7 +462,7 @@
   "email_address": "メールアドレス",
   "email_and_member_type_are_required": "メールアドレスとメンバータイプは必須です",
   "email_public": "自分のメールアドレスを他の人に表示する",
-  "email_update_required_for_binding": "あなたのアカウントは QQ ログインからの一時的なメールアドレスを使用しています。他のプラットフォームを紐付けると、メールアドレスはそのプラットフォームが提供するものに更新されます。",
+  "email_update_required_for_binding": "あなたのアカウントには偽のメールアドレスが使用されています。他のプラットフォームを紐付けると、メールアドレスはそのプラットフォームが提供するものに更新されます。",
   "email_visibility": "メールアドレスの可視性",
   "enter_club_description": "クラブの説明を入力",
   "enter_club_name": "クラブ名を入力",

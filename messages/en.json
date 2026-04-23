@@ -468,7 +468,7 @@
   "email_address": "Email Address",
   "email_and_member_type_are_required": "Email and member type are required",
   "email_public": "Show my email to other users",
-  "email_update_required_for_binding": "Your account uses a temporary email address from QQ login. When you bind another platform, your email will be updated to the one provided by that platform.",
+  "email_update_required_for_binding": "Your account uses a fake email address at the moment. When you bind another platform, your email will be updated to the one provided by that platform.",
   "email_visibility": "Email Visibility",
   "enter_club_description": "Enter club description",
   "enter_club_name": "Enter club name",

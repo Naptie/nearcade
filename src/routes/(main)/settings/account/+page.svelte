@@ -40,8 +40,8 @@
     }
 
     // For other providers, use OAuth sign-in flow (Better Auth will auto-link when logged in)
-    await authClient.signIn.oauth2({
-      providerId: provider,
+    await authClient.linkSocial({
+      provider: provider,
       callbackURL: page.url.pathname
     });
   };
@@ -90,7 +90,7 @@
                 <img src={profile.image} alt={profile.name} />
               {:else}
                 <div
-                  class="bg-neutral text-neutral-content flex items-center justify-center text-xl"
+                  class="bg-neutral w-full h-full text-neutral-content flex items-center justify-center text-xl"
                 >
                   {profile.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
@@ -251,7 +251,7 @@
     <h2 class="text-xl font-semibold">{m.linked_accounts()}</h2>
     <p class="text-base-content/70 mb-4 text-sm">{m.linked_accounts_description()}</p>
 
-    <!-- Email Update Notice for QQ Users -->
+    <!-- Email Update Notice -->
     {#if data.needsEmailUpdate}
       <div class="alert alert-warning mb-4">
         <i class="fa-solid fa-exclamation-triangle"></i>

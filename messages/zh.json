@@ -462,7 +462,7 @@
   "email_address": "电子邮件地址",
   "email_and_member_type_are_required": "电子邮件和成员类型为必填项",
   "email_public": "将我的电子邮件地址展示给其他人",
-  "email_update_required_for_binding": "您的账户使用的是 QQ 登录的临时邮箱地址。绑定其他平台后，您的邮箱地址将被更新为该平台提供的地址。",
+  "email_update_required_for_binding": "您的账户使用的是虚拟邮箱地址。绑定其他平台后，您的邮箱地址将被更新为该平台提供的地址。",
   "email_visibility": "邮箱可见性",
   "enter_club_description": "输入社团描述",
   "enter_club_name": "输入社团名称",

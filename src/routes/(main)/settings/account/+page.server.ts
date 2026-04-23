@@ -36,8 +36,8 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
     lastActiveAt: user.lastActiveAt
   };
 
-  // Check if email needs to be replaced (QQ fake email)
-  const needsEmailUpdate = user.email?.endsWith('@qq.nearcade') ?? false;
+  // Check if email needs to be replaced (fake emails)
+  const needsEmailUpdate = user.email?.endsWith('.nearcade') ?? false;
 
   // Handle WeChat token if present in URL
   const wechatToken = url.searchParams.get('wechatToken');
@@ -103,7 +103,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
 
     // Get linked accounts for the user
     const linkedAccountsRaw = await accountsCollection
-      .find({ userId: user.id }, { projection: { providerId: 1, accountId: 1, _id: 0 } })
+      .find({ userId: new ObjectId(user.id) }, { projection: { providerId: 1, accountId: 1, _id: 0 } })
       .toArray();
 
     const linkedAccounts: LinkedAccount[] = linkedAccountsRaw.map((acc) => ({
