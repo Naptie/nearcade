@@ -89,14 +89,14 @@ async function migrate() {
       const sets: Record<string, unknown> = {};
       const unsets: Record<string, string> = {};
 
-      // Ensure id field exists
-      if (!account.id) {
-        sets.id = account._id.toString();
+      // Ensure id field does not exist
+      if (account.id) {
+        unsets.id = '';
       }
 
-      // Convert userId from ObjectId to string
-      if (account.userId instanceof ObjectId) {
-        sets.userId = account.userId.toString();
+      // Ensure userId is ObjectId
+      if (!(account.userId instanceof ObjectId)) {
+        sets.userId = new ObjectId(account.userId);
       }
 
       // Rename provider → providerId (if not already renamed)
