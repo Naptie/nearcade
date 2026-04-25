@@ -1,5 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import worldGeoJson from '$lib/assets/globe/world.geo.json';
+import chinaProvincesGeoJson from '$lib/assets/globe/china_provinces.geo.json';
+import chinaCitiesGeoJson from '$lib/assets/globe/china_cities.geo.json';
+import chinaCountiesGeoJson from '$lib/assets/globe/china_counties.geo.json';
 import {
   filterCitiesByProvince,
   filterCountiesByParentAdcode,
@@ -21,22 +23,18 @@ type GlobeGeoJsonCache = {
 
 let geoJsonCache: GlobeGeoJsonCache | undefined;
 
-const readAssetGeoJson = (fileName: string) => {
-  const filePath = join(process.cwd(), 'src', 'lib', 'assets', fileName);
-
-  return JSON.parse(readFileSync(filePath, 'utf8')) as RawGlobeFeatureCollection;
-};
-
 const getGeoJsonCache = (): GlobeGeoJsonCache => {
   if (geoJsonCache) {
     return geoJsonCache;
   }
 
   geoJsonCache = {
-    world: normalizeWorldGeoJson(readAssetGeoJson('world.geojson')),
-    'china-provinces': normalizeChinaProvinceGeoJson(readAssetGeoJson('china_provinces.geojson')),
-    'china-cities': normalizeChinaCityGeoJson(readAssetGeoJson('china_cities.geojson')),
-    'china-counties': normalizeChinaCountyGeoJson(readAssetGeoJson('china_counties.geojson'))
+    world: normalizeWorldGeoJson(worldGeoJson as RawGlobeFeatureCollection),
+    'china-provinces': normalizeChinaProvinceGeoJson(
+      chinaProvincesGeoJson as RawGlobeFeatureCollection
+    ),
+    'china-cities': normalizeChinaCityGeoJson(chinaCitiesGeoJson as RawGlobeFeatureCollection),
+    'china-counties': normalizeChinaCountyGeoJson(chinaCountiesGeoJson as RawGlobeFeatureCollection)
   };
 
   return geoJsonCache;
