@@ -117,7 +117,8 @@
   let sidebarOpen = $state(false);
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
-  let pinnedCardEl = $state<HTMLDivElement | undefined>();
+  // Map from shop key → card DOM element, used to scroll the pinned card into view
+  const cardRefs: Record<string, HTMLDivElement | undefined> = {};
 
   // Progressive loading – how many sidebar cards are mounted in the DOM
   const PAGE_SIZE = 40;
@@ -372,7 +373,7 @@
     if (isMobile) sidebarOpen = true;
     // Scroll the pinned card into view after the next tick
     requestAnimationFrame(() => {
-      pinnedCardEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      cardRefs[getShopKey(shopEntry.shop)]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   };
 
@@ -887,15 +888,9 @@
 
     const showProvinceLayers = chinaActive && provinceData.features.length > 0;
     const showCityLayers =
-      showProvinceLayers &&
-      visibleCityData.features.length > 0 &&
-      Boolean(activeProvinceAdcode) &&
-      viewZoom >= CITY_ZOOM_THRESHOLD;
+      showProvinceLayers && visibleCityData.features.length > 0 && Boolean(activeProvinceAdcode);
     const showCountyLayers =
-      showCityLayers &&
-      countyData.features.length > 0 &&
-      Boolean(activeCityAdcode) &&
-      viewZoom >= COUNTY_ZOOM_THRESHOLD;
+      showCityLayers && countyData.features.length > 0 && Boolean(activeCityAdcode);
 
     setLayerVisibility(instance, PROVINCE_FILL_LAYER_ID, showProvinceLayers);
     setLayerVisibility(instance, PROVINCE_LINE_LAYER_ID, showProvinceLayers);
@@ -1208,24 +1203,74 @@
       const feature = getTopFeatureAtPoint(instance, event.point);
       if (!feature?.properties) {
         regionFilter = { type: 'world' };
+        chinaActive = false;
+        activeProvinceAdcode = null;
+        activeCityAdcode = null;
+        countyData = emptyGlobeFeatureCollection();
+        countyStatus = 'idle';
+        syncMapData(instance);
         return;
       }
 
       applyRegionFilter(feature);
 
-      if (feature.properties.dataset === 'world' && feature.properties.isChina) {
-        fitToFeature(instance, feature, 4.4);
+      if (feature.properties.dataset === 'world') {
+        if (feature.properties.isChina) {
+          // Zooming into China – show province layer immediately
+          chinaActive = true;
+          activeProvinceAdcode = null;
+          activeCityAdcode = null;
+          countyData = emptyGlobeFeatureCollection();
+          countyStatus = 'idle';
+          syncMapData(instance);
+          fitToFeature(instance, feature, 4.4);
+        } else {
+          // Non-China country – zoom to its bounds (Fix 3)
+          chinaActive = false;
+          activeProvinceAdcode = null;
+          activeCityAdcode = null;
+          countyData = emptyGlobeFeatureCollection();
+          countyStatus = 'idle';
+          syncMapData(instance);
+          fitToFeature(instance, feature, 5.0);
+        }
         return;
       }
+
       if (feature.properties.dataset === 'china-provinces') {
+        // Show city layer for this province immediately (Fix 2)
+        chinaActive = true;
+        activeProvinceAdcode = feature.properties.adcode ?? null;
+        activeCityAdcode = null;
+        countyData = emptyGlobeFeatureCollection();
+        countyStatus = 'idle';
+        syncMapData(instance);
         fitToFeature(instance, feature, 6.4);
         return;
       }
+
       if (feature.properties.dataset === 'china-cities') {
+        const cityAdcode =
+          getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
+        const prevCityAdcode = activeCityAdcode;
+        chinaActive = true;
+        activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
+        activeCityAdcode = cityAdcode;
+        if (cityAdcode !== prevCityAdcode) {
+          countyData = emptyGlobeFeatureCollection();
+          countyStatus = cityAdcode ? 'loading' : 'idle';
+        }
+        syncMapData(instance);
+        if (cityAdcode) void ensureCountyData(cityAdcode);
         fitToFeature(instance, feature, feature.properties.hasCountyChildren ? 8.2 : 7.2);
         return;
       }
+
       if (feature.properties.dataset === 'china-counties') {
+        chinaActive = true;
+        activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
+        activeCityAdcode = feature.properties.parentAdcode ?? null;
+        syncMapData(instance);
         fitToFeature(instance, feature, 9.5);
       }
     };
@@ -1253,6 +1298,10 @@
     };
 
     const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
+      // Both SHOPS_LAYER_ID and SHOPS_ACTIVE_LAYER_ID may fire for the same click when the
+      // circles overlap (active circle is larger). Only process the first one.
+      if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
+      (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
       shopClickHandled = true; // tell the map-level click handler to skip
       if (e.features && e.features[0]) {
         const key = e.features[0].properties?.key as string | undefined;
@@ -1438,12 +1487,10 @@
         <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
       {:else if filteredShops !== null}
         {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
+          {@const cardKey = `${shop.source}-${shop.id}`}
           {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
           <div
-            bind:this={
-              () => (isPinned ? pinnedCardEl : undefined),
-              (v) => (pinnedCardEl = isPinned ? v : undefined)
-            }
+            bind:this={cardRefs[cardKey]}
             class:ring-2={isPinned}
             class:ring-primary={isPinned}
             class="rounded-xl transition-all"
