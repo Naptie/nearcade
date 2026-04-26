@@ -1120,7 +1120,7 @@
 <div class="flex h-screen overflow-hidden">
   <!-- Sidebar -->
   <aside
-    class="bg-base-200 border-base-300 z-10 flex w-72 flex-shrink-0 flex-col overflow-hidden border-r shadow-lg"
+    class="bg-base-200 border-base-300 z-10 flex w-72 shrink-0 flex-col overflow-hidden border-r shadow-lg"
   >
     <!-- Region header -->
     <div class="border-base-300 border-b p-4">
