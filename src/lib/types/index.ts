@@ -580,4 +580,20 @@ export interface AttendanceRegistration {
   userId?: string;
 }
 
+// Shop with computed attendance and opening-hours data, used on the globe views.
+export interface ShopWithExtras extends Shop {
+  attendances: { gameId: number; total: number }[];
+  openingHoursParsed: {
+    open: Date;
+    close: Date;
+    openTolerated: Date;
+    closeTolerated: Date;
+    offsetHours: number;
+    openLocal: string;
+    closeLocal: string;
+  };
+  currentAttendance: number;
+  density: number;
+}
+
 export * from './amap';
