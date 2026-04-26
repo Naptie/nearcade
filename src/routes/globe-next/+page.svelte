@@ -32,6 +32,9 @@
   const CITY_SOURCE_ID = 'china-city-boundaries';
   const COUNTY_SOURCE_ID = 'china-county-boundaries';
   const HOVER_SOURCE_ID = 'boundary-hover';
+  const SHOPS_SOURCE_ID = 'shops';
+  const SHOPS_LAYER_ID = 'shops-circles';
+  const SHOPS_ACTIVE_LAYER_ID = 'shops-circles-active';
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -46,6 +49,21 @@
   const COUNTY_LABEL_LAYER_ID = 'china-county-label';
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
   const FONT_STACK = ['Open Sans Regular', 'Arial Unicode MS Regular'];
+
+  // Density colour map used by the circle layers (data-driven MapLibre expression)
+  const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
+    'match',
+    ['get', 'density'],
+    1,
+    '#22c55e',
+    2,
+    '#eab308',
+    3,
+    '#f97316',
+    4,
+    '#ef4444',
+    '#6b7280'
+  ];
 
   // ---- Page data ----
   let { data }: { data: PageData } = $props();
@@ -77,14 +95,27 @@
   let shopDataResolved = $state<Shop[]>([]);
   let attendanceDataResolved = new SvelteMap<string, { gameId: number; total: number }[]>();
   let shops = $state<ShopEntry[] | null>(null);
-  let hoveredShop = $state<ShopWithExtras | null>(null);
+  // O(1) lookup by shop key – kept in sync with `shops` in the $effect below
+  const shopLookup = new SvelteMap<string, ShopEntry>();
+
+  // ---- Pinned / hover shop state ----
+  /** Shop being actively hovered over by the mouse on the map (cleared when mouse leaves). */
+  let markerHoveredShop = $state<ShopWithExtras | null>(null);
+  /** Shop pinned via sidebar or marker click (stays until globe empty-area click or Escape). */
+  let pinnedShop = $state<ShopWithExtras | null>(null);
+  /** Active shop for the active circle overlay and cards. */
+  const hoveredShop = $derived(pinnedShop ?? markerHoveredShop);
+  const activeShopKey = $derived(hoveredShop ? getShopKey(hoveredShop) : '');
+
   let cursorPos = $state({ x: 0, y: 0 });
   let isMobile = $derived(isTouchscreen());
   let now = $state(new Date());
 
   // ---- Sidebar state ----
+  let sidebarOpen = $state(false);
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
+  let pinnedCardEl = $state<HTMLDivElement | undefined>();
 
   // ---- Region filter ----
   type RegionFilter =
@@ -179,83 +210,17 @@
     });
   });
 
-  // ---- Marker management ----
-  const shopMarkers = new SvelteMap<
-    string,
-    { marker: maplibregl.Marker; el: HTMLDivElement; shopEntry: ShopEntry }
-  >();
-
-  const getDensityMarkerColor = (density: number) => {
-    switch (density) {
-      case 1:
-        return '#22c55e';
-      case 2:
-        return '#eab308';
-      case 3:
-        return '#f97316';
-      case 4:
-        return '#ef4444';
-      default:
-        return '#6b7280';
-    }
-  };
-
-  const applyMarkerStyle = (el: HTMLDivElement, density: number, isActive: boolean) => {
-    el.style.backgroundColor = getDensityMarkerColor(density);
-    el.style.border = `2px solid ${isActive ? 'white' : 'rgba(255,255,255,0.55)'}`;
-    el.style.boxShadow = isActive
-      ? '0 0 0 3px rgba(0,0,0,0.4), 0 0 6px 2px rgba(255,255,255,0.3)'
-      : '0 0 0 1px rgba(0,0,0,0.3)';
-    el.style.transform = isActive ? 'scale(1.5)' : 'scale(1)';
-    el.style.zIndex = isActive ? '1' : '0';
-  };
-
   const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
 
-  const syncMarkersToMap = (instance: maplibregl.Map, shopsData: ShopEntry[]) => {
-    const newKeys = new Set(shopsData.map((s) => getShopKey(s.shop)));
-    for (const [key, { marker }] of shopMarkers) {
-      if (!newKeys.has(key)) {
-        marker.remove();
-        shopMarkers.delete(key);
-      }
-    }
-    for (const shopEntry of shopsData) {
-      const key = getShopKey(shopEntry.shop);
-      const isActive = hoveredShop ? getShopKey(hoveredShop) === key : false;
-      const existing = shopMarkers.get(key);
-      if (existing) {
-        applyMarkerStyle(existing.el, shopEntry.shop.density, isActive);
-        existing.shopEntry = shopEntry;
-      } else {
-        const el = document.createElement('div');
-        el.style.cssText =
-          'width:12px;height:12px;border-radius:50%;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s;';
-        applyMarkerStyle(el, shopEntry.shop.density, isActive);
-        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([shopEntry.location.longitude, shopEntry.location.latitude])
-          .addTo(instance);
-        el.addEventListener('mouseenter', () => {
-          if (!isMobile) hoveredShop = shopEntry.shop;
-        });
-        el.addEventListener('mouseleave', () => {
-          if (!isMobile) hoveredShop = null;
-        });
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          hoveredShop = hoveredShop && getShopKey(hoveredShop) === key ? null : shopEntry.shop;
-        });
-        shopMarkers.set(key, { marker, el, shopEntry });
-      }
-    }
-  };
-
-  // Update marker styles whenever hoveredShop changes
+  // ---- Active circle overlay: update filter when activeShopKey changes ----
   $effect(() => {
-    const activeKey = hoveredShop ? getShopKey(hoveredShop) : null;
-    for (const [key, { el, shopEntry }] of shopMarkers) {
-      applyMarkerStyle(el, shopEntry.shop.density, key === activeKey);
-    }
+    const key = activeShopKey;
+    const instance = map;
+    if (!instance?.getLayer(SHOPS_ACTIVE_LAYER_ID)) return;
+    instance.setFilter(
+      SHOPS_ACTIVE_LAYER_ID,
+      key ? ['==', ['get', 'key'], key] : ['==', ['get', 'key'], '']
+    );
   });
 
   // ---- Shop data processing ----
@@ -280,7 +245,7 @@
           acc.set(game.titleId, [game]);
         }
         return acc;
-      }, new SvelteMap<number, typeof shop.games>())
+      }, new Map<number, typeof shop.games>())
       .entries()
       .map(([, games]) => {
         const attendances = shop.attendances.reduce((sum, att) => {
@@ -309,7 +274,7 @@
   $effect(() => {
     if (!shopDataResolved.length) return;
     const att = attendanceDataResolved;
-    shops = shopDataResolved.map((shop) => {
+    const nextShops = shopDataResolved.map((shop) => {
       const attendances = att.get(getShopKey(shop)) ?? [];
       const openingHoursParsed = getShopOpeningHours(shop);
       const currentAttendance = attendances.reduce((s, a) => s + a.total, 0);
@@ -322,14 +287,26 @@
         }
       };
     });
+    shops = nextShops;
+    shopLookup.clear();
+    for (const entry of nextShops) shopLookup.set(getShopKey(entry.shop), entry);
   });
 
-  // Sync markers whenever shops or map become available
+  // ---- Sync shop GeoJSON source whenever shops change ----
   $effect(() => {
     const instance = map;
     const shopsData = shops;
     if (!instance || !shopsData) return;
-    syncMarkersToMap(instance, shopsData);
+    const source = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData({
+      type: 'FeatureCollection',
+      features: shopsData.map(({ shop, location }) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [location.longitude, location.latitude] },
+        properties: { key: getShopKey(shop), density: shop.density, name: shop.name }
+      }))
+    });
   });
 
   // ---- Attendance refresh ----
@@ -344,6 +321,29 @@
     } catch {
       // ignore transient refresh errors
     }
+  };
+
+  // ---- Fly to a shop on the map ----
+  const flyToShop = (entry: ShopEntry) => {
+    const instance = map;
+    if (!instance) return;
+    instance.flyTo({
+      center: [entry.location.longitude, entry.location.latitude],
+      zoom: Math.max(instance.getZoom(), 10),
+      duration: 1200
+    });
+  };
+
+  // ---- Pin a shop (from sidebar click or marker click) ----
+  const pinShop = (shopEntry: ShopEntry) => {
+    pinnedShop = shopEntry.shop;
+    flyToShop(shopEntry);
+    // On mobile: open the sidebar so the user can see the interactive card
+    if (isMobile) sidebarOpen = true;
+    // Scroll the pinned card into view after the next tick
+    requestAnimationFrame(() => {
+      pinnedCardEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   };
 
   // ---- Sun position helpers ----
@@ -495,6 +495,14 @@
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
     upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
+
+    // ---- Shop points source (empty initially, filled by $effect when shops load) ----
+    if (!instance.getSource(SHOPS_SOURCE_ID)) {
+      instance.addSource(SHOPS_SOURCE_ID, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+    }
 
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -721,6 +729,38 @@
         source: HOVER_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: { 'line-color': 'rgba(255,255,255,0.3)', 'line-width': 1 }
+      });
+    }
+
+    // ---- Shop circle layers (added AFTER boundary layers so they render on top) ----
+    if (!instance.getLayer(SHOPS_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_LAYER_ID,
+        type: 'circle',
+        source: SHOPS_SOURCE_ID,
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 3, 6, 5, 10, 7, 14, 10],
+          'circle-color': DENSITY_COLOR_EXPR,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': 'rgba(255,255,255,0.6)',
+          'circle-opacity': 0.9
+        }
+      });
+    }
+
+    if (!instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_ACTIVE_LAYER_ID,
+        type: 'circle',
+        source: SHOPS_SOURCE_ID,
+        filter: ['==', ['get', 'key'], ''],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 6, 6, 10, 10, 13, 14, 17],
+          'circle-color': DENSITY_COLOR_EXPR,
+          'circle-stroke-width': 3,
+          'circle-stroke-color': 'white',
+          'circle-opacity': 1
+        }
       });
     }
   };
@@ -1032,6 +1072,32 @@
       ensureMapLayers(instance);
       syncMapData(instance);
       syncDrilldown(instance);
+      // Re-populate shop GeoJSON after style reload
+      const shopsData = shops;
+      if (shopsData) {
+        const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+        if (src) {
+          src.setData({
+            type: 'FeatureCollection',
+            features: shopsData.map(({ shop, location }) => ({
+              type: 'Feature' as const,
+              geometry: {
+                type: 'Point' as const,
+                coordinates: [location.longitude, location.latitude]
+              },
+              properties: { key: getShopKey(shop), density: shop.density, name: shop.name }
+            }))
+          });
+        }
+      }
+      // Restore active filter
+      const key = activeShopKey;
+      if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
+        instance.setFilter(
+          SHOPS_ACTIVE_LAYER_ID,
+          key ? ['==', ['get', 'key'], key] : ['==', ['get', 'key'], '']
+        );
+      }
     };
 
     const handleMoveEnd = () => {
@@ -1057,6 +1123,15 @@
     };
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
+      // Check if a shop circle was clicked first (handled by its own listener)
+      const shopFeatures = instance.queryRenderedFeatures(event.point, {
+        layers: [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID].filter((l) => instance.getLayer(l))
+      });
+      if (shopFeatures.length > 0) return; // let the shop-layer click handler deal with it
+
+      // Clear any pin when clicking on the globe background/boundaries
+      pinnedShop = null;
+
       const feature = getTopFeatureAtPoint(instance, event.point);
       if (!feature?.properties) {
         regionFilter = { type: 'world' };
@@ -1086,11 +1161,53 @@
       cursorPos = { x: e.clientX, y: e.clientY };
     };
 
+    // ---- Shop layer interactions ----
+    const handleShopMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
+      instance.getCanvas().style.cursor = 'pointer';
+      if (pinnedShop) return; // keep pinned shop while mouse hovers
+      if (e.features && e.features[0]) {
+        const key = e.features[0].properties?.key as string | undefined;
+        if (key) {
+          const entry = shopLookup.get(key);
+          if (entry) markerHoveredShop = entry.shop;
+        }
+      }
+    };
+
+    const handleShopMouseLeave = () => {
+      instance.getCanvas().style.cursor = '';
+      if (!pinnedShop) markerHoveredShop = null;
+    };
+
+    const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
+      e.preventDefault(); // prevent the map 'click' from also firing
+      if (e.features && e.features[0]) {
+        const key = e.features[0].properties?.key as string | undefined;
+        if (key) {
+          const entry = shopLookup.get(key);
+          if (entry) {
+            if (pinnedShop && getShopKey(pinnedShop) === key) {
+              pinnedShop = null; // clicking pinned shop again unpins
+              markerHoveredShop = null;
+            } else {
+              pinShop(entry);
+            }
+          }
+        }
+      }
+    };
+
     instance.on('style.load', syncStyle);
     instance.on('moveend', handleMoveEnd);
     instance.on('mousemove', handlePointerMove);
     instance.on('mouseout', handleMouseOut);
     instance.on('click', handleClick);
+    instance.on('mousemove', SHOPS_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_LAYER_ID, handleShopClick);
+    instance.on('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
     window.addEventListener('mousemove', handleMouseMove);
 
     void loadBaseGeoJson();
@@ -1105,6 +1222,12 @@
       instance.off('mousemove', handlePointerMove);
       instance.off('mouseout', handleMouseOut);
       instance.off('click', handleClick);
+      instance.off('mousemove', SHOPS_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_LAYER_ID, handleShopClick);
+      instance.off('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
       window.removeEventListener('mousemove', handleMouseMove);
       instance.remove();
       clearInterval(refreshInterval);
@@ -1118,18 +1241,40 @@
 </svelte:head>
 
 <div class="flex h-screen overflow-hidden">
-  <!-- Sidebar -->
+  <!-- ================================================================
+       Sidebar – always visible on md+, collapsible bottom drawer on mobile
+       ================================================================ -->
   <aside
-    class="bg-base-200 border-base-300 z-10 flex w-72 shrink-0 flex-col overflow-hidden border-r shadow-lg"
+    class="bg-base-200 border-base-300 pointer-events-auto z-20 flex flex-col overflow-hidden border-r shadow-lg transition-transform duration-300 ease-out will-change-transform
+           not-md:fixed not-md:inset-x-0 not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
+           md:relative md:w-72 md:shrink-0 md:translate-y-0"
+    class:not-md:translate-y-full={!sidebarOpen}
+    class:not-md:translate-y-0={sidebarOpen}
   >
+    <!-- Mobile drag handle -->
+    <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
+
     <!-- Region header -->
     <div class="border-base-300 border-b p-4">
-      <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
-      {#if regionHierarchy.length > 0}
-        <p class="text-base-content/60 mt-0.5 truncate text-sm">
-          {regionHierarchy.join(' › ')}
-        </p>
-      {/if}
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
+          {#if regionHierarchy.length > 0}
+            <p class="text-base-content/60 mt-0.5 truncate text-sm">
+              {regionHierarchy.join(' › ')}
+            </p>
+          {/if}
+        </div>
+        <!-- Close button (mobile only) -->
+        <button
+          type="button"
+          class="btn btn-circle btn-ghost btn-sm shrink-0 md:hidden"
+          aria-label={m.close()}
+          onclick={() => (sidebarOpen = false)}
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Search + game filters -->
@@ -1215,15 +1360,46 @@
         <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
       {:else if filteredShops !== null}
         {#each filteredShops as { shop } (`${shop.source}-${shop.id}`)}
-          <ShopCard {shop} />
+          {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
+          <div
+            bind:this={isPinned ? pinnedCardEl : undefined}
+            class:ring-2={isPinned}
+            class:ring-primary={isPinned}
+            class="rounded-xl transition-all"
+          >
+            <ShopCard
+              {shop}
+              interactive={true}
+              onclick={() => {
+                const entry = shopLookup.get(getShopKey(shop));
+                if (entry) pinShop(entry);
+              }}
+            />
+          </div>
         {/each}
       {/if}
     </div>
   </aside>
 
-  <!-- Map area -->
+  <!-- ================================================================
+       Map area
+       ================================================================ -->
   <div class="relative flex-1">
     <div bind:this={mapContainer} class="h-full w-full"></div>
+
+    <!-- Mobile: sidebar toggle button (always visible at bottom-left) -->
+    <button
+      type="button"
+      class="bg-base-200/80 border-base-300 absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
+      aria-label={m.sidebar()}
+      onclick={() => (sidebarOpen = !sidebarOpen)}
+    >
+      <i class="fa-solid fa-list text-sm"></i>
+      <span class="text-sm font-medium">{m.sidebar()}</span>
+      {#if filteredShops !== null}
+        <span class="badge badge-primary badge-xs">{filteredShops.length}</span>
+      {/if}
+    </button>
 
     <!-- Dev-only floating control panel -->
     {#if import.meta.env.DEV}
@@ -1274,21 +1450,43 @@
       </div>
     {/if}
 
-    <!-- Desktop hover card (follows cursor) -->
-    {#if hoveredShop && !isMobile}
+    <!-- Desktop: non-interactive hover card follows cursor (only when not pinned) -->
+    {#if markerHoveredShop && !pinnedShop && !isMobile}
       <div
         class="pointer-events-none fixed z-50 w-72"
         style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
       >
-        <ShopCard shop={hoveredShop} />
+        <ShopCard shop={markerHoveredShop} />
       </div>
     {/if}
 
-    <!-- Mobile: selected shop card overlaid on map -->
-    {#if hoveredShop && isMobile}
-      <div class="absolute inset-x-0 top-4 z-10 px-4">
-        <ShopCard shop={hoveredShop} />
+    <!-- Desktop: pinned shop interactive card overlay at bottom-right -->
+    {#if pinnedShop && !isMobile}
+      <div class="pointer-events-auto absolute right-4 bottom-4 z-10 w-80 shadow-xl">
+        <div class="relative">
+          <button
+            type="button"
+            class="btn btn-circle btn-ghost btn-xs absolute top-2 right-2 z-10"
+            aria-label={m.close()}
+            onclick={() => {
+              pinnedShop = null;
+              markerHoveredShop = null;
+            }}
+          >
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+          <ShopCard shop={pinnedShop} interactive={true} />
+        </div>
       </div>
     {/if}
   </div>
+
+  <!-- Mobile sidebar backdrop -->
+  {#if sidebarOpen}
+    <div
+      role="presentation"
+      class="fixed inset-0 z-10 bg-black/40 md:hidden"
+      onclick={() => (sidebarOpen = false)}
+    ></div>
+  {/if}
 </div>
