@@ -139,7 +139,8 @@
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          visibleCount = (filteredShops?.length ?? 0) > visibleCount ? visibleCount + PAGE_SIZE : visibleCount;
+          visibleCount =
+            (filteredShops?.length ?? 0) > visibleCount ? visibleCount + PAGE_SIZE : visibleCount;
         }
       },
       { threshold: 0 }
@@ -1439,7 +1440,10 @@
         {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
           {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
           <div
-            bind:this={isPinned ? pinnedCardEl : undefined}
+            bind:this={
+              () => (isPinned ? pinnedCardEl : undefined),
+              (v) => (pinnedCardEl = isPinned ? v : undefined)
+            }
             class:ring-2={isPinned}
             class:ring-primary={isPinned}
             class="rounded-xl transition-all"
