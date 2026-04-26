@@ -10,6 +10,7 @@
   import { resolve } from '$app/paths';
   import { GAMES } from '$lib/constants';
   import type { Shop, ShopWithExtras } from '$lib/types';
+  import FancyButton from './FancyButton.svelte';
 
   let {
     shop,
@@ -50,20 +51,25 @@
     return `${sign}${formatHourLiteral(Math.abs(hours))}`;
   });
 
-  const shopPageUrl = resolve('/(main)/shops/[source]/[id]', {
-    source: shop.source,
-    id: shop.id.toString()
-  });
-  const nearbyUrl = `${resolve('/(main)/discover')}?longitude=${encodeURIComponent(
-    shop.location.coordinates[0]
-  )}&latitude=${encodeURIComponent(shop.location.coordinates[1])}&name=${encodeURIComponent(shop.name)}&radius=10`;
-  const mapUrl =
+  const shopPageUrl = $derived(
+    resolve('/(main)/shops/[source]/[id]', {
+      source: shop.source,
+      id: shop.id.toString()
+    })
+  );
+  const nearbyUrl = $derived(
+    `${resolve('/(main)/discover')}?longitude=${encodeURIComponent(
+      shop.location.coordinates[0]
+    )}&latitude=${encodeURIComponent(shop.location.coordinates[1])}&name=${encodeURIComponent(shop.name)}&radius=10`
+  );
+  const mapUrl = $derived(
     shop.source === 'ziv'
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
           `${shop.name} ${formatShopAddress(shop)}`
         )}`
-      : `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${shop.location.coordinates[1]}&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`;
-  const mapLinkLabel = shop.source === 'ziv' ? m.view_in_google_maps() : m.view_in_amap();
+      : `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${shop.location.coordinates[1]}&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`
+  );
+  const mapLinkLabel = $derived(shop.source === 'ziv' ? m.view_in_google_maps() : m.view_in_amap());
 </script>
 
 {#snippet cardContent()}
@@ -140,22 +146,31 @@
   {#if interactive}
     <!-- Action buttons -->
     <div
-      class="border-base-content/10 mt-3 flex flex-wrap gap-2 border-t pt-3"
+      class="border-base-content/10 mt-3 flex justify-end gap-2 overflow-clip border-t pt-3"
       role="none"
       onclick={(e) => e.stopPropagation()}
     >
-      <a href={shopPageUrl} target={adaptiveNewTab()} class="btn btn-primary btn-soft btn-xs">
-        <i class="fa-solid fa-circle-info"></i>
-        {m.shop_details()}
-      </a>
-      <a href={nearbyUrl} target={adaptiveNewTab()} class="btn btn-accent btn-soft btn-xs">
-        <i class="fa-solid fa-map-location-dot"></i>
-        {m.explore_nearby()}
-      </a>
-      <a href={mapUrl} target="_blank" rel="noopener noreferrer" class="btn btn-soft btn-xs">
-        <i class="fa-solid fa-map"></i>
-        {mapLinkLabel}
-      </a>
+      <FancyButton
+        href={shopPageUrl}
+        target={adaptiveNewTab()}
+        class="fa-solid fa-circle-info"
+        btnCls="btn btn-primary btn-soft btn-sm"
+        text={m.shop_details()}
+      />
+      <FancyButton
+        href={nearbyUrl}
+        target={adaptiveNewTab()}
+        class="fa-solid fa-map-location-dot"
+        btnCls="btn btn-accent btn-soft btn-sm"
+        text={m.explore_nearby()}
+      />
+      <FancyButton
+        href={mapUrl}
+        target="_blank"
+        class="fa-solid fa-map"
+        btnCls="btn btn-soft btn-sm"
+        text={mapLinkLabel}
+      />
     </div>
   {/if}
 {/snippet}

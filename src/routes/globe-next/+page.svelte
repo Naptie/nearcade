@@ -16,7 +16,13 @@
   import { SvelteMap } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import { getShopOpeningHours, isTouchscreen, getGameName, pageTitle } from '$lib/utils';
+  import {
+    getShopOpeningHours,
+    isTouchscreen,
+    getGameName,
+    pageTitle,
+    getAddressParts
+  } from '$lib/utils';
   import { GAMES } from '$lib/constants';
   import type { Shop, ShopWithExtras } from '$lib/types';
   import type { PageData } from './$types';
@@ -118,7 +124,7 @@
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
   // Map from shop key → card DOM element, used to scroll the pinned card into view
-  const cardRefs: Record<string, HTMLDivElement | undefined> = {};
+  const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   // Progressive loading – how many sidebar cards are mounted in the DOM
   const PAGE_SIZE = 40;
@@ -153,7 +159,7 @@
   // ---- Region filter ----
   type RegionFilter =
     | { type: 'world' }
-    | { type: 'country'; name: string }
+    | { type: 'address'; address: string[] }
     | { type: 'china' }
     | { type: 'china-province'; name: string }
     | { type: 'china-city'; provinceName: string; cityName: string }
@@ -165,8 +171,8 @@
     switch (regionFilter.type) {
       case 'world':
         return m.world();
-      case 'country':
-        return regionFilter.name;
+      case 'address':
+        return regionFilter.address[regionFilter.address.length - 1];
       case 'china':
         return '中国';
       case 'china-province':
@@ -182,16 +188,16 @@
     switch (regionFilter.type) {
       case 'world':
         return [];
-      case 'country':
-        return [m.world()];
+      case 'address':
+        return getAddressParts(regionFilter.address).slice(0, -1);
       case 'china':
-        return [m.world()];
+        return [];
       case 'china-province':
-        return [m.world(), '中国'];
+        return ['中国'];
       case 'china-city':
-        return [m.world(), '中国', regionFilter.provinceName];
+        return ['中国', regionFilter.provinceName];
       case 'china-county':
-        return [m.world(), '中国', regionFilter.provinceName, regionFilter.cityName];
+        return ['中国', regionFilter.provinceName, regionFilter.cityName];
     }
   });
 
@@ -206,8 +212,10 @@
         case 'world':
           matchesRegion = true;
           break;
-        case 'country':
-          matchesRegion = general[general.length - 1] === regionFilter.name;
+        case 'address':
+          matchesRegion = regionFilter.address.every(
+            (v, i) => general.length <= i || v.toLowerCase() === general[i].toLowerCase()
+          );
           break;
         case 'china':
           matchesRegion = general[0] === '中国';
@@ -231,9 +239,13 @@
       }
       if (!matchesRegion) return false;
       if (q) {
-        const nameMatch = shop.name.toLowerCase().includes(q);
-        const addrMatch = shop.address.general.join(' ').toLowerCase().includes(q);
-        if (!nameMatch && !addrMatch) return false;
+        try {
+          const nameMatch = shop.name.toLowerCase().includes(q);
+          const addrMatch = shop.address.general.some((v) => v.toLowerCase().includes(q));
+          if (!nameMatch && !addrMatch) return false;
+        } catch {
+          return false;
+        }
       }
       if (selectedTitleIds.length > 0) {
         if (!selectedTitleIds.every((tid) => shop.games.some((g) => g.titleId === tid)))
@@ -373,7 +385,10 @@
     if (isMobile) sidebarOpen = true;
     // Scroll the pinned card into view after the next tick
     requestAnimationFrame(() => {
-      cardRefs[getShopKey(shopEntry.shop)]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      cardRefs.get(getShopKey(shopEntry.shop))?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
     });
   };
 
@@ -384,28 +399,28 @@
       regionFilter = { type: 'world' };
       return;
     }
-    if (general[0] === '中国') {
-      if (general[3]) {
-        regionFilter = {
-          type: 'china-county',
-          provinceName: general[1] ?? '',
-          cityName: general[2] ?? '',
-          countyName: general[3]
-        };
-      } else if (general[2]) {
-        regionFilter = {
-          type: 'china-city',
-          provinceName: general[1] ?? '',
-          cityName: general[2]
-        };
-      } else if (general[1]) {
-        regionFilter = { type: 'china-province', name: general[1] };
-      } else {
-        regionFilter = { type: 'china' };
-      }
-    } else {
-      regionFilter = { type: 'country', name: general[general.length - 1] };
-    }
+    // if (general[0] === '中国') {
+    //   if (general[3]) {
+    //     regionFilter = {
+    //       type: 'china-county',
+    //       provinceName: general[1] ?? '',
+    //       cityName: general[2] ?? '',
+    //       countyName: general[3]
+    //     };
+    //   } else if (general[2]) {
+    //     regionFilter = {
+    //       type: 'china-city',
+    //       provinceName: general[1] ?? '',
+    //       cityName: general[2]
+    //     };
+    //   } else if (general[1]) {
+    //     regionFilter = { type: 'china-province', name: general[1] };
+    //   } else {
+    //     regionFilter = { type: 'china' };
+    //   }
+    // } else {
+    regionFilter = { type: 'address', address: general };
+    // }
   };
 
   // ---- Check if a shop is visible in the current filtered list ----
@@ -433,7 +448,7 @@
     const ra = Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L));
     const th0 = toRad(280.16 + 360.9856235 * days);
     const lng = ra - th0;
-    const x = -Math.cos(dec) * Math.sin(lng);
+    const x = Math.cos(dec) * Math.sin(lng);
     const y = -Math.sin(dec);
     const z = -Math.cos(dec) * Math.cos(lng);
     const polar = Math.acos(z);
@@ -750,7 +765,7 @@
             'case',
             ['boolean', ['feature-state', 'hovered'], false],
             'rgba(255,255,255,0.18)',
-            '#f59e0b'
+            '#ffffff'
           ],
           'fill-opacity': ['case', ['boolean', ['feature-state', 'hovered'], false], 0.55, 0.05]
         }
@@ -764,7 +779,7 @@
         source: COUNTY_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'line-color': 'rgba(245, 158, 11, 0.4)',
+          'line-color': 'rgba(247, 99, 224, 0.4)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 10, 1.2]
         }
       });
@@ -1093,7 +1108,7 @@
     if (!props) return;
 
     if (props.dataset === 'world') {
-      regionFilter = props.isChina ? { type: 'china' } : { type: 'country', name: props.name };
+      regionFilter = props.isChina ? { type: 'china' } : { type: 'address', address: [props.name] };
       return;
     }
     if (props.dataset === 'china-provinces') {
@@ -1164,9 +1179,6 @@
       }
     };
 
-    // Flag set by handleShopClick so the subsequent map-level handleClick is a no-op
-    let shopClickHandled = false;
-
     const handleMoveEnd = () => {
       syncDrilldown(instance);
     };
@@ -1190,11 +1202,7 @@
     };
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
-      // If a shop circle was just clicked (handled by handleShopClick), skip
-      if (shopClickHandled) {
-        shopClickHandled = false;
-        return;
-      }
+      console.log('handleClick', event);
 
       // Clear any pin and hover when clicking on the globe background/boundaries
       pinnedShop = null;
@@ -1250,8 +1258,7 @@
       }
 
       if (feature.properties.dataset === 'china-cities') {
-        const cityAdcode =
-          getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
+        const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
         const prevCityAdcode = activeCityAdcode;
         chinaActive = true;
         activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
@@ -1300,13 +1307,14 @@
     const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
       // Both SHOPS_LAYER_ID and SHOPS_ACTIVE_LAYER_ID may fire for the same click when the
       // circles overlap (active circle is larger). Only process the first one.
+      console.log('handleShopClick', e);
       if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
       (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
-      shopClickHandled = true; // tell the map-level click handler to skip
       if (e.features && e.features[0]) {
         const key = e.features[0].properties?.key as string | undefined;
         if (key) {
           const entry = shopLookup.get(key);
+          console.log(key, entry);
           if (entry) {
             if (pinnedShop && getShopKey(pinnedShop) === key) {
               pinnedShop = null; // clicking pinned shop again unpins
@@ -1315,8 +1323,8 @@
               // If the shop is outside the current filtered list, switch to it
               if (!isShopInCurrentFilter(entry.shop)) {
                 selectedTitleIds = [];
-                applyShopRegionFilter(entry.shop);
               }
+              applyShopRegionFilter(entry.shop);
               pinShop(entry);
             }
           }
@@ -1374,7 +1382,7 @@
   <aside
     class="bg-base-200 border-base-300 pointer-events-auto z-20 flex flex-col overflow-hidden border-r shadow-lg transition-transform duration-300 ease-out will-change-transform
            not-md:fixed not-md:inset-x-0 not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
-           md:relative md:w-72 md:shrink-0 md:translate-y-0"
+           md:relative md:w-96 md:shrink-0 md:translate-y-0"
     class:not-md:translate-y-full={!sidebarOpen}
     class:not-md:translate-y-0={sidebarOpen}
   >
@@ -1412,7 +1420,7 @@
           <button
             type="button"
             tabindex="0"
-            class="btn btn-soft hover:btn-accent btn-sm"
+            class="btn btn-soft hover:btn-accent"
             class:btn-primary={selectedTitleIds.length > 0}
             aria-label={m.filter_by_game_titles()}
           >
@@ -1471,7 +1479,7 @@
             type="text"
             bind:value={searchQuery}
             placeholder={m.search_arcades_placeholder()}
-            class="input input-bordered input-sm w-full pl-7"
+            class="input input-bordered w-full pl-7"
           />
         </div>
       </div>
@@ -1490,10 +1498,10 @@
           {@const cardKey = `${shop.source}-${shop.id}`}
           {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
           <div
-            bind:this={cardRefs[cardKey]}
-            class:ring-2={isPinned}
-            class:ring-primary={isPinned}
-            class="rounded-xl transition-all"
+            bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
+            class="rounded-xl transition-all {isPinned
+              ? '[&>*:first-child]:not-hover:border-accent/60'
+              : ''}"
           >
             <ShopCard
               {shop}
@@ -1596,7 +1604,7 @@
 
     <!-- Desktop: pinned shop interactive card overlay at bottom-right -->
     {#if pinnedShop && !isMobile}
-      <div class="pointer-events-auto absolute right-4 bottom-4 z-10 w-80 shadow-xl">
+      <div class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl">
         <div class="relative">
           <button
             type="button"
