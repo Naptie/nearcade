@@ -37,7 +37,6 @@
   const COUNTY_FILL_LAYER_ID = 'china-county-fill';
   const COUNTY_LINE_LAYER_ID = 'china-county-line';
   const COUNTY_LABEL_LAYER_ID = 'china-county-label';
-  const HOVER_FILL_LAYER_ID = 'boundary-hover-fill';
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
   const FONT_STACK = ['Open Sans Regular', 'Arial Unicode MS Regular'];
 
@@ -56,8 +55,56 @@
   let activeProvinceAdcode = $state<string | null>(null);
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
-  let thetaDeg = $state(135);
-  let phiDeg = $state(0);
+  // The time used to compute the sun's position for the globe light.
+  let viewTime = $state(new Date());
+
+  // ---------------------------------------------------------------------------
+  // Sun position helpers (SunCalc algorithm, no external dependency needed).
+  // Returns { azimuthDeg, altitudeDeg } for a given date and observer location.
+  // azimuth is degrees clockwise from north; altitude is degrees above horizon.
+  // ---------------------------------------------------------------------------
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const toDeg = (rad: number) => (rad * 180) / Math.PI;
+
+  const getSunPosition = (date: Date) => {
+    const MS_PER_DAY = 1e3 * 60 * 60 * 24;
+    const J1970 = 2440588;
+    const J2000 = 2451545;
+    const e = toRad(23.4397); // obliquity of Earth
+
+    const days = date.valueOf() / MS_PER_DAY - 0.5 + J1970 - J2000;
+    // Solar mean anomaly
+    const M = toRad(357.5291 + 0.98560028 * days);
+    // Equation of center → ecliptic longitude
+    const C = 1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 3e-4 * Math.sin(3 * M);
+    const L = M + toRad(C + 102.9372) + Math.PI;
+
+    // Declination (Subsolar Latitude)
+    const dec = Math.asin(Math.sin(L) * Math.sin(e));
+    // Right ascension
+    const ra = Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L));
+
+    // Greenwich Mean Sidereal Time
+    const th0 = toRad(280.16 + 360.9856235 * days);
+
+    // Subsolar Longitude
+    const lng = ra - th0;
+
+    // Map absolute Lat/Lng to MapLibre's 3D globe coordinate system:
+    // Invert X, Y, and Z. The previous fix corrected the X/Y plane (directions and poles),
+    // but Z must also be inverted to shift the light 180 degrees to the day-side hemisphere.
+    const x = -Math.cos(dec) * Math.sin(lng);
+    const y = -Math.sin(dec);
+    const z = -Math.cos(dec) * Math.cos(lng);
+
+    const polar = Math.acos(z);
+    const azimuth = Math.atan2(x, y);
+
+    return {
+      azimuthDeg: (toDeg(azimuth) + 360) % 360,
+      polarDeg: toDeg(polar)
+    };
+  };
 
   const mapStyle = 'https://api.maptiler.com/maps/satellite-v4/style.json?key=NwA6ZENn65hugntUKOHr';
   const atmosphereBlend: maplibregl.SkySpecification['atmosphere-blend'] = [
@@ -79,19 +126,18 @@
   // or called many times with the same data).
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
 
-  const p = $derived.by(() => {
-    const theta = ((thetaDeg / 180 + 1) * Math.PI) / 1;
-    const phi = (phiDeg / 180) * Math.PI;
-
-    return (Math.acos(Math.cos(theta) * Math.cos(phi)) / Math.PI) * 180;
+  // MapLibre light position: [radius, azimuth_deg, polar_angle_deg].
+  const sunPosition = $derived.by(() => {
+    const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
+    return {
+      azimuth: azimuthDeg,
+      polar: polarDeg
+    };
   });
 
-  const a = $derived.by(() => {
-    const theta = ((thetaDeg / 180 + 1) * Math.PI) / 1;
-    const phi = (phiDeg / 180) * Math.PI;
-
-    return 90 + (Math.atan2(Math.sin(phi), Math.sin(theta) * Math.cos(phi)) / Math.PI) * 180;
-  });
+  // Keep backwards-compat aliases used by syncScene.
+  const a = $derived(sunPosition.azimuth);
+  const p = $derived(sunPosition.polar);
 
   const visibleCityData = $derived.by(() => {
     if (!activeProvinceAdcode) {
@@ -99,26 +145,6 @@
     }
 
     return filterCitiesByProvince(cityData, activeProvinceAdcode);
-  });
-
-  const hoverData = $derived.by(() => {
-    if (!hoveredFeature) {
-      return emptyData;
-    }
-
-    // queryRenderedFeatures returns MapLibre-internal class instances that the
-    // GeoJSON worker cannot serialize via postMessage. Reconstruct as a plain
-    // object literal so the worker receives a JSON-safe value.
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature' as const,
-          geometry: hoveredFeature.geometry,
-          properties: hoveredFeature.properties
-        }
-      ]
-    } satisfies GlobeFeatureCollection;
   });
 
   const activeProvinceName = $derived.by(() => {
@@ -187,15 +213,21 @@
     return `${hoveredFeature.properties.name} (${hoveredFeature.properties.level})`;
   });
 
-  const syncScene = (instance: maplibregl.Map) => {
+  const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
     instance.setLight({
       anchor: 'map',
-      position: [100, a, p]
+      position: [100, azimuth, polar]
     });
     instance.setSky({
       'atmosphere-blend': atmosphereBlend
     });
+  };
+
+  // Format a Date as the value string for <input type="datetime-local">.
+  const toDatetimeLocalValue = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
   const buildGeoJsonUrl = (dataset: GlobeDataset, parentAdcode?: string) => {
@@ -230,7 +262,7 @@
       // Passing data to addSource means the worker processes it immediately.
       // Calling setData again in the same synchronous turn causes a worker race;
       // caching the reference here prevents the redundant call below.
-      instance.addSource(sourceId, { type: 'geojson', data });
+      instance.addSource(sourceId, { type: 'geojson', data, generateId: true });
       sourceDataRevisions.set(sourceId, data);
       return;
     }
@@ -239,7 +271,8 @@
     sourceDataRevisions.set(sourceId, data);
     try {
       source.setData(data);
-    } catch {
+    } catch (e) {
+      console.error(e);
       // The GeoJSON worker may not be fully initialized yet (e.g. immediately
       // after a style reload or fitBounds). Roll back the cache so the next
       // syncMapData call retries the update once the worker is ready.
@@ -258,7 +291,8 @@
     upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
-    upsertGeoJsonSource(instance, HOVER_SOURCE_ID, hoverData);
+    // Hover source always starts empty; flushHoverToMap fills it on demand.
+    upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
 
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -266,8 +300,18 @@
         type: 'fill',
         source: WORLD_SOURCE_ID,
         paint: {
-          'fill-color': ['case', ['boolean', ['get', 'isChina'], false], '#0ea5e9', '#020617'],
-          'fill-opacity': ['case', ['boolean', ['get', 'isChina'], false], 0.16, 0.06]
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false],
+            'rgba(255,255,255,0.18)',
+            ['case', ['boolean', ['get', 'isChina'], false], '#0ea5e9', '#020617']
+          ],
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false],
+            0.55,
+            ['case', ['boolean', ['get', 'isChina'], false], 0.16, 0.06]
+          ]
         }
       });
     }
@@ -295,7 +339,14 @@
           'text-size': ['interpolate', ['linear'], ['zoom'], 1, 9, 3, 10, 5, 11],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
-          'text-radial-offset': 0.35
+          'text-radial-offset': 0.35,
+          // Allow only one label per unique name — features with the same name
+          // compete and the renderer keeps only one visible placement.
+          'text-allow-overlap': false,
+          'text-ignore-placement': false,
+          'symbol-avoid-edges': true,
+          // Sort by featureId so a consistent winner is picked among duplicates.
+          'symbol-sort-key': ['get', 'featureId']
         },
         paint: {
           'text-color': '#f8fafc',
@@ -312,8 +363,13 @@
         source: PROVINCE_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'fill-color': '#34d399',
-          'fill-opacity': 0.14
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false],
+            'rgba(255,255,255,0.18)',
+            '#34d399'
+          ],
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'hovered'], false], 0.55, 0.05]
         }
       });
     }
@@ -325,7 +381,7 @@
         source: PROVINCE_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'line-color': 'rgba(52, 211, 153, 0.95)',
+          'line-color': 'rgba(52, 211, 153, 0.4)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.5, 7, 1.8]
         }
       });
@@ -360,8 +416,13 @@
         source: CITY_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'fill-color': '#38bdf8',
-          'fill-opacity': 0.13
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false],
+            'rgba(255,255,255,0.18)',
+            '#38bdf8'
+          ],
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'hovered'], false], 0.55, 0.05]
         }
       });
     }
@@ -373,7 +434,7 @@
         source: CITY_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'line-color': 'rgba(56, 189, 248, 0.95)',
+          'line-color': 'rgba(56, 189, 248, 0.4)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 8, 1.5]
         }
       });
@@ -408,8 +469,13 @@
         source: COUNTY_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'fill-color': '#f59e0b',
-          'fill-opacity': 0.12
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hovered'], false],
+            'rgba(255,255,255,0.18)',
+            '#f59e0b'
+          ],
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'hovered'], false], 0.55, 0.05]
         }
       });
     }
@@ -421,7 +487,7 @@
         source: COUNTY_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'line-color': 'rgba(245, 158, 11, 0.95)',
+          'line-color': 'rgba(245, 158, 11, 0.4)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 10, 1.2]
         }
       });
@@ -449,19 +515,8 @@
       });
     }
 
-    if (!instance.getLayer(HOVER_FILL_LAYER_ID)) {
-      instance.addLayer({
-        id: HOVER_FILL_LAYER_ID,
-        type: 'fill',
-        source: HOVER_SOURCE_ID,
-        layout: { visibility: 'none' },
-        paint: {
-          'fill-color': '#fb7185',
-          'fill-opacity': 0.24
-        }
-      });
-    }
-
+    // Hover highlight is now done via feature-state on the fill layers above.
+    // Keep the outline-only layer for the bright border around the hovered region.
     if (!instance.getLayer(HOVER_LINE_LAYER_ID)) {
       instance.addLayer({
         id: HOVER_LINE_LAYER_ID,
@@ -469,11 +524,68 @@
         source: HOVER_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'line-color': '#fb7185',
-          'line-width': 2
+          'line-color': 'rgba(255,255,255,0.3)',
+          'line-width': 1
         }
       });
     }
+  };
+
+  // Tracks the MapLibre internal id + source of the currently-hovered feature so
+  // we can clear feature-state when the pointer moves away.
+  let activeFeatureState: { id: string | number; source: string } | null = null;
+
+  // Update hover highlight via feature-state (paints directly on tiles — covers
+  // the entire MultiPolygon regardless of viewport clipping) plus the outline
+  // source for the bright border.
+  const flushHoverToMap = (instance: maplibregl.Map, feature: GlobeFeature | null) => {
+    // Clear previous feature-state.
+    if (activeFeatureState) {
+      instance.setFeatureState(activeFeatureState, { hovered: false });
+      activeFeatureState = null;
+    }
+
+    if (feature) {
+      // feature.id is the MapLibre-assigned numeric id (requires generateId: true on source).
+      const fid = (feature as unknown as { id?: string | number }).id;
+      const sourceId =
+        feature.properties?.dataset === 'world'
+          ? WORLD_SOURCE_ID
+          : feature.properties?.dataset === 'china-provinces'
+            ? PROVINCE_SOURCE_ID
+            : feature.properties?.dataset === 'china-cities'
+              ? CITY_SOURCE_ID
+              : COUNTY_SOURCE_ID;
+
+      if (fid !== undefined) {
+        activeFeatureState = { id: fid, source: sourceId };
+        instance.setFeatureState(activeFeatureState, { hovered: true });
+      }
+    }
+
+    // Also push geometry to the outline-only hover source.
+    const source = getGeoJsonSource(instance, HOVER_SOURCE_ID);
+    if (source) {
+      const data: GlobeFeatureCollection = feature
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature' as const,
+                geometry: feature.geometry,
+                properties: feature.properties
+              }
+            ]
+          }
+        : emptyGlobeFeatureCollection();
+      try {
+        source.setData(data);
+      } catch {
+        // worker not ready; ignore
+      }
+    }
+
+    setLayerVisibility(instance, HOVER_LINE_LAYER_ID, feature !== null);
   };
 
   const syncMapData = (instance: maplibregl.Map) => {
@@ -481,7 +593,6 @@
     upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
-    upsertGeoJsonSource(instance, HOVER_SOURCE_ID, hoverData);
 
     const showProvinceLayers = chinaActive && provinceData.features.length > 0;
     const showCityLayers =
@@ -494,7 +605,6 @@
       countyData.features.length > 0 &&
       Boolean(activeCityAdcode) &&
       viewZoom >= COUNTY_ZOOM_THRESHOLD;
-    const showHoverLayers = hoverData.features.length > 0;
 
     setLayerVisibility(instance, PROVINCE_FILL_LAYER_ID, showProvinceLayers);
     setLayerVisibility(instance, PROVINCE_LINE_LAYER_ID, showProvinceLayers);
@@ -505,28 +615,35 @@
     setLayerVisibility(instance, COUNTY_FILL_LAYER_ID, showCountyLayers);
     setLayerVisibility(instance, COUNTY_LINE_LAYER_ID, showCountyLayers);
     setLayerVisibility(instance, COUNTY_LABEL_LAYER_ID, showCountyLayers);
-    setLayerVisibility(instance, HOVER_FILL_LAYER_ID, showHoverLayers);
-    setLayerVisibility(instance, HOVER_LINE_LAYER_ID, showHoverLayers);
 
-    if (instance.getLayer(WORLD_LABEL_LAYER_ID)) {
-      instance.setFilter(
-        WORLD_LABEL_LAYER_ID,
-        chinaActive ? ['!=', ['get', 'name'], 'China'] : null
-      );
-    }
-  };
-
-  const getCenterFeature = (instance: maplibregl.Map, layerId: string) => {
-    if (!instance.getLayer(layerId)) {
-      return null;
+    // --- Feature-level filters to hide parent region when drilled down ---
+    // Hide China polygon from world layers when province detail is active.
+    const worldFilter: maplibregl.FilterSpecification | null = showProvinceLayers
+      ? ['!=', ['get', 'isChina'], true]
+      : null;
+    for (const layerId of [WORLD_FILL_LAYER_ID, WORLD_LINE_LAYER_ID, WORLD_LABEL_LAYER_ID]) {
+      if (instance.getLayer(layerId)) instance.setFilter(layerId, worldFilter);
     }
 
-    const point = instance.project(instance.getCenter());
-    const [feature] = instance.queryRenderedFeatures(point, {
-      layers: [layerId]
-    });
+    // Hide the active province polygon when city detail is active.
+    const provinceFilter: maplibregl.FilterSpecification | null =
+      showCityLayers && activeProvinceAdcode
+        ? ['!=', ['get', 'adcode'], activeProvinceAdcode]
+        : null;
+    for (const layerId of [
+      PROVINCE_FILL_LAYER_ID,
+      PROVINCE_LINE_LAYER_ID,
+      PROVINCE_LABEL_LAYER_ID
+    ]) {
+      if (instance.getLayer(layerId)) instance.setFilter(layerId, provinceFilter);
+    }
 
-    return (feature as unknown as GlobeFeature | undefined) ?? null;
+    // Hide the active city polygon when county detail is active.
+    const cityFilter: maplibregl.FilterSpecification | null =
+      showCountyLayers && activeCityAdcode ? ['!=', ['get', 'adcode'], activeCityAdcode] : null;
+    for (const layerId of [CITY_FILL_LAYER_ID, CITY_LINE_LAYER_ID, CITY_LABEL_LAYER_ID]) {
+      if (instance.getLayer(layerId)) instance.setFilter(layerId, cityFilter);
+    }
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
@@ -596,10 +713,14 @@
 
   const syncDrilldown = (instance: maplibregl.Map) => {
     viewZoom = instance.getZoom();
+    const point = instance.project(instance.getCenter());
+    const centeredFeature = getTopFeatureAtPoint(instance, point);
 
-    const centeredWorldFeature = getCenterFeature(instance, WORLD_FILL_LAYER_ID);
-    const nextChinaActive =
-      viewZoom >= CHINA_ZOOM_THRESHOLD && isChinaWorldFeature(centeredWorldFeature);
+    const isCenterInChina =
+      centeredFeature?.properties?.dataset?.startsWith('china-') ||
+      isChinaWorldFeature(centeredFeature);
+
+    const nextChinaActive = !!(viewZoom >= CHINA_ZOOM_THRESHOLD && isCenterInChina);
 
     chinaActive = nextChinaActive;
 
@@ -612,10 +733,26 @@
       return;
     }
 
-    const nextProvinceAdcode =
-      viewZoom >= PROVINCE_ZOOM_THRESHOLD
-        ? (getCenterFeature(instance, PROVINCE_FILL_LAYER_ID)?.properties?.adcode ?? null)
-        : null;
+    let nextProvinceAdcode: string | null = null;
+    let nextCityAdcode: string | null = null;
+
+    if (viewZoom >= PROVINCE_ZOOM_THRESHOLD && centeredFeature) {
+      const dataset = centeredFeature.properties?.dataset;
+      if (dataset === 'china-provinces') {
+        nextProvinceAdcode = centeredFeature.properties?.adcode ?? null;
+      } else if (dataset === 'china-cities' || dataset === 'china-counties') {
+        nextProvinceAdcode = centeredFeature.properties?.provinceAdcode ?? null;
+        if (viewZoom >= CITY_ZOOM_THRESHOLD) {
+          if (dataset === 'china-cities') {
+            nextCityAdcode =
+              getCountyParentAdcode(centeredFeature as unknown as GlobeFeature) ?? null;
+          } else if (dataset === 'china-counties') {
+            // Counties fallback to parentAdcode for their city
+            nextCityAdcode = centeredFeature.properties?.parentAdcode ?? null;
+          }
+        }
+      }
+    }
     const provinceChanged = nextProvinceAdcode !== activeProvinceAdcode;
 
     if (provinceChanged) {
@@ -625,17 +762,9 @@
       countyStatus = 'idle';
     }
 
-    syncMapData(instance);
-
-    if (!nextProvinceAdcode || viewZoom < CITY_ZOOM_THRESHOLD || provinceChanged) {
-      return;
-    }
-
-    const nextCityFeature = getCenterFeature(instance, CITY_FILL_LAYER_ID);
-    const nextCityAdcode = getCountyParentAdcode(nextCityFeature);
     const cityChanged = nextCityAdcode !== activeCityAdcode;
 
-    if (cityChanged) {
+    if (cityChanged || provinceChanged) {
       activeCityAdcode = nextCityAdcode ?? null;
       countyData = emptyGlobeFeatureCollection();
       countyStatus = nextCityAdcode ? 'loading' : 'idle';
@@ -685,6 +814,16 @@
     syncMapData(instance);
   });
 
+  // Re-apply light whenever viewTime or center changes, independently of
+  // the map/style-load effect so time-control updates are always reflected.
+  $effect(() => {
+    const instance = map;
+    const az = a;
+    const po = p;
+    if (!instance?.isStyleLoaded()) return;
+    instance.setLight({ anchor: 'map', position: [100, az, po] });
+  });
+
   onMount(() => {
     if (!mapContainer) return;
 
@@ -692,7 +831,7 @@
       container: mapContainer,
       style: mapStyle,
       center: [155, 45],
-      zoom: 1.5
+      zoom: 2
     });
     map = instance;
     instance.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -720,6 +859,7 @@
       if (newId === hoveredFeatureId) return;
       hoveredFeatureId = newId;
       hoveredFeature = feature;
+      flushHoverToMap(instance, feature);
       instance.getCanvas().style.cursor = feature ? 'pointer' : '';
     };
 
@@ -727,6 +867,7 @@
       if (!hoveredFeatureId) return;
       hoveredFeatureId = null;
       hoveredFeature = null;
+      flushHoverToMap(instance, null);
       instance.getCanvas().style.cursor = '';
     };
 
@@ -785,14 +926,24 @@
   <div
     class="bg-base-200/70 absolute top-3 left-3 z-10 flex max-w-xs min-w-64 flex-col gap-4 rounded p-3 text-sm shadow-lg backdrop-blur-sm"
   >
-    <div class="flex flex-col items-center gap-2 px-2">
-      <label for="theta" class="leading-none">Theta ({thetaDeg})</label>
-      <input type="range" id="theta" bind:value={thetaDeg} min={-180} max={180} />
-    </div>
-
-    <div class="flex flex-col items-center gap-2 px-2">
-      <label for="phi" class="leading-none">Phi ({phiDeg.toFixed(1)})</label>
-      <input type="range" id="phi" bind:value={phiDeg} min={-90} max={90} step={0.1} />
+    <div class="flex flex-col gap-1 px-2">
+      <label for="viewtime" class="text-xs leading-none">Time (local)</label>
+      <input
+        type="datetime-local"
+        id="viewtime"
+        class="input input-xs w-full"
+        value={toDatetimeLocalValue(viewTime)}
+        oninput={(e) => {
+          const v = (e.target as HTMLInputElement).value;
+          if (v) viewTime = new Date(v);
+        }}
+      />
+      <button
+        class="btn btn-xs mt-1"
+        onclick={() => {
+          viewTime = new Date();
+        }}>Now</button
+      >
     </div>
 
     <div class="border-base-content/15 flex flex-col gap-1 border-t pt-3 text-xs">
@@ -803,7 +954,7 @@
         <div>Hover: {hoveredLabel}</div>
       {/if}
       {#if geojsonStatus === 'loading'}
-        <div>Loading world and China boundaries...</div>
+        <div>Loading boundaries...</div>
       {/if}
       {#if countyStatus === 'loading'}
         <div>Loading county detail...</div>
