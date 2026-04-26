@@ -334,6 +334,7 @@
 
   // ---- Attendance refresh ----
   const refreshAttendance = async () => {
+    now = new Date();
     try {
       const res = await fetch(`${base}/api/globe/attendance`);
       if (!res.ok) return;
