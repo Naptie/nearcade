@@ -70,15 +70,7 @@
   <!-- Shop Header -->
   <div class="mb-2 flex flex-col">
     {#if interactive}
-      <a
-        href={shopPageUrl}
-        target={adaptiveNewTab()}
-        class="hover:text-primary truncate text-lg font-semibold transition-colors"
-        title={shop.name}
-        onclick={(e) => e.stopPropagation()}
-      >
-        {shop.name}
-      </a>
+      <span class="truncate text-lg font-semibold" title={shop.name}>{shop.name}</span>
     {:else}
       <h3 class="truncate text-lg font-semibold" title={shop.name}>
         {shop.name}

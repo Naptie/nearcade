@@ -119,6 +119,35 @@
   let selectedTitleIds = $state<number[]>([]);
   let pinnedCardEl = $state<HTMLDivElement | undefined>();
 
+  // Progressive loading – how many sidebar cards are mounted in the DOM
+  const PAGE_SIZE = 40;
+  let visibleCount = $state(PAGE_SIZE);
+  let listSentinelEl = $state<HTMLDivElement | undefined>();
+
+  // Reset visible count whenever the filtered list changes
+  $effect(() => {
+    // Access filteredShops to track it as a reactive dependency, then reset the counter
+    const _len = filteredShops?.length ?? 0;
+    void _len;
+    visibleCount = PAGE_SIZE;
+  });
+
+  // IntersectionObserver: load more cards when sentinel enters viewport
+  $effect(() => {
+    const sentinel = listSentinelEl;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          visibleCount = (filteredShops?.length ?? 0) > visibleCount ? visibleCount + PAGE_SIZE : visibleCount;
+        }
+      },
+      { threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
+
   // ---- Region filter ----
   type RegionFilter =
     | { type: 'world' }
@@ -344,6 +373,45 @@
     requestAnimationFrame(() => {
       pinnedCardEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+  };
+
+  // ---- Switch regionFilter to deepest region that contains a shop ----
+  const applyShopRegionFilter = (shop: ShopWithExtras) => {
+    const general = shop.address.general;
+    if (!general.length) {
+      regionFilter = { type: 'world' };
+      return;
+    }
+    if (general[0] === '中国') {
+      if (general[3]) {
+        regionFilter = {
+          type: 'china-county',
+          provinceName: general[1] ?? '',
+          cityName: general[2] ?? '',
+          countyName: general[3]
+        };
+      } else if (general[2]) {
+        regionFilter = {
+          type: 'china-city',
+          provinceName: general[1] ?? '',
+          cityName: general[2]
+        };
+      } else if (general[1]) {
+        regionFilter = { type: 'china-province', name: general[1] };
+      } else {
+        regionFilter = { type: 'china' };
+      }
+    } else {
+      regionFilter = { type: 'country', name: general[general.length - 1] };
+    }
+  };
+
+  // ---- Check if a shop is visible in the current filtered list ----
+  const isShopInCurrentFilter = (shop: ShopWithExtras): boolean => {
+    const fs = filteredShops;
+    if (!fs) return false;
+    const key = getShopKey(shop);
+    return fs.some(({ shop: s }) => getShopKey(s) === key);
   };
 
   // ---- Sun position helpers ----
@@ -1100,6 +1168,9 @@
       }
     };
 
+    // Flag set by handleShopClick so the subsequent map-level handleClick is a no-op
+    let shopClickHandled = false;
+
     const handleMoveEnd = () => {
       syncDrilldown(instance);
     };
@@ -1123,14 +1194,15 @@
     };
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
-      // Check if a shop circle was clicked first (handled by its own listener)
-      const shopFeatures = instance.queryRenderedFeatures(event.point, {
-        layers: [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID].filter((l) => instance.getLayer(l))
-      });
-      if (shopFeatures.length > 0) return; // let the shop-layer click handler deal with it
+      // If a shop circle was just clicked (handled by handleShopClick), skip
+      if (shopClickHandled) {
+        shopClickHandled = false;
+        return;
+      }
 
-      // Clear any pin when clicking on the globe background/boundaries
+      // Clear any pin and hover when clicking on the globe background/boundaries
       pinnedShop = null;
+      markerHoveredShop = null;
 
       const feature = getTopFeatureAtPoint(instance, event.point);
       if (!feature?.properties) {
@@ -1180,7 +1252,7 @@
     };
 
     const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
-      e.preventDefault(); // prevent the map 'click' from also firing
+      shopClickHandled = true; // tell the map-level click handler to skip
       if (e.features && e.features[0]) {
         const key = e.features[0].properties?.key as string | undefined;
         if (key) {
@@ -1190,6 +1262,11 @@
               pinnedShop = null; // clicking pinned shop again unpins
               markerHoveredShop = null;
             } else {
+              // If the shop is outside the current filtered list, switch to it
+              if (!isShopInCurrentFilter(entry.shop)) {
+                selectedTitleIds = [];
+                applyShopRegionFilter(entry.shop);
+              }
               pinShop(entry);
             }
           }
@@ -1359,13 +1436,10 @@
       {:else if filteredShops !== null && filteredShops.length === 0}
         <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
       {:else if filteredShops !== null}
-        {#each filteredShops as { shop } (`${shop.source}-${shop.id}`)}
+        {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
           {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
           <div
-            bind:this={
-              () => (isPinned ? pinnedCardEl : undefined),
-              (v) => (pinnedCardEl = isPinned ? v : undefined)
-            }
+            bind:this={isPinned ? pinnedCardEl : undefined}
             class:ring-2={isPinned}
             class:ring-primary={isPinned}
             class="rounded-xl transition-all"
@@ -1380,6 +1454,12 @@
             />
           </div>
         {/each}
+        <!-- Sentinel: triggers progressive load when it enters the viewport -->
+        {#if filteredShops.length > visibleCount}
+          <div bind:this={listSentinelEl} class="flex justify-center py-4">
+            <span class="loading loading-spinner loading-sm"></span>
+          </div>
+        {/if}
       {/if}
     </div>
   </aside>
