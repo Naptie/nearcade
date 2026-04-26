@@ -98,6 +98,8 @@
   // O(1) lookup by shop key – kept in sync with `shops` in the $effect below
   const shopLookup = new SvelteMap<string, ShopEntry>();
 
+  const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
+
   // ---- Pinned / hover shop state ----
   /** Shop being actively hovered over by the mouse on the map (cleared when mouse leaves). */
   let markerHoveredShop = $state<ShopWithExtras | null>(null);
@@ -209,8 +211,6 @@
       return true;
     });
   });
-
-  const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
 
   // ---- Active circle overlay: update filter when activeShopKey changes ----
   $effect(() => {
@@ -1362,7 +1362,10 @@
         {#each filteredShops as { shop } (`${shop.source}-${shop.id}`)}
           {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
           <div
-            bind:this={isPinned ? pinnedCardEl : undefined}
+            bind:this={
+              () => (isPinned ? pinnedCardEl : undefined),
+              (v) => (pinnedCardEl = isPinned ? v : undefined)
+            }
             class:ring-2={isPinned}
             class:ring-primary={isPinned}
             class="rounded-xl transition-all"
