@@ -41,6 +41,11 @@
   const SHOPS_SOURCE_ID = 'shops';
   const SHOPS_LAYER_ID = 'shops-circles';
   const SHOPS_ACTIVE_LAYER_ID = 'shops-circles-active';
+  const SHOPS_PINNED_LAYER_ID = 'shops-circles-pinned';
+  const SHOPS_NAME_LAYER_ID = 'shops-names';
+  const AMAP_SOURCE_ID = 'amap-satellite';
+  const AMAP_LAYER_ID = 'amap-satellite-layer';
+  const AMAP_ZOOM_THRESHOLD = 10;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -111,9 +116,6 @@
   let markerHoveredShop = $state<ShopWithExtras | null>(null);
   /** Shop pinned via sidebar or marker click (stays until globe empty-area click or Escape). */
   let pinnedShop = $state<ShopWithExtras | null>(null);
-  /** Active shop for the active circle overlay and cards. */
-  const hoveredShop = $derived(pinnedShop ?? markerHoveredShop);
-  const activeShopKey = $derived(hoveredShop ? getShopKey(hoveredShop) : '');
 
   let cursorPos = $state({ x: 0, y: 0 });
   let isMobile = $derived(isTouchscreen());
@@ -255,15 +257,19 @@
     });
   });
 
-  // ---- Active circle overlay: update filter when activeShopKey changes ----
+  // ---- Active circle overlay: hover and pinned filters ----
   $effect(() => {
-    const key = activeShopKey;
+    const key = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
     const instance = map;
     if (!instance?.getLayer(SHOPS_ACTIVE_LAYER_ID)) return;
-    instance.setFilter(
-      SHOPS_ACTIVE_LAYER_ID,
-      key ? ['==', ['get', 'key'], key] : ['==', ['get', 'key'], '']
-    );
+    instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], key]);
+  });
+
+  $effect(() => {
+    const key = pinnedShop ? getShopKey(pinnedShop) : '';
+    const instance = map;
+    if (!instance?.getLayer(SHOPS_PINNED_LAYER_ID)) return;
+    instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], key]);
   });
 
   // ---- Shop data processing ----
@@ -380,6 +386,7 @@
   // ---- Pin a shop (from sidebar click or marker click) ----
   const pinShop = (shopEntry: ShopEntry) => {
     pinnedShop = shopEntry.shop;
+    markerHoveredShop = null; // clear hover state when pinning
     flyToShop(shopEntry);
     // On mobile: open the sidebar so the user can see the interactive card
     if (isMobile) sidebarOpen = true;
@@ -580,6 +587,28 @@
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
     upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
+
+    // ---- AMap raster source and layer (added first so it renders below vector overlays) ----
+    if (!instance.getSource(AMAP_SOURCE_ID)) {
+      instance.addSource(AMAP_SOURCE_ID, {
+        type: 'raster',
+        tiles: [
+          'https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+          'https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+          'https://webst03.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+          'https://webst04.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
+        ],
+        tileSize: 256
+      });
+    }
+    if (!instance.getLayer(AMAP_LAYER_ID)) {
+      instance.addLayer({
+        id: AMAP_LAYER_ID,
+        type: 'raster',
+        source: AMAP_SOURCE_ID,
+        layout: { visibility: 'none' }
+      });
+    }
 
     // ---- Shop points source (empty initially, filled by $effect when shops load) ----
     if (!instance.getSource(SHOPS_SOURCE_ID)) {
@@ -833,6 +862,7 @@
       });
     }
 
+    // Hover highlight (white semi-transparent ring, slightly enlarged)
     if (!instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_ACTIVE_LAYER_ID,
@@ -840,11 +870,52 @@
         source: SHOPS_SOURCE_ID,
         filter: ['==', ['get', 'key'], ''],
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 6, 6, 10, 10, 13, 14, 17],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 6, 8, 10, 11, 14, 15],
+          'circle-color': DENSITY_COLOR_EXPR,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'rgba(255,255,255,0.75)',
+          'circle-opacity': 1
+        }
+      });
+    }
+
+    // Pinned highlight (amber/gold ring, largest size)
+    if (!instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_PINNED_LAYER_ID,
+        type: 'circle',
+        source: SHOPS_SOURCE_ID,
+        filter: ['==', ['get', 'key'], ''],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 7, 6, 11, 10, 14, 14, 18],
           'circle-color': DENSITY_COLOR_EXPR,
           'circle-stroke-width': 3,
-          'circle-stroke-color': 'white',
+          'circle-stroke-color': '#fbbf24',
           'circle-opacity': 1
+        }
+      });
+    }
+
+    // Shop name labels (visible at high zoom)
+    if (!instance.getLayer(SHOPS_NAME_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_NAME_LAYER_ID,
+        type: 'symbol',
+        source: SHOPS_SOURCE_ID,
+        minzoom: 12,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': FONT_STACK,
+          'text-size': 11,
+          'text-offset': [0, 1.2],
+          'text-anchor': 'top',
+          'text-optional': true,
+          'text-max-width': 10
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.8)',
+          'text-halo-width': 1.5
         }
       });
     }
@@ -941,6 +1012,9 @@
     for (const layerId of [CITY_FILL_LAYER_ID, CITY_LINE_LAYER_ID, CITY_LABEL_LAYER_ID]) {
       if (instance.getLayer(layerId)) instance.setFilter(layerId, cityFilter);
     }
+
+    // Switch to AMap satellite tiles when zoomed in over China
+    setLayerVisibility(instance, AMAP_LAYER_ID, chinaActive && viewZoom >= AMAP_ZOOM_THRESHOLD);
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
@@ -1169,13 +1243,14 @@
           });
         }
       }
-      // Restore active filter
-      const key = activeShopKey;
+      // Restore hover and pinned filters
+      const hoverKey = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
       if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
-        instance.setFilter(
-          SHOPS_ACTIVE_LAYER_ID,
-          key ? ['==', ['get', 'key'], key] : ['==', ['get', 'key'], '']
-        );
+        instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], hoverKey]);
+      }
+      const pinnedKey = pinnedShop ? getShopKey(pinnedShop) : '';
+      if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
+        instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
       }
     };
 
@@ -1202,7 +1277,8 @@
     };
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
-      console.log('handleClick', event);
+      // If a shop circle/label was just clicked, skip – handleShopClick already handled it
+      if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
       // Clear any pin and hover when clicking on the globe background/boundaries
       pinnedShop = null;
@@ -1305,16 +1381,14 @@
     };
 
     const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
-      // Both SHOPS_LAYER_ID and SHOPS_ACTIVE_LAYER_ID may fire for the same click when the
-      // circles overlap (active circle is larger). Only process the first one.
-      console.log('handleShopClick', e);
+      // Multiple layers may fire for the same click (active/pinned circles overlap the base).
+      // Only process the first one.
       if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
       (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
       if (e.features && e.features[0]) {
         const key = e.features[0].properties?.key as string | undefined;
         if (key) {
           const entry = shopLookup.get(key);
-          console.log(key, entry);
           if (entry) {
             if (pinnedShop && getShopKey(pinnedShop) === key) {
               pinnedShop = null; // clicking pinned shop again unpins
@@ -1343,6 +1417,12 @@
     instance.on('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
     instance.on('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
     instance.on('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
+    instance.on('mousemove', SHOPS_PINNED_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_PINNED_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_PINNED_LAYER_ID, handleShopClick);
+    instance.on('mousemove', SHOPS_NAME_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_NAME_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_NAME_LAYER_ID, handleShopClick);
     window.addEventListener('mousemove', handleMouseMove);
 
     void loadBaseGeoJson();
@@ -1363,6 +1443,12 @@
       instance.off('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
       instance.off('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
       instance.off('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
+      instance.off('mousemove', SHOPS_PINNED_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_PINNED_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_PINNED_LAYER_ID, handleShopClick);
+      instance.off('mousemove', SHOPS_NAME_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_NAME_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_NAME_LAYER_ID, handleShopClick);
       window.removeEventListener('mousemove', handleMouseMove);
       instance.remove();
       clearInterval(refreshInterval);
