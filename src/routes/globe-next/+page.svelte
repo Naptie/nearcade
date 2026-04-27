@@ -45,7 +45,7 @@
   const SHOPS_NAME_LAYER_ID = 'shops-names';
   const AMAP_SOURCE_ID = 'amap-satellite';
   const AMAP_LAYER_ID = 'amap-satellite-layer';
-  const AMAP_ZOOM_THRESHOLD = 10;
+  const AMAP_ZOOM_THRESHOLD = 9.2;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -660,7 +660,7 @@
         layout: {
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 1, 9, 3, 10, 5, 11],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 1, 10, 3, 11, 5, 12],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.35,
@@ -717,7 +717,7 @@
           visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 6, 12, 8, 13],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 8, 14],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.3
@@ -770,7 +770,7 @@
           visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 10, 7.5, 12, 9, 13],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 7.5, 13, 9, 14],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.3
@@ -823,8 +823,8 @@
           visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 7, 9, 9.5, 11, 11, 12],
-          'text-max-width': 7,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 7, 10, 9.5, 12, 11, 13],
+          'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.25
         },
@@ -902,20 +902,20 @@
         id: SHOPS_NAME_LAYER_ID,
         type: 'symbol',
         source: SHOPS_SOURCE_ID,
-        minzoom: 12,
+        minzoom: 9.5,
         layout: {
           'text-field': ['get', 'name'],
           'text-font': FONT_STACK,
-          'text-size': 11,
-          'text-offset': [0, 1.2],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 9.5, 12, 11, 13, 12, 14],
+          'text-offset': [0, 1],
           'text-anchor': 'top',
           'text-optional': true,
-          'text-max-width': 10
+          'text-max-width': 12
         },
         paint: {
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.8)',
-          'text-halo-width': 1.5
+          'text-halo-width': 1.2
         }
       });
     }
