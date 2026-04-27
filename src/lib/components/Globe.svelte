@@ -1430,7 +1430,7 @@
       if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
       if (mode === 'landing') {
-        if (!landingDragOccurred) void goto(resolve('/globe-next'));
+        if (!landingDragOccurred) void goto(resolve('/globe'));
         return;
       }
 
@@ -1538,8 +1538,8 @@
           const entry = shopLookup.get(key);
           if (entry) {
             if (mode === 'landing') {
-              // Navigate to /globe-next – camera animates via mode change effect
-              goto(resolve('/globe-next'));
+              // Navigate to /globe – camera animates via mode change effect
+              goto(resolve('/globe'));
               return;
             }
             if (pinnedShop && getShopKey(pinnedShop) === key) {
@@ -1918,7 +1918,7 @@
 
   {#if markerHoveredShop && !isMobile && (mode === 'landing' || !pinnedShop)}
     <div
-      class="pointer-events-none fixed z-50 w-72"
+      class="pointer-events-none fixed z-50 w-80"
       style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
     >
       <ShopCard shop={markerHoveredShop} />
