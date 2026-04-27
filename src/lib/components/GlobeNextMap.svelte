@@ -20,6 +20,7 @@
     type GlobeFeature,
     type GlobeFeatureCollection
   } from '$lib/utils/globeGeojson';
+  import { fade } from 'svelte/transition';
 
   // ---- Props ----
   type Props = {
@@ -1536,7 +1537,11 @@
 <!-- ================================================================
      Fixed globe container – always behind page content
      ================================================================ -->
-<div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+<div
+  class="pointer-events-none fixed inset-0 z-0 overflow-hidden transition-[height] duration-300 ease-in-out"
+  class:h-[70vh]={mode === 'landing'}
+  class:h-screen={mode === 'fullscreen'}
+>
   <!-- Map canvas fills entire area -->
   <div
     bind:this={mapContainer}
@@ -1546,7 +1551,7 @@
 
   <!-- ---- Bottom gradient blur (landing mode only) ---- -->
   {#if mode === 'landing'}
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/5">
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/5" transition:fade>
       {#each bottomBlurLayers as layer, index (index)}
         <div
           class="absolute inset-0"
@@ -1561,7 +1566,7 @@
       {/each}
       <!-- Solid color gradient at the very bottom for a clean edge -->
       <div
-        class="from-base-100 absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t to-transparent"
+        class="from-base-100 absolute inset-x-0 bottom-0 h-3/4 bg-linear-to-t to-transparent"
       ></div>
     </div>
   {/if}
