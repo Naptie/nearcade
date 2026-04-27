@@ -65,8 +65,11 @@
   const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
   const LANDING_ZOOM = 3.2;
+  const LANDING_PITCH = 15;
+  const LANDING_BEARING = 10 + Math.random() * 10;
   const LANDING_ROTATION_SPEED = 0.06; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
+  const LANDING_LATITUDE = 15; // starting latitude
 
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
     'match',
@@ -169,7 +172,10 @@
   let sidebarOpen = $state(false);
   // ---- Floating sidebar position/size (desktop) ----
   let sidebarPos = $state({ x: 16, y: 64 });
-  let sidebarSize = $state({ w: 384, h: 600 });
+  let sidebarSize = $state<{ w: number | undefined; h: number | undefined }>({
+    w: undefined,
+    h: undefined
+  });
   let isDraggingSidebar = $state(false);
   let isResizingSidebar = $state(false);
   let sidebarDragStart = { mx: 0, my: 0, sx: 0, sy: 0 };
@@ -441,7 +447,7 @@
 
   // ---- Floating sidebar drag / resize (desktop) ----
   const clampSidebarPos = (x: number, y: number) => ({
-    x: Math.max(0, Math.min(window.innerWidth - sidebarSize.w, x)),
+    x: Math.max(0, Math.min(window.innerWidth - sidebarSize.w!, x)),
     y: Math.max(0, Math.min(window.innerHeight - 60, y))
   });
 
@@ -468,7 +474,7 @@
   const startSidebarResize = (e: PointerEvent) => {
     if (isMobile) return;
     isResizingSidebar = true;
-    sidebarResizeStart = { mx: e.clientX, my: e.clientY, sw: sidebarSize.w, sh: sidebarSize.h };
+    sidebarResizeStart = { mx: e.clientX, my: e.clientY, sw: sidebarSize.w!, sh: sidebarSize.h! };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     e.preventDefault();
   };
@@ -1276,10 +1282,10 @@
         sidebarOpen = false;
       }
       instance.flyTo({
-        center: [LANDING_LONGITUDE, 0],
+        center: [LANDING_LONGITUDE, LANDING_LATITUDE],
         zoom: LANDING_ZOOM,
-        pitch: 0,
-        bearing: 15,
+        pitch: LANDING_PITCH,
+        bearing: LANDING_BEARING,
         duration: wasFullscreen ? 1800 : 0,
         essential: true
       });
@@ -1337,13 +1343,30 @@
   onMount(() => {
     if (!mapContainer) return;
 
+    if (sidebarSize.w === undefined) {
+      sidebarSize.w = Math.min(440, window.innerWidth * 0.35);
+    }
+
+    if (sidebarSize.h === undefined) {
+      sidebarSize.h = window.innerHeight - sidebarPos.y - sidebarPos.x;
+    }
+
     const instance = new maplibregl.Map({
       container: mapContainer,
       style: mapStyle,
-      center: [LANDING_LONGITUDE, 0],
-      zoom: LANDING_ZOOM,
-      pitch: 0,
-      bearing: 15
+      ...(mode === 'landing'
+        ? {
+            center: [LANDING_LONGITUDE, LANDING_LATITUDE],
+            zoom: LANDING_ZOOM,
+            pitch: LANDING_PITCH,
+            bearing: LANDING_BEARING
+          }
+        : {
+            center: [155, 45],
+            zoom: 2,
+            pitch: 0,
+            bearing: 0
+          })
     });
     map = instance;
 
@@ -1833,7 +1856,7 @@
       <div
         role="separator"
         aria-label="Resize sidebar"
-        class="pointer-events-auto absolute right-0 bottom-0 z-30 hidden h-5 w-5 cursor-se-resize opacity-30 hover:opacity-70 md:block"
+        class="pointer-events-auto absolute right-0 bottom-0 z-30 hidden h-5 w-5 cursor-se-resize opacity-20 transition-opacity hover:opacity-60 md:block"
         style="touch-action: none;"
         onpointerdown={startSidebarResize}
         onpointermove={moveSidebarResize}
@@ -1849,11 +1872,11 @@
     <button
       type="button"
       class="bg-base-200/80 border-base-300 pointer-events-auto absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
-      aria-label={m.sidebar()}
+      aria-label={regionTitle}
       onclick={() => (sidebarOpen = !sidebarOpen)}
     >
       <i class="fa-solid fa-list text-sm"></i>
-      <span class="text-sm font-medium">{m.sidebar()}</span>
+      <span class="text-sm font-medium">{regionTitle}</span>
       {#if filteredShops !== null}
         <span class="badge badge-primary badge-xs">{filteredShops.length}</span>
       {/if}
@@ -1923,7 +1946,7 @@
   {#if import.meta.env.DEV}
     <div
       class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded p-3 text-sm shadow-lg backdrop-blur-sm
-             {mode === 'fullscreen' ? 'left-99' : 'left-3'}"
+             {mode === 'fullscreen' ? 'top-16 right-12' : 'left-3'}"
     >
       <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
       <div class="flex flex-col gap-1 px-2">
@@ -1969,6 +1992,6 @@
 
 <style>
   :global(.maplibregl-ctrl-top-right) {
-    top: 4rem;
+    top: 3.2rem;
   }
 </style>
