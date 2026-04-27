@@ -59,7 +59,7 @@
   const COUNTY_LINE_LAYER_ID = 'china-county-line';
   const COUNTY_LABEL_LAYER_ID = 'china-county-label';
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
-  const FONT_STACK = ['Open Sans Regular', 'Arial Unicode MS Regular'];
+  const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
   // Density colour map used by the circle layers (data-driven MapLibre expression)
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
@@ -531,6 +531,7 @@
     instance.setProjection({ type: 'globe' });
     instance.setLight({ anchor: 'map', position: [100, azimuth, polar] });
     instance.setSky({ 'atmosphere-blend': atmosphereBlend });
+    instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
   const toDatetimeLocalValue = (d: Date) => {
