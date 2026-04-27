@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { invalidate } from '$app/navigation';
   import {
     emptyGlobeFeatureCollection,
     filterCitiesByProvince,
@@ -357,20 +358,6 @@
       }))
     });
   });
-
-  // ---- Attendance refresh ----
-  const refreshAttendance = async () => {
-    now = new Date();
-    try {
-      const res = await fetch(`${base}/api/globe/attendance`);
-      if (!res.ok) return;
-      const raw: Record<string, { gameId: number; total: number }[]> = await res.json();
-      attendanceDataResolved.clear();
-      for (const [k, v] of Object.entries(raw)) attendanceDataResolved.set(k, v);
-    } catch {
-      // ignore transient refresh errors
-    }
-  };
 
   // ---- Fly to a shop on the map ----
   const flyToShop = (entry: ShopEntry) => {
@@ -1429,7 +1416,9 @@
     void loadBaseGeoJson();
 
     const refreshInterval = setInterval(() => {
-      void refreshAttendance();
+      viewTime = new Date();
+      now = new Date();
+      void invalidate('app:globe-shops');
     }, 60_000);
 
     return () => {

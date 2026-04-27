@@ -5,7 +5,8 @@ import type { PageServerLoad } from './$types';
 
 export const ssr = false;
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ depends }) => {
+  depends('app:globe-shops');
   const db = mongo.db();
 
   return {
