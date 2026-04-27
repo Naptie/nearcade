@@ -335,7 +335,8 @@
   <div class="hero pointer-events-none relative min-h-screen">
     <div
       class="pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2"
-      transition:fade
+      in:fade={{ delay: 500 }}
+      out:fade
     >
       <LocaleSwitch />
       <FancyButton
@@ -364,7 +365,8 @@
     <div class="hero-content my-10 text-center not-sm:px-0">
       <div
         class="bg-base-100/70 pointer-events-auto mt-72 flex max-w-fit flex-col gap-6 rounded-3xl px-8 py-6 backdrop-blur-lg transition hover:shadow-xl"
-        transition:slide
+        in:slide={{ delay: 500 }}
+        out:slide
       >
         <SiteTitle
           class="text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'

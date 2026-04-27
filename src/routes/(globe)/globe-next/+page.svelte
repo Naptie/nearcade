@@ -11,7 +11,9 @@
 </svelte:head>
 
 <!-- NavigationBar sits above the globe map (z-999 in NavigationBar) -->
-<NavigationBar transition:fade />
+<div in:fade={{ delay: 500 }} out:fade>
+  <NavigationBar />
+</div>
 
 <!-- Full-screen spacer so the page takes up the full viewport (the globe fills the background) -->
 <div class="h-screen w-full"></div>

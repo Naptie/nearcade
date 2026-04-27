@@ -20,7 +20,7 @@
     type GlobeFeature,
     type GlobeFeatureCollection
   } from '$lib/utils/globeGeojson';
-  import { fade } from 'svelte/transition';
+  import { fade, slide } from 'svelte/transition';
 
   // ---- Props ----
   type Props = {
@@ -1702,8 +1702,8 @@
        ================================================================ -->
   {#if mode === 'fullscreen'}
     <aside
-      transition:fade
-      class="bg-base-200/80 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
+      transition:slide
+      class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
              not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
              md:rounded-xl"
@@ -1838,7 +1838,7 @@
             >
               <ShopCard
                 {shop}
-                interactive={true}
+                interactive
                 onclick={() => {
                   const entry = shopLookup.get(getShopKey(shop));
                   if (entry) pinShop(entry);
@@ -1895,16 +1895,6 @@
       ></div>
     {/if}
 
-    <!-- Desktop: non-interactive hover card follows cursor -->
-    {#if markerHoveredShop && !pinnedShop && !isMobile}
-      <div
-        class="pointer-events-none fixed z-50 w-72"
-        style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
-      >
-        <ShopCard shop={markerHoveredShop} />
-      </div>
-    {/if}
-
     <!-- Desktop: pinned shop interactive card at bottom-right -->
     {#if pinnedShop && !isMobile}
       <div class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl">
@@ -1920,27 +1910,18 @@
           >
             <i class="fa-solid fa-xmark text-xs"></i>
           </button>
-          <ShopCard shop={pinnedShop} interactive={true} />
+          <ShopCard shop={pinnedShop} interactive />
         </div>
       </div>
     {/if}
   {/if}
 
-  <!-- ---- Landing mode: shop hover tooltip ---- -->
-  {#if mode === 'landing' && markerHoveredShop && !isMobile}
+  {#if markerHoveredShop && !isMobile && (mode === 'landing' || !pinnedShop)}
     <div
-      class="pointer-events-none fixed z-50 w-64"
+      class="pointer-events-none fixed z-50 w-72"
       style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
     >
-      <div
-        class="bg-base-200/90 border-base-300 rounded-xl border px-3 py-2 shadow-lg backdrop-blur-sm"
-      >
-        <p class="text-sm font-semibold">{markerHoveredShop.name}</p>
-        <p class="text-base-content/60 mt-0.5 text-xs">
-          {markerHoveredShop.address.general.join(' · ')}
-        </p>
-        <p class="text-base-content/40 mt-1 text-xs">{m.globe()} →</p>
-      </div>
+      <ShopCard shop={markerHoveredShop} />
     </div>
   {/if}
 
