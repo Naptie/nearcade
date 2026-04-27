@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { invalidate } from '$app/navigation';
   import {
     emptyGlobeFeatureCollection,
     filterCitiesByProvince,
@@ -14,10 +15,23 @@
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { SvelteMap } from 'svelte/reactivity';
+  import { m } from '$lib/paraglide/messages';
+  import ShopCard from '$lib/components/ShopCard.svelte';
+  import {
+    getShopOpeningHours,
+    isTouchscreen,
+    getGameName,
+    pageTitle,
+    getAddressParts
+  } from '$lib/utils';
+  import { GAMES } from '$lib/constants';
+  import type { Shop, ShopWithExtras } from '$lib/types';
+  import type { PageData } from './$types';
 
+  // ---- Globe layer/source IDs ----
   const GEOJSON_ENDPOINT = `${base}/api/globe/geojson`;
-  const CHINA_ZOOM_THRESHOLD = 2.8;
-  const PROVINCE_ZOOM_THRESHOLD = 4.1;
+  const COUNTRY_ZOOM_THRESHOLD = 3.5;
+  const PROVINCE_ZOOM_THRESHOLD = 4.6;
   const CITY_ZOOM_THRESHOLD = 6.2;
   const COUNTY_ZOOM_THRESHOLD = 7.4;
   const WORLD_SOURCE_ID = 'world-boundaries';
@@ -25,6 +39,14 @@
   const CITY_SOURCE_ID = 'china-city-boundaries';
   const COUNTY_SOURCE_ID = 'china-county-boundaries';
   const HOVER_SOURCE_ID = 'boundary-hover';
+  const SHOPS_SOURCE_ID = 'shops';
+  const SHOPS_LAYER_ID = 'shops-circles';
+  const SHOPS_ACTIVE_LAYER_ID = 'shops-circles-active';
+  const SHOPS_PINNED_LAYER_ID = 'shops-circles-pinned';
+  const SHOPS_NAME_LAYER_ID = 'shops-names';
+  const AMAP_SOURCE_ID = 'amap-satellite';
+  const AMAP_LAYER_ID = 'amap-satellite-layer';
+  const AMAP_ZOOM_THRESHOLD = 9.8;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -38,8 +60,27 @@
   const COUNTY_LINE_LAYER_ID = 'china-county-line';
   const COUNTY_LABEL_LAYER_ID = 'china-county-label';
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
-  const FONT_STACK = ['Open Sans Regular', 'Arial Unicode MS Regular'];
+  const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
+  // Density colour map used by the circle layers (data-driven MapLibre expression)
+  const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
+    'match',
+    ['get', 'density'],
+    1,
+    '#22c55e',
+    2,
+    '#eab308',
+    3,
+    '#f97316',
+    4,
+    '#ef4444',
+    '#6b7280'
+  ];
+
+  // ---- Page data ----
+  let { data }: { data: PageData } = $props();
+
+  // ---- Globe state ----
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -55,14 +96,336 @@
   let activeProvinceAdcode = $state<string | null>(null);
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
-  // The time used to compute the sun's position for the globe light.
   let viewTime = $state(new Date());
 
-  // ---------------------------------------------------------------------------
-  // Sun position helpers (SunCalc algorithm, no external dependency needed).
-  // Returns { azimuthDeg, altitudeDeg } for a given date and observer location.
-  // azimuth is degrees clockwise from north; altitude is degrees above horizon.
-  // ---------------------------------------------------------------------------
+  // ---- Shop data state ----
+  type ShopEntry = {
+    shop: ShopWithExtras;
+    location: { latitude: number; longitude: number };
+  };
+
+  let shopDataResolved = $state<Shop[]>([]);
+  let attendanceDataResolved = new SvelteMap<string, { gameId: number; total: number }[]>();
+  let shops = $state<ShopEntry[] | null>(null);
+  // O(1) lookup by shop key – kept in sync with `shops` in the $effect below
+  const shopLookup = new SvelteMap<string, ShopEntry>();
+
+  const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
+
+  // ---- Pinned / hover shop state ----
+  /** Shop being actively hovered over by the mouse on the map (cleared when mouse leaves). */
+  let markerHoveredShop = $state<ShopWithExtras | null>(null);
+  /** Shop pinned via sidebar or marker click (stays until globe empty-area click or Escape). */
+  let pinnedShop = $state<ShopWithExtras | null>(null);
+
+  let cursorPos = $state({ x: 0, y: 0 });
+  let isMobile = $derived(isTouchscreen());
+  let now = $state(new Date());
+
+  // ---- Sidebar state ----
+  let sidebarOpen = $state(false);
+  let searchQuery = $state('');
+  let selectedTitleIds = $state<number[]>([]);
+  // Map from shop key → card DOM element, used to scroll the pinned card into view
+  const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
+
+  // Progressive loading – how many sidebar cards are mounted in the DOM
+  const PAGE_SIZE = 40;
+  let visibleCount = $state(PAGE_SIZE);
+  let listSentinelEl = $state<HTMLDivElement | undefined>();
+
+  // Reset visible count whenever the filtered list changes
+  $effect(() => {
+    // Access filteredShops to track it as a reactive dependency, then reset the counter
+    const _len = filteredShops?.length ?? 0;
+    void _len;
+    visibleCount = PAGE_SIZE;
+  });
+
+  // IntersectionObserver: load more cards when sentinel enters viewport
+  $effect(() => {
+    const sentinel = listSentinelEl;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          visibleCount =
+            (filteredShops?.length ?? 0) > visibleCount ? visibleCount + PAGE_SIZE : visibleCount;
+        }
+      },
+      { threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
+
+  // ---- Region filter ----
+  type RegionFilter =
+    | { type: 'world' }
+    | { type: 'address'; address: string[] }
+    | { type: 'china' }
+    | { type: 'china-province'; name: string }
+    | { type: 'china-city'; provinceName: string; cityName: string }
+    | { type: 'china-county'; provinceName: string; cityName: string; countyName: string };
+
+  let regionFilter = $state<RegionFilter>({ type: 'world' });
+
+  const regionTitle = $derived.by(() => {
+    switch (regionFilter.type) {
+      case 'world':
+        return m.world();
+      case 'address':
+        return regionFilter.address[regionFilter.address.length - 1];
+      case 'china':
+        return '中国';
+      case 'china-province':
+        return regionFilter.name;
+      case 'china-city':
+        return regionFilter.cityName;
+      case 'china-county':
+        return regionFilter.countyName;
+    }
+  });
+
+  const regionHierarchy = $derived.by((): string[] => {
+    switch (regionFilter.type) {
+      case 'world':
+        return [];
+      case 'address':
+        return getAddressParts(regionFilter.address).slice(0, -1);
+      case 'china':
+        return [];
+      case 'china-province':
+        return ['中国'];
+      case 'china-city':
+        return ['中国', regionFilter.provinceName];
+      case 'china-county':
+        return ['中国', regionFilter.provinceName, regionFilter.cityName];
+    }
+  });
+
+  // ---- Filtered shops for the sidebar list ----
+  const filteredShops = $derived.by(() => {
+    if (!shops) return null;
+    const q = searchQuery.trim().toLowerCase();
+    return shops.filter(({ shop }) => {
+      const general = shop.address.general;
+      let matchesRegion = false;
+      switch (regionFilter.type) {
+        case 'world':
+          matchesRegion = true;
+          break;
+        case 'address':
+          matchesRegion = regionFilter.address.every(
+            (v, i) => general.length <= i || v.toLowerCase() === general[i].toLowerCase()
+          );
+          break;
+        case 'china':
+          matchesRegion = general[0] === '中国';
+          break;
+        case 'china-province':
+          matchesRegion = general[0] === '中国' && general[1] === regionFilter.name;
+          break;
+        case 'china-city':
+          matchesRegion =
+            general[0] === '中国' &&
+            general[1] === regionFilter.provinceName &&
+            general[2] === regionFilter.cityName;
+          break;
+        case 'china-county':
+          matchesRegion =
+            general[0] === '中国' &&
+            general[1] === regionFilter.provinceName &&
+            general[2] === regionFilter.cityName &&
+            general[3] === regionFilter.countyName;
+          break;
+      }
+      if (!matchesRegion) return false;
+      if (q) {
+        try {
+          const nameMatch = shop.name.toLowerCase().includes(q);
+          const addrMatch = shop.address.general.some((v) => v.toLowerCase().includes(q));
+          if (!nameMatch && !addrMatch) return false;
+        } catch {
+          return false;
+        }
+      }
+      if (selectedTitleIds.length > 0) {
+        if (!selectedTitleIds.every((tid) => shop.games.some((g) => g.titleId === tid)))
+          return false;
+      }
+      return true;
+    });
+  });
+
+  // ---- Active circle overlay: hover and pinned filters ----
+  $effect(() => {
+    const key = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
+    const instance = map;
+    if (!instance?.getLayer(SHOPS_ACTIVE_LAYER_ID)) return;
+    instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], key]);
+  });
+
+  $effect(() => {
+    const key = pinnedShop ? getShopKey(pinnedShop) : '';
+    const instance = map;
+    if (!instance?.getLayer(SHOPS_PINNED_LAYER_ID)) return;
+    instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], key]);
+  });
+
+  // ---- Shop data processing ----
+  $effect(() => {
+    data.shopData.then((resolved) => {
+      shopDataResolved = resolved;
+    });
+    data.attendanceData.then((resolved) => {
+      attendanceDataResolved.clear();
+      for (const [k, v] of resolved) attendanceDataResolved.set(k, v);
+    });
+  });
+
+  const getShopDensity = (shop: Omit<ShopWithExtras, 'density'>): number => {
+    const oh = shop.openingHoursParsed;
+    if (!oh || now < oh.openTolerated || now > oh.closeTolerated) return 0;
+    const density = shop.games
+      .reduce((acc, game) => {
+        if (acc.has(game.titleId)) {
+          acc.get(game.titleId)!.push(game);
+        } else {
+          acc.set(game.titleId, [game]);
+        }
+        return acc;
+      }, new Map<number, typeof shop.games>())
+      .entries()
+      .map(([, games]) => {
+        const attendances = shop.attendances.reduce((sum, att) => {
+          if (games.find((g) => g.gameId === att.gameId)) return sum + att.total;
+          return sum;
+        }, 0);
+        const positions =
+          games.reduce((sum, g) => sum + g.quantity, 0) *
+          (GAMES.find((game) => game.id === games[0].titleId)?.seats || 1);
+        return attendances / positions;
+      })
+      .reduce((max, curr) => (isNaN(curr) ? max : Math.max(max, curr)), 0);
+    if (!isFinite(density) || isNaN(density)) return 0;
+    switch (true) {
+      case density < 0.1:
+        return 1;
+      case density < 1:
+        return 2;
+      case density < 2:
+        return 3;
+      default:
+        return 4;
+    }
+  };
+
+  $effect(() => {
+    if (!shopDataResolved.length) return;
+    const att = attendanceDataResolved;
+    const nextShops = shopDataResolved.map((shop) => {
+      const attendances = att.get(getShopKey(shop)) ?? [];
+      const openingHoursParsed = getShopOpeningHours(shop);
+      const currentAttendance = attendances.reduce((s, a) => s + a.total, 0);
+      const shopBase = { ...shop, attendances, openingHoursParsed, currentAttendance, density: 0 };
+      return {
+        shop: { ...shopBase, density: getShopDensity(shopBase) },
+        location: {
+          latitude: shop.location.coordinates[1],
+          longitude: shop.location.coordinates[0]
+        }
+      };
+    });
+    shops = nextShops;
+    shopLookup.clear();
+    for (const entry of nextShops) shopLookup.set(getShopKey(entry.shop), entry);
+  });
+
+  // ---- Sync shop GeoJSON source whenever shops change ----
+  $effect(() => {
+    const instance = map;
+    const shopsData = shops;
+    if (!instance || !shopsData) return;
+    const source = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData({
+      type: 'FeatureCollection',
+      features: shopsData.map(({ shop, location }) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [location.longitude, location.latitude] },
+        properties: { key: getShopKey(shop), density: shop.density, name: shop.name }
+      }))
+    });
+  });
+
+  // ---- Fly to a shop on the map ----
+  const flyToShop = (entry: ShopEntry) => {
+    const instance = map;
+    if (!instance) return;
+    instance.flyTo({
+      center: [entry.location.longitude, entry.location.latitude],
+      zoom: Math.max(instance.getZoom(), 10),
+      duration: 1200
+    });
+  };
+
+  // ---- Pin a shop (from sidebar click or marker click) ----
+  const pinShop = (shopEntry: ShopEntry) => {
+    pinnedShop = shopEntry.shop;
+    markerHoveredShop = null; // clear hover state when pinning
+    flyToShop(shopEntry);
+    // On mobile: open the sidebar so the user can see the interactive card
+    if (isMobile) sidebarOpen = true;
+    // Scroll the pinned card into view after the next tick
+    requestAnimationFrame(() => {
+      cardRefs.get(getShopKey(shopEntry.shop))?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
+    });
+  };
+
+  // ---- Switch regionFilter to deepest region that contains a shop ----
+  const applyShopRegionFilter = (shop: ShopWithExtras) => {
+    const general = shop.address.general;
+    if (!general.length) {
+      regionFilter = { type: 'world' };
+      return;
+    }
+    // if (general[0] === '中国') {
+    //   if (general[3]) {
+    //     regionFilter = {
+    //       type: 'china-county',
+    //       provinceName: general[1] ?? '',
+    //       cityName: general[2] ?? '',
+    //       countyName: general[3]
+    //     };
+    //   } else if (general[2]) {
+    //     regionFilter = {
+    //       type: 'china-city',
+    //       provinceName: general[1] ?? '',
+    //       cityName: general[2]
+    //     };
+    //   } else if (general[1]) {
+    //     regionFilter = { type: 'china-province', name: general[1] };
+    //   } else {
+    //     regionFilter = { type: 'china' };
+    //   }
+    // } else {
+    regionFilter = { type: 'address', address: general };
+    // }
+  };
+
+  // ---- Check if a shop is visible in the current filtered list ----
+  const isShopInCurrentFilter = (shop: ShopWithExtras): boolean => {
+    const fs = filteredShops;
+    if (!fs) return false;
+    const key = getShopKey(shop);
+    return fs.some(({ shop: s }) => getShopKey(s) === key);
+  };
+
+  // ---- Sun position helpers ----
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const toDeg = (rad: number) => (rad * 180) / Math.PI;
 
@@ -70,40 +433,21 @@
     const MS_PER_DAY = 1e3 * 60 * 60 * 24;
     const J1970 = 2440588;
     const J2000 = 2451545;
-    const e = toRad(23.4397); // obliquity of Earth
-
+    const e = toRad(23.4397);
     const days = date.valueOf() / MS_PER_DAY - 0.5 + J1970 - J2000;
-    // Solar mean anomaly
     const M = toRad(357.5291 + 0.98560028 * days);
-    // Equation of center → ecliptic longitude
     const C = 1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 3e-4 * Math.sin(3 * M);
     const L = M + toRad(C + 102.9372) + Math.PI;
-
-    // Declination (Subsolar Latitude)
     const dec = Math.asin(Math.sin(L) * Math.sin(e));
-    // Right ascension
     const ra = Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L));
-
-    // Greenwich Mean Sidereal Time
     const th0 = toRad(280.16 + 360.9856235 * days);
-
-    // Subsolar Longitude
     const lng = ra - th0;
-
-    // Map absolute Lat/Lng to MapLibre's 3D globe coordinate system:
-    // Invert X, Y, and Z. The previous fix corrected the X/Y plane (directions and poles),
-    // but Z must also be inverted to shift the light 180 degrees to the day-side hemisphere.
-    const x = -Math.cos(dec) * Math.sin(lng);
+    const x = Math.cos(dec) * Math.sin(lng);
     const y = -Math.sin(dec);
     const z = -Math.cos(dec) * Math.cos(lng);
-
     const polar = Math.acos(z);
     const azimuth = Math.atan2(x, y);
-
-    return {
-      azimuthDeg: (toDeg(azimuth) + 360) % 360,
-      polarDeg: toDeg(polar)
-    };
+    return { azimuthDeg: (toDeg(azimuth) + 360) % 360, polarDeg: toDeg(polar) };
   };
 
   const mapStyle = 'https://api.maptiler.com/maps/satellite-v4/style.json?key=NwA6ZENn65hugntUKOHr';
@@ -120,111 +464,63 @@
   ];
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
-  // Tracks the last data reference pushed to each MapLibre GeoJSON source so that
-  // setData is skipped when the reference has not changed (avoids worker-thread
-  // race conditions that arise when setData is called immediately after addSource
-  // or called many times with the same data).
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
 
-  // MapLibre light position: [radius, azimuth_deg, polar_angle_deg].
   const sunPosition = $derived.by(() => {
     const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
-    return {
-      azimuth: azimuthDeg,
-      polar: polarDeg
-    };
+    return { azimuth: azimuthDeg, polar: polarDeg };
   });
 
-  // Keep backwards-compat aliases used by syncScene.
   const a = $derived(sunPosition.azimuth);
   const p = $derived(sunPosition.polar);
 
   const visibleCityData = $derived.by(() => {
-    if (!activeProvinceAdcode) {
-      return emptyData;
-    }
-
+    if (!activeProvinceAdcode) return emptyData;
     return filterCitiesByProvince(cityData, activeProvinceAdcode);
   });
 
-  const activeProvinceName = $derived.by(() => {
-    if (!activeProvinceAdcode) {
-      return null;
-    }
-
-    return (
+  const activeProvinceName = $derived.by(
+    () =>
       provinceData.features.find(
         (feature: GlobeFeature) => feature.properties?.adcode === activeProvinceAdcode
       )?.properties?.name ?? null
-    );
-  });
+  );
 
-  const activeCityName = $derived.by(() => {
-    if (!activeCityAdcode) {
-      return null;
-    }
-
-    return (
+  const activeCityName = $derived.by(
+    () =>
       visibleCityData.features.find(
         (feature: GlobeFeature) => feature.properties?.adcode === activeCityAdcode
       )?.properties?.name ?? null
-    );
-  });
+  );
 
   const currentDetailLevel = $derived.by(() => {
-    if (countyData.features.length > 0 && viewZoom >= COUNTY_ZOOM_THRESHOLD) {
-      return 'Counties';
-    }
-
-    if (visibleCityData.features.length > 0 && viewZoom >= CITY_ZOOM_THRESHOLD) {
-      return 'Cities';
-    }
-
-    if (chinaActive) {
-      return 'Provinces';
-    }
-
+    if (countyData.features.length > 0 && viewZoom >= COUNTY_ZOOM_THRESHOLD) return 'Counties';
+    if (visibleCityData.features.length > 0 && viewZoom >= CITY_ZOOM_THRESHOLD) return 'Cities';
+    if (chinaActive) return 'Provinces';
     return 'World';
   });
 
   const focusPath = $derived.by(() => {
     const parts = ['World'];
-
-    if (chinaActive) {
-      parts.push('China');
-    }
-
-    if (activeProvinceName) {
-      parts.push(activeProvinceName);
-    }
-
-    if (activeCityName) {
-      parts.push(activeCityName);
-    }
-
+    if (chinaActive) parts.push('China');
+    if (activeProvinceName) parts.push(activeProvinceName);
+    if (activeCityName) parts.push(activeCityName);
     return parts.join(' / ');
   });
 
-  const hoveredLabel = $derived.by(() => {
-    if (!hoveredFeature?.properties) {
-      return null;
-    }
-
-    return `${hoveredFeature.properties.name} (${hoveredFeature.properties.level})`;
-  });
+  const hoveredLabel = $derived.by(() =>
+    hoveredFeature?.properties
+      ? `${hoveredFeature.properties.name} (${hoveredFeature.properties.level})`
+      : null
+  );
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({
-      anchor: 'map',
-      position: [100, azimuth, polar]
-    });
-    instance.setSky({
-      'atmosphere-blend': atmosphereBlend
-    });
+    instance.setLight({ anchor: 'map', position: [100, azimuth, polar] });
+    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
+    instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
-  // Format a Date as the value string for <input type="datetime-local">.
   const toDatetimeLocalValue = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -234,17 +530,12 @@
     const query = parentAdcode
       ? `dataset=${encodeURIComponent(dataset)}&parentAdcode=${encodeURIComponent(parentAdcode)}`
       : `dataset=${encodeURIComponent(dataset)}`;
-
     return `${GEOJSON_ENDPOINT}?${query}`;
   };
 
   const fetchGeoJson = async (dataset: GlobeDataset, parentAdcode?: string) => {
     const response = await fetch(buildGeoJsonUrl(dataset, parentAdcode));
-
-    if (!response.ok) {
-      throw new Error(`Failed to load ${dataset}`);
-    }
-
+    if (!response.ok) throw new Error(`Failed to load ${dataset}`);
     return (await response.json()) as GlobeFeatureCollection;
   };
 
@@ -257,25 +548,17 @@
     data: GlobeFeatureCollection
   ) => {
     const source = getGeoJsonSource(instance, sourceId);
-
     if (!source) {
-      // Passing data to addSource means the worker processes it immediately.
-      // Calling setData again in the same synchronous turn causes a worker race;
-      // caching the reference here prevents the redundant call below.
       instance.addSource(sourceId, { type: 'geojson', data, generateId: true });
       sourceDataRevisions.set(sourceId, data);
       return;
     }
-
     if (sourceDataRevisions.get(sourceId) === data) return;
     sourceDataRevisions.set(sourceId, data);
     try {
       source.setData(data);
     } catch (e) {
       console.error(e);
-      // The GeoJSON worker may not be fully initialized yet (e.g. immediately
-      // after a style reload or fitBounds). Roll back the cache so the next
-      // syncMapData call retries the update once the worker is ready.
       sourceDataRevisions.delete(sourceId);
     }
   };
@@ -291,8 +574,37 @@
     upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
-    // Hover source always starts empty; flushHoverToMap fills it on demand.
     upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
+
+    // ---- AMap raster source and layer (added first so it renders below vector overlays) ----
+    if (!instance.getSource(AMAP_SOURCE_ID)) {
+      instance.addSource(AMAP_SOURCE_ID, {
+        type: 'raster',
+        tiles: [
+          'https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+          'https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+          'https://webst03.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+          'https://webst04.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
+        ],
+        tileSize: 256
+      });
+    }
+    if (!instance.getLayer(AMAP_LAYER_ID)) {
+      instance.addLayer({
+        id: AMAP_LAYER_ID,
+        type: 'raster',
+        source: AMAP_SOURCE_ID,
+        layout: { visibility: 'none' }
+      });
+    }
+
+    // ---- Shop points source (empty initially, filled by $effect when shops load) ----
+    if (!instance.getSource(SHOPS_SOURCE_ID)) {
+      instance.addSource(SHOPS_SOURCE_ID, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+    }
 
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -333,19 +645,17 @@
         id: WORLD_LABEL_LAYER_ID,
         type: 'symbol',
         source: WORLD_SOURCE_ID,
+        minzoom: COUNTRY_ZOOM_THRESHOLD,
         layout: {
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 1, 9, 3, 10, 5, 11],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 1, 10, 3, 11, 5, 12],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.35,
-          // Allow only one label per unique name — features with the same name
-          // compete and the renderer keeps only one visible placement.
           'text-allow-overlap': false,
           'text-ignore-placement': false,
           'symbol-avoid-edges': true,
-          // Sort by featureId so a consistent winner is picked among duplicates.
           'symbol-sort-key': ['get', 'featureId']
         },
         paint: {
@@ -396,7 +706,7 @@
           visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 6, 12, 8, 13],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 8, 14],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.3
@@ -449,7 +759,7 @@
           visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 10, 7.5, 12, 9, 13],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 7.5, 13, 9, 14],
           'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.3
@@ -473,7 +783,7 @@
             'case',
             ['boolean', ['feature-state', 'hovered'], false],
             'rgba(255,255,255,0.18)',
-            '#f59e0b'
+            '#ffffff'
           ],
           'fill-opacity': ['case', ['boolean', ['feature-state', 'hovered'], false], 0.55, 0.05]
         }
@@ -487,7 +797,7 @@
         source: COUNTY_SOURCE_ID,
         layout: { visibility: 'none' },
         paint: {
-          'line-color': 'rgba(245, 158, 11, 0.4)',
+          'line-color': 'rgba(247, 99, 224, 0.4)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 10, 1.2]
         }
       });
@@ -502,8 +812,8 @@
           visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
-          'text-size': ['interpolate', ['linear'], ['zoom'], 7, 9, 9.5, 11, 11, 12],
-          'text-max-width': 7,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 7, 10, 9.5, 12, 11, 13],
+          'text-max-width': 8,
           'text-variable-anchor': ['center', 'top', 'bottom'],
           'text-radial-offset': 0.25
         },
@@ -515,38 +825,99 @@
       });
     }
 
-    // Hover highlight is now done via feature-state on the fill layers above.
-    // Keep the outline-only layer for the bright border around the hovered region.
     if (!instance.getLayer(HOVER_LINE_LAYER_ID)) {
       instance.addLayer({
         id: HOVER_LINE_LAYER_ID,
         type: 'line',
         source: HOVER_SOURCE_ID,
         layout: { visibility: 'none' },
+        paint: { 'line-color': 'rgba(255,255,255,0.3)', 'line-width': 1 }
+      });
+    }
+
+    // ---- Shop circle layers (added AFTER boundary layers so they render on top) ----
+    if (!instance.getLayer(SHOPS_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_LAYER_ID,
+        type: 'circle',
+        source: SHOPS_SOURCE_ID,
         paint: {
-          'line-color': 'rgba(255,255,255,0.3)',
-          'line-width': 1
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 3, 6, 5, 10, 7, 14, 10],
+          'circle-color': DENSITY_COLOR_EXPR,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': 'rgba(255,255,255,0.6)',
+          'circle-opacity': 0.9
+        }
+      });
+    }
+
+    // Hover highlight (white semi-transparent ring, slightly enlarged)
+    if (!instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_ACTIVE_LAYER_ID,
+        type: 'circle',
+        source: SHOPS_SOURCE_ID,
+        filter: ['==', ['get', 'key'], ''],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 6, 8, 10, 11, 14, 15],
+          'circle-color': DENSITY_COLOR_EXPR,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'rgba(255,255,255,0.75)',
+          'circle-opacity': 1
+        }
+      });
+    }
+
+    // Pinned highlight (amber/gold ring, largest size)
+    if (!instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_PINNED_LAYER_ID,
+        type: 'circle',
+        source: SHOPS_SOURCE_ID,
+        filter: ['==', ['get', 'key'], ''],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 7, 6, 11, 10, 14, 14, 18],
+          'circle-color': DENSITY_COLOR_EXPR,
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#fbbf24',
+          'circle-opacity': 1
+        }
+      });
+    }
+
+    // Shop name labels (visible at high zoom)
+    if (!instance.getLayer(SHOPS_NAME_LAYER_ID)) {
+      instance.addLayer({
+        id: SHOPS_NAME_LAYER_ID,
+        type: 'symbol',
+        source: SHOPS_SOURCE_ID,
+        minzoom: 9.5,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': FONT_STACK,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 9.5, 12, 11, 13, 12, 14],
+          'text-offset': [0, 1],
+          'text-anchor': 'top',
+          'text-optional': true,
+          'text-max-width': 12
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.8)',
+          'text-halo-width': 1.2
         }
       });
     }
   };
 
-  // Tracks the MapLibre internal id + source of the currently-hovered feature so
-  // we can clear feature-state when the pointer moves away.
   let activeFeatureState: { id: string | number; source: string } | null = null;
 
-  // Update hover highlight via feature-state (paints directly on tiles — covers
-  // the entire MultiPolygon regardless of viewport clipping) plus the outline
-  // source for the bright border.
   const flushHoverToMap = (instance: maplibregl.Map, feature: GlobeFeature | null) => {
-    // Clear previous feature-state.
     if (activeFeatureState) {
       instance.setFeatureState(activeFeatureState, { hovered: false });
       activeFeatureState = null;
     }
-
     if (feature) {
-      // feature.id is the MapLibre-assigned numeric id (requires generateId: true on source).
       const fid = (feature as unknown as { id?: string | number }).id;
       const sourceId =
         feature.properties?.dataset === 'world'
@@ -556,14 +927,11 @@
             : feature.properties?.dataset === 'china-cities'
               ? CITY_SOURCE_ID
               : COUNTY_SOURCE_ID;
-
       if (fid !== undefined) {
         activeFeatureState = { id: fid, source: sourceId };
         instance.setFeatureState(activeFeatureState, { hovered: true });
       }
     }
-
-    // Also push geometry to the outline-only hover source.
     const source = getGeoJsonSource(instance, HOVER_SOURCE_ID);
     if (source) {
       const data: GlobeFeatureCollection = feature
@@ -581,10 +949,9 @@
       try {
         source.setData(data);
       } catch {
-        // worker not ready; ignore
+        // worker not ready
       }
     }
-
     setLayerVisibility(instance, HOVER_LINE_LAYER_ID, feature !== null);
   };
 
@@ -596,15 +963,9 @@
 
     const showProvinceLayers = chinaActive && provinceData.features.length > 0;
     const showCityLayers =
-      showProvinceLayers &&
-      visibleCityData.features.length > 0 &&
-      Boolean(activeProvinceAdcode) &&
-      viewZoom >= CITY_ZOOM_THRESHOLD;
+      showProvinceLayers && visibleCityData.features.length > 0 && Boolean(activeProvinceAdcode);
     const showCountyLayers =
-      showCityLayers &&
-      countyData.features.length > 0 &&
-      Boolean(activeCityAdcode) &&
-      viewZoom >= COUNTY_ZOOM_THRESHOLD;
+      showCityLayers && countyData.features.length > 0 && Boolean(activeCityAdcode);
 
     setLayerVisibility(instance, PROVINCE_FILL_LAYER_ID, showProvinceLayers);
     setLayerVisibility(instance, PROVINCE_LINE_LAYER_ID, showProvinceLayers);
@@ -616,8 +977,6 @@
     setLayerVisibility(instance, COUNTY_LINE_LAYER_ID, showCountyLayers);
     setLayerVisibility(instance, COUNTY_LABEL_LAYER_ID, showCountyLayers);
 
-    // --- Feature-level filters to hide parent region when drilled down ---
-    // Hide China polygon from world layers when province detail is active.
     const worldFilter: maplibregl.FilterSpecification | null = showProvinceLayers
       ? ['!=', ['get', 'isChina'], true]
       : null;
@@ -625,7 +984,6 @@
       if (instance.getLayer(layerId)) instance.setFilter(layerId, worldFilter);
     }
 
-    // Hide the active province polygon when city detail is active.
     const provinceFilter: maplibregl.FilterSpecification | null =
       showCityLayers && activeProvinceAdcode
         ? ['!=', ['get', 'adcode'], activeProvinceAdcode]
@@ -638,12 +996,14 @@
       if (instance.getLayer(layerId)) instance.setFilter(layerId, provinceFilter);
     }
 
-    // Hide the active city polygon when county detail is active.
     const cityFilter: maplibregl.FilterSpecification | null =
       showCountyLayers && activeCityAdcode ? ['!=', ['get', 'adcode'], activeCityAdcode] : null;
     for (const layerId of [CITY_FILL_LAYER_ID, CITY_LINE_LAYER_ID, CITY_LABEL_LAYER_ID]) {
       if (instance.getLayer(layerId)) instance.setFilter(layerId, cityFilter);
     }
+
+    // Switch to AMap satellite tiles when zoomed in over China
+    setLayerVisibility(instance, AMAP_LAYER_ID, chinaActive && viewZoom >= AMAP_ZOOM_THRESHOLD);
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
@@ -653,57 +1013,38 @@
       PROVINCE_FILL_LAYER_ID,
       WORLD_FILL_LAYER_ID
     ].filter((layerId) => instance.getLayer(layerId));
-
-    if (layers.length === 0) {
-      return null;
-    }
-
+    if (layers.length === 0) return null;
     const [feature] = instance.queryRenderedFeatures(point, { layers });
-
     return (feature as unknown as GlobeFeature | undefined) ?? null;
   };
 
   const fitToFeature = (instance: maplibregl.Map, feature: GlobeFeature, maxZoom: number) => {
     const bounds = getFeatureBounds(feature);
-
-    if (!bounds) {
-      return;
-    }
-
+    if (!bounds) return;
     instance.fitBounds(bounds, {
       duration: 1200,
       maxZoom,
-      padding: {
-        top: 80,
-        right: 80,
-        bottom: 80,
-        left: 80
-      }
+      padding: { top: 80, right: 80, bottom: 80, left: 80 }
     });
   };
 
   const ensureCountyData = async (parentAdcode: string) => {
     const cached = countyCache[parentAdcode];
-
     if (cached) {
       countyData = cached;
       countyStatus = 'ready';
       return;
     }
-
     countyStatus = 'loading';
-
     try {
       const data = await fetchGeoJson('china-counties', parentAdcode);
       countyCache[parentAdcode] = data;
-
       if (activeCityAdcode === parentAdcode) {
         countyData = data;
         countyStatus = 'ready';
       }
     } catch (error) {
       console.error('Failed to load county GeoJSON:', error);
-
       if (activeCityAdcode === parentAdcode) {
         countyData = emptyGlobeFeatureCollection();
         countyStatus = 'error';
@@ -715,13 +1056,10 @@
     viewZoom = instance.getZoom();
     const point = instance.project(instance.getCenter());
     const centeredFeature = getTopFeatureAtPoint(instance, point);
-
     const isCenterInChina =
       centeredFeature?.properties?.dataset?.startsWith('china-') ||
       isChinaWorldFeature(centeredFeature);
-
-    const nextChinaActive = !!(viewZoom >= CHINA_ZOOM_THRESHOLD && isCenterInChina);
-
+    const nextChinaActive = !!(viewZoom >= COUNTRY_ZOOM_THRESHOLD && isCenterInChina);
     chinaActive = nextChinaActive;
 
     if (!nextChinaActive) {
@@ -747,14 +1085,13 @@
             nextCityAdcode =
               getCountyParentAdcode(centeredFeature as unknown as GlobeFeature) ?? null;
           } else if (dataset === 'china-counties') {
-            // Counties fallback to parentAdcode for their city
             nextCityAdcode = centeredFeature.properties?.parentAdcode ?? null;
           }
         }
       }
     }
-    const provinceChanged = nextProvinceAdcode !== activeProvinceAdcode;
 
+    const provinceChanged = nextProvinceAdcode !== activeProvinceAdcode;
     if (provinceChanged) {
       activeProvinceAdcode = nextProvinceAdcode;
       activeCityAdcode = null;
@@ -763,7 +1100,6 @@
     }
 
     const cityChanged = nextCityAdcode !== activeCityAdcode;
-
     if (cityChanged || provinceChanged) {
       activeCityAdcode = nextCityAdcode ?? null;
       countyData = emptyGlobeFeatureCollection();
@@ -771,7 +1107,6 @@
     }
 
     syncMapData(instance);
-
     if (viewZoom >= COUNTY_ZOOM_THRESHOLD && nextCityAdcode) {
       void ensureCountyData(nextCityAdcode);
     }
@@ -780,19 +1115,16 @@
   const loadBaseGeoJson = async () => {
     geojsonStatus = 'loading';
     geojsonError = null;
-
     try {
       const [nextWorldData, nextProvinceData, nextCityData] = await Promise.all([
         fetchGeoJson('world'),
         fetchGeoJson('china-provinces'),
         fetchGeoJson('china-cities')
       ]);
-
       worldData = nextWorldData;
       provinceData = nextProvinceData;
       cityData = nextCityData;
       geojsonStatus = 'ready';
-
       if (map?.isStyleLoaded()) {
         ensureMapLayers(map);
         syncMapData(map);
@@ -808,14 +1140,11 @@
   $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-
     syncScene(instance);
     ensureMapLayers(instance);
     syncMapData(instance);
   });
 
-  // Re-apply light whenever viewTime or center changes, independently of
-  // the map/style-load effect so time-control updates are always reflected.
   $effect(() => {
     const instance = map;
     const az = a;
@@ -823,6 +1152,49 @@
     if (!instance?.isStyleLoaded()) return;
     instance.setLight({ anchor: 'map', position: [100, az, po] });
   });
+
+  // ---- Region filter helpers ----
+  const getProvinceNameByAdcode = (adcode: string | undefined) =>
+    adcode
+      ? (provinceData.features.find((f: GlobeFeature) => f.properties?.adcode === adcode)
+          ?.properties?.name ?? '')
+      : '';
+
+  const getCityNameByAdcode = (adcode: string | undefined) =>
+    adcode
+      ? (cityData.features.find((f: GlobeFeature) => f.properties?.adcode === adcode)?.properties
+          ?.name ?? '')
+      : '';
+
+  const applyRegionFilter = (feature: GlobeFeature) => {
+    const props = feature.properties;
+    if (!props) return;
+
+    if (props.dataset === 'world') {
+      regionFilter = props.isChina ? { type: 'china' } : { type: 'address', address: [props.name] };
+      return;
+    }
+    if (props.dataset === 'china-provinces') {
+      regionFilter = { type: 'china-province', name: props.name };
+      return;
+    }
+    if (props.dataset === 'china-cities') {
+      regionFilter = {
+        type: 'china-city',
+        provinceName: getProvinceNameByAdcode(props.provinceAdcode),
+        cityName: props.name
+      };
+      return;
+    }
+    if (props.dataset === 'china-counties') {
+      regionFilter = {
+        type: 'china-county',
+        provinceName: getProvinceNameByAdcode(props.provinceAdcode),
+        cityName: getCityNameByAdcode(props.parentAdcode),
+        countyName: props.name
+      };
+    }
+  };
 
   onMount(() => {
     if (!mapContainer) return;
@@ -837,13 +1209,38 @@
     instance.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     const syncStyle = () => {
-      // A style reload removes all sources; reset the cache so the fresh addSource
-      // calls in ensureMapLayers are not mistakenly treated as no-ops.
       sourceDataRevisions.clear();
       syncScene(instance);
       ensureMapLayers(instance);
       syncMapData(instance);
       syncDrilldown(instance);
+      // Re-populate shop GeoJSON after style reload
+      const shopsData = shops;
+      if (shopsData) {
+        const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+        if (src) {
+          src.setData({
+            type: 'FeatureCollection',
+            features: shopsData.map(({ shop, location }) => ({
+              type: 'Feature' as const,
+              geometry: {
+                type: 'Point' as const,
+                coordinates: [location.longitude, location.latitude]
+              },
+              properties: { key: getShopKey(shop), density: shop.density, name: shop.name }
+            }))
+          });
+        }
+      }
+      // Restore hover and pinned filters
+      const hoverKey = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
+      if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
+        instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], hoverKey]);
+      }
+      const pinnedKey = pinnedShop ? getShopKey(pinnedShop) : '';
+      if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
+        instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
+      }
     };
 
     const handleMoveEnd = () => {
@@ -853,9 +1250,6 @@
     const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
       const feature = getTopFeatureAtPoint(instance, event.point);
       const newId = feature?.properties?.featureId ?? null;
-      // Skip update when the pointer is still over the same feature; this prevents
-      // a setData call (and the associated worker round-trip) on every pixel of
-      // mouse movement within a polygon.
       if (newId === hoveredFeatureId) return;
       hoveredFeatureId = newId;
       hoveredFeature = feature;
@@ -872,29 +1266,132 @@
     };
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
-      const feature = getTopFeatureAtPoint(instance, event.point);
+      // If a shop circle/label was just clicked, skip – handleShopClick already handled it
+      if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
+      // Clear any pin and hover when clicking on the globe background/boundaries
+      pinnedShop = null;
+      markerHoveredShop = null;
+
+      const feature = getTopFeatureAtPoint(instance, event.point);
       if (!feature?.properties) {
+        regionFilter = { type: 'world' };
+        chinaActive = false;
+        activeProvinceAdcode = null;
+        activeCityAdcode = null;
+        countyData = emptyGlobeFeatureCollection();
+        countyStatus = 'idle';
+        syncMapData(instance);
         return;
       }
 
-      if (feature.properties.dataset === 'world' && feature.properties.isChina) {
-        fitToFeature(instance, feature, 4.4);
+      applyRegionFilter(feature);
+
+      if (feature.properties.dataset === 'world') {
+        if (feature.properties.isChina) {
+          // Zooming into China – show province layer immediately
+          chinaActive = true;
+          activeProvinceAdcode = null;
+          activeCityAdcode = null;
+          countyData = emptyGlobeFeatureCollection();
+          countyStatus = 'idle';
+          syncMapData(instance);
+          fitToFeature(instance, feature, 4.4);
+        } else {
+          // Non-China country – zoom to its bounds (Fix 3)
+          chinaActive = false;
+          activeProvinceAdcode = null;
+          activeCityAdcode = null;
+          countyData = emptyGlobeFeatureCollection();
+          countyStatus = 'idle';
+          syncMapData(instance);
+          fitToFeature(instance, feature, 5.0);
+        }
         return;
       }
 
       if (feature.properties.dataset === 'china-provinces') {
+        // Show city layer for this province immediately (Fix 2)
+        chinaActive = true;
+        activeProvinceAdcode = feature.properties.adcode ?? null;
+        activeCityAdcode = null;
+        countyData = emptyGlobeFeatureCollection();
+        countyStatus = 'idle';
+        syncMapData(instance);
         fitToFeature(instance, feature, 6.4);
         return;
       }
 
       if (feature.properties.dataset === 'china-cities') {
+        const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
+        const prevCityAdcode = activeCityAdcode;
+        chinaActive = true;
+        activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
+        activeCityAdcode = cityAdcode;
+        if (cityAdcode !== prevCityAdcode) {
+          countyData = emptyGlobeFeatureCollection();
+          countyStatus = cityAdcode ? 'loading' : 'idle';
+        }
+        syncMapData(instance);
+        if (cityAdcode) void ensureCountyData(cityAdcode);
         fitToFeature(instance, feature, feature.properties.hasCountyChildren ? 8.2 : 7.2);
         return;
       }
 
       if (feature.properties.dataset === 'china-counties') {
+        chinaActive = true;
+        activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
+        activeCityAdcode = feature.properties.parentAdcode ?? null;
+        syncMapData(instance);
         fitToFeature(instance, feature, 9.5);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      cursorPos = { x: e.clientX, y: e.clientY };
+    };
+
+    // ---- Shop layer interactions ----
+    const handleShopMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
+      instance.getCanvas().style.cursor = 'pointer';
+      if (pinnedShop) return; // keep pinned shop while mouse hovers
+      if (e.features && e.features[0]) {
+        const key = e.features[0].properties?.key as string | undefined;
+        if (key) {
+          const entry = shopLookup.get(key);
+          if (entry) markerHoveredShop = entry.shop;
+        }
+      }
+    };
+
+    const handleShopMouseLeave = () => {
+      instance.getCanvas().style.cursor = '';
+      if (!pinnedShop) markerHoveredShop = null;
+    };
+
+    const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
+      // Multiple layers may fire for the same click (active/pinned circles overlap the base).
+      // Only process the first one.
+      if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
+      (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
+      if (e.features && e.features[0]) {
+        const key = e.features[0].properties?.key as string | undefined;
+        if (key) {
+          const entry = shopLookup.get(key);
+          if (entry) {
+            if (pinnedShop && getShopKey(pinnedShop) === key) {
+              pinnedShop = null; // clicking pinned shop again unpins
+              markerHoveredShop = null;
+            } else {
+              // If the shop is outside the current filtered list, switch to it
+              if (!isShopInCurrentFilter(entry.shop)) {
+                selectedTitleIds = [];
+              }
+              applyShopRegionFilter(entry.shop);
+              pinShop(entry);
+            }
+          }
+        }
       }
     };
 
@@ -903,7 +1400,27 @@
     instance.on('mousemove', handlePointerMove);
     instance.on('mouseout', handleMouseOut);
     instance.on('click', handleClick);
+    instance.on('mousemove', SHOPS_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_LAYER_ID, handleShopClick);
+    instance.on('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
+    instance.on('mousemove', SHOPS_PINNED_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_PINNED_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_PINNED_LAYER_ID, handleShopClick);
+    instance.on('mousemove', SHOPS_NAME_LAYER_ID, handleShopMouseMove);
+    instance.on('mouseleave', SHOPS_NAME_LAYER_ID, handleShopMouseLeave);
+    instance.on('click', SHOPS_NAME_LAYER_ID, handleShopClick);
+    window.addEventListener('mousemove', handleMouseMove);
+
     void loadBaseGeoJson();
+
+    const refreshInterval = setInterval(() => {
+      viewTime = new Date();
+      now = new Date();
+      void invalidate('app:globe-shops');
+    }, 60_000);
 
     return () => {
       instance.off('style.load', syncStyle);
@@ -911,61 +1428,284 @@
       instance.off('mousemove', handlePointerMove);
       instance.off('mouseout', handleMouseOut);
       instance.off('click', handleClick);
+      instance.off('mousemove', SHOPS_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_LAYER_ID, handleShopClick);
+      instance.off('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
+      instance.off('mousemove', SHOPS_PINNED_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_PINNED_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_PINNED_LAYER_ID, handleShopClick);
+      instance.off('mousemove', SHOPS_NAME_LAYER_ID, handleShopMouseMove);
+      instance.off('mouseleave', SHOPS_NAME_LAYER_ID, handleShopMouseLeave);
+      instance.off('click', SHOPS_NAME_LAYER_ID, handleShopClick);
+      window.removeEventListener('mousemove', handleMouseMove);
       instance.remove();
-
-      if (map === instance) {
-        map = undefined;
-      }
+      clearInterval(refreshInterval);
+      if (map === instance) map = undefined;
     };
   });
 </script>
 
-<div class="relative h-screen w-screen overflow-hidden">
-  <div bind:this={mapContainer} class="h-full w-full"></div>
+<svelte:head>
+  <title>{pageTitle(m.globe())}</title>
+</svelte:head>
 
-  <div
-    class="bg-base-200/70 absolute top-3 left-3 z-10 flex max-w-xs min-w-64 flex-col gap-4 rounded p-3 text-sm shadow-lg backdrop-blur-sm"
+<div class="flex h-screen overflow-hidden">
+  <!-- ================================================================
+       Sidebar – always visible on md+, collapsible bottom drawer on mobile
+       ================================================================ -->
+  <aside
+    class="bg-base-200 border-base-300 pointer-events-auto z-20 flex flex-col overflow-hidden border-r shadow-lg transition-transform duration-300 ease-out will-change-transform
+           not-md:fixed not-md:inset-x-0 not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
+           md:relative md:w-96 md:shrink-0 md:translate-y-0"
+    class:not-md:translate-y-full={!sidebarOpen}
+    class:not-md:translate-y-0={sidebarOpen}
   >
-    <div class="flex flex-col gap-1 px-2">
-      <label for="viewtime" class="text-xs leading-none">Time (local)</label>
-      <input
-        type="datetime-local"
-        id="viewtime"
-        class="input input-xs w-full"
-        value={toDatetimeLocalValue(viewTime)}
-        oninput={(e) => {
-          const v = (e.target as HTMLInputElement).value;
-          if (v) viewTime = new Date(v);
-        }}
-      />
-      <button
-        class="btn btn-xs mt-1"
-        onclick={() => {
-          viewTime = new Date();
-        }}>Now</button
-      >
-    </div>
+    <!-- Mobile drag handle -->
+    <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
 
-    <div class="border-base-content/15 flex flex-col gap-1 border-t pt-3 text-xs">
-      <div>View: {currentDetailLevel}</div>
-      <div>Focus: {focusPath}</div>
-      <div>Zoom: {viewZoom.toFixed(2)}</div>
-      {#if hoveredLabel}
-        <div>Hover: {hoveredLabel}</div>
-      {/if}
-      {#if geojsonStatus === 'loading'}
-        <div>Loading boundaries...</div>
-      {/if}
-      {#if countyStatus === 'loading'}
-        <div>Loading county detail...</div>
-      {/if}
-      {#if geojsonError}
-        <div class="text-error">{geojsonError}</div>
-      {/if}
-      <div class="text-base-content/70 pt-1 leading-relaxed">
-        China provinces appear once the camera settles over China. City boundaries follow the
-        centered province, and county detail is fetched only for true city-level regions.
+    <!-- Region header -->
+    <div class="border-base-300 border-b p-4">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
+          {#if regionHierarchy.length > 0}
+            <p class="text-base-content/60 mt-0.5 truncate text-sm">
+              {regionHierarchy.join(' › ')}
+            </p>
+          {/if}
+        </div>
+        <!-- Close button (mobile only) -->
+        <button
+          type="button"
+          class="btn btn-circle btn-ghost btn-sm shrink-0 md:hidden"
+          aria-label={m.close()}
+          onclick={() => (sidebarOpen = false)}
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
     </div>
+
+    <!-- Search + game filters -->
+    <div class="border-base-300 border-b p-3">
+      <div class="flex gap-2">
+        <!-- Game filter dropdown -->
+        <div class="dropdown">
+          <button
+            type="button"
+            tabindex="0"
+            class="btn btn-soft hover:btn-accent"
+            class:btn-primary={selectedTitleIds.length > 0}
+            aria-label={m.filter_by_game_titles()}
+          >
+            <i class="fa-solid fa-filter text-xs"></i>
+            {#if selectedTitleIds.length > 0}
+              <span class="badge badge-xs">{selectedTitleIds.length}</span>
+            {/if}
+          </button>
+          <div
+            role="menu"
+            tabindex="-1"
+            class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
+          >
+            <div class="card-body p-4">
+              <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
+              <div class="space-y-2">
+                {#each GAMES as game (game.id)}
+                  <label class="flex cursor-pointer items-center gap-2 text-nowrap">
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                      checked={selectedTitleIds.includes(game.id)}
+                      onchange={() => {
+                        selectedTitleIds = selectedTitleIds.includes(game.id)
+                          ? selectedTitleIds.filter((id) => id !== game.id)
+                          : [...selectedTitleIds, game.id];
+                      }}
+                    />
+                    <span class="text-sm">{getGameName(game.key)}</span>
+                  </label>
+                {/each}
+              </div>
+              <div class="card-actions mt-2 justify-end">
+                <button
+                  type="button"
+                  class="btn btn-soft hover:btn-error btn-xs"
+                  onclick={() => {
+                    selectedTitleIds = [];
+                  }}
+                  disabled={selectedTitleIds.length === 0}
+                >
+                  <i class="fa-solid fa-trash"></i>
+                  {m.clear_filters()}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search input -->
+        <div class="relative flex-1">
+          <i
+            class="fa-solid fa-search text-base-content/40 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
+          ></i>
+          <input
+            type="text"
+            bind:value={searchQuery}
+            placeholder={m.search_arcades_placeholder()}
+            class="input input-bordered w-full pl-7"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop list -->
+    <div class="flex-1 space-y-2 overflow-y-auto p-3">
+      {#if !shops}
+        <div class="flex justify-center py-8">
+          <span class="loading loading-spinner loading-md"></span>
+        </div>
+      {:else if filteredShops !== null && filteredShops.length === 0}
+        <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
+      {:else if filteredShops !== null}
+        {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
+          {@const cardKey = `${shop.source}-${shop.id}`}
+          {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
+          <div
+            bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
+            class="rounded-xl transition-all {isPinned
+              ? '[&>*:first-child]:not-hover:border-accent/60'
+              : ''}"
+          >
+            <ShopCard
+              {shop}
+              interactive={true}
+              onclick={() => {
+                const entry = shopLookup.get(getShopKey(shop));
+                if (entry) pinShop(entry);
+              }}
+            />
+          </div>
+        {/each}
+        <!-- Sentinel: triggers progressive load when it enters the viewport -->
+        {#if filteredShops.length > visibleCount}
+          <div bind:this={listSentinelEl} class="flex justify-center py-4">
+            <span class="loading loading-spinner loading-sm"></span>
+          </div>
+        {/if}
+      {/if}
+    </div>
+  </aside>
+
+  <!-- ================================================================
+       Map area
+       ================================================================ -->
+  <div class="relative flex-1">
+    <div bind:this={mapContainer} class="h-full w-full"></div>
+
+    <!-- Mobile: sidebar toggle button (always visible at bottom-left) -->
+    <button
+      type="button"
+      class="bg-base-200/80 border-base-300 absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
+      aria-label={m.sidebar()}
+      onclick={() => (sidebarOpen = !sidebarOpen)}
+    >
+      <i class="fa-solid fa-list text-sm"></i>
+      <span class="text-sm font-medium">{m.sidebar()}</span>
+      {#if filteredShops !== null}
+        <span class="badge badge-primary badge-xs">{filteredShops.length}</span>
+      {/if}
+    </button>
+
+    <!-- Dev-only floating control panel -->
+    {#if import.meta.env.DEV}
+      <div
+        class="bg-base-200/70 absolute top-3 left-3 z-10 flex max-w-xs min-w-64 flex-col gap-4 rounded p-3 text-sm shadow-lg backdrop-blur-sm"
+      >
+        <div class="flex flex-col gap-1 px-2">
+          <label for="viewtime" class="text-xs leading-none">Time (local)</label>
+          <input
+            type="datetime-local"
+            id="viewtime"
+            class="input input-xs w-full"
+            value={toDatetimeLocalValue(viewTime)}
+            oninput={(e) => {
+              const v = (e.target as HTMLInputElement).value;
+              if (v) viewTime = new Date(v);
+            }}
+          />
+          <button
+            class="btn btn-xs mt-1"
+            onclick={() => {
+              viewTime = new Date();
+            }}>Now</button
+          >
+        </div>
+
+        <div class="border-base-content/15 flex flex-col gap-1 border-t pt-3 text-xs">
+          <div>View: {currentDetailLevel}</div>
+          <div>Focus: {focusPath}</div>
+          <div>Zoom: {viewZoom.toFixed(2)}</div>
+          {#if hoveredLabel}
+            <div>Hover: {hoveredLabel}</div>
+          {/if}
+          {#if geojsonStatus === 'loading'}
+            <div>Loading boundaries...</div>
+          {/if}
+          {#if countyStatus === 'loading'}
+            <div>Loading county detail...</div>
+          {/if}
+          {#if geojsonError}
+            <div class="text-error">{geojsonError}</div>
+          {/if}
+          <div class="text-base-content/70 pt-1 leading-relaxed">
+            China provinces appear once the camera settles over China. City boundaries follow the
+            centered province, and county detail is fetched only for true city-level regions.
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Desktop: non-interactive hover card follows cursor (only when not pinned) -->
+    {#if markerHoveredShop && !pinnedShop && !isMobile}
+      <div
+        class="pointer-events-none fixed z-50 w-72"
+        style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
+      >
+        <ShopCard shop={markerHoveredShop} />
+      </div>
+    {/if}
+
+    <!-- Desktop: pinned shop interactive card overlay at bottom-right -->
+    {#if pinnedShop && !isMobile}
+      <div class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl">
+        <div class="relative">
+          <button
+            type="button"
+            class="btn btn-circle btn-ghost btn-xs absolute top-2 right-2 z-10"
+            aria-label={m.close()}
+            onclick={() => {
+              pinnedShop = null;
+              markerHoveredShop = null;
+            }}
+          >
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+          <ShopCard shop={pinnedShop} interactive={true} />
+        </div>
+      </div>
+    {/if}
   </div>
+
+  <!-- Mobile sidebar backdrop -->
+  {#if sidebarOpen}
+    <div
+      role="presentation"
+      class="fixed inset-0 z-10 bg-black/40 md:hidden"
+      onclick={() => (sidebarOpen = false)}
+    ></div>
+  {/if}
 </div>
