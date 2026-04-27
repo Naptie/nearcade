@@ -85,6 +85,7 @@
   // ---- Map state ----
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
+  let navigationControl: maplibregl.NavigationControl | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -1264,6 +1265,9 @@
         essential: true
       });
       if (instance.isStyleLoaded()) applyModeLayers(instance, 'fullscreen');
+      if (navigationControl && !instance.hasControl(navigationControl)) {
+        instance.addControl(navigationControl, 'top-right');
+      }
     } else if (currentMode === 'landing') {
       if (wasFullscreen) {
         pinnedShop = null;
@@ -1281,6 +1285,9 @@
       });
       if (instance.isStyleLoaded()) applyModeLayers(instance, 'landing');
       setTimeout(() => startAutoRotation(), wasFullscreen ? 1800 : 100);
+      if (navigationControl && instance.hasControl(navigationControl)) {
+        instance.removeControl(navigationControl);
+      }
     }
     void wasLanding;
   });
@@ -1340,9 +1347,10 @@
     });
     map = instance;
 
-    // Only add NavigationControl in fullscreen mode
+    // Create NavigationControl; add immediately if starting in fullscreen mode
+    navigationControl = new maplibregl.NavigationControl();
     if (mode === 'fullscreen') {
-      instance.addControl(new maplibregl.NavigationControl(), 'top-right');
+      instance.addControl(navigationControl, 'top-right');
     }
 
     const syncStyle = () => {
@@ -1531,11 +1539,22 @@
       }
     };
 
+    // In landing mode, stop auto-rotation while the user is dragging so that
+    // MapLibre's native click-vs-drag detection works correctly.
+    const handleDragStart = () => {
+      if (mode === 'landing') stopAutoRotation();
+    };
+    const handleDragEnd = () => {
+      if (mode === 'landing') startAutoRotation();
+    };
+
     instance.on('style.load', syncStyle);
     instance.on('moveend', handleMoveEnd);
     instance.on('mousemove', handlePointerMove);
     instance.on('mouseout', handleMouseOut);
     instance.on('click', handleClick);
+    instance.on('dragstart', handleDragStart);
+    instance.on('dragend', handleDragEnd);
     for (const layerId of [
       SHOPS_LAYER_ID,
       SHOPS_ACTIVE_LAYER_ID,
@@ -1576,6 +1595,8 @@
       instance.off('mousemove', handlePointerMove);
       instance.off('mouseout', handleMouseOut);
       instance.off('click', handleClick);
+      instance.off('dragstart', handleDragStart);
+      instance.off('dragend', handleDragEnd);
       for (const layerId of [
         SHOPS_LAYER_ID,
         SHOPS_ACTIVE_LAYER_ID,
@@ -1608,10 +1629,7 @@
 
   <!-- ---- Bottom gradient blur (landing mode only) ---- -->
   {#if mode === 'landing'}
-    <div
-      class="pointer-events-none absolute inset-x-0 bottom-0 z-10 mb-[30vh] h-2/5"
-      transition:fade
-    >
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]" transition:fade>
       {#each bottomBlurLayers as layer, index (index)}
         <div
           class="absolute inset-0"
@@ -1624,15 +1642,11 @@
             .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
         ></div>
       {/each}
-      <!-- Solid color gradient at the very bottom for a clean edge -->
+      <!-- Gradient fades from solid bg-base-100 at screen bottom to transparent at top -->
       <div
         class="from-base-100 absolute inset-x-0 bottom-0 h-full bg-linear-to-t to-transparent"
       ></div>
     </div>
-    <div
-      class="bg-base-100 pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30vh]"
-      transition:fade
-    ></div>
   {/if}
 
   <!-- ================================================================

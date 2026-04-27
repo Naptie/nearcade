@@ -10,6 +10,16 @@
   const isGlobeNextPage = $derived(page.url.pathname === resolve('/globe-next'));
 
   const globeMode = $derived<'landing' | 'fullscreen'>(isGlobeNextPage ? 'fullscreen' : 'landing');
+
+  // Prevent the page body from scrolling while on globe pages so that
+  // Svelte transition animations (slide/fade) don't briefly show a scrollbar.
+  $effect(() => {
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = prev;
+    };
+  });
 </script>
 
 <!-- GlobeNextMap is always mounted while navigating between / and /globe-next.
