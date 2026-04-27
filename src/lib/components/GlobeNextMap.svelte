@@ -64,6 +64,10 @@
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
   const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
+  const LANDING_ZOOM = 3.2;
+  const LANDING_ROTATION_SPEED = 0.06; // degrees per second
+  const LANDING_LONGITUDE = 80; // starting longitude
+
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
     'match',
     ['get', 'density'],
@@ -96,13 +100,6 @@
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
 
-  // ---- Landing mode camera params (adjustable via dev panel) ----
-  let landingZoom = $state(3);
-  let landingLatitude = $state(48);
-  let landingPitch = $state(60);
-  let landingRotationSpeed = $state(0.06); // degrees per second
-  let landingLongitude = $state(80); // starting longitude
-
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
   let lastFrameTime = 0;
@@ -119,7 +116,7 @@
       const dt = (timestamp - lastFrameTime) / 1000;
       lastFrameTime = timestamp;
       const center = instance.getCenter();
-      center.lng = (center.lng + landingRotationSpeed * dt * 60) % 360;
+      center.lng = (center.lng + LANDING_ROTATION_SPEED * dt * 60) % 360;
       instance.setCenter(center);
       animationFrameId = requestAnimationFrame(rotate);
     };
@@ -1275,9 +1272,9 @@
         sidebarOpen = false;
       }
       instance.flyTo({
-        center: [landingLongitude, landingLatitude],
-        zoom: landingZoom,
-        pitch: landingPitch,
+        center: [LANDING_LONGITUDE, 0],
+        zoom: LANDING_ZOOM,
+        pitch: 0,
         bearing: 15,
         duration: wasFullscreen ? 1800 : 0,
         essential: true
@@ -1336,9 +1333,9 @@
     const instance = new maplibregl.Map({
       container: mapContainer,
       style: mapStyle,
-      center: [landingLongitude, landingLatitude],
-      zoom: landingZoom,
-      pitch: landingPitch,
+      center: [LANDING_LONGITUDE, 0],
+      zoom: LANDING_ZOOM,
+      pitch: 0,
       bearing: 15
     });
     map = instance;
@@ -1601,11 +1598,7 @@
 <!-- ================================================================
      Fixed globe container – always behind page content
      ================================================================ -->
-<div
-  class="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-  class:h-[70vh]={mode === 'landing'}
-  class:h-screen={mode === 'fullscreen'}
->
+<div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
   <!-- Map canvas fills entire area -->
   <div
     bind:this={mapContainer}
@@ -1615,7 +1608,10 @@
 
   <!-- ---- Bottom gradient blur (landing mode only) ---- -->
   {#if mode === 'landing'}
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/5" transition:fade>
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-10 mb-[30vh] h-2/5"
+      transition:fade
+    >
       {#each bottomBlurLayers as layer, index (index)}
         <div
           class="absolute inset-0"
@@ -1630,9 +1626,13 @@
       {/each}
       <!-- Solid color gradient at the very bottom for a clean edge -->
       <div
-        class="from-base-100 absolute inset-x-0 bottom-0 h-3/4 bg-linear-to-t to-transparent"
+        class="from-base-100 absolute inset-x-0 bottom-0 h-full bg-linear-to-t to-transparent"
       ></div>
     </div>
+    <div
+      class="bg-base-100 pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30vh]"
+      transition:fade
+    ></div>
   {/if}
 
   <!-- ================================================================
@@ -1887,99 +1887,35 @@
       class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded p-3 text-sm shadow-lg backdrop-blur-sm
              {mode === 'fullscreen' ? 'left-99' : 'left-3'}"
     >
-      {#if mode === 'landing'}
-        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Landing Camera</p>
-        <div class="flex flex-col gap-1 px-1">
-          <label class="text-xs" for="dev-zoom">Zoom: {landingZoom.toFixed(2)}</label>
-          <input
-            id="dev-zoom"
-            type="range"
-            min="1"
-            max="5"
-            step="0.05"
-            class="range range-xs"
-            bind:value={landingZoom}
-            oninput={() => {
-              map?.setZoom(landingZoom);
-            }}
-          />
-        </div>
-        <div class="flex flex-col gap-1 px-1">
-          <label class="text-xs" for="dev-lat">Latitude: {landingLatitude.toFixed(1)}°</label>
-          <input
-            id="dev-lat"
-            type="range"
-            min="-30"
-            max="90"
-            step="1"
-            class="range range-xs"
-            bind:value={landingLatitude}
-            oninput={() => {
-              const c = map?.getCenter();
-              if (c) map?.setCenter([c.lng, landingLatitude]);
-            }}
-          />
-        </div>
-        <div class="flex flex-col gap-1 px-1">
-          <label class="text-xs" for="dev-pitch">Pitch: {landingPitch.toFixed(0)}°</label>
-          <input
-            id="dev-pitch"
-            type="range"
-            min="0"
-            max="85"
-            step="1"
-            class="range range-xs"
-            bind:value={landingPitch}
-            oninput={() => {
-              map?.setPitch(landingPitch);
-            }}
-          />
-        </div>
-        <div class="flex flex-col gap-1 px-1">
-          <label class="text-xs" for="dev-speed"
-            >Rotation speed: {landingRotationSpeed.toFixed(3)} °/s</label
-          >
-          <input
-            id="dev-speed"
-            type="range"
-            min="0"
-            max="0.3"
-            step="0.005"
-            class="range range-xs"
-            bind:value={landingRotationSpeed}
-          />
-        </div>
-      {:else}
-        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
-        <div class="flex flex-col gap-1 px-2">
-          <label for="viewtime" class="text-xs leading-none">Time (local)</label>
-          <input
-            type="datetime-local"
-            id="viewtime"
-            class="input input-xs w-full"
-            value={toDatetimeLocalValue(viewTime)}
-            oninput={(e) => {
-              const v = (e.target as HTMLInputElement).value;
-              if (v) viewTime = new Date(v);
-            }}
-          />
-          <button
-            class="btn btn-xs mt-1"
-            onclick={() => {
-              viewTime = new Date();
-            }}>Now</button
-          >
-        </div>
-        <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
-          <div>View: {currentDetailLevel}</div>
-          <div>Focus: {focusPath}</div>
-          <div>Zoom: {viewZoom.toFixed(2)}</div>
-          {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
-          {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}
-          {#if countyStatus === 'loading'}<div>Loading county detail...</div>{/if}
-          {#if geojsonError}<div class="text-error">{geojsonError}</div>{/if}
-        </div>
-      {/if}
+      <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
+      <div class="flex flex-col gap-1 px-2">
+        <label for="viewtime" class="text-xs leading-none">Time (local)</label>
+        <input
+          type="datetime-local"
+          id="viewtime"
+          class="input input-xs w-full"
+          value={toDatetimeLocalValue(viewTime)}
+          oninput={(e) => {
+            const v = (e.target as HTMLInputElement).value;
+            if (v) viewTime = new Date(v);
+          }}
+        />
+        <button
+          class="btn btn-xs mt-1"
+          onclick={() => {
+            viewTime = new Date();
+          }}>Now</button
+        >
+      </div>
+      <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
+        <div>View: {currentDetailLevel}</div>
+        <div>Focus: {focusPath}</div>
+        <div>Zoom: {viewZoom.toFixed(2)}</div>
+        {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
+        {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}
+        {#if countyStatus === 'loading'}<div>Loading county detail...</div>{/if}
+        {#if geojsonError}<div class="text-error">{geojsonError}</div>{/if}
+      </div>
     </div>
   {/if}
 </div>

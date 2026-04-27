@@ -25,6 +25,7 @@
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
+  import { fade, slide } from 'svelte/transition';
 
   let { data }: { data: PageData } = $props();
 
@@ -334,6 +335,7 @@
   <div class="hero pointer-events-none relative min-h-screen">
     <div
       class="pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2"
+      transition:fade
     >
       <LocaleSwitch />
       <FancyButton
@@ -361,7 +363,8 @@
 
     <div class="hero-content my-10 text-center not-sm:px-0">
       <div
-        class="bg-base-100/70 pointer-events-auto flex max-w-fit flex-col gap-6 rounded-2xl px-8 py-6 shadow-lg backdrop-blur-md"
+        class="bg-base-100/70 pointer-events-auto mt-72 flex max-w-fit flex-col gap-6 rounded-3xl px-8 py-6 backdrop-blur-lg transition hover:shadow-xl"
+        transition:slide
       >
         <SiteTitle
           class="text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'
@@ -879,6 +882,7 @@
 
     <div
       class="pointer-events-auto absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2"
+      transition:fade
     >
       <FancyButton
         href={GITHUB_LINK}
