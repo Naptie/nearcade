@@ -1,6 +1,15 @@
 <script lang="ts">
-  import { base } from '$app/paths';
-  import { invalidate } from '$app/navigation';
+  import { base, resolve } from '$app/paths';
+  import { goto, invalidate } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import maplibregl from 'maplibre-gl';
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import { SvelteMap } from 'svelte/reactivity';
+  import { m } from '$lib/paraglide/messages';
+  import ShopCard from '$lib/components/ShopCard.svelte';
+  import { getShopOpeningHours, isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
+  import { GAMES } from '$lib/constants';
+  import type { Shop, ShopWithExtras } from '$lib/types';
   import {
     emptyGlobeFeatureCollection,
     filterCitiesByProvince,
@@ -11,22 +20,15 @@
     type GlobeFeature,
     type GlobeFeatureCollection
   } from '$lib/utils/globeGeojson';
-  import { onMount } from 'svelte';
-  import maplibregl from 'maplibre-gl';
-  import 'maplibre-gl/dist/maplibre-gl.css';
-  import { SvelteMap } from 'svelte/reactivity';
-  import { m } from '$lib/paraglide/messages';
-  import ShopCard from '$lib/components/ShopCard.svelte';
-  import {
-    getShopOpeningHours,
-    isTouchscreen,
-    getGameName,
-    pageTitle,
-    getAddressParts
-  } from '$lib/utils';
-  import { GAMES } from '$lib/constants';
-  import type { Shop, ShopWithExtras } from '$lib/types';
-  import type { PageData } from './$types';
+  import { fade, slide } from 'svelte/transition';
+
+  // ---- Props ----
+  type Props = {
+    mode: 'landing' | 'fullscreen';
+    shopData: Promise<Shop[]>;
+    attendanceData: Promise<Map<string, { gameId: number; total: number }[]>>;
+  };
+  let { mode, shopData, attendanceData }: Props = $props();
 
   // ---- Globe layer/source IDs ----
   const GEOJSON_ENDPOINT = `${base}/api/globe/geojson`;
@@ -62,7 +64,13 @@
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
   const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
-  // Density colour map used by the circle layers (data-driven MapLibre expression)
+  const LANDING_ZOOM = 3.2;
+  const LANDING_PITCH = 15;
+  const LANDING_BEARING = 10 + Math.random() * 10;
+  const LANDING_ROTATION_SPEED = 0.06; // degrees per second
+  const LANDING_LONGITUDE = 80; // starting longitude
+  const LANDING_LATITUDE = 15; // starting latitude
+
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
     'match',
     ['get', 'density'],
@@ -77,12 +85,10 @@
     '#6b7280'
   ];
 
-  // ---- Page data ----
-  let { data }: { data: PageData } = $props();
-
-  // ---- Globe state ----
+  // ---- Map state ----
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
+  let navigationControl: maplibregl.NavigationControl | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -98,6 +104,49 @@
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
 
+  // ---- Auto-rotation ----
+  let animationFrameId: number | null = null;
+  let lastFrameTime = 0;
+
+  const startAutoRotation = () => {
+    if (animationFrameId !== null) return;
+    lastFrameTime = performance.now();
+    const rotate = (timestamp: number) => {
+      const instance = map;
+      if (!instance || mode !== 'landing') {
+        animationFrameId = null;
+        return;
+      }
+      const dt = (timestamp - lastFrameTime) / 1000;
+      lastFrameTime = timestamp;
+      const center = instance.getCenter();
+      center.lng = (center.lng + LANDING_ROTATION_SPEED * dt * 60) % 360;
+      instance.setCenter(center);
+      animationFrameId = requestAnimationFrame(rotate);
+    };
+    animationFrameId = requestAnimationFrame(rotate);
+  };
+
+  const stopAutoRotation = () => {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+  };
+
+  // ---- Gradient blur layers (same pattern as NavigationBar, reversed direction) ----
+  const maxBlurRadius = 64;
+  const blurIterations = 16;
+  const bottomBlurLayers = Array.from({ length: blurIterations }, (_, i) => ({
+    blur: maxBlurRadius / (4 * maxBlurRadius) ** (i / (blurIterations - 1)),
+    maskStops: [
+      Math.max(0, ((i - 2) * 100) / blurIterations),
+      Math.max(0, ((i - 1) * 100) / blurIterations),
+      (i * 100) / blurIterations,
+      ((i + 1) * 100) / blurIterations
+    ]
+  }));
+
   // ---- Shop data state ----
   type ShopEntry = {
     shop: ShopWithExtras;
@@ -107,15 +156,12 @@
   let shopDataResolved = $state<Shop[]>([]);
   let attendanceDataResolved = new SvelteMap<string, { gameId: number; total: number }[]>();
   let shops = $state<ShopEntry[] | null>(null);
-  // O(1) lookup by shop key – kept in sync with `shops` in the $effect below
   const shopLookup = new SvelteMap<string, ShopEntry>();
 
   const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
 
   // ---- Pinned / hover shop state ----
-  /** Shop being actively hovered over by the mouse on the map (cleared when mouse leaves). */
   let markerHoveredShop = $state<ShopWithExtras | null>(null);
-  /** Shop pinned via sidebar or marker click (stays until globe empty-area click or Escape). */
   let pinnedShop = $state<ShopWithExtras | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
@@ -124,25 +170,30 @@
 
   // ---- Sidebar state ----
   let sidebarOpen = $state(false);
+  // ---- Floating sidebar position/size (desktop) ----
+  let sidebarPos = $state({ x: 16, y: 64 });
+  let sidebarSize = $state<{ w: number | undefined; h: number | undefined }>({
+    w: undefined,
+    h: undefined
+  });
+  let isDraggingSidebar = $state(false);
+  let isResizingSidebar = $state(false);
+  let sidebarDragStart = { mx: 0, my: 0, sx: 0, sy: 0 };
+  let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
-  // Map from shop key → card DOM element, used to scroll the pinned card into view
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
-  // Progressive loading – how many sidebar cards are mounted in the DOM
   const PAGE_SIZE = 40;
   let visibleCount = $state(PAGE_SIZE);
   let listSentinelEl = $state<HTMLDivElement | undefined>();
 
-  // Reset visible count whenever the filtered list changes
   $effect(() => {
-    // Access filteredShops to track it as a reactive dependency, then reset the counter
     const _len = filteredShops?.length ?? 0;
     void _len;
     visibleCount = PAGE_SIZE;
   });
 
-  // IntersectionObserver: load more cards when sentinel enters viewport
   $effect(() => {
     const sentinel = listSentinelEl;
     if (!sentinel) return;
@@ -204,7 +255,6 @@
     }
   });
 
-  // ---- Filtered shops for the sidebar list ----
   const filteredShops = $derived.by(() => {
     if (!shops) return null;
     const q = searchQuery.trim().toLowerCase();
@@ -258,7 +308,6 @@
     });
   });
 
-  // ---- Active circle overlay: hover and pinned filters ----
   $effect(() => {
     const key = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
     const instance = map;
@@ -273,12 +322,11 @@
     instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], key]);
   });
 
-  // ---- Shop data processing ----
   $effect(() => {
-    data.shopData.then((resolved) => {
+    shopData.then((resolved) => {
       shopDataResolved = resolved;
     });
-    data.attendanceData.then((resolved) => {
+    attendanceData.then((resolved) => {
       attendanceDataResolved.clear();
       for (const [k, v] of resolved) attendanceDataResolved.set(k, v);
     });
@@ -342,7 +390,6 @@
     for (const entry of nextShops) shopLookup.set(getShopKey(entry.shop), entry);
   });
 
-  // ---- Sync shop GeoJSON source whenever shops change ----
   $effect(() => {
     const instance = map;
     const shopsData = shops;
@@ -359,7 +406,6 @@
     });
   });
 
-  // ---- Fly to a shop on the map ----
   const flyToShop = (entry: ShopEntry) => {
     const instance = map;
     if (!instance) return;
@@ -370,14 +416,11 @@
     });
   };
 
-  // ---- Pin a shop (from sidebar click or marker click) ----
   const pinShop = (shopEntry: ShopEntry) => {
     pinnedShop = shopEntry.shop;
-    markerHoveredShop = null; // clear hover state when pinning
+    markerHoveredShop = null;
     flyToShop(shopEntry);
-    // On mobile: open the sidebar so the user can see the interactive card
     if (isMobile) sidebarOpen = true;
-    // Scroll the pinned card into view after the next tick
     requestAnimationFrame(() => {
       cardRefs.get(getShopKey(shopEntry.shop))?.scrollIntoView({
         behavior: 'smooth',
@@ -386,38 +429,15 @@
     });
   };
 
-  // ---- Switch regionFilter to deepest region that contains a shop ----
   const applyShopRegionFilter = (shop: ShopWithExtras) => {
     const general = shop.address.general;
     if (!general.length) {
       regionFilter = { type: 'world' };
       return;
     }
-    // if (general[0] === '中国') {
-    //   if (general[3]) {
-    //     regionFilter = {
-    //       type: 'china-county',
-    //       provinceName: general[1] ?? '',
-    //       cityName: general[2] ?? '',
-    //       countyName: general[3]
-    //     };
-    //   } else if (general[2]) {
-    //     regionFilter = {
-    //       type: 'china-city',
-    //       provinceName: general[1] ?? '',
-    //       cityName: general[2]
-    //     };
-    //   } else if (general[1]) {
-    //     regionFilter = { type: 'china-province', name: general[1] };
-    //   } else {
-    //     regionFilter = { type: 'china' };
-    //   }
-    // } else {
     regionFilter = { type: 'address', address: general };
-    // }
   };
 
-  // ---- Check if a shop is visible in the current filtered list ----
   const isShopInCurrentFilter = (shop: ShopWithExtras): boolean => {
     const fs = filteredShops;
     if (!fs) return false;
@@ -425,7 +445,55 @@
     return fs.some(({ shop: s }) => getShopKey(s) === key);
   };
 
-  // ---- Sun position helpers ----
+  // ---- Floating sidebar drag / resize (desktop) ----
+  const clampSidebarPos = (x: number, y: number) => ({
+    x: Math.max(0, Math.min(window.innerWidth - sidebarSize.w!, x)),
+    y: Math.max(0, Math.min(window.innerHeight - 60, y))
+  });
+
+  const startSidebarDrag = (e: PointerEvent) => {
+    if (isMobile) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    isDraggingSidebar = true;
+    sidebarDragStart = { mx: e.clientX, my: e.clientY, sx: sidebarPos.x, sy: sidebarPos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+
+  const moveSidebarDrag = (e: PointerEvent) => {
+    if (!isDraggingSidebar) return;
+    const nx = sidebarDragStart.sx + e.clientX - sidebarDragStart.mx;
+    const ny = sidebarDragStart.sy + e.clientY - sidebarDragStart.my;
+    sidebarPos = clampSidebarPos(nx, ny);
+  };
+
+  const stopSidebarDrag = () => {
+    isDraggingSidebar = false;
+  };
+
+  const startSidebarResize = (e: PointerEvent) => {
+    if (isMobile) return;
+    isResizingSidebar = true;
+    sidebarResizeStart = { mx: e.clientX, my: e.clientY, sw: sidebarSize.w!, sh: sidebarSize.h! };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+
+  const moveSidebarResize = (e: PointerEvent) => {
+    if (!isResizingSidebar) return;
+    const nw = Math.max(280, sidebarResizeStart.sw + e.clientX - sidebarResizeStart.mx);
+    const nh = Math.max(300, sidebarResizeStart.sh + e.clientY - sidebarResizeStart.my);
+    sidebarSize = {
+      w: Math.min(window.innerWidth - sidebarPos.x, nw),
+      h: Math.min(window.innerHeight - sidebarPos.y, nh)
+    };
+  };
+
+  const stopSidebarResize = () => {
+    isResizingSidebar = false;
+  };
+
+  // ---- Sun position ----
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const toDeg = (rad: number) => (rad * 180) / Math.PI;
 
@@ -569,6 +637,30 @@
     }
   };
 
+  const applyModeLayers = (instance: maplibregl.Map, currentMode: 'landing' | 'fullscreen') => {
+    const allLayers = [
+      WORLD_FILL_LAYER_ID,
+      WORLD_LINE_LAYER_ID,
+      WORLD_LABEL_LAYER_ID,
+      PROVINCE_FILL_LAYER_ID,
+      PROVINCE_LINE_LAYER_ID,
+      PROVINCE_LABEL_LAYER_ID,
+      CITY_FILL_LAYER_ID,
+      CITY_LINE_LAYER_ID,
+      CITY_LABEL_LAYER_ID,
+      COUNTY_FILL_LAYER_ID,
+      COUNTY_LINE_LAYER_ID,
+      COUNTY_LABEL_LAYER_ID,
+      HOVER_LINE_LAYER_ID,
+      SHOPS_NAME_LAYER_ID
+    ];
+    if (currentMode === 'landing') {
+      for (const layerId of allLayers) setLayerVisibility(instance, layerId, false);
+    } else {
+      syncMapData(instance);
+    }
+  };
+
   const ensureMapLayers = (instance: maplibregl.Map) => {
     upsertGeoJsonSource(instance, WORLD_SOURCE_ID, worldData);
     upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
@@ -576,7 +668,6 @@
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
     upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
 
-    // ---- AMap raster source and layer (added first so it renders below vector overlays) ----
     if (!instance.getSource(AMAP_SOURCE_ID)) {
       instance.addSource(AMAP_SOURCE_ID, {
         type: 'raster',
@@ -598,7 +689,6 @@
       });
     }
 
-    // ---- Shop points source (empty initially, filled by $effect when shops load) ----
     if (!instance.getSource(SHOPS_SOURCE_ID)) {
       instance.addSource(SHOPS_SOURCE_ID, {
         type: 'geojson',
@@ -611,6 +701,7 @@
         id: WORLD_FILL_LAYER_ID,
         type: 'fill',
         source: WORLD_SOURCE_ID,
+        layout: { visibility: 'none' },
         paint: {
           'fill-color': [
             'case',
@@ -633,6 +724,7 @@
         id: WORLD_LINE_LAYER_ID,
         type: 'line',
         source: WORLD_SOURCE_ID,
+        layout: { visibility: 'none' },
         paint: {
           'line-color': 'rgba(226, 232, 240, 0.55)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 5, 1.2]
@@ -647,6 +739,7 @@
         source: WORLD_SOURCE_ID,
         minzoom: COUNTRY_ZOOM_THRESHOLD,
         layout: {
+          visibility: 'none',
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
           'text-size': ['interpolate', ['linear'], ['zoom'], 1, 10, 3, 11, 5, 12],
@@ -835,7 +928,6 @@
       });
     }
 
-    // ---- Shop circle layers (added AFTER boundary layers so they render on top) ----
     if (!instance.getLayer(SHOPS_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_LAYER_ID,
@@ -851,7 +943,6 @@
       });
     }
 
-    // Hover highlight (white semi-transparent ring, slightly enlarged)
     if (!instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_ACTIVE_LAYER_ID,
@@ -868,7 +959,6 @@
       });
     }
 
-    // Pinned highlight (amber/gold ring, largest size)
     if (!instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_PINNED_LAYER_ID,
@@ -885,7 +975,6 @@
       });
     }
 
-    // Shop name labels (visible at high zoom)
     if (!instance.getLayer(SHOPS_NAME_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_NAME_LAYER_ID,
@@ -893,6 +982,7 @@
         source: SHOPS_SOURCE_ID,
         minzoom: 9.5,
         layout: {
+          visibility: 'none',
           'text-field': ['get', 'name'],
           'text-font': FONT_STACK,
           'text-size': ['interpolate', ['linear'], ['zoom'], 9.5, 12, 11, 13, 12, 14],
@@ -952,7 +1042,7 @@
         // worker not ready
       }
     }
-    setLayerVisibility(instance, HOVER_LINE_LAYER_ID, feature !== null);
+    setLayerVisibility(instance, HOVER_LINE_LAYER_ID, feature !== null && mode === 'fullscreen');
   };
 
   const syncMapData = (instance: maplibregl.Map) => {
@@ -980,9 +1070,15 @@
     const worldFilter: maplibregl.FilterSpecification | null = showProvinceLayers
       ? ['!=', ['get', 'isChina'], true]
       : null;
-    for (const layerId of [WORLD_FILL_LAYER_ID, WORLD_LINE_LAYER_ID, WORLD_LABEL_LAYER_ID]) {
+    for (const layerId of [WORLD_FILL_LAYER_ID, WORLD_LINE_LAYER_ID]) {
       if (instance.getLayer(layerId)) instance.setFilter(layerId, worldFilter);
     }
+    if (instance.getLayer(WORLD_LABEL_LAYER_ID)) {
+      instance.setFilter(WORLD_LABEL_LAYER_ID, worldFilter);
+      setLayerVisibility(instance, WORLD_LABEL_LAYER_ID, true);
+    }
+    setLayerVisibility(instance, WORLD_FILL_LAYER_ID, true);
+    setLayerVisibility(instance, WORLD_LINE_LAYER_ID, true);
 
     const provinceFilter: maplibregl.FilterSpecification | null =
       showCityLayers && activeProvinceAdcode
@@ -1002,8 +1098,8 @@
       if (instance.getLayer(layerId)) instance.setFilter(layerId, cityFilter);
     }
 
-    // Switch to AMap satellite tiles when zoomed in over China
     setLayerVisibility(instance, AMAP_LAYER_ID, chinaActive && viewZoom >= AMAP_ZOOM_THRESHOLD);
+    setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, true);
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
@@ -1127,7 +1223,7 @@
       geojsonStatus = 'ready';
       if (map?.isStyleLoaded()) {
         ensureMapLayers(map);
-        syncMapData(map);
+        applyModeLayers(map, mode);
         syncDrilldown(map);
       }
     } catch (error) {
@@ -1142,7 +1238,7 @@
     if (!instance?.isStyleLoaded()) return;
     syncScene(instance);
     ensureMapLayers(instance);
-    syncMapData(instance);
+    applyModeLayers(instance, mode);
   });
 
   $effect(() => {
@@ -1151,6 +1247,49 @@
     const po = p;
     if (!instance?.isStyleLoaded()) return;
     instance.setLight({ anchor: 'map', position: [100, az, po] });
+  });
+
+  // ---- Mode transition effect ----
+  let prevMode: 'landing' | 'fullscreen' | null = null;
+  $effect(() => {
+    const currentMode = mode;
+    const instance = map;
+    if (!instance) return;
+    if (prevMode === currentMode) return;
+    const wasLanding = prevMode === 'landing';
+    const wasFullscreen = prevMode === 'fullscreen';
+    prevMode = currentMode;
+
+    if (currentMode === 'fullscreen') {
+      stopAutoRotation();
+      instance.flyTo({
+        center: [155, 45],
+        zoom: 2,
+        pitch: 0,
+        bearing: 0,
+        duration: 2000,
+        essential: true
+      });
+      if (instance.isStyleLoaded()) applyModeLayers(instance, 'fullscreen');
+    } else if (currentMode === 'landing') {
+      if (wasFullscreen) {
+        pinnedShop = null;
+        markerHoveredShop = null;
+        regionFilter = { type: 'world' };
+        sidebarOpen = false;
+      }
+      instance.flyTo({
+        center: [LANDING_LONGITUDE, LANDING_LATITUDE],
+        zoom: LANDING_ZOOM,
+        pitch: LANDING_PITCH,
+        bearing: LANDING_BEARING,
+        duration: wasFullscreen ? 1800 : 0,
+        essential: true
+      });
+      if (instance.isStyleLoaded()) applyModeLayers(instance, 'landing');
+      setTimeout(() => startAutoRotation(), wasFullscreen ? 1800 : 100);
+    }
+    void wasLanding;
   });
 
   // ---- Region filter helpers ----
@@ -1169,7 +1308,6 @@
   const applyRegionFilter = (feature: GlobeFeature) => {
     const props = feature.properties;
     if (!props) return;
-
     if (props.dataset === 'world') {
       regionFilter = props.isChina ? { type: 'china' } : { type: 'address', address: [props.name] };
       return;
@@ -1199,22 +1337,44 @@
   onMount(() => {
     if (!mapContainer) return;
 
+    if (sidebarSize.w === undefined) {
+      sidebarSize.w = Math.min(440, window.innerWidth * 0.35);
+    }
+
+    if (sidebarSize.h === undefined) {
+      sidebarSize.h = window.innerHeight - sidebarPos.y - sidebarPos.x;
+    }
+
     const instance = new maplibregl.Map({
       container: mapContainer,
       style: mapStyle,
-      center: [155, 45],
-      zoom: 2
+      ...(mode === 'landing'
+        ? {
+            center: [LANDING_LONGITUDE, LANDING_LATITUDE],
+            zoom: LANDING_ZOOM,
+            pitch: LANDING_PITCH,
+            bearing: LANDING_BEARING
+          }
+        : {
+            center: [155, 45],
+            zoom: 2,
+            pitch: 0,
+            bearing: 0
+          })
     });
     map = instance;
-    instance.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // Create NavigationControl and always add it; visibility is controlled by
+    // the landing-mode CSS class on mapContainer so we get a CSS opacity fade.
+    navigationControl = new maplibregl.NavigationControl();
+    instance.addControl(navigationControl, 'top-right');
 
     const syncStyle = () => {
       sourceDataRevisions.clear();
       syncScene(instance);
       ensureMapLayers(instance);
-      syncMapData(instance);
+      applyModeLayers(instance, mode);
       syncDrilldown(instance);
-      // Re-populate shop GeoJSON after style reload
       const shopsData = shops;
       if (shopsData) {
         const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
@@ -1232,7 +1392,6 @@
           });
         }
       }
-      // Restore hover and pinned filters
       const hoverKey = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
       if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
         instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], hoverKey]);
@@ -1244,10 +1403,11 @@
     };
 
     const handleMoveEnd = () => {
-      syncDrilldown(instance);
+      if (mode === 'fullscreen') syncDrilldown(instance);
     };
 
     const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
+      if (mode !== 'fullscreen') return;
       const feature = getTopFeatureAtPoint(instance, event.point);
       const newId = feature?.properties?.featureId ?? null;
       if (newId === hoveredFeatureId) return;
@@ -1258,6 +1418,7 @@
     };
 
     const handleMouseOut = () => {
+      if (mode !== 'fullscreen') return;
       if (!hoveredFeatureId) return;
       hoveredFeatureId = null;
       hoveredFeature = null;
@@ -1266,10 +1427,13 @@
     };
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
-      // If a shop circle/label was just clicked, skip – handleShopClick already handled it
       if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
-      // Clear any pin and hover when clicking on the globe background/boundaries
+      if (mode === 'landing') {
+        if (!landingDragOccurred) void goto(resolve('/globe-next'));
+        return;
+      }
+
       pinnedShop = null;
       markerHoveredShop = null;
 
@@ -1289,7 +1453,6 @@
 
       if (feature.properties.dataset === 'world') {
         if (feature.properties.isChina) {
-          // Zooming into China – show province layer immediately
           chinaActive = true;
           activeProvinceAdcode = null;
           activeCityAdcode = null;
@@ -1298,7 +1461,6 @@
           syncMapData(instance);
           fitToFeature(instance, feature, 4.4);
         } else {
-          // Non-China country – zoom to its bounds (Fix 3)
           chinaActive = false;
           activeProvinceAdcode = null;
           activeCityAdcode = null;
@@ -1311,7 +1473,6 @@
       }
 
       if (feature.properties.dataset === 'china-provinces') {
-        // Show city layer for this province immediately (Fix 2)
         chinaActive = true;
         activeProvinceAdcode = feature.properties.adcode ?? null;
         activeCityAdcode = null;
@@ -1351,10 +1512,9 @@
       cursorPos = { x: e.clientX, y: e.clientY };
     };
 
-    // ---- Shop layer interactions ----
     const handleShopMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
       instance.getCanvas().style.cursor = 'pointer';
-      if (pinnedShop) return; // keep pinned shop while mouse hovers
+      if (pinnedShop) return;
       if (e.features && e.features[0]) {
         const key = e.features[0].properties?.key as string | undefined;
         if (key) {
@@ -1370,8 +1530,6 @@
     };
 
     const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
-      // Multiple layers may fire for the same click (active/pinned circles overlap the base).
-      // Only process the first one.
       if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
       (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
       if (e.features && e.features[0]) {
@@ -1379,14 +1537,16 @@
         if (key) {
           const entry = shopLookup.get(key);
           if (entry) {
+            if (mode === 'landing') {
+              // Navigate to /globe-next – camera animates via mode change effect
+              goto(resolve('/globe-next'));
+              return;
+            }
             if (pinnedShop && getShopKey(pinnedShop) === key) {
-              pinnedShop = null; // clicking pinned shop again unpins
+              pinnedShop = null;
               markerHoveredShop = null;
             } else {
-              // If the shop is outside the current filtered list, switch to it
-              if (!isShopInCurrentFilter(entry.shop)) {
-                selectedTitleIds = [];
-              }
+              if (!isShopInCurrentFilter(entry.shop)) selectedTitleIds = [];
               applyShopRegionFilter(entry.shop);
               pinShop(entry);
             }
@@ -1395,26 +1555,75 @@
       }
     };
 
+    // In landing mode we need to distinguish a real click (→ navigate) from a
+    // drag (→ rotate globe).  MapLibre suppresses its own 'click' after a drag
+    // for desktop mouse, but mobile browsers synthesise a 'click' after a touch
+    // drag, bypassing that suppression.  We use a flag that is set on dragstart
+    // and cleared on the next pointerdown so the click handler can gate on it.
+    let landingDragOccurred = false;
+
+    const handleMouseDown = () => {
+      if (mode !== 'landing') return;
+      landingDragOccurred = false;
+      // Stop auto-rotation immediately so MapLibre's drag threshold starts
+      // measuring from a stationary map.
+      stopAutoRotation();
+    };
+    const handleMouseUp = () => {
+      if (mode !== 'landing') return;
+      startAutoRotation();
+    };
+    const handleDragStart = () => {
+      if (mode === 'landing') {
+        landingDragOccurred = true;
+      }
+    };
+    const handleDragEnd = () => {
+      if (mode === 'landing') startAutoRotation();
+    };
+
     instance.on('style.load', syncStyle);
     instance.on('moveend', handleMoveEnd);
     instance.on('mousemove', handlePointerMove);
     instance.on('mouseout', handleMouseOut);
     instance.on('click', handleClick);
-    instance.on('mousemove', SHOPS_LAYER_ID, handleShopMouseMove);
-    instance.on('mouseleave', SHOPS_LAYER_ID, handleShopMouseLeave);
-    instance.on('click', SHOPS_LAYER_ID, handleShopClick);
-    instance.on('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
-    instance.on('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
-    instance.on('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
-    instance.on('mousemove', SHOPS_PINNED_LAYER_ID, handleShopMouseMove);
-    instance.on('mouseleave', SHOPS_PINNED_LAYER_ID, handleShopMouseLeave);
-    instance.on('click', SHOPS_PINNED_LAYER_ID, handleShopClick);
-    instance.on('mousemove', SHOPS_NAME_LAYER_ID, handleShopMouseMove);
-    instance.on('mouseleave', SHOPS_NAME_LAYER_ID, handleShopMouseLeave);
-    instance.on('click', SHOPS_NAME_LAYER_ID, handleShopClick);
+    instance.on('mousedown', handleMouseDown);
+    instance.on('mouseup', handleMouseUp);
+    instance.on('dragstart', handleDragStart);
+    instance.on('dragend', handleDragEnd);
+    for (const layerId of [
+      SHOPS_LAYER_ID,
+      SHOPS_ACTIVE_LAYER_ID,
+      SHOPS_PINNED_LAYER_ID,
+      SHOPS_NAME_LAYER_ID
+    ]) {
+      instance.on('mousemove', layerId, handleShopMouseMove);
+      instance.on('mouseleave', layerId, handleShopMouseLeave);
+      instance.on('click', layerId, handleShopClick);
+    }
     window.addEventListener('mousemove', handleMouseMove);
 
+    const handleViewportResize = () => {
+      sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
+      if (sidebarSize.w !== undefined) {
+        sidebarSize.w = Math.min(sidebarSize.w, window.innerWidth - sidebarPos.x);
+      }
+      if (sidebarSize.h !== undefined) {
+        sidebarSize.h = Math.min(sidebarSize.h, window.innerHeight - sidebarPos.y);
+      }
+    };
+    const resizeObserver = new ResizeObserver(handleViewportResize);
+    resizeObserver.observe(mapContainer);
+
     void loadBaseGeoJson();
+
+    // Start auto-rotation immediately in landing mode
+    if (mode === 'landing') {
+      prevMode = 'landing';
+      startAutoRotation();
+    } else {
+      prevMode = 'fullscreen';
+    }
 
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
@@ -1423,24 +1632,28 @@
     }, 60_000);
 
     return () => {
+      stopAutoRotation();
       instance.off('style.load', syncStyle);
       instance.off('moveend', handleMoveEnd);
       instance.off('mousemove', handlePointerMove);
       instance.off('mouseout', handleMouseOut);
       instance.off('click', handleClick);
-      instance.off('mousemove', SHOPS_LAYER_ID, handleShopMouseMove);
-      instance.off('mouseleave', SHOPS_LAYER_ID, handleShopMouseLeave);
-      instance.off('click', SHOPS_LAYER_ID, handleShopClick);
-      instance.off('mousemove', SHOPS_ACTIVE_LAYER_ID, handleShopMouseMove);
-      instance.off('mouseleave', SHOPS_ACTIVE_LAYER_ID, handleShopMouseLeave);
-      instance.off('click', SHOPS_ACTIVE_LAYER_ID, handleShopClick);
-      instance.off('mousemove', SHOPS_PINNED_LAYER_ID, handleShopMouseMove);
-      instance.off('mouseleave', SHOPS_PINNED_LAYER_ID, handleShopMouseLeave);
-      instance.off('click', SHOPS_PINNED_LAYER_ID, handleShopClick);
-      instance.off('mousemove', SHOPS_NAME_LAYER_ID, handleShopMouseMove);
-      instance.off('mouseleave', SHOPS_NAME_LAYER_ID, handleShopMouseLeave);
-      instance.off('click', SHOPS_NAME_LAYER_ID, handleShopClick);
+      instance.off('mousedown', handleMouseDown);
+      instance.off('mouseup', handleMouseUp);
+      instance.off('dragstart', handleDragStart);
+      instance.off('dragend', handleDragEnd);
+      for (const layerId of [
+        SHOPS_LAYER_ID,
+        SHOPS_ACTIVE_LAYER_ID,
+        SHOPS_PINNED_LAYER_ID,
+        SHOPS_NAME_LAYER_ID
+      ]) {
+        instance.off('mousemove', layerId, handleShopMouseMove);
+        instance.off('mouseleave', layerId, handleShopMouseLeave);
+        instance.off('click', layerId, handleShopClick);
+      }
       window.removeEventListener('mousemove', handleMouseMove);
+      resizeObserver.disconnect();
       instance.remove();
       clearInterval(refreshInterval);
       if (map === instance) map = undefined;
@@ -1448,238 +1661,241 @@
   });
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.globe())}</title>
-</svelte:head>
+<!-- ================================================================
+     Fixed globe container – always behind page content
+     ================================================================ -->
+<div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+  <!-- Map canvas fills entire area -->
+  <div
+    bind:this={mapContainer}
+    class="pointer-events-auto h-full w-full"
+    class:cursor-pointer={mode === 'landing'}
+    class:landing-mode={mode === 'landing'}
+  ></div>
 
-<div class="flex h-screen overflow-hidden">
-  <!-- ================================================================
-       Sidebar – always visible on md+, collapsible bottom drawer on mobile
-       ================================================================ -->
-  <aside
-    class="bg-base-200 border-base-300 pointer-events-auto z-20 flex flex-col overflow-hidden border-r shadow-lg transition-transform duration-300 ease-out will-change-transform
-           not-md:fixed not-md:inset-x-0 not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
-           md:relative md:w-96 md:shrink-0 md:translate-y-0"
-    class:not-md:translate-y-full={!sidebarOpen}
-    class:not-md:translate-y-0={sidebarOpen}
-  >
-    <!-- Mobile drag handle -->
-    <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
-
-    <!-- Region header -->
-    <div class="border-base-300 border-b p-4">
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
-          {#if regionHierarchy.length > 0}
-            <p class="text-base-content/60 mt-0.5 truncate text-sm">
-              {regionHierarchy.join(' › ')}
-            </p>
-          {/if}
-        </div>
-        <!-- Close button (mobile only) -->
-        <button
-          type="button"
-          class="btn btn-circle btn-ghost btn-sm shrink-0 md:hidden"
-          aria-label={m.close()}
-          onclick={() => (sidebarOpen = false)}
-        >
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
+  <!-- ---- Bottom gradient blur (landing mode only) ---- -->
+  {#if mode === 'landing'}
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]" transition:fade>
+      {#each bottomBlurLayers as layer, index (index)}
+        <div
+          class="absolute inset-0"
+          style="backdrop-filter: blur({layer.blur}px);
+                 mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
+            .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+            .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);
+                 -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
+            .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+            .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
+        ></div>
+      {/each}
+      <!-- Solid bg-base-100 floor occupying the bottom 30 vh -->
+      <div class="bg-base-100 absolute inset-x-0 bottom-0 h-[30vh]"></div>
+      <!-- Gradient fade from bg-base-100 (bottom) to transparent (top) for the next 40 vh -->
+      <div
+        class="from-base-100 absolute inset-x-0 bottom-[30vh] h-[40vh] bg-linear-to-t to-transparent"
+      ></div>
     </div>
+  {/if}
 
-    <!-- Search + game filters -->
-    <div class="border-base-300 border-b p-3">
-      <div class="flex gap-2">
-        <!-- Game filter dropdown -->
-        <div class="dropdown">
+  <!-- ================================================================
+       Sidebar (fullscreen mode only)
+       ================================================================ -->
+  {#if mode === 'fullscreen'}
+    <aside
+      transition:slide
+      class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
+             not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
+             not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
+             md:rounded-xl"
+      class:not-md:translate-y-full={!sidebarOpen}
+      class:not-md:translate-y-0={sidebarOpen}
+      style={isMobile
+        ? ''
+        : `left: ${sidebarPos.x}px; top: ${sidebarPos.y}px; width: ${sidebarSize.w}px; height: ${sidebarSize.h}px`}
+    >
+      <!-- Mobile drag handle -->
+      <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
+
+      <!-- Region header – acts as drag handle on desktop -->
+      <div
+        role="none"
+        class="border-base-300 border-b p-4 md:select-none"
+        class:md:cursor-grabbing={isDraggingSidebar}
+        class:md:cursor-grab={!isDraggingSidebar}
+        onpointerdown={startSidebarDrag}
+        onpointermove={moveSidebarDrag}
+        onpointerup={stopSidebarDrag}
+        style="touch-action: none;"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
+            {#if regionHierarchy.length > 0}
+              <p class="text-base-content/60 mt-0.5 truncate text-sm">
+                {regionHierarchy.join(' › ')}
+              </p>
+            {/if}
+          </div>
           <button
             type="button"
-            tabindex="0"
-            class="btn btn-soft hover:btn-accent"
-            class:btn-primary={selectedTitleIds.length > 0}
-            aria-label={m.filter_by_game_titles()}
+            class="btn btn-circle btn-ghost btn-sm shrink-0 md:hidden"
+            aria-label={m.close()}
+            onclick={() => (sidebarOpen = false)}
           >
-            <i class="fa-solid fa-filter text-xs"></i>
-            {#if selectedTitleIds.length > 0}
-              <span class="badge badge-xs">{selectedTitleIds.length}</span>
-            {/if}
+            <i class="fa-solid fa-xmark"></i>
           </button>
-          <div
-            role="menu"
-            tabindex="-1"
-            class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
-          >
-            <div class="card-body p-4">
-              <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
-              <div class="space-y-2">
-                {#each GAMES as game (game.id)}
-                  <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                    <input
-                      type="checkbox"
-                      class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                      checked={selectedTitleIds.includes(game.id)}
-                      onchange={() => {
-                        selectedTitleIds = selectedTitleIds.includes(game.id)
-                          ? selectedTitleIds.filter((id) => id !== game.id)
-                          : [...selectedTitleIds, game.id];
-                      }}
-                    />
-                    <span class="text-sm">{getGameName(game.key)}</span>
-                  </label>
-                {/each}
-              </div>
-              <div class="card-actions mt-2 justify-end">
-                <button
-                  type="button"
-                  class="btn btn-soft hover:btn-error btn-xs"
-                  onclick={() => {
-                    selectedTitleIds = [];
-                  }}
-                  disabled={selectedTitleIds.length === 0}
-                >
-                  <i class="fa-solid fa-trash"></i>
-                  {m.clear_filters()}
-                </button>
+        </div>
+      </div>
+
+      <!-- Search + game filters -->
+      <div class="border-base-300 border-b p-3">
+        <div class="flex gap-2">
+          <div class="dropdown">
+            <button
+              type="button"
+              tabindex="0"
+              class="btn btn-soft hover:btn-accent"
+              class:btn-primary={selectedTitleIds.length > 0}
+              aria-label={m.filter_by_game_titles()}
+            >
+              <i class="fa-solid fa-filter text-xs"></i>
+              {#if selectedTitleIds.length > 0}
+                <span class="badge badge-xs">{selectedTitleIds.length}</span>
+              {/if}
+            </button>
+            <div
+              role="menu"
+              tabindex="-1"
+              class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
+            >
+              <div class="card-body p-4">
+                <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
+                <div class="space-y-2">
+                  {#each GAMES as game (game.id)}
+                    <label class="flex cursor-pointer items-center gap-2 text-nowrap">
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                        checked={selectedTitleIds.includes(game.id)}
+                        onchange={() => {
+                          selectedTitleIds = selectedTitleIds.includes(game.id)
+                            ? selectedTitleIds.filter((id) => id !== game.id)
+                            : [...selectedTitleIds, game.id];
+                        }}
+                      />
+                      <span class="text-sm">{getGameName(game.key)}</span>
+                    </label>
+                  {/each}
+                </div>
+                <div class="card-actions mt-2 justify-end">
+                  <button
+                    type="button"
+                    class="btn btn-soft hover:btn-error btn-xs"
+                    onclick={() => {
+                      selectedTitleIds = [];
+                    }}
+                    disabled={selectedTitleIds.length === 0}
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                    {m.clear_filters()}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Search input -->
-        <div class="relative flex-1">
-          <i
-            class="fa-solid fa-search text-base-content/40 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
-          ></i>
-          <input
-            type="text"
-            bind:value={searchQuery}
-            placeholder={m.search_arcades_placeholder()}
-            class="input input-bordered w-full pl-7"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Shop list -->
-    <div class="flex-1 space-y-2 overflow-y-auto p-3">
-      {#if !shops}
-        <div class="flex justify-center py-8">
-          <span class="loading loading-spinner loading-md"></span>
-        </div>
-      {:else if filteredShops !== null && filteredShops.length === 0}
-        <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
-      {:else if filteredShops !== null}
-        {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
-          {@const cardKey = `${shop.source}-${shop.id}`}
-          {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
-          <div
-            bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
-            class="rounded-xl transition-all {isPinned
-              ? '[&>*:first-child]:not-hover:border-accent/60'
-              : ''}"
-          >
-            <ShopCard
-              {shop}
-              interactive={true}
-              onclick={() => {
-                const entry = shopLookup.get(getShopKey(shop));
-                if (entry) pinShop(entry);
-              }}
+          <div class="relative flex-1">
+            <i
+              class="fa-solid fa-search text-base-content/40 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
+            ></i>
+            <input
+              type="text"
+              bind:value={searchQuery}
+              placeholder={m.search_arcades_placeholder()}
+              class="input input-bordered w-full pl-7"
             />
           </div>
-        {/each}
-        <!-- Sentinel: triggers progressive load when it enters the viewport -->
-        {#if filteredShops.length > visibleCount}
-          <div bind:this={listSentinelEl} class="flex justify-center py-4">
-            <span class="loading loading-spinner loading-sm"></span>
+        </div>
+      </div>
+
+      <!-- Shop list -->
+      <div class="flex-1 space-y-2 overflow-y-auto p-3">
+        {#if !shops}
+          <div class="flex justify-center py-8">
+            <span class="loading loading-spinner loading-md"></span>
           </div>
+        {:else if filteredShops !== null && filteredShops.length === 0}
+          <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
+        {:else if filteredShops !== null}
+          {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
+            {@const cardKey = `${shop.source}-${shop.id}`}
+            {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
+            <div
+              bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
+              class="rounded-xl transition-all {isPinned
+                ? '[&>*:first-child]:not-hover:border-accent/60'
+                : ''}"
+            >
+              <ShopCard
+                {shop}
+                interactive
+                onclick={() => {
+                  const entry = shopLookup.get(getShopKey(shop));
+                  if (entry) pinShop(entry);
+                }}
+              />
+            </div>
+          {/each}
+          {#if filteredShops.length > visibleCount}
+            <div bind:this={listSentinelEl} class="flex justify-center py-4">
+              <span class="loading loading-spinner loading-sm"></span>
+            </div>
+          {/if}
         {/if}
-      {/if}
-    </div>
-  </aside>
+      </div>
 
-  <!-- ================================================================
-       Map area
-       ================================================================ -->
-  <div class="relative flex-1">
-    <div bind:this={mapContainer} class="h-full w-full"></div>
+      <!-- Resize handle (desktop only) -->
+      <div
+        role="separator"
+        aria-label="Resize sidebar"
+        class="pointer-events-auto absolute right-0 bottom-0 z-30 hidden h-5 w-5 cursor-se-resize opacity-20 transition-opacity hover:opacity-60 md:block"
+        style="touch-action: none;"
+        onpointerdown={startSidebarResize}
+        onpointermove={moveSidebarResize}
+        onpointerup={stopSidebarResize}
+      >
+        <svg viewBox="0 0 10 10" fill="currentColor" class="h-full w-full">
+          <path d="M10 0L0 10h10V0z" />
+        </svg>
+      </div>
+    </aside>
 
-    <!-- Mobile: sidebar toggle button (always visible at bottom-left) -->
+    <!-- Mobile sidebar toggle -->
     <button
+      transition:fade
       type="button"
-      class="bg-base-200/80 border-base-300 absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
-      aria-label={m.sidebar()}
+      class="bg-base-200/80 border-base-300 pointer-events-auto absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
+      aria-label={regionTitle}
       onclick={() => (sidebarOpen = !sidebarOpen)}
     >
       <i class="fa-solid fa-list text-sm"></i>
-      <span class="text-sm font-medium">{m.sidebar()}</span>
+      <span class="text-sm font-medium">{regionTitle}</span>
       {#if filteredShops !== null}
         <span class="badge badge-primary badge-xs">{filteredShops.length}</span>
       {/if}
     </button>
 
-    <!-- Dev-only floating control panel -->
-    {#if import.meta.env.DEV}
+    <!-- Mobile sidebar backdrop -->
+    {#if sidebarOpen}
       <div
-        class="bg-base-200/70 absolute top-3 left-3 z-10 flex max-w-xs min-w-64 flex-col gap-4 rounded p-3 text-sm shadow-lg backdrop-blur-sm"
-      >
-        <div class="flex flex-col gap-1 px-2">
-          <label for="viewtime" class="text-xs leading-none">Time (local)</label>
-          <input
-            type="datetime-local"
-            id="viewtime"
-            class="input input-xs w-full"
-            value={toDatetimeLocalValue(viewTime)}
-            oninput={(e) => {
-              const v = (e.target as HTMLInputElement).value;
-              if (v) viewTime = new Date(v);
-            }}
-          />
-          <button
-            class="btn btn-xs mt-1"
-            onclick={() => {
-              viewTime = new Date();
-            }}>Now</button
-          >
-        </div>
-
-        <div class="border-base-content/15 flex flex-col gap-1 border-t pt-3 text-xs">
-          <div>View: {currentDetailLevel}</div>
-          <div>Focus: {focusPath}</div>
-          <div>Zoom: {viewZoom.toFixed(2)}</div>
-          {#if hoveredLabel}
-            <div>Hover: {hoveredLabel}</div>
-          {/if}
-          {#if geojsonStatus === 'loading'}
-            <div>Loading boundaries...</div>
-          {/if}
-          {#if countyStatus === 'loading'}
-            <div>Loading county detail...</div>
-          {/if}
-          {#if geojsonError}
-            <div class="text-error">{geojsonError}</div>
-          {/if}
-          <div class="text-base-content/70 pt-1 leading-relaxed">
-            China provinces appear once the camera settles over China. City boundaries follow the
-            centered province, and county detail is fetched only for true city-level regions.
-          </div>
-        </div>
-      </div>
+        transition:fade
+        role="presentation"
+        class="pointer-events-auto absolute inset-0 z-15 bg-black/40 md:hidden"
+        onclick={() => (sidebarOpen = false)}
+      ></div>
     {/if}
 
-    <!-- Desktop: non-interactive hover card follows cursor (only when not pinned) -->
-    {#if markerHoveredShop && !pinnedShop && !isMobile}
-      <div
-        class="pointer-events-none fixed z-50 w-72"
-        style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
-      >
-        <ShopCard shop={markerHoveredShop} />
-      </div>
-    {/if}
-
-    <!-- Desktop: pinned shop interactive card overlay at bottom-right -->
+    <!-- Desktop: pinned shop interactive card at bottom-right -->
     {#if pinnedShop && !isMobile}
       <div class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl">
         <div class="relative">
@@ -1694,18 +1910,78 @@
           >
             <i class="fa-solid fa-xmark text-xs"></i>
           </button>
-          <ShopCard shop={pinnedShop} interactive={true} />
+          <ShopCard shop={pinnedShop} interactive />
         </div>
       </div>
     {/if}
-  </div>
+  {/if}
 
-  <!-- Mobile sidebar backdrop -->
-  {#if sidebarOpen}
+  {#if markerHoveredShop && !isMobile && (mode === 'landing' || !pinnedShop)}
     <div
-      role="presentation"
-      class="fixed inset-0 z-10 bg-black/40 md:hidden"
-      onclick={() => (sidebarOpen = false)}
-    ></div>
+      class="pointer-events-none fixed z-50 w-72"
+      style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
+    >
+      <ShopCard shop={markerHoveredShop} />
+    </div>
+  {/if}
+
+  <!-- ================================================================
+       Dev panel (DEV mode only)
+       ================================================================ -->
+  {#if import.meta.env.DEV}
+    <div
+      class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded p-3 text-sm shadow-lg backdrop-blur-sm
+             {mode === 'fullscreen' ? 'top-16 right-12' : 'left-3'}"
+    >
+      <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
+      <div class="flex flex-col gap-1 px-2">
+        <label for="viewtime" class="text-xs leading-none">Time (local)</label>
+        <input
+          type="datetime-local"
+          id="viewtime"
+          class="input input-xs w-full"
+          value={toDatetimeLocalValue(viewTime)}
+          oninput={(e) => {
+            const v = (e.target as HTMLInputElement).value;
+            if (v) viewTime = new Date(v);
+          }}
+        />
+        <button
+          class="btn btn-xs mt-1"
+          onclick={() => {
+            viewTime = new Date();
+          }}>Now</button
+        >
+      </div>
+      <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
+        <div>View: {currentDetailLevel}</div>
+        <div>Focus: {focusPath}</div>
+        <div>Zoom: {viewZoom.toFixed(2)}</div>
+        {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
+        {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}
+        {#if countyStatus === 'loading'}<div>Loading county detail...</div>{/if}
+        {#if geojsonError}<div class="text-error">{geojsonError}</div>{/if}
+      </div>
+    </div>
   {/if}
 </div>
+
+<!-- Safelist for Tailwind dynamic density colors (referenced by ShopCard) -->
+<div class="hidden">
+  <div class="border-green-500 bg-green-500/20 text-green-500"></div>
+  <div class="border-yellow-500 bg-yellow-500/20 text-yellow-500"></div>
+  <div class="border-orange-500 bg-orange-500/20 text-orange-500"></div>
+  <div class="border-red-500 bg-red-500/20 text-red-500"></div>
+  <div class="border-gray-500 bg-gray-500/20 text-gray-500"></div>
+</div>
+
+<style>
+  :global(.maplibregl-ctrl-top-right) {
+    top: 3.2rem;
+    transition: opacity 0.3s ease;
+  }
+  :global(.landing-mode .maplibregl-ctrl-top-right) {
+    opacity: 0;
+    pointer-events: none;
+  }
+</style>

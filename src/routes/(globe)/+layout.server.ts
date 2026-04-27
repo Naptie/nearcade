@@ -1,16 +1,14 @@
 import mongo from '$lib/db/index.server';
 import { getAllShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { Shop } from '$lib/types';
-import type { PageServerLoad } from './$types';
+import type { LayoutServerLoad } from './$types';
 
-export const ssr = false;
-
-export const load: PageServerLoad = async ({ depends }) => {
+export const load: LayoutServerLoad = async ({ depends }) => {
   depends('app:globe-shops');
   const db = mongo.db();
 
   return {
-    shopData: db
+    globeShopData: db
       .collection<Shop>('shops')
       .find({})
       .project({
@@ -24,6 +22,6 @@ export const load: PageServerLoad = async ({ depends }) => {
         id: 1
       })
       .toArray() as Promise<Shop[]>,
-    attendanceData: getAllShopsAttendanceData()
+    globeAttendanceData: getAllShopsAttendanceData()
   };
 };
