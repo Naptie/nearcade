@@ -30,8 +30,8 @@
 
   // ---- Globe layer/source IDs ----
   const GEOJSON_ENDPOINT = `${base}/api/globe/geojson`;
-  const CHINA_ZOOM_THRESHOLD = 2.8;
-  const PROVINCE_ZOOM_THRESHOLD = 4.1;
+  const COUNTRY_ZOOM_THRESHOLD = 3.5;
+  const PROVINCE_ZOOM_THRESHOLD = 4.6;
   const CITY_ZOOM_THRESHOLD = 6.2;
   const COUNTY_ZOOM_THRESHOLD = 7.4;
   const WORLD_SOURCE_ID = 'world-boundaries';
@@ -46,7 +46,7 @@
   const SHOPS_NAME_LAYER_ID = 'shops-names';
   const AMAP_SOURCE_ID = 'amap-satellite';
   const AMAP_LAYER_ID = 'amap-satellite-layer';
-  const AMAP_ZOOM_THRESHOLD = 9.2;
+  const AMAP_ZOOM_THRESHOLD = 9.8;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -645,6 +645,7 @@
         id: WORLD_LABEL_LAYER_ID,
         type: 'symbol',
         source: WORLD_SOURCE_ID,
+        minzoom: COUNTRY_ZOOM_THRESHOLD,
         layout: {
           'text-field': ['get', 'label'],
           'text-font': FONT_STACK,
@@ -1058,7 +1059,7 @@
     const isCenterInChina =
       centeredFeature?.properties?.dataset?.startsWith('china-') ||
       isChinaWorldFeature(centeredFeature);
-    const nextChinaActive = !!(viewZoom >= CHINA_ZOOM_THRESHOLD && isCenterInChina);
+    const nextChinaActive = !!(viewZoom >= COUNTRY_ZOOM_THRESHOLD && isCenterInChina);
     chinaActive = nextChinaActive;
 
     if (!nextChinaActive) {
