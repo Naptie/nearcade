@@ -1027,27 +1027,14 @@ export const formatHourLiteral = (hourNum: number) => {
 };
 
 /**
- * Formats a shop's general address array into a readable string
+ * Formats a shop's address array into a readable string
  */
 export const formatShopAddress = (
   shop: Shop & { addressHl?: Shop['address'] },
   detailed = false
 ): string => {
   const address = shop.addressHl || shop.address;
-  const addressParts: string[] = [];
-
-  if (address?.general) {
-    const seen = new Set<string>();
-    for (const part of address.general) {
-      if (!part) continue;
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      if (!seen.has(trimmed)) {
-        seen.add(trimmed);
-        addressParts.push(trimmed);
-      }
-    }
-  }
+  const addressParts = getAddressParts(address.general);
 
   const reverse = shop.source === ShopSource.ZIV;
 
@@ -1057,6 +1044,24 @@ export const formatShopAddress = (
         : addressParts.join(' · ') + (detailed ? '\n' + address.detailed : '')
       ).trim()
     : '';
+};
+
+export const getAddressParts = (address: string[]) => {
+  const addressParts: string[] = [];
+
+  if (address) {
+    const seen = new Set<string>();
+    for (const part of address) {
+      if (!part) continue;
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      if (!seen.has(trimmed)) {
+        seen.add(trimmed);
+        addressParts.push(trimmed);
+      }
+    }
+  }
+  return addressParts;
 };
 
 export const getShopSourceUrl = (shop: { id: number; source: ShopSource }): string =>

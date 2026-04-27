@@ -4,3 +4,6 @@ pnpm-lock.yaml
 yarn.lock
 bun.lock
 bun.lockb
+
+# GeoJSON assets – kept minified to reduce file size
+src/lib/assets/globe/*.geo.json
