@@ -1414,7 +1414,7 @@
       if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
       if (mode === 'landing') {
-        void goto(resolve('/globe-next'));
+        if (!landingDragOccurred) void goto(resolve('/globe-next'));
         return;
       }
 
@@ -1539,10 +1539,28 @@
       }
     };
 
-    // In landing mode, stop auto-rotation while the user is dragging so that
-    // MapLibre's native click-vs-drag detection works correctly.
+    // In landing mode we need to distinguish a real click (→ navigate) from a
+    // drag (→ rotate globe).  MapLibre suppresses its own 'click' after a drag
+    // for desktop mouse, but mobile browsers synthesise a 'click' after a touch
+    // drag, bypassing that suppression.  We use a flag that is set on dragstart
+    // and cleared on the next pointerdown so the click handler can gate on it.
+    let landingDragOccurred = false;
+
+    const handleMouseDown = () => {
+      if (mode !== 'landing') return;
+      landingDragOccurred = false;
+      // Stop auto-rotation immediately so MapLibre's drag threshold starts
+      // measuring from a stationary map.
+      stopAutoRotation();
+    };
+    const handleMouseUp = () => {
+      if (mode !== 'landing') return;
+      startAutoRotation();
+    };
     const handleDragStart = () => {
-      if (mode === 'landing') stopAutoRotation();
+      if (mode === 'landing') {
+        landingDragOccurred = true;
+      }
     };
     const handleDragEnd = () => {
       if (mode === 'landing') startAutoRotation();
@@ -1553,6 +1571,8 @@
     instance.on('mousemove', handlePointerMove);
     instance.on('mouseout', handleMouseOut);
     instance.on('click', handleClick);
+    instance.on('mousedown', handleMouseDown);
+    instance.on('mouseup', handleMouseUp);
     instance.on('dragstart', handleDragStart);
     instance.on('dragend', handleDragEnd);
     for (const layerId of [
@@ -1595,6 +1615,8 @@
       instance.off('mousemove', handlePointerMove);
       instance.off('mouseout', handleMouseOut);
       instance.off('click', handleClick);
+      instance.off('mousedown', handleMouseDown);
+      instance.off('mouseup', handleMouseUp);
       instance.off('dragstart', handleDragStart);
       instance.off('dragend', handleDragEnd);
       for (const layerId of [
@@ -1642,9 +1664,11 @@
             .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
         ></div>
       {/each}
-      <!-- Gradient fades from solid bg-base-100 at screen bottom to transparent at top -->
+      <!-- Solid bg-base-100 floor occupying the bottom 30 vh -->
+      <div class="bg-base-100 absolute inset-x-0 bottom-0 h-[30vh]"></div>
+      <!-- Gradient fade from bg-base-100 (bottom) to transparent (top) for the next 40 vh -->
       <div
-        class="from-base-100 absolute inset-x-0 bottom-0 h-full bg-linear-to-t to-transparent"
+        class="from-base-100 absolute inset-x-0 bottom-[30vh] h-[40vh] bg-linear-to-t to-transparent"
       ></div>
     </div>
   {/if}
