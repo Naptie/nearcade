@@ -1339,7 +1339,7 @@
     if (!mapContainer) return;
 
     if (sidebarSize.w === undefined) {
-      sidebarSize.w = Math.min(440, window.innerWidth * 0.35);
+      sidebarSize.w = Math.min(400, window.innerWidth * 0.3);
     }
 
     if (sidebarSize.h === undefined) {
