@@ -166,7 +166,9 @@
   let pinnedShop = $state<ShopWithExtras | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
-  let isMobile = $derived(isTouchscreen());
+  const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
+  let isCompactViewport = $state(false);
+  let isCoarsePointer = $state(false);
   let now = $state(new Date());
 
   // ---- Sidebar state ----
@@ -184,6 +186,25 @@
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
+
+  const syncResponsiveFlags = () => {
+    isCompactViewport = window.matchMedia(COMPACT_VIEWPORT_MEDIA_QUERY).matches;
+    isCoarsePointer = isTouchscreen();
+    if (isCompactViewport) {
+      isDraggingSidebar = false;
+      isResizingSidebar = false;
+    }
+  };
+
+  const getSidebarCssVars = () =>
+    [
+      `--globe-sidebar-left: ${sidebarPos.x}px`,
+      `--globe-sidebar-top: ${sidebarPos.y}px`,
+      sidebarSize.w !== undefined ? `--globe-sidebar-width: ${sidebarSize.w}px` : '',
+      sidebarSize.h !== undefined ? `--globe-sidebar-height: ${sidebarSize.h}px` : ''
+    ]
+      .filter(Boolean)
+      .join('; ');
 
   const PAGE_SIZE = 40;
   let visibleCount = $state(PAGE_SIZE);
@@ -421,7 +442,7 @@
     pinnedShop = shopEntry.shop;
     markerHoveredShop = null;
     flyToShop(shopEntry);
-    if (isMobile) sidebarOpen = true;
+    if (isCompactViewport) sidebarOpen = true;
     requestAnimationFrame(() => {
       cardRefs.get(getShopKey(shopEntry.shop))?.scrollIntoView({
         behavior: 'smooth',
@@ -453,7 +474,7 @@
   });
 
   const startSidebarDrag = (e: PointerEvent) => {
-    if (isMobile) return;
+    if (isCompactViewport) return;
     if ((e.target as HTMLElement).closest('button')) return;
     isDraggingSidebar = true;
     sidebarDragStart = { mx: e.clientX, my: e.clientY, sx: sidebarPos.x, sy: sidebarPos.y };
@@ -473,7 +494,7 @@
   };
 
   const startSidebarResize = (e: PointerEvent) => {
-    if (isMobile) return;
+    if (isCompactViewport) return;
     isResizingSidebar = true;
     sidebarResizeStart = { mx: e.clientX, my: e.clientY, sw: sidebarSize.w!, sh: sidebarSize.h! };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -708,13 +729,13 @@
             'case',
             ['boolean', ['feature-state', 'hovered'], false],
             'rgba(255,255,255,0.18)',
-            ['case', ['boolean', ['get', 'isChina'], false], '#0ea5e9', '#020617']
+            ['case', ['boolean', ['get', 'isChina'], false], '#3394cc', '#020617']
           ],
           'fill-opacity': [
             'case',
             ['boolean', ['feature-state', 'hovered'], false],
             0.55,
-            ['case', ['boolean', ['get', 'isChina'], false], 0.16, 0.06]
+            ['case', ['boolean', ['get', 'isChina'], false], 0.09, 0.06]
           ]
         }
       });
@@ -1338,8 +1359,10 @@
   onMount(() => {
     if (!mapContainer) return;
 
+    syncResponsiveFlags();
+
     if (sidebarSize.w === undefined) {
-      sidebarSize.w = Math.min(400, window.innerWidth * 0.3);
+      sidebarSize.w = Math.min(400, Math.max(window.innerWidth * 0.3, 280));
     }
 
     if (sidebarSize.h === undefined) {
@@ -1605,6 +1628,7 @@
     window.addEventListener('mousemove', handleMouseMove);
 
     const handleViewportResize = () => {
+      syncResponsiveFlags();
       sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
       if (sidebarSize.w !== undefined) {
         sidebarSize.w = Math.min(sidebarSize.w, window.innerWidth - sidebarPos.x);
@@ -1615,6 +1639,7 @@
     };
     const resizeObserver = new ResizeObserver(handleViewportResize);
     resizeObserver.observe(mapContainer);
+    window.addEventListener('resize', handleViewportResize);
 
     void loadBaseGeoJson();
 
@@ -1654,6 +1679,7 @@
         instance.off('click', layerId, handleShopClick);
       }
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('resize', handleViewportResize);
       resizeObserver.disconnect();
       instance.remove();
       clearInterval(refreshInterval);
@@ -1707,12 +1733,10 @@
       class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
              not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
-             md:rounded-xl"
-      class:not-md:translate-y-full={!sidebarOpen}
-      class:not-md:translate-y-0={sidebarOpen}
-      style={isMobile
-        ? ''
-        : `left: ${sidebarPos.x}px; top: ${sidebarPos.y}px; width: ${sidebarSize.w}px; height: ${sidebarSize.h}px`}
+             md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl {sidebarOpen
+        ? 'not-md:translate-y-0'
+        : 'not-md:translate-y-full'}"
+      style={getSidebarCssVars()}
     >
       <!-- Mobile drag handle -->
       <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
@@ -1759,7 +1783,7 @@
               class:btn-primary={selectedTitleIds.length > 0}
               aria-label={m.filter_by_game_titles()}
             >
-              <i class="fa-solid fa-filter text-xs"></i>
+              <i class="fa-solid fa-filter"></i>
               {#if selectedTitleIds.length > 0}
                 <span class="badge badge-xs">{selectedTitleIds.length}</span>
               {/if}
@@ -1875,14 +1899,14 @@
     <button
       transition:fade
       type="button"
-      class="bg-base-200/80 border-base-300 pointer-events-auto absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
+      class="bg-base-200/80 border-base-300 hover:border-success pointer-events-auto absolute bottom-4 left-4 z-10 flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm transition md:hidden"
       aria-label={regionTitle}
       onclick={() => (sidebarOpen = !sidebarOpen)}
     >
       <i class="fa-solid fa-list text-sm"></i>
       <span class="text-sm font-medium">{regionTitle}</span>
       {#if filteredShops !== null}
-        <span class="badge badge-primary badge-xs">{filteredShops.length}</span>
+        <span class="badge badge-soft badge-primary badge-xs">{filteredShops.length}</span>
       {/if}
     </button>
 
@@ -1897,7 +1921,7 @@
     {/if}
 
     <!-- Desktop: pinned shop interactive card at bottom-right -->
-    {#if pinnedShop && !isMobile}
+    {#if pinnedShop && !isCompactViewport}
       <div class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl">
         <div class="relative">
           <button
@@ -1917,7 +1941,7 @@
     {/if}
   {/if}
 
-  {#if markerHoveredShop && !isMobile && (mode === 'landing' || !pinnedShop)}
+  {#if markerHoveredShop && !isCoarsePointer && (mode === 'landing' || !pinnedShop)}
     <div
       class="pointer-events-none fixed z-50 w-80"
       style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
@@ -1931,7 +1955,7 @@
        ================================================================ -->
   {#if import.meta.env.DEV}
     <div
-      class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded p-3 text-sm shadow-lg backdrop-blur-sm
+      class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded-md p-3 text-sm shadow-lg backdrop-blur-sm
              {mode === 'fullscreen' ? 'top-16 right-12' : 'left-3'}"
     >
       <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
@@ -1978,7 +2002,7 @@
 
 <style>
   :global(.maplibregl-ctrl-top-right) {
-    top: 3.2rem;
+    top: 3.6rem;
     transition: opacity 0.3s ease;
   }
   :global(.landing-mode .maplibregl-ctrl-top-right) {
