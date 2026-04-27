@@ -96,11 +96,11 @@
   let viewTime = $state(new Date());
 
   // ---- Landing mode camera params (adjustable via dev panel) ----
-  let landingZoom = $state(2.5);
-  let landingLatitude = $state(5);
-  let landingPitch = $state(65);
+  let landingZoom = $state(3);
+  let landingLatitude = $state(48);
+  let landingPitch = $state(60);
   let landingRotationSpeed = $state(0.06); // degrees per second
-  let landingLongitude = $state(120); // starting longitude
+  let landingLongitude = $state(80); // starting longitude
 
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
@@ -1222,7 +1222,7 @@
         center: [landingLongitude, landingLatitude],
         zoom: landingZoom,
         pitch: landingPitch,
-        bearing: 0,
+        bearing: 15,
         duration: wasFullscreen ? 1800 : 0,
         essential: true
       });
@@ -1283,7 +1283,7 @@
       center: [landingLongitude, landingLatitude],
       zoom: landingZoom,
       pitch: landingPitch,
-      bearing: 0
+      bearing: 15
     });
     map = instance;
 
@@ -1813,7 +1813,7 @@
             id="dev-lat"
             type="range"
             min="-30"
-            max="30"
+            max="90"
             step="1"
             class="range range-xs"
             bind:value={landingLatitude}

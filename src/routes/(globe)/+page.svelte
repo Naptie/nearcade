@@ -328,7 +328,7 @@
 </svelte:head>
 
 <!-- Landing page content sits above the fixed globe background (z-0) -->
-<div class="relative z-10 min-h-screen">
+<div class="relative min-h-screen">
   <div class="hero relative min-h-screen">
     <div class="absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
       <LocaleSwitch />

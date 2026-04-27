@@ -1,15 +1,13 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import GlobeNextMap from '$lib/components/GlobeNextMap.svelte';
   import type { LayoutData } from './$types';
 
   let { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
 
-  const isLandingPage = $derived(
-    page.url.pathname === base + '/' || page.url.pathname === base + ''
-  );
-  const isGlobeNextPage = $derived(page.url.pathname === base + '/globe-next');
+  const isLandingPage = $derived(page.url.pathname === resolve('/'));
+  const isGlobeNextPage = $derived(page.url.pathname === resolve('/globe-next'));
 
   const globeMode = $derived<'landing' | 'fullscreen'>(isGlobeNextPage ? 'fullscreen' : 'landing');
 </script>
