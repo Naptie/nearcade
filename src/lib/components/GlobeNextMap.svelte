@@ -1561,7 +1561,7 @@
       {/each}
       <!-- Solid color gradient at the very bottom for a clean edge -->
       <div
-        class="from-base-100 absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t to-transparent"
+        class="from-base-100 absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t to-transparent"
       ></div>
     </div>
   {/if}
@@ -1788,7 +1788,7 @@
   {#if import.meta.env.DEV}
     <div
       class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded p-3 text-sm shadow-lg backdrop-blur-sm
-             {mode === 'fullscreen' ? 'left-[calc(24rem+0.75rem)]' : 'left-3'}"
+             {mode === 'fullscreen' ? 'left-99' : 'left-3'}"
     >
       {#if mode === 'landing'}
         <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Landing Camera</p>
