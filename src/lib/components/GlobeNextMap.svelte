@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { base } from '$app/paths';
+  import { base, resolve } from '$app/paths';
   import { goto, invalidate } from '$app/navigation';
   import { onMount } from 'svelte';
   import maplibregl from 'maplibre-gl';
@@ -169,6 +169,13 @@
 
   // ---- Sidebar state ----
   let sidebarOpen = $state(false);
+  // ---- Floating sidebar position/size (desktop) ----
+  let sidebarPos = $state({ x: 16, y: 64 });
+  let sidebarSize = $state({ w: 384, h: 600 });
+  let isDraggingSidebar = $state(false);
+  let isResizingSidebar = $state(false);
+  let sidebarDragStart = { mx: 0, my: 0, sx: 0, sy: 0 };
+  let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
@@ -432,6 +439,54 @@
     if (!fs) return false;
     const key = getShopKey(shop);
     return fs.some(({ shop: s }) => getShopKey(s) === key);
+  };
+
+  // ---- Floating sidebar drag / resize (desktop) ----
+  const clampSidebarPos = (x: number, y: number) => ({
+    x: Math.max(0, Math.min(window.innerWidth - sidebarSize.w, x)),
+    y: Math.max(0, Math.min(window.innerHeight - 60, y))
+  });
+
+  const startSidebarDrag = (e: PointerEvent) => {
+    if (isMobile) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    isDraggingSidebar = true;
+    sidebarDragStart = { mx: e.clientX, my: e.clientY, sx: sidebarPos.x, sy: sidebarPos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+
+  const moveSidebarDrag = (e: PointerEvent) => {
+    if (!isDraggingSidebar) return;
+    const nx = sidebarDragStart.sx + e.clientX - sidebarDragStart.mx;
+    const ny = sidebarDragStart.sy + e.clientY - sidebarDragStart.my;
+    sidebarPos = clampSidebarPos(nx, ny);
+  };
+
+  const stopSidebarDrag = () => {
+    isDraggingSidebar = false;
+  };
+
+  const startSidebarResize = (e: PointerEvent) => {
+    if (isMobile) return;
+    isResizingSidebar = true;
+    sidebarResizeStart = { mx: e.clientX, my: e.clientY, sw: sidebarSize.w, sh: sidebarSize.h };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+
+  const moveSidebarResize = (e: PointerEvent) => {
+    if (!isResizingSidebar) return;
+    const nw = Math.max(280, sidebarResizeStart.sw + e.clientX - sidebarResizeStart.mx);
+    const nh = Math.max(300, sidebarResizeStart.sh + e.clientY - sidebarResizeStart.my);
+    sidebarSize = {
+      w: Math.min(window.innerWidth - sidebarPos.x, nw),
+      h: Math.min(window.innerHeight - sidebarPos.y, nh)
+    };
+  };
+
+  const stopSidebarResize = () => {
+    isResizingSidebar = false;
   };
 
   // ---- Sun position ----
@@ -1353,7 +1408,10 @@
     const handleClick = (event: maplibregl.MapMouseEvent) => {
       if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
-      if (mode !== 'fullscreen') return;
+      if (mode === 'landing') {
+        void goto(resolve('/globe-next'));
+        return;
+      }
 
       pinnedShop = null;
       markerHoveredShop = null;
@@ -1460,7 +1518,7 @@
           if (entry) {
             if (mode === 'landing') {
               // Navigate to /globe-next – camera animates via mode change effect
-              goto(`${base}/globe-next`);
+              goto(resolve('/globe-next'));
               return;
             }
             if (pinnedShop && getShopKey(pinnedShop) === key) {
@@ -1492,6 +1550,11 @@
       instance.on('click', layerId, handleShopClick);
     }
     window.addEventListener('mousemove', handleMouseMove);
+
+    const handleWindowResize = () => {
+      sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
+    };
+    window.addEventListener('resize', handleWindowResize);
 
     void loadBaseGeoJson();
 
@@ -1527,6 +1590,7 @@
         instance.off('click', layerId, handleShopClick);
       }
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('resize', handleWindowResize);
       instance.remove();
       clearInterval(refreshInterval);
       if (map === instance) map = undefined;
@@ -1538,7 +1602,7 @@
      Fixed globe container – always behind page content
      ================================================================ -->
 <div
-  class="pointer-events-none fixed inset-0 z-0 overflow-hidden transition-[height] duration-300 ease-in-out"
+  class="pointer-events-none fixed inset-0 z-0 overflow-hidden"
   class:h-[70vh]={mode === 'landing'}
   class:h-screen={mode === 'fullscreen'}
 >
@@ -1546,7 +1610,7 @@
   <div
     bind:this={mapContainer}
     class="pointer-events-auto h-full w-full"
-    class:cursor-default={mode === 'landing'}
+    class:cursor-pointer={mode === 'landing'}
   ></div>
 
   <!-- ---- Bottom gradient blur (landing mode only) ---- -->
@@ -1576,17 +1640,30 @@
        ================================================================ -->
   {#if mode === 'fullscreen'}
     <aside
-      class="bg-base-200 border-base-300 pointer-events-auto absolute top-0 bottom-0 z-20 flex flex-col overflow-hidden border-r shadow-lg transition-transform duration-300 ease-out will-change-transform
+      class="bg-base-200/80 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
-             md:left-0 md:w-96 md:translate-y-0"
+             not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
+             md:rounded-xl"
       class:not-md:translate-y-full={!sidebarOpen}
       class:not-md:translate-y-0={sidebarOpen}
+      style={isMobile
+        ? ''
+        : `left: ${sidebarPos.x}px; top: ${sidebarPos.y}px; width: ${sidebarSize.w}px; height: ${sidebarSize.h}px`}
     >
       <!-- Mobile drag handle -->
       <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
 
-      <!-- Region header -->
-      <div class="border-base-300 border-b p-4">
+      <!-- Region header – acts as drag handle on desktop -->
+      <div
+        role="none"
+        class="border-base-300 border-b p-4 md:select-none"
+        class:md:cursor-grabbing={isDraggingSidebar}
+        class:md:cursor-grab={!isDraggingSidebar}
+        onpointerdown={startSidebarDrag}
+        onpointermove={moveSidebarDrag}
+        onpointerup={stopSidebarDrag}
+        style="touch-action: none;"
+      >
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
             <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
@@ -1712,6 +1789,21 @@
             </div>
           {/if}
         {/if}
+      </div>
+
+      <!-- Resize handle (desktop only) -->
+      <div
+        role="separator"
+        aria-label="Resize sidebar"
+        class="pointer-events-auto absolute right-0 bottom-0 z-30 hidden h-5 w-5 cursor-se-resize opacity-30 hover:opacity-70 md:block"
+        style="touch-action: none;"
+        onpointerdown={startSidebarResize}
+        onpointermove={moveSidebarResize}
+        onpointerup={stopSidebarResize}
+      >
+        <svg viewBox="0 0 10 10" fill="currentColor" class="h-full w-full">
+          <path d="M10 0L0 10h10V0z" />
+        </svg>
       </div>
     </aside>
 

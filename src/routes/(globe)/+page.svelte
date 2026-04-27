@@ -327,10 +327,14 @@
   <meta name="twitter:description" content={m.greeting()} />
 </svelte:head>
 
-<!-- Landing page content sits above the fixed globe background (z-0) -->
-<div class="relative min-h-screen">
-  <div class="hero relative min-h-screen">
-    <div class="absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+<!-- Landing page content sits above the fixed globe background (z-0).
+     Outer containers are pointer-events-none so empty areas pass clicks through
+     to the globe canvas; only the interactive children opt back in. -->
+<div class="pointer-events-none relative min-h-screen">
+  <div class="hero pointer-events-none relative min-h-screen">
+    <div
+      class="pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2"
+    >
       <LocaleSwitch />
       <FancyButton
         callback={() => {
@@ -357,7 +361,7 @@
 
     <div class="hero-content my-10 text-center not-sm:px-0">
       <div
-        class="bg-base-100/70 flex max-w-fit flex-col gap-6 rounded-2xl px-8 py-6 shadow-lg backdrop-blur-md"
+        class="bg-base-100/70 pointer-events-auto flex max-w-fit flex-col gap-6 rounded-2xl px-8 py-6 shadow-lg backdrop-blur-md"
       >
         <SiteTitle
           class="text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'
@@ -873,7 +877,9 @@
       </div>
     </div>
 
-    <div class="absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+    <div
+      class="pointer-events-auto absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2"
+    >
       <FancyButton
         href={GITHUB_LINK}
         target="_blank"
