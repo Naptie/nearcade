@@ -1271,9 +1271,6 @@
         essential: true
       });
       if (instance.isStyleLoaded()) applyModeLayers(instance, 'fullscreen');
-      if (navigationControl && !instance.hasControl(navigationControl)) {
-        instance.addControl(navigationControl, 'top-right');
-      }
     } else if (currentMode === 'landing') {
       if (wasFullscreen) {
         pinnedShop = null;
@@ -1291,9 +1288,6 @@
       });
       if (instance.isStyleLoaded()) applyModeLayers(instance, 'landing');
       setTimeout(() => startAutoRotation(), wasFullscreen ? 1800 : 100);
-      if (navigationControl && instance.hasControl(navigationControl)) {
-        instance.removeControl(navigationControl);
-      }
     }
     void wasLanding;
   });
@@ -1370,11 +1364,10 @@
     });
     map = instance;
 
-    // Create NavigationControl; add immediately if starting in fullscreen mode
+    // Create NavigationControl and always add it; visibility is controlled by
+    // the landing-mode CSS class on mapContainer so we get a CSS opacity fade.
     navigationControl = new maplibregl.NavigationControl();
-    if (mode === 'fullscreen') {
-      instance.addControl(navigationControl, 'top-right');
-    }
+    instance.addControl(navigationControl, 'top-right');
 
     const syncStyle = () => {
       sourceDataRevisions.clear();
@@ -1610,10 +1603,17 @@
     }
     window.addEventListener('mousemove', handleMouseMove);
 
-    const handleWindowResize = () => {
+    const handleViewportResize = () => {
       sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
+      if (sidebarSize.w !== undefined) {
+        sidebarSize.w = Math.min(sidebarSize.w, window.innerWidth - sidebarPos.x);
+      }
+      if (sidebarSize.h !== undefined) {
+        sidebarSize.h = Math.min(sidebarSize.h, window.innerHeight - sidebarPos.y);
+      }
     };
-    window.addEventListener('resize', handleWindowResize);
+    const resizeObserver = new ResizeObserver(handleViewportResize);
+    resizeObserver.observe(mapContainer);
 
     void loadBaseGeoJson();
 
@@ -1653,7 +1653,7 @@
         instance.off('click', layerId, handleShopClick);
       }
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleWindowResize);
+      resizeObserver.disconnect();
       instance.remove();
       clearInterval(refreshInterval);
       if (map === instance) map = undefined;
@@ -1670,6 +1670,7 @@
     bind:this={mapContainer}
     class="pointer-events-auto h-full w-full"
     class:cursor-pointer={mode === 'landing'}
+    class:landing-mode={mode === 'landing'}
   ></div>
 
   <!-- ---- Bottom gradient blur (landing mode only) ---- -->
@@ -1701,6 +1702,7 @@
        ================================================================ -->
   {#if mode === 'fullscreen'}
     <aside
+      transition:fade
       class="bg-base-200/80 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
              not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
@@ -1870,6 +1872,7 @@
 
     <!-- Mobile sidebar toggle -->
     <button
+      transition:fade
       type="button"
       class="bg-base-200/80 border-base-300 pointer-events-auto absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm md:hidden"
       aria-label={regionTitle}
@@ -1885,6 +1888,7 @@
     <!-- Mobile sidebar backdrop -->
     {#if sidebarOpen}
       <div
+        transition:fade
         role="presentation"
         class="pointer-events-auto absolute inset-0 z-15 bg-black/40 md:hidden"
         onclick={() => (sidebarOpen = false)}
@@ -1993,5 +1997,10 @@
 <style>
   :global(.maplibregl-ctrl-top-right) {
     top: 3.2rem;
+    transition: opacity 0.3s ease;
+  }
+  :global(.landing-mode .maplibregl-ctrl-top-right) {
+    opacity: 0;
+    pointer-events: none;
   }
 </style>
