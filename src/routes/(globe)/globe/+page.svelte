@@ -18,6 +18,6 @@
 <!-- Full-screen spacer so the page takes up the full viewport (the globe fills the background) -->
 <div class="h-screen w-full"></div>
 
-<div class="absolute bottom-6 mx-auto w-full" transition:fade>
+<div class="absolute bottom-6 mx-auto w-full" in:fade={{ delay: 500 }} out:fade>
   <Footer />
 </div>
