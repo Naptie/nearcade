@@ -21,6 +21,7 @@
     type GlobeFeatureCollection
   } from '$lib/utils/globeGeojson';
   import { fade, slide } from 'svelte/transition';
+  import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
 
   // ---- Props ----
   type Props = {
@@ -518,7 +519,7 @@
     return { azimuthDeg: (toDeg(azimuth) + 360) % 360, polarDeg: toDeg(polar) };
   };
 
-  const mapStyle = 'https://api.maptiler.com/maps/satellite-v4/style.json?key=NwA6ZENn65hugntUKOHr';
+  const mapStyle = `https://api.maptiler.com/maps/satellite-v4/style.json?key=${PUBLIC_MAPTILER_KEY}`;
   const atmosphereBlend: maplibregl.SkySpecification['atmosphere-blend'] = [
     'interpolate',
     ['linear'],
