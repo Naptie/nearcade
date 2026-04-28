@@ -53,6 +53,14 @@ const MAX_CLOUD_OPACITY = 0.8;
 const CLOUD_ALTITUDE_SCALE = 1.009;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
+/** sin(lat) above which the cloud polar-fade begins (hides equirectangular stretching). */
+const CLOUD_POLAR_FADE_START = 0.7;
+/** sin(lat) at which the cloud polar-fade is fully transparent. */
+const CLOUD_POLAR_FADE_END = 0.9;
+/** Radius scale factor for the cloud-shadow shell (just above globe, below clouds). */
+const CLOUD_SHADOW_ALTITUDE_SCALE = 1.001;
+/** Default opacity of the cloud-shadow overlay. */
+export const DEFAULT_CLOUD_SHADOW_OPACITY = 0.5;
 /** Maximum opacity of the night-lights overlay. */
 const MAX_NIGHT_LIGHTS_OPACITY = 1;
 /** Radius scale factor for the night-lights shell so it sits above the raster globe. */
@@ -99,21 +107,8 @@ const SUN_COLOR = new THREE.Color(1.0, 0.92, 0.72);
 /** Fixed specular/sunlight intensity used internally by the shader layer. */
 const DEFAULT_SUNLIGHT_INTENSITY = 1;
 
-/**
- * Named blend modes available for the night-lights shell.
- * "Dominant" keeps only a fixed share of the basemap: src*alpha + dst*k.
- * "Additive" adds RGB directly (classic glow, alpha ignored by WebGL blender).
- * "Screen" approximates CSS screen blend: src + dst*(1-src) — softer glow.
- * "Normal" uses standard alpha compositing: src*alpha + dst*(1-alpha).
- */
-export const NIGHT_LIGHTS_BLEND_MODES = {
-  dominant: 'Dominant',
-  additive: 'Additive',
-  screen: 'Screen',
-  normal: 'Normal'
-} as const;
-
-export type NightLightsBlendMode = keyof typeof NIGHT_LIGHTS_BLEND_MODES;
+/** Names of the individual Three.js mesh layers that can be toggled. */
+export type GlobeLayerName = 'clouds' | 'cloudShadow' | 'nightLights' | 'specular' | 'atmosphere';
 
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
@@ -143,7 +138,6 @@ const specularFragmentShader = /* glsl */ `
   uniform float     uSpecularStrength;
   uniform float     uRoughness;
   uniform float     uFresnelStrength;
-  uniform float     uDebugReflection;
   uniform vec2      uTexelSize;
   uniform float     uShininess;
   uniform float     uTerminatorSoftness;
@@ -194,14 +188,6 @@ const specularFragmentShader = /* glsl */ `
     float sunlight = smoothstep(0.0, uTerminatorSoftness, nDotL);
     float visibility = smoothstep(0.0, 0.08, nDotV);
     spec *= sunlight * visibility * fresnel;
-
-    if (uDebugReflection > 0.5) {
-      vec3 debugColor = mix(vec3(0.02, 0.03, 0.08), vec3(0.07, 0.24, 0.30), sunlight);
-      debugColor += vec3(0.95, 0.44, 0.06) * pow(nDotV, 3.0) * 0.35;
-      debugColor = mix(debugColor, vec3(0.05, 0.98, 0.94), hotspot);
-      gl_FragColor = vec4(debugColor, max(0.78 * uOpacity, hotspot));
-      return;
-    }
 
     float intensity = specStr * spec * uSpecularStrength * uOpacity;
     gl_FragColor    = vec4(uSunColor, intensity);
@@ -280,6 +266,84 @@ const atmosphereFragmentShader = /* glsl */ `
   }
 `;
 
+const cloudFragmentShader = /* glsl */ `
+  precision highp float;
+
+  uniform sampler2D uCloudMap;
+  uniform vec3      uColor;
+  uniform float     uOpacity;
+  uniform float     uPolarFadeStart;
+  uniform float     uPolarFadeEnd;
+
+  varying vec3 vNormal;
+  varying vec2 vUv;
+
+  void main() {
+    float cloudDensity = texture2D(uCloudMap, vUv).r;
+
+    // Fade out near poles to hide equirectangular texture stretching.
+    // vNormal.y = sin(lat): 0 at equator, ±1 at poles.
+    float absLatSin = abs(normalize(vNormal).y);
+    float polarFade = 1.0 - smoothstep(uPolarFadeStart, uPolarFadeEnd, absLatSin);
+
+    float alpha = cloudDensity * uOpacity * polarFade;
+    gl_FragColor = vec4(uColor, alpha);
+  }
+`;
+
+const cloudShadowFragmentShader = /* glsl */ `
+  precision highp float;
+
+  #define PI 3.14159265358979323846
+
+  uniform sampler2D uCloudMap;
+  uniform vec3      uSunDir;
+  uniform float     uOpacity;
+  uniform float     uCloudAltitude;
+
+  varying vec3 vWorldPos;
+  varying vec3 vNormal;
+
+  void main() {
+    vec3 N = normalize(vNormal);
+    vec3 L = uSunDir;
+
+    // Only cast shadows on the lit hemisphere.
+    float nDotL = dot(N, L);
+    float dayFactor = smoothstep(-0.05, 0.12, nDotL);
+    if (dayFactor <= 0.0) discard;
+
+    // Intersect the sun ray from this fragment with the cloud sphere.
+    // P is on the shadow sphere (radius ≈ CLOUD_SHADOW_ALTITUDE_SCALE),
+    // cloud sphere has radius uCloudAltitude (= CLOUD_ALTITUDE_SCALE).
+    vec3 P = vWorldPos;
+    float pLen2 = dot(P, P);
+    float pDotL = dot(P, L);
+    float R = uCloudAltitude;
+    // t² + 2*(P·L)*t + (|P|²−R²) = 0 → discriminant = (P·L)²−(|P|²−R²)
+    float disc = pDotL * pDotL - (pLen2 - R * R);
+    if (disc < 0.0) discard;
+
+    // Forward intersection along the sun direction.
+    float t = -pDotL + sqrt(max(disc, 0.0));
+    if (t < 0.0) discard;
+
+    // Normalise intersection point to get the ECEF direction.
+    vec3 Q = normalize(P + t * L);
+
+    // Convert ECEF direction to equirectangular UV.
+    // ECEF: x = cos(lat)·sin(lng), y = sin(lat), z = cos(lat)·cos(lng)
+    float lng = atan(Q.x, Q.z);
+    float lat = asin(clamp(Q.y, -1.0, 1.0));
+    float u = lng / (2.0 * PI) + 0.5;
+    float v = lat / PI + 0.5;
+
+    float cloudDensity = texture2D(uCloudMap, vec2(u, v)).r;
+    float shadowAlpha = cloudDensity * uOpacity * dayFactor;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, shadowAlpha);
+  }
+`;
+
 // ─── GlobeEnhancementsLayer ───────────────────────────────────────────────────
 
 /**
@@ -297,7 +361,8 @@ export class GlobeEnhancementsLayer {
   private scene: THREE.Scene | null = null;
   private camera: THREE.Camera | null = null;
 
-  private cloudMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial> | null = null;
+  private cloudMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
+  private cloudShadowMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private nightLightsMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private specMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private atmosphereMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
@@ -316,8 +381,16 @@ export class GlobeEnhancementsLayer {
   private sunAzimuthDeg = 0;
   private sunPolarDeg = 90;
   private sunlightIntensity = DEFAULT_SUNLIGHT_INTENSITY;
-  private specularDebugEnabled = false;
-  private nightLightsBlendMode: NightLightsBlendMode = 'dominant';
+  private _cloudShadowOpacity = DEFAULT_CLOUD_SHADOW_OPACITY;
+
+  /** Visibility state stored before onAdd so it survives style reloads. */
+  private readonly _meshVisibility: Record<GlobeLayerName, boolean> = {
+    clouds: true,
+    cloudShadow: true,
+    nightLights: true,
+    specular: true,
+    atmosphere: true
+  };
 
   constructor(
     private readonly cloudUrl: string,
@@ -332,69 +405,43 @@ export class GlobeEnhancementsLayer {
     this.sunPolarDeg = polarDeg;
   }
 
-  setDebug(enabled: boolean): void {
-    this.specularDebugEnabled = enabled;
-    this.map?.triggerRepaint();
-  }
-
   setSunlightIntensity(intensity: number): void {
     this.sunlightIntensity = clamp01(intensity);
     this.map?.triggerRepaint();
   }
 
-  /**
-   * Change the WebGL blend mode used by the night-lights shell.
-   * Takes effect immediately (triggers a repaint if the map is ready).
-   */
-  setNightLightsBlendMode(mode: NightLightsBlendMode): void {
-    this.nightLightsBlendMode = mode;
-    if (this.nightLightsMesh) {
-      this._applyNightLightsBlendMode(this.nightLightsMesh.material, mode);
+  /** Toggle visibility of an individual Three.js enhancement mesh. */
+  setMeshVisible(name: GlobeLayerName, visible: boolean): void {
+    this._meshVisibility[name] = visible;
+    const mesh = this._getMeshByName(name);
+    if (mesh) {
+      mesh.visible = visible;
       this.map?.triggerRepaint();
     }
   }
 
-  private _applyNightLightsBlendMode(mat: THREE.ShaderMaterial, mode: NightLightsBlendMode): void {
-    if (mode === 'dominant') {
-      // Dim the basemap only where the shader marks the dark hemisphere, while
-      // the source color carries the masked city-light contribution itself.
-      mat.blending = THREE.CustomBlending;
-      mat.blendEquation = THREE.AddEquation;
-      mat.blendSrc = THREE.OneFactor;
-      mat.blendDst = THREE.OneMinusSrcAlphaFactor;
-      mat.blendSrcAlpha = THREE.ZeroFactor;
-      mat.blendDstAlpha = THREE.OneFactor;
-      mat.blendEquationAlpha = THREE.AddEquation;
-      mat.blendAlpha = 0;
-      mat.uniforms.uDominantBlend.value = 1;
-    } else if (mode === 'screen') {
-      // Screen ≈ src + dst*(1-src): use custom blending with factor ONE / ONE_MINUS_SRC_COLOR.
-      mat.blending = THREE.CustomBlending;
-      mat.blendEquation = THREE.AddEquation;
-      mat.blendSrc = THREE.OneFactor;
-      mat.blendDst = THREE.OneMinusSrcColorFactor;
-      mat.blendSrcAlpha = THREE.ZeroFactor;
-      mat.blendDstAlpha = THREE.OneFactor;
-      mat.blendEquationAlpha = THREE.AddEquation;
-      mat.blendAlpha = 0;
-      mat.uniforms.uDominantBlend.value = 0;
-    } else if (mode === 'normal') {
-      mat.blending = THREE.NormalBlending;
-      mat.blendSrcAlpha = null;
-      mat.blendDstAlpha = null;
-      mat.blendEquationAlpha = null;
-      mat.blendAlpha = 0;
-      mat.uniforms.uDominantBlend.value = 0;
-    } else {
-      // additive (default): src + dst; Three.js adds raw RGB, alpha unused by blender.
-      mat.blending = THREE.AdditiveBlending;
-      mat.blendSrcAlpha = null;
-      mat.blendDstAlpha = null;
-      mat.blendEquationAlpha = null;
-      mat.blendAlpha = 0;
-      mat.uniforms.uDominantBlend.value = 0;
+  /** Set the opacity of the cloud-shadow overlay (0–1). */
+  setCloudShadowOpacity(opacity: number): void {
+    this._cloudShadowOpacity = clamp01(opacity);
+    if (this.cloudShadowMesh) {
+      this.cloudShadowMesh.material.uniforms.uOpacity.value = this._cloudShadowOpacity;
+      this.map?.triggerRepaint();
     }
-    mat.needsUpdate = true;
+  }
+
+  private _getMeshByName(name: GlobeLayerName): THREE.Mesh | null {
+    switch (name) {
+      case 'clouds':
+        return this.cloudMesh;
+      case 'cloudShadow':
+        return this.cloudShadowMesh;
+      case 'nightLights':
+        return this.nightLightsMesh;
+      case 'specular':
+        return this.specMesh;
+      case 'atmosphere':
+        return this.atmosphereMesh;
+    }
   }
 
   // ── CustomLayerInterface callbacks ─────────────────────────────────────────
@@ -422,10 +469,17 @@ export class GlobeEnhancementsLayer {
 
     // ── Cloud sphere ──────────────────────────────────────────────────────────
     const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
-    const cloudMat = new THREE.MeshBasicMaterial({
-      color: CLOUD_TINT_COLOR,
+    const cloudMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uCloudMap: { value: null },
+        uColor: { value: CLOUD_TINT_COLOR },
+        uOpacity: { value: 0 },
+        uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
+        uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END }
+      },
+      vertexShader: specularVertexShader,
+      fragmentShader: cloudFragmentShader,
       transparent: true,
-      opacity: 0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       depthTest: false
@@ -435,6 +489,28 @@ export class GlobeEnhancementsLayer {
     this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
     // Shift the default SphereGeometry seam from 90°W to the date line.
     this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+    this.cloudMesh.visible = this._meshVisibility.clouds;
+
+    // ── Cloud shadow sphere ───────────────────────────────────────────────────
+    const cloudShadowGeom = new THREE.SphereGeometry(1, 64, 32);
+    const cloudShadowMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uCloudMap: { value: null },
+        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+        uOpacity: { value: this._cloudShadowOpacity },
+        uCloudAltitude: { value: CLOUD_ALTITUDE_SCALE }
+      },
+      vertexShader: specularVertexShader,
+      fragmentShader: cloudShadowFragmentShader,
+      transparent: true,
+      blending: THREE.NormalBlending,
+      depthWrite: false,
+      depthTest: false
+    });
+    this.cloudShadowMesh = new THREE.Mesh(cloudShadowGeom, cloudShadowMat);
+    // Shadow sphere just above the globe surface and below the cloud sphere.
+    this.cloudShadowMesh.scale.setScalar(CLOUD_SHADOW_ALTITUDE_SCALE);
+    this.cloudShadowMesh.visible = this._meshVisibility.cloudShadow;
 
     // ── Night lights ──────────────────────────────────────────────────────────
     const nightLightsGeom = new THREE.SphereGeometry(1, 64, 32);
@@ -459,8 +535,17 @@ export class GlobeEnhancementsLayer {
     this.nightLightsMesh = new THREE.Mesh(nightLightsGeom, nightLightsMat);
     this.nightLightsMesh.scale.setScalar(NIGHT_LIGHTS_ALTITUDE_SCALE);
     this.nightLightsMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
-    // Apply any blend mode that was set before onAdd was called (e.g. after a style reload).
-    this._applyNightLightsBlendMode(nightLightsMat, this.nightLightsBlendMode);
+    // Hardcode the dominant blend: src*alpha + dst*(1−srcAlpha).
+    nightLightsMat.blending = THREE.CustomBlending;
+    nightLightsMat.blendEquation = THREE.AddEquation;
+    nightLightsMat.blendSrc = THREE.OneFactor;
+    nightLightsMat.blendDst = THREE.OneMinusSrcAlphaFactor;
+    nightLightsMat.blendSrcAlpha = THREE.ZeroFactor;
+    nightLightsMat.blendDstAlpha = THREE.OneFactor;
+    nightLightsMat.blendEquationAlpha = THREE.AddEquation;
+    nightLightsMat.uniforms.uDominantBlend.value = 1;
+    nightLightsMat.needsUpdate = true;
+    this.nightLightsMesh.visible = this._meshVisibility.nightLights;
 
     // ── Specular + bump sphere ────────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
@@ -476,7 +561,6 @@ export class GlobeEnhancementsLayer {
         uSpecularStrength: { value: SPECULAR_INTENSITY },
         uRoughness: { value: SPECULAR_ROUGHNESS },
         uFresnelStrength: { value: SPECULAR_FRESNEL_STRENGTH },
-        uDebugReflection: { value: 0 },
         // Texel size matches the 10 240 × 5 120 bump map resolution
         uTexelSize: { value: new THREE.Vector2(1 / 10240, 1 / 5120) },
         uShininess: { value: SPECULAR_SHININESS },
@@ -491,6 +575,7 @@ export class GlobeEnhancementsLayer {
     });
     this.specMesh = new THREE.Mesh(specGeom, specMat);
     this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+    this.specMesh.visible = this._meshVisibility.specular;
 
     // ── Atmosphere shell ──────────────────────────────────────────────────────
     const atmosphereGeom = new THREE.SphereGeometry(1, 64, 32);
@@ -518,10 +603,13 @@ export class GlobeEnhancementsLayer {
     });
     this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
     this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
+    this.atmosphereMesh.visible = this._meshVisibility.atmosphere;
 
-    this.scene.add(this.cloudMesh);
+    // Render order: shadow → night lights → specular → clouds → atmosphere
+    this.scene.add(this.cloudShadowMesh);
     this.scene.add(this.nightLightsMesh);
     this.scene.add(this.specMesh);
+    this.scene.add(this.cloudMesh);
     this.scene.add(this.atmosphereMesh);
 
     // ── Load textures asynchronously ─────────────────────────────────────────
@@ -542,8 +630,9 @@ export class GlobeEnhancementsLayer {
           return;
         }
         cloudTex.colorSpace = THREE.SRGBColorSpace;
-        cloudMat.map = cloudTex;
-        cloudMat.needsUpdate = true;
+        cloudMat.uniforms.uCloudMap.value = cloudTex;
+        // Cloud shadow samples the same texture.
+        cloudShadowMat.uniforms.uCloudMap.value = cloudTex;
 
         nightLightsTex.colorSpace = THREE.SRGBColorSpace;
         nightLightsMat.uniforms.uNightMap.value = nightLightsTex;
@@ -594,7 +683,13 @@ export class GlobeEnhancementsLayer {
 
     // ── Update material uniforms / opacity ────────────────────────────────────
     if (this.cloudMesh) {
-      this.cloudMesh.material.opacity = t * MAX_CLOUD_OPACITY;
+      this.cloudMesh.material.uniforms.uOpacity.value = t * MAX_CLOUD_OPACITY;
+    }
+    if (this.cloudShadowMesh) {
+      const u = this.cloudShadowMesh.material.uniforms;
+      u.uSunDir.value.copy(this._sunDir);
+      // uOpacity is set separately by setCloudShadowOpacity; scale by t for zoom fade.
+      u.uOpacity.value = t * this._cloudShadowOpacity;
     }
     if (this.nightLightsMesh) {
       const u = this.nightLightsMesh.material.uniforms;
@@ -607,7 +702,6 @@ export class GlobeEnhancementsLayer {
       const u = this.specMesh.material.uniforms;
       u.uCameraPos.value.copy(this._cameraPos);
       u.uSunDir.value.copy(this._sunDir);
-      u.uDebugReflection.value = this.specularDebugEnabled ? 1 : 0;
       u.uOpacity.value = t * this.sunlightIntensity;
     }
     if (this.atmosphereMesh) {
@@ -634,9 +728,17 @@ export class GlobeEnhancementsLayer {
 
     if (this.cloudMesh) {
       this.cloudMesh.geometry.dispose();
-      this.cloudMesh.material.map?.dispose();
+      // Dispose the cloud texture here (shared with cloud shadow — dispose only once).
+      (this.cloudMesh.material.uniforms.uCloudMap.value as THREE.Texture | null)?.dispose();
       this.cloudMesh.material.dispose();
       this.cloudMesh = null;
+    }
+    if (this.cloudShadowMesh) {
+      this.cloudShadowMesh.geometry.dispose();
+      // Cloud texture already disposed above; clear the reference only.
+      this.cloudShadowMesh.material.uniforms.uCloudMap.value = null;
+      this.cloudShadowMesh.material.dispose();
+      this.cloudShadowMesh = null;
     }
     if (this.nightLightsMesh) {
       this.nightLightsMesh.geometry.dispose();

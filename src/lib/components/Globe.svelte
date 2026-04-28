@@ -24,8 +24,7 @@
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
   import {
     GlobeEnhancementsLayer,
-    NIGHT_LIGHTS_BLEND_MODES,
-    type NightLightsBlendMode
+    DEFAULT_CLOUD_SHADOW_OPACITY
   } from '$lib/utils/globeEnhancements';
 
   // ---- Props ----
@@ -110,8 +109,18 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
-  let nightLightsBlendMode = $state<NightLightsBlendMode>('dominant');
-  let specularDebugEnabled = $state(false);
+
+  // ---- Dev panel toggles (DEV mode only) ----
+  let devSkyEnabled = $state(true);
+  let devLightEnabled = $state(true);
+  let devSpecularEnabled = $state(true);
+  let devNightLightsEnabled = $state(true);
+  let devAtmosphereEnabled = $state(true);
+  let devCloudsEnabled = $state(true);
+  let devCloudShadowsEnabled = $state(true);
+  let devCloudShadowOpacity = $state(DEFAULT_CLOUD_SHADOW_OPACITY);
+  let devShopMarkersEnabled = $state(true);
+  let devGeoJsonEnabled = $state(true);
 
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
@@ -618,8 +627,12 @@
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({ anchor: 'map', intensity: 0.1, position: [1, azimuth, polar] });
-    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
+    instance.setLight({
+      anchor: 'map',
+      intensity: devLightEnabled ? 0.1 : 0,
+      position: [1, azimuth, polar]
+    });
+    instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
@@ -742,8 +755,6 @@
         );
       }
       enhancementsLayer.setSun(a, p);
-      enhancementsLayer.setNightLightsBlendMode(nightLightsBlendMode);
-      enhancementsLayer.setDebug(specularDebugEnabled);
       instance.addLayer(enhancementsLayer);
     }
 
@@ -1297,17 +1308,75 @@
     const az = a;
     const po = p;
     if (!instance?.isStyleLoaded()) return;
-    instance.setLight({ anchor: 'map', intensity: 0.1, position: [1, az, po] });
+    instance.setLight({
+      anchor: 'map',
+      intensity: devLightEnabled ? 0.1 : 0,
+      position: [1, az, po]
+    });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
     enhancementsLayer?.setSun(az, po);
   });
 
   $effect(() => {
-    enhancementsLayer?.setNightLightsBlendMode(nightLightsBlendMode);
+    const instance = map;
+    if (!instance?.isStyleLoaded()) return;
+    instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
+  });
+
+  // ---- Three.js mesh visibility effects ----
+  $effect(() => {
+    enhancementsLayer?.setMeshVisible('specular', devSpecularEnabled);
+  });
+  $effect(() => {
+    enhancementsLayer?.setMeshVisible('nightLights', devNightLightsEnabled);
+  });
+  $effect(() => {
+    enhancementsLayer?.setMeshVisible('atmosphere', devAtmosphereEnabled);
+  });
+  $effect(() => {
+    enhancementsLayer?.setMeshVisible('clouds', devCloudsEnabled);
+  });
+  $effect(() => {
+    enhancementsLayer?.setMeshVisible('cloudShadow', devCloudShadowsEnabled);
+  });
+  $effect(() => {
+    enhancementsLayer?.setCloudShadowOpacity(devCloudShadowOpacity);
+  });
+
+  // ---- Map overlay visibility effects ----
+  $effect(() => {
+    const instance = map;
+    if (!instance?.isStyleLoaded()) return;
+    const enabled = devShopMarkersEnabled;
+    for (const id of [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID, SHOPS_PINNED_LAYER_ID]) {
+      setLayerVisibility(instance, id, enabled);
+    }
+    if (!enabled) setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, false);
   });
 
   $effect(() => {
-    enhancementsLayer?.setDebug(specularDebugEnabled);
+    const instance = map;
+    if (!instance?.isStyleLoaded()) return;
+    if (!devGeoJsonEnabled) {
+      for (const id of [
+        WORLD_FILL_LAYER_ID,
+        WORLD_LINE_LAYER_ID,
+        WORLD_LABEL_LAYER_ID,
+        PROVINCE_FILL_LAYER_ID,
+        PROVINCE_LINE_LAYER_ID,
+        PROVINCE_LABEL_LAYER_ID,
+        CITY_FILL_LAYER_ID,
+        CITY_LINE_LAYER_ID,
+        CITY_LABEL_LAYER_ID,
+        COUNTY_FILL_LAYER_ID,
+        COUNTY_LINE_LAYER_ID,
+        COUNTY_LABEL_LAYER_ID
+      ]) {
+        setLayerVisibility(instance, id, false);
+      }
+    } else if (mode === 'fullscreen') {
+      syncMapData(instance);
+    }
   });
 
   // ---- Mode transition effect ----
@@ -2017,40 +2086,94 @@
           }}>Now</button
         >
       </div>
-      <div class="border-base-content/15 flex flex-col gap-2 border-t px-2 pt-2">
-        <label class="flex flex-col gap-1 text-xs">
-          <span class="flex flex-col gap-0.5">
-            <span class="font-medium">Night lights blend</span>
-            <span class="opacity-60">WebGL blend mode for the city-lights overlay</span>
-          </span>
-          <div class="flex gap-1">
-            {#each Object.entries(NIGHT_LIGHTS_BLEND_MODES) as [key, label] (key)}
-              <button
-                class="btn btn-xs flex-1 {nightLightsBlendMode === key
-                  ? 'btn-primary'
-                  : 'btn-ghost border-base-content/20 border'}"
-                onclick={() => (nightLightsBlendMode = key as NightLightsBlendMode)}>{label}</button
-              >
-            {/each}
-          </div>
-        </label>
+
+      <!-- Render layers section -->
+      <div class="border-base-content/15 flex flex-col gap-1.5 border-t px-2 pt-2">
+        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Render layers</p>
+        {#each [{ label: 'setSky', bind: 'devSkyEnabled', desc: 'Built-in MapLibre atmosphere sky' }, { label: 'setLight', bind: 'devLightEnabled', desc: 'MapLibre directional sun light' }, { label: 'Specular & bump', bind: 'devSpecularEnabled', desc: 'Ocean glint shader' }, { label: 'Night lights', bind: 'devNightLightsEnabled', desc: 'City lights overlay' }, { label: 'Atmosphere', bind: 'devAtmosphereEnabled', desc: 'Three.js atmosphere rim' }, { label: 'Clouds', bind: 'devCloudsEnabled', desc: 'Cloud texture overlay' }, { label: 'Cloud shadows', bind: 'devCloudShadowsEnabled', desc: 'Sun-cast cloud shadows' }] as row (row.bind)}
+          <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+            <span class="flex flex-col gap-0">
+              <span class="font-medium">{row.label}</span>
+              <span class="opacity-50">{row.desc}</span>
+            </span>
+            <input
+              type="checkbox"
+              class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+              checked={row.bind === 'devSkyEnabled'
+                ? devSkyEnabled
+                : row.bind === 'devLightEnabled'
+                  ? devLightEnabled
+                  : row.bind === 'devSpecularEnabled'
+                    ? devSpecularEnabled
+                    : row.bind === 'devNightLightsEnabled'
+                      ? devNightLightsEnabled
+                      : row.bind === 'devAtmosphereEnabled'
+                        ? devAtmosphereEnabled
+                        : row.bind === 'devCloudsEnabled'
+                          ? devCloudsEnabled
+                          : devCloudShadowsEnabled}
+              onchange={(e) => {
+                const v = (e.target as HTMLInputElement).checked;
+                if (row.bind === 'devSkyEnabled') devSkyEnabled = v;
+                else if (row.bind === 'devLightEnabled') devLightEnabled = v;
+                else if (row.bind === 'devSpecularEnabled') devSpecularEnabled = v;
+                else if (row.bind === 'devNightLightsEnabled') devNightLightsEnabled = v;
+                else if (row.bind === 'devAtmosphereEnabled') devAtmosphereEnabled = v;
+                else if (row.bind === 'devCloudsEnabled') devCloudsEnabled = v;
+                else devCloudShadowsEnabled = v;
+              }}
+            />
+          </label>
+        {/each}
+        {#if devCloudShadowsEnabled}
+          <label class="flex flex-col gap-1 pl-3 text-xs">
+            <span class="flex items-center justify-between">
+              <span class="opacity-70">Shadow opacity</span>
+              <span class="font-mono opacity-70">{devCloudShadowOpacity.toFixed(2)}</span>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              class="range range-xs"
+              bind:value={devCloudShadowOpacity}
+            />
+          </label>
+        {/if}
+      </div>
+
+      <!-- Map overlays section -->
+      <div class="border-base-content/15 flex flex-col gap-1.5 border-t px-2 pt-2">
+        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Map overlays</p>
         <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
-          <span class="flex flex-col gap-0.5">
-            <span class="font-medium">Specular debug</span>
-            <span class="opacity-60">Show the reflection hotspot overlay</span>
+          <span class="flex flex-col gap-0">
+            <span class="font-medium">Shop markers</span>
+            <span class="opacity-50">Circle markers and name labels</span>
           </span>
           <input
             type="checkbox"
-            class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-            bind:checked={specularDebugEnabled}
+            class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+            bind:checked={devShopMarkersEnabled}
+          />
+        </label>
+        <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+          <span class="flex flex-col gap-0">
+            <span class="font-medium">GeoJSON features</span>
+            <span class="opacity-50">Country / province / city boundaries</span>
+          </span>
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+            bind:checked={devGeoJsonEnabled}
           />
         </label>
       </div>
+
       <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
         <div>View: {currentDetailLevel}</div>
         <div>Focus: {focusPath}</div>
         <div>Zoom: {viewZoom.toFixed(2)}</div>
-        <div>Specular debug: {specularDebugEnabled ? 'on' : 'off'}</div>
         {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
         {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}
         {#if countyStatus === 'loading'}<div>Loading county detail...</div>{/if}
