@@ -22,7 +22,11 @@
   } from '$lib/utils/globeGeojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
-  import { GlobeEnhancementsLayer, NIGHT_LIGHTS_BLEND_MODES, type NightLightsBlendMode } from '$lib/utils/globeEnhancements';
+  import {
+    GlobeEnhancementsLayer,
+    NIGHT_LIGHTS_BLEND_MODES,
+    type NightLightsBlendMode
+  } from '$lib/utils/globeEnhancements';
 
   // ---- Props ----
   type Props = {
@@ -106,7 +110,7 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
-  let nightLightsBlendMode = $state<NightLightsBlendMode>('additive');
+  let nightLightsBlendMode = $state<NightLightsBlendMode>('dominant');
   let specularDebugEnabled = $state(false);
 
   // ---- Auto-rotation ----
@@ -551,14 +555,14 @@
     ['zoom'],
     // Full built-in atmosphere while zoomed out on the globe.
     0,
-    1,
+    0.4,
     // Keep it strong through the mid-zoom range so the custom atmosphere shell
     // enhances rather than replaces the built-in sky contribution.
     8,
-    1,
+    0.4,
     // Fade it back as the camera zooms in toward flat-map detail.
     10,
-    0.3
+    0.1
   ];
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
@@ -731,7 +735,7 @@
     if (!instance.getLayer('globe-enhancements')) {
       if (!enhancementsLayer) {
         enhancementsLayer = new GlobeEnhancementsLayer(
-          `${base}/globe/Earth-clouds.png`,
+          `${base}/globe/clouds.jpg`,
           `${base}/globe/nightlights.jpg`,
           `${base}/globe/8081_earthspec10k.jpg`,
           `${base}/globe/8081_earthbump10k.jpg`
@@ -2022,9 +2026,11 @@
           <div class="flex gap-1">
             {#each Object.entries(NIGHT_LIGHTS_BLEND_MODES) as [key, label] (key)}
               <button
-                class="btn btn-xs flex-1 {nightLightsBlendMode === key ? 'btn-primary' : 'btn-ghost border-base-content/20 border'}"
-                onclick={() => (nightLightsBlendMode = key as NightLightsBlendMode)}
-              >{label}</button>
+                class="btn btn-xs flex-1 {nightLightsBlendMode === key
+                  ? 'btn-primary'
+                  : 'btn-ghost border-base-content/20 border'}"
+                onclick={() => (nightLightsBlendMode = key as NightLightsBlendMode)}>{label}</button
+              >
             {/each}
           </div>
         </label>

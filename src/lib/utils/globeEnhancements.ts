@@ -39,36 +39,38 @@ import type { CustomRenderMethodInput } from 'maplibre-gl';
 import type maplibregl from 'maplibre-gl';
 
 /** Zoom level below which enhancements are fully opaque. */
-const FADE_IN_ZOOM = 3.0;
+const FADE_IN_ZOOM = 4.0;
 /** Zoom level above which enhancements are fully transparent. */
-const FADE_OUT_ZOOM = 7.5;
+const FADE_OUT_ZOOM = 8.0;
 
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
 
 /** Maximum opacity of the cloud layer (currently left at 0 so night lights / atmosphere stay readable). */
-const MAX_CLOUD_OPACITY = 0;
+const MAX_CLOUD_OPACITY = 0.8;
 /** Radius scale factor that floats the cloud sphere above the base globe surface. */
-const CLOUD_ALTITUDE_SCALE = 1.004;
+const CLOUD_ALTITUDE_SCALE = 1.009;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
 /** Maximum opacity of the night-lights overlay. */
-const MAX_NIGHT_LIGHTS_OPACITY = 2;
+const MAX_NIGHT_LIGHTS_OPACITY = 1;
 /** Radius scale factor for the night-lights shell so it sits above the raster globe. */
 const NIGHT_LIGHTS_ALTITUDE_SCALE = 1.0015;
+/** Fraction of the basemap retained in the dominant blend mode; the rest is suppressed so city lights can win visually. */
+const NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION = 0.35;
 /** Width of the smooth transition between day and night for city lights. */
 const NIGHT_LIGHTS_TERMINATOR_SOFTNESS = 0.22;
 /** Fade the night lights near the visible limb to avoid a hard edge. */
 const NIGHT_LIGHTS_LIMB_SOFTNESS = 0.22;
 /** Radius scale factor for the additive atmosphere shell. */
-const ATMOSPHERE_ALTITUDE_SCALE = 1.015;
+const ATMOSPHERE_ALTITUDE_SCALE = 1.012;
 /** Base opacity of the atmosphere shell before fresnel shaping. */
 const ATMOSPHERE_OPACITY = 1;
 /** Sky-blue day-side atmosphere tint. */
 const ATMOSPHERE_DAY_COLOR = new THREE.Color(0.34, 0.72, 1.0);
 /** Deeper twilight tint used around the terminator and dark side. */
-const ATMOSPHERE_NIGHT_COLOR = new THREE.Color(0.04, 0.16, 0.42);
+const ATMOSPHERE_NIGHT_COLOR = new THREE.Color(0.08, 0.24, 0.48);
 /** Fresnel exponent for the atmosphere rim; higher values tighten the halo. */
 const ATMOSPHERE_RIM_EXPONENT = 2.35;
 /** Start of the atmosphere night→day color blend across the terminator. */
@@ -85,9 +87,9 @@ const DEFAULT_BUMP_SCALE = 0.0045;
 /** Phong shininess exponent for ocean specular highlights. */
 const SPECULAR_SHININESS = 120.0;
 /** Overall strength of the ocean specular term after gloss/fresnel shaping. */
-const SPECULAR_INTENSITY = 1;
+const SPECULAR_INTENSITY = 1.2;
 /** Broadens the highlight so water reads less like polished metal. */
-const SPECULAR_ROUGHNESS = 0.24;
+const SPECULAR_ROUGHNESS = 0.64;
 /** Blend amount for view-angle fresnel shaping on the water highlight. */
 const SPECULAR_FRESNEL_STRENGTH = 0.12;
 /** Width of the terminator soft-transition band (in dot-product units). */
@@ -99,11 +101,13 @@ const DEFAULT_SUNLIGHT_INTENSITY = 1;
 
 /**
  * Named blend modes available for the night-lights shell.
+ * "Dominant" keeps only a fixed share of the basemap: src*alpha + dst*k.
  * "Additive" adds RGB directly (classic glow, alpha ignored by WebGL blender).
  * "Screen" approximates CSS screen blend: src + dst*(1-src) — softer glow.
  * "Normal" uses standard alpha compositing: src*alpha + dst*(1-alpha).
  */
 export const NIGHT_LIGHTS_BLEND_MODES = {
+  dominant: 'Dominant',
   additive: 'Additive',
   screen: 'Screen',
   normal: 'Normal'
@@ -211,6 +215,8 @@ const nightLightsFragmentShader = /* glsl */ `
   uniform vec3      uCameraPos;
   uniform vec3      uSunDir;
   uniform float     uOpacity;
+  uniform float     uDominantBlend;
+  uniform float     uDominantDimStrength;
   uniform float     uTerminatorSoftness;
   uniform float     uLimbSoftness;
 
@@ -228,9 +234,19 @@ const nightLightsFragmentShader = /* glsl */ `
     float nightSide = 1.0 - smoothstep(-uTerminatorSoftness, uTerminatorSoftness, nDotL);
     // Fade near the limb so the visible edge blends softly into the atmosphere.
     float limbFade = smoothstep(0.0, uLimbSoftness, nDotV);
+    float nightMask = nightSide * limbFade;
 
     vec3 nightColor = texture2D(uNightMap, vUv).rgb;
-    float alpha = max(max(nightColor.r, nightColor.g), nightColor.b) * nightSide * limbFade * uOpacity;
+    float alpha = max(max(nightColor.r, nightColor.g), nightColor.b) * nightMask * uOpacity;
+
+    if (uDominantBlend > 0.5) {
+      // In dominant mode, dim the basemap across the dark hemisphere while
+      // keeping the city-light color contribution tied to the texture itself.
+      float dimAlpha = nightMask * uDominantDimStrength;
+      gl_FragColor = vec4(nightColor * alpha, dimAlpha);
+      return;
+    }
+
     gl_FragColor = vec4(nightColor, alpha);
   }
 `;
@@ -301,7 +317,7 @@ export class GlobeEnhancementsLayer {
   private sunPolarDeg = 90;
   private sunlightIntensity = DEFAULT_SUNLIGHT_INTENSITY;
   private specularDebugEnabled = false;
-  private nightLightsBlendMode: NightLightsBlendMode = 'additive';
+  private nightLightsBlendMode: NightLightsBlendMode = 'dominant';
 
   constructor(
     private readonly cloudUrl: string,
@@ -339,17 +355,44 @@ export class GlobeEnhancementsLayer {
   }
 
   private _applyNightLightsBlendMode(mat: THREE.ShaderMaterial, mode: NightLightsBlendMode): void {
-    if (mode === 'screen') {
+    if (mode === 'dominant') {
+      // Dim the basemap only where the shader marks the dark hemisphere, while
+      // the source color carries the masked city-light contribution itself.
+      mat.blending = THREE.CustomBlending;
+      mat.blendEquation = THREE.AddEquation;
+      mat.blendSrc = THREE.OneFactor;
+      mat.blendDst = THREE.OneMinusSrcAlphaFactor;
+      mat.blendSrcAlpha = THREE.ZeroFactor;
+      mat.blendDstAlpha = THREE.OneFactor;
+      mat.blendEquationAlpha = THREE.AddEquation;
+      mat.blendAlpha = 0;
+      mat.uniforms.uDominantBlend.value = 1;
+    } else if (mode === 'screen') {
       // Screen ≈ src + dst*(1-src): use custom blending with factor ONE / ONE_MINUS_SRC_COLOR.
       mat.blending = THREE.CustomBlending;
       mat.blendEquation = THREE.AddEquation;
       mat.blendSrc = THREE.OneFactor;
       mat.blendDst = THREE.OneMinusSrcColorFactor;
+      mat.blendSrcAlpha = THREE.ZeroFactor;
+      mat.blendDstAlpha = THREE.OneFactor;
+      mat.blendEquationAlpha = THREE.AddEquation;
+      mat.blendAlpha = 0;
+      mat.uniforms.uDominantBlend.value = 0;
     } else if (mode === 'normal') {
       mat.blending = THREE.NormalBlending;
+      mat.blendSrcAlpha = null;
+      mat.blendDstAlpha = null;
+      mat.blendEquationAlpha = null;
+      mat.blendAlpha = 0;
+      mat.uniforms.uDominantBlend.value = 0;
     } else {
       // additive (default): src + dst; Three.js adds raw RGB, alpha unused by blender.
       mat.blending = THREE.AdditiveBlending;
+      mat.blendSrcAlpha = null;
+      mat.blendDstAlpha = null;
+      mat.blendEquationAlpha = null;
+      mat.blendAlpha = 0;
+      mat.uniforms.uDominantBlend.value = 0;
     }
     mat.needsUpdate = true;
   }
@@ -401,6 +444,8 @@ export class GlobeEnhancementsLayer {
         uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
         uSunDir: { value: new THREE.Vector3(0, 0, 1) },
         uOpacity: { value: 0 },
+        uDominantBlend: { value: 0 },
+        uDominantDimStrength: { value: 1 - NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION },
         uTerminatorSoftness: { value: NIGHT_LIGHTS_TERMINATOR_SOFTNESS },
         uLimbSoftness: { value: NIGHT_LIGHTS_LIMB_SOFTNESS }
       },
@@ -556,6 +601,7 @@ export class GlobeEnhancementsLayer {
       u.uCameraPos.value.copy(this._cameraPos);
       u.uSunDir.value.copy(this._sunDir);
       u.uOpacity.value = t * MAX_NIGHT_LIGHTS_OPACITY;
+      u.uDominantDimStrength.value = t * (1 - NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION);
     }
     if (this.specMesh) {
       const u = this.specMesh.material.uniforms;
