@@ -1,5 +1,6 @@
 /**
- * Globe visual enhancements: cloud layer and specular ocean highlights
+ * Globe visual enhancements: cloud layer, night lights, ocean highlights and
+ * atmosphere glow
  * rendered as a MapLibre custom layer sharing the same WebGL context.
  *
  * Coordinate-system notes (MapLibre 5.x globe mode)
@@ -48,6 +49,22 @@ const MAX_CLOUD_OPACITY = 0;
 const CLOUD_ALTITUDE_SCALE = 1.004;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
+/** Maximum opacity of the night-lights overlay. */
+const MAX_NIGHT_LIGHTS_OPACITY = 0.78;
+/** Radius scale factor for the night-lights shell so it sits above the raster globe. */
+const NIGHT_LIGHTS_ALTITUDE_SCALE = 1.0015;
+/** Width of the smooth transition between day and night for city lights. */
+const NIGHT_LIGHTS_TERMINATOR_SOFTNESS = 0.22;
+/** Fade the night lights near the visible limb to avoid a hard edge. */
+const NIGHT_LIGHTS_LIMB_SOFTNESS = 0.22;
+/** Radius scale factor for the additive atmosphere shell. */
+const ATMOSPHERE_ALTITUDE_SCALE = 1.035;
+/** Base opacity of the atmosphere shell before fresnel shaping. */
+const ATMOSPHERE_OPACITY = 0.62;
+/** Sky-blue day-side atmosphere tint. */
+const ATMOSPHERE_DAY_COLOR = new THREE.Color(0.34, 0.72, 1.0);
+/** Deeper twilight tint used around the terminator and dark side. */
+const ATMOSPHERE_NIGHT_COLOR = new THREE.Color(0.04, 0.16, 0.42);
 
 /** Strength of the bump-map normal perturbation in the specular shader. */
 const DEFAULT_BUMP_SCALE = 0.0045;
@@ -157,6 +174,66 @@ const specularFragmentShader = /* glsl */ `
   }
 `;
 
+const nightLightsFragmentShader = /* glsl */ `
+  precision highp float;
+
+  uniform sampler2D uNightMap;
+  uniform vec3      uCameraPos;
+  uniform vec3      uSunDir;
+  uniform float     uOpacity;
+  uniform float     uTerminatorSoftness;
+  uniform float     uLimbSoftness;
+
+  varying vec3 vNormal;
+  varying vec3 vWorldPos;
+  varying vec2 vUv;
+
+  void main() {
+    vec3 N = normalize(vNormal);
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    float nDotL = dot(N, uSunDir);
+    float nDotV = max(dot(N, viewDir), 0.0);
+
+    // Full intensity on the night side, fading smoothly through the terminator.
+    float nightSide = 1.0 - smoothstep(-uTerminatorSoftness, uTerminatorSoftness, nDotL);
+    // Fade near the limb so the visible edge blends softly into the atmosphere.
+    float limbFade = smoothstep(0.0, uLimbSoftness, nDotV);
+
+    vec3 nightColor = texture2D(uNightMap, vUv).rgb;
+    float alpha = max(max(nightColor.r, nightColor.g), nightColor.b) * nightSide * limbFade * uOpacity;
+    gl_FragColor = vec4(nightColor, alpha);
+  }
+`;
+
+const atmosphereFragmentShader = /* glsl */ `
+  precision highp float;
+
+  uniform vec3  uCameraPos;
+  uniform vec3  uSunDir;
+  uniform vec3  uDayColor;
+  uniform vec3  uNightColor;
+  uniform float uOpacity;
+  uniform float uSunIntensity;
+
+  varying vec3 vNormal;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vec3 N = normalize(vWorldPos);
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    float nDotV = max(dot(N, viewDir), 0.0);
+    float nDotL = dot(N, uSunDir);
+
+    float rim = pow(1.0 - nDotV, 2.35);
+    float dayMix = smoothstep(-0.3, 0.45, nDotL);
+    float sunBoost = mix(0.75, 1.15, clamp(uSunIntensity, 0.0, 1.0));
+    vec3 color = mix(uNightColor, uDayColor, dayMix);
+    float alpha = rim * uOpacity * mix(0.8, sunBoost, dayMix);
+
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
 // ─── GlobeEnhancementsLayer ───────────────────────────────────────────────────
 
 /**
@@ -175,7 +252,9 @@ export class GlobeEnhancementsLayer {
   private camera: THREE.Camera | null = null;
 
   private cloudMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial> | null = null;
+  private nightLightsMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private specMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
+  private atmosphereMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
 
   private map: maplibregl.Map | null = null;
   private loaded = false;
@@ -190,10 +269,12 @@ export class GlobeEnhancementsLayer {
 
   private sunAzimuthDeg = 0;
   private sunPolarDeg = 90;
+  private sunlightIntensity = 0.45;
   private specularDebugEnabled = false;
 
   constructor(
     private readonly cloudUrl: string,
+    private readonly nightLightsUrl: string,
     private readonly specularUrl: string,
     private readonly bumpUrl: string
   ) {}
@@ -206,6 +287,11 @@ export class GlobeEnhancementsLayer {
 
   setDebug(enabled: boolean): void {
     this.specularDebugEnabled = enabled;
+    this.map?.triggerRepaint();
+  }
+
+  setSunlightIntensity(intensity: number): void {
+    this.sunlightIntensity = Math.max(0, Math.min(1, intensity));
     this.map?.triggerRepaint();
   }
 
@@ -248,6 +334,28 @@ export class GlobeEnhancementsLayer {
     // Shift the default SphereGeometry seam from 90°W to the date line.
     this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
 
+    // ── Night lights ──────────────────────────────────────────────────────────
+    const nightLightsGeom = new THREE.SphereGeometry(1, 64, 32);
+    const nightLightsMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uNightMap: { value: null },
+        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+        uOpacity: { value: 0 },
+        uTerminatorSoftness: { value: NIGHT_LIGHTS_TERMINATOR_SOFTNESS },
+        uLimbSoftness: { value: NIGHT_LIGHTS_LIMB_SOFTNESS }
+      },
+      vertexShader: specularVertexShader,
+      fragmentShader: nightLightsFragmentShader,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false
+    });
+    this.nightLightsMesh = new THREE.Mesh(nightLightsGeom, nightLightsMat);
+    this.nightLightsMesh.scale.setScalar(NIGHT_LIGHTS_ALTITUDE_SCALE);
+    this.nightLightsMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+
     // ── Specular + bump sphere ────────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
     const specMat = new THREE.ShaderMaterial({
@@ -278,20 +386,46 @@ export class GlobeEnhancementsLayer {
     this.specMesh = new THREE.Mesh(specGeom, specMat);
     this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
 
+    // ── Atmosphere shell ──────────────────────────────────────────────────────
+    const atmosphereGeom = new THREE.SphereGeometry(1, 64, 32);
+    const atmosphereMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+        uDayColor: { value: ATMOSPHERE_DAY_COLOR },
+        uNightColor: { value: ATMOSPHERE_NIGHT_COLOR },
+        uOpacity: { value: 0 },
+        uSunIntensity: { value: this.sunlightIntensity }
+      },
+      vertexShader: specularVertexShader,
+      fragmentShader: atmosphereFragmentShader,
+      transparent: true,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false
+    });
+    this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
+    this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
+
     this.scene.add(this.cloudMesh);
+    this.scene.add(this.nightLightsMesh);
     this.scene.add(this.specMesh);
+    this.scene.add(this.atmosphereMesh);
 
     // ── Load textures asynchronously ─────────────────────────────────────────
     const loader = new THREE.TextureLoader();
     Promise.all([
       loader.loadAsync(this.cloudUrl),
+      loader.loadAsync(this.nightLightsUrl),
       loader.loadAsync(this.specularUrl),
       loader.loadAsync(this.bumpUrl)
     ])
-      .then(([cloudTex, specTex, bumpTex]) => {
+      .then(([cloudTex, nightLightsTex, specTex, bumpTex]) => {
         if (this.aborted) {
           // Style was reloaded while textures were in flight — discard them.
           cloudTex.dispose();
+          nightLightsTex.dispose();
           specTex.dispose();
           bumpTex.dispose();
           return;
@@ -300,6 +434,8 @@ export class GlobeEnhancementsLayer {
         cloudMat.map = cloudTex;
         cloudMat.needsUpdate = true;
 
+        nightLightsTex.colorSpace = THREE.SRGBColorSpace;
+        nightLightsMat.uniforms.uNightMap.value = nightLightsTex;
         specMat.uniforms.uSpecularMap.value = specTex;
         specMat.uniforms.uBumpMap.value = bumpTex;
 
@@ -349,12 +485,25 @@ export class GlobeEnhancementsLayer {
     if (this.cloudMesh) {
       this.cloudMesh.material.opacity = t * MAX_CLOUD_OPACITY;
     }
+    if (this.nightLightsMesh) {
+      const u = this.nightLightsMesh.material.uniforms;
+      u.uCameraPos.value.copy(this._cameraPos);
+      u.uSunDir.value.copy(this._sunDir);
+      u.uOpacity.value = t * MAX_NIGHT_LIGHTS_OPACITY;
+    }
     if (this.specMesh) {
       const u = this.specMesh.material.uniforms;
       u.uCameraPos.value.copy(this._cameraPos);
       u.uSunDir.value.copy(this._sunDir);
       u.uDebugReflection.value = this.specularDebugEnabled ? 1 : 0;
-      u.uOpacity.value = t;
+      u.uOpacity.value = t * this.sunlightIntensity;
+    }
+    if (this.atmosphereMesh) {
+      const u = this.atmosphereMesh.material.uniforms;
+      u.uCameraPos.value.copy(this._cameraPos);
+      u.uSunDir.value.copy(this._sunDir);
+      u.uSunIntensity.value = this.sunlightIntensity;
+      u.uOpacity.value = t * ATMOSPHERE_OPACITY;
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -377,6 +526,12 @@ export class GlobeEnhancementsLayer {
       this.cloudMesh.material.dispose();
       this.cloudMesh = null;
     }
+    if (this.nightLightsMesh) {
+      this.nightLightsMesh.geometry.dispose();
+      (this.nightLightsMesh.material.uniforms.uNightMap.value as THREE.Texture | null)?.dispose();
+      this.nightLightsMesh.material.dispose();
+      this.nightLightsMesh = null;
+    }
     if (this.specMesh) {
       this.specMesh.geometry.dispose();
       const u = this.specMesh.material.uniforms;
@@ -384,6 +539,11 @@ export class GlobeEnhancementsLayer {
       (u.uBumpMap.value as THREE.Texture | null)?.dispose();
       this.specMesh.material.dispose();
       this.specMesh = null;
+    }
+    if (this.atmosphereMesh) {
+      this.atmosphereMesh.geometry.dispose();
+      this.atmosphereMesh.material.dispose();
+      this.atmosphereMesh = null;
     }
 
     // Do NOT call renderer.dispose() — it would destroy the shared WebGL context.

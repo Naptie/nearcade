@@ -106,6 +106,7 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
+  let sunlightIntensity = $state(0.42);
   let specularDebugEnabled = $state(false);
 
   // ---- Auto-rotation ----
@@ -550,10 +551,10 @@
     ['zoom'],
     0,
     1,
-    5,
+    8,
     1,
-    7,
-    0
+    10,
+    0.3
   ];
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
@@ -609,7 +610,7 @@
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({ anchor: 'map', position: [1000, azimuth, polar] });
+    instance.setLight({ anchor: 'map', position: [1000, azimuth, polar], intensity: sunlightIntensity });
     instance.setSky({ 'atmosphere-blend': atmosphereBlend });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
@@ -721,17 +722,20 @@
       });
     }
 
-    // Globe visual enhancements (clouds + specular). Inserted before the boundary
+    // Globe visual enhancements (clouds + night lights + specular + atmosphere).
+    // Inserted before the boundary
     // fill layers so that the effects appear under country / region overlays.
     if (!instance.getLayer('globe-enhancements')) {
       if (!enhancementsLayer) {
         enhancementsLayer = new GlobeEnhancementsLayer(
           `${base}/globe/Earth-clouds.png`,
+          `${base}/globe/nightlights.jpg`,
           `${base}/globe/8081_earthspec10k.jpg`,
           `${base}/globe/8081_earthbump10k.jpg`
         );
       }
       enhancementsLayer.setSun(a, p);
+      enhancementsLayer.setSunlightIntensity(sunlightIntensity);
       enhancementsLayer.setDebug(specularDebugEnabled);
       instance.addLayer(enhancementsLayer);
     }
@@ -1286,9 +1290,13 @@
     const az = a;
     const po = p;
     if (!instance?.isStyleLoaded()) return;
-    instance.setLight({ anchor: 'map', position: [1000, az, po] });
+    instance.setLight({ anchor: 'map', position: [1000, az, po], intensity: sunlightIntensity });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
     enhancementsLayer?.setSun(az, po);
+  });
+
+  $effect(() => {
+    enhancementsLayer?.setSunlightIntensity(sunlightIntensity);
   });
 
   $effect(() => {
@@ -2003,6 +2011,23 @@
         >
       </div>
       <div class="border-base-content/15 flex flex-col gap-2 border-t px-2 pt-2">
+        <label class="flex flex-col gap-1 text-xs">
+          <span class="flex items-center justify-between gap-3">
+            <span class="flex flex-col gap-0.5">
+              <span class="font-medium">Sunlight intensity</span>
+              <span class="opacity-60">Scales the custom ocean glint and MapLibre light</span>
+            </span>
+            <span class="tabular-nums">{sunlightIntensity.toFixed(2)}</span>
+          </span>
+          <input
+            type="range"
+            class="range range-xs"
+            min="0"
+            max="1"
+            step="0.01"
+            bind:value={sunlightIntensity}
+          />
+        </label>
         <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
           <span class="flex flex-col gap-0.5">
             <span class="font-medium">Specular debug</span>
@@ -2019,6 +2044,7 @@
         <div>View: {currentDetailLevel}</div>
         <div>Focus: {focusPath}</div>
         <div>Zoom: {viewZoom.toFixed(2)}</div>
+        <div>Sunlight intensity: {sunlightIntensity.toFixed(2)}</div>
         <div>Specular debug: {specularDebugEnabled ? 'on' : 'off'}</div>
         {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
         {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}
