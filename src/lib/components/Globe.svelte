@@ -1389,12 +1389,6 @@
   // ---- Three.js render-layer dev toggles ----
   $effect(() => {
     const instance = map;
-    void devSpecularEnabled;
-    void devNightLightsEnabled;
-    void devAtmosphereEnabled;
-    void devCloudsEnabled;
-    void devCloudShadowsEnabled;
-    void devCloudShadowOpacity;
     if (!instance?.isStyleLoaded()) return;
     ensureEnhancementsLayer(instance, true);
   });
@@ -1403,8 +1397,6 @@
   $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-    void devShopMarkersEnabled;
-    void devGeoJsonEnabled;
     if (mode === 'fullscreen') {
       syncMapData(instance);
       return;
