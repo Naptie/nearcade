@@ -106,6 +106,7 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
+  let specularDebugEnabled = $state(false);
 
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
@@ -608,7 +609,7 @@
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({ anchor: 'map', position: [100, azimuth, polar] });
+    instance.setLight({ anchor: 'map', position: [1000, azimuth, polar] });
     instance.setSky({ 'atmosphere-blend': atmosphereBlend });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
@@ -731,6 +732,7 @@
         );
       }
       enhancementsLayer.setSun(a, p);
+      enhancementsLayer.setDebug(specularDebugEnabled);
       instance.addLayer(enhancementsLayer);
     }
 
@@ -1284,9 +1286,13 @@
     const az = a;
     const po = p;
     if (!instance?.isStyleLoaded()) return;
-    instance.setLight({ anchor: 'map', position: [100, az, po] });
+    instance.setLight({ anchor: 'map', position: [1000, az, po] });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
     enhancementsLayer?.setSun(az, po);
+  });
+
+  $effect(() => {
+    enhancementsLayer?.setDebug(specularDebugEnabled);
   });
 
   // ---- Mode transition effect ----
@@ -1996,10 +2002,24 @@
           }}>Now</button
         >
       </div>
+      <div class="border-base-content/15 flex flex-col gap-2 border-t px-2 pt-2">
+        <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+          <span class="flex flex-col gap-0.5">
+            <span class="font-medium">Specular debug</span>
+            <span class="opacity-60">Show the reflection hotspot overlay</span>
+          </span>
+          <input
+            type="checkbox"
+            class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+            bind:checked={specularDebugEnabled}
+          />
+        </label>
+      </div>
       <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
         <div>View: {currentDetailLevel}</div>
         <div>Focus: {focusPath}</div>
         <div>Zoom: {viewZoom.toFixed(2)}</div>
+        <div>Specular debug: {specularDebugEnabled ? 'on' : 'off'}</div>
         {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
         {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}
         {#if countyStatus === 'loading'}<div>Loading county detail...</div>{/if}

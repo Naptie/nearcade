@@ -24,12 +24,10 @@
  *
  * Texture alignment
  * ─────────────────────────────────────────────────────────────────────
- * Three.js SphereGeometry (default): phi=0 (u=0) → +z (prime meridian);
- * increasing phi increases u westward.  Equirectangular: u=0 → −180°
- * (date line); increasing u → eastward.  Two corrections:
- *   1. Flip UV u-coordinates: u → 1−u  (reverses east/west direction)
- *   2. mesh.rotation.y = π              (shifts seam by 180°: u=0 → date line)
- * Combined: u=0 → −180°, u increases eastward. ✓
+ * Three.js SphereGeometry (default): along the equator, u increases eastward,
+ * but the seam starts at 90°W instead of the date line.  A −90° rotation
+ * around the y-axis shifts the seam to −180° without mirroring longitude,
+ * so standard equirectangular textures align with MapLibre's basemap.
  *
  * Sun direction in MapLibre ECEF from getSunPosition(azimuthDeg, polarDeg):
  *   sun = (sin(po)·sin(az),  −sin(po)·cos(az),  −cos(po))
@@ -45,16 +43,22 @@ const FADE_IN_ZOOM = 1.0;
 const FADE_OUT_ZOOM = 6.5;
 
 /** Maximum opacity of the cloud layer (additive blend, so 1.0 = very bright). */
-const MAX_CLOUD_OPACITY = 0.52;
+const MAX_CLOUD_OPACITY = 0;
 /** Radius scale factor that floats the cloud sphere above the base globe surface. */
 const CLOUD_ALTITUDE_SCALE = 1.004;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
 
 /** Strength of the bump-map normal perturbation in the specular shader. */
-const DEFAULT_BUMP_SCALE = 0.007;
+const DEFAULT_BUMP_SCALE = 0.0045;
 /** Phong shininess exponent for ocean specular highlights. */
-const SPECULAR_SHININESS = 40.0;
+const SPECULAR_SHININESS = 90.0;
+/** Overall strength of the ocean specular term after gloss/fresnel shaping. */
+const SPECULAR_INTENSITY = 1.5;
+/** Broadens the highlight so water reads less like polished metal. */
+const SPECULAR_ROUGHNESS = 0.32;
+/** Blend amount for view-angle fresnel shaping on the water highlight. */
+const SPECULAR_FRESNEL_STRENGTH = 0.24;
 /** Width of the terminator soft-transition band (in dot-product units). */
 const TERMINATOR_SOFTNESS = 0.12;
 /** Warm sunlight tint applied to specular highlights. */
@@ -64,11 +68,12 @@ const SUN_COLOR = new THREE.Color(1.0, 0.96, 0.88);
 
 const specularVertexShader = /* glsl */ `
   varying vec3 vNormal;
+  varying vec3 vWorldPos;
   varying vec2 vUv;
   void main() {
-    // normalMatrix transforms local normals into view/ECEF space so that
-    // the sun-direction dot product is computed in a consistent space.
-    vNormal     = normalize(normalMatrix * normal);
+    // modelMatrix places the aligned sphere in MapLibre's unit-sphere ECEF.
+    vNormal     = normalize(mat3(modelMatrix) * normal);
+    vWorldPos   = (modelMatrix * vec4(position, 1.0)).xyz;
     vUv         = uv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
@@ -79,15 +84,21 @@ const specularFragmentShader = /* glsl */ `
 
   uniform sampler2D uSpecularMap;
   uniform sampler2D uBumpMap;
+  uniform vec3      uCameraPos;
   uniform vec3      uSunDir;
   uniform vec3      uSunColor;
   uniform float     uOpacity;
   uniform float     uBumpScale;
+  uniform float     uSpecularStrength;
+  uniform float     uRoughness;
+  uniform float     uFresnelStrength;
+  uniform float     uDebugReflection;
   uniform vec2      uTexelSize;
   uniform float     uShininess;
   uniform float     uTerminatorSoftness;
 
   varying vec3 vNormal;
+  varying vec3 vWorldPos;
   varying vec2 vUv;
 
   void main() {
@@ -109,20 +120,39 @@ const specularFragmentShader = /* glsl */ `
     float dy = (hU - hD) * uBumpScale;
     vec3 bN  = normalize(N + dx * T + dy * B);
 
-    // ── Phong specular ────────────────────────────────────────────────────────
+    // ── Camera-aware ocean specular ───────────────────────────────────────────
     float specStr   = texture2D(uSpecularMap, vUv).r;
 
-    // For a globe seen from outside, the outward normal is a good approximation
-    // of the view direction towards the camera.
-    vec3 viewDir    = N;
+    // Use the actual camera-to-fragment vector so the specular lobe lands where
+    // the reflected sun ray is visible from the current view, not just near the limb.
+    vec3 viewDir    = normalize(uCameraPos - vWorldPos);
+    vec3 halfDir    = normalize(uSunDir + viewDir);
     vec3 reflectDir = reflect(-uSunDir, bN);
-    float spec      = pow(max(dot(viewDir, reflectDir), 0.0), uShininess);
+    float nDotL     = max(dot(bN, uSunDir), 0.0);
+    float nDotV     = max(dot(bN, viewDir), 0.0);
+    float nDotH     = max(dot(bN, halfDir), 0.0);
+
+    float glossExponent = mix(uShininess, 18.0, uRoughness);
+    float spec          = pow(nDotH, glossExponent);
+    float fresnel       = 0.02 + 0.98 * pow(1.0 - nDotV, 5.0);
+    fresnel             = mix(1.0, fresnel, uFresnelStrength);
+    float reflectionHit = max(dot(viewDir, reflectDir), 0.0);
+    float hotspot       = smoothstep(0.995, 0.9994, reflectionHit);
 
     // Suppress specular on the night side with a soft transition
-    float nDotL     = dot(bN, uSunDir);
-    spec           *= smoothstep(0.0, uTerminatorSoftness, nDotL);
+    float sunlight = smoothstep(0.0, uTerminatorSoftness, nDotL);
+    float visibility = smoothstep(0.0, 0.08, nDotV);
+    spec *= sunlight * visibility * fresnel;
 
-    float intensity = specStr * spec * uOpacity;
+    if (uDebugReflection > 0.5) {
+      vec3 debugColor = mix(vec3(0.02, 0.03, 0.08), vec3(0.07, 0.24, 0.30), sunlight);
+      debugColor += vec3(0.95, 0.44, 0.06) * pow(nDotV, 3.0) * 0.35;
+      debugColor = mix(debugColor, vec3(0.05, 0.98, 0.94), hotspot);
+      gl_FragColor = vec4(debugColor, max(0.78 * uOpacity, hotspot));
+      return;
+    }
+
+    float intensity = specStr * spec * uSpecularStrength * uOpacity;
     gl_FragColor    = vec4(uSunColor, intensity);
   }
 `;
@@ -130,18 +160,10 @@ const specularFragmentShader = /* glsl */ `
 // ─── GlobeEnhancementsLayer ───────────────────────────────────────────────────
 
 /**
- * Flip the u-component of every UV coordinate in a geometry so that
- * u → 1−u.  This reverses the east/west direction of the sphere mapping,
- * making Three.js SphereGeometry compatible with equirectangular textures
- * when combined with a 180° rotation around the y-axis.
+ * Rotate Three.js SphereGeometry so that a standard equirectangular texture
+ * lines up with MapLibre's globe: u=0 at the date line and u increases eastward.
  */
-function flipUVs(geom: THREE.SphereGeometry): void {
-  const uvAttr = geom.attributes.uv;
-  for (let i = 0; i < uvAttr.count; i++) {
-    uvAttr.setX(i, 1.0 - uvAttr.getX(i));
-  }
-  uvAttr.needsUpdate = true;
-}
+const EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y = -Math.PI / 2;
 
 export class GlobeEnhancementsLayer {
   readonly id = 'globe-enhancements';
@@ -160,10 +182,15 @@ export class GlobeEnhancementsLayer {
   private aborted = false;
 
   // Re-used every frame to avoid GC pressure
+  private readonly _projection = new THREE.Matrix4();
+  private readonly _view = new THREE.Matrix4();
+  private readonly _cameraWorld = new THREE.Matrix4();
+  private readonly _cameraPos = new THREE.Vector3();
   private readonly _sunDir = new THREE.Vector3();
 
   private sunAzimuthDeg = 0;
   private sunPolarDeg = 90;
+  private specularDebugEnabled = false;
 
   constructor(
     private readonly cloudUrl: string,
@@ -175,6 +202,11 @@ export class GlobeEnhancementsLayer {
   setSun(azimuthDeg: number, polarDeg: number): void {
     this.sunAzimuthDeg = azimuthDeg;
     this.sunPolarDeg = polarDeg;
+  }
+
+  setDebug(enabled: boolean): void {
+    this.specularDebugEnabled = enabled;
+    this.map?.triggerRepaint();
   }
 
   // ── CustomLayerInterface callbacks ─────────────────────────────────────────
@@ -202,9 +234,6 @@ export class GlobeEnhancementsLayer {
 
     // ── Cloud sphere ──────────────────────────────────────────────────────────
     const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
-    // Flip UV u-coordinates (u → 1−u) so equirectangular textures map west→east.
-    // Combined with the 180° y-rotation below this aligns u=0 with −180° (date line).
-    flipUVs(cloudGeom);
     const cloudMat = new THREE.MeshBasicMaterial({
       color: CLOUD_TINT_COLOR,
       transparent: true,
@@ -216,22 +245,24 @@ export class GlobeEnhancementsLayer {
     this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
     // CLOUD_ALTITUDE_SCALE makes the cloud sphere 0.4% larger than the base globe.
     this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
-    // Rotate 180° around y so phi=0 (Three.js u=0) aligns with the date line
-    // instead of the prime meridian.  Together with the UV flip this gives a
-    // pixel-accurate equirectangular mapping.
-    this.cloudMesh.rotation.y = Math.PI;
+    // Shift the default SphereGeometry seam from 90°W to the date line.
+    this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
 
     // ── Specular + bump sphere ────────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
-    flipUVs(specGeom);
     const specMat = new THREE.ShaderMaterial({
       uniforms: {
         uSpecularMap: { value: null },
         uBumpMap: { value: null },
+        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
         uSunDir: { value: new THREE.Vector3(0, 0, 1) },
         uSunColor: { value: SUN_COLOR },
         uOpacity: { value: 0 },
         uBumpScale: { value: DEFAULT_BUMP_SCALE },
+        uSpecularStrength: { value: SPECULAR_INTENSITY },
+        uRoughness: { value: SPECULAR_ROUGHNESS },
+        uFresnelStrength: { value: SPECULAR_FRESNEL_STRENGTH },
+        uDebugReflection: { value: 0 },
         // Texel size matches the 10 240 × 5 120 bump map resolution
         uTexelSize: { value: new THREE.Vector2(1 / 10240, 1 / 5120) },
         uShininess: { value: SPECULAR_SHININESS },
@@ -245,7 +276,7 @@ export class GlobeEnhancementsLayer {
       depthTest: false
     });
     this.specMesh = new THREE.Mesh(specGeom, specMat);
-    this.specMesh.rotation.y = Math.PI;
+    this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
 
     this.scene.add(this.cloudMesh);
     this.scene.add(this.specMesh);
@@ -279,7 +310,10 @@ export class GlobeEnhancementsLayer {
       });
   }
 
-  render(_gl: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
+  render(
+    _gl: WebGLRenderingContext | WebGL2RenderingContext,
+    options: CustomRenderMethodInput
+  ): void {
     if (!this.loaded || !this.renderer || !this.scene || !this.camera || !this.map) return;
 
     const zoom = this.map.getZoom();
@@ -295,6 +329,13 @@ export class GlobeEnhancementsLayer {
     this.camera.projectionMatrix.fromArray(options.modelViewProjectionMatrix);
     this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
 
+    // Recover the globe-space view transform so the shader can use the actual
+    // camera-to-fragment direction for specular reflection.
+    this._projection.fromArray(options.projectionMatrix);
+    this._view.copy(this._projection).invert().multiply(this.camera.projectionMatrix);
+    this._cameraWorld.copy(this._view).invert();
+    this._cameraPos.setFromMatrixPosition(this._cameraWorld);
+
     // ── Sun direction in MapLibre ECEF ────────────────────────────────────────
     // Derived by inverting getSunPosition(azimuthDeg, polarDeg) in Globe.svelte:
     //   sun_ECEF.x = sin(po)·sin(az)   [toward 90°E]
@@ -302,11 +343,7 @@ export class GlobeEnhancementsLayer {
     //   sun_ECEF.z = −cos(po)          [toward prime meridian]
     const az = (this.sunAzimuthDeg * Math.PI) / 180;
     const po = (this.sunPolarDeg * Math.PI) / 180;
-    this._sunDir.set(
-      Math.sin(po) * Math.sin(az),
-      -Math.sin(po) * Math.cos(az),
-      -Math.cos(po)
-    );
+    this._sunDir.set(Math.sin(po) * Math.sin(az), -Math.sin(po) * Math.cos(az), -Math.cos(po));
 
     // ── Update material uniforms / opacity ────────────────────────────────────
     if (this.cloudMesh) {
@@ -314,7 +351,9 @@ export class GlobeEnhancementsLayer {
     }
     if (this.specMesh) {
       const u = this.specMesh.material.uniforms;
+      u.uCameraPos.value.copy(this._cameraPos);
       u.uSunDir.value.copy(this._sunDir);
+      u.uDebugReflection.value = this.specularDebugEnabled ? 1 : 0;
       u.uOpacity.value = t;
     }
 
