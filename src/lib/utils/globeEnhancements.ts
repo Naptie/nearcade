@@ -333,22 +333,25 @@ export class GlobeEnhancementsLayer {
   setNightLightsBlendMode(mode: NightLightsBlendMode): void {
     this.nightLightsBlendMode = mode;
     if (this.nightLightsMesh) {
-      const mat = this.nightLightsMesh.material;
-      if (mode === 'screen') {
-        // Screen ≈ src + dst*(1-src): use custom blending with factor ONE / ONE_MINUS_SRC_COLOR.
-        mat.blending = THREE.CustomBlending;
-        mat.blendEquation = THREE.AddEquation;
-        mat.blendSrc = THREE.OneFactor;
-        mat.blendDst = THREE.OneMinusSrcColorFactor;
-      } else if (mode === 'normal') {
-        mat.blending = THREE.NormalBlending;
-      } else {
-        // additive (default): src + dst; THREE.js adds raw RGB, alpha unused by blender.
-        mat.blending = THREE.AdditiveBlending;
-      }
-      mat.needsUpdate = true;
+      this._applyNightLightsBlendMode(this.nightLightsMesh.material, mode);
+      this.map?.triggerRepaint();
     }
-    this.map?.triggerRepaint();
+  }
+
+  private _applyNightLightsBlendMode(mat: THREE.ShaderMaterial, mode: NightLightsBlendMode): void {
+    if (mode === 'screen') {
+      // Screen ≈ src + dst*(1-src): use custom blending with factor ONE / ONE_MINUS_SRC_COLOR.
+      mat.blending = THREE.CustomBlending;
+      mat.blendEquation = THREE.AddEquation;
+      mat.blendSrc = THREE.OneFactor;
+      mat.blendDst = THREE.OneMinusSrcColorFactor;
+    } else if (mode === 'normal') {
+      mat.blending = THREE.NormalBlending;
+    } else {
+      // additive (default): src + dst; Three.js adds raw RGB, alpha unused by blender.
+      mat.blending = THREE.AdditiveBlending;
+    }
+    mat.needsUpdate = true;
   }
 
   // ── CustomLayerInterface callbacks ─────────────────────────────────────────
@@ -411,6 +414,8 @@ export class GlobeEnhancementsLayer {
     this.nightLightsMesh = new THREE.Mesh(nightLightsGeom, nightLightsMat);
     this.nightLightsMesh.scale.setScalar(NIGHT_LIGHTS_ALTITUDE_SCALE);
     this.nightLightsMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+    // Apply any blend mode that was set before onAdd was called (e.g. after a style reload).
+    this._applyNightLightsBlendMode(nightLightsMat, this.nightLightsBlendMode);
 
     // ── Specular + bump sphere ────────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
