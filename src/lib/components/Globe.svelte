@@ -94,7 +94,7 @@
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
-  let enhancementsLayer: GlobeEnhancementsLayer | null = null;
+  let enhancementsLayer = $state<GlobeEnhancementsLayer | null>(null);
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -576,6 +576,27 @@
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
+  const GEOJSON_VISIBILITY_LAYER_IDS = [
+    WORLD_FILL_LAYER_ID,
+    WORLD_LINE_LAYER_ID,
+    WORLD_LABEL_LAYER_ID,
+    PROVINCE_FILL_LAYER_ID,
+    PROVINCE_LINE_LAYER_ID,
+    PROVINCE_LABEL_LAYER_ID,
+    CITY_FILL_LAYER_ID,
+    CITY_LINE_LAYER_ID,
+    CITY_LABEL_LAYER_ID,
+    COUNTY_FILL_LAYER_ID,
+    COUNTY_LINE_LAYER_ID,
+    COUNTY_LABEL_LAYER_ID,
+    HOVER_LINE_LAYER_ID
+  ] as const;
+  const SHOP_VISIBILITY_LAYER_IDS = [
+    SHOPS_LAYER_ID,
+    SHOPS_ACTIVE_LAYER_ID,
+    SHOPS_PINNED_LAYER_ID,
+    SHOPS_NAME_LAYER_ID
+  ] as const;
 
   const sunPosition = $derived.by(() => {
     const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
@@ -684,6 +705,53 @@
     }
   };
 
+  const applyEnhancementsDevSettings = (layer: GlobeEnhancementsLayer) => {
+    layer.setSun(a, p);
+    layer.setMeshVisible('specular', devSpecularEnabled);
+    layer.setMeshVisible('nightLights', devNightLightsEnabled);
+    layer.setMeshVisible('atmosphere', devAtmosphereEnabled);
+    layer.setMeshVisible('clouds', devCloudsEnabled);
+    layer.setMeshVisible('cloudShadow', devCloudShadowsEnabled);
+    layer.setCloudShadowOpacity(devCloudShadowOpacity);
+  };
+
+  const ensureEnhancementsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
+    if (forceRebuild && instance.getLayer('globe-enhancements')) {
+      instance.removeLayer('globe-enhancements');
+      enhancementsLayer = null;
+    }
+
+    if (!instance.getLayer('globe-enhancements')) {
+      enhancementsLayer = new GlobeEnhancementsLayer(
+        `${base}/globe/clouds.jpg`,
+        `${base}/globe/nightlights.jpg`,
+        `${base}/globe/8081_earthspec10k.jpg`,
+        `${base}/globe/8081_earthbump10k.jpg`
+      );
+      applyEnhancementsDevSettings(enhancementsLayer);
+      const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
+      instance.addLayer(enhancementsLayer, beforeId);
+      return;
+    }
+
+    if (enhancementsLayer) applyEnhancementsDevSettings(enhancementsLayer);
+  };
+
+  const applyDevPanelOverrides = (instance: maplibregl.Map) => {
+    if (!devGeoJsonEnabled) {
+      for (const id of GEOJSON_VISIBILITY_LAYER_IDS) setLayerVisibility(instance, id, false);
+    }
+
+    if (devShopMarkersEnabled) {
+      for (const id of [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID, SHOPS_PINNED_LAYER_ID]) {
+        setLayerVisibility(instance, id, true);
+      }
+      setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, mode === 'fullscreen');
+    } else {
+      for (const id of SHOP_VISIBILITY_LAYER_IDS) setLayerVisibility(instance, id, false);
+    }
+  };
+
   const applyModeLayers = (instance: maplibregl.Map, currentMode: 'landing' | 'fullscreen') => {
     const allLayers = [
       WORLD_FILL_LAYER_ID,
@@ -703,6 +771,7 @@
     ];
     if (currentMode === 'landing') {
       for (const layerId of allLayers) setLayerVisibility(instance, layerId, false);
+      applyDevPanelOverrides(instance);
     } else {
       syncMapData(instance);
     }
@@ -745,18 +814,7 @@
 
     // Globe visual enhancements (clouds + night lights + specular + atmosphere).
     // Inserted below the boundary fill layers so effects appear under country overlays.
-    if (!instance.getLayer('globe-enhancements')) {
-      if (!enhancementsLayer) {
-        enhancementsLayer = new GlobeEnhancementsLayer(
-          `${base}/globe/clouds.jpg`,
-          `${base}/globe/nightlights.jpg`,
-          `${base}/globe/8081_earthspec10k.jpg`,
-          `${base}/globe/8081_earthbump10k.jpg`
-        );
-      }
-      enhancementsLayer.setSun(a, p);
-      instance.addLayer(enhancementsLayer);
-    }
+    ensureEnhancementsLayer(instance);
 
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -1104,7 +1162,11 @@
         // worker not ready
       }
     }
-    setLayerVisibility(instance, HOVER_LINE_LAYER_ID, feature !== null && mode === 'fullscreen');
+    setLayerVisibility(
+      instance,
+      HOVER_LINE_LAYER_ID,
+      feature !== null && mode === 'fullscreen' && devGeoJsonEnabled
+    );
   };
 
   const syncMapData = (instance: maplibregl.Map) => {
@@ -1162,6 +1224,7 @@
 
     setLayerVisibility(instance, AMAP_LAYER_ID, chinaActive && viewZoom >= AMAP_ZOOM_THRESHOLD);
     setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, true);
+    applyDevPanelOverrides(instance);
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
@@ -1323,60 +1386,30 @@
     instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
   });
 
-  // ---- Three.js mesh visibility effects ----
+  // ---- Three.js render-layer dev toggles ----
   $effect(() => {
-    enhancementsLayer?.setMeshVisible('specular', devSpecularEnabled);
-  });
-  $effect(() => {
-    enhancementsLayer?.setMeshVisible('nightLights', devNightLightsEnabled);
-  });
-  $effect(() => {
-    enhancementsLayer?.setMeshVisible('atmosphere', devAtmosphereEnabled);
-  });
-  $effect(() => {
-    enhancementsLayer?.setMeshVisible('clouds', devCloudsEnabled);
-  });
-  $effect(() => {
-    enhancementsLayer?.setMeshVisible('cloudShadow', devCloudShadowsEnabled);
-  });
-  $effect(() => {
-    enhancementsLayer?.setCloudShadowOpacity(devCloudShadowOpacity);
+    const instance = map;
+    void devSpecularEnabled;
+    void devNightLightsEnabled;
+    void devAtmosphereEnabled;
+    void devCloudsEnabled;
+    void devCloudShadowsEnabled;
+    void devCloudShadowOpacity;
+    if (!instance?.isStyleLoaded()) return;
+    ensureEnhancementsLayer(instance, true);
   });
 
-  // ---- Map overlay visibility effects ----
+  // ---- Map overlay dev toggles ----
   $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-    const enabled = devShopMarkersEnabled;
-    for (const id of [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID, SHOPS_PINNED_LAYER_ID]) {
-      setLayerVisibility(instance, id, enabled);
-    }
-    if (!enabled) setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, false);
-  });
-
-  $effect(() => {
-    const instance = map;
-    if (!instance?.isStyleLoaded()) return;
-    if (!devGeoJsonEnabled) {
-      for (const id of [
-        WORLD_FILL_LAYER_ID,
-        WORLD_LINE_LAYER_ID,
-        WORLD_LABEL_LAYER_ID,
-        PROVINCE_FILL_LAYER_ID,
-        PROVINCE_LINE_LAYER_ID,
-        PROVINCE_LABEL_LAYER_ID,
-        CITY_FILL_LAYER_ID,
-        CITY_LINE_LAYER_ID,
-        CITY_LABEL_LAYER_ID,
-        COUNTY_FILL_LAYER_ID,
-        COUNTY_LINE_LAYER_ID,
-        COUNTY_LABEL_LAYER_ID
-      ]) {
-        setLayerVisibility(instance, id, false);
-      }
-    } else if (mode === 'fullscreen') {
+    void devShopMarkersEnabled;
+    void devGeoJsonEnabled;
+    if (mode === 'fullscreen') {
       syncMapData(instance);
+      return;
     }
+    applyDevPanelOverrides(instance);
   });
 
   // ---- Mode transition effect ----
