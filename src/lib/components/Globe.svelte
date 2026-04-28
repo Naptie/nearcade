@@ -22,7 +22,7 @@
   } from '$lib/utils/globeGeojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
-  import { GlobeEnhancementsLayer } from '$lib/utils/globeEnhancements';
+  import { GlobeEnhancementsLayer, NIGHT_LIGHTS_BLEND_MODES, type NightLightsBlendMode } from '$lib/utils/globeEnhancements';
 
   // ---- Props ----
   type Props = {
@@ -51,8 +51,6 @@
   const AMAP_SOURCE_ID = 'amap-satellite';
   const AMAP_LAYER_ID = 'amap-satellite-layer';
   const AMAP_ZOOM_THRESHOLD = 9.8;
-  const BASEMAP_DIM_FADE_START_ZOOM = CITY_ZOOM_THRESHOLD;
-  const BASEMAP_DIM_FADE_END_ZOOM = AMAP_ZOOM_THRESHOLD;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -66,8 +64,6 @@
   const COUNTY_LINE_LAYER_ID = 'china-county-line';
   const COUNTY_LABEL_LAYER_ID = 'china-county-label';
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
-  /** Semi-transparent black overlay inserted above raster tiles to dim the basemap. */
-  const BASEMAP_DIM_LAYER_ID = 'basemap-dim-overlay';
   const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
   const LANDING_ZOOM = 3.2;
@@ -110,7 +106,7 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
-  let basemapDimness = $state(0.35);
+  let nightLightsBlendMode = $state<NightLightsBlendMode>('additive');
   let specularDebugEnabled = $state(false);
 
   // ---- Auto-rotation ----
@@ -623,18 +619,6 @@
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
-  const getBasemapDimOpacity = (dimness: number): maplibregl.ExpressionSpecification => [
-    'interpolate',
-    ['linear'],
-    ['zoom'],
-    0,
-    dimness,
-    BASEMAP_DIM_FADE_START_ZOOM,
-    dimness,
-    BASEMAP_DIM_FADE_END_ZOOM,
-    0
-  ];
-
   const toDatetimeLocalValue = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -742,23 +726,8 @@
       });
     }
 
-    // Semi-transparent black overlay that dims the satellite and AMap raster tiles.
-    // Inserted above the raster tiles so the Three.js enhancements (night lights,
-    // atmosphere, specular) remain unaffected — they render on top of this overlay.
-    if (!instance.getLayer(BASEMAP_DIM_LAYER_ID)) {
-      instance.addLayer({
-        id: BASEMAP_DIM_LAYER_ID,
-        type: 'background',
-        paint: {
-          'background-color': '#000000',
-          'background-opacity': getBasemapDimOpacity(basemapDimness)
-        }
-      } as maplibregl.BackgroundLayerSpecification);
-    }
-
     // Globe visual enhancements (clouds + night lights + specular + atmosphere).
-    // Inserted above the dim overlay so they appear over the darkened basemap,
-    // and below the boundary fill layers so effects appear under country overlays.
+    // Inserted below the boundary fill layers so effects appear under country overlays.
     if (!instance.getLayer('globe-enhancements')) {
       if (!enhancementsLayer) {
         enhancementsLayer = new GlobeEnhancementsLayer(
@@ -769,6 +738,7 @@
         );
       }
       enhancementsLayer.setSun(a, p);
+      enhancementsLayer.setNightLightsBlendMode(nightLightsBlendMode);
       enhancementsLayer.setDebug(specularDebugEnabled);
       instance.addLayer(enhancementsLayer);
     }
@@ -1329,17 +1299,7 @@
   });
 
   $effect(() => {
-    // Update the basemap dim overlay whenever the slider changes.
-    const instance = map;
-    const dimness = basemapDimness;
-    if (!instance?.isStyleLoaded()) return;
-    if (instance.getLayer(BASEMAP_DIM_LAYER_ID)) {
-      instance.setPaintProperty(
-        BASEMAP_DIM_LAYER_ID,
-        'background-opacity',
-        getBasemapDimOpacity(dimness)
-      );
-    }
+    enhancementsLayer?.setNightLightsBlendMode(nightLightsBlendMode);
   });
 
   $effect(() => {
@@ -2055,21 +2015,18 @@
       </div>
       <div class="border-base-content/15 flex flex-col gap-2 border-t px-2 pt-2">
         <label class="flex flex-col gap-1 text-xs">
-          <span class="flex items-center justify-between gap-3">
-            <span class="flex flex-col gap-0.5">
-              <span class="font-medium">Basemap dimness</span>
-              <span class="opacity-60">Dims satellite tiles, making night lights stand out</span>
-            </span>
-            <span class="tabular-nums">{basemapDimness.toFixed(2)}</span>
+          <span class="flex flex-col gap-0.5">
+            <span class="font-medium">Night lights blend</span>
+            <span class="opacity-60">WebGL blend mode for the city-lights overlay</span>
           </span>
-          <input
-            type="range"
-            class="range range-xs"
-            min="0"
-            max="1"
-            step="0.01"
-            bind:value={basemapDimness}
-          />
+          <div class="flex gap-1">
+            {#each Object.entries(NIGHT_LIGHTS_BLEND_MODES) as [key, label] (key)}
+              <button
+                class="btn btn-xs flex-1 {nightLightsBlendMode === key ? 'btn-primary' : 'btn-ghost border-base-content/20 border'}"
+                onclick={() => (nightLightsBlendMode = key as NightLightsBlendMode)}
+              >{label}</button>
+            {/each}
+          </div>
         </label>
         <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
           <span class="flex flex-col gap-0.5">

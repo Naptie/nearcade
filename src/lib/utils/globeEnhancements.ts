@@ -97,6 +97,20 @@ const SUN_COLOR = new THREE.Color(1.0, 0.92, 0.72);
 /** Fixed specular/sunlight intensity used internally by the shader layer. */
 const DEFAULT_SUNLIGHT_INTENSITY = 1;
 
+/**
+ * Named blend modes available for the night-lights shell.
+ * "Additive" adds RGB directly (classic glow, alpha ignored by WebGL blender).
+ * "Screen" approximates CSS screen blend: src + dst*(1-src) — softer glow.
+ * "Normal" uses standard alpha compositing: src*alpha + dst*(1-alpha).
+ */
+export const NIGHT_LIGHTS_BLEND_MODES = {
+  additive: 'Additive',
+  screen: 'Screen',
+  normal: 'Normal'
+} as const;
+
+export type NightLightsBlendMode = keyof typeof NIGHT_LIGHTS_BLEND_MODES;
+
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
 const specularVertexShader = /* glsl */ `
@@ -287,6 +301,7 @@ export class GlobeEnhancementsLayer {
   private sunPolarDeg = 90;
   private sunlightIntensity = DEFAULT_SUNLIGHT_INTENSITY;
   private specularDebugEnabled = false;
+  private nightLightsBlendMode: NightLightsBlendMode = 'additive';
 
   constructor(
     private readonly cloudUrl: string,
@@ -308,6 +323,31 @@ export class GlobeEnhancementsLayer {
 
   setSunlightIntensity(intensity: number): void {
     this.sunlightIntensity = clamp01(intensity);
+    this.map?.triggerRepaint();
+  }
+
+  /**
+   * Change the WebGL blend mode used by the night-lights shell.
+   * Takes effect immediately (triggers a repaint if the map is ready).
+   */
+  setNightLightsBlendMode(mode: NightLightsBlendMode): void {
+    this.nightLightsBlendMode = mode;
+    if (this.nightLightsMesh) {
+      const mat = this.nightLightsMesh.material;
+      if (mode === 'screen') {
+        // Screen ≈ src + dst*(1-src): use custom blending with factor ONE / ONE_MINUS_SRC_COLOR.
+        mat.blending = THREE.CustomBlending;
+        mat.blendEquation = THREE.AddEquation;
+        mat.blendSrc = THREE.OneFactor;
+        mat.blendDst = THREE.OneMinusSrcColorFactor;
+      } else if (mode === 'normal') {
+        mat.blending = THREE.NormalBlending;
+      } else {
+        // additive (default): src + dst; THREE.js adds raw RGB, alpha unused by blender.
+        mat.blending = THREE.AdditiveBlending;
+      }
+      mat.needsUpdate = true;
+    }
     this.map?.triggerRepaint();
   }
 
