@@ -43,6 +43,10 @@ const FADE_IN_ZOOM = 1.0;
 /** Zoom level above which enhancements are fully transparent. */
 const FADE_OUT_ZOOM = 6.5;
 
+function clamp01(value: number): number {
+  return Math.min(Math.max(value, 0), 1);
+}
+
 /** Maximum opacity of the cloud layer (additive blend, so 1.0 = very bright). */
 const MAX_CLOUD_OPACITY = 0;
 /** Radius scale factor that floats the cloud sphere above the base globe surface. */
@@ -221,7 +225,7 @@ const atmosphereFragmentShader = /* glsl */ `
   varying vec3 vWorldPos;
 
   void main() {
-    vec3 N = normalize(vWorldPos);
+    vec3 N = normalize(vNormal);
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     float nDotV = max(dot(N, viewDir), 0.0);
     float nDotL = dot(N, uSunDir);
@@ -293,7 +297,7 @@ export class GlobeEnhancementsLayer {
   }
 
   setSunlightIntensity(intensity: number): void {
-    this.sunlightIntensity = Math.max(0, Math.min(1, intensity));
+    this.sunlightIntensity = clamp01(intensity);
     this.map?.triggerRepaint();
   }
 
@@ -456,7 +460,7 @@ export class GlobeEnhancementsLayer {
 
     const zoom = this.map.getZoom();
     // Opacity ramps from 0→1 between FADE_IN_ZOOM and FADE_OUT_ZOOM.
-    const t = Math.max(0, Math.min(1, (FADE_OUT_ZOOM - zoom) / (FADE_OUT_ZOOM - FADE_IN_ZOOM)));
+    const t = clamp01((FADE_OUT_ZOOM - zoom) / (FADE_OUT_ZOOM - FADE_IN_ZOOM));
     if (t <= 0) return;
 
     // ── Camera setup ──────────────────────────────────────────────────────────
