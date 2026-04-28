@@ -32,6 +32,22 @@ const FADE_IN_ZOOM = 1.0;
 /** Zoom level above which enhancements are fully transparent. */
 const FADE_OUT_ZOOM = 6.5;
 
+/** Maximum opacity of the cloud layer (additive blend, so 1.0 = very bright). */
+const MAX_CLOUD_OPACITY = 0.52;
+/** Radius scale factor that floats the cloud sphere above the base globe surface. */
+const CLOUD_ALTITUDE_SCALE = 1.004;
+/** Blue-white tint applied to the cloud texture colour channel. */
+const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
+
+/** Strength of the bump-map normal perturbation in the specular shader. */
+const DEFAULT_BUMP_SCALE = 0.007;
+/** Phong shininess exponent for ocean specular highlights. */
+const SPECULAR_SHININESS = 40.0;
+/** Width of the terminator soft-transition band (in dot-product units). */
+const TERMINATOR_SOFTNESS = 0.12;
+/** Warm sunlight tint applied to specular highlights. */
+const SUN_COLOR = new THREE.Color(1.0, 0.96, 0.88);
+
 /** Standard Web Mercator x in [0, 1]. */
 function mercatorX(lngDeg: number): number {
   return (lngDeg + 180) / 360;
@@ -61,9 +77,12 @@ const specularFragmentShader = /* glsl */ `
   uniform sampler2D uSpecularMap;
   uniform sampler2D uBumpMap;
   uniform vec3      uSunDir;
+  uniform vec3      uSunColor;
   uniform float     uOpacity;
   uniform float     uBumpScale;
   uniform vec2      uTexelSize;
+  uniform float     uShininess;
+  uniform float     uTerminatorSoftness;
 
   varying vec3 vNormal;
   varying vec2 vUv;
@@ -94,15 +113,14 @@ const specularFragmentShader = /* glsl */ `
     // of the view direction towards the camera.
     vec3 viewDir    = N;
     vec3 reflectDir = reflect(-uSunDir, bN);
-    float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 40.0);
+    float spec      = pow(max(dot(viewDir, reflectDir), 0.0), uShininess);
 
     // Suppress specular on the night side with a soft transition
     float nDotL     = dot(bN, uSunDir);
-    spec           *= smoothstep(0.0, 0.12, nDotL);
+    spec           *= smoothstep(0.0, uTerminatorSoftness, nDotL);
 
     float intensity = specStr * spec * uOpacity;
-    // Warm sunlight tint
-    gl_FragColor    = vec4(1.0, 0.96, 0.88, intensity);
+    gl_FragColor    = vec4(uSunColor, intensity);
   }
 `;
 
@@ -168,7 +186,7 @@ export class GlobeEnhancementsLayer {
     // ── Cloud sphere (geometry shared, scale applied in model matrix) ─────────
     const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
     const cloudMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0.88, 0.93, 1.0), // slight blue-white cloud tint
+      color: CLOUD_TINT_COLOR,
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
@@ -176,9 +194,9 @@ export class GlobeEnhancementsLayer {
       depthTest: false
     });
     this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
-    // 0.4 % larger radius so the cloud layer floats above the globe surface
-    // and the model matrix scaling takes care of the absolute size.
-    this.cloudMesh.scale.setScalar(1.004);
+    // CLOUD_ALTITUDE_SCALE% larger radius so the cloud layer floats above the
+    // globe surface; the model matrix scaling takes care of the absolute size.
+    this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
 
     // ── Specular + bump sphere ────────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
@@ -187,10 +205,13 @@ export class GlobeEnhancementsLayer {
         uSpecularMap: { value: null },
         uBumpMap: { value: null },
         uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+        uSunColor: { value: SUN_COLOR },
         uOpacity: { value: 0 },
-        uBumpScale: { value: 0.007 },
+        uBumpScale: { value: DEFAULT_BUMP_SCALE },
         // Texel size matches the 10 240 × 5 120 bump map resolution
-        uTexelSize: { value: new THREE.Vector2(1 / 10240, 1 / 5120) }
+        uTexelSize: { value: new THREE.Vector2(1 / 10240, 1 / 5120) },
+        uShininess: { value: SPECULAR_SHININESS },
+        uTerminatorSoftness: { value: TERMINATOR_SOFTNESS }
       },
       vertexShader: specularVertexShader,
       fragmentShader: specularFragmentShader,
@@ -268,7 +289,7 @@ export class GlobeEnhancementsLayer {
 
     // ── Update material uniforms / opacity ────────────────────────────────────
     if (this.cloudMesh) {
-      this.cloudMesh.material.opacity = t * 0.52;
+      this.cloudMesh.material.opacity = t * MAX_CLOUD_OPACITY;
     }
     if (this.specMesh) {
       const u = this.specMesh.material.uniforms;
