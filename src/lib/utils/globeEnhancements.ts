@@ -69,6 +69,16 @@ const ATMOSPHERE_OPACITY = 0.62;
 const ATMOSPHERE_DAY_COLOR = new THREE.Color(0.34, 0.72, 1.0);
 /** Deeper twilight tint used around the terminator and dark side. */
 const ATMOSPHERE_NIGHT_COLOR = new THREE.Color(0.04, 0.16, 0.42);
+/** Fresnel exponent for the atmosphere rim; higher values tighten the halo. */
+const ATMOSPHERE_RIM_EXPONENT = 2.35;
+/** Start of the atmosphere night→day color blend across the terminator. */
+const ATMOSPHERE_DAY_TRANSITION_START = -0.3;
+/** End of the atmosphere night→day color blend across the lit hemisphere. */
+const ATMOSPHERE_DAY_TRANSITION_END = 0.45;
+/** Minimum atmosphere brightness contribution when sunlight intensity is low. */
+const ATMOSPHERE_SUN_BOOST_MIN = 0.75;
+/** Maximum atmosphere brightness contribution when sunlight intensity is high. */
+const ATMOSPHERE_SUN_BOOST_MAX = 1.15;
 
 /** Strength of the bump-map normal perturbation in the specular shader. */
 const DEFAULT_BUMP_SCALE = 0.0045;
@@ -230,9 +240,9 @@ const atmosphereFragmentShader = /* glsl */ `
     float nDotV = max(dot(N, viewDir), 0.0);
     float nDotL = dot(N, uSunDir);
 
-    float rim = pow(1.0 - nDotV, 2.35);
-    float dayMix = smoothstep(-0.3, 0.45, nDotL);
-    float sunBoost = mix(0.75, 1.15, clamp(uSunIntensity, 0.0, 1.0));
+    float rim = pow(1.0 - nDotV, ${ATMOSPHERE_RIM_EXPONENT.toFixed(2)});
+    float dayMix = smoothstep(${ATMOSPHERE_DAY_TRANSITION_START}, ${ATMOSPHERE_DAY_TRANSITION_END}, nDotL);
+    float sunBoost = mix(${ATMOSPHERE_SUN_BOOST_MIN.toFixed(2)}, ${ATMOSPHERE_SUN_BOOST_MAX.toFixed(2)}, clamp(uSunIntensity, 0.0, 1.0));
     vec3 color = mix(uNightColor, uDayColor, dayMix);
     float alpha = rim * uOpacity * mix(0.8, sunBoost, dayMix);
 
