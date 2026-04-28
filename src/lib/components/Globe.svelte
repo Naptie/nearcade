@@ -51,6 +51,8 @@
   const AMAP_SOURCE_ID = 'amap-satellite';
   const AMAP_LAYER_ID = 'amap-satellite-layer';
   const AMAP_ZOOM_THRESHOLD = 9.8;
+  const BASEMAP_DIM_FADE_START_ZOOM = CITY_ZOOM_THRESHOLD;
+  const BASEMAP_DIM_FADE_END_ZOOM = AMAP_ZOOM_THRESHOLD;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -616,10 +618,22 @@
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({ anchor: 'map', position: [1000, azimuth, polar] });
+    instance.setLight({ anchor: 'map', intensity: 0.1, position: [1, azimuth, polar] });
     instance.setSky({ 'atmosphere-blend': atmosphereBlend });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
+
+  const getBasemapDimOpacity = (dimness: number): maplibregl.ExpressionSpecification => [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    0,
+    dimness,
+    BASEMAP_DIM_FADE_START_ZOOM,
+    dimness,
+    BASEMAP_DIM_FADE_END_ZOOM,
+    0
+  ];
 
   const toDatetimeLocalValue = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -737,7 +751,7 @@
         type: 'background',
         paint: {
           'background-color': '#000000',
-          'background-opacity': basemapDimness
+          'background-opacity': getBasemapDimOpacity(basemapDimness)
         }
       } as maplibregl.BackgroundLayerSpecification);
     }
@@ -1309,7 +1323,7 @@
     const az = a;
     const po = p;
     if (!instance?.isStyleLoaded()) return;
-    instance.setLight({ anchor: 'map', position: [1000, az, po] });
+    instance.setLight({ anchor: 'map', intensity: 0.1, position: [1, az, po] });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
     enhancementsLayer?.setSun(az, po);
   });
@@ -1320,7 +1334,11 @@
     const dimness = basemapDimness;
     if (!instance?.isStyleLoaded()) return;
     if (instance.getLayer(BASEMAP_DIM_LAYER_ID)) {
-      instance.setPaintProperty(BASEMAP_DIM_LAYER_ID, 'background-opacity', dimness);
+      instance.setPaintProperty(
+        BASEMAP_DIM_LAYER_ID,
+        'background-opacity',
+        getBasemapDimOpacity(dimness)
+      );
     }
   });
 

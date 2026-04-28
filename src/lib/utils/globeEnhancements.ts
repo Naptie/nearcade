@@ -39,9 +39,9 @@ import type { CustomRenderMethodInput } from 'maplibre-gl';
 import type maplibregl from 'maplibre-gl';
 
 /** Zoom level below which enhancements are fully opaque. */
-const FADE_IN_ZOOM = 1.0;
+const FADE_IN_ZOOM = 3.0;
 /** Zoom level above which enhancements are fully transparent. */
-const FADE_OUT_ZOOM = 6.5;
+const FADE_OUT_ZOOM = 7.5;
 
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
@@ -54,7 +54,7 @@ const CLOUD_ALTITUDE_SCALE = 1.004;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
 /** Maximum opacity of the night-lights overlay. */
-const MAX_NIGHT_LIGHTS_OPACITY = 0.78;
+const MAX_NIGHT_LIGHTS_OPACITY = 2;
 /** Radius scale factor for the night-lights shell so it sits above the raster globe. */
 const NIGHT_LIGHTS_ALTITUDE_SCALE = 1.0015;
 /** Width of the smooth transition between day and night for city lights. */
@@ -62,9 +62,9 @@ const NIGHT_LIGHTS_TERMINATOR_SOFTNESS = 0.22;
 /** Fade the night lights near the visible limb to avoid a hard edge. */
 const NIGHT_LIGHTS_LIMB_SOFTNESS = 0.22;
 /** Radius scale factor for the additive atmosphere shell. */
-const ATMOSPHERE_ALTITUDE_SCALE = 1.035;
+const ATMOSPHERE_ALTITUDE_SCALE = 1.015;
 /** Base opacity of the atmosphere shell before fresnel shaping. */
-const ATMOSPHERE_OPACITY = 0.62;
+const ATMOSPHERE_OPACITY = 1;
 /** Sky-blue day-side atmosphere tint. */
 const ATMOSPHERE_DAY_COLOR = new THREE.Color(0.34, 0.72, 1.0);
 /** Deeper twilight tint used around the terminator and dark side. */
@@ -76,26 +76,26 @@ const ATMOSPHERE_DAY_TRANSITION_START = -0.3;
 /** End of the atmosphere night→day color blend across the lit hemisphere. */
 const ATMOSPHERE_DAY_TRANSITION_END = 0.45;
 /** Minimum atmosphere brightness contribution when sunlight intensity is low. */
-const ATMOSPHERE_SUN_BOOST_MIN = 0.75;
+const ATMOSPHERE_SUN_BOOST_MIN = 0.2;
 /** Maximum atmosphere brightness contribution when sunlight intensity is high. */
-const ATMOSPHERE_SUN_BOOST_MAX = 1.15;
+const ATMOSPHERE_SUN_BOOST_MAX = 0.6;
 
 /** Strength of the bump-map normal perturbation in the specular shader. */
 const DEFAULT_BUMP_SCALE = 0.0045;
 /** Phong shininess exponent for ocean specular highlights. */
-const SPECULAR_SHININESS = 90.0;
+const SPECULAR_SHININESS = 120.0;
 /** Overall strength of the ocean specular term after gloss/fresnel shaping. */
-const SPECULAR_INTENSITY = 1.5;
+const SPECULAR_INTENSITY = 1;
 /** Broadens the highlight so water reads less like polished metal. */
-const SPECULAR_ROUGHNESS = 0.32;
+const SPECULAR_ROUGHNESS = 0.24;
 /** Blend amount for view-angle fresnel shaping on the water highlight. */
-const SPECULAR_FRESNEL_STRENGTH = 0.24;
+const SPECULAR_FRESNEL_STRENGTH = 0.12;
 /** Width of the terminator soft-transition band (in dot-product units). */
-const TERMINATOR_SOFTNESS = 0.12;
+const TERMINATOR_SOFTNESS = 0.16;
 /** Warm sunlight tint applied to specular highlights. */
-const SUN_COLOR = new THREE.Color(1.0, 0.96, 0.88);
+const SUN_COLOR = new THREE.Color(1.0, 0.92, 0.72);
 /** Fixed specular/sunlight intensity used internally by the shader layer. */
-const DEFAULT_SUNLIGHT_INTENSITY = 0.35;
+const DEFAULT_SUNLIGHT_INTENSITY = 1;
 
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
