@@ -22,6 +22,7 @@
   } from '$lib/utils/globeGeojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
+  import { GlobeEnhancementsLayer } from '$lib/utils/globeEnhancements';
 
   // ---- Props ----
   type Props = {
@@ -90,6 +91,7 @@
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
+  let enhancementsLayer: GlobeEnhancementsLayer | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -718,6 +720,20 @@
       });
     }
 
+    // Globe visual enhancements (clouds + specular). Inserted before the boundary
+    // fill layers so that the effects appear under country / region overlays.
+    if (!instance.getLayer('globe-enhancements')) {
+      if (!enhancementsLayer) {
+        enhancementsLayer = new GlobeEnhancementsLayer(
+          `${base}/globe/Earth-clouds.png`,
+          `${base}/globe/8081_earthspec10k.jpg`,
+          `${base}/globe/8081_earthbump10k.jpg`
+        );
+      }
+      enhancementsLayer.setSun(a, p);
+      instance.addLayer(enhancementsLayer);
+    }
+
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
         id: WORLD_FILL_LAYER_ID,
@@ -1269,6 +1285,8 @@
     const po = p;
     if (!instance?.isStyleLoaded()) return;
     instance.setLight({ anchor: 'map', position: [100, az, po] });
+    // Keep the Three.js enhancement layer in sync with MapLibre's sun.
+    enhancementsLayer?.setSun(az, po);
   });
 
   // ---- Mode transition effect ----
