@@ -549,10 +549,14 @@
     'interpolate',
     ['linear'],
     ['zoom'],
+    // Full built-in atmosphere while zoomed out on the globe.
     0,
     1,
+    // Keep it strong through the mid-zoom range so the custom atmosphere shell
+    // enhances rather than replaces the built-in sky contribution.
     8,
     1,
+    // Fade it back as the camera zooms in toward flat-map detail.
     10,
     0.3
   ];

@@ -47,7 +47,7 @@ function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
 
-/** Maximum opacity of the cloud layer (additive blend, so 1.0 = very bright). */
+/** Maximum opacity of the cloud layer (currently left at 0 so night lights / atmosphere stay readable). */
 const MAX_CLOUD_OPACITY = 0;
 /** Radius scale factor that floats the cloud sphere above the base globe surface. */
 const CLOUD_ALTITUDE_SCALE = 1.004;
