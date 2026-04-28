@@ -22,7 +22,7 @@
   } from '$lib/utils/globeGeojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
-  import { GlobeEnhancementsLayer } from '$lib/utils/globeEnhancements';
+  import { DEFAULT_SUNLIGHT_INTENSITY, GlobeEnhancementsLayer } from '$lib/utils/globeEnhancements';
 
   // ---- Props ----
   type Props = {
@@ -106,7 +106,7 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
-  let sunlightIntensity = $state(0.42);
+  let sunlightIntensity = $state(DEFAULT_SUNLIGHT_INTENSITY);
   let specularDebugEnabled = $state(false);
 
   // ---- Auto-rotation ----
@@ -2044,7 +2044,6 @@
         <div>View: {currentDetailLevel}</div>
         <div>Focus: {focusPath}</div>
         <div>Zoom: {viewZoom.toFixed(2)}</div>
-        <div>Sunlight intensity: {sunlightIntensity.toFixed(2)}</div>
         <div>Specular debug: {specularDebugEnabled ? 'on' : 'off'}</div>
         {#if hoveredLabel}<div>Hover: {hoveredLabel}</div>{/if}
         {#if geojsonStatus === 'loading'}<div>Loading boundaries...</div>{/if}

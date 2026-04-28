@@ -80,6 +80,8 @@ const SPECULAR_FRESNEL_STRENGTH = 0.24;
 const TERMINATOR_SOFTNESS = 0.12;
 /** Warm sunlight tint applied to specular highlights. */
 const SUN_COLOR = new THREE.Color(1.0, 0.96, 0.88);
+/** Shared default sunlight intensity for both the dev panel and shader layer. */
+export const DEFAULT_SUNLIGHT_INTENSITY = 0.42;
 
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
@@ -269,7 +271,7 @@ export class GlobeEnhancementsLayer {
 
   private sunAzimuthDeg = 0;
   private sunPolarDeg = 90;
-  private sunlightIntensity = 0.45;
+  private sunlightIntensity = DEFAULT_SUNLIGHT_INTENSITY;
   private specularDebugEnabled = false;
 
   constructor(
