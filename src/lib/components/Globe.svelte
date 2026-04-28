@@ -94,7 +94,7 @@
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
-  let enhancementsLayer = $state<GlobeEnhancementsLayer | null>(null);
+  let enhancementsLayer: GlobeEnhancementsLayer | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
