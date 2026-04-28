@@ -2,29 +2,41 @@
  * Globe visual enhancements: cloud layer and specular ocean highlights
  * rendered as a MapLibre custom layer sharing the same WebGL context.
  *
- * Coordinate-system notes
+ * Coordinate-system notes (MapLibre 5.x globe mode)
  * ─────────────────────────────────────────────────────────────────────
- * MapLibre world space (globe mode): x = east (+), y = south (+), z = altitude (+).
- * World coordinates are in units of `worldSize = 512 · 2^zoom`.
- *   · Globe centre  = (mc.x · ws,  mc.y · ws,  0)
- *   · Globe radius  = ws / (2π)
+ * In globe mode `CustomRenderMethodInput.modelViewProjectionMatrix` is the
+ * full globe MVP matrix built by MapLibre's VerticalPerspectiveTransform:
  *
- * Three.js SphereGeometry local space: y = north (+), x → lon 0°, z → lon 90°W.
- * Standard equirectangular textures (u=0 → lon −180°) align with the geometry
- * exactly — no extra rotation is needed.
+ *   globeMatrix = perspective
+ *               × translate(0, 0, −ccd)        ← camera back
+ *               × rotateZ/X/Z(bearing/pitch/roll)
+ *               × translate(0, 0, −R_px)        ← move to globe centre
+ *               × rotateX(lat_c) × rotateY(−lng_c)   ← orient so map centre faces camera
+ *               × scale(R_px)                   ← unit sphere → globe size
  *
- * Model matrix M maps unit sphere → MapLibre world space:
- *   M = | R   0   0   cx |
- *       | 0  −R   0   cy |   ← y-flip: Three.js +y (north) → MapLibre −y (northward)
- *       | 0   0   R   0  |
- *       | 0   0   0   1  |
+ * Input space: the unit sphere at the globe centre, in MapLibre's ECEF:
+ *   (+x) → 90 °E, equator
+ *   (+y) → north pole
+ *   (+z) → prime meridian, equator
  *
- * Sun direction in Three.js sphere space from MapLibre's getSunPosition output
- * (azimuthDeg, polarDeg):
- *   sun = (−cos(polar), −sin(polar)·cos(az), −sin(polar)·sin(az))
+ * No Mercator model matrix is needed — a unit sphere (radius 1) is already
+ * the globe; cloud sphere is radius 1.004.
+ *
+ * Texture alignment
+ * ─────────────────────────────────────────────────────────────────────
+ * Three.js SphereGeometry (default): phi=0 (u=0) → +z (prime meridian);
+ * increasing phi increases u westward.  Equirectangular: u=0 → −180°
+ * (date line); increasing u → eastward.  Two corrections:
+ *   1. Flip UV u-coordinates: u → 1−u  (reverses east/west direction)
+ *   2. mesh.rotation.y = π              (shifts seam by 180°: u=0 → date line)
+ * Combined: u=0 → −180°, u increases eastward. ✓
+ *
+ * Sun direction in MapLibre ECEF from getSunPosition(azimuthDeg, polarDeg):
+ *   sun = (sin(po)·sin(az),  −sin(po)·cos(az),  −cos(po))
  */
 
 import * as THREE from 'three';
+import type { CustomRenderMethodInput } from 'maplibre-gl';
 import type maplibregl from 'maplibre-gl';
 
 /** Zoom level below which enhancements are fully opaque. */
@@ -48,24 +60,15 @@ const TERMINATOR_SOFTNESS = 0.12;
 /** Warm sunlight tint applied to specular highlights. */
 const SUN_COLOR = new THREE.Color(1.0, 0.96, 0.88);
 
-/** Standard Web Mercator x in [0, 1]. */
-function mercatorX(lngDeg: number): number {
-  return (lngDeg + 180) / 360;
-}
-
-/** Standard Web Mercator y in [0, 1] (0 = north). */
-function mercatorY(latDeg: number): number {
-  const φ = (latDeg * Math.PI) / 180;
-  return (1 - Math.log(Math.tan(φ) + 1 / Math.cos(φ)) / Math.PI) / 2;
-}
-
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
 const specularVertexShader = /* glsl */ `
   varying vec3 vNormal;
   varying vec2 vUv;
   void main() {
-    vNormal     = normalize(normal);
+    // normalMatrix transforms local normals into view/ECEF space so that
+    // the sun-direction dot product is computed in a consistent space.
+    vNormal     = normalize(normalMatrix * normal);
     vUv         = uv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
@@ -126,6 +129,20 @@ const specularFragmentShader = /* glsl */ `
 
 // ─── GlobeEnhancementsLayer ───────────────────────────────────────────────────
 
+/**
+ * Flip the u-component of every UV coordinate in a geometry so that
+ * u → 1−u.  This reverses the east/west direction of the sphere mapping,
+ * making Three.js SphereGeometry compatible with equirectangular textures
+ * when combined with a 180° rotation around the y-axis.
+ */
+function flipUVs(geom: THREE.SphereGeometry): void {
+  const uvAttr = geom.attributes.uv;
+  for (let i = 0; i < uvAttr.count; i++) {
+    uvAttr.setX(i, 1.0 - uvAttr.getX(i));
+  }
+  uvAttr.needsUpdate = true;
+}
+
 export class GlobeEnhancementsLayer {
   readonly id = 'globe-enhancements';
   readonly type = 'custom' as const;
@@ -143,8 +160,6 @@ export class GlobeEnhancementsLayer {
   private aborted = false;
 
   // Re-used every frame to avoid GC pressure
-  private readonly _M = new THREE.Matrix4();
-  private readonly _fullMatrix = new THREE.Matrix4();
   private readonly _sunDir = new THREE.Vector3();
 
   private sunAzimuthDeg = 0;
@@ -164,15 +179,17 @@ export class GlobeEnhancementsLayer {
 
   // ── CustomLayerInterface callbacks ─────────────────────────────────────────
 
-  onAdd(map: maplibregl.Map, gl: WebGL2RenderingContext): void {
+  onAdd(map: maplibregl.Map, gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     this.map = map;
     this.aborted = false;
     this.loaded = false;
 
     // Share MapLibre's canvas & WebGL context — no extra canvas needed.
+    // Three.js types only declare WebGLRenderingContext for the context option but
+    // it accepts WebGL2 at runtime.  Cast via unknown to satisfy the declaration.
     this.renderer = new THREE.WebGLRenderer({
       canvas: map.getCanvas(),
-      context: gl,
+      context: gl as unknown as WebGLRenderingContext,
       antialias: true
     });
     this.renderer.autoClear = false;
@@ -183,8 +200,11 @@ export class GlobeEnhancementsLayer {
 
     this.scene = new THREE.Scene();
 
-    // ── Cloud sphere (geometry shared, scale applied in model matrix) ─────────
+    // ── Cloud sphere ──────────────────────────────────────────────────────────
     const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
+    // Flip UV u-coordinates (u → 1−u) so equirectangular textures map west→east.
+    // Combined with the 180° y-rotation below this aligns u=0 with −180° (date line).
+    flipUVs(cloudGeom);
     const cloudMat = new THREE.MeshBasicMaterial({
       color: CLOUD_TINT_COLOR,
       transparent: true,
@@ -194,12 +214,16 @@ export class GlobeEnhancementsLayer {
       depthTest: false
     });
     this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
-    // CLOUD_ALTITUDE_SCALE% larger radius so the cloud layer floats above the
-    // globe surface; the model matrix scaling takes care of the absolute size.
+    // CLOUD_ALTITUDE_SCALE makes the cloud sphere 0.4% larger than the base globe.
     this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
+    // Rotate 180° around y so phi=0 (Three.js u=0) aligns with the date line
+    // instead of the prime meridian.  Together with the UV flip this gives a
+    // pixel-accurate equirectangular mapping.
+    this.cloudMesh.rotation.y = Math.PI;
 
     // ── Specular + bump sphere ────────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
+    flipUVs(specGeom);
     const specMat = new THREE.ShaderMaterial({
       uniforms: {
         uSpecularMap: { value: null },
@@ -221,6 +245,7 @@ export class GlobeEnhancementsLayer {
       depthTest: false
     });
     this.specMesh = new THREE.Mesh(specGeom, specMat);
+    this.specMesh.rotation.y = Math.PI;
 
     this.scene.add(this.cloudMesh);
     this.scene.add(this.specMesh);
@@ -254,7 +279,7 @@ export class GlobeEnhancementsLayer {
       });
   }
 
-  render(_gl: WebGL2RenderingContext, matrix: Float32Array): void {
+  render(_gl: WebGLRenderingContext | WebGL2RenderingContext, options: CustomRenderMethodInput): void {
     if (!this.loaded || !this.renderer || !this.scene || !this.camera || !this.map) return;
 
     const zoom = this.map.getZoom();
@@ -262,30 +287,26 @@ export class GlobeEnhancementsLayer {
     const t = Math.max(0, Math.min(1, (FADE_OUT_ZOOM - zoom) / (FADE_OUT_ZOOM - FADE_IN_ZOOM)));
     if (t <= 0) return;
 
-    // ── Globe geometry in MapLibre world space ────────────────────────────────
-    const worldSize = 512 * Math.pow(2, zoom);
-    const { lng, lat } = this.map.getCenter();
-    const cx = mercatorX(lng) * worldSize;
-    const cy = mercatorY(lat) * worldSize;
-    const R = worldSize / (2 * Math.PI); // globe radius in world units
+    // ── Camera setup ──────────────────────────────────────────────────────────
+    // In MapLibre 5.x the second argument is a CustomRenderMethodInput object.
+    // modelViewProjectionMatrix is MapLibre's full globe MVP: it already includes
+    // scale(globeRadiusPixels), sphere orientation and camera perspective.
+    // Input space: unit sphere (radius 1 = globe surface, radius 1.004 = clouds).
+    this.camera.projectionMatrix.fromArray(options.modelViewProjectionMatrix);
+    this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
 
-    // Model matrix: unit sphere at origin → globe in MapLibre world space.
-    // The −R on the diagonal flips Three.js +y (north pole) so it maps to the
-    // MapLibre −y direction (northward = smaller mercator-y value).
-    this._M.set(R, 0, 0, cx, 0, -R, 0, cy, 0, 0, R, 0, 0, 0, 0, 1);
-
-    // Combined: maplibreMatrix × M_globe
-    this._fullMatrix.fromArray(matrix).multiply(this._M);
-
-    // ── Sun direction in Three.js sphere space ────────────────────────────────
-    // getSunPosition returns azimuth (compass bearing, 0=N) and polar (from zenith).
-    // Conversion to Three.js sphere space (x→lon0°, y→north, z→lon90°W):
-    //   sun = (−cos(polar), −sin(polar)·cos(az), −sin(polar)·sin(az))
+    // ── Sun direction in MapLibre ECEF ────────────────────────────────────────
+    // Derived by inverting getSunPosition(azimuthDeg, polarDeg) in Globe.svelte:
+    //   sun_ECEF.x = sin(po)·sin(az)   [toward 90°E]
+    //   sun_ECEF.y = −sin(po)·cos(az)  [toward north pole]
+    //   sun_ECEF.z = −cos(po)          [toward prime meridian]
     const az = (this.sunAzimuthDeg * Math.PI) / 180;
     const po = (this.sunPolarDeg * Math.PI) / 180;
-    this._sunDir
-      .set(-Math.cos(po), -Math.sin(po) * Math.cos(az), -Math.sin(po) * Math.sin(az))
-      .normalize();
+    this._sunDir.set(
+      Math.sin(po) * Math.sin(az),
+      -Math.sin(po) * Math.cos(az),
+      -Math.cos(po)
+    );
 
     // ── Update material uniforms / opacity ────────────────────────────────────
     if (this.cloudMesh) {
@@ -298,13 +319,13 @@ export class GlobeEnhancementsLayer {
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
-    this.camera.projectionMatrix.copy(this._fullMatrix);
-    this.camera.projectionMatrixInverse.copy(this._fullMatrix).invert();
-
     // resetState() tells Three.js that the WebGL state may have changed (MapLibre
     // rendered before us) without actually issuing any WebGL calls.
     this.renderer.resetState();
     this.renderer.render(this.scene, this.camera);
+    // Ask MapLibre to schedule another frame so the effects remain visible
+    // even when the map is not being actively panned or zoomed.
+    this.map.triggerRepaint();
   }
 
   onRemove(): void {
