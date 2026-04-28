@@ -94,8 +94,8 @@ const SPECULAR_FRESNEL_STRENGTH = 0.24;
 const TERMINATOR_SOFTNESS = 0.12;
 /** Warm sunlight tint applied to specular highlights. */
 const SUN_COLOR = new THREE.Color(1.0, 0.96, 0.88);
-/** Shared default sunlight intensity for both the dev panel and shader layer. */
-export const DEFAULT_SUNLIGHT_INTENSITY = 0.42;
+/** Fixed specular/sunlight intensity used internally by the shader layer. */
+const DEFAULT_SUNLIGHT_INTENSITY = 0.35;
 
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
@@ -416,7 +416,12 @@ export class GlobeEnhancementsLayer {
       vertexShader: specularVertexShader,
       fragmentShader: atmosphereFragmentShader,
       transparent: true,
-      side: THREE.BackSide,
+      // FrontSide renders the outer face of the sphere. At the globe centre,
+      // N·V ≈ 1 → rim ≈ 0 (transparent — the satellite map shows through).
+      // At the limb, N·V ≈ 0 → rim ≈ 1 (bright halo).
+      // BackSide caused every visible fragment to have N·V = 0, creating a
+      // uniform filled circle and also inverted the sun-boost direction.
+      side: THREE.FrontSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       depthTest: false

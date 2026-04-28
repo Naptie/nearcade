@@ -22,7 +22,7 @@
   } from '$lib/utils/globeGeojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
-  import { DEFAULT_SUNLIGHT_INTENSITY, GlobeEnhancementsLayer } from '$lib/utils/globeEnhancements';
+  import { GlobeEnhancementsLayer } from '$lib/utils/globeEnhancements';
 
   // ---- Props ----
   type Props = {
@@ -64,6 +64,8 @@
   const COUNTY_LINE_LAYER_ID = 'china-county-line';
   const COUNTY_LABEL_LAYER_ID = 'china-county-label';
   const HOVER_LINE_LAYER_ID = 'boundary-hover-line';
+  /** Semi-transparent black overlay inserted above raster tiles to dim the basemap. */
+  const BASEMAP_DIM_LAYER_ID = 'basemap-dim-overlay';
   const FONT_STACK = ['Sora Regular', 'Noto Sans CJK SC Regular'];
 
   const LANDING_ZOOM = 3.2;
@@ -106,7 +108,7 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
-  let sunlightIntensity = $state(DEFAULT_SUNLIGHT_INTENSITY);
+  let basemapDimness = $state(0.35);
   let specularDebugEnabled = $state(false);
 
   // ---- Auto-rotation ----
@@ -614,7 +616,7 @@
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({ anchor: 'map', position: [1000, azimuth, polar], intensity: sunlightIntensity });
+    instance.setLight({ anchor: 'map', position: [1000, azimuth, polar] });
     instance.setSky({ 'atmosphere-blend': atmosphereBlend });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
@@ -726,9 +728,23 @@
       });
     }
 
+    // Semi-transparent black overlay that dims the satellite and AMap raster tiles.
+    // Inserted above the raster tiles so the Three.js enhancements (night lights,
+    // atmosphere, specular) remain unaffected — they render on top of this overlay.
+    if (!instance.getLayer(BASEMAP_DIM_LAYER_ID)) {
+      instance.addLayer({
+        id: BASEMAP_DIM_LAYER_ID,
+        type: 'background',
+        paint: {
+          'background-color': '#000000',
+          'background-opacity': basemapDimness
+        }
+      } as maplibregl.BackgroundLayerSpecification);
+    }
+
     // Globe visual enhancements (clouds + night lights + specular + atmosphere).
-    // Inserted before the boundary
-    // fill layers so that the effects appear under country / region overlays.
+    // Inserted above the dim overlay so they appear over the darkened basemap,
+    // and below the boundary fill layers so effects appear under country overlays.
     if (!instance.getLayer('globe-enhancements')) {
       if (!enhancementsLayer) {
         enhancementsLayer = new GlobeEnhancementsLayer(
@@ -739,7 +755,6 @@
         );
       }
       enhancementsLayer.setSun(a, p);
-      enhancementsLayer.setSunlightIntensity(sunlightIntensity);
       enhancementsLayer.setDebug(specularDebugEnabled);
       instance.addLayer(enhancementsLayer);
     }
@@ -1294,13 +1309,19 @@
     const az = a;
     const po = p;
     if (!instance?.isStyleLoaded()) return;
-    instance.setLight({ anchor: 'map', position: [1000, az, po], intensity: sunlightIntensity });
+    instance.setLight({ anchor: 'map', position: [1000, az, po] });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
     enhancementsLayer?.setSun(az, po);
   });
 
   $effect(() => {
-    enhancementsLayer?.setSunlightIntensity(sunlightIntensity);
+    // Update the basemap dim overlay whenever the slider changes.
+    const instance = map;
+    const dimness = basemapDimness;
+    if (!instance?.isStyleLoaded()) return;
+    if (instance.getLayer(BASEMAP_DIM_LAYER_ID)) {
+      instance.setPaintProperty(BASEMAP_DIM_LAYER_ID, 'background-opacity', dimness);
+    }
   });
 
   $effect(() => {
@@ -2018,10 +2039,10 @@
         <label class="flex flex-col gap-1 text-xs">
           <span class="flex items-center justify-between gap-3">
             <span class="flex flex-col gap-0.5">
-              <span class="font-medium">Sunlight intensity</span>
-              <span class="opacity-60">Scales the custom ocean glint and MapLibre light</span>
+              <span class="font-medium">Basemap dimness</span>
+              <span class="opacity-60">Dims satellite tiles, making night lights stand out</span>
             </span>
-            <span class="tabular-nums">{sunlightIntensity.toFixed(2)}</span>
+            <span class="tabular-nums">{basemapDimness.toFixed(2)}</span>
           </span>
           <input
             type="range"
@@ -2029,7 +2050,7 @@
             min="0"
             max="1"
             step="0.01"
-            bind:value={sunlightIntensity}
+            bind:value={basemapDimness}
           />
         </label>
         <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
