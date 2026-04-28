@@ -283,7 +283,7 @@ const cloudFragmentShader = /* glsl */ `
 
     // Fade out near poles to hide equirectangular texture stretching.
     // vNormal.y = sin(lat): 0 at equator, ±1 at poles.
-    float absLatSin = abs(normalize(vNormal).y);
+    float absLatSin = abs(vNormal.y);
     float polarFade = 1.0 - smoothstep(uPolarFadeStart, uPolarFadeEnd, absLatSin);
 
     float alpha = cloudDensity * uOpacity * polarFade;

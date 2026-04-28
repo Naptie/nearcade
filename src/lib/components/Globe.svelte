@@ -2090,41 +2090,67 @@
       <!-- Render layers section -->
       <div class="border-base-content/15 flex flex-col gap-1.5 border-t px-2 pt-2">
         <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Render layers</p>
-        {#each [{ label: 'setSky', bind: 'devSkyEnabled', desc: 'Built-in MapLibre atmosphere sky' }, { label: 'setLight', bind: 'devLightEnabled', desc: 'MapLibre directional sun light' }, { label: 'Specular & bump', bind: 'devSpecularEnabled', desc: 'Ocean glint shader' }, { label: 'Night lights', bind: 'devNightLightsEnabled', desc: 'City lights overlay' }, { label: 'Atmosphere', bind: 'devAtmosphereEnabled', desc: 'Three.js atmosphere rim' }, { label: 'Clouds', bind: 'devCloudsEnabled', desc: 'Cloud texture overlay' }, { label: 'Cloud shadows', bind: 'devCloudShadowsEnabled', desc: 'Sun-cast cloud shadows' }] as row (row.bind)}
+        {#snippet layerToggle(
+          label: string,
+          desc: string,
+          checked: boolean,
+          onchange: (v: boolean) => void
+        )}
           <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
             <span class="flex flex-col gap-0">
-              <span class="font-medium">{row.label}</span>
-              <span class="opacity-50">{row.desc}</span>
+              <span class="font-medium">{label}</span>
+              <span class="opacity-50">{desc}</span>
             </span>
             <input
               type="checkbox"
               class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
-              checked={row.bind === 'devSkyEnabled'
-                ? devSkyEnabled
-                : row.bind === 'devLightEnabled'
-                  ? devLightEnabled
-                  : row.bind === 'devSpecularEnabled'
-                    ? devSpecularEnabled
-                    : row.bind === 'devNightLightsEnabled'
-                      ? devNightLightsEnabled
-                      : row.bind === 'devAtmosphereEnabled'
-                        ? devAtmosphereEnabled
-                        : row.bind === 'devCloudsEnabled'
-                          ? devCloudsEnabled
-                          : devCloudShadowsEnabled}
-              onchange={(e) => {
-                const v = (e.target as HTMLInputElement).checked;
-                if (row.bind === 'devSkyEnabled') devSkyEnabled = v;
-                else if (row.bind === 'devLightEnabled') devLightEnabled = v;
-                else if (row.bind === 'devSpecularEnabled') devSpecularEnabled = v;
-                else if (row.bind === 'devNightLightsEnabled') devNightLightsEnabled = v;
-                else if (row.bind === 'devAtmosphereEnabled') devAtmosphereEnabled = v;
-                else if (row.bind === 'devCloudsEnabled') devCloudsEnabled = v;
-                else devCloudShadowsEnabled = v;
-              }}
+              {checked}
+              onchange={(e) => onchange((e.target as HTMLInputElement).checked)}
             />
           </label>
-        {/each}
+        {/snippet}
+        {@render layerToggle(
+          'setSky',
+          'Built-in MapLibre atmosphere sky',
+          devSkyEnabled,
+          (v) => (devSkyEnabled = v)
+        )}
+        {@render layerToggle(
+          'setLight',
+          'MapLibre directional sun light',
+          devLightEnabled,
+          (v) => (devLightEnabled = v)
+        )}
+        {@render layerToggle(
+          'Specular & bump',
+          'Ocean glint shader',
+          devSpecularEnabled,
+          (v) => (devSpecularEnabled = v)
+        )}
+        {@render layerToggle(
+          'Night lights',
+          'City lights overlay',
+          devNightLightsEnabled,
+          (v) => (devNightLightsEnabled = v)
+        )}
+        {@render layerToggle(
+          'Atmosphere',
+          'Three.js atmosphere rim',
+          devAtmosphereEnabled,
+          (v) => (devAtmosphereEnabled = v)
+        )}
+        {@render layerToggle(
+          'Clouds',
+          'Cloud texture overlay',
+          devCloudsEnabled,
+          (v) => (devCloudsEnabled = v)
+        )}
+        {@render layerToggle(
+          'Cloud shadows',
+          'Sun-cast cloud shadows',
+          devCloudShadowsEnabled,
+          (v) => (devCloudShadowsEnabled = v)
+        )}
         {#if devCloudShadowsEnabled}
           <label class="flex flex-col gap-1 pl-3 text-xs">
             <span class="flex items-center justify-between">
