@@ -99,7 +99,7 @@ const SPECULAR_INTENSITY = 1.2;
 /** Broadens the highlight so water reads less like polished metal. */
 const SPECULAR_ROUGHNESS = 0.64;
 /** Blend amount for view-angle fresnel shaping on the water highlight. */
-const SPECULAR_FRESNEL_STRENGTH = 0.12;
+const SPECULAR_FRESNEL_STRENGTH = 0.16;
 /** Width of the terminator soft-transition band (in dot-product units). */
 const TERMINATOR_SOFTNESS = 0.16;
 /** Warm sunlight tint applied to specular highlights. */
