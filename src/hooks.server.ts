@@ -1,15 +1,13 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type HandleServerError, type ServerInit } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
-import { auth } from '$lib/auth/index.server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { init as initMeili } from '$lib/db/meili.server';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
 import { isOSSAvailable } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
-import { building, dev } from '$app/environment';
+import { building } from '$app/environment';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -125,6 +123,7 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
 };
 
 const handleAuth: Handle = async ({ event, resolve }) => {
+  const { auth } = await import('$lib/auth/index.server');
   const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
   event.locals.session = session as App.Locals['session'];
   event.locals.user = (session?.user as App.Locals['user']) ?? null;
@@ -144,8 +143,8 @@ export const handle: Handle = sequence(
 export const handleError: HandleServerError = reportError;
 
 export const init: ServerInit = async () => {
-  if (building || dev) {
-    await initMeili();
+  if (!building) {
+    await (await import('$lib/db/meili.server')).init();
     console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
   }
 };

@@ -22,10 +22,7 @@
   } from '$lib/utils/globe/geojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
-  import {
-    GlobeVisualsLayer,
-    DEFAULT_CLOUD_SHADOW_OPACITY
-  } from '$lib/utils/globe/visuals';
+  import { GlobeVisualsLayer, DEFAULT_CLOUD_SHADOW_OPACITY } from '$lib/utils/globe/visuals';
 
   // ---- Props ----
   type Props = {
