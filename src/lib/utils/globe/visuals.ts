@@ -58,9 +58,9 @@ const CLOUD_DAY_COLOR = new THREE.Color(1.0, 0.99, 0.96);
 /** Cooler blue tint applied to clouds away from direct sunlight. */
 const CLOUD_TWILIGHT_COLOR = new THREE.Color(0.67, 0.79, 0.93);
 /** sin(lat) above which the cloud polar-fade begins (hides equirectangular stretching). */
-const CLOUD_POLAR_FADE_START = 0.97;
+const CLOUD_POLAR_FADE_START = 0.88;
 /** sin(lat) at which the cloud polar-fade is fully transparent. */
-const CLOUD_POLAR_FADE_END = 0.99;
+const CLOUD_POLAR_FADE_END = 0.93;
 /** Fade out the cloud shell near the visible limb to avoid a paper-cutout edge. */
 const CLOUD_LIMB_FADE_SOFTNESS = 0.16;
 /** Start of the cloud night→day color blend across the terminator. */
