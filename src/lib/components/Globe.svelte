@@ -19,9 +19,13 @@
     type GlobeDataset,
     type GlobeFeature,
     type GlobeFeatureCollection
-  } from '$lib/utils/globeGeojson';
+  } from '$lib/utils/globe/geojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
+  import {
+    GlobeVisualsLayer,
+    DEFAULT_CLOUD_SHADOW_OPACITY
+  } from '$lib/utils/globe/visuals';
 
   // ---- Props ----
   type Props = {
@@ -90,6 +94,7 @@
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
+  let visualsLayer: GlobeVisualsLayer | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -104,6 +109,18 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
+
+  // ---- Dev panel toggles (DEV mode only) ----
+  let devSkyEnabled = $state(true);
+  let devLightEnabled = $state(true);
+  let devSpecularEnabled = $state(true);
+  let devNightLightsEnabled = $state(true);
+  let devAtmosphereEnabled = $state(true);
+  let devCloudsEnabled = $state(true);
+  let devCloudShadowsEnabled = $state(true);
+  let devCloudShadowOpacity = $state(DEFAULT_CLOUD_SHADOW_OPACITY);
+  let devShopMarkersEnabled = $state(true);
+  let devGeoJsonEnabled = $state(true);
 
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
@@ -545,16 +562,41 @@
     'interpolate',
     ['linear'],
     ['zoom'],
+    // Full built-in atmosphere while zoomed out on the globe.
     0,
-    1,
-    5,
-    1,
-    7,
-    0
+    0.4,
+    // Keep it strong through the mid-zoom range so the custom atmosphere shell
+    // enhances rather than replaces the built-in sky contribution.
+    8,
+    0.4,
+    // Fade it back as the camera zooms in toward flat-map detail.
+    10,
+    0.1
   ];
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
+  const GEOJSON_VISIBILITY_LAYER_IDS = [
+    WORLD_FILL_LAYER_ID,
+    WORLD_LINE_LAYER_ID,
+    WORLD_LABEL_LAYER_ID,
+    PROVINCE_FILL_LAYER_ID,
+    PROVINCE_LINE_LAYER_ID,
+    PROVINCE_LABEL_LAYER_ID,
+    CITY_FILL_LAYER_ID,
+    CITY_LINE_LAYER_ID,
+    CITY_LABEL_LAYER_ID,
+    COUNTY_FILL_LAYER_ID,
+    COUNTY_LINE_LAYER_ID,
+    COUNTY_LABEL_LAYER_ID,
+    HOVER_LINE_LAYER_ID
+  ] as const;
+  const SHOP_VISIBILITY_LAYER_IDS = [
+    SHOPS_LAYER_ID,
+    SHOPS_ACTIVE_LAYER_ID,
+    SHOPS_PINNED_LAYER_ID,
+    SHOPS_NAME_LAYER_ID
+  ] as const;
 
   const sunPosition = $derived.by(() => {
     const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
@@ -606,8 +648,12 @@
 
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
-    instance.setLight({ anchor: 'map', position: [100, azimuth, polar] });
-    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
+    instance.setLight({
+      anchor: 'map',
+      intensity: devLightEnabled ? 0.1 : 0,
+      position: [1, azimuth, polar]
+    });
+    instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
@@ -659,6 +705,53 @@
     }
   };
 
+  const applyVisualsDevSettings = (layer: GlobeVisualsLayer) => {
+    layer.setSun(a, p);
+    layer.setMeshVisible('specular', devSpecularEnabled);
+    layer.setMeshVisible('nightLights', devNightLightsEnabled);
+    layer.setMeshVisible('atmosphere', devAtmosphereEnabled);
+    layer.setMeshVisible('clouds', devCloudsEnabled);
+    layer.setMeshVisible('cloudShadow', devCloudShadowsEnabled);
+    layer.setCloudShadowOpacity(devCloudShadowOpacity);
+  };
+
+  const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
+    if (forceRebuild && instance.getLayer('globe-visuals')) {
+      instance.removeLayer('globe-visuals');
+      visualsLayer = null;
+    }
+
+    if (!instance.getLayer('globe-visuals')) {
+      visualsLayer = new GlobeVisualsLayer(
+        `${base}/globe/clouds.jpg`,
+        `${base}/globe/nightlights.jpg`,
+        `${base}/globe/8081_earthspec10k.jpg`,
+        `${base}/globe/8081_earthbump4k.jpg`
+      );
+      applyVisualsDevSettings(visualsLayer);
+      const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
+      instance.addLayer(visualsLayer, beforeId);
+      return;
+    }
+
+    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
+  };
+
+  const applyDevPanelOverrides = (instance: maplibregl.Map) => {
+    if (!devGeoJsonEnabled) {
+      for (const id of GEOJSON_VISIBILITY_LAYER_IDS) setLayerVisibility(instance, id, false);
+    }
+
+    if (devShopMarkersEnabled) {
+      for (const id of [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID, SHOPS_PINNED_LAYER_ID]) {
+        setLayerVisibility(instance, id, true);
+      }
+      setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, mode === 'fullscreen');
+    } else {
+      for (const id of SHOP_VISIBILITY_LAYER_IDS) setLayerVisibility(instance, id, false);
+    }
+  };
+
   const applyModeLayers = (instance: maplibregl.Map, currentMode: 'landing' | 'fullscreen') => {
     const allLayers = [
       WORLD_FILL_LAYER_ID,
@@ -678,6 +771,7 @@
     ];
     if (currentMode === 'landing') {
       for (const layerId of allLayers) setLayerVisibility(instance, layerId, false);
+      applyDevPanelOverrides(instance);
     } else {
       syncMapData(instance);
     }
@@ -717,6 +811,10 @@
         data: { type: 'FeatureCollection', features: [] }
       });
     }
+
+    // Globe visual enhancements (clouds + night lights + specular + atmosphere).
+    // Inserted below the boundary fill layers so effects appear under country overlays.
+    ensureVisualsLayer(instance);
 
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -1064,7 +1162,11 @@
         // worker not ready
       }
     }
-    setLayerVisibility(instance, HOVER_LINE_LAYER_ID, feature !== null && mode === 'fullscreen');
+    setLayerVisibility(
+      instance,
+      HOVER_LINE_LAYER_ID,
+      feature !== null && mode === 'fullscreen' && devGeoJsonEnabled
+    );
   };
 
   const syncMapData = (instance: maplibregl.Map) => {
@@ -1122,6 +1224,7 @@
 
     setLayerVisibility(instance, AMAP_LAYER_ID, chinaActive && viewZoom >= AMAP_ZOOM_THRESHOLD);
     setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, true);
+    applyDevPanelOverrides(instance);
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
@@ -1268,7 +1371,57 @@
     const az = a;
     const po = p;
     if (!instance?.isStyleLoaded()) return;
-    instance.setLight({ anchor: 'map', position: [100, az, po] });
+    instance.setLight({
+      anchor: 'map',
+      intensity: devLightEnabled ? 0.1 : 0,
+      position: [1, az, po]
+    });
+    // Keep the Three.js enhancement layer in sync with MapLibre's sun.
+    visualsLayer?.setSun(az, po);
+  });
+
+  $effect(() => {
+    const instance = map;
+    if (!instance?.isStyleLoaded()) return;
+    instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
+  });
+
+  // ---- Three.js render-layer dev toggles ----
+  $effect(() => {
+    // Explicitly read all render-layer dev toggles so this effect always reruns
+    // when the panel state changes.
+    void devSpecularEnabled;
+    void devNightLightsEnabled;
+    void devAtmosphereEnabled;
+    void devCloudsEnabled;
+    void devCloudShadowsEnabled;
+    void devCloudShadowOpacity;
+
+    const instance = map;
+    if (!instance?.isStyleLoaded()) return;
+
+    // Keep the existing custom layer and update uniforms/visibility in-place
+    // so toggles and sliders respond immediately.
+    ensureVisualsLayer(instance);
+    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
+    instance.triggerRepaint();
+  });
+
+  // ---- Map overlay dev toggles ----
+  $effect(() => {
+    // Explicitly read map overlay toggles to guarantee effect dependency tracking.
+    void devShopMarkersEnabled;
+    void devGeoJsonEnabled;
+
+    const instance = map;
+    if (!instance?.isStyleLoaded()) return;
+    if (mode === 'fullscreen') {
+      syncMapData(instance);
+      instance.triggerRepaint();
+      return;
+    }
+    applyDevPanelOverrides(instance);
+    instance.triggerRepaint();
   });
 
   // ---- Mode transition effect ----
@@ -1978,6 +2131,116 @@
           }}>Now</button
         >
       </div>
+
+      <!-- Render layers section -->
+      <div class="border-base-content/15 flex flex-col gap-1.5 border-t px-2 pt-2">
+        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Render layers</p>
+        {#snippet layerToggle(
+          label: string,
+          desc: string,
+          checked: boolean,
+          onchange: (v: boolean) => void
+        )}
+          <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+            <span class="flex flex-col gap-0">
+              <span class="font-medium">{label}</span>
+              <span class="opacity-50">{desc}</span>
+            </span>
+            <input
+              type="checkbox"
+              class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+              {checked}
+              onchange={(e) => onchange((e.target as HTMLInputElement).checked)}
+            />
+          </label>
+        {/snippet}
+        {@render layerToggle(
+          'setSky',
+          'Built-in MapLibre atmosphere sky',
+          devSkyEnabled,
+          (v) => (devSkyEnabled = v)
+        )}
+        {@render layerToggle(
+          'setLight',
+          'MapLibre directional sun light',
+          devLightEnabled,
+          (v) => (devLightEnabled = v)
+        )}
+        {@render layerToggle(
+          'Specular & bump',
+          'Ocean glint shader',
+          devSpecularEnabled,
+          (v) => (devSpecularEnabled = v)
+        )}
+        {@render layerToggle(
+          'Night lights',
+          'City lights overlay',
+          devNightLightsEnabled,
+          (v) => (devNightLightsEnabled = v)
+        )}
+        {@render layerToggle(
+          'Atmosphere',
+          'Three.js atmosphere rim',
+          devAtmosphereEnabled,
+          (v) => (devAtmosphereEnabled = v)
+        )}
+        {@render layerToggle(
+          'Clouds',
+          'Cloud texture overlay',
+          devCloudsEnabled,
+          (v) => (devCloudsEnabled = v)
+        )}
+        {@render layerToggle(
+          'Cloud shadows',
+          'Sun-cast cloud shadows',
+          devCloudShadowsEnabled,
+          (v) => (devCloudShadowsEnabled = v)
+        )}
+        {#if devCloudShadowsEnabled}
+          <label class="flex flex-col gap-1 pl-3 text-xs">
+            <span class="flex items-center justify-between">
+              <span class="opacity-70">Shadow opacity</span>
+              <span class="font-mono opacity-70">{devCloudShadowOpacity.toFixed(2)}</span>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              class="range range-xs"
+              bind:value={devCloudShadowOpacity}
+            />
+          </label>
+        {/if}
+      </div>
+
+      <!-- Map overlays section -->
+      <div class="border-base-content/15 flex flex-col gap-1.5 border-t px-2 pt-2">
+        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Map overlays</p>
+        <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+          <span class="flex flex-col gap-0">
+            <span class="font-medium">Shop markers</span>
+            <span class="opacity-50">Circle markers and name labels</span>
+          </span>
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+            bind:checked={devShopMarkersEnabled}
+          />
+        </label>
+        <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+          <span class="flex flex-col gap-0">
+            <span class="font-medium">GeoJSON features</span>
+            <span class="opacity-50">Country / province / city boundaries</span>
+          </span>
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+            bind:checked={devGeoJsonEnabled}
+          />
+        </label>
+      </div>
+
       <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
         <div>View: {currentDetailLevel}</div>
         <div>Focus: {focusPath}</div>
