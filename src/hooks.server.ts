@@ -50,12 +50,6 @@ const handleParaglide: Handle = ({ event, resolve }) =>
     });
   });
 
-// const handleGoogleTag: Handle = ({ event, resolve }) => {
-//   return resolve(event, {
-//     transformPageChunk: ({ html }) => html.replace('%gtag.id%', env.PUBLIC_GOOGLE_TAG_ID ?? '')
-//   });
-// };
-
 const handleHeaders: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
   const { pathname } = event.url;
