@@ -1388,20 +1388,40 @@
 
   // ---- Three.js render-layer dev toggles ----
   $effect(() => {
+    // Explicitly read all render-layer dev toggles so this effect always reruns
+    // when the panel state changes.
+    void devSpecularEnabled;
+    void devNightLightsEnabled;
+    void devAtmosphereEnabled;
+    void devCloudsEnabled;
+    void devCloudShadowsEnabled;
+    void devCloudShadowOpacity;
+
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-    ensureEnhancementsLayer(instance, true);
+
+    // Keep the existing custom layer and update uniforms/visibility in-place
+    // so toggles and sliders respond immediately.
+    ensureEnhancementsLayer(instance);
+    if (enhancementsLayer) applyEnhancementsDevSettings(enhancementsLayer);
+    instance.triggerRepaint();
   });
 
   // ---- Map overlay dev toggles ----
   $effect(() => {
+    // Explicitly read map overlay toggles to guarantee effect dependency tracking.
+    void devShopMarkersEnabled;
+    void devGeoJsonEnabled;
+
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
     if (mode === 'fullscreen') {
       syncMapData(instance);
+      instance.triggerRepaint();
       return;
     }
     applyDevPanelOverrides(instance);
+    instance.triggerRepaint();
   });
 
   // ---- Mode transition effect ----

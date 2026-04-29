@@ -54,9 +54,9 @@ const CLOUD_ALTITUDE_SCALE = 1.009;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
 /** sin(lat) above which the cloud polar-fade begins (hides equirectangular stretching). */
-const CLOUD_POLAR_FADE_START = 0.7;
+const CLOUD_POLAR_FADE_START = 0.97;
 /** sin(lat) at which the cloud polar-fade is fully transparent. */
-const CLOUD_POLAR_FADE_END = 0.9;
+const CLOUD_POLAR_FADE_END = 0.99;
 /** Radius scale factor for the cloud-shadow shell (just above globe, below clouds). */
 const CLOUD_SHADOW_ALTITUDE_SCALE = 1.001;
 /** Default opacity of the cloud-shadow overlay. */
@@ -332,7 +332,11 @@ const cloudShadowFragmentShader = /* glsl */ `
     vec3 Q = normalize(P + t * L);
 
     // Convert ECEF direction to equirectangular UV.
-    // ECEF: x = cos(lat)·sin(lng), y = sin(lat), z = cos(lat)·cos(lng)
+    // In MapLibre ECEF: x = sin(lng)*cos(lat), z = cos(lng)*cos(lat),
+    // so atan(Q.x, Q.z) = lng, giving u=0 at lng=-PI (date line).
+    // The cloud mesh has rotation.y = -PI/2 which shifts its seam from 90°W
+    // to the date line, so its vUv also has u=0 at the date line — same
+    // convention, no extra rotation needed here.
     float lng = atan(Q.x, Q.z);
     float lat = asin(clamp(Q.y, -1.0, 1.0));
     float u = lng / (2.0 * PI) + 0.5;
@@ -480,7 +484,7 @@ export class GlobeEnhancementsLayer {
       vertexShader: specularVertexShader,
       fragmentShader: cloudFragmentShader,
       transparent: true,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false,
       depthTest: false
     });
