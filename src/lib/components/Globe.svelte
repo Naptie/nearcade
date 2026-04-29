@@ -435,7 +435,11 @@
       features: shopsData.map(({ shop, location }) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [location.longitude, location.latitude] },
-        properties: { key: getShopKey(shop), density: shop.density, name: shop.name }
+        properties: {
+          key: getShopKey(shop),
+          density: shop.density,
+          name: shop.name.replace('（', '(').replace('）', ')')
+        }
       }))
     });
   });
@@ -1559,7 +1563,11 @@
                 type: 'Point' as const,
                 coordinates: [location.longitude, location.latitude]
               },
-              properties: { key: getShopKey(shop), density: shop.density, name: shop.name }
+              properties: {
+                key: getShopKey(shop),
+                density: shop.density,
+                name: shop.name.replace('（', '(').replace('）', ')')
+              }
             }))
           });
         }
