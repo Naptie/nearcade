@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
-import { getGlobeGeoJson } from '$lib/utils/globeGeojson.server';
-import type { GlobeDataset } from '$lib/utils/globeGeojson';
+import { getGlobeGeoJson } from '$lib/utils/globe/geojson.server';
+import type { GlobeDataset } from '$lib/utils/globe/geojson';
 import type { RequestHandler } from './$types';
 
 const DATASETS = new Set<GlobeDataset>([

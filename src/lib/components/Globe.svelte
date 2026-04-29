@@ -19,13 +19,13 @@
     type GlobeDataset,
     type GlobeFeature,
     type GlobeFeatureCollection
-  } from '$lib/utils/globeGeojson';
+  } from '$lib/utils/globe/geojson';
   import { fade, slide } from 'svelte/transition';
   import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
   import {
-    GlobeEnhancementsLayer,
+    GlobeVisualsLayer,
     DEFAULT_CLOUD_SHADOW_OPACITY
-  } from '$lib/utils/globeEnhancements';
+  } from '$lib/utils/globe/visuals';
 
   // ---- Props ----
   type Props = {
@@ -94,7 +94,7 @@
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
-  let enhancementsLayer: GlobeEnhancementsLayer | null = null;
+  let visualsLayer: GlobeVisualsLayer | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let provinceData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let cityData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -705,7 +705,7 @@
     }
   };
 
-  const applyEnhancementsDevSettings = (layer: GlobeEnhancementsLayer) => {
+  const applyVisualsDevSettings = (layer: GlobeVisualsLayer) => {
     layer.setSun(a, p);
     layer.setMeshVisible('specular', devSpecularEnabled);
     layer.setMeshVisible('nightLights', devNightLightsEnabled);
@@ -715,26 +715,26 @@
     layer.setCloudShadowOpacity(devCloudShadowOpacity);
   };
 
-  const ensureEnhancementsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
-    if (forceRebuild && instance.getLayer('globe-enhancements')) {
-      instance.removeLayer('globe-enhancements');
-      enhancementsLayer = null;
+  const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
+    if (forceRebuild && instance.getLayer('globe-visuals')) {
+      instance.removeLayer('globe-visuals');
+      visualsLayer = null;
     }
 
-    if (!instance.getLayer('globe-enhancements')) {
-      enhancementsLayer = new GlobeEnhancementsLayer(
+    if (!instance.getLayer('globe-visuals')) {
+      visualsLayer = new GlobeVisualsLayer(
         `${base}/globe/clouds.jpg`,
         `${base}/globe/nightlights.jpg`,
         `${base}/globe/8081_earthspec10k.jpg`,
-        `${base}/globe/8081_earthbump10k.jpg`
+        `${base}/globe/8081_earthbump4k.jpg`
       );
-      applyEnhancementsDevSettings(enhancementsLayer);
+      applyVisualsDevSettings(visualsLayer);
       const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
-      instance.addLayer(enhancementsLayer, beforeId);
+      instance.addLayer(visualsLayer, beforeId);
       return;
     }
 
-    if (enhancementsLayer) applyEnhancementsDevSettings(enhancementsLayer);
+    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
   };
 
   const applyDevPanelOverrides = (instance: maplibregl.Map) => {
@@ -814,7 +814,7 @@
 
     // Globe visual enhancements (clouds + night lights + specular + atmosphere).
     // Inserted below the boundary fill layers so effects appear under country overlays.
-    ensureEnhancementsLayer(instance);
+    ensureVisualsLayer(instance);
 
     if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -1377,7 +1377,7 @@
       position: [1, az, po]
     });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
-    enhancementsLayer?.setSun(az, po);
+    visualsLayer?.setSun(az, po);
   });
 
   $effect(() => {
@@ -1402,8 +1402,8 @@
 
     // Keep the existing custom layer and update uniforms/visibility in-place
     // so toggles and sliders respond immediately.
-    ensureEnhancementsLayer(instance);
-    if (enhancementsLayer) applyEnhancementsDevSettings(enhancementsLayer);
+    ensureVisualsLayer(instance);
+    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
     instance.triggerRepaint();
   });
 
