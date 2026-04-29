@@ -1726,7 +1726,10 @@
               pinnedShop = null;
               markerHoveredShop = null;
             } else {
-              if (!isShopInCurrentFilter(entry.shop)) selectedTitleIds = [];
+              if (!isShopInCurrentFilter(entry.shop)) {
+                searchQuery = '';
+                selectedTitleIds = [];
+              }
               applyShopRegionFilter(entry.shop);
               pinShop(entry);
             }
