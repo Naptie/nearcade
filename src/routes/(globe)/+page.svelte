@@ -364,7 +364,7 @@
 
     <div class="hero-content my-10 text-center not-sm:px-0">
       <div
-        class="bg-base-100/70 pointer-events-auto mt-72 flex max-w-fit flex-col gap-6 rounded-3xl px-8 py-6 backdrop-blur-lg transition hover:shadow-xl"
+        class="pointer-events-auto mt-72 flex max-w-fit flex-col gap-6 px-8 py-6 transition"
         in:slide={{ delay: 500 }}
         out:slide
       >
