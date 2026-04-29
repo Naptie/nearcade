@@ -108,8 +108,6 @@
   let viewTime = $state(new Date());
 
   // ---- Dev panel toggles (DEV mode only) ----
-  let devSkyEnabled = $state(true);
-  let devLightEnabled = $state(true);
   let devSpecularEnabled = $state(true);
   let devNightLightsEnabled = $state(true);
   let devAtmosphereEnabled = $state(true);
@@ -647,10 +645,10 @@
     instance.setProjection({ type: 'globe' });
     instance.setLight({
       anchor: 'map',
-      intensity: devLightEnabled ? 0.1 : 0,
+      intensity: 0.12,
       position: [1, azimuth, polar]
     });
-    instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
+    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
@@ -723,7 +721,7 @@
         `${base}/globe/clouds.jpg`,
         `${base}/globe/nightlights.jpg`,
         `${base}/globe/specular_map.jpg`,
-        `${base}/globe/8081_earthbump4k.jpg`
+        `${base}/globe/normal_map.jpg`
       );
       applyVisualsDevSettings(visualsLayer);
       const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
@@ -1370,7 +1368,7 @@
     if (!instance?.isStyleLoaded()) return;
     instance.setLight({
       anchor: 'map',
-      intensity: devLightEnabled ? 0.1 : 0,
+      intensity: 0.12,
       position: [1, az, po]
     });
     // Keep the Three.js enhancement layer in sync with MapLibre's sun.
@@ -1380,7 +1378,7 @@
   $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-    instance.setSky({ 'atmosphere-blend': devSkyEnabled ? atmosphereBlend : 0 });
+    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
   });
 
   // ---- Three.js render-layer dev toggles ----
@@ -2152,19 +2150,7 @@
           </label>
         {/snippet}
         {@render layerToggle(
-          'setSky',
-          'Built-in MapLibre atmosphere sky',
-          devSkyEnabled,
-          (v) => (devSkyEnabled = v)
-        )}
-        {@render layerToggle(
-          'setLight',
-          'MapLibre directional sun light',
-          devLightEnabled,
-          (v) => (devLightEnabled = v)
-        )}
-        {@render layerToggle(
-          'Specular & bump',
+          'Specular sunlight',
           'Ocean glint shader',
           devSpecularEnabled,
           (v) => (devSpecularEnabled = v)

@@ -104,8 +104,6 @@ const ATMOSPHERE_SUN_BOOST_MIN = 0.2;
 /** Maximum atmosphere brightness contribution when sunlight intensity is high. */
 const ATMOSPHERE_SUN_BOOST_MAX = 0.6;
 
-/** Strength of the bump-map normal perturbation in the specular shader. */
-const DEFAULT_BUMP_SCALE = 0.0045;
 /** Phong shininess exponent for ocean specular highlights. */
 const SPECULAR_SHININESS = 120.0;
 /** Overall strength of the ocean specular term after gloss/fresnel shaping. */
@@ -143,16 +141,14 @@ const specularFragmentShader = /* glsl */ `
   precision highp float;
 
   uniform sampler2D uSpecularMap;
-  uniform sampler2D uBumpMap;
+  uniform sampler2D uNormalMap;
   uniform vec3      uCameraPos;
   uniform vec3      uSunDir;
   uniform vec3      uSunColor;
   uniform float     uOpacity;
-  uniform float     uBumpScale;
   uniform float     uSpecularStrength;
   uniform float     uRoughness;
   uniform float     uFresnelStrength;
-  uniform vec2      uTexelSize;
   uniform float     uShininess;
   uniform float     uTerminatorSoftness;
 
@@ -161,7 +157,7 @@ const specularFragmentShader = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
-    // ── Tangent frame for bump perturbation ───────────────────────────────────
+    // ── Tangent frame for normal-map perturbation ─────────────────────────────
     vec3 N  = normalize(vNormal);
     // Cross with world-up to obtain a tangent along the longitude direction.
     // At the poles the cross product degenerates, so we fall back to (1,0,0).
@@ -170,14 +166,8 @@ const specularFragmentShader = /* glsl */ `
     if (length(T) < 0.001) T = vec3(1.0, 0.0, 0.0);
     vec3 B  = normalize(cross(N, T));
 
-    // Central-difference gradient of the bump (height) map
-    float hR = texture2D(uBumpMap, vUv + vec2( uTexelSize.x,       0.0)).r;
-    float hL = texture2D(uBumpMap, vUv - vec2( uTexelSize.x,       0.0)).r;
-    float hU = texture2D(uBumpMap, vUv + vec2(       0.0,  uTexelSize.y)).r;
-    float hD = texture2D(uBumpMap, vUv - vec2(       0.0,  uTexelSize.y)).r;
-    float dx = (hR - hL) * uBumpScale;
-    float dy = (hU - hD) * uBumpScale;
-    vec3 bN  = normalize(N + dx * T + dy * B);
+    vec3 mapNormal = normalize(texture2D(uNormalMap, vUv).xyz * 2.0 - 1.0);
+    vec3 bN = normalize(T * mapNormal.x + B * mapNormal.y + N * mapNormal.z);
 
     // ── Camera-aware ocean specular ───────────────────────────────────────────
     float specStr   = texture2D(uSpecularMap, vUv).r;
@@ -436,7 +426,7 @@ export class GlobeVisualsLayer {
     private readonly cloudUrl: string,
     private readonly nightLightsUrl: string,
     private readonly specularUrl: string,
-    private readonly bumpUrl: string
+    private readonly normalUrl: string
   ) {}
 
   /** Update the sun direction to match MapLibre's light (azimuth/polar from getSunPosition). */
@@ -602,22 +592,19 @@ export class GlobeVisualsLayer {
     this.nightLightsMesh.renderOrder = 20;
     this.nightLightsMesh.visible = this._meshVisibility.nightLights;
 
-    // ── Specular + bump sphere ────────────────────────────────────────────────
+    // ── Specular + normal sphere ──────────────────────────────────────────────
     const specGeom = new THREE.SphereGeometry(1, 64, 32);
     const specMat = new THREE.ShaderMaterial({
       uniforms: {
         uSpecularMap: { value: null },
-        uBumpMap: { value: null },
+        uNormalMap: { value: null },
         uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
         uSunDir: { value: new THREE.Vector3(0, 0, 1) },
         uSunColor: { value: SUN_COLOR },
         uOpacity: { value: 0 },
-        uBumpScale: { value: DEFAULT_BUMP_SCALE },
         uSpecularStrength: { value: SPECULAR_INTENSITY },
         uRoughness: { value: SPECULAR_ROUGHNESS },
         uFresnelStrength: { value: SPECULAR_FRESNEL_STRENGTH },
-        // Texel size matches the 10 240 × 5 120 bump map resolution
-        uTexelSize: { value: new THREE.Vector2(1 / 10240, 1 / 5120) },
         uShininess: { value: SPECULAR_SHININESS },
         uTerminatorSoftness: { value: TERMINATOR_SOFTNESS }
       },
@@ -675,15 +662,15 @@ export class GlobeVisualsLayer {
       loader.loadAsync(this.cloudUrl),
       loader.loadAsync(this.nightLightsUrl),
       loader.loadAsync(this.specularUrl),
-      loader.loadAsync(this.bumpUrl)
+      loader.loadAsync(this.normalUrl)
     ])
-      .then(([cloudTex, nightLightsTex, specTex, bumpTex]) => {
+      .then(([cloudTex, nightLightsTex, specTex, normalTex]) => {
         if (this.aborted) {
           // Style was reloaded while textures were in flight — discard them.
           cloudTex.dispose();
           nightLightsTex.dispose();
           specTex.dispose();
-          bumpTex.dispose();
+          normalTex.dispose();
           return;
         }
         cloudTex.colorSpace = THREE.SRGBColorSpace;
@@ -693,8 +680,9 @@ export class GlobeVisualsLayer {
 
         nightLightsTex.colorSpace = THREE.SRGBColorSpace;
         nightLightsMat.uniforms.uNightMap.value = nightLightsTex;
+        normalTex.colorSpace = THREE.NoColorSpace;
         specMat.uniforms.uSpecularMap.value = specTex;
-        specMat.uniforms.uBumpMap.value = bumpTex;
+        specMat.uniforms.uNormalMap.value = normalTex;
 
         this.loaded = true;
       })
@@ -810,7 +798,7 @@ export class GlobeVisualsLayer {
       this.specMesh.geometry.dispose();
       const u = this.specMesh.material.uniforms;
       (u.uSpecularMap.value as THREE.Texture | null)?.dispose();
-      (u.uBumpMap.value as THREE.Texture | null)?.dispose();
+      (u.uNormalMap.value as THREE.Texture | null)?.dispose();
       this.specMesh.material.dispose();
       this.specMesh = null;
     }
