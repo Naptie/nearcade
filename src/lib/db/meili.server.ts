@@ -1,11 +1,11 @@
 import { Meilisearch } from 'meilisearch';
 import mongo from './index.server';
 import { toPlainArray } from '$lib/utils';
-import { MEILISEARCH_API_KEY, MEILISEARCH_HOST } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 const meili = new Meilisearch({
-  host: MEILISEARCH_HOST,
-  apiKey: MEILISEARCH_API_KEY
+  host: env.MEILISEARCH_HOST,
+  apiKey: env.MEILISEARCH_API_KEY
 });
 
 export const init = async () => {

@@ -6,9 +6,9 @@ import { loginRedirect } from '$lib/utils/scoped';
 import { resolve } from '$app/paths';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
-import { AUTH_SECRET } from '$env/static/private';
 import { createHmac } from 'crypto';
 import { m } from '$lib/paraglide/messages';
+import { env } from '$env/dynamic/private';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -59,7 +59,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    const hmac = createHmac('sha256', AUTH_SECRET)
+    const hmac = createHmac('sha256', env.AUTH_SECRET)
       .update(`${user.id}|${university.id}|${today.toISOString()}`)
       .digest('hex');
 
