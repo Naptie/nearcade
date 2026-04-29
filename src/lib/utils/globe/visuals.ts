@@ -48,19 +48,33 @@ function clamp01(value: number): number {
 }
 
 /** Maximum opacity of the cloud layer (currently left at 0 so night lights / atmosphere stay readable). */
-const MAX_CLOUD_OPACITY = 0.8;
+const MAX_CLOUD_OPACITY = 1;
 /** Radius scale factor that floats the cloud sphere above the base globe surface. */
-const CLOUD_ALTITUDE_SCALE = 1.009;
+const CLOUD_ALTITUDE_SCALE = 1.006;
 /** Blue-white tint applied to the cloud texture colour channel. */
 const CLOUD_TINT_COLOR = new THREE.Color(0.88, 0.93, 1.0);
+/** Warm sunlight tint applied to illuminated cloud tops. */
+const CLOUD_DAY_COLOR = new THREE.Color(1.0, 0.99, 0.96);
+/** Cooler blue tint applied to clouds away from direct sunlight. */
+const CLOUD_TWILIGHT_COLOR = new THREE.Color(0.67, 0.79, 0.93);
 /** sin(lat) above which the cloud polar-fade begins (hides equirectangular stretching). */
 const CLOUD_POLAR_FADE_START = 0.97;
 /** sin(lat) at which the cloud polar-fade is fully transparent. */
 const CLOUD_POLAR_FADE_END = 0.99;
-/** Radius scale factor for the cloud-shadow shell (just above globe, below clouds). */
-const CLOUD_SHADOW_ALTITUDE_SCALE = 1.001;
+/** Fade out the cloud shell near the visible limb to avoid a paper-cutout edge. */
+const CLOUD_LIMB_FADE_SOFTNESS = 0.16;
+/** Start of the cloud night→day color blend across the terminator. */
+const CLOUD_DAY_TRANSITION_START = -0.25;
+/** End of the cloud night→day color blend across the lit hemisphere. */
+const CLOUD_DAY_TRANSITION_END = 0.35;
+/** Minimum cloud brightness when only atmospheric fill light remains. */
+const CLOUD_AMBIENT_LIGHT_MIN = 0.38;
+/** Maximum cloud brightness under direct sun. */
+const CLOUD_AMBIENT_LIGHT_MAX = 1.0;
+/** Radius scale factor for the cloud-shadow receiver shell. */
+const CLOUD_SHADOW_ALTITUDE_SCALE = 1.0;
 /** Default opacity of the cloud-shadow overlay. */
-export const DEFAULT_CLOUD_SHADOW_OPACITY = 0.5;
+export const DEFAULT_CLOUD_SHADOW_OPACITY = 0.8;
 /** Maximum opacity of the night-lights overlay. */
 const MAX_NIGHT_LIGHTS_OPACITY = 1;
 /** Radius scale factor for the night-lights shell so it sits above the raster globe. */
@@ -270,24 +284,41 @@ const cloudFragmentShader = /* glsl */ `
   precision highp float;
 
   uniform sampler2D uCloudMap;
-  uniform vec3      uColor;
+  uniform vec3      uDayColor;
+  uniform vec3      uTwilightColor;
+  uniform vec3      uCameraPos;
+  uniform vec3      uSunDir;
   uniform float     uOpacity;
   uniform float     uPolarFadeStart;
   uniform float     uPolarFadeEnd;
+  uniform float     uLimbFadeSoftness;
+  uniform float     uDayTransitionStart;
+  uniform float     uDayTransitionEnd;
+  uniform float     uAmbientLightMin;
+  uniform float     uAmbientLightMax;
 
   varying vec3 vNormal;
+  varying vec3 vWorldPos;
   varying vec2 vUv;
 
   void main() {
+    vec3 N = normalize(vNormal);
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    float nDotL = dot(N, uSunDir);
+    float nDotV = max(dot(N, viewDir), 0.0);
     float cloudDensity = texture2D(uCloudMap, vUv).r;
 
     // Fade out near poles to hide equirectangular texture stretching.
     // vNormal.y = sin(lat): 0 at equator, ±1 at poles.
-    float absLatSin = abs(vNormal.y);
+    float absLatSin = abs(N.y);
     float polarFade = 1.0 - smoothstep(uPolarFadeStart, uPolarFadeEnd, absLatSin);
+    float limbFade = smoothstep(0.0, uLimbFadeSoftness, nDotV);
+    float dayMix = smoothstep(uDayTransitionStart, uDayTransitionEnd, nDotL);
+    float light = mix(uAmbientLightMin, uAmbientLightMax, dayMix);
+    vec3 cloudColor = mix(uTwilightColor, uDayColor, dayMix) * light;
 
-    float alpha = cloudDensity * uOpacity * polarFade;
-    gl_FragColor = vec4(uColor, alpha);
+    float alpha = cloudDensity * uOpacity * polarFade * limbFade;
+    gl_FragColor = vec4(cloudColor, alpha);
   }
 `;
 
@@ -300,6 +331,8 @@ const cloudShadowFragmentShader = /* glsl */ `
   uniform vec3      uSunDir;
   uniform float     uOpacity;
   uniform float     uCloudAltitude;
+  uniform float     uPolarFadeStart;
+  uniform float     uPolarFadeEnd;
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;
@@ -343,7 +376,10 @@ const cloudShadowFragmentShader = /* glsl */ `
     float v = lat / PI + 0.5;
 
     float cloudDensity = texture2D(uCloudMap, vec2(u, v)).r;
-    float shadowAlpha = cloudDensity * uOpacity * dayFactor;
+    float absLatSin = abs(Q.y);
+    float polarFade = 1.0 - smoothstep(uPolarFadeStart, uPolarFadeEnd, absLatSin);
+    float shadowAlpha = cloudDensity * uOpacity * dayFactor * polarFade;
+    if (shadowAlpha <= 0.0) discard;
     gl_FragColor = vec4(0.0, 0.0, 0.0, shadowAlpha);
   }
 `;
@@ -476,23 +512,32 @@ export class GlobeVisualsLayer {
     const cloudMat = new THREE.ShaderMaterial({
       uniforms: {
         uCloudMap: { value: null },
-        uColor: { value: CLOUD_TINT_COLOR },
+        uDayColor: { value: CLOUD_DAY_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
+        uTwilightColor: { value: CLOUD_TWILIGHT_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
+        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
         uOpacity: { value: 0 },
         uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
-        uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END }
+        uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END },
+        uLimbFadeSoftness: { value: CLOUD_LIMB_FADE_SOFTNESS },
+        uDayTransitionStart: { value: CLOUD_DAY_TRANSITION_START },
+        uDayTransitionEnd: { value: CLOUD_DAY_TRANSITION_END },
+        uAmbientLightMin: { value: CLOUD_AMBIENT_LIGHT_MIN },
+        uAmbientLightMax: { value: CLOUD_AMBIENT_LIGHT_MAX }
       },
       vertexShader: specularVertexShader,
       fragmentShader: cloudFragmentShader,
       transparent: true,
       blending: THREE.NormalBlending,
       depthWrite: false,
-      depthTest: false
+      depthTest: true
     });
     this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
     // CLOUD_ALTITUDE_SCALE makes the cloud sphere 0.4% larger than the base globe.
     this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
     // Shift the default SphereGeometry seam from 90°W to the date line.
     this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+    this.cloudMesh.renderOrder = 40;
     this.cloudMesh.visible = this._meshVisibility.clouds;
 
     // ── Cloud shadow sphere ───────────────────────────────────────────────────
@@ -502,18 +547,23 @@ export class GlobeVisualsLayer {
         uCloudMap: { value: null },
         uSunDir: { value: new THREE.Vector3(0, 0, 1) },
         uOpacity: { value: this._cloudShadowOpacity },
-        uCloudAltitude: { value: CLOUD_ALTITUDE_SCALE }
+        uCloudAltitude: { value: CLOUD_ALTITUDE_SCALE },
+        uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
+        uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END }
       },
       vertexShader: specularVertexShader,
       fragmentShader: cloudShadowFragmentShader,
       transparent: true,
       blending: THREE.NormalBlending,
       depthWrite: false,
-      depthTest: false
+      depthTest: false,
+      side: THREE.FrontSide
     });
     this.cloudShadowMesh = new THREE.Mesh(cloudShadowGeom, cloudShadowMat);
-    // Shadow sphere just above the globe surface and below the cloud sphere.
+    // Render the shadow as an overlay on the visible globe hemisphere rather
+    // than as depth-tested geometry, so it does not fight the earth surface.
     this.cloudShadowMesh.scale.setScalar(CLOUD_SHADOW_ALTITUDE_SCALE);
+    this.cloudShadowMesh.renderOrder = 10;
     this.cloudShadowMesh.visible = this._meshVisibility.cloudShadow;
 
     // ── Night lights ──────────────────────────────────────────────────────────
@@ -549,6 +599,7 @@ export class GlobeVisualsLayer {
     nightLightsMat.blendEquationAlpha = THREE.AddEquation;
     nightLightsMat.uniforms.uDominantBlend.value = 1;
     nightLightsMat.needsUpdate = true;
+    this.nightLightsMesh.renderOrder = 20;
     this.nightLightsMesh.visible = this._meshVisibility.nightLights;
 
     // ── Specular + bump sphere ────────────────────────────────────────────────
@@ -579,6 +630,7 @@ export class GlobeVisualsLayer {
     });
     this.specMesh = new THREE.Mesh(specGeom, specMat);
     this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+    this.specMesh.renderOrder = 30;
     this.specMesh.visible = this._meshVisibility.specular;
 
     // ── Atmosphere shell ──────────────────────────────────────────────────────
@@ -607,6 +659,7 @@ export class GlobeVisualsLayer {
     });
     this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
     this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
+    this.atmosphereMesh.renderOrder = 50;
     this.atmosphereMesh.visible = this._meshVisibility.atmosphere;
 
     // Render order: shadow → night lights → specular → clouds → atmosphere
@@ -687,7 +740,10 @@ export class GlobeVisualsLayer {
 
     // ── Update material uniforms / opacity ────────────────────────────────────
     if (this.cloudMesh) {
-      this.cloudMesh.material.uniforms.uOpacity.value = t * MAX_CLOUD_OPACITY;
+      const u = this.cloudMesh.material.uniforms;
+      u.uCameraPos.value.copy(this._cameraPos);
+      u.uSunDir.value.copy(this._sunDir);
+      u.uOpacity.value = t * MAX_CLOUD_OPACITY;
     }
     if (this.cloudShadowMesh) {
       const u = this.cloudShadowMesh.material.uniforms;

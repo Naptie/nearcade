@@ -722,7 +722,7 @@
       visualsLayer = new GlobeVisualsLayer(
         `${base}/globe/clouds.jpg`,
         `${base}/globe/nightlights.jpg`,
-        `${base}/globe/8081_earthspec10k.jpg`,
+        `${base}/globe/specular_map.jpg`,
         `${base}/globe/8081_earthbump4k.jpg`
       );
       applyVisualsDevSettings(visualsLayer);
