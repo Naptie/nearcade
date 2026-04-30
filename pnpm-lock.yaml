@@ -28,6 +28,9 @@ importers:
       better-auth:
         specifier: ^1.6.7
         version: 1.6.7(@cloudflare/workers-types@4.20260423.1)(@opentelemetry/api@1.9.1)(@sveltejs/kit@2.57.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.4(@typescript-eslint/types@8.59.0))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(mongodb@7.2.0)(svelte@5.55.4(@typescript-eslint/types@8.59.0))
+      crypto-js:
+        specifier: ^4.2.0
+        version: 4.2.0
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -52,6 +55,9 @@ importers:
       nanoid:
         specifier: ^5.1.9
         version: 5.1.9
+      node-imap:
+        specifier: ^0.9.6
+        version: 0.9.6
       redis:
         specifier: ^5.12.1
         version: 5.12.1(@opentelemetry/api@1.9.1)
@@ -203,9 +209,6 @@ importers:
       maplibre-gl:
         specifier: ^5.24.0
         version: 5.24.0
-      node-imap:
-        specifier: ^0.9.6
-        version: 0.9.6
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
@@ -3603,6 +3606,9 @@ packages:
 
   crypt@0.0.2:
     resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+
+  crypto-js@4.2.0:
+    resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
 
   crypto-random-string@2.0.0:
     resolution: {integrity: sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==}
@@ -10010,6 +10016,8 @@ snapshots:
       which: 2.0.2
 
   crypt@0.0.2: {}
+
+  crypto-js@4.2.0: {}
 
   crypto-random-string@2.0.0: {}
 
