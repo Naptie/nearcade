@@ -78,6 +78,7 @@ jobs:
           path: |
             build/
             scripts/
+            package.json
           retention-days: 1
 
   webhook-publish:
