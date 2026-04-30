@@ -21,8 +21,13 @@
     type GlobeFeatureCollection
   } from '$lib/utils/globe/geojson';
   import { fade, slide } from 'svelte/transition';
-  import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
   import { GlobeVisualsLayer, DEFAULT_CLOUD_SHADOW_OPACITY } from '$lib/utils/globe/visuals';
+  import {
+    PUBLIC_BASEMAP_TILE_URLS_CN,
+    PUBLIC_BASEMAP_TILE_URLS_OVERSEAS,
+    PUBLIC_BASEMAP_TILE_URLS_PRIMARY,
+    PUBLIC_BASEMAP_TILE_URLS_SECONDARY
+  } from '$env/static/public';
 
   // ---- Props ----
   type Props = {
@@ -48,9 +53,14 @@
   const SHOPS_ACTIVE_LAYER_ID = 'shops-circles-active';
   const SHOPS_PINNED_LAYER_ID = 'shops-circles-pinned';
   const SHOPS_NAME_LAYER_ID = 'shops-names';
-  const AMAP_SOURCE_ID = 'amap-satellite';
-  const AMAP_LAYER_ID = 'amap-satellite-layer';
-  const AMAP_ZOOM_THRESHOLD = 9.8;
+  const BASEMAP_SOURCE_ID = 'basemap-low-zoom';
+  const BASEMAP_BACKGROUND_LAYER_ID = 'basemap-background';
+  const BASEMAP_LAYER_ID = 'basemap-low-zoom-layer';
+  const BASEMAP_CN_SOURCE_ID = 'basemap-cn';
+  const BASEMAP_CN_LAYER_ID = 'basemap-cn-layer';
+  const BASEMAP_OVERSEAS_SOURCE_ID = 'basemap-overseas';
+  const BASEMAP_OVERSEAS_LAYER_ID = 'basemap-overseas-layer';
+  const BASEMAP_SWITCH_ZOOM_THRESHOLD = 6.5;
   const WORLD_FILL_LAYER_ID = 'world-boundary-fill';
   const WORLD_LINE_LAYER_ID = 'world-boundary-line';
   const WORLD_LABEL_LAYER_ID = 'world-boundary-label';
@@ -72,6 +82,66 @@
   const LANDING_ROTATION_SPEED = 0.06; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
+  const BASEMAP_PROBE_TILE = { z: 1, x: 1, y: 0 };
+  const BASEMAP_PROBE_TIMEOUT_MS = 2500;
+  const BASEMAP_PROBE_FAILURE_PENALTY_MS = 5000;
+
+  type BasemapProbeResult = {
+    averageLatencyMs: number;
+    successfulProbeCount: number;
+    tileUrls: string[];
+  };
+
+  type ResolvedBasemapTileUrls = {
+    globalTileUrls: string[];
+    overseasTileUrls: string[];
+  };
+
+  type AnticipatedBasemapTarget = {
+    zoom: number;
+    isChina: boolean;
+  };
+
+  const parseTileUrlList = (value: string) =>
+    value
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean);
+
+  const BASEMAP_TILE_URLS_PRIMARY = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_PRIMARY);
+  const BASEMAP_TILE_URLS_SECONDARY = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_SECONDARY);
+  const BASEMAP_TILE_URLS_CN = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_CN);
+  const BASEMAP_TILE_URLS_OVERSEAS = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_OVERSEAS);
+
+  const normalizeTileUrlSet = (tileUrls: string[]) =>
+    [...new Set(tileUrls.map((url) => url.trim()).filter(Boolean))].sort();
+
+  const tileUrlSetsMatch = (left: string[], right: string[]) => {
+    const normalizedLeft = normalizeTileUrlSet(left);
+    const normalizedRight = normalizeTileUrlSet(right);
+    if (normalizedLeft.length !== normalizedRight.length) return false;
+    return normalizedLeft.every((url, index) => url === normalizedRight[index]);
+  };
+
+  const basemapProbeCache: Array<{
+    tileUrls: string[];
+    resultPromise: Promise<BasemapProbeResult>;
+  }> = [];
+
+  const isFeatureInChina = (feature: GlobeFeature | null) =>
+    feature?.properties?.dataset?.startsWith('china-') || isChinaWorldFeature(feature);
+
+  const getFallbackGlobalTileUrls = () => {
+    for (const candidate of [
+      BASEMAP_TILE_URLS_PRIMARY,
+      BASEMAP_TILE_URLS_SECONDARY,
+      BASEMAP_TILE_URLS_OVERSEAS,
+      BASEMAP_TILE_URLS_CN
+    ]) {
+      if (candidate.length > 0) return candidate;
+    }
+    return [] as string[];
+  };
 
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
     'match',
@@ -87,9 +157,145 @@
     '#6b7280'
   ];
 
+  const buildProbeTileUrl = (template: string) => {
+    const resolved = template
+      .replaceAll('{z}', String(BASEMAP_PROBE_TILE.z))
+      .replaceAll('{x}', String(BASEMAP_PROBE_TILE.x))
+      .replaceAll('{y}', String(BASEMAP_PROBE_TILE.y));
+    return `${resolved}${resolved.includes('?') ? '&' : '?'}nearcade_probe=${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  };
+
+  const measureTileUrlLatency = (template: string) =>
+    new Promise<number>((resolve) => {
+      const startedAt = performance.now();
+      const image = new Image();
+      let settled = false;
+
+      const finish = (latency: number) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        image.onload = null;
+        image.onerror = null;
+        resolve(latency);
+      };
+
+      const timeoutId = window.setTimeout(
+        () => finish(Number.POSITIVE_INFINITY),
+        BASEMAP_PROBE_TIMEOUT_MS
+      );
+      image.onload = () => finish(performance.now() - startedAt);
+      image.onerror = () => finish(Number.POSITIVE_INFINITY);
+      image.src = buildProbeTileUrl(template);
+    });
+
+  const benchmarkTileUrlSet = async (tileUrls: string[]): Promise<BasemapProbeResult> => {
+    if (tileUrls.length === 0) {
+      return {
+        averageLatencyMs: Number.POSITIVE_INFINITY,
+        successfulProbeCount: 0,
+        tileUrls
+      };
+    }
+
+    const latencies = await Promise.all(
+      tileUrls.map((template) => measureTileUrlLatency(template))
+    );
+    const successfulProbeCount = latencies.filter((latency) => Number.isFinite(latency)).length;
+    const averageLatencyMs =
+      successfulProbeCount === 0
+        ? Number.POSITIVE_INFINITY
+        : latencies.reduce(
+            (sum, latency) =>
+              sum + (Number.isFinite(latency) ? latency : BASEMAP_PROBE_FAILURE_PENALTY_MS),
+            0
+          ) / latencies.length;
+
+    return { averageLatencyMs, successfulProbeCount, tileUrls };
+  };
+
+  const getCachedBasemapProbeResult = (tileUrls: string[]) => {
+    const cached = basemapProbeCache.find((entry) => tileUrlSetsMatch(entry.tileUrls, tileUrls));
+    if (cached) return cached.resultPromise;
+
+    const resultPromise = benchmarkTileUrlSet(tileUrls);
+    basemapProbeCache.push({ tileUrls, resultPromise });
+    return resultPromise;
+  };
+
+  const resolveBasemapTileUrls = async (): Promise<ResolvedBasemapTileUrls> => {
+    let globalTileUrls: string[];
+
+    if (BASEMAP_TILE_URLS_PRIMARY.length === 0 && BASEMAP_TILE_URLS_SECONDARY.length === 0) {
+      globalTileUrls = getFallbackGlobalTileUrls();
+      if (globalTileUrls.length === 0) console.warn('No low zoom basemap URLs configured.');
+    } else if (BASEMAP_TILE_URLS_PRIMARY.length === 0) {
+      globalTileUrls = BASEMAP_TILE_URLS_SECONDARY;
+    } else if (BASEMAP_TILE_URLS_SECONDARY.length === 0) {
+      globalTileUrls = BASEMAP_TILE_URLS_PRIMARY;
+    } else {
+      const [primaryResult, secondaryResult] = await Promise.all([
+        getCachedBasemapProbeResult(BASEMAP_TILE_URLS_PRIMARY),
+        getCachedBasemapProbeResult(BASEMAP_TILE_URLS_SECONDARY)
+      ]);
+
+      const usingSecondary = secondaryResult.averageLatencyMs < primaryResult.averageLatencyMs;
+      const bestResult = usingSecondary ? secondaryResult : primaryResult;
+
+      if (!Number.isFinite(bestResult.averageLatencyMs)) {
+        console.warn(
+          'Basemap probe failed for all low zoom providers, falling back to primary URLs.'
+        );
+        globalTileUrls = BASEMAP_TILE_URLS_PRIMARY;
+      } else {
+        console.info('Selected low zoom basemap provider', {
+          selected: usingSecondary ? 'secondary' : 'primary',
+          primaryAverageLatencyMs: primaryResult.averageLatencyMs,
+          primarySuccessfulProbeCount: primaryResult.successfulProbeCount,
+          secondaryAverageLatencyMs: secondaryResult.averageLatencyMs,
+          secondarySuccessfulProbeCount: secondaryResult.successfulProbeCount
+        });
+        globalTileUrls = bestResult.tileUrls;
+      }
+    }
+
+    if (BASEMAP_TILE_URLS_OVERSEAS.length === 0) {
+      return {
+        globalTileUrls: globalTileUrls,
+        overseasTileUrls: globalTileUrls
+      };
+    }
+
+    if (tileUrlSetsMatch(BASEMAP_TILE_URLS_OVERSEAS, globalTileUrls)) {
+      return {
+        globalTileUrls: globalTileUrls,
+        overseasTileUrls: globalTileUrls
+      };
+    }
+
+    const overseasResult = await getCachedBasemapProbeResult(BASEMAP_TILE_URLS_OVERSEAS);
+    if (overseasResult.successfulProbeCount === 0) {
+      console.warn(
+        'Overseas regional basemap probe failed, falling back to the chosen low zoom provider.'
+      );
+      return {
+        globalTileUrls: globalTileUrls,
+        overseasTileUrls: globalTileUrls
+      };
+    }
+
+    return {
+      globalTileUrls: globalTileUrls,
+      overseasTileUrls: BASEMAP_TILE_URLS_OVERSEAS
+    };
+  };
+
   // ---- Map state ----
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
+  let selectedGlobalTileUrls = getFallbackGlobalTileUrls();
+  let selectedOverseasTileUrls = BASEMAP_TILE_URLS_OVERSEAS;
+  let anticipatedBasemapTarget: AnticipatedBasemapTarget | null = null;
   let navigationControl: maplibregl.NavigationControl | null = null;
   let visualsLayer: GlobeVisualsLayer | null = null;
   let worldData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
@@ -447,11 +653,15 @@
   const flyToShop = (entry: ShopEntry) => {
     const instance = map;
     if (!instance) return;
-    instance.flyTo({
-      center: [entry.location.longitude, entry.location.latitude],
-      zoom: Math.max(instance.getZoom(), 10),
-      duration: 1200
-    });
+    flyToWithAnticipatedBasemap(
+      instance,
+      {
+        center: [entry.location.longitude, entry.location.latitude],
+        zoom: Math.max(instance.getZoom(), 10),
+        duration: 1200
+      },
+      entry.shop.address.general[0] === '中国'
+    );
   };
 
   const pinShop = (shopEntry: ShopEntry) => {
@@ -556,7 +766,34 @@
     return { azimuthDeg: (toDeg(azimuth) + 360) % 360, polarDeg: toDeg(polar) };
   };
 
-  const mapStyle = `https://api.maptiler.com/maps/satellite-v4/style.json?key=${PUBLIC_MAPTILER_KEY}`;
+  const buildMapStyle = (globalTileUrls: string[]): maplibregl.StyleSpecification => ({
+    version: 8,
+    name: 'NEARCADE GLOBE',
+    glyphs: `${base}/fonts/{fontstack}/{range}.pbf`,
+    sources: {
+      [BASEMAP_SOURCE_ID]: {
+        type: 'raster',
+        tiles: globalTileUrls,
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 19
+      }
+    },
+    layers: [
+      {
+        id: BASEMAP_BACKGROUND_LAYER_ID,
+        type: 'background',
+        paint: {
+          'background-color': '#020617'
+        }
+      },
+      {
+        id: BASEMAP_LAYER_ID,
+        type: 'raster',
+        source: BASEMAP_SOURCE_ID
+      }
+    ]
+  });
   const atmosphereBlend: maplibregl.SkySpecification['atmosphere-blend'] = [
     'interpolate',
     ['linear'],
@@ -704,6 +941,69 @@
     }
   };
 
+  const ensureRasterSourceLayer = (
+    instance: maplibregl.Map,
+    sourceId: string,
+    layerId: string,
+    tileUrls: string[]
+  ) => {
+    if (tileUrls.length === 0) return;
+    if (!instance.getSource(sourceId)) {
+      instance.addSource(sourceId, {
+        type: 'raster',
+        tiles: tileUrls,
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 19
+      });
+    }
+    if (!instance.getLayer(layerId)) {
+      instance.addLayer({
+        id: layerId,
+        type: 'raster',
+        source: sourceId,
+        layout: { visibility: 'none' }
+      });
+    }
+  };
+
+  const syncBasemapLayers = (instance: maplibregl.Map) => {
+    const effectiveZoom = anticipatedBasemapTarget?.zoom ?? instance.getZoom();
+    const effectiveIsChina = anticipatedBasemapTarget?.isChina ?? chinaActive;
+    const showRegionalBasemap = effectiveZoom >= BASEMAP_SWITCH_ZOOM_THRESHOLD;
+    const showChinaBasemap =
+      showRegionalBasemap &&
+      effectiveIsChina &&
+      BASEMAP_TILE_URLS_CN.length > 0 &&
+      !tileUrlSetsMatch(selectedGlobalTileUrls, BASEMAP_TILE_URLS_CN);
+    const showOverseasBasemap =
+      showRegionalBasemap &&
+      !effectiveIsChina &&
+      selectedOverseasTileUrls.length > 0 &&
+      !tileUrlSetsMatch(selectedGlobalTileUrls, selectedOverseasTileUrls);
+
+    setLayerVisibility(instance, BASEMAP_LAYER_ID, !showChinaBasemap && !showOverseasBasemap);
+    setLayerVisibility(instance, BASEMAP_CN_LAYER_ID, showChinaBasemap);
+    setLayerVisibility(instance, BASEMAP_OVERSEAS_LAYER_ID, showOverseasBasemap);
+  };
+
+  const setAnticipatedBasemapTarget = (
+    instance: maplibregl.Map,
+    target: AnticipatedBasemapTarget | null
+  ) => {
+    anticipatedBasemapTarget = target;
+    if (instance.isStyleLoaded()) syncBasemapLayers(instance);
+  };
+
+  const flyToWithAnticipatedBasemap = (
+    instance: maplibregl.Map,
+    options: maplibregl.FlyToOptions & { center: maplibregl.LngLatLike; zoom: number },
+    isChina: boolean
+  ) => {
+    setAnticipatedBasemapTarget(instance, { zoom: options.zoom, isChina });
+    instance.flyTo(options);
+  };
+
   const applyVisualsDevSettings = (layer: GlobeVisualsLayer) => {
     layer.setSun(a, p);
     layer.setMeshVisible('specular', devSpecularEnabled);
@@ -769,6 +1069,7 @@
       SHOPS_NAME_LAYER_ID
     ];
     if (currentMode === 'landing') {
+      syncBasemapLayers(instance);
       for (const layerId of allLayers) setLayerVisibility(instance, layerId, false);
       applyDevPanelOverrides(instance);
     } else {
@@ -783,26 +1084,18 @@
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
     upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
 
-    if (!instance.getSource(AMAP_SOURCE_ID)) {
-      instance.addSource(AMAP_SOURCE_ID, {
-        type: 'raster',
-        tiles: [
-          'https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-          'https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-          'https://webst03.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-          'https://webst04.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
-        ],
-        tileSize: 256
-      });
-    }
-    if (!instance.getLayer(AMAP_LAYER_ID)) {
-      instance.addLayer({
-        id: AMAP_LAYER_ID,
-        type: 'raster',
-        source: AMAP_SOURCE_ID,
-        layout: { visibility: 'none' }
-      });
-    }
+    ensureRasterSourceLayer(
+      instance,
+      BASEMAP_CN_SOURCE_ID,
+      BASEMAP_CN_LAYER_ID,
+      BASEMAP_TILE_URLS_CN
+    );
+    ensureRasterSourceLayer(
+      instance,
+      BASEMAP_OVERSEAS_SOURCE_ID,
+      BASEMAP_OVERSEAS_LAYER_ID,
+      selectedOverseasTileUrls
+    );
 
     if (!instance.getSource(SHOPS_SOURCE_ID)) {
       instance.addSource(SHOPS_SOURCE_ID, {
@@ -1173,6 +1466,7 @@
     upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
+    syncBasemapLayers(instance);
 
     const showProvinceLayers = chinaActive && provinceData.features.length > 0;
     const showCityLayers =
@@ -1221,7 +1515,6 @@
       if (instance.getLayer(layerId)) instance.setFilter(layerId, cityFilter);
     }
 
-    setLayerVisibility(instance, AMAP_LAYER_ID, chinaActive && viewZoom >= AMAP_ZOOM_THRESHOLD);
     setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, true);
     applyDevPanelOverrides(instance);
   };
@@ -1241,10 +1534,17 @@
   const fitToFeature = (instance: maplibregl.Map, feature: GlobeFeature, maxZoom: number) => {
     const bounds = getFeatureBounds(feature);
     if (!bounds) return;
+    const fitPadding = { top: 80, right: 80, bottom: 80, left: 80 };
+    const targetZoom =
+      instance.cameraForBounds(bounds, { padding: fitPadding, maxZoom })?.zoom ?? maxZoom;
+    setAnticipatedBasemapTarget(instance, {
+      zoom: targetZoom,
+      isChina: isFeatureInChina(feature)
+    });
     instance.fitBounds(bounds, {
       duration: 1200,
       maxZoom,
-      padding: { top: 80, right: 80, bottom: 80, left: 80 }
+      padding: fitPadding
     });
   };
 
@@ -1273,12 +1573,11 @@
   };
 
   const syncDrilldown = (instance: maplibregl.Map) => {
+    anticipatedBasemapTarget = null;
     viewZoom = instance.getZoom();
     const point = instance.project(instance.getCenter());
     const centeredFeature = getTopFeatureAtPoint(instance, point);
-    const isCenterInChina =
-      centeredFeature?.properties?.dataset?.startsWith('china-') ||
-      isChinaWorldFeature(centeredFeature);
+    const isCenterInChina = isFeatureInChina(centeredFeature);
     const nextChinaActive = !!(viewZoom >= COUNTRY_ZOOM_THRESHOLD && isCenterInChina);
     chinaActive = nextChinaActive;
 
@@ -1436,14 +1735,18 @@
 
     if (currentMode === 'fullscreen') {
       stopAutoRotation();
-      instance.flyTo({
-        center: [155, 45],
-        zoom: 2,
-        pitch: 0,
-        bearing: 0,
-        duration: 2000,
-        essential: true
-      });
+      flyToWithAnticipatedBasemap(
+        instance,
+        {
+          center: [155, 45],
+          zoom: 2,
+          pitch: 0,
+          bearing: 0,
+          duration: 2000,
+          essential: true
+        },
+        false
+      );
       if (instance.isStyleLoaded()) applyModeLayers(instance, 'fullscreen');
     } else if (currentMode === 'landing') {
       if (wasFullscreen) {
@@ -1452,14 +1755,18 @@
         regionFilter = { type: 'world' };
         sidebarOpen = false;
       }
-      instance.flyTo({
-        center: [LANDING_LONGITUDE, LANDING_LATITUDE],
-        zoom: LANDING_ZOOM,
-        pitch: LANDING_PITCH,
-        bearing: LANDING_BEARING,
-        duration: wasFullscreen ? 1800 : 0,
-        essential: true
-      });
+      flyToWithAnticipatedBasemap(
+        instance,
+        {
+          center: [LANDING_LONGITUDE, LANDING_LATITUDE],
+          zoom: LANDING_ZOOM,
+          pitch: LANDING_PITCH,
+          bearing: LANDING_BEARING,
+          duration: wasFullscreen ? 1800 : 0,
+          essential: true
+        },
+        false
+      );
       if (instance.isStyleLoaded()) applyModeLayers(instance, 'landing');
       setTimeout(() => startAutoRotation(), wasFullscreen ? 1800 : 100);
     }
@@ -1520,295 +1827,333 @@
     if (sidebarSize.h === undefined) {
       sidebarSize.h = window.innerHeight - sidebarPos.y - sidebarPos.x;
     }
+    void loadBaseGeoJson();
 
-    const instance = new maplibregl.Map({
-      container: mapContainer,
-      style: mapStyle,
-      ...(mode === 'landing'
-        ? {
-            center: [LANDING_LONGITUDE, LANDING_LATITUDE],
-            zoom: LANDING_ZOOM,
-            pitch: LANDING_PITCH,
-            bearing: LANDING_BEARING
+    let cleanupMap: (() => void) | undefined;
+    let destroyed = false;
+
+    const initializeMap = async () => {
+      const { globalTileUrls: globalTileUrls, overseasTileUrls } = await resolveBasemapTileUrls();
+      selectedGlobalTileUrls = globalTileUrls;
+      selectedOverseasTileUrls = overseasTileUrls;
+      if (destroyed || !mapContainer) return;
+
+      const instance = new maplibregl.Map({
+        container: mapContainer,
+        style: buildMapStyle(globalTileUrls),
+        ...(mode === 'landing'
+          ? {
+              center: [LANDING_LONGITUDE, LANDING_LATITUDE],
+              zoom: LANDING_ZOOM,
+              pitch: LANDING_PITCH,
+              bearing: LANDING_BEARING
+            }
+          : {
+              center: [155, 45],
+              zoom: 2,
+              pitch: 0,
+              bearing: 0
+            })
+      });
+      map = instance;
+
+      navigationControl = new maplibregl.NavigationControl();
+      instance.addControl(navigationControl, 'top-right');
+
+      const syncStyle = () => {
+        sourceDataRevisions.clear();
+        syncScene(instance);
+        ensureMapLayers(instance);
+        applyModeLayers(instance, mode);
+        syncDrilldown(instance);
+        const shopsData = shops;
+        if (shopsData) {
+          const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+          if (src) {
+            src.setData({
+              type: 'FeatureCollection',
+              features: shopsData.map(({ shop, location }) => ({
+                type: 'Feature' as const,
+                geometry: {
+                  type: 'Point' as const,
+                  coordinates: [location.longitude, location.latitude]
+                },
+                properties: {
+                  key: getShopKey(shop),
+                  density: shop.density,
+                  name: shop.name.replace('（', '(').replace('）', ')')
+                }
+              }))
+            });
           }
-        : {
-            center: [155, 45],
-            zoom: 2,
-            pitch: 0,
-            bearing: 0
-          })
-    });
-    map = instance;
-
-    // Create NavigationControl and always add it; visibility is controlled by
-    // the landing-mode CSS class on mapContainer so we get a CSS opacity fade.
-    navigationControl = new maplibregl.NavigationControl();
-    instance.addControl(navigationControl, 'top-right');
-
-    const syncStyle = () => {
-      sourceDataRevisions.clear();
-      syncScene(instance);
-      ensureMapLayers(instance);
-      applyModeLayers(instance, mode);
-      syncDrilldown(instance);
-      const shopsData = shops;
-      if (shopsData) {
-        const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-        if (src) {
-          src.setData({
-            type: 'FeatureCollection',
-            features: shopsData.map(({ shop, location }) => ({
-              type: 'Feature' as const,
-              geometry: {
-                type: 'Point' as const,
-                coordinates: [location.longitude, location.latitude]
-              },
-              properties: {
-                key: getShopKey(shop),
-                density: shop.density,
-                name: shop.name.replace('（', '(').replace('）', ')')
-              }
-            }))
-          });
         }
-      }
-      const hoverKey = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
-      if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
-        instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], hoverKey]);
-      }
-      const pinnedKey = pinnedShop ? getShopKey(pinnedShop) : '';
-      if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
-        instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
-      }
-    };
+        const hoverKey = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
+        if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
+          instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], hoverKey]);
+        }
+        const pinnedKey = pinnedShop ? getShopKey(pinnedShop) : '';
+        if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
+          instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
+        }
+      };
 
-    const handleMoveEnd = () => {
-      if (mode === 'fullscreen') syncDrilldown(instance);
-    };
+      const handleMoveEnd = () => {
+        anticipatedBasemapTarget = null;
+        if (mode === 'fullscreen') {
+          syncDrilldown(instance);
+          return;
+        }
+        syncBasemapLayers(instance);
+      };
 
-    const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
-      if (mode !== 'fullscreen') return;
-      const feature = getTopFeatureAtPoint(instance, event.point);
-      const newId = feature?.properties?.featureId ?? null;
-      if (newId === hoveredFeatureId) return;
-      hoveredFeatureId = newId;
-      hoveredFeature = feature;
-      flushHoverToMap(instance, feature);
-      instance.getCanvas().style.cursor = feature ? 'pointer' : '';
-    };
+      const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
+        if (mode !== 'fullscreen') return;
+        const feature = getTopFeatureAtPoint(instance, event.point);
+        const newId = feature?.properties?.featureId ?? null;
+        if (newId === hoveredFeatureId) return;
+        hoveredFeatureId = newId;
+        hoveredFeature = feature;
+        flushHoverToMap(instance, feature);
+        instance.getCanvas().style.cursor = feature ? 'pointer' : '';
+      };
 
-    const handleMouseOut = () => {
-      if (mode !== 'fullscreen') return;
-      if (!hoveredFeatureId) return;
-      hoveredFeatureId = null;
-      hoveredFeature = null;
-      flushHoverToMap(instance, null);
-      instance.getCanvas().style.cursor = '';
-    };
+      const handleMouseOut = () => {
+        if (mode !== 'fullscreen') return;
+        if (!hoveredFeatureId) return;
+        hoveredFeatureId = null;
+        hoveredFeature = null;
+        flushHoverToMap(instance, null);
+        instance.getCanvas().style.cursor = '';
+      };
 
-    const handleClick = (event: maplibregl.MapMouseEvent) => {
-      if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
+      let landingDragOccurred = false;
 
-      if (mode === 'landing') {
-        if (!landingDragOccurred) void goto(resolve('/globe'));
-        return;
-      }
+      const handleClick = (event: maplibregl.MapMouseEvent) => {
+        if ((event.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
 
-      pinnedShop = null;
-      markerHoveredShop = null;
+        if (mode === 'landing') {
+          if (!landingDragOccurred) void goto(resolve('/globe'));
+          return;
+        }
 
-      const feature = getTopFeatureAtPoint(instance, event.point);
-      if (!feature?.properties) {
-        regionFilter = { type: 'world' };
-        chinaActive = false;
-        activeProvinceAdcode = null;
-        activeCityAdcode = null;
-        countyData = emptyGlobeFeatureCollection();
-        countyStatus = 'idle';
-        syncMapData(instance);
-        return;
-      }
+        pinnedShop = null;
+        markerHoveredShop = null;
 
-      applyRegionFilter(feature);
-
-      if (feature.properties.dataset === 'world') {
-        if (feature.properties.isChina) {
-          chinaActive = true;
-          activeProvinceAdcode = null;
-          activeCityAdcode = null;
-          countyData = emptyGlobeFeatureCollection();
-          countyStatus = 'idle';
-          syncMapData(instance);
-          fitToFeature(instance, feature, 4.4);
-        } else {
+        const feature = getTopFeatureAtPoint(instance, event.point);
+        if (!feature?.properties) {
+          regionFilter = { type: 'world' };
           chinaActive = false;
           activeProvinceAdcode = null;
           activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
           countyStatus = 'idle';
           syncMapData(instance);
-          fitToFeature(instance, feature, 5.0);
+          return;
         }
-        return;
-      }
 
-      if (feature.properties.dataset === 'china-provinces') {
-        chinaActive = true;
-        activeProvinceAdcode = feature.properties.adcode ?? null;
-        activeCityAdcode = null;
-        countyData = emptyGlobeFeatureCollection();
-        countyStatus = 'idle';
-        syncMapData(instance);
-        fitToFeature(instance, feature, 6.4);
-        return;
-      }
+        applyRegionFilter(feature);
 
-      if (feature.properties.dataset === 'china-cities') {
-        const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
-        const prevCityAdcode = activeCityAdcode;
-        chinaActive = true;
-        activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
-        activeCityAdcode = cityAdcode;
-        if (cityAdcode !== prevCityAdcode) {
+        if (feature.properties.dataset === 'world') {
+          if (feature.properties.isChina) {
+            chinaActive = true;
+            activeProvinceAdcode = null;
+            activeCityAdcode = null;
+            countyData = emptyGlobeFeatureCollection();
+            countyStatus = 'idle';
+            syncMapData(instance);
+            fitToFeature(instance, feature, 4.4);
+          } else {
+            chinaActive = false;
+            activeProvinceAdcode = null;
+            activeCityAdcode = null;
+            countyData = emptyGlobeFeatureCollection();
+            countyStatus = 'idle';
+            syncMapData(instance);
+            fitToFeature(instance, feature, 5.0);
+          }
+          return;
+        }
+
+        if (feature.properties.dataset === 'china-provinces') {
+          chinaActive = true;
+          activeProvinceAdcode = feature.properties.adcode ?? null;
+          activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
-          countyStatus = cityAdcode ? 'loading' : 'idle';
+          countyStatus = 'idle';
+          syncMapData(instance);
+          fitToFeature(instance, feature, 6.4);
+          return;
         }
-        syncMapData(instance);
-        if (cityAdcode) void ensureCountyData(cityAdcode);
-        fitToFeature(instance, feature, feature.properties.hasCountyChildren ? 8.2 : 7.2);
-        return;
-      }
 
-      if (feature.properties.dataset === 'china-counties') {
-        chinaActive = true;
-        activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
-        activeCityAdcode = feature.properties.parentAdcode ?? null;
-        syncMapData(instance);
-        fitToFeature(instance, feature, 9.5);
-      }
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      cursorPos = { x: e.clientX, y: e.clientY };
-    };
-
-    const handleShopMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
-      instance.getCanvas().style.cursor = 'pointer';
-      if (pinnedShop) return;
-      if (e.features && e.features[0]) {
-        const key = e.features[0].properties?.key as string | undefined;
-        if (key) {
-          const entry = shopLookup.get(key);
-          if (entry) markerHoveredShop = entry.shop;
+        if (feature.properties.dataset === 'china-cities') {
+          const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
+          const prevCityAdcode = activeCityAdcode;
+          chinaActive = true;
+          activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
+          activeCityAdcode = cityAdcode;
+          if (cityAdcode !== prevCityAdcode) {
+            countyData = emptyGlobeFeatureCollection();
+            countyStatus = cityAdcode ? 'loading' : 'idle';
+          }
+          syncMapData(instance);
+          if (cityAdcode) void ensureCountyData(cityAdcode);
+          fitToFeature(instance, feature, feature.properties.hasCountyChildren ? 8.2 : 7.2);
+          return;
         }
-      }
-    };
 
-    const handleShopMouseLeave = () => {
-      instance.getCanvas().style.cursor = '';
-      if (!pinnedShop) markerHoveredShop = null;
-    };
+        if (feature.properties.dataset === 'china-counties') {
+          chinaActive = true;
+          activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
+          activeCityAdcode = feature.properties.parentAdcode ?? null;
+          syncMapData(instance);
+          fitToFeature(instance, feature, 9.5);
+        }
+      };
 
-    const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
-      if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
-      (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
-      if (e.features && e.features[0]) {
-        const key = e.features[0].properties?.key as string | undefined;
-        if (key) {
-          const entry = shopLookup.get(key);
-          if (entry) {
-            if (mode === 'landing') {
-              // Navigate to /globe – camera animates via mode change effect
-              goto(resolve('/globe'));
-              return;
-            }
-            if (pinnedShop && getShopKey(pinnedShop) === key) {
-              pinnedShop = null;
-              markerHoveredShop = null;
-            } else {
-              if (!isShopInCurrentFilter(entry.shop)) {
-                searchQuery = '';
-                selectedTitleIds = [];
+      const handleMouseMove = (e: MouseEvent) => {
+        cursorPos = { x: e.clientX, y: e.clientY };
+      };
+
+      const handleShopMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
+        instance.getCanvas().style.cursor = 'pointer';
+        if (pinnedShop) return;
+        if (e.features && e.features[0]) {
+          const key = e.features[0].properties?.key as string | undefined;
+          if (key) {
+            const entry = shopLookup.get(key);
+            if (entry) markerHoveredShop = entry.shop;
+          }
+        }
+      };
+
+      const handleShopMouseLeave = () => {
+        instance.getCanvas().style.cursor = '';
+        if (!pinnedShop) markerHoveredShop = null;
+      };
+
+      const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
+        if ((e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled) return;
+        (e.originalEvent as Event & { _shopHandled?: boolean })._shopHandled = true;
+        if (e.features && e.features[0]) {
+          const key = e.features[0].properties?.key as string | undefined;
+          if (key) {
+            const entry = shopLookup.get(key);
+            if (entry) {
+              if (mode === 'landing') {
+                goto(resolve('/globe'));
+                return;
               }
-              applyShopRegionFilter(entry.shop);
-              pinShop(entry);
+              if (pinnedShop && getShopKey(pinnedShop) === key) {
+                pinnedShop = null;
+                markerHoveredShop = null;
+              } else {
+                if (!isShopInCurrentFilter(entry.shop)) {
+                  searchQuery = '';
+                  selectedTitleIds = [];
+                }
+                applyShopRegionFilter(entry.shop);
+                pinShop(entry);
+              }
             }
           }
         }
+      };
+
+      const handleMouseDown = () => {
+        if (mode !== 'landing') return;
+        landingDragOccurred = false;
+        stopAutoRotation();
+      };
+      const handleMouseUp = () => {
+        if (mode !== 'landing') return;
+        startAutoRotation();
+      };
+      const handleDragStart = () => {
+        if (mode === 'landing') landingDragOccurred = true;
+      };
+      const handleDragEnd = () => {
+        if (mode === 'landing') startAutoRotation();
+      };
+
+      instance.on('style.load', syncStyle);
+      instance.on('moveend', handleMoveEnd);
+      instance.on('mousemove', handlePointerMove);
+      instance.on('mouseout', handleMouseOut);
+      instance.on('click', handleClick);
+      instance.on('mousedown', handleMouseDown);
+      instance.on('mouseup', handleMouseUp);
+      instance.on('dragstart', handleDragStart);
+      instance.on('dragend', handleDragEnd);
+      for (const layerId of [
+        SHOPS_LAYER_ID,
+        SHOPS_ACTIVE_LAYER_ID,
+        SHOPS_PINNED_LAYER_ID,
+        SHOPS_NAME_LAYER_ID
+      ]) {
+        instance.on('mousemove', layerId, handleShopMouseMove);
+        instance.on('mouseleave', layerId, handleShopMouseLeave);
+        instance.on('click', layerId, handleShopClick);
       }
-    };
+      window.addEventListener('mousemove', handleMouseMove);
 
-    // In landing mode we need to distinguish a real click (→ navigate) from a
-    // drag (→ rotate globe).  MapLibre suppresses its own 'click' after a drag
-    // for desktop mouse, but mobile browsers synthesise a 'click' after a touch
-    // drag, bypassing that suppression.  We use a flag that is set on dragstart
-    // and cleared on the next pointerdown so the click handler can gate on it.
-    let landingDragOccurred = false;
+      const handleViewportResize = () => {
+        syncResponsiveFlags();
+        sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
+        if (sidebarSize.w !== undefined) {
+          sidebarSize.w = Math.min(sidebarSize.w, window.innerWidth - sidebarPos.x);
+        }
+        if (sidebarSize.h !== undefined) {
+          sidebarSize.h = Math.min(sidebarSize.h, window.innerHeight - sidebarPos.y);
+        }
+      };
+      const resizeObserver = new ResizeObserver(handleViewportResize);
+      resizeObserver.observe(mapContainer);
+      window.addEventListener('resize', handleViewportResize);
 
-    const handleMouseDown = () => {
-      if (mode !== 'landing') return;
-      landingDragOccurred = false;
-      // Stop auto-rotation immediately so MapLibre's drag threshold starts
-      // measuring from a stationary map.
-      stopAutoRotation();
-    };
-    const handleMouseUp = () => {
-      if (mode !== 'landing') return;
-      startAutoRotation();
-    };
-    const handleDragStart = () => {
       if (mode === 'landing') {
-        landingDragOccurred = true;
+        prevMode = 'landing';
+        startAutoRotation();
+      } else {
+        prevMode = 'fullscreen';
       }
-    };
-    const handleDragEnd = () => {
-      if (mode === 'landing') startAutoRotation();
-    };
 
-    instance.on('style.load', syncStyle);
-    instance.on('moveend', handleMoveEnd);
-    instance.on('mousemove', handlePointerMove);
-    instance.on('mouseout', handleMouseOut);
-    instance.on('click', handleClick);
-    instance.on('mousedown', handleMouseDown);
-    instance.on('mouseup', handleMouseUp);
-    instance.on('dragstart', handleDragStart);
-    instance.on('dragend', handleDragEnd);
-    for (const layerId of [
-      SHOPS_LAYER_ID,
-      SHOPS_ACTIVE_LAYER_ID,
-      SHOPS_PINNED_LAYER_ID,
-      SHOPS_NAME_LAYER_ID
-    ]) {
-      instance.on('mousemove', layerId, handleShopMouseMove);
-      instance.on('mouseleave', layerId, handleShopMouseLeave);
-      instance.on('click', layerId, handleShopClick);
-    }
-    window.addEventListener('mousemove', handleMouseMove);
+      const dispose = () => {
+        stopAutoRotation();
+        instance.off('style.load', syncStyle);
+        instance.off('moveend', handleMoveEnd);
+        instance.off('mousemove', handlePointerMove);
+        instance.off('mouseout', handleMouseOut);
+        instance.off('click', handleClick);
+        instance.off('mousedown', handleMouseDown);
+        instance.off('mouseup', handleMouseUp);
+        instance.off('dragstart', handleDragStart);
+        instance.off('dragend', handleDragEnd);
+        for (const layerId of [
+          SHOPS_LAYER_ID,
+          SHOPS_ACTIVE_LAYER_ID,
+          SHOPS_PINNED_LAYER_ID,
+          SHOPS_NAME_LAYER_ID
+        ]) {
+          instance.off('mousemove', layerId, handleShopMouseMove);
+          instance.off('mouseleave', layerId, handleShopMouseLeave);
+          instance.off('click', layerId, handleShopClick);
+        }
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('resize', handleViewportResize);
+        resizeObserver.disconnect();
+        instance.remove();
+        navigationControl = null;
+        if (map === instance) map = undefined;
+      };
 
-    const handleViewportResize = () => {
-      syncResponsiveFlags();
-      sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
-      if (sidebarSize.w !== undefined) {
-        sidebarSize.w = Math.min(sidebarSize.w, window.innerWidth - sidebarPos.x);
+      if (destroyed) {
+        dispose();
+        return;
       }
-      if (sidebarSize.h !== undefined) {
-        sidebarSize.h = Math.min(sidebarSize.h, window.innerHeight - sidebarPos.y);
-      }
+      cleanupMap = dispose;
     };
-    const resizeObserver = new ResizeObserver(handleViewportResize);
-    resizeObserver.observe(mapContainer);
-    window.addEventListener('resize', handleViewportResize);
 
-    void loadBaseGeoJson();
-
-    // Start auto-rotation immediately in landing mode
-    if (mode === 'landing') {
-      prevMode = 'landing';
-      startAutoRotation();
-    } else {
-      prevMode = 'fullscreen';
-    }
+    void initializeMap();
 
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
@@ -1817,32 +2162,9 @@
     }, 60_000);
 
     return () => {
-      stopAutoRotation();
-      instance.off('style.load', syncStyle);
-      instance.off('moveend', handleMoveEnd);
-      instance.off('mousemove', handlePointerMove);
-      instance.off('mouseout', handleMouseOut);
-      instance.off('click', handleClick);
-      instance.off('mousedown', handleMouseDown);
-      instance.off('mouseup', handleMouseUp);
-      instance.off('dragstart', handleDragStart);
-      instance.off('dragend', handleDragEnd);
-      for (const layerId of [
-        SHOPS_LAYER_ID,
-        SHOPS_ACTIVE_LAYER_ID,
-        SHOPS_PINNED_LAYER_ID,
-        SHOPS_NAME_LAYER_ID
-      ]) {
-        instance.off('mousemove', layerId, handleShopMouseMove);
-        instance.off('mouseleave', layerId, handleShopMouseLeave);
-        instance.off('click', layerId, handleShopClick);
-      }
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleViewportResize);
-      resizeObserver.disconnect();
-      instance.remove();
+      destroyed = true;
+      cleanupMap?.();
       clearInterval(refreshInterval);
-      if (map === instance) map = undefined;
     };
   });
 </script>
