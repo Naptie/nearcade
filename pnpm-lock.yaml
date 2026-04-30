@@ -16,72 +16,30 @@ importers:
 
   .:
     dependencies:
-      '@amap/amap-jsapi-loader':
-        specifier: ^1.0.1
-        version: 1.0.1
-      '@amap/amap-jsapi-types':
-        specifier: ^0.0.15
-        version: 0.0.15
       '@aws-sdk/client-s3':
         specifier: ^3.1035.0
         version: 3.1035.0
       '@aws-sdk/lib-storage':
         specifier: ^3.1035.0
         version: 3.1035.0(@aws-sdk/client-s3@3.1035.0)
-      '@edgeone/sveltekit':
-        specifier: ^1.1.0
-        version: 1.1.0(@sveltejs/kit@2.57.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.4(@typescript-eslint/types@8.59.0))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(rollup@2.80.0)
-      '@fontsource-variable/jetbrains-mono':
-        specifier: ^5.2.8
-        version: 5.2.8
-      '@fontsource-variable/noto-sans-sc':
-        specifier: ^5.2.10
-        version: 5.2.10
-      '@fontsource-variable/sora':
-        specifier: ^5.2.8
-        version: 5.2.8
-      '@fortawesome/fontawesome-free':
-        specifier: ^7.2.0
-        version: 7.2.0
-      '@inlang/paraglide-js':
-        specifier: ^2.16.0
-        version: 2.16.0(patch_hash=a62c6872f9e91935ce5b8cd605822d9412b9d009b47da15ba8eb914e328a82a5)
       '@photostructure/tz-lookup':
         specifier: ^11.5.0
         version: 11.5.0
       better-auth:
         specifier: ^1.6.7
         version: 1.6.7(@cloudflare/workers-types@4.20260423.1)(@opentelemetry/api@1.9.1)(@sveltejs/kit@2.57.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.4(@typescript-eslint/types@8.59.0))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(mongodb@7.2.0)(svelte@5.55.4(@typescript-eslint/types@8.59.0))
-      crypto-js:
-        specifier: ^4.2.0
-        version: 4.2.0
-      daisyui:
-        specifier: ^5.5.19
-        version: 5.5.19
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
       date-fns-tz:
         specifier: ^3.2.0
         version: 3.2.0(date-fns@4.1.0)
-      firebase:
-        specifier: ^12.12.1
-        version: 12.12.1(patch_hash=afe84e8a333e2972705260532fd082c7a1453702eed2558bb0a1cbf4e0df807d)
       firebase-admin:
         specifier: ^13.8.0
         version: 13.8.0
-      globe.gl:
-        specifier: ^2.45.3
-        version: 2.45.3
       leancloud-storage:
         specifier: ^4.15.2
         version: 4.15.2
-      mailparser:
-        specifier: ^3.9.8
-        version: 3.9.8
-      maplibre-gl:
-        specifier: ^5.24.0
-        version: 5.24.0
       meilisearch:
         specifier: ^0.57.0
         version: 0.57.0
@@ -91,9 +49,6 @@ importers:
       nanoid:
         specifier: ^5.1.9
         version: 5.1.9
-      node-imap:
-        specifier: ^0.9.6
-        version: 0.9.6
       redis:
         specifier: ^5.12.1
         version: 5.12.1(@opentelemetry/api@1.9.1)
@@ -139,12 +94,6 @@ importers:
       remark-rehype:
         specifier: ^11.1.2
         version: 11.1.2
-      three:
-        specifier: ^0.184.0
-        version: 0.184.0
-      topojson-client:
-        specifier: ^3.1.0
-        version: 3.1.0
       unified:
         specifier: ^11.0.5
         version: 11.0.5
@@ -155,12 +104,36 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@amap/amap-jsapi-loader':
+        specifier: ^1.0.1
+        version: 1.0.1
+      '@amap/amap-jsapi-types':
+        specifier: ^0.0.15
+        version: 0.0.15
+      '@edgeone/sveltekit':
+        specifier: ^1.1.0
+        version: 1.1.0(@sveltejs/kit@2.57.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.4(@typescript-eslint/types@8.59.0))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(rollup@2.80.0)
       '@eslint/compat':
         specifier: ^2.0.5
         version: 2.0.5(eslint@10.2.1(jiti@2.6.1))
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.2.1(jiti@2.6.1))
+      '@fontsource-variable/jetbrains-mono':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fontsource-variable/noto-sans-sc':
+        specifier: ^5.2.10
+        version: 5.2.10
+      '@fontsource-variable/sora':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@fortawesome/fontawesome-free':
+        specifier: ^7.2.0
+        version: 7.2.0
+      '@inlang/paraglide-js':
+        specifier: ^2.16.0
+        version: 2.16.0(patch_hash=a62c6872f9e91935ce5b8cd605822d9412b9d009b47da15ba8eb914e328a82a5)
       '@sveltejs/adapter-auto':
         specifier: ^7.0.1
         version: 7.0.1(@sveltejs/kit@2.57.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.4(@typescript-eslint/types@8.59.0))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))(svelte@5.55.4(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)))
@@ -185,9 +158,6 @@ importers:
       '@tailwindcss/vite':
         specifier: 0.0.0-insiders.f3fdda2
         version: 0.0.0-insiders.f3fdda2(vite@8.0.9(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0))
-      '@types/crypto-js':
-        specifier: ^4.2.2
-        version: 4.2.2
       '@types/google.maps':
         specifier: ^3.64.0
         version: 3.64.0
@@ -203,15 +173,12 @@ importers:
       '@types/three':
         specifier: ^0.184.0
         version: 0.184.0
-      '@types/topojson-client':
-        specifier: ^3.1.5
-        version: 3.1.5
-      '@types/topojson-specification':
-        specifier: ^1.0.5
-        version: 1.0.5
       '@types/xml2js':
         specifier: ^0.4.14
         version: 0.4.14
+      daisyui:
+        specifier: ^5.5.19
+        version: 5.5.19
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -224,9 +191,21 @@ importers:
       eslint-plugin-svelte:
         specifier: ^3.17.1
         version: 3.17.1(eslint@10.2.1(jiti@2.6.1))(svelte@5.55.4(@typescript-eslint/types@8.59.0))(ts-node@10.9.2(@types/node@25.6.0)(typescript@6.0.3))
+      firebase:
+        specifier: ^12.12.1
+        version: 12.12.1(patch_hash=afe84e8a333e2972705260532fd082c7a1453702eed2558bb0a1cbf4e0df807d)
       globals:
         specifier: ^17.5.0
         version: 17.5.0
+      mailparser:
+        specifier: ^3.9.8
+        version: 3.9.8
+      maplibre-gl:
+        specifier: ^5.24.0
+        version: 5.24.0
+      node-imap:
+        specifier: ^0.9.6
+        version: 0.9.6
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
@@ -248,6 +227,9 @@ importers:
       terser:
         specifier: ^5.46.1
         version: 5.46.1
+      three:
+        specifier: ^0.184.0
+        version: 0.184.0
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
