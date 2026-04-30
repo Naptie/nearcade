@@ -1,4 +1,4 @@
-name: Database Backup
+name: Backup Database
 run-name: Backup MongoDB database
 
 on:
@@ -31,7 +31,7 @@ jobs:
       - name: Create backup
         run: |
           mkdir -p backup
-          mongodump --uri="${{ secrets.MONGODB_URI }}" --db="${{ steps.db-info.outputs.db_name }}" --out=backup/
+          mongodump --uri="${{ secrets.MONGODB_URI }}" --db="${{ steps.db-info.outputs.db_name }}" --out=backup/ > /dev/null
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
 
