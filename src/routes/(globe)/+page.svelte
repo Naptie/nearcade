@@ -332,7 +332,7 @@
      Outer containers are pointer-events-none so empty areas pass clicks through
      to the globe canvas; only the interactive children opt back in. -->
 <div class="pointer-events-none relative min-h-screen">
-  <div class="hero pointer-events-none relative min-h-screen">
+  <div class="hero pointer-events-none h-screen overflow-y-auto">
     <div
       class="pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2"
       in:fade={{ delay: 500 }}
