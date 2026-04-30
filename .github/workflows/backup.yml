@@ -261,7 +261,7 @@ jobs:
           chmod +x restore-backup.sh
 
       - name: Upload backup as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: db-backup-${{ steps.db-info.outputs.db_name }}-${{ github.run_number }}
           path: |

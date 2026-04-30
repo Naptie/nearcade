@@ -1,4 +1,4 @@
-name: Publish
+name: Publish App
 run-name: Publish
 on:
   push:
@@ -72,10 +72,12 @@ jobs:
           WECHAT_TEMPLATE_QUEUE_NOTIFICATION: ${{ secrets.WECHAT_TEMPLATE_QUEUE_NOTIFICATION }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build
-          path: build/
+          path: |
+            build/
+            scripts/
           retention-days: 1
 
   webhook-publish:
@@ -93,72 +95,3 @@ jobs:
           -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
           -d "{\"run_id\":\"${RUN_ID}\"}" \
           "${WEBHOOK_URL}"
-
-  leancloud-publish:
-    name: Publish to LeanCloud
-    runs-on: ubuntu-latest
-    needs: build
-    concurrency:
-      group: leancloud-publish
-      cancel-in-progress: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Prepare LeanCloud CLI
-        run: |
-          wget ${{ vars.LC_CLI_DOWNLOAD }} -O /tmp/${{ vars.LC_EXE }}
-          chmod +x /tmp/${{ vars.LC_EXE }}
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: build
-          path: build/
-
-      - name: Deploy to LeanCloud
-        run: |
-          retry_cmd() {
-            local max_attempts=5
-            local attempt=1
-            local delay=1
-
-            # Build a command array and split any space-separated option strings
-            local -a cmd=()
-            local arg
-            for arg in "$@"; do
-              # split arg into words on IFS (spaces) so strings like "--opt val --opt2 val2"
-              # become separate arguments preserving leading dashes
-              read -r -a parts <<< "$arg"
-              local p
-              for p in "${parts[@]}"; do
-                cmd+=("$p")
-              done
-            done
-
-            while true; do
-              echo "Attempt $attempt/$max_attempts: ${cmd[*]}"
-              if "${cmd[@]}"; then
-                return 0
-              fi
-              if [ "$attempt" -ge "$max_attempts" ]; then
-                echo "Command failed after $attempt attempts: ${cmd[*]}" >&2
-                return 1
-              fi
-              echo "Command failed. Retrying in ${delay}s..."
-              sleep "$delay"
-              attempt=$((attempt+1))
-              delay=$((delay*2))
-            done
-          }
-
-          retry_cmd /tmp/${{ vars.LC_EXE }} login "${{ secrets.LC_LOGIN }}" > /dev/null 2>&1
-          retry_cmd /tmp/${{ vars.LC_EXE }} switch "${{ secrets.LC_SWITCH }}" > /dev/null 2>&1
-          retry_cmd /tmp/${{ vars.LC_EXE }} deploy --prod > /dev/null 2>&1
-
-  meilisearch-refresh:
-    needs: leancloud-publish
-    uses: ./.github/workflows/meilisearch-refresh.yml
-    secrets: inherit
