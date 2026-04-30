@@ -5,7 +5,7 @@ import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
 import { ObjectId } from 'mongodb';
-import { getHost, sendWeChatTemplateMessage } from '$lib/utils/index.server';
+import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import { WECHAT_TEMPLATE_BIND_RESULT } from '$env/static/private';
 
 // Define the type for linked accounts (Better Auth schema)
@@ -83,7 +83,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
               username: `${user.displayName || `@${user.name}`}${user.displayName !== user.name ? ` (@${user.name})` : ''}`,
               userId: user.id || ''
             },
-            `${getHost(request)}/settings/account`
+            `${getOrigin(request)}/settings/account`
           );
         }
       } else {

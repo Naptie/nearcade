@@ -3,7 +3,7 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 import { nanoid } from 'nanoid';
 import { parseString } from 'xml2js';
 import crypto from 'crypto';
-import { getHost } from '$lib/utils/index.server.js';
+import { getOrigin } from '$lib/utils/index.server.js';
 
 // WeChat verification token - should be set in environment
 const WECHAT_TOKEN = env.WECHAT_TOKEN || '';
@@ -139,7 +139,7 @@ export const POST = async ({ request }) => {
     await redis.setEx(`wechat_bind:${token}`, WECHAT_TOKEN_EXPIRY, bindData);
 
     // Construct the bind URL
-    const bindUrl = `${getHost(request)}/settings/account?wechatToken=${token}`;
+    const bindUrl = `${getOrigin(request)}/settings/account?wechatToken=${token}`;
 
     // Get current timestamp in seconds
     const createTime = Math.floor(Date.now() / 1000);
