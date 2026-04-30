@@ -1,4 +1,4 @@
-name: Backup Database
+name: Database Backup
 run-name: Backup MongoDB database
 
 on:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   backup:
+    name: Backup MongoDB database
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

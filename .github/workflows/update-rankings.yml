@@ -1,4 +1,4 @@
-name: Update Rankings
+name: Rankings Update
 run-name: Update rankings data
 
 on:

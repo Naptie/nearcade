@@ -1,4 +1,4 @@
-name: Update University Stats
+name: University Stats Update
 run-name: Update university statistics
 
 on:

@@ -1,4 +1,4 @@
-name: Sync Shops
+name: Shops Sync
 run-name: Synchronize shops data
 
 on:

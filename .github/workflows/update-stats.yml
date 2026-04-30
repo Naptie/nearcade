@@ -1,4 +1,4 @@
-name: Update Stats
+name: Stats Update
 run-name: Trigger stats update
 
 on:

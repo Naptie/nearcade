@@ -1,5 +1,5 @@
-name: Publish App
-run-name: Publish
+name: Publish
+run-name: Publish app
 on:
   push:
     branches:
@@ -26,7 +26,7 @@ defaults:
 
 jobs:
   build:
-    name: Build Application
+    name: Build app
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'workflow_call'
     steps:
@@ -83,7 +83,7 @@ jobs:
           retention-days: 1
 
   webhook-publish:
-    name: Publish via Webhook
+    name: Publish via webhook
     runs-on: ubuntu-latest
     needs: build
     steps:
