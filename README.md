@@ -159,7 +159,7 @@
     # QQ
     AUTH_QQ_ID="your_qq_oauth_id"
     AUTH_QQ_SECRET="your_qq_oauth_secret"
-    AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # 可选的重定向代理
+    AUTH_QQ_PROXY="https://your_qq_redirect_proxy.com/redirect?uri={CALLBACK_URI}" # 可选的 QQ 重定向代理模板；支持 {PUBLIC_HOST}、{PUBLIC_ORIGIN}、{CALLBACK_URI}、{CALLBACK_URI_ENCODED}
     ```
 
     **Redis 配置:**

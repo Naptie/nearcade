@@ -160,7 +160,7 @@ Please join the following QQ group for discussions.
     # QQ
     AUTH_QQ_ID="your_qq_oauth_id"
     AUTH_QQ_SECRET="your_qq_oauth_secret"
-    AUTH_QQ_PROXY="your_qq_redirect_proxy_url" # Optional redirect proxy
+    AUTH_QQ_PROXY="https://your_qq_redirect_proxy.com/session/redirect?uri=${CALLBACK_URI}" # Optional QQ redirect proxy template; supports {PUBLIC_HOST}, {PUBLIC_ORIGIN}, {CALLBACK_URI}, {CALLBACK_URI_ENCODED}
     ```
 
     **Redis:**
