@@ -4,11 +4,10 @@ import { createHmac } from 'crypto';
 import { createClient as createRedisClient } from 'redis';
 import { MongoClient } from 'mongodb';
 import { nanoid } from 'nanoid';
-import dotenv from 'dotenv';
 import type { UserType, UniversityMember, ClubMember } from '../src/lib/types';
 
 if (!('MONGODB_URI' in process.env)) {
-  // Load environment variables for local development
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

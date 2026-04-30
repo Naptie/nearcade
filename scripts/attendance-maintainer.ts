@@ -1,9 +1,8 @@
 import { createClient } from 'redis';
 import { MongoClient } from 'mongodb';
-import dotenv from 'dotenv';
 
 if (!('MONGODB_URI' in process.env)) {
-  // Load environment variables for local development
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

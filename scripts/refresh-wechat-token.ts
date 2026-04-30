@@ -1,7 +1,7 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
 
 if (!process.env.WECHAT_APPID) {
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 
