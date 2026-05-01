@@ -26,6 +26,7 @@
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { fade, slide } from 'svelte/transition';
+  import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
 
   let { data }: { data: PageData } = $props();
 
@@ -42,6 +43,7 @@
   } | null>(null);
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
+  const showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
 
   $effect(() => {
     if (browser) {
@@ -368,7 +370,8 @@
 
     <div class="hero-content my-10 text-center not-sm:px-0">
       <div
-        class="pointer-events-auto mt-72 flex max-w-fit flex-col gap-6 px-8 py-6 transition"
+        class="pointer-events-auto flex max-w-fit flex-col gap-6 px-8 py-6 transition"
+        class:mt-72={showGlobe}
         in:slide={{ delay: 500 }}
         out:slide
       >
