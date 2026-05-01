@@ -2,20 +2,27 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import Globe from '$lib/components/Globe.svelte';
+  import { setContext } from 'svelte';
   import type { LayoutData } from './$types';
 
   let { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
 
   const isLandingPage = $derived(page.url.pathname === resolve('/'));
   const isGlobePage = $derived(page.url.pathname === resolve('/globe'));
-
   const globeMode = $derived<'landing' | 'fullscreen'>(isGlobePage ? 'fullscreen' : 'landing');
+
+  let isCollapseExpanded = $state(false);
+
+  setContext('collapse', {
+    get: () => isCollapseExpanded,
+    set: (v: boolean) => (isCollapseExpanded = v)
+  });
 
   // Prevent the page body from scrolling while on globe pages so that
   // Svelte transition animations (slide/fade) don't briefly show a scrollbar.
   $effect(() => {
     const prev = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overflow = isCollapseExpanded ? prev : 'hidden';
     return () => {
       document.documentElement.style.overflow = prev;
     };
