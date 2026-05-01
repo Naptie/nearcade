@@ -23,6 +23,31 @@ export const getOrigin = (request: Request) => {
   return origin;
 };
 
+export const getCallbackURI = (baseURL: string, provider: string) =>
+  `${baseURL.replace(/\/$/, '')}/oauth2/callback/${provider}`;
+
+export const resolveRedirectURI = (callbackURI: string, template: string) => {
+  const proxyTemplate = template.trim();
+  if (!proxyTemplate) {
+    return callbackURI;
+  }
+
+  const callbackUrl = new URL(callbackURI);
+  const replacements: Array<[string, string]> = [
+    ['{CALLBACK_URI_ENCODED}', encodeURIComponent(callbackURI)],
+    ['{CALLBACK_URI}', callbackURI],
+    ['{PUBLIC_ORIGIN}', callbackUrl.origin],
+    ['{PUBLIC_HOST}', callbackUrl.host]
+  ];
+
+  let resolved = proxyTemplate;
+  for (const [token, value] of replacements) {
+    resolved = resolved.replaceAll(token, value);
+  }
+
+  return resolved;
+};
+
 export const getCurrentAttendance = async (userId: string) => {
   const attendancePattern = `nearcade:attend:*:${userId}:*`;
   const db = mongo.db();
