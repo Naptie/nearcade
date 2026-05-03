@@ -33,9 +33,18 @@ export function qqProvider(): GenericOAuthConfig {
     authorizationUrl: 'https://graph.qq.com/oauth2.0/authorize',
     tokenUrl: 'https://graph.qq.com/oauth2.0/token',
     userInfoUrl: 'https://graph.qq.com/user/get_user_info',
-    authorizationUrlParams: (ctx) => ({
-      redirect_uri: resolveRedirectURI(getCallbackURI(ctx.context.baseURL, 'qq'), env.AUTH_QQ_PROXY)
-    }),
+    authorizationUrlParams: (ctx) => {
+      console.log('authorizationUrlParams called from QQ');
+      console.dir(ctx, {
+        depth: null
+      });
+      return {
+        redirect_uri: resolveRedirectURI(
+          getCallbackURI(ctx.context.baseURL, 'qq'),
+          env.AUTH_QQ_PROXY
+        )
+      };
+    },
     async getToken({ code, redirectURI }) {
       const qqRedirectURI = resolveRedirectURI(redirectURI, env.AUTH_QQ_PROXY);
       const url = new URL('https://graph.qq.com/oauth2.0/token');
