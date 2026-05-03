@@ -122,6 +122,18 @@ const DEFAULT_SUNLIGHT_INTENSITY = 1;
 /** Names of the individual Three.js mesh layers that can be toggled. */
 export type GlobeLayerName = 'clouds' | 'cloudShadow' | 'nightLights' | 'specular' | 'atmosphere';
 
+export type GlobeVisualsLayerOptions = {
+  enabledLayers?: Iterable<GlobeLayerName>;
+};
+
+const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
+  'clouds',
+  'cloudShadow',
+  'nightLights',
+  'specular',
+  'atmosphere'
+];
+
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
 const specularVertexShader = /* glsl */ `
@@ -426,8 +438,17 @@ export class GlobeVisualsLayer {
     private readonly cloudUrl: string,
     private readonly nightLightsUrl: string,
     private readonly specularUrl: string,
-    private readonly normalUrl: string
-  ) {}
+    private readonly normalUrl: string,
+    options: GlobeVisualsLayerOptions = {}
+  ) {
+    this.enabledLayers = new Set(options.enabledLayers ?? ALL_GLOBE_LAYER_NAMES);
+  }
+
+  private readonly enabledLayers: ReadonlySet<GlobeLayerName>;
+
+  private isLayerEnabled(name: GlobeLayerName): boolean {
+    return this.enabledLayers.has(name);
+  }
 
   /** Update the sun direction to match MapLibre's light (azimuth/polar from getSunPosition). */
   setSun(azimuthDeg: number, polarDeg: number): void {
@@ -443,6 +464,7 @@ export class GlobeVisualsLayer {
   /** Toggle visibility of an individual Three.js enhancement mesh. */
   setMeshVisible(name: GlobeLayerName, visible: boolean): void {
     this._meshVisibility[name] = visible;
+    if (!this.isLayerEnabled(name)) return;
     const mesh = this._getMeshByName(name);
     if (mesh) {
       mesh.visible = visible;
@@ -497,192 +519,225 @@ export class GlobeVisualsLayer {
 
     this.scene = new THREE.Scene();
 
-    // ── Cloud sphere ──────────────────────────────────────────────────────────
-    const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
-    const cloudMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uCloudMap: { value: null },
-        uDayColor: { value: CLOUD_DAY_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
-        uTwilightColor: { value: CLOUD_TWILIGHT_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
-        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
-        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
-        uOpacity: { value: 0 },
-        uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
-        uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END },
-        uLimbFadeSoftness: { value: CLOUD_LIMB_FADE_SOFTNESS },
-        uDayTransitionStart: { value: CLOUD_DAY_TRANSITION_START },
-        uDayTransitionEnd: { value: CLOUD_DAY_TRANSITION_END },
-        uAmbientLightMin: { value: CLOUD_AMBIENT_LIGHT_MIN },
-        uAmbientLightMax: { value: CLOUD_AMBIENT_LIGHT_MAX }
-      },
-      vertexShader: specularVertexShader,
-      fragmentShader: cloudFragmentShader,
-      transparent: true,
-      blending: THREE.NormalBlending,
-      depthWrite: false,
-      depthTest: true
-    });
-    this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
-    // CLOUD_ALTITUDE_SCALE makes the cloud sphere 0.4% larger than the base globe.
-    this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
-    // Shift the default SphereGeometry seam from 90°W to the date line.
-    this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
-    this.cloudMesh.renderOrder = 40;
-    this.cloudMesh.visible = this._meshVisibility.clouds;
+    let cloudMat: THREE.ShaderMaterial | null = null;
+    if (this.isLayerEnabled('clouds')) {
+      // ── Cloud sphere ────────────────────────────────────────────────────────
+      const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
+      cloudMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uCloudMap: { value: null },
+          uDayColor: { value: CLOUD_DAY_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
+          uTwilightColor: { value: CLOUD_TWILIGHT_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
+          uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+          uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+          uOpacity: { value: 0 },
+          uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
+          uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END },
+          uLimbFadeSoftness: { value: CLOUD_LIMB_FADE_SOFTNESS },
+          uDayTransitionStart: { value: CLOUD_DAY_TRANSITION_START },
+          uDayTransitionEnd: { value: CLOUD_DAY_TRANSITION_END },
+          uAmbientLightMin: { value: CLOUD_AMBIENT_LIGHT_MIN },
+          uAmbientLightMax: { value: CLOUD_AMBIENT_LIGHT_MAX }
+        },
+        vertexShader: specularVertexShader,
+        fragmentShader: cloudFragmentShader,
+        transparent: true,
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+        depthTest: true
+      });
+      this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
+      // CLOUD_ALTITUDE_SCALE makes the cloud sphere 0.4% larger than the base globe.
+      this.cloudMesh.scale.setScalar(CLOUD_ALTITUDE_SCALE);
+      // Shift the default SphereGeometry seam from 90°W to the date line.
+      this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+      this.cloudMesh.renderOrder = 40;
+      this.cloudMesh.visible = this._meshVisibility.clouds;
+    }
 
-    // ── Cloud shadow sphere ───────────────────────────────────────────────────
-    const cloudShadowGeom = new THREE.SphereGeometry(1, 64, 32);
-    const cloudShadowMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uCloudMap: { value: null },
-        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
-        uOpacity: { value: this._cloudShadowOpacity },
-        uCloudAltitude: { value: CLOUD_ALTITUDE_SCALE },
-        uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
-        uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END }
-      },
-      vertexShader: specularVertexShader,
-      fragmentShader: cloudShadowFragmentShader,
-      transparent: true,
-      blending: THREE.NormalBlending,
-      depthWrite: false,
-      depthTest: false,
-      side: THREE.FrontSide
-    });
-    this.cloudShadowMesh = new THREE.Mesh(cloudShadowGeom, cloudShadowMat);
-    // Render the shadow as an overlay on the visible globe hemisphere rather
-    // than as depth-tested geometry, so it does not fight the earth surface.
-    this.cloudShadowMesh.scale.setScalar(CLOUD_SHADOW_ALTITUDE_SCALE);
-    this.cloudShadowMesh.renderOrder = 10;
-    this.cloudShadowMesh.visible = this._meshVisibility.cloudShadow;
+    let cloudShadowMat: THREE.ShaderMaterial | null = null;
+    if (this.isLayerEnabled('cloudShadow')) {
+      // ── Cloud shadow sphere ─────────────────────────────────────────────────
+      const cloudShadowGeom = new THREE.SphereGeometry(1, 64, 32);
+      cloudShadowMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uCloudMap: { value: null },
+          uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+          uOpacity: { value: this._cloudShadowOpacity },
+          uCloudAltitude: { value: CLOUD_ALTITUDE_SCALE },
+          uPolarFadeStart: { value: CLOUD_POLAR_FADE_START },
+          uPolarFadeEnd: { value: CLOUD_POLAR_FADE_END }
+        },
+        vertexShader: specularVertexShader,
+        fragmentShader: cloudShadowFragmentShader,
+        transparent: true,
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+        depthTest: false,
+        side: THREE.FrontSide
+      });
+      this.cloudShadowMesh = new THREE.Mesh(cloudShadowGeom, cloudShadowMat);
+      // Render the shadow as an overlay on the visible globe hemisphere rather
+      // than as depth-tested geometry, so it does not fight the earth surface.
+      this.cloudShadowMesh.scale.setScalar(CLOUD_SHADOW_ALTITUDE_SCALE);
+      this.cloudShadowMesh.renderOrder = 10;
+      this.cloudShadowMesh.visible = this._meshVisibility.cloudShadow;
+    }
 
-    // ── Night lights ──────────────────────────────────────────────────────────
-    const nightLightsGeom = new THREE.SphereGeometry(1, 64, 32);
-    const nightLightsMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uNightMap: { value: null },
-        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
-        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
-        uOpacity: { value: 0 },
-        uDominantBlend: { value: 0 },
-        uDominantDimStrength: { value: 1 - NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION },
-        uTerminatorSoftness: { value: NIGHT_LIGHTS_TERMINATOR_SOFTNESS },
-        uLimbSoftness: { value: NIGHT_LIGHTS_LIMB_SOFTNESS }
-      },
-      vertexShader: specularVertexShader,
-      fragmentShader: nightLightsFragmentShader,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false
-    });
-    this.nightLightsMesh = new THREE.Mesh(nightLightsGeom, nightLightsMat);
-    this.nightLightsMesh.scale.setScalar(NIGHT_LIGHTS_ALTITUDE_SCALE);
-    this.nightLightsMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
-    // Hardcode the dominant blend: src*alpha + dst*(1−srcAlpha).
-    nightLightsMat.blending = THREE.CustomBlending;
-    nightLightsMat.blendEquation = THREE.AddEquation;
-    nightLightsMat.blendSrc = THREE.OneFactor;
-    nightLightsMat.blendDst = THREE.OneMinusSrcAlphaFactor;
-    nightLightsMat.blendSrcAlpha = THREE.ZeroFactor;
-    nightLightsMat.blendDstAlpha = THREE.OneFactor;
-    nightLightsMat.blendEquationAlpha = THREE.AddEquation;
-    nightLightsMat.uniforms.uDominantBlend.value = 1;
-    nightLightsMat.needsUpdate = true;
-    this.nightLightsMesh.renderOrder = 20;
-    this.nightLightsMesh.visible = this._meshVisibility.nightLights;
+    let nightLightsMat: THREE.ShaderMaterial | null = null;
+    if (this.isLayerEnabled('nightLights')) {
+      // ── Night lights ────────────────────────────────────────────────────────
+      const nightLightsGeom = new THREE.SphereGeometry(1, 64, 32);
+      nightLightsMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uNightMap: { value: null },
+          uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+          uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+          uOpacity: { value: 0 },
+          uDominantBlend: { value: 0 },
+          uDominantDimStrength: { value: 1 - NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION },
+          uTerminatorSoftness: { value: NIGHT_LIGHTS_TERMINATOR_SOFTNESS },
+          uLimbSoftness: { value: NIGHT_LIGHTS_LIMB_SOFTNESS }
+        },
+        vertexShader: specularVertexShader,
+        fragmentShader: nightLightsFragmentShader,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false
+      });
+      this.nightLightsMesh = new THREE.Mesh(nightLightsGeom, nightLightsMat);
+      this.nightLightsMesh.scale.setScalar(NIGHT_LIGHTS_ALTITUDE_SCALE);
+      this.nightLightsMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+      // Hardcode the dominant blend: src*alpha + dst*(1−srcAlpha).
+      nightLightsMat.blending = THREE.CustomBlending;
+      nightLightsMat.blendEquation = THREE.AddEquation;
+      nightLightsMat.blendSrc = THREE.OneFactor;
+      nightLightsMat.blendDst = THREE.OneMinusSrcAlphaFactor;
+      nightLightsMat.blendSrcAlpha = THREE.ZeroFactor;
+      nightLightsMat.blendDstAlpha = THREE.OneFactor;
+      nightLightsMat.blendEquationAlpha = THREE.AddEquation;
+      nightLightsMat.uniforms.uDominantBlend.value = 1;
+      nightLightsMat.needsUpdate = true;
+      this.nightLightsMesh.renderOrder = 20;
+      this.nightLightsMesh.visible = this._meshVisibility.nightLights;
+    }
 
-    // ── Specular + normal sphere ──────────────────────────────────────────────
-    const specGeom = new THREE.SphereGeometry(1, 64, 32);
-    const specMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uSpecularMap: { value: null },
-        uNormalMap: { value: null },
-        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
-        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
-        uSunColor: { value: SUN_COLOR },
-        uOpacity: { value: 0 },
-        uSpecularStrength: { value: SPECULAR_INTENSITY },
-        uRoughness: { value: SPECULAR_ROUGHNESS },
-        uFresnelStrength: { value: SPECULAR_FRESNEL_STRENGTH },
-        uShininess: { value: SPECULAR_SHININESS },
-        uTerminatorSoftness: { value: TERMINATOR_SOFTNESS }
-      },
-      vertexShader: specularVertexShader,
-      fragmentShader: specularFragmentShader,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false
-    });
-    this.specMesh = new THREE.Mesh(specGeom, specMat);
-    this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
-    this.specMesh.renderOrder = 30;
-    this.specMesh.visible = this._meshVisibility.specular;
+    let specMat: THREE.ShaderMaterial | null = null;
+    if (this.isLayerEnabled('specular')) {
+      // ── Specular + normal sphere ────────────────────────────────────────────
+      const specGeom = new THREE.SphereGeometry(1, 64, 32);
+      specMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uSpecularMap: { value: null },
+          uNormalMap: { value: null },
+          uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+          uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+          uSunColor: { value: SUN_COLOR },
+          uOpacity: { value: 0 },
+          uSpecularStrength: { value: SPECULAR_INTENSITY },
+          uRoughness: { value: SPECULAR_ROUGHNESS },
+          uFresnelStrength: { value: SPECULAR_FRESNEL_STRENGTH },
+          uShininess: { value: SPECULAR_SHININESS },
+          uTerminatorSoftness: { value: TERMINATOR_SOFTNESS }
+        },
+        vertexShader: specularVertexShader,
+        fragmentShader: specularFragmentShader,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false
+      });
+      this.specMesh = new THREE.Mesh(specGeom, specMat);
+      this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+      this.specMesh.renderOrder = 30;
+      this.specMesh.visible = this._meshVisibility.specular;
+    }
 
-    // ── Atmosphere shell ──────────────────────────────────────────────────────
-    const atmosphereGeom = new THREE.SphereGeometry(1, 64, 32);
-    const atmosphereMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
-        uSunDir: { value: new THREE.Vector3(0, 0, 1) },
-        uDayColor: { value: ATMOSPHERE_DAY_COLOR },
-        uNightColor: { value: ATMOSPHERE_NIGHT_COLOR },
-        uOpacity: { value: 0 },
-        uSunIntensity: { value: this.sunlightIntensity }
-      },
-      vertexShader: specularVertexShader,
-      fragmentShader: atmosphereFragmentShader,
-      transparent: true,
-      // FrontSide renders the outer face of the sphere. At the globe centre,
-      // N·V ≈ 1 → rim ≈ 0 (transparent — the satellite map shows through).
-      // At the limb, N·V ≈ 0 → rim ≈ 1 (bright halo).
-      // BackSide caused every visible fragment to have N·V = 0, creating a
-      // uniform filled circle and also inverted the sun-boost direction.
-      side: THREE.FrontSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false
-    });
-    this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
-    this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
-    this.atmosphereMesh.renderOrder = 50;
-    this.atmosphereMesh.visible = this._meshVisibility.atmosphere;
+    if (this.isLayerEnabled('atmosphere')) {
+      // ── Atmosphere shell ────────────────────────────────────────────────────
+      const atmosphereGeom = new THREE.SphereGeometry(1, 64, 32);
+      const atmosphereMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+          uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+          uDayColor: { value: ATMOSPHERE_DAY_COLOR },
+          uNightColor: { value: ATMOSPHERE_NIGHT_COLOR },
+          uOpacity: { value: 0 },
+          uSunIntensity: { value: this.sunlightIntensity }
+        },
+        vertexShader: specularVertexShader,
+        fragmentShader: atmosphereFragmentShader,
+        transparent: true,
+        // FrontSide renders the outer face of the sphere. At the globe centre,
+        // N·V ≈ 1 → rim ≈ 0 (transparent — the satellite map shows through).
+        // At the limb, N·V ≈ 0 → rim ≈ 1 (bright halo).
+        // BackSide caused every visible fragment to have N·V = 0, creating a
+        // uniform filled circle and also inverted the sun-boost direction.
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false
+      });
+      this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
+      this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
+      this.atmosphereMesh.renderOrder = 50;
+      this.atmosphereMesh.visible = this._meshVisibility.atmosphere;
+    }
 
     // Render order: shadow → night lights → specular → clouds → atmosphere
-    this.scene.add(this.cloudShadowMesh);
-    this.scene.add(this.nightLightsMesh);
-    this.scene.add(this.specMesh);
-    this.scene.add(this.cloudMesh);
-    this.scene.add(this.atmosphereMesh);
+    if (this.cloudShadowMesh) this.scene.add(this.cloudShadowMesh);
+    if (this.nightLightsMesh) this.scene.add(this.nightLightsMesh);
+    if (this.specMesh) this.scene.add(this.specMesh);
+    if (this.cloudMesh) this.scene.add(this.cloudMesh);
+    if (this.atmosphereMesh) this.scene.add(this.atmosphereMesh);
 
     // ── Load textures asynchronously ─────────────────────────────────────────
     const loader = new THREE.TextureLoader();
+    const cloudTexturePromise =
+      this.isLayerEnabled('clouds') || this.isLayerEnabled('cloudShadow')
+        ? loader.loadAsync(this.cloudUrl)
+        : Promise.resolve(null);
+    const nightLightsTexturePromise = this.isLayerEnabled('nightLights')
+      ? loader.loadAsync(this.nightLightsUrl)
+      : Promise.resolve(null);
+    const specularTexturePromise = this.isLayerEnabled('specular')
+      ? loader.loadAsync(this.specularUrl)
+      : Promise.resolve(null);
+    const normalTexturePromise = this.isLayerEnabled('specular')
+      ? loader.loadAsync(this.normalUrl)
+      : Promise.resolve(null);
     Promise.all([
-      loader.loadAsync(this.cloudUrl),
-      loader.loadAsync(this.nightLightsUrl),
-      loader.loadAsync(this.specularUrl),
-      loader.loadAsync(this.normalUrl)
+      cloudTexturePromise,
+      nightLightsTexturePromise,
+      specularTexturePromise,
+      normalTexturePromise
     ])
       .then(([cloudTex, nightLightsTex, specTex, normalTex]) => {
         if (this.aborted) {
           // Style was reloaded while textures were in flight — discard them.
-          cloudTex.dispose();
-          nightLightsTex.dispose();
-          specTex.dispose();
-          normalTex.dispose();
+          cloudTex?.dispose();
+          nightLightsTex?.dispose();
+          specTex?.dispose();
+          normalTex?.dispose();
           return;
         }
-        cloudTex.colorSpace = THREE.SRGBColorSpace;
-        cloudMat.uniforms.uCloudMap.value = cloudTex;
-        // Cloud shadow samples the same texture.
-        cloudShadowMat.uniforms.uCloudMap.value = cloudTex;
+        if (cloudTex) {
+          cloudTex.colorSpace = THREE.SRGBColorSpace;
+          if (cloudMat) cloudMat.uniforms.uCloudMap.value = cloudTex;
+          // Cloud shadow samples the same texture.
+          if (cloudShadowMat) cloudShadowMat.uniforms.uCloudMap.value = cloudTex;
+        }
 
-        nightLightsTex.colorSpace = THREE.SRGBColorSpace;
-        nightLightsMat.uniforms.uNightMap.value = nightLightsTex;
-        normalTex.colorSpace = THREE.NoColorSpace;
-        specMat.uniforms.uSpecularMap.value = specTex;
-        specMat.uniforms.uNormalMap.value = normalTex;
+        if (nightLightsTex && nightLightsMat) {
+          nightLightsTex.colorSpace = THREE.SRGBColorSpace;
+          nightLightsMat.uniforms.uNightMap.value = nightLightsTex;
+        }
+        if (normalTex) normalTex.colorSpace = THREE.NoColorSpace;
+        if (specMat) {
+          specMat.uniforms.uSpecularMap.value = specTex;
+          specMat.uniforms.uNormalMap.value = normalTex;
+        }
 
         this.loaded = true;
       })

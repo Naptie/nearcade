@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base, resolve } from '$app/paths';
   import { goto, invalidate } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '$lib/styles/maplibre.css';
@@ -22,7 +22,11 @@
     type GlobeFeatureCollection
   } from '$lib/utils/globe/geojson';
   import { fade, slide } from 'svelte/transition';
-  import { GlobeVisualsLayer, DEFAULT_CLOUD_SHADOW_OPACITY } from '$lib/utils/globe/visuals';
+  import {
+    GlobeVisualsLayer,
+    DEFAULT_CLOUD_SHADOW_OPACITY,
+    type GlobeLayerName
+  } from '$lib/utils/globe/visuals';
   import {
     PUBLIC_BASEMAP_TILE_URLS_CN,
     PUBLIC_BASEMAP_TILE_URLS_OVERSEAS,
@@ -317,7 +321,7 @@
   let countyData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let hoveredFeature = $state<GlobeFeature | null>(null);
   let hoveredFeatureId = $state<string | null>(null);
-  let geojsonStatus = $state<'loading' | 'ready' | 'error'>('loading');
+  let geojsonStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('loading');
   let countyStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   let geojsonError = $state<string | null>(null);
   let chinaActive = $state(false);
@@ -326,15 +330,54 @@
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
 
-  // ---- Dev panel toggles (DEV mode only) ----
-  let devSpecularEnabled = $state(true);
-  let devNightLightsEnabled = $state(true);
-  let devAtmosphereEnabled = $state(true);
-  let devCloudsEnabled = $state(true);
-  let devCloudShadowsEnabled = $state(true);
-  let devCloudShadowOpacity = $state(DEFAULT_CLOUD_SHADOW_OPACITY);
-  let devShopMarkersEnabled = $state(true);
-  let devGeoJsonEnabled = $state(true);
+  // ---- Globe feature settings ----
+  type GlobeFeatureSettings = {
+    visualLayers: {
+      specular: boolean;
+      nightLights: boolean;
+      atmosphere: boolean;
+      clouds: boolean;
+      cloudShadows: boolean;
+      cloudShadowOpacity: number;
+    };
+    mapOverlays: {
+      shopMarkers: boolean;
+      geoJsonBoundaries: boolean;
+    };
+  };
+
+  let globeFeatureSettings = $state<GlobeFeatureSettings>({
+    visualLayers: {
+      specular: true,
+      nightLights: true,
+      atmosphere: true,
+      clouds: true,
+      cloudShadows: true,
+      cloudShadowOpacity: DEFAULT_CLOUD_SHADOW_OPACITY
+    },
+    mapOverlays: {
+      shopMarkers: true,
+      geoJsonBoundaries: true
+    }
+  });
+
+  const updateGlobeFeatureSettings = (
+    update: (current: GlobeFeatureSettings) => GlobeFeatureSettings
+  ) => {
+    globeFeatureSettings = update(globeFeatureSettings);
+  };
+
+  const globeFeatureSettingsKey = $derived(
+    JSON.stringify({
+      specular: globeFeatureSettings.visualLayers.specular,
+      nightLights: globeFeatureSettings.visualLayers.nightLights,
+      atmosphere: globeFeatureSettings.visualLayers.atmosphere,
+      clouds: globeFeatureSettings.visualLayers.clouds,
+      cloudShadows: globeFeatureSettings.visualLayers.cloudShadows,
+      shopMarkers: globeFeatureSettings.mapOverlays.shopMarkers,
+      geoJsonBoundaries: globeFeatureSettings.mapOverlays.geoJsonBoundaries
+    })
+  );
 
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
@@ -825,28 +868,6 @@
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
-  const GEOJSON_VISIBILITY_LAYER_IDS = [
-    WORLD_FILL_LAYER_ID,
-    WORLD_LINE_LAYER_ID,
-    WORLD_LABEL_LAYER_ID,
-    PROVINCE_FILL_LAYER_ID,
-    PROVINCE_LINE_LAYER_ID,
-    PROVINCE_LABEL_LAYER_ID,
-    CITY_FILL_LAYER_ID,
-    CITY_LINE_LAYER_ID,
-    CITY_LABEL_LAYER_ID,
-    COUNTY_FILL_LAYER_ID,
-    COUNTY_LINE_LAYER_ID,
-    COUNTY_LABEL_LAYER_ID,
-    HOVER_LINE_LAYER_ID
-  ] as const;
-  const SHOP_VISIBILITY_LAYER_IDS = [
-    SHOPS_LAYER_ID,
-    SHOPS_ACTIVE_LAYER_ID,
-    SHOPS_PINNED_LAYER_ID,
-    SHOPS_NAME_LAYER_ID
-  ] as const;
-
   const sunPosition = $derived.by(() => {
     const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
     return { azimuth: azimuthDeg, polar: polarDeg };
@@ -895,6 +916,12 @@
       : null
   );
 
+  const isGeoJsonEnabled = () => globeFeatureSettings.mapOverlays.geoJsonBoundaries;
+  const isShopMarkersEnabled = () => globeFeatureSettings.mapOverlays.shopMarkers;
+
+  const getAtmosphereBlend = (): maplibregl.SkySpecification['atmosphere-blend'] =>
+    globeFeatureSettings.visualLayers.atmosphere ? atmosphereBlend : 0;
+
   const syncScene = (instance: maplibregl.Map, azimuth = a, polar = p) => {
     instance.setProjection({ type: 'globe' });
     instance.setLight({
@@ -902,7 +929,7 @@
       intensity: 0.12,
       position: [1, azimuth, polar]
     });
-    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
+    instance.setSky({ 'atmosphere-blend': getAtmosphereBlend() });
     instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
@@ -1018,13 +1045,25 @@
   };
 
   const applyVisualsDevSettings = (layer: GlobeVisualsLayer) => {
+    const visualLayers = globeFeatureSettings.visualLayers;
     layer.setSun(a, p);
-    layer.setMeshVisible('specular', devSpecularEnabled);
-    layer.setMeshVisible('nightLights', devNightLightsEnabled);
-    layer.setMeshVisible('atmosphere', devAtmosphereEnabled);
-    layer.setMeshVisible('clouds', devCloudsEnabled);
-    layer.setMeshVisible('cloudShadow', devCloudShadowsEnabled);
-    layer.setCloudShadowOpacity(devCloudShadowOpacity);
+    layer.setMeshVisible('specular', visualLayers.specular);
+    layer.setMeshVisible('nightLights', visualLayers.nightLights);
+    layer.setMeshVisible('atmosphere', visualLayers.atmosphere);
+    layer.setMeshVisible('clouds', visualLayers.clouds);
+    layer.setMeshVisible('cloudShadow', visualLayers.cloudShadows);
+    layer.setCloudShadowOpacity(visualLayers.cloudShadowOpacity);
+  };
+
+  const getEnabledVisualLayerNames = (): GlobeLayerName[] => {
+    const visualLayers = globeFeatureSettings.visualLayers;
+    const layerNames: GlobeLayerName[] = [];
+    if (visualLayers.specular) layerNames.push('specular');
+    if (visualLayers.nightLights) layerNames.push('nightLights');
+    if (visualLayers.atmosphere) layerNames.push('atmosphere');
+    if (visualLayers.clouds) layerNames.push('clouds');
+    if (visualLayers.cloudShadows) layerNames.push('cloudShadow');
+    return layerNames;
   };
 
   const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
@@ -1033,12 +1072,16 @@
       visualsLayer = null;
     }
 
+    const enabledLayerNames = getEnabledVisualLayerNames();
+    if (enabledLayerNames.length === 0) return;
+
     if (!instance.getLayer('globe-visuals')) {
       visualsLayer = new GlobeVisualsLayer(
         `${base}/globe/clouds.jpg`,
         `${base}/globe/nightlights.jpg`,
         `${base}/globe/specular_map.jpg`,
-        `${base}/globe/normal_map.jpg`
+        `${base}/globe/normal_map.jpg`,
+        { enabledLayers: enabledLayerNames }
       );
       applyVisualsDevSettings(visualsLayer);
       const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
@@ -1049,18 +1092,12 @@
     if (visualsLayer) applyVisualsDevSettings(visualsLayer);
   };
 
-  const applyDevPanelOverrides = (instance: maplibregl.Map) => {
-    if (!devGeoJsonEnabled) {
-      for (const id of GEOJSON_VISIBILITY_LAYER_IDS) setLayerVisibility(instance, id, false);
-    }
-
-    if (devShopMarkersEnabled) {
+  const applyFeatureVisibility = (instance: maplibregl.Map) => {
+    if (isShopMarkersEnabled()) {
       for (const id of [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID, SHOPS_PINNED_LAYER_ID]) {
         setLayerVisibility(instance, id, true);
       }
       setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, mode === 'fullscreen');
-    } else {
-      for (const id of SHOP_VISIBILITY_LAYER_IDS) setLayerVisibility(instance, id, false);
     }
   };
 
@@ -1084,18 +1121,20 @@
     if (currentMode === 'landing') {
       syncBasemapLayers(instance);
       for (const layerId of allLayers) setLayerVisibility(instance, layerId, false);
-      applyDevPanelOverrides(instance);
+      applyFeatureVisibility(instance);
     } else {
       syncMapData(instance);
     }
   };
 
   const ensureMapLayers = (instance: maplibregl.Map) => {
-    upsertGeoJsonSource(instance, WORLD_SOURCE_ID, worldData);
-    upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
-    upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
-    upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
-    upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
+    if (isGeoJsonEnabled()) {
+      upsertGeoJsonSource(instance, WORLD_SOURCE_ID, worldData);
+      upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
+      upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
+      upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
+      upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
+    }
 
     ensureRasterSourceLayer(
       instance,
@@ -1110,7 +1149,7 @@
       selectedOverseasTileUrls
     );
 
-    if (!instance.getSource(SHOPS_SOURCE_ID)) {
+    if (isShopMarkersEnabled() && !instance.getSource(SHOPS_SOURCE_ID)) {
       instance.addSource(SHOPS_SOURCE_ID, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
@@ -1121,7 +1160,7 @@
     // Inserted below the boundary fill layers so effects appear under country overlays.
     ensureVisualsLayer(instance);
 
-    if (!instance.getLayer(WORLD_FILL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
         id: WORLD_FILL_LAYER_ID,
         type: 'fill',
@@ -1144,7 +1183,7 @@
       });
     }
 
-    if (!instance.getLayer(WORLD_LINE_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(WORLD_LINE_LAYER_ID)) {
       instance.addLayer({
         id: WORLD_LINE_LAYER_ID,
         type: 'line',
@@ -1157,7 +1196,7 @@
       });
     }
 
-    if (!instance.getLayer(WORLD_LABEL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(WORLD_LABEL_LAYER_ID)) {
       instance.addLayer({
         id: WORLD_LABEL_LAYER_ID,
         type: 'symbol',
@@ -1184,7 +1223,7 @@
       });
     }
 
-    if (!instance.getLayer(PROVINCE_FILL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(PROVINCE_FILL_LAYER_ID)) {
       instance.addLayer({
         id: PROVINCE_FILL_LAYER_ID,
         type: 'fill',
@@ -1202,7 +1241,7 @@
       });
     }
 
-    if (!instance.getLayer(PROVINCE_LINE_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(PROVINCE_LINE_LAYER_ID)) {
       instance.addLayer({
         id: PROVINCE_LINE_LAYER_ID,
         type: 'line',
@@ -1215,7 +1254,7 @@
       });
     }
 
-    if (!instance.getLayer(PROVINCE_LABEL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(PROVINCE_LABEL_LAYER_ID)) {
       instance.addLayer({
         id: PROVINCE_LABEL_LAYER_ID,
         type: 'symbol',
@@ -1237,7 +1276,7 @@
       });
     }
 
-    if (!instance.getLayer(CITY_FILL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(CITY_FILL_LAYER_ID)) {
       instance.addLayer({
         id: CITY_FILL_LAYER_ID,
         type: 'fill',
@@ -1255,7 +1294,7 @@
       });
     }
 
-    if (!instance.getLayer(CITY_LINE_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(CITY_LINE_LAYER_ID)) {
       instance.addLayer({
         id: CITY_LINE_LAYER_ID,
         type: 'line',
@@ -1268,7 +1307,7 @@
       });
     }
 
-    if (!instance.getLayer(CITY_LABEL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(CITY_LABEL_LAYER_ID)) {
       instance.addLayer({
         id: CITY_LABEL_LAYER_ID,
         type: 'symbol',
@@ -1290,7 +1329,7 @@
       });
     }
 
-    if (!instance.getLayer(COUNTY_FILL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(COUNTY_FILL_LAYER_ID)) {
       instance.addLayer({
         id: COUNTY_FILL_LAYER_ID,
         type: 'fill',
@@ -1308,7 +1347,7 @@
       });
     }
 
-    if (!instance.getLayer(COUNTY_LINE_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(COUNTY_LINE_LAYER_ID)) {
       instance.addLayer({
         id: COUNTY_LINE_LAYER_ID,
         type: 'line',
@@ -1321,7 +1360,7 @@
       });
     }
 
-    if (!instance.getLayer(COUNTY_LABEL_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(COUNTY_LABEL_LAYER_ID)) {
       instance.addLayer({
         id: COUNTY_LABEL_LAYER_ID,
         type: 'symbol',
@@ -1343,7 +1382,7 @@
       });
     }
 
-    if (!instance.getLayer(HOVER_LINE_LAYER_ID)) {
+    if (isGeoJsonEnabled() && !instance.getLayer(HOVER_LINE_LAYER_ID)) {
       instance.addLayer({
         id: HOVER_LINE_LAYER_ID,
         type: 'line',
@@ -1353,7 +1392,7 @@
       });
     }
 
-    if (!instance.getLayer(SHOPS_LAYER_ID)) {
+    if (isShopMarkersEnabled() && !instance.getLayer(SHOPS_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_LAYER_ID,
         type: 'circle',
@@ -1368,7 +1407,7 @@
       });
     }
 
-    if (!instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
+    if (isShopMarkersEnabled() && !instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_ACTIVE_LAYER_ID,
         type: 'circle',
@@ -1384,7 +1423,7 @@
       });
     }
 
-    if (!instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
+    if (isShopMarkersEnabled() && !instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_PINNED_LAYER_ID,
         type: 'circle',
@@ -1400,7 +1439,7 @@
       });
     }
 
-    if (!instance.getLayer(SHOPS_NAME_LAYER_ID)) {
+    if (isShopMarkersEnabled() && !instance.getLayer(SHOPS_NAME_LAYER_ID)) {
       instance.addLayer({
         id: SHOPS_NAME_LAYER_ID,
         type: 'symbol',
@@ -1470,11 +1509,17 @@
     setLayerVisibility(
       instance,
       HOVER_LINE_LAYER_ID,
-      feature !== null && mode === 'fullscreen' && devGeoJsonEnabled
+      feature !== null && mode === 'fullscreen' && isGeoJsonEnabled()
     );
   };
 
   const syncMapData = (instance: maplibregl.Map) => {
+    if (!isGeoJsonEnabled()) {
+      syncBasemapLayers(instance);
+      applyFeatureVisibility(instance);
+      return;
+    }
+
     upsertGeoJsonSource(instance, WORLD_SOURCE_ID, worldData);
     upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
     upsertGeoJsonSource(instance, CITY_SOURCE_ID, visibleCityData);
@@ -1529,10 +1574,11 @@
     }
 
     setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, true);
-    applyDevPanelOverrides(instance);
+    applyFeatureVisibility(instance);
   };
 
   const getTopFeatureAtPoint = (instance: maplibregl.Map, point: maplibregl.PointLike) => {
+    if (!isGeoJsonEnabled()) return null;
     const layers = [
       COUNTY_FILL_LAYER_ID,
       CITY_FILL_LAYER_ID,
@@ -1588,6 +1634,15 @@
   const syncDrilldown = (instance: maplibregl.Map) => {
     anticipatedBasemapTarget = null;
     viewZoom = instance.getZoom();
+    if (!isGeoJsonEnabled()) {
+      chinaActive = false;
+      activeProvinceAdcode = null;
+      activeCityAdcode = null;
+      countyData = emptyGlobeFeatureCollection();
+      countyStatus = 'idle';
+      syncMapData(instance);
+      return;
+    }
     const point = instance.project(instance.getCenter());
     const centeredFeature = getTopFeatureAtPoint(instance, point);
     const isCenterInChina = isFeatureInChina(centeredFeature);
@@ -1645,6 +1700,11 @@
   };
 
   const loadBaseGeoJson = async () => {
+    if (!isGeoJsonEnabled()) {
+      geojsonStatus = 'idle';
+      geojsonError = null;
+      return;
+    }
     geojsonStatus = 'loading';
     geojsonError = null;
     try {
@@ -1694,45 +1754,12 @@
   $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-    instance.setSky({ 'atmosphere-blend': atmosphereBlend });
+    instance.setSky({ 'atmosphere-blend': getAtmosphereBlend() });
   });
 
-  // ---- Three.js render-layer dev toggles ----
   $effect(() => {
-    // Explicitly read all render-layer dev toggles so this effect always reruns
-    // when the panel state changes.
-    void devSpecularEnabled;
-    void devNightLightsEnabled;
-    void devAtmosphereEnabled;
-    void devCloudsEnabled;
-    void devCloudShadowsEnabled;
-    void devCloudShadowOpacity;
-
-    const instance = map;
-    if (!instance?.isStyleLoaded()) return;
-
-    // Keep the existing custom layer and update uniforms/visibility in-place
-    // so toggles and sliders respond immediately.
-    ensureVisualsLayer(instance);
-    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
-    instance.triggerRepaint();
-  });
-
-  // ---- Map overlay dev toggles ----
-  $effect(() => {
-    // Explicitly read map overlay toggles to guarantee effect dependency tracking.
-    void devShopMarkersEnabled;
-    void devGeoJsonEnabled;
-
-    const instance = map;
-    if (!instance?.isStyleLoaded()) return;
-    if (mode === 'fullscreen') {
-      syncMapData(instance);
-      instance.triggerRepaint();
-      return;
-    }
-    applyDevPanelOverrides(instance);
-    instance.triggerRepaint();
+    const cloudShadowOpacity = globeFeatureSettings.visualLayers.cloudShadowOpacity;
+    visualsLayer?.setCloudShadowOpacity(cloudShadowOpacity);
   });
 
   // ---- Mode transition effect ----
@@ -1828,6 +1855,13 @@
     }
   };
 
+  let reinitializeGlobe: (() => void) | null = null;
+
+  $effect(() => {
+    void globeFeatureSettingsKey;
+    untrack(() => reinitializeGlobe?.());
+  });
+
   onMount(() => {
     if (!mapContainer) return;
 
@@ -1840,33 +1874,38 @@
     if (sidebarSize.h === undefined) {
       sidebarSize.h = window.innerHeight - sidebarPos.y - sidebarPos.x;
     }
-    void loadBaseGeoJson();
-
     let cleanupMap: (() => void) | undefined;
     let destroyed = false;
 
-    const initializeMap = async () => {
+    type CameraSnapshot = {
+      center: maplibregl.LngLat;
+      zoom: number;
+      pitch: number;
+      bearing: number;
+    };
+
+    const initializeMap = async (cameraSnapshot?: CameraSnapshot) => {
+      const featureSettingsKey = globeFeatureSettingsKey;
+      if (isGeoJsonEnabled()) {
+        void loadBaseGeoJson();
+      } else {
+        geojsonStatus = 'idle';
+        geojsonError = null;
+      }
       const { globalTileUrls: globalTileUrls, overseasTileUrls } = await resolveBasemapTileUrls();
       selectedGlobalTileUrls = globalTileUrls;
       selectedOverseasTileUrls = overseasTileUrls;
-      if (destroyed || !mapContainer) return;
+      if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
 
       const instance = new maplibregl.Map({
         container: mapContainer,
         style: buildMapStyle(globalTileUrls),
-        ...(mode === 'landing'
-          ? {
-              center: [LANDING_LONGITUDE, LANDING_LATITUDE],
-              zoom: LANDING_ZOOM,
-              pitch: LANDING_PITCH,
-              bearing: LANDING_BEARING
-            }
-          : {
-              center: [155, 45],
-              zoom: 2,
-              pitch: 0,
-              bearing: 0
-            })
+        center:
+          cameraSnapshot?.center ??
+          (mode === 'landing' ? [LANDING_LONGITUDE, LANDING_LATITUDE] : [155, 45]),
+        zoom: cameraSnapshot?.zoom ?? (mode === 'landing' ? LANDING_ZOOM : 2),
+        pitch: cameraSnapshot?.pitch ?? (mode === 'landing' ? LANDING_PITCH : 0),
+        bearing: cameraSnapshot?.bearing ?? (mode === 'landing' ? LANDING_BEARING : 0)
       });
       map = instance;
 
@@ -2166,7 +2205,30 @@
       cleanupMap = dispose;
     };
 
-    void initializeMap();
+    reinitializeGlobe = () => {
+      const instance = map;
+      const cameraSnapshot = instance
+        ? {
+            center: instance.getCenter(),
+            zoom: instance.getZoom(),
+            pitch: instance.getPitch(),
+            bearing: instance.getBearing()
+          }
+        : undefined;
+      cleanupMap?.();
+      cleanupMap = undefined;
+      sourceDataRevisions.clear();
+      visualsLayer = null;
+      navigationControl = null;
+      anticipatedBasemapTarget = null;
+      hoveredFeature = null;
+      hoveredFeatureId = null;
+      markerHoveredShop = null;
+      pinnedShop = null;
+      void initializeMap(cameraSnapshot);
+    };
+
+    reinitializeGlobe();
 
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
@@ -2176,6 +2238,7 @@
 
     return () => {
       destroyed = true;
+      reinitializeGlobe = null;
       cleanupMap?.();
       clearInterval(refreshInterval);
     };
@@ -2475,7 +2538,7 @@
 
       <!-- Render layers section -->
       <div class="border-base-content/15 flex flex-col gap-1.5 border-t px-2 pt-2">
-        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Render layers</p>
+        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Visual layers</p>
         {#snippet layerToggle(
           label: string,
           desc: string,
@@ -2498,38 +2561,60 @@
         {@render layerToggle(
           'Specular sunlight',
           'Ocean glint shader',
-          devSpecularEnabled,
-          (v) => (devSpecularEnabled = v)
+          globeFeatureSettings.visualLayers.specular,
+          (v) =>
+            updateGlobeFeatureSettings((settings) => ({
+              ...settings,
+              visualLayers: { ...settings.visualLayers, specular: v }
+            }))
         )}
         {@render layerToggle(
           'Night lights',
           'City lights overlay',
-          devNightLightsEnabled,
-          (v) => (devNightLightsEnabled = v)
+          globeFeatureSettings.visualLayers.nightLights,
+          (v) =>
+            updateGlobeFeatureSettings((settings) => ({
+              ...settings,
+              visualLayers: { ...settings.visualLayers, nightLights: v }
+            }))
         )}
         {@render layerToggle(
           'Atmosphere',
-          'Three.js atmosphere rim',
-          devAtmosphereEnabled,
-          (v) => (devAtmosphereEnabled = v)
+          'Built-in sky + Three.js rim',
+          globeFeatureSettings.visualLayers.atmosphere,
+          (v) =>
+            updateGlobeFeatureSettings((settings) => ({
+              ...settings,
+              visualLayers: { ...settings.visualLayers, atmosphere: v }
+            }))
         )}
         {@render layerToggle(
           'Clouds',
           'Cloud texture overlay',
-          devCloudsEnabled,
-          (v) => (devCloudsEnabled = v)
+          globeFeatureSettings.visualLayers.clouds,
+          (v) =>
+            updateGlobeFeatureSettings((settings) => ({
+              ...settings,
+              visualLayers: { ...settings.visualLayers, clouds: v }
+            }))
         )}
         {@render layerToggle(
           'Cloud shadows',
           'Sun-cast cloud shadows',
-          devCloudShadowsEnabled,
-          (v) => (devCloudShadowsEnabled = v)
+          globeFeatureSettings.visualLayers.cloudShadows,
+          (v) =>
+            updateGlobeFeatureSettings((settings) => ({
+              ...settings,
+              visualLayers: { ...settings.visualLayers, cloudShadows: v }
+            }))
         )}
-        {#if devCloudShadowsEnabled}
+        {#if globeFeatureSettings.visualLayers.cloudShadows}
           <label class="flex flex-col gap-1 pl-3 text-xs">
             <span class="flex items-center justify-between">
               <span class="opacity-70">Shadow opacity</span>
-              <span class="font-mono opacity-70">{devCloudShadowOpacity.toFixed(2)}</span>
+              <span class="font-mono opacity-70"
+                >{globeFeatureSettings.visualLayers.cloudShadowOpacity.toFixed(2)}</span
+              >
             </span>
             <input
               type="range"
@@ -2537,7 +2622,14 @@
               max="1"
               step="0.01"
               class="range range-xs"
-              bind:value={devCloudShadowOpacity}
+              value={globeFeatureSettings.visualLayers.cloudShadowOpacity}
+              oninput={(e) => {
+                const cloudShadowOpacity = Number((e.target as HTMLInputElement).value);
+                updateGlobeFeatureSettings((settings) => ({
+                  ...settings,
+                  visualLayers: { ...settings.visualLayers, cloudShadowOpacity }
+                }));
+              }}
             />
           </label>
         {/if}
@@ -2554,7 +2646,14 @@
           <input
             type="checkbox"
             class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
-            bind:checked={devShopMarkersEnabled}
+            checked={globeFeatureSettings.mapOverlays.shopMarkers}
+            onchange={(e) => {
+              const shopMarkers = (e.target as HTMLInputElement).checked;
+              updateGlobeFeatureSettings((settings) => ({
+                ...settings,
+                mapOverlays: { ...settings.mapOverlays, shopMarkers }
+              }));
+            }}
           />
         </label>
         <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
@@ -2565,7 +2664,14 @@
           <input
             type="checkbox"
             class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
-            bind:checked={devGeoJsonEnabled}
+            checked={globeFeatureSettings.mapOverlays.geoJsonBoundaries}
+            onchange={(e) => {
+              const geoJsonBoundaries = (e.target as HTMLInputElement).checked;
+              updateGlobeFeatureSettings((settings) => ({
+                ...settings,
+                mapOverlays: { ...settings.mapOverlays, geoJsonBoundaries }
+              }));
+            }}
           />
         </label>
       </div>
