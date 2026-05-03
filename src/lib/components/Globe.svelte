@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
+  import '$lib/styles/maplibre.css';
   import { SvelteMap } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import ShopCard from '$lib/components/ShopCard.svelte';

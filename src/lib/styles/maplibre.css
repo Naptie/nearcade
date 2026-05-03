@@ -1,0 +1,137 @@
+@reference '../../app.css';
+
+.maplibregl-ctrl-group {
+  @apply bg-base-300 text-base-content rounded-box shadow-base-content/15 overflow-hidden shadow-lg;
+}
+
+.maplibregl-ctrl-group:not(:empty) {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-base-content) 12%, transparent),
+    0 10px 25px -15px color-mix(in oklab, var(--color-base-content) 35%, transparent);
+}
+
+.maplibregl-ctrl-group button {
+  @apply text-base-content transition-colors duration-200;
+}
+
+.maplibregl-ctrl-group button:first-child {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+.maplibregl-ctrl-group button:last-child {
+  border-bottom-right-radius: inherit;
+  border-bottom-left-radius: inherit;
+}
+
+.maplibregl-ctrl-group button:disabled {
+  @apply text-base-content/30;
+}
+
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  background-color: currentColor;
+  background-image: none !important;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+}
+
+.maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon {
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M14.5 8.5c-.75 0-1.5.75-1.5 1.5v3h-3c-.75 0-1.5.75-1.5 1.5S9.25 16 10 16h3v3c0 .75.75 1.5 1.5 1.5S16 19.75 16 19v-3h3c.75 0 1.5-.75 1.5-1.5S19.75 13 19 13h-3v-3c0-.75-.75-1.5-1.5-1.5'/%3E%3C/svg%3E");
+}
+
+.maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M10 13c-.75 0-1.5.75-1.5 1.5S9.25 16 10 16h9c.75 0 1.5-.75 1.5-1.5S19.75 13 19 13z'/%3E%3C/svg%3E");
+}
+
+.maplibregl-ctrl button.maplibregl-ctrl-compass .maplibregl-ctrl-icon {
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='m10.5 14 4-8 4 8zm0 2 4 8 4-8z'/%3E%3C/svg%3E");
+}
+
+.maplibregl-ctrl button.maplibregl-ctrl-fullscreen .maplibregl-ctrl-icon,
+.maplibregl-ctrl button.maplibregl-ctrl-shrink .maplibregl-ctrl-icon {
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M24 16v5.5c0 1.75-.75 2.5-2.5 2.5H16v-1l3-1.5-4-5.5 1-1 5.5 4 1.5-3zM6 16l1.5 3 5.5-4 1 1-4 5.5 3 1.5v1H7.5C5.75 24 5 23.25 5 21.5V16zm7-11v1l-3 1.5 4 5.5-1 1-5.5-4L6 13H5V7.5C5 5.75 5.75 5 7.5 5zm11 2.5c0-1.75-.75-2.5-2.5-2.5H16v1l3 1.5-4 5.5 1 1 5.5-4 1.5 3h1z'/%3E%3C/svg%3E");
+}
+
+.maplibregl-ctrl-group button:disabled .maplibregl-ctrl-icon {
+  opacity: 0.3;
+}
+
+@media (hover: hover) {
+  .maplibregl-ctrl-group button:not(:disabled):hover {
+    @apply bg-base-content/10;
+  }
+}
+
+.maplibregl-ctrl-group button:not(:disabled):active {
+  @apply bg-base-content/15;
+}
+
+.maplibregl-ctrl-group button + button {
+  @apply border-t-base-100;
+}
+
+.maplibregl-ctrl.maplibregl-ctrl-attrib {
+  @apply bg-base-300/85 text-base-content rounded-box border-base-content/10 shadow-base-content/15 border px-2 py-0.5 text-xs leading-5 shadow-lg backdrop-blur-md;
+  background-color: color-mix(in oklab, var(--color-base-300) 85%, transparent) !important;
+  color: var(--color-base-content) !important;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  @apply text-base-content rounded-box;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  box-sizing: border-box;
+  color: var(--color-base-content) !important;
+  height: 1.5rem;
+  min-height: 1.5rem;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact-show {
+  @apply bg-base-300/85 border-base-content/10 shadow-base-content/15 border shadow-lg backdrop-blur-md;
+  @apply py-0;
+  background-color: color-mix(in oklab, var(--color-base-300) 85%, transparent) !important;
+  padding-right: 2rem;
+  padding-left: 0.75rem;
+}
+
+.maplibregl-ctrl-bottom-left > .maplibregl-ctrl-attrib.maplibregl-compact-show,
+.maplibregl-ctrl-top-left > .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  padding-right: 0.75rem;
+  padding-left: 2rem;
+}
+
+.maplibregl-ctrl-attrib a {
+  @apply text-base-content no-underline transition-colors duration-200;
+  color: var(--color-base-content) !important;
+}
+
+.maplibregl-ctrl-attrib a:hover {
+  @apply text-base-content/80 underline;
+}
+
+.maplibregl-ctrl-attrib-button {
+  @apply bg-base-300 text-base-content transition-colors duration-200;
+  background-color: var(--color-base-300) !important;
+  background-image: none;
+  color: var(--color-base-content) !important;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.maplibregl-ctrl-attrib-button::before {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 24px;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20'%3E%3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E%3C/svg%3E")
+    center / 24px 24px no-repeat;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button,
+.maplibregl-ctrl-attrib-button:hover {
+  @apply bg-base-200;
+  background-color: var(--color-base-200) !important;
+}
