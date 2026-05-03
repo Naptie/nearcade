@@ -285,7 +285,9 @@
 
     const overseasResult = await getCachedBasemapProbeResult(BASEMAP_TILE_URLS_OVERSEAS);
     if (overseasResult.successfulProbeCount === 0) {
-      console.warn('Overseas regional basemap probe failed, falling back to overseas fallback URLs.');
+      console.warn(
+        'Overseas regional basemap probe failed, falling back to overseas fallback URLs.'
+      );
       return {
         globalTileUrls: globalTileUrls,
         overseasTileUrls: BASEMAP_TILE_URLS_OVERSEAS_FALLBACK
