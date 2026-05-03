@@ -17,6 +17,7 @@ import { githubProvider } from './github';
 import { phiraProvider } from './phira';
 import type { User } from './types';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
+import { ALLOWED_ORIGINS } from '$env/static/private';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -108,7 +109,13 @@ function osuProvider() {
   };
 }
 
+const allowedOrigins = ALLOWED_ORIGINS.split(',').map((origin) => origin.trim());
+
 export const auth = betterAuth({
+  baseURL: {
+    allowedHosts: allowedOrigins.map((origin) => origin.split('//')[1].trim()),
+    fallback: allowedOrigins[0]
+  },
   basePath: '/api/auth',
   trustedOrigins: ['*'],
   database: mongodbAdapter(mongo.db(), {

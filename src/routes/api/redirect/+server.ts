@@ -8,9 +8,9 @@ export const GET: RequestHandler = async ({ url }) => {
     return error(400, 'Missing uri parameter');
   }
 
-  const allowedRedirects = env.ALLOWED_REDIRECTS?.split(',').map((u) => u.trim()) || [];
+  const allowedOrigins = env.ALLOWED_ORIGINS?.split(',').map((u) => u.trim()) || [];
   if (
-    !allowedRedirects.some((allowed) => uriParam.toLowerCase().startsWith(allowed.toLowerCase()))
+    !allowedOrigins.some((allowed) => uriParam.toLowerCase().startsWith(allowed.toLowerCase()))
   ) {
     return error(400, 'Invalid redirect URI');
   }
