@@ -9,9 +9,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   const allowedOrigins = env.ALLOWED_ORIGINS?.split(',').map((u) => u.trim()) || [];
-  if (
-    !allowedOrigins.some((allowed) => uriParam.toLowerCase().startsWith(allowed.toLowerCase()))
-  ) {
+  if (!allowedOrigins.some((allowed) => uriParam.toLowerCase().startsWith(allowed.toLowerCase()))) {
     return error(400, 'Invalid redirect URI');
   }
 
