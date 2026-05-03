@@ -25,6 +25,7 @@
   import {
     PUBLIC_BASEMAP_TILE_URLS_CN,
     PUBLIC_BASEMAP_TILE_URLS_OVERSEAS,
+    PUBLIC_BASEMAP_TILE_URLS_OVERSEAS_FALLBACK,
     PUBLIC_BASEMAP_TILE_URLS_PRIMARY,
     PUBLIC_BASEMAP_TILE_URLS_SECONDARY
   } from '$env/static/public';
@@ -112,6 +113,9 @@
   const BASEMAP_TILE_URLS_SECONDARY = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_SECONDARY);
   const BASEMAP_TILE_URLS_CN = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_CN);
   const BASEMAP_TILE_URLS_OVERSEAS = parseTileUrlList(PUBLIC_BASEMAP_TILE_URLS_OVERSEAS);
+  const BASEMAP_TILE_URLS_OVERSEAS_FALLBACK = parseTileUrlList(
+    PUBLIC_BASEMAP_TILE_URLS_OVERSEAS_FALLBACK
+  );
 
   const normalizeTileUrlSet = (tileUrls: string[]) =>
     [...new Set(tileUrls.map((url) => url.trim()).filter(Boolean))].sort();
@@ -136,6 +140,7 @@
       BASEMAP_TILE_URLS_PRIMARY,
       BASEMAP_TILE_URLS_SECONDARY,
       BASEMAP_TILE_URLS_OVERSEAS,
+      BASEMAP_TILE_URLS_OVERSEAS_FALLBACK,
       BASEMAP_TILE_URLS_CN
     ]) {
       if (candidate.length > 0) return candidate;
@@ -260,9 +265,13 @@
     }
 
     if (BASEMAP_TILE_URLS_OVERSEAS.length === 0) {
+      if (BASEMAP_TILE_URLS_OVERSEAS_FALLBACK.length === 0) {
+        console.warn('No overseas regional basemap URLs configured.');
+      }
+
       return {
         globalTileUrls: globalTileUrls,
-        overseasTileUrls: globalTileUrls
+        overseasTileUrls: BASEMAP_TILE_URLS_OVERSEAS_FALLBACK
       };
     }
 
@@ -275,12 +284,10 @@
 
     const overseasResult = await getCachedBasemapProbeResult(BASEMAP_TILE_URLS_OVERSEAS);
     if (overseasResult.successfulProbeCount === 0) {
-      console.warn(
-        'Overseas regional basemap probe failed, falling back to the chosen low zoom provider.'
-      );
+      console.warn('Overseas regional basemap probe failed, falling back to overseas fallback URLs.');
       return {
         globalTileUrls: globalTileUrls,
-        overseasTileUrls: globalTileUrls
+        overseasTileUrls: BASEMAP_TILE_URLS_OVERSEAS_FALLBACK
       };
     }
 
@@ -294,7 +301,10 @@
   let mapContainer = $state<HTMLDivElement | undefined>();
   let map = $state<maplibregl.Map | undefined>();
   let selectedGlobalTileUrls = getFallbackGlobalTileUrls();
-  let selectedOverseasTileUrls = BASEMAP_TILE_URLS_OVERSEAS;
+  let selectedOverseasTileUrls =
+    BASEMAP_TILE_URLS_OVERSEAS.length > 0
+      ? BASEMAP_TILE_URLS_OVERSEAS
+      : BASEMAP_TILE_URLS_OVERSEAS_FALLBACK;
   let anticipatedBasemapTarget: AnticipatedBasemapTarget | null = null;
   let navigationControl: maplibregl.NavigationControl | null = null;
   let visualsLayer: GlobeVisualsLayer | null = null;
