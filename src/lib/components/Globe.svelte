@@ -2453,6 +2453,23 @@
               class="input input-bordered w-full pl-7"
             />
           </div>
+          <button
+            type="button"
+            class="btn btn-soft hover:btn-success shrink-0"
+            title={m.create_shop()}
+            aria-label={m.create_shop()}
+            onclick={() => {
+              const center = map?.getCenter();
+              const params = new URLSearchParams();
+              if (center) {
+                params.set('lat', center.lat.toFixed(6));
+                params.set('lng', center.lng.toFixed(6));
+              }
+              goto(`${base}/shops/new${params.size ? `?${params}` : ''}`);
+            }}
+          >
+            <i class="fa-solid fa-plus"></i>
+          </button>
         </div>
       </div>
 

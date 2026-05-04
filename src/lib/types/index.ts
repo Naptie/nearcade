@@ -17,7 +17,7 @@ export interface Shop {
     general: string[];
     detailed: string;
   };
-  openingHours: [openHour: number, closeHour: number][];
+  openingHours: [openTime: number, closeTime: number][];
   location: Location;
   games: Game[];
   isClaimed?: boolean;

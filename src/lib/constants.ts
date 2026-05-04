@@ -54,8 +54,12 @@ export const ROUTE_INDEX = 10000;
 
 export enum ShopSource {
   BEMANICN = 'bemanicn',
-  ZIV = 'ziv'
+  ZIV = 'ziv',
+  NEARCADE = 'nearcade'
 }
+
+export const SHOP_ID_OFFSET_BEMANICN = 10000;
+export const SHOP_ID_OFFSET_ZIV = 20000;
 
 export type GameKey = (typeof GAMES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];

@@ -1,11 +1,12 @@
-import { error, isHttpError, isRedirect } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
 import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import { ShopSource } from '$lib/constants';
+import { ShopSource, SHOP_ID_OFFSET_BEMANICN, SHOP_ID_OFFSET_ZIV } from '$lib/constants';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
+import { resolve } from '$app/paths';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { source: sourceRaw, id } = params;
@@ -20,6 +21,14 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
     error(404, m.invalid_shop_id());
+  }
+
+  // Redirect legacy sources to nearcade
+  if (source === ShopSource.BEMANICN) {
+    redirect(301, resolve('/(main)/shops/[source]/[id]', { source: ShopSource.NEARCADE, id: String(shopId + SHOP_ID_OFFSET_BEMANICN) }));
+  }
+  if (source === ShopSource.ZIV) {
+    redirect(301, resolve('/(main)/shops/[source]/[id]', { source: ShopSource.NEARCADE, id: String(shopId + SHOP_ID_OFFSET_ZIV) }));
   }
 
   // Get session data immediately

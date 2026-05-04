@@ -2,8 +2,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
-import { getShopOpeningHours, getShopTimezone, toPlainArray } from '$lib/utils';
-import { PAGINATION } from '$lib/constants';
+import { getShopOpeningHours, getShopTimezone, toPlainArray, toPlainObject } from '$lib/utils';
+import { PAGINATION, ShopSource } from '$lib/constants';
+import { nanoid } from 'nanoid';
+
+const NEARCADE_ID_START = 30000;
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q') || '';
@@ -130,5 +133,63 @@ export const GET: RequestHandler = async ({ url }) => {
   } catch (error) {
     console.error('Error searching shops:', error);
     return json({ shops: [] }, { status: 500 });
+  }
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+  let body: Partial<Shop>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
+  const { name, location, openingHours, address, comment, games } = body;
+
+  if (!name || !location || !openingHours) {
+    return json({ error: 'name, location, and openingHours are required' }, { status: 400 });
+  }
+
+  if (!Array.isArray(openingHours) || openingHours.length === 0) {
+    return json({ error: 'openingHours must be a non-empty array' }, { status: 400 });
+  }
+
+  try {
+    const db = mongo.db();
+    const shopsCollection = db.collection<Shop>('shops');
+
+    const lastNearcadeShop = await shopsCollection
+      .find({ source: ShopSource.NEARCADE })
+      .sort({ id: -1 })
+      .limit(1)
+      .toArray();
+
+    const newId =
+      lastNearcadeShop.length > 0
+        ? Math.max(lastNearcadeShop[0].id + 1, NEARCADE_ID_START)
+        : NEARCADE_ID_START;
+
+    const now = new Date();
+    const newShop: Shop = {
+      _id: nanoid(),
+      id: newId,
+      source: ShopSource.NEARCADE,
+      name: name.trim(),
+      comment: comment ?? '',
+      address: address ?? { general: [], detailed: '' },
+      openingHours,
+      location,
+      games: games ?? [],
+      createdAt: now,
+      updatedAt: now,
+      syncedAt: now
+    };
+
+    await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);
+
+    return json({ shop: toPlainObject(newShop) }, { status: 201 });
+  } catch (err) {
+    console.error('Error creating shop:', err);
+    return json({ error: 'Failed to create shop' }, { status: 500 });
   }
 };
