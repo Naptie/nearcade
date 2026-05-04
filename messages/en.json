@@ -607,7 +607,7 @@
   "governing_body": "Governing Body",
   "grant_admin": "Grant Admin",
   "grant_moderator": "Grant Moderator",
-  "greeting": "Find arcades near you.",
+  "greeting": "The global rhythm game map.",
   "hmac_mismatch": "HMAC mismatch",
   "hmac_mismatch_description": "The HMAC signature provided in the email does not match our calculated value.",
   "home": "Home",
