@@ -1641,9 +1641,12 @@
     }
     countyStatus = 'loading';
     try {
-      const countyDataset = (activeSupportedCountry?.levels[2]?.dataset ??
-        'china-counties') as GlobeDataset;
-      const data = await fetchGeoJson(countyDataset, parentAdcode);
+      const countyDataset = activeSupportedCountry?.levels[2]?.dataset;
+      if (!countyDataset) {
+        countyStatus = 'idle';
+        return;
+      }
+      const data = await fetchGeoJson(countyDataset as GlobeDataset, parentAdcode);
       countyCache[parentAdcode] = data;
       if (activeCityAdcode === parentAdcode) {
         countyData = data;
@@ -2077,7 +2080,11 @@
           return;
         }
 
-        if (feature.properties.dataset === 'china-provinces') {
+        const subdivisionLevelIndex = SUPPORTED_COUNTRIES.reduce<number>(
+          (found, c) => (found >= 0 ? found : c.levels.findIndex((l) => l.dataset === feature.properties.dataset)),
+          -1
+        );
+        if (subdivisionLevelIndex === 0) {
           activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.adcode ?? null;
           activeCityAdcode = null;
@@ -2087,8 +2094,7 @@
           fitToFeature(instance, feature, 6.4);
           return;
         }
-
-        if (feature.properties.dataset === 'china-cities') {
+        if (subdivisionLevelIndex === 1) {
           const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
           const prevCityAdcode = activeCityAdcode;
           activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
@@ -2103,8 +2109,7 @@
           fitToFeature(instance, feature, feature.properties.hasCountyChildren ? 8.2 : 7.2);
           return;
         }
-
-        if (feature.properties.dataset === 'china-counties') {
+        if (subdivisionLevelIndex === 2) {
           activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = feature.properties.parentAdcode ?? null;
