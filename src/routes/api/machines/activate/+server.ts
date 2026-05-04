@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ url }) => {
 
   // Mark the shop as claimed
   await shopsCollection.updateOne(
-    { source: machine.shopSource, id: machine.shopId },
+    { id: machine.shopId },
     {
       $set: {
         isClaimed: true,
@@ -55,7 +55,6 @@ export const POST: RequestHandler = async ({ url }) => {
 
   // Fetch the shop details to return
   const shop = await shopsCollection.findOne({
-    source: machine.shopSource,
     id: machine.shopId
   });
 
@@ -64,7 +63,6 @@ export const POST: RequestHandler = async ({ url }) => {
     apiSecret,
     shop: shop
       ? {
-          source: shop.source,
           id: shop.id,
           name: shop.name
         }

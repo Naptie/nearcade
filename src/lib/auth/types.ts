@@ -1,4 +1,4 @@
-import type { ShopSource, SocialPlatform } from '$lib/constants';
+import type { SocialPlatform } from '$lib/constants';
 import type { NotificationType, UserType } from '$lib/types';
 import type { ObjectId } from 'mongodb';
 
@@ -16,8 +16,8 @@ export interface User {
   bio?: string | null;
   joinedAt?: Date;
   lastActiveAt?: Date;
-  frequentingArcades?: { id: number; source: ShopSource }[];
-  starredArcades?: { id: number; source: ShopSource }[];
+  frequentingArcades?: number[];
+  starredArcades?: number[];
   autoDiscovery?: {
     discoveryInteractionThreshold: number;
     attendanceThreshold: number;
@@ -39,7 +39,7 @@ export interface User {
     id: string;
     name: string;
     token: string;
-    shop?: { id: number; source: ShopSource };
+    shopId?: number;
     expiresAt: Date;
     createdAt: Date;
   }[];

@@ -395,8 +395,7 @@
         {#snippet arcade(shop: Shop)}
           <div class="flex items-center justify-between gap-1 text-sm">
             <a
-              href={resolve('/(main)/shops/[source]/[id]', {
-                source: shop.source,
+              href={resolve('/(main)/shops/[id]', {
                 id: shop.id.toString()
               })}
               target={adaptiveNewTab()}

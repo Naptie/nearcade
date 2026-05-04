@@ -1,11 +1,16 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, ShopSource, GAMES } from '../constants';
+import type { RADIUS_OPTIONS, GAMES } from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { User } from '$lib/auth/types';
 
 export interface Location {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
+}
+
+export interface OpeningHourTime {
+  hour: number;
+  minute: number;
 }
 
 export interface Shop {
@@ -17,14 +22,12 @@ export interface Shop {
     general: string[];
     detailed: string;
   };
-  openingHours: [openTime: number, closeTime: number][];
+  openingHours: [openTime: OpeningHourTime, closeTime: OpeningHourTime][];
   location: Location;
   games: Game[];
   isClaimed?: boolean;
   createdAt?: Date;
   updatedAt: Date;
-  syncedAt: Date;
-  source: ShopSource;
 }
 
 export interface Game {
@@ -74,7 +77,7 @@ export interface University {
   postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
   // Stats (calculated fields)
   studentsCount?: number;
-  frequentingArcades?: { id: number; source: ShopSource }[]; // List of arcade IDs frequented by at least 2 university members
+  frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
   clubsCount?: number;
   // Timestamps
   createdAt?: Date;
@@ -182,7 +185,7 @@ export interface Club {
   // Stats
   membersCount?: number;
   // Starred arcades
-  starredArcades: { id: number; source: ShopSource }[];
+  starredArcades: number[];
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
@@ -244,7 +247,6 @@ export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verifi
 export interface ShopDeleteRequest {
   _id?: string | ObjectId;
   id: string;
-  shopSource: ShopSource;
   shopId: number;
   shopName: string;
   reason: string;
@@ -353,7 +355,6 @@ export interface Comment {
   _id?: string | ObjectId;
   id: string;
   postId?: string;
-  shopSource?: ShopSource;
   shopId?: number;
   content: string; // Markdown content
   createdBy: string; // User ID
@@ -442,7 +443,6 @@ export interface Activity {
   // Shop attendance activity (shop_attendance)
   shopId?: number;
   shopName?: string;
-  shopSource?: string;
   leaveAt?: Date;
   attendanceGames?: string; // Comma-separated game names
   isLive?: boolean; // Whether the attendance is still ongoing
@@ -504,12 +504,12 @@ export interface AttendanceRecord {
   games: { gameId: number; name: string; version: string }[];
   attendedAt: Date;
   leftAt: Date;
-  shop: { id: number; source: ShopSource };
+  shopId: number;
 }
 
 export interface AttendanceReportRecord {
   _id?: string | ObjectId;
-  shop: { id: number; source: ShopSource };
+  shopId: number;
   games: { gameId: number; name: string; version: string; currentAttendances: number }[];
   comment: string | null;
   reportedBy: string; // User ID
@@ -549,7 +549,6 @@ export interface Machine {
   _id?: string | ObjectId;
   id: string;
   name: string;
-  shopSource: ShopSource;
   shopId: number;
   serialNumber: string; // Auto-generated, used for activation
   apiSecret?: string; // Auto-generated upon activation
@@ -579,7 +578,6 @@ export interface QueuePosition {
 // Queue record for a specific game in a shop
 export interface QueueRecord {
   _id?: string | ObjectId;
-  shopSource: ShopSource;
   shopId: number;
   games: { gameId: number; queue: QueuePosition[] }[];
   updatedAt: Date;
@@ -588,7 +586,6 @@ export interface QueueRecord {
 
 // Attendance registration token stored in Redis
 export interface AttendanceRegistration {
-  shopSource: string;
   shopId: string;
   machineId: string;
   slotIndex: string;

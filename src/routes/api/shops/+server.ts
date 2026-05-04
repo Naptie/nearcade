@@ -3,10 +3,35 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
 import { getShopOpeningHours, getShopTimezone, toPlainArray, toPlainObject } from '$lib/utils';
-import { PAGINATION, ShopSource } from '$lib/constants';
+import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 
 const NEARCADE_ID_START = 30000;
+
+const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
+  if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
+
+  const normalizeTime = (value: unknown) => {
+    if (!value || typeof value !== 'object') return null;
+    const candidate = value as { hour?: unknown; minute?: unknown };
+    if (typeof candidate.hour !== 'number' || typeof candidate.minute !== 'number') return null;
+    return {
+      hour: Math.max(0, Math.min(23, Math.floor(candidate.hour))),
+      minute: Math.max(0, Math.min(59, Math.floor(candidate.minute)))
+    };
+  };
+
+  const normalized: Shop['openingHours'] = [];
+  for (const entry of openingHours) {
+    if (!Array.isArray(entry) || entry.length < 2) return null;
+    const open = normalizeTime(entry[0]);
+    const close = normalizeTime(entry[1]);
+    if (!open || !close) return null;
+    normalized.push([open, close]);
+  }
+
+  return normalized;
+};
 
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q') || '';
@@ -150,8 +175,12 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ error: 'name, location, and openingHours are required' }, { status: 400 });
   }
 
-  if (!Array.isArray(openingHours) || openingHours.length === 0) {
-    return json({ error: 'openingHours must be a non-empty array' }, { status: 400 });
+  const normalizedOpeningHours = normalizeOpeningHours(openingHours);
+  if (!normalizedOpeningHours) {
+    return json(
+      { error: 'openingHours must be a non-empty array of [ {hour, minute}, {hour, minute} ]' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -159,7 +188,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const shopsCollection = db.collection<Shop>('shops');
 
     const lastNearcadeShop = await shopsCollection
-      .find({ source: ShopSource.NEARCADE })
+      .find({ id: { $gte: NEARCADE_ID_START } })
       .sort({ id: -1 })
       .limit(1)
       .toArray();
@@ -173,16 +202,14 @@ export const POST: RequestHandler = async ({ request }) => {
     const newShop: Shop = {
       _id: nanoid(),
       id: newId,
-      source: ShopSource.NEARCADE,
       name: name.trim(),
       comment: comment ?? '',
       address: address ?? { general: [], detailed: '' },
-      openingHours,
+      openingHours: normalizedOpeningHours,
       location,
       games: games ?? [],
       createdAt: now,
-      updatedAt: now,
-      syncedAt: now
+      updatedAt: now
     };
 
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);

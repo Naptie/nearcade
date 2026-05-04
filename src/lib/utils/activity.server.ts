@@ -17,7 +17,6 @@ import {
 import type { User } from '$lib/auth/types';
 import { getDisplayName, protect } from '.';
 import redis, { ensureConnected } from '$lib/db/redis.server';
-import type { ShopSource } from '$lib/constants';
 
 /**
  * User Activity Server Module
@@ -504,16 +503,8 @@ export async function getUserActivities(
         {
           $lookup: {
             from: 'shops',
-            let: { shopSource: '$shop.source', shopId: '$shop.id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [{ $eq: ['$source', '$$shopSource'] }, { $eq: ['$id', '$$shopId'] }]
-                  }
-                }
-              }
-            ],
+            localField: 'shopId',
+            foreignField: 'id',
             as: 'shop'
           }
         },
@@ -536,7 +527,6 @@ export async function getUserActivities(
         userId: attendance.userId,
         shopId: attendance.shop.id,
         shopName: attendance.shop.name,
-        shopSource: attendance.shop.source,
         leaveAt: attendance.leftAt,
         attendanceGames: gameNames
       });
@@ -549,10 +539,10 @@ export async function getUserActivities(
     if (keys.length > 0) {
       const dataStr = await redis.get(keys[0]);
       if (dataStr) {
-        const [source, id] = keys[0].split(':')[2].split('-');
+        const id = keys[0].split(':')[2];
         const shop = await db
           .collection<Shop>('shops')
-          .findOne({ source: source as ShopSource, id: parseInt(id) });
+          .findOne({ id: parseInt(id) });
         if (shop) {
           const data = JSON.parse(dataStr);
           const attendedAt = new Date(data.attendedAt);
@@ -574,7 +564,6 @@ export async function getUserActivities(
             userId: userId,
             shopId: shop.id,
             shopName: shop.name,
-            shopSource: shop.source,
             leaveAt: plannedLeaveAt,
             attendanceGames: gameNames,
             isLive: true

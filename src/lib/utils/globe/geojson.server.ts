@@ -6,7 +6,7 @@ import chinaProvincesGeoJson from '$lib/assets/globe/china_provinces.geo.json';
 import chinaCitiesGeoJson from '$lib/assets/globe/china_cities.geo.json';
 import chinaCountiesGeoJson from '$lib/assets/globe/china_counties.geo.json';
 
-import { SUPPORTED_COUNTRIES, type SupportedCountryLevel } from '$lib/countries';
+import { SUPPORTED_COUNTRIES, type SupportedCountry, type SupportedCountryLevel } from '$lib/countries';
 import {
   normalizeWorldGeoJson,
   type GlobeDataset,
@@ -68,6 +68,16 @@ function findLevelConfig(dataset: string): SupportedCountryLevel | undefined {
   for (const country of SUPPORTED_COUNTRIES) {
     const level = country.levels.find((l) => l.dataset === dataset);
     if (level) return level;
+  }
+  return undefined;
+}
+
+export function getSupportedCountryByLevelDataset(
+  dataset: string
+): { country: SupportedCountry; level: SupportedCountryLevel; index: number } | undefined {
+  for (const country of SUPPORTED_COUNTRIES) {
+    const index = country.levels.findIndex((l) => l.dataset === dataset);
+    if (index >= 0) return { country, level: country.levels[index], index };
   }
   return undefined;
 }

@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { GAMES } from '$lib/constants';
   import { base } from '$app/paths';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import { getSupportedCountryByName } from '$lib/countries';
-  import type { GlobeFeatureCollection, GlobeFeature } from '$lib/utils/globe/geojson';
+  import type { OpeningHourTime } from '$lib/types';
 
   // ---- Types ----
 
@@ -25,13 +26,21 @@
       general: string[];
       detailed: string;
     };
-    openingHours: [number, number][];
+    openingHours: [OpeningHourTime, OpeningHourTime][];
     location: {
       type: 'Point';
       coordinates: [number, number];
     } | null;
     games: GameFormData[];
   }
+
+  type AddressOption = {
+    id: string;
+    value: string;
+    label: string;
+    adcode?: string;
+    supported?: boolean;
+  };
 
   type Props = {
     initialData?: Partial<ShopFormData>;
@@ -43,10 +52,10 @@
 
   // ---- Form state ----
 
-  let name = $state(initialData.name ?? '');
-  let comment = $state(initialData.comment ?? '');
-  let detailedAddress = $state(initialData.address?.detailed ?? '');
-  let location = $state<ShopFormData['location']>(initialData.location ?? null);
+  let name = $state(untrack(() => initialData.name ?? ''));
+  let comment = $state(untrack(() => initialData.comment ?? ''));
+  let detailedAddress = $state(untrack(() => initialData.address?.detailed ?? ''));
+  let location = $state<ShopFormData['location']>(untrack(() => initialData.location ?? null));
   let locationName = $state<string>('');
   let isSubmitting = $state(false);
   let errorMessage = $state('');
@@ -55,41 +64,53 @@
   // ---- Opening hours ----
 
   const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
-  const MINUTE_OPTIONS = [0, 15, 30, 45];
-
-  function decimalToHourMin(val: number): [number, number] {
-    const h = Math.floor(val);
-    const m = Math.round((val - h) * 60);
-    return [h, m];
-  }
-
-  function hourMinToDecimal(h: number, m: number): number {
-    return h + m / 60;
-  }
+  const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
 
   const DEFAULT_SLOT: [number, number, number, number] = [10, 0, 22, 0]; // openH, openM, closeH, closeM
 
-  function initSlot(pair?: [number, number]): [number, number, number, number] {
+  function normalizeTime(time?: OpeningHourTime | number): [number, number] {
+    if (typeof time === 'number') {
+      const normalized = ((time % 24) + 24) % 24 || 0;
+      let hour = Math.floor(normalized);
+      let minute = Math.round((normalized - hour) * 60);
+      if (minute === 60) {
+        minute = 0;
+        hour = (hour + 1) % 24;
+      }
+      return [hour, minute];
+    }
+
+    const hour = Math.max(0, Math.min(23, Math.floor(Number(time?.hour) || 0)));
+    const minute = Math.max(0, Math.min(59, Math.floor(Number(time?.minute) || 0)));
+    return [hour, minute];
+  }
+
+  function initSlot(
+    pair?: [OpeningHourTime | number, OpeningHourTime | number]
+  ): [number, number, number, number] {
     if (!pair) return [...DEFAULT_SLOT];
-    const [oh, om] = decimalToHourMin(pair[0]);
-    const [ch, cm] = decimalToHourMin(pair[1]);
+    const [oh, om] = normalizeTime(pair[0]);
+    const [ch, cm] = normalizeTime(pair[1]);
     return [oh, om, ch, cm];
   }
 
   let openingHoursMode = $state<'constant' | 'per_day'>(
-    initialData.openingHours && initialData.openingHours.length === 7 ? 'per_day' : 'constant'
+    untrack(() =>
+      initialData.openingHours && initialData.openingHours.length === 7 ? 'per_day' : 'constant'
+    )
   );
 
   // Each slot: [openHour, openMin, closeHour, closeMin]
-  let slots = $state<[number, number, number, number][]>(() => {
-    if (openingHoursMode === 'per_day' && initialData.openingHours?.length === 7) {
-      return initialData.openingHours.map(initSlot);
+  const initialSlots = (() => {
+    if (openingHoursMode === 'per_day' && untrack(() => initialData.openingHours?.length === 7)) {
+      return untrack(() => initialData.openingHours!.map(initSlot));
     }
-    const base = initSlot(initialData.openingHours?.[0]);
+    const base = initSlot(untrack(() => initialData.openingHours?.[0]));
     return openingHoursMode === 'per_day'
       ? Array.from({ length: 7 }, () => [...base] as [number, number, number, number])
       : [base];
-  });
+  })();
+  let slots = $state<[number, number, number, number][]>(initialSlots);
 
   function setOpeningHoursMode(mode: 'constant' | 'per_day') {
     openingHoursMode = mode;
@@ -113,12 +134,14 @@
 
   // ---- Address ----
 
-  // Countries from world GeoJSON
-  let worldFeatures = $state<GlobeFeature[]>([]);
+  // Prepared address options from the shop address endpoint
+  const ADDRESS_OPTIONS_ENDPOINT = `${base}/api/shop/address-options`;
+
+  let countryOptions = $state<AddressOption[]>([]);
   let selectedCountryName = $state('');
-  let provinceFeatures = $state<GlobeFeature[]>([]);
-  let cityFeatures = $state<GlobeFeature[]>([]);
-  let countyFeatures = $state<GlobeFeature[]>([]);
+  let provinceOptions = $state<AddressOption[]>([]);
+  let cityOptions = $state<AddressOption[]>([]);
+  let countyOptions = $state<AddressOption[]>([]);
 
   let selectedProvinceName = $state('');
   let selectedProvinceAdcode = $state('');
@@ -153,7 +176,7 @@
     if (levels.length === 1) return true;
     if (!selectedCityName) return false;
     if (levels.length === 2) return true;
-    // Level 3: county select only appears when cityFeatures are loaded
+    // Level 3: county select only appears when city options are loaded
     // – we allow adding extra fields once city is chosen even if counties aren't needed
     return true;
   });
@@ -168,12 +191,22 @@
     extraFields = extraFields.filter((_, i) => i !== idx);
   }
 
-  // Load world countries
+  async function fetchAddressOptions(dataset = 'countries', parentAdcode?: string) {
+    const params = new URLSearchParams([
+      ['dataset', dataset],
+      ...(parentAdcode ? ([['parentAdcode', parentAdcode]] as [string, string][]) : [])
+    ]);
+
+    const response = await fetch(`${ADDRESS_OPTIONS_ENDPOINT}?${params}`);
+    if (!response.ok) throw new Error(`Failed to load ${dataset} address options`);
+    return (await response.json()) as AddressOption[];
+  }
+
+  // Load countries
   $effect(() => {
-    fetch(`${base}/api/globe/geojson?dataset=world`)
-      .then((r) => r.json() as Promise<GlobeFeatureCollection>)
-      .then((data) => {
-        worldFeatures = data.features.filter((f) => f.properties.name);
+    fetchAddressOptions()
+      .then((options) => {
+        countryOptions = options;
       })
       .catch(console.error);
   });
@@ -181,9 +214,9 @@
   // Load provinces when country changes
   $effect(() => {
     if (!selectedCountryObj) {
-      provinceFeatures = [];
-      cityFeatures = [];
-      countyFeatures = [];
+      provinceOptions = [];
+      cityOptions = [];
+      countyOptions = [];
       selectedProvinceName = '';
       selectedProvinceAdcode = '';
       selectedCityName = '';
@@ -193,10 +226,9 @@
     }
     if (selectedCountryObj.levels.length > 0) {
       const dataset = selectedCountryObj.levels[0].dataset;
-      fetch(`${base}/api/globe/geojson?dataset=${dataset}`)
-        .then((r) => r.json() as Promise<GlobeFeatureCollection>)
-        .then((data) => {
-          provinceFeatures = data.features;
+      fetchAddressOptions(dataset)
+        .then((options) => {
+          provinceOptions = options;
         })
         .catch(console.error);
     }
@@ -205,18 +237,17 @@
   // Load cities when province changes
   $effect(() => {
     if (!selectedProvinceAdcode || !selectedCountryObj || selectedCountryObj.levels.length < 2) {
-      cityFeatures = [];
+      cityOptions = [];
       selectedCityName = '';
       selectedCityAdcode = '';
-      countyFeatures = [];
+      countyOptions = [];
       selectedCountyName = '';
       return;
     }
     const dataset = selectedCountryObj.levels[1].dataset;
-    fetch(`${base}/api/globe/geojson?dataset=${dataset}&parentAdcode=${selectedProvinceAdcode}`)
-      .then((r) => r.json() as Promise<GlobeFeatureCollection>)
-      .then((data) => {
-        cityFeatures = data.features;
+    fetchAddressOptions(dataset, selectedProvinceAdcode)
+      .then((options) => {
+        cityOptions = options;
       })
       .catch(console.error);
   });
@@ -224,15 +255,14 @@
   // Load counties when city changes
   $effect(() => {
     if (!selectedCityAdcode || !selectedCountryObj || selectedCountryObj.levels.length < 3) {
-      countyFeatures = [];
+      countyOptions = [];
       selectedCountyName = '';
       return;
     }
     const dataset = selectedCountryObj.levels[2].dataset;
-    fetch(`${base}/api/globe/geojson?dataset=${dataset}&parentAdcode=${selectedCityAdcode}`)
-      .then((r) => r.json() as Promise<GlobeFeatureCollection>)
-      .then((data) => {
-        countyFeatures = data.features;
+    fetchAddressOptions(dataset, selectedCityAdcode)
+      .then((options) => {
+        countyOptions = options;
       })
       .catch(console.error);
   });
@@ -265,14 +295,17 @@
   // ---- Games ----
 
   let games = $state<GameFormData[]>(
-    initialData.games?.map((g) => ({
-      titleId: g.titleId,
-      name: g.name,
-      version: g.version,
-      comment: g.comment,
-      cost: g.cost,
-      quantity: g.quantity
-    })) ?? []
+    untrack(
+      () =>
+        initialData.games?.map((g) => ({
+          titleId: g.titleId,
+          name: g.name,
+          version: g.version,
+          comment: g.comment,
+          cost: g.cost,
+          quantity: g.quantity
+        })) ?? []
+    )
   );
 
   function addGame() {
@@ -301,9 +334,9 @@
       return;
     }
 
-    const openingHours: [number, number][] = slots.map(([oh, om, ch, cm]) => [
-      hourMinToDecimal(oh, om),
-      hourMinToDecimal(ch, cm)
+    const openingHours: [OpeningHourTime, OpeningHourTime][] = slots.map(([oh, om, ch, cm]) => [
+      { hour: oh, minute: om },
+      { hour: ch, minute: cm }
     ]);
 
     isSubmitting = true;
@@ -351,9 +384,7 @@
 
   <!-- Comment -->
   <div class="form-control gap-1.5">
-    <label class="label">
-      <span class="label-text font-medium">{m.shop_comment()}</span>
-    </label>
+    <span class="label-text font-medium">{m.shop_comment()}</span>
     <MarkdownEditor bind:value={comment} placeholder={m.shop_comment()} />
   </div>
 
@@ -363,8 +394,10 @@
 
     <!-- Country select (always shown) -->
     <div class="flex flex-col gap-1">
-      <label class="label-text text-sm">{m.shop_address_country()}</label>
+      <label class="label-text text-sm" for="shop-address-country">{m.shop_address_country()}</label
+      >
       <select
+        id="shop-address-country"
         class="select select-bordered w-full"
         bind:value={selectedCountryName}
         onchange={() => {
@@ -377,66 +410,75 @@
         }}
       >
         <option value="">{m.shop_select_country()}</option>
-        {#each worldFeatures as f (f.properties.featureId)}
-          <option value={f.properties.name}>{f.properties.name}</option>
+        {#each countryOptions as option (option.id)}
+          <option value={option.value}>{option.label}</option>
         {/each}
       </select>
     </div>
 
     <!-- Province select (for supported countries) -->
-    {#if selectedCountryObj && selectedCountryObj.levels.length > 0 && provinceFeatures.length > 0}
+    {#if selectedCountryObj && selectedCountryObj.levels.length > 0 && provinceOptions.length > 0}
       <div class="flex flex-col gap-1">
-        <label class="label-text text-sm">{m.shop_address_province()}</label>
+        <label class="label-text text-sm" for="shop-address-province"
+          >{m.shop_address_province()}</label
+        >
         <select
+          id="shop-address-province"
           class="select select-bordered w-full"
           bind:value={selectedProvinceName}
           onchange={(e) => {
             const target = e.target as HTMLSelectElement;
-            const feat = provinceFeatures.find((f) => f.properties.name === target.value);
-            selectedProvinceAdcode = feat?.properties.adcode ?? '';
+            const option = provinceOptions.find((o) => o.value === target.value);
+            selectedProvinceAdcode = option?.adcode ?? '';
             selectedCityName = '';
             selectedCityAdcode = '';
             selectedCountyName = '';
           }}
         >
           <option value="">{m.shop_select_province()}</option>
-          {#each provinceFeatures as f (f.properties.featureId)}
-            <option value={f.properties.name}>{f.properties.name}</option>
+          {#each provinceOptions as option (option.id)}
+            <option value={option.value}>{option.label}</option>
           {/each}
         </select>
       </div>
     {/if}
 
     <!-- City select -->
-    {#if selectedCountryObj && selectedCountryObj.levels.length > 1 && cityFeatures.length > 0}
+    {#if selectedCountryObj && selectedCountryObj.levels.length > 1 && cityOptions.length > 0}
       <div class="flex flex-col gap-1">
-        <label class="label-text text-sm">{m.shop_address_city()}</label>
+        <label class="label-text text-sm" for="shop-address-city">{m.shop_address_city()}</label>
         <select
+          id="shop-address-city"
           class="select select-bordered w-full"
           bind:value={selectedCityName}
           onchange={(e) => {
             const target = e.target as HTMLSelectElement;
-            const feat = cityFeatures.find((f) => f.properties.name === target.value);
-            selectedCityAdcode = feat?.properties.adcode ?? '';
+            const option = cityOptions.find((o) => o.value === target.value);
+            selectedCityAdcode = option?.adcode ?? '';
             selectedCountyName = '';
           }}
         >
           <option value="">{m.shop_select_city()}</option>
-          {#each cityFeatures as f (f.properties.featureId)}
-            <option value={f.properties.name}>{f.properties.name}</option>
+          {#each cityOptions as option (option.id)}
+            <option value={option.value}>{option.label}</option>
           {/each}
         </select>
       </div>
     {/if}
 
     <!-- County select -->
-    {#if selectedCountryObj && selectedCountryObj.levels.length > 2 && countyFeatures.length > 0}
+    {#if selectedCountryObj && selectedCountryObj.levels.length > 2 && countyOptions.length > 0}
       <div class="flex flex-col gap-1">
-        <label class="label-text text-sm">{m.shop_address_county()}</label>
-        <select class="select select-bordered w-full" bind:value={selectedCountyName}>
+        <label class="label-text text-sm" for="shop-address-county">{m.shop_address_county()}</label
+        >
+        <select
+          id="shop-address-county"
+          class="select select-bordered w-full"
+          bind:value={selectedCountyName}
+        >
           <option value="">{m.shop_select_county()}</option>
-          {#each countyFeatures as f (f.properties.featureId)}
-            <option value={f.properties.name}>{f.properties.name}</option>
+          {#each countyOptions as option (option.id)}
+            <option value={option.value}>{option.label}</option>
           {/each}
         </select>
       </div>
@@ -595,8 +637,13 @@
 
         <!-- Title -->
         <div class="form-control gap-1">
-          <label class="label-text text-sm">{m.shop_game_title()}</label>
-          <select class="select select-bordered" bind:value={game.titleId}>
+          <label class="label-text text-sm" for="shop-game-title-{idx}">{m.shop_game_title()}</label
+          >
+          <select
+            id="shop-game-title-{idx}"
+            class="select select-bordered w-full"
+            bind:value={game.titleId}
+          >
             <option value={0}>{m.shop_select_game_title()}</option>
             {#each GAMES as g (g.id)}
               <option value={g.id}>{g.key}</option>
@@ -607,32 +654,59 @@
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <!-- Name -->
           <div class="form-control gap-1">
-            <label class="label-text text-sm">{m.shop_game_name()}</label>
-            <input type="text" class="input input-bordered" bind:value={game.name} />
+            <label class="label-text text-sm" for="shop-game-name-{idx}">{m.shop_game_name()}</label
+            >
+            <input
+              id="shop-game-name-{idx}"
+              type="text"
+              class="input input-bordered w-full"
+              bind:value={game.name}
+            />
           </div>
 
           <!-- Version -->
           <div class="form-control gap-1">
-            <label class="label-text text-sm">{m.shop_game_version()}</label>
-            <input type="text" class="input input-bordered" bind:value={game.version} />
+            <label class="label-text text-sm" for="shop-game-version-{idx}"
+              >{m.shop_game_version()}</label
+            >
+            <input
+              id="shop-game-version-{idx}"
+              type="text"
+              class="input input-bordered w-full"
+              bind:value={game.version}
+            />
           </div>
 
           <!-- Cost -->
           <div class="form-control gap-1">
-            <label class="label-text text-sm">{m.shop_game_cost()}</label>
-            <input type="text" class="input input-bordered" bind:value={game.cost} />
+            <label class="label-text text-sm" for="shop-game-cost-{idx}">{m.shop_game_cost()}</label
+            >
+            <input
+              id="shop-game-cost-{idx}"
+              type="text"
+              class="input input-bordered w-full"
+              bind:value={game.cost}
+            />
           </div>
 
           <!-- Quantity -->
           <div class="form-control gap-1">
-            <label class="label-text text-sm">{m.shop_game_quantity()}</label>
-            <input type="number" class="input input-bordered" bind:value={game.quantity} min="1" />
+            <label class="label-text text-sm" for="shop-game-quantity-{idx}"
+              >{m.shop_game_quantity()}</label
+            >
+            <input
+              id="shop-game-quantity-{idx}"
+              type="number"
+              class="input input-bordered w-full"
+              bind:value={game.quantity}
+              min="1"
+            />
           </div>
         </div>
 
         <!-- Comment -->
         <div class="form-control gap-1">
-          <label class="label-text text-sm">{m.shop_game_comment()}</label>
+          <span class="label-text text-sm">{m.shop_game_comment()}</span>
           <MarkdownEditor
             bind:value={game.comment}
             placeholder={m.shop_game_comment()}
@@ -661,7 +735,12 @@
 
 <LocationPickerModal
   bind:isOpen={showLocationModal}
-  onLocationSelected={(loc) => {
+  onLocationSelected={(loc: {
+    longitude: number;
+    latitude: number;
+    name: string;
+    address: string;
+  }) => {
     location = {
       type: 'Point',
       coordinates: [loc.longitude, loc.latitude]

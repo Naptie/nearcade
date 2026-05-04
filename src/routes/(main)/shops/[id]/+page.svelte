@@ -15,11 +15,11 @@
     getGameName,
     getMyLocation,
     getShopOpeningHours,
-    getShopSourceUrl,
+    isShopChinaBased,
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
-  import { ATTENDANCE_RADIUS_KM, GAMES, ShopSource } from '$lib/constants';
+  import { ATTENDANCE_RADIUS_KM, GAMES } from '$lib/constants';
   import { getContext } from 'svelte';
   import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
@@ -88,7 +88,7 @@
   let otherShop = $derived.by(() => {
     if (!currentAttendanceFromServer) return false;
     const attendance = currentAttendanceFromServer;
-    return shop && (attendance.shop.source !== shop.source || attendance.shop.id !== shop.id)
+    return shop && (attendance.shop.id !== shop.id)
       ? attendance
       : false;
   });
@@ -128,7 +128,7 @@
     if (!shop || shop.isClaimed) return;
     try {
       const attendanceResponse = await fetch(
-        fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`)
+        fromPath(`/api/shops/${shop.id}/attendance`)
       );
       if (attendanceResponse.ok) {
         const result = (await attendanceResponse.json()) as {
@@ -165,7 +165,7 @@
   const getQueueData = async () => {
     if (!shop || !shop.isClaimed) return;
     try {
-      const queueResponse = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/queues`));
+      const queueResponse = await fetch(fromPath(`/api/shops/${shop.id}/queues`));
       if (queueResponse.ok) {
         const result = (await queueResponse.json()) as {
           success: boolean;
@@ -277,7 +277,7 @@
 
     isLoading = 1;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -306,7 +306,7 @@
 
     isLoading = 1;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
         method: 'DELETE'
       });
 
@@ -328,7 +328,7 @@
 
     isLoading = 2;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -441,7 +441,7 @@
     commentError = '';
 
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/comments`), {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/comments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newCommentContent.trim() })
@@ -491,7 +491,7 @@
     commentError = '';
 
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/comments`), {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/comments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -678,7 +678,7 @@
       {/snippet}
       {#snippet header(isMain = true)}
         {@const [link, label] =
-          shop.source === ShopSource.ZIV
+          !isShopChinaBased(shop)
             ? [
                 `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                   `${shop.name} ${formatShopAddress(shop)}`
@@ -715,7 +715,7 @@
               {/if}
             </h1>
             <span class="text-base-content/60 text-right not-md:hidden">
-              {shop.source.toUpperCase()} #{shop.id}
+              #{shop.id}
             </span>
             {@render attend('max-w-[40vw] min-w-24 tooltip-left md:hidden')}
           </div>
@@ -756,14 +756,11 @@
                 {m.explore_nearby()}
               </a>
               {#if data.user}
-                {@const isStarred = data.user.starredArcades?.some(
-                  (a) => a.id === shop.id && a.source === shop.source
-                )}
+                {@const isStarred = data.user.starredArcades?.includes(shop.id)}
                 {@const toggleStar = async () => {
                   isLoading = 3;
                   try {
                     const formData = new FormData();
-                    formData.append('arcadeSource', shop.source);
                     formData.append('arcadeId', shop.id.toString());
                     const response = await fetch(
                       resolve('/(main)/settings/starred-arcades') +
@@ -827,18 +824,6 @@
 
             <div class="flex flex-wrap items-center gap-2">
               <a
-                href={getShopSourceUrl(shop)}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn btn-secondary btn-soft"
-                title={m.view_on_source({ source: shop.source.toUpperCase() })}
-              >
-                <i class="fa-solid fa-external-link-alt"></i>
-                <span class="hidden sm:block md:hidden lg:block">
-                  {m.view_on_source({ source: shop.source.toUpperCase() })}
-                </span>
-              </a>
-              <a
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -891,11 +876,6 @@
                   </div>
                 {/if}
 
-                <div class="flex items-center justify-between gap-1">
-                  <span class="text-base-content/60 truncate">{m.data_source()}</span>
-                  <span class="text-right font-semibold">{shop.source.toUpperCase()}</span>
-                </div>
-
                 {#if shop.createdAt}
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60 truncate">{m.created()}</span>
@@ -912,16 +892,6 @@
                   <span class="text-base-content/60 truncate">{m.updated()}</span>
                   <span class="text-right font-semibold"
                     >{formatDistanceToNow(shop.updatedAt, {
-                      addSuffix: true,
-                      locale: getFnsLocale(getLocale())
-                    })}</span
-                  >
-                </div>
-
-                <div class="flex items-center justify-between gap-1">
-                  <span class="text-base-content/60 truncate">{m.synced()}</span>
-                  <span class="text-right font-semibold"
-                    >{formatDistanceToNow(shop.syncedAt, {
                       addSuffix: true,
                       locale: getFnsLocale(getLocale())
                     })}</span
@@ -1064,7 +1034,7 @@
 
           <!-- Attendance Reports -->
           {#if !shop.isClaimed}
-            <AttendanceReports shopSource={shop.source} shopId={shop.id} gamesList={GAMES} />
+            <AttendanceReports shopId={shop.id} gamesList={GAMES} />
           {/if}
         </div>
       </div>

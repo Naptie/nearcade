@@ -93,12 +93,12 @@ export const loadShops = async ({ url }: { url: URL }) => {
 
     if (fetchAttendance) {
       const attendanceData = await getShopsAttendanceData(
-        shops.map((shop) => ({ source: shop.source, id: shop.id })),
+        shops.map((shop) => shop.id),
         { fetchRegistered: false, fetchReported: true }
       );
 
       enrichedShops = enrichedShops.map((shop) => {
-        const shopIdentifier = `${shop.source}-${shop.id}`;
+        const shopIdentifier = shop.id.toString();
         const data = attendanceData.get(shopIdentifier);
 
         if (data && data.reported.length > 0) {

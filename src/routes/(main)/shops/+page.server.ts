@@ -131,7 +131,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 
       try {
         const attendanceDataMap = await getShopsAttendanceData(
-          shops.map((shop) => ({ source: shop.source, id: shop.id })),
+          shops.map((shop) => shop.id),
           {
             fetchRegistered: true,
             fetchReported: true,
@@ -140,7 +140,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         );
 
         shopsWithAttendance = shops.map((shop) => {
-          const shopIdentifier = `${shop.source}-${shop.id}`;
+          const shopIdentifier = shop.id.toString();
           const attendanceData = attendanceDataMap.get(shopIdentifier);
 
           if (!attendanceData) {

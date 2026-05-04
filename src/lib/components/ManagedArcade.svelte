@@ -2,7 +2,6 @@
   import { enhance } from '$app/forms';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import type { ShopSource } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import type { Game, Location } from '$lib/types';
   import { adaptiveNewTab, aggregateGames } from '$lib/utils';
@@ -13,7 +12,6 @@
     name: string;
     location: Location;
     games: Game[];
-    source: ShopSource;
   }
 
   let {
@@ -30,7 +28,7 @@
 
   const confirmRemoveArcade = () => {
     const form = document.getElementById(
-      `remove-arcade-${shop.source}-${shop.id}`
+      `remove-arcade-${shop.id}`
     ) as HTMLFormElement;
     if (form) {
       form.requestSubmit();
@@ -40,8 +38,7 @@
 
 <div class="group bg-base-100 flex items-center justify-between rounded-lg p-4">
   <a
-    href={resolve('/(main)/shops/[source]/[id]', {
-      source: shop.source,
+    href={resolve('/(main)/shops/[id]', {
       id: shop.id.toString()
     })}
     target={adaptiveNewTab()}
@@ -66,7 +63,6 @@
   </a>
   {#if shops !== undefined}
     <form method="POST" action="?/addArcade" use:enhance>
-      <input type="hidden" name="arcadeSource" value={shop.source} />
       <input type="hidden" name="arcadeId" value={shop.id} />
       <button
         type="submit"
@@ -96,12 +92,11 @@
       </a>
       {#if page.url.pathname.startsWith(resolve('/(main)/settings') + '/')}
         <form
-          id="remove-arcade-{shop.source}-{shop.id}"
+          id="remove-arcade-{shop.id}"
           method="POST"
           action="?/removeArcade"
           use:enhance
         >
-          <input type="hidden" name="arcadeSource" value={shop.source} />
           <input type="hidden" name="arcadeId" value={shop.id} />
         </form>
         <button

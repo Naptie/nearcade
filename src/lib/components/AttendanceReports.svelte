@@ -5,12 +5,12 @@
   import { formatDistanceToNow } from 'date-fns';
   import { onMount } from 'svelte';
   import UserAvatar from './UserAvatar.svelte';
-  import type { ShopSource, GAMES } from '$lib/constants';
+  import type { GAMES } from '$lib/constants';
   import { fromPath } from '$lib/utils/scoped';
 
   interface AttendanceReport {
     _id: string;
-    shop: { id: number; source: ShopSource };
+    shopId: number;
     games: { gameId: number; name: string; version: string; currentAttendances: number }[];
     comment: string | null;
     reportedBy: string;
@@ -24,11 +24,9 @@
   }
 
   let {
-    shopSource,
     shopId,
     gamesList
   }: {
-    shopSource: ShopSource;
     shopId: number;
     gamesList: readonly (typeof GAMES)[number][];
   } = $props();
@@ -42,7 +40,7 @@
     isLoading = true;
     try {
       const response = await fetch(
-        fromPath(`/api/shops/${shopSource}/${shopId}/history?page=${pageNum}&limit=5`)
+        fromPath(`/api/shops/${shopId}/history?page=${pageNum}&limit=5`)
       );
       if (response.ok) {
         const result = (await response.json()) as {

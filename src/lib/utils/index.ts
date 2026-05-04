@@ -1,6 +1,6 @@
 import { m } from '$lib/paraglide/messages';
 import { Database } from '$lib/db/index.client';
-import { GAMES, ShopSource } from '$lib/constants';
+import { GAMES } from '$lib/constants';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
@@ -1026,6 +1026,37 @@ export const formatHourLiteral = (hourNum: number) => {
   return `${hh}:${mm}`;
 };
 
+const normalizeOpeningHourTime = (time: unknown) => {
+  if (typeof time === 'number') {
+    const normalized = (((time % 24) + 24) % 24) || 0;
+    let hour = Math.floor(normalized);
+    let minute = Math.round((normalized - hour) * 60);
+    if (minute === 60) {
+      minute = 0;
+      hour = (hour + 1) % 24;
+    }
+    return { hour, minute };
+  }
+
+  const candidate = time as { hour?: unknown; minute?: unknown } | undefined;
+  const hour = Math.max(0, Math.min(23, Math.floor(Number(candidate?.hour) || 0)));
+  const minute = Math.max(0, Math.min(59, Math.floor(Number(candidate?.minute) || 0)));
+  return { hour, minute };
+};
+
+export const formatOpeningHourLiteral = (time: unknown) => {
+  const normalized = normalizeOpeningHourTime(time);
+  const hh = String(normalized.hour).padStart(2, '0');
+  const mm = String(normalized.minute).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
+export const isShopChinaBased = (shop: Pick<Shop, 'address'>) => {
+  return (
+    shop.address.general[0] && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(shop.address.general[0].trim())
+  );
+};
+
 /**
  * Formats a shop's address array into a readable string
  */
@@ -1036,7 +1067,7 @@ export const formatShopAddress = (
   const address = shop.addressHl || shop.address;
   const addressParts = getAddressParts(address.general);
 
-  const reverse = shop.source === ShopSource.ZIV;
+  const reverse = !isShopChinaBased(shop);
 
   return addressParts.length > 0
     ? (reverse
@@ -1063,13 +1094,6 @@ export const getAddressParts = (address: string[]) => {
   }
   return addressParts;
 };
-
-export const getShopSourceUrl = (shop: { id: number; source: ShopSource }): string =>
-  `${
-    shop.source === ShopSource.ZIV
-      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-      : 'https://map.bemanicn.com/shop/'
-  }${shop.id}`;
 
 /**
  * Determines timezone based on given coordinates
@@ -1098,43 +1122,64 @@ export const getCurrentTimeByLocation = (location: Location) => {
 
   // Determine the local date components by shifting now by the offset
   const nowShifted = new Date(nowMs + offsetMs);
-  return { nowShifted, offsetHours };
+  return { nowShifted, offsetHours, offsetMs };
 };
 
 const toleranceMsForShopOpen = 30 * 60 * 1000; // 30 minutes tolerance
 const toleranceMsForShopClose = 150 * 60 * 1000; // 2.5 hours tolerance
 
 /**
- * Calculate the next occurrence of the specified hour in the location's local time.
- * If that hour today has already passed, returns tomorrow at that hour.
+ * Calculate the next occurrence of the specified local time in the location.
  */
-export const getNextTimeAtHour = (location: Location, hours: number[], basisHour: number) => {
-  [basisHour, ...hours] = [basisHour, ...hours].map((hour) => Number(hour) || 0);
-  const { nowShifted, offsetHours } = getCurrentTimeByLocation(location);
+export const getNextTimeAtHour = (
+  location: Location,
+  hours: unknown[],
+  basisHour: unknown
+) => {
+  const normalizeHourMinute = (time: unknown) => {
+    const normalized = normalizeOpeningHourTime(time);
+    const hour = normalized.hour;
+    const minute = normalized.minute;
+    const totalMinutes = (((hour * 60 + minute) % 1440) + 1440) % 1440;
+    return {
+      hour: Math.floor(totalMinutes / 60),
+      minute: totalMinutes % 60,
+      totalMinutes
+    };
+  };
+
+  const basis = normalizeHourMinute(basisHour);
+  const normalizedHours = hours.map(normalizeHourMinute);
+
+  const { nowShifted, offsetMs } = getCurrentTimeByLocation(location);
   const now = new Date();
 
   const year = nowShifted.getUTCFullYear();
   const month = nowShifted.getUTCMonth();
   const date = nowShifted.getUTCDate();
-  const hour = basisHour - offsetHours;
-  const minute = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
 
-  let targetUtcMs = Date.UTC(year, month, date, hour, minute, 0, 0);
+  let targetUtcMs = Date.UTC(year, month, date, 0, 0, 0, 0) +
+    basis.totalMinutes * 60 * 1000 -
+    offsetMs;
 
   // If that target time is not in the future, move to next day
   let i = 0;
   while (targetUtcMs + toleranceMsForShopClose <= now.getTime()) {
-    targetUtcMs = Date.UTC(year, month, date + ++i, hour, minute, 0, 0);
+    targetUtcMs =
+      Date.UTC(year, month, date + ++i, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
   }
 
   // Otherwise, if the target time is too far in the future (more than 24 hours), move to previous day
   i = 0;
   while (targetUtcMs - toleranceMsForShopOpen - now.getTime() > 24 * 3600 * 1000) {
-    targetUtcMs = Date.UTC(year, month, date - ++i, hour, minute, 0, 0);
+    targetUtcMs =
+      Date.UTC(year, month, date - ++i, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
   }
 
   return {
-    hours: hours.map((hour) => new Date(targetUtcMs + (hour - basisHour) * 3600 * 1000)),
+    hours: normalizedHours.map((hour) =>
+      new Date(targetUtcMs + (hour.totalMinutes - basis.totalMinutes) * 60 * 1000)
+    ),
     hour: new Date(targetUtcMs)
   };
 };
@@ -1150,9 +1195,13 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
     shop.openingHours.length === 1
       ? shop.openingHours[0]
       : (shop.openingHours[nowShifted.getDay()] ?? shop.openingHours[0]);
+  const normalizedOpeningHours = openingHours ?? [
+    { hour: 10, minute: 0 },
+    { hour: 22, minute: 0 }
+  ];
   const {
     hours: [open, close]
-  } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
+  } = getNextTimeAtHour(shop.location, normalizedOpeningHours, normalizedOpeningHours[1]);
   const openTolerated = new Date(open.getTime() - toleranceMsForShopOpen);
   const closeTolerated = new Date(close.getTime() + toleranceMsForShopClose);
 
@@ -1162,8 +1211,8 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
     openTolerated,
     closeTolerated,
     offsetHours: offsetHours,
-    openLocal: formatHourLiteral(openingHours[0] ?? 0),
-    closeLocal: formatHourLiteral(openingHours[1] ?? 0)
+    openLocal: formatOpeningHourLiteral(normalizedOpeningHours[0]),
+    closeLocal: formatOpeningHourLiteral(normalizedOpeningHours[1])
   };
 };
 

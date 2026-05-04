@@ -14,7 +14,7 @@ import {
   toPlainArray,
   toPlainObject
 } from '$lib/utils';
-import { PAGINATION, ShopSource } from '$lib/constants';
+import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
@@ -353,14 +353,9 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeSource = formData.get('arcadeSource') as ShopSource;
       const arcadeIdRaw = formData.get('arcadeId') as string;
       const arcadeId = parseInt(arcadeIdRaw, 10);
       const clubId = formData.get('clubId') as string;
-
-      if (!arcadeSource) {
-        return fail(400, { message: m.arcade_source_is_required() });
-      }
 
       if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
         return fail(400, { message: m.arcade_id_and_club_id_are_required() });
@@ -378,8 +373,7 @@ export const actions: Actions = {
 
       // Check if arcade exists
       const arcade = await shopsCollection.findOne({
-        id: arcadeId,
-        source: arcadeSource
+        id: arcadeId
       });
       if (!arcade) {
         return fail(404, { message: m.arcade_not_found() });
@@ -389,7 +383,7 @@ export const actions: Actions = {
       await clubsCollection.updateOne(
         { id: clubId },
         {
-          $addToSet: { starredArcades: { id: arcadeId, source: arcadeSource } },
+          $addToSet: { starredArcades: arcadeId },
           $set: { updatedAt: new Date() }
         }
       );
@@ -409,14 +403,9 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeSource = formData.get('arcadeSource') as ShopSource;
       const arcadeIdRaw = formData.get('arcadeId') as string;
       const arcadeId = parseInt(arcadeIdRaw, 10);
       const clubId = formData.get('clubId') as string;
-
-      if (!arcadeSource) {
-        return fail(400, { message: m.arcade_source_is_required() });
-      }
 
       if (!arcadeIdRaw || isNaN(arcadeId) || !clubId) {
         return fail(400, { message: m.arcade_id_and_club_id_are_required() });
@@ -433,7 +422,7 @@ export const actions: Actions = {
 
       // Remove arcade from club's starred list
       await clubsCollection.updateOne({ id: clubId }, {
-        $pull: { starredArcades: { id: arcadeId, source: arcadeSource } },
+        $pull: { starredArcades: arcadeId },
         $set: { updatedAt: new Date() }
       } as Record<string, unknown>);
 

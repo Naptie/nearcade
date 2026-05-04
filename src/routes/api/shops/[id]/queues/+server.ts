@@ -2,7 +2,6 @@ import { error, json, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Machine, QueueRecord, Shop, QueuePosition } from '$lib/types';
-import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '$lib/auth/types';
@@ -12,7 +11,6 @@ import { toPlainObject } from '$lib/utils';
 // Helper to validate machine API secret and check shop binding
 const validateMachineAuth = async (
   request: Request,
-  shopSource: ShopSource,
   shopId: number
 ): Promise<Machine> => {
   const authHeader = request.headers.get('Authorization');
@@ -34,7 +32,7 @@ const validateMachineAuth = async (
   }
 
   // Validate machine is bound to the correct shop
-  if (machine.shopSource !== shopSource || machine.shopId !== shopId) {
+  if (machine.shopId !== shopId) {
     throw error(403, m.machine_not_bound_to_shop());
   }
 
@@ -99,7 +97,7 @@ const sendQueueNotification = async (
         slot: slotIndex,
         status: statusMessage
       },
-      `${getOrigin(request)}/shops/${shop.source}/${shop.id}`
+      `${getOrigin(request)}/shops/${shop.id}`
     );
   } catch (err) {
     console.error(
@@ -116,21 +114,15 @@ interface QueueGameData {
 
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
     const idRaw = params.id;
     const id = parseInt(idRaw);
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
 
     if (isNaN(id)) {
       error(400, m.invalid_shop_id());
     }
 
     // Validate machine authentication and shop binding
-    const machine = await validateMachineAuth(request, source, id);
+    const machine = await validateMachineAuth(request, id);
 
     const body = (await request.json()) as {
       queues: QueueGameData[];
@@ -180,7 +172,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Verify shop exists and has the games
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
-    const shop = await shopsCollection.findOne({ source, id });
+    const shop = await shopsCollection.findOne({ id });
 
     if (!shop) {
       error(404, m.shop_not_found());
@@ -195,7 +187,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Get previous queue state for comparison
     const queuesCollection = db.collection<QueueRecord>('queues');
-    const previousData = await queuesCollection.findOne({ shopSource: source, shopId: id });
+    const previousData = await queuesCollection.findOne({ shopId: id });
     const previousQueues = previousData ? previousData.games : [];
 
     // Create a Map of the final state to ensure we retain unchanged queues
@@ -313,7 +305,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Update all queue records with the MERGED data
     const now = new Date();
     await queuesCollection.updateOne(
-      { shopSource: source, shopId: id },
+      { shopId: id },
       {
         $set: {
           games: mergedQueues,
@@ -321,7 +313,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
           updatedBy: machine.id
         },
         $setOnInsert: {
-          shopSource: source,
           shopId: id
         }
       },
@@ -354,14 +345,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 export const GET: RequestHandler = async ({ params }) => {
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
     const idRaw = params.id;
     const id = parseInt(idRaw);
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
 
     if (isNaN(id)) {
       error(400, m.invalid_shop_id());
@@ -372,7 +357,7 @@ export const GET: RequestHandler = async ({ params }) => {
     const usersCollection = db.collection<User>('users');
 
     // Get all queues for this shop
-    const data = await queuesCollection.findOne({ shopSource: source, shopId: id });
+    const data = await queuesCollection.findOne({ shopId: id });
     const queues = data ? data.games : [];
 
     // Collect all user IDs from queues

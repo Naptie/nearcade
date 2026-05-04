@@ -57,10 +57,7 @@ export const actions: Actions = {
     }
 
     // Delete the shop
-    await db.collection<Shop>('shops').deleteOne({
-      source: deleteRequest.shopSource,
-      id: deleteRequest.shopId
-    });
+    await db.collection<Shop>('shops').deleteOne({ id: deleteRequest.shopId });
 
     // Mark request as approved
     await db.collection('shop_delete_requests').updateOne(

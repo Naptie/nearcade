@@ -1,18 +1,12 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { Shop, ShopDeleteRequest } from '$lib/types';
-import { ShopSource } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-  const { source: sourceRaw, id } = params;
-  const source = sourceRaw.toLowerCase().trim() as ShopSource;
-
-  if (!Object.values(ShopSource).includes(source)) {
-    error(400, m.invalid_shop_source());
-  }
+  const { id } = params;
 
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
@@ -33,7 +27,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
-  const shop = await shopsCollection.findOne({ source, id: shopId });
+  const shop = await shopsCollection.findOne({ id: shopId });
 
   if (!shop) {
     error(404, m.shop_not_found());
@@ -44,7 +38,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const deleteRequest: ShopDeleteRequest = {
     id: nanoid(),
-    shopSource: source,
     shopId,
     shopName: shop.name,
     reason,
@@ -54,7 +47,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     createdAt: new Date()
   };
 
-  await db.collection('shop_delete_requests').insertOne(deleteRequest);
+  await db.collection<ShopDeleteRequest>('shop_delete_requests').insertOne(deleteRequest);
 
   return json({ success: true, id: deleteRequest.id }, { status: 201 });
 };
@@ -65,12 +58,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     error(403, m.insufficient_permissions());
   }
 
-  const { source: sourceRaw, id } = params;
-  const source = sourceRaw.toLowerCase().trim() as ShopSource;
-
-  if (!Object.values(ShopSource).includes(source)) {
-    error(400, m.invalid_shop_source());
-  }
+  const { id } = params;
 
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
@@ -80,7 +68,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   const db = mongo.db();
   const requests = await db
     .collection('shop_delete_requests')
-    .find({ shopSource: source, shopId })
+    .find({ shopId })
     .sort({ createdAt: -1 })
     .toArray();
 

@@ -3,7 +3,6 @@ import mongo from '$lib/db/index.server';
 import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
 import type { User, AuthSession } from '$lib/auth/types';
 import { protect } from '$lib/utils';
-import type { ShopSource } from '$lib/constants';
 
 export interface AttendanceDataOptions {
   fetchRegistered?: boolean;
@@ -65,7 +64,7 @@ const calculateShopTotal = (
  * @returns Map of shop attendance data keyed by "source-id"
  */
 export const getShopsAttendanceData = async (
-  shops: Array<{ source: ShopSource; id: number }>,
+  shopIds: Array<number>,
   options: AttendanceDataOptions = {}
 ): Promise<Map<string, ShopAttendanceResult>> => {
   const { fetchRegistered = false, fetchReported = true, session = null } = options;
@@ -76,13 +75,13 @@ export const getShopsAttendanceData = async (
   await ensureConnected();
 
   const results = new Map<string, ShopAttendanceResult>();
-  if (shops.length === 0) {
+  if (shopIds.length === 0) {
     return results;
   }
 
   // Initialize results for all shops
-  for (const shop of shops) {
-    const identifier = `${shop.source}-${shop.id}`;
+  for (const shopId of shopIds) {
+    const identifier = shopId.toString();
     results.set(identifier, {
       shopIdentifier: identifier,
       total: 0,
@@ -98,16 +97,18 @@ export const getShopsAttendanceData = async (
 
   // Collect all keys for all shops
   if (fetchRegistered) {
-    for (const shop of shops) {
-      const pattern = `nearcade:attend:${shop.source}-${shop.id}:*`;
+    for (const shopId of shopIds) {
+      const identifier = shopId.toString();
+      const pattern = `nearcade:attend:${identifier}:*`;
       const keys = await redis.keys(pattern);
       allRegisteredKeys.push(...keys);
     }
   }
 
   if (fetchReported) {
-    for (const shop of shops) {
-      const pattern = `nearcade:attend-report:${shop.source}-${shop.id}:*`;
+    for (const shopId of shopIds) {
+      const identifier = shopId.toString();
+      const pattern = `nearcade:attend-report:${identifier}:*`;
       const keys = await redis.keys(pattern);
       allReportedKeys.push(...keys);
     }
@@ -207,13 +208,13 @@ export const getShopsAttendanceData = async (
   const shopsCollection = db.collection<Shop>('shops');
   const shopDocs = await shopsCollection
     .find({
-      $or: shops.map((s) => ({ source: s.source, id: s.id }))
+      $or: shopIds.map((s) => ({ id: s }))
     })
     .toArray();
 
   // Calculate totals for each shop
   for (const shopDoc of shopDocs) {
-    const identifier = `${shopDoc.source}-${shopDoc.id}`;
+    const identifier = shopDoc.id.toString();
     const result = results.get(identifier);
 
     if (result) {
@@ -349,21 +350,18 @@ export const getAllShopsAttendanceData = async (): Promise<
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
 
-  // Parse shop identifiers to get source and id
-  const shopIdentifiers = Array.from(allShopIdentifiers).map((identifier) => {
-    const [source, id] = identifier.split('-');
-    return { source: source as ShopSource, id: parseInt(id) };
-  });
+  // Parse shop identifiers to numeric IDs
+  const shopIds = Array.from(allShopIdentifiers).map((identifier) => parseInt(identifier));
 
   const shopDocs = await shopsCollection
     .find({
-      $or: shopIdentifiers.map((s) => ({ source: s.source, id: s.id }))
+      id: { $in: shopIds }
     })
     .toArray();
 
   // Calculate totals for each game in each shop
   for (const shopDoc of shopDocs) {
-    const identifier = `${shopDoc.source}-${shopDoc.id}`;
+    const identifier = shopDoc.id.toString();
     const registered = shopRegistered.get(identifier) || [];
     const reported = shopReports.get(identifier) || [];
 

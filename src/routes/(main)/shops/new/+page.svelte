@@ -36,9 +36,7 @@
 
     const { shop } = await response.json();
     successMessage = m.shop_created_successfully();
-    await goto(
-      resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: String(shop.id) })
-    );
+    await goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }));
   }
 </script>
 

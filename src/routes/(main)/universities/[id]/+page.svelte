@@ -826,8 +826,7 @@
                     {#each displayedFrequentingArcades as shop (shop._id)}
                       <div class="flex items-center justify-between p-4">
                         <a
-                          href={resolve('/(main)/shops/[source]/[id]', {
-                            source: shop.source,
+                          href={resolve('/(main)/shops/[id]', {
                             id: shop.id.toString()
                           })}
                           target={adaptiveNewTab()}

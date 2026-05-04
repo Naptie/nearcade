@@ -283,10 +283,10 @@
     amap = event.detail;
   };
 
-  const handleLeave = async (shop: { source: string; id: number }) => {
+  const handleLeave = async (shop: { id: number }) => {
     isLeavingShop = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.source}/${shop.id}/attendance`), {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
         method: 'DELETE'
       });
 
@@ -814,8 +814,7 @@
                     : ''}"
                 >
                   <a
-                    href={resolve('/(main)/shops/[source]/[id]', {
-                      source: shop.source,
+                    href={resolve('/(main)/shops/[id]', {
                       id: shop.id.toString()
                     })}
                     class="flex items-center justify-between gap-4"

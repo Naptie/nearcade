@@ -87,16 +87,13 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       // Get frequenting arcades for the university
       let frequentingArcades: Shop[] = [];
       if (university.frequentingArcades && university.frequentingArcades.length > 0) {
-        const frequentingArcadeIdentifiers = university.frequentingArcades.slice(
+        const frequentingArcadeIds = university.frequentingArcades.slice(
           0,
           PAGINATION.PAGE_SIZE
         );
         frequentingArcades = (await shopsCollection
           .find({
-            $or: frequentingArcadeIdentifiers.map((identifier: { id: number; source: string }) => ({
-              id: identifier.id,
-              source: identifier.source
-            }))
+            id: { $in: frequentingArcadeIds }
           })
           .toArray()) as unknown as Shop[];
       }

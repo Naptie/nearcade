@@ -5,7 +5,8 @@
     formatHourLiteral,
     formatShopAddress,
     getGameName,
-    adaptiveNewTab
+    adaptiveNewTab,
+    isShopChinaBased
   } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { GAMES } from '$lib/constants';
@@ -52,8 +53,7 @@
   });
 
   const shopPageUrl = $derived(
-    resolve('/(main)/shops/[source]/[id]', {
-      source: shop.source,
+    resolve('/(main)/shops/[id]', {
       id: shop.id.toString()
     })
   );
@@ -62,14 +62,15 @@
       shop.location.coordinates[0]
     )}&latitude=${encodeURIComponent(shop.location.coordinates[1])}&name=${encodeURIComponent(shop.name)}&radius=10`
   );
+  const isChinaBased = $derived(isShopChinaBased(shop));
   const mapUrl = $derived(
-    shop.source === 'ziv'
+    !isChinaBased
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
           `${shop.name} ${formatShopAddress(shop)}`
         )}`
       : `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${shop.location.coordinates[1]}&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`
   );
-  const mapLinkLabel = $derived(shop.source === 'ziv' ? m.view_in_google_maps() : m.view_in_amap());
+  const mapLinkLabel = $derived(!isChinaBased ? m.view_in_google_maps() : m.view_in_amap());
 </script>
 
 {#snippet cardContent()}

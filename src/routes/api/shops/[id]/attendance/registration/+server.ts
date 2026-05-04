@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { Machine, AttendanceRegistration, Shop } from '$lib/types';
-import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
@@ -15,7 +14,6 @@ const MAX_EXPIRATION_SECONDS = 2 * 60; // 2 minutes
 // Helper to validate machine API secret and check shop binding
 const validateMachineAuth = async (
   request: Request,
-  shopSource: ShopSource,
   shopId: number
 ): Promise<Machine> => {
   const authHeader = request.headers.get('Authorization');
@@ -37,7 +35,7 @@ const validateMachineAuth = async (
   }
 
   // Validate machine is bound to the correct shop
-  if (machine.shopSource !== shopSource || machine.shopId !== shopId) {
+  if (machine.shopId !== shopId) {
     throw error(403, m.machine_not_bound_to_shop());
   }
 
@@ -46,21 +44,15 @@ const validateMachineAuth = async (
 
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
     const idRaw = params.id;
     const id = parseInt(idRaw);
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
 
     if (isNaN(id)) {
       error(400, m.invalid_shop_id());
     }
 
     // Validate machine authentication
-    const machine = await validateMachineAuth(request, source, id);
+    const machine = await validateMachineAuth(request, id);
 
     const body = (await request.json()) as {
       slotIndex: string;
@@ -84,7 +76,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Store registration data in Redis
     const registration: AttendanceRegistration = {
-      shopSource: source,
       shopId: id.toString(),
       machineId: machine.id,
       slotIndex,
@@ -100,7 +91,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Get shop name for display
     const db = mongo.db();
-    const shop = await db.collection<Shop>('shops').findOne({ source, id });
+    const shop = await db.collection<Shop>('shops').findOne({ id });
 
     return json({
       success: true,
@@ -119,15 +110,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 export const GET: RequestHandler = async ({ params, request, url }) => {
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
     const idRaw = params.id;
     const id = parseInt(idRaw);
     const token = url.searchParams.get('token');
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
 
     if (isNaN(id)) {
       error(400, m.invalid_shop_id());
@@ -138,7 +123,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
     }
 
     // Validate machine authentication
-    await validateMachineAuth(request, source, id);
+    await validateMachineAuth(request, id);
 
     // Get registration from Redis
     await ensureConnected();
@@ -151,7 +136,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
     const registration: AttendanceRegistration = JSON.parse(registrationStr);
 
     // Verify the registration belongs to this shop
-    if (registration.shopSource !== source || registration.shopId !== id.toString()) {
+    if (registration.shopId !== id.toString()) {
       error(403, m.access_denied());
     }
 
@@ -177,15 +162,9 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
 
 export const DELETE: RequestHandler = async ({ params, request, url }) => {
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
     const idRaw = params.id;
     const id = parseInt(idRaw);
     const token = url.searchParams.get('token');
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
 
     if (isNaN(id)) {
       error(400, m.invalid_shop_id());
@@ -196,7 +175,7 @@ export const DELETE: RequestHandler = async ({ params, request, url }) => {
     }
 
     // Validate machine authentication
-    await validateMachineAuth(request, source, id);
+    await validateMachineAuth(request, id);
 
     // Delete registration from Redis
     await ensureConnected();

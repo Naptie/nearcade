@@ -9,7 +9,6 @@
     aggregateGames,
     formatShopAddress,
     getGameName,
-    getShopSourceUrl,
     pageTitle
   } from '$lib/utils';
   import { PAGINATION, GAMES } from '$lib/constants';
@@ -241,8 +240,7 @@
           {#each shopsData.shops as shop (shop._id)}
             {@const aggregatedGames = aggregateGames(shop)}
             <a
-              href={resolve('/(main)/shops/[source]/[id]', {
-                source: shop.source,
+              href={resolve('/(main)/shops/[id]', {
                 id: shop.id.toString()
               })}
               class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
@@ -260,16 +258,6 @@
                         {@html shop.nameHl || shop.name}
                       </h3>
                     </div>
-                    <button
-                      class="btn btn-soft btn-sm btn-circle"
-                      onclick={(e) => {
-                        e.preventDefault();
-                        window.open(getShopSourceUrl(shop), '_blank');
-                      }}
-                      aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
-                    >
-                      <i class="fa-solid fa-external-link-alt"></i>
-                    </button>
                   </div>
 
                   <div class="text-base-content/80 flex items-start gap-2 text-sm">

@@ -52,12 +52,6 @@ export const HOVERED_ROUTE_INDEX = 29999;
 export const SELECTED_ROUTE_INDEX = 20000;
 export const ROUTE_INDEX = 10000;
 
-export enum ShopSource {
-  BEMANICN = 'bemanicn',
-  ZIV = 'ziv',
-  NEARCADE = 'nearcade'
-}
-
 export const SHOP_ID_OFFSET_BEMANICN = 10000;
 export const SHOP_ID_OFFSET_ZIV = 20000;
 

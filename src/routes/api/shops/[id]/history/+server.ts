@@ -2,18 +2,10 @@ import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { AttendanceReportRecord, Shop } from '$lib/types';
-import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
-
     const idRaw = params.id;
     if (!idRaw) {
       error(400, m.invalid_shop_id());
@@ -37,7 +29,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
     // Validate shop exists
     const shopsCollection = db.collection<Shop>('shops');
     const shop = await shopsCollection.findOne({
-      source,
       id
     });
 
@@ -53,7 +44,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
     // Get total count
     const totalCount = await attendanceReportsCollection.countDocuments({
       'shop.id': id,
-      'shop.source': source
     });
 
     // Get paginated reports with user data
@@ -62,7 +52,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
         {
           $match: {
             'shop.id': id,
-            'shop.source': source
           }
         },
         {

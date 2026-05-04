@@ -3,21 +3,14 @@ import type { PageServerLoad } from './$types';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
 import type { AttendanceRegistration, Shop } from '$lib/types';
-import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 import { loginRedirect } from '$lib/utils/scoped';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
-  const { source: sourceRaw, id } = params;
-  const source = sourceRaw.toLowerCase().trim();
+  const { id } = params;
   const token = url.searchParams.get('token');
-
-  // Validate source
-  if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    error(404, m.invalid_shop_source());
-  }
 
   // Validate id
   const shopId = parseInt(id);
@@ -54,7 +47,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   const registration: AttendanceRegistration = JSON.parse(registrationStr);
 
   // Verify the registration belongs to this shop
-  if (registration.shopSource !== source || registration.shopId !== shopId.toString()) {
+  if (registration.shopId !== shopId.toString()) {
     return {
       status: 'error' as const,
       errorCode: 'invalid_shop',
@@ -66,7 +59,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   // Get shop details
   const db = mongo.db();
   const shop = await db.collection<Shop>('shops').findOne({
-    source: source as ShopSource,
     id: shopId
   });
 
@@ -75,7 +67,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     return {
       status: 'error' as const,
       errorCode: 'already_registered',
-      shop: shop ? { name: shop.name, source: shop.source, id: shop.id } : null,
+      shop: shop ? { name: shop.name, id: shop.id } : null,
       slotIndex: registration.slotIndex
     };
   }
@@ -89,7 +81,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   return {
     status: 'success' as const,
     errorCode: null,
-    shop: shop ? { name: shop.name, source: shop.source, id: shop.id } : null,
+    shop: shop ? { name: shop.name, id: shop.id } : null,
     slotIndex: registration.slotIndex
   };
 };

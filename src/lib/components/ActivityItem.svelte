@@ -194,9 +194,8 @@
         return '#';
 
       case 'shop_attendance':
-        if (activity.shopSource && activity.shopId) {
-          return resolve('/(main)/shops/[source]/[id]', {
-            source: activity.shopSource,
+        if (activity.shopId) {
+          return resolve('/(main)/shops/[id]', {
             id: activity.shopId.toString()
           });
         }

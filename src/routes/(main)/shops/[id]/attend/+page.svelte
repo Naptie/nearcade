@@ -77,8 +77,7 @@
       <div class="mt-6 flex items-center justify-center gap-2">
         {#if data.shop}
           <a
-            href={resolve('/(main)/shops/[source]/[id]', {
-              source: data.shop.source,
+            href={resolve('/(main)/shops/[id]', {
               id: data.shop.id.toString()
             })}
             class="btn btn-primary"

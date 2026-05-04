@@ -3,7 +3,6 @@ import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
-import { ShopSource } from '$lib/constants';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { AuthSession } from '$lib/auth/types';
 
@@ -21,12 +20,12 @@ const getAttendanceData = async (
     }
 
     const attendanceData = await getShopsAttendanceData(
-      shops.map((shop) => ({ source: shop.source, id: shop.id })),
+      shops.map((shop) => shop.id),
       { fetchRegistered: false, fetchReported: true, session }
     );
 
     return shops.map((shop) => {
-      const shopIdentifier = `${shop.source}-${shop.id}`;
+      const shopIdentifier = shop.id.toString();
       const data = attendanceData.get(shopIdentifier);
 
       if (data && data.reported.length > 0) {
@@ -85,19 +84,16 @@ export const load: PageServerLoad = async ({ parent }) => {
 
         if (userAttendanceKeys.length > 0) {
           // Extract shop identifier from the first key
-          // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
+          // Key format: nearcade:attend:${id}:${userId}:${attendedAt}:${gameId},...
           const firstKey = userAttendanceKeys[0];
           const keyParts = firstKey.split(':');
 
           if (keyParts.length >= 3) {
-            const shopIdentifier = keyParts[2]; // source-id format
-            const [source, idStr] = shopIdentifier.split('-');
-            const id = parseInt(idStr);
+            const id = parseInt(keyParts[2]);
 
-            if (source && !isNaN(id)) {
+            if (!isNaN(id)) {
               // Fetch the shop data from MongoDB
               const shopData = await db.collection<Shop>('shops').findOne({
-                source: source as ShopSource,
                 id: id
               });
 
@@ -120,11 +116,7 @@ export const load: PageServerLoad = async ({ parent }) => {
     if (user.starredArcades && user.starredArcades.length > 0) {
       const starredShopsQuery = db
         .collection<Shop>('shops')
-        .find({
-          $or: user.starredArcades.map((shop) => ({
-            $and: [{ source: shop.source }, { id: shop.id }]
-          }))
-        })
+        .find({ id: { $in: user.starredArcades } })
         .limit(20);
 
       starredShops = await starredShopsQuery.toArray();
@@ -161,35 +153,30 @@ export const load: PageServerLoad = async ({ parent }) => {
         .filter((arcades) => arcades && arcades.length > 0);
 
       if (arcadesLists.length > 0) {
+        const clubStarredArcadeIds = Array.from(new Set(arcadesLists.flat()));
         const clubStarredShopsQuery = db
           .collection<Shop>('shops')
-          .find({
-            $or: arcadesLists.flatMap((arcades) =>
-              arcades.map((shop: { source: string; id: number }) => ({
-                $and: [{ source: shop.source }, { id: shop.id }]
-              }))
-            )
-          })
+          .find({ id: { $in: clubStarredArcadeIds } })
           .limit(20);
 
         joinedClubsStarredShops = await clubStarredShopsQuery.toArray();
       }
     }
 
-    // Merge and deduplicate shops by "source-id" while preserving order
+    // Merge and deduplicate shops by id while preserving order
     // If user is currently attending a shop, add it first
     const seen = new Set<string>();
     const allShops: Shop[] = [];
 
     if (currentlyAttendingShop) {
-      const currentKey = `${currentlyAttendingShop.source}-${currentlyAttendingShop.id}`;
+      const currentKey = `${currentlyAttendingShop.id}`;
       allShops.push(currentlyAttendingShop);
       seen.add(currentKey);
     }
 
     // Add starred shops and club starred shops
     for (const shop of [...starredShops, ...joinedClubsStarredShops]) {
-      const key = `${shop.source}-${shop.id}`;
+      const key = `${shop.id}`;
       if (!seen.has(key)) {
         seen.add(key);
         allShops.push(shop);

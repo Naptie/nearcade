@@ -24,7 +24,8 @@
     formatShopAddress,
     getGameName,
     adaptiveNewTab,
-    getShopOpeningHours
+    getShopOpeningHours,
+    isShopChinaBased
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -37,8 +38,7 @@
     SHOP_INDEX,
     SELECTED_SHOP_INDEX,
     HOVERED_SHOP_INDEX,
-    GAMES,
-    ShopSource
+    GAMES
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
@@ -50,9 +50,9 @@
 
   let now = $state(new Date());
 
-  // Determine if all shops are from 'ziv' source to enable Google Maps
+  // Determine if all shops are overseas to enable Google Maps
   const useGoogleMaps = $derived(
-    data.shops.length > 0 && data.shops.every((shop) => shop.source === ShopSource.ZIV)
+    data.shops.length > 0 && data.shops.every((shop) => !isShopChinaBased(shop))
   );
 
   const amapContext = getContext<AMapContext>('amap');
@@ -110,9 +110,9 @@
     if (browser) {
       const newCounts: Record<string, number> = {};
       data.shops.forEach((shop) => {
-        const stored = localStorage.getItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
+        const stored = localStorage.getItem(`nearcade-shop-${shop.id}-count`);
         if (stored) {
-          newCounts[`${shop.source}-${shop.id}`] = parseInt(stored, 10) || 0;
+          newCounts[`${shop.id}`] = parseInt(stored, 10) || 0;
         }
       });
       shopClickCounts = newCounts;
@@ -123,24 +123,18 @@
   const handleShopClick = async (shop: Shop) => {
     if (!browser || !user) return;
 
-    const currentCount = shopClickCounts[`${shop.source}-${shop.id}`] || 0;
+    const currentCount = shopClickCounts[`${shop.id}`] || 0;
     const newCount = currentCount + 1;
 
     // Update localStorage and state
-    localStorage.setItem(`nearcade-shop-${shop.source}-${shop.id}-count`, newCount.toString());
-    shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: newCount };
+    localStorage.setItem(`nearcade-shop-${shop.id}-count`, newCount.toString());
+    shopClickCounts = { ...shopClickCounts, [`${shop.id}`]: newCount };
 
     // Check if threshold is reached and user isn't already frequenting this arcade
-    if (
-      newCount >= discoveryInteractionThreshold &&
-      !user.frequentingArcades?.some(
-        (arcade) => arcade.id === shop.id && arcade.source === shop.source
-      )
-    ) {
+    if (newCount >= discoveryInteractionThreshold && !user.frequentingArcades?.includes(shop.id)) {
       try {
         // Submit form to add arcade automatically
         const formData = new FormData();
-        formData.append('arcadeSource', shop.source);
         formData.append('arcadeId', shop.id.toString());
 
         const response = await fetch(
@@ -152,8 +146,8 @@
         );
 
         if (response.ok) {
-          localStorage.removeItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
-          shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: 0 };
+          localStorage.removeItem(`nearcade-shop-${shop.id}-count`);
+          shopClickCounts = { ...shopClickCounts, [`${shop.id}`]: 0 };
         }
       } catch (error) {
         console.error('Failed to auto-add arcade:', error);
@@ -215,7 +209,7 @@
 
   const getRouteLink = (shop: Shop | undefined) => {
     if (!data || !shop) return '';
-    const useGoogleMaps = shop.source === ShopSource.ZIV;
+    const useGoogleMaps = !isShopChinaBased(shop);
     const origin = data.location;
     const from = useGoogleMaps
       ? `${origin.latitude},${origin.longitude}`
@@ -246,7 +240,7 @@
   };
 
   let routeLink = $derived.by(
-    () => getRouteLink(data.shops.find((s) => `${s.source}-${s.id}` === routeGuidance.shopId)) || ''
+    () => getRouteLink(data.shops.find((s) => `${s.id}` === routeGuidance.shopId)) || ''
   );
 
   const getRouteOptions = (id: string): Partial<AMap.PolylineOptions> => {
@@ -346,24 +340,24 @@
 
           const routeLine = new amap.Polyline({
             path: path,
-            ...getRouteOptions(`${shop.source}-${shop.id}`)
+            ...getRouteOptions(`${shop.id}`)
           });
 
           routeLine.on('mouseover', () => {
-            hoveredShopId = `${shop.source}-${shop.id}`;
+            hoveredShopId = `${shop.id}`;
           });
           routeLine.on('mouseout', () => {
-            if (hoveredShopId === `${shop.source}-${shop.id}`) {
+            if (hoveredShopId === `${shop.id}`) {
               hoveredShopId = null;
             }
           });
           routeLine.on('click', () => {
-            selectedShopId = `${shop.source}-${shop.id}`;
+            selectedShopId = `${shop.id}`;
             showRouteGuidance();
           });
 
           (map as AMap.Map).add(routeLine);
-          travelData[`${shop.source}-${shop.id}`] = {
+          travelData[`${shop.id}`] = {
             time: selectedRoute.time ?? 0,
             distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
             path,
@@ -375,7 +369,7 @@
         const cacheKey = generateRouteCacheKey(
           data.location.latitude,
           data.location.longitude,
-          `${shop.source}-${shop.id}`,
+          `${shop.id}`,
           method
         );
 
@@ -424,16 +418,13 @@
                 }, 1000); // Wait 1 second before retry
               } else {
                 console.error(result);
-                travelData[`${shop.source}-${shop.id}`] = null;
+                travelData[`${shop.id}`] = null;
                 resolve();
               }
             });
           } catch (error) {
-            console.error(
-              `Error calculating travel data for shop ${shop.source}-${shop.id}:`,
-              error
-            );
-            travelData[`${shop.source}-${shop.id}`] = null;
+            console.error(`Error calculating travel data for shop ${shop.id}:`, error);
+            travelData[`${shop.id}`] = null;
             resolve();
           }
         });
@@ -443,8 +434,8 @@
     // Process shops sequentially to avoid rate limiting
     // Process selected shop first if exists, then process remaining shops
     for (const shop of [
-      ...data.shops.filter((shop) => `${shop.source}-${shop.id}` === selectedShopId),
-      ...data.shops.filter((shop) => `${shop.source}-${shop.id}` !== selectedShopId)
+      ...data.shops.filter((shop) => `${shop.id}` === selectedShopId),
+      ...data.shops.filter((shop) => `${shop.id}` !== selectedShopId)
     ]) {
       await processShop(shop);
     }
@@ -500,9 +491,9 @@
 
     Promise.all(
       data.shops.flatMap((shop) => {
-        costs[`${shop.source}-${shop.id}`] = {};
+        costs[`${shop.id}`] = {};
         shop.games.map(async (game) => {
-          costs[`${shop.source}-${shop.id}`][game.titleId] = {
+          costs[`${shop.id}`][game.titleId] = {
             preview: await sanitizeHTML(game.cost.substring(0, 30)),
             full: await sanitizeHTML(game.cost)
           };
@@ -616,10 +607,7 @@
               position: { lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] },
               map: googleMap,
               title: shop.name,
-              content: createIcon(
-                `shop-marker-${shop.source}-${shop.id}`,
-                'fa-solid fa-location-dot fa-lg'
-              ),
+              content: createIcon(`shop-marker-${shop.id}`, 'fa-solid fa-location-dot fa-lg'),
               zIndex
             });
 
@@ -627,26 +615,26 @@
               content: createShopInfoWindowContent(shop)
             });
             infoWindow.addListener('closeclick', () => {
-              if (selectedShopId === `${shop.source}-${shop.id}`) {
+              if (selectedShopId === `${shop.id}`) {
                 selectedShopId = null;
               }
             });
 
-            markers[`${shop.source}-${shop.id}`] = { marker, infoWindow, zIndex };
+            markers[`${shop.id}`] = { marker, infoWindow, zIndex };
 
             marker.addListener('mouseover', () => {
-              hoveredShopId = `${shop.source}-${shop.id}`;
+              hoveredShopId = `${shop.id}`;
             });
 
             marker.addListener('mouseout', () => {
-              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+              if (hoveredShopId === `${shop.id}`) {
                 hoveredShopId = null;
               }
             });
 
             marker.addListener('click', () => {
-              selectedShopId = `${shop.source}-${shop.id}`;
-              highlightedShopId = `${shop.source}-${shop.id}`;
+              selectedShopId = `${shop.id}`;
+              highlightedShopId = `${shop.id}`;
               Object.values(markers).forEach((markerInfo) => {
                 markerInfo.infoWindow?.close();
               });
@@ -660,7 +648,7 @@
                 highlightedShopId = null;
               }, 3000);
 
-              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              const shopElement = document.getElementById(`shop-${shop.id}`);
               if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
@@ -715,7 +703,7 @@
             const marker = new amap!.Marker({
               position: shop.location.coordinates,
               title: shop.name,
-              content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
+              content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
               offset: new amap!.Pixel(-7.03, -20),
               label: {
                 content: shop.name,
@@ -725,19 +713,19 @@
               zIndex
             });
 
-            markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+            markers[`${shop.id}`] = { marker, zIndex };
 
             marker.on('mouseover', () => {
-              hoveredShopId = `${shop.source}-${shop.id}`;
+              hoveredShopId = `${shop.id}`;
             });
             marker.on('mouseout', () => {
-              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+              if (hoveredShopId === `${shop.id}`) {
                 hoveredShopId = null;
               }
             });
             marker.on('click', () => {
-              selectedShopId = `${shop.source}-${shop.id}`;
-              highlightedShopId = `${shop.source}-${shop.id}`;
+              selectedShopId = `${shop.id}`;
+              highlightedShopId = `${shop.id}`;
               if (highlightedShopIdTimeout) {
                 clearTimeout(highlightedShopIdTimeout);
               }
@@ -746,7 +734,7 @@
                   highlightedShopId = null;
                 }, 3000);
               }
-              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              const shopElement = document.getElementById(`shop-${shop.id}`);
               if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
@@ -810,7 +798,7 @@
       untrack(() => {
         if (useGoogleMaps && map && 'setZoom' in map) {
           // For Google Maps, just center on the shop
-          const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+          const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
           if (shop) {
             map.setZoom(15);
             (map as google.maps.Map).panTo({
@@ -825,7 +813,7 @@
             routeGuidance.shopId = selectedShopId;
             openRouteGuidance();
           } else {
-            const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+            const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
             if (shop && map && 'setZoomAndCenter' in map) {
               map.setZoomAndCenter(15, shop.location.coordinates);
             }
@@ -876,7 +864,7 @@
     const hovered = hoveredShopId;
     untrack(() => {
       data.shops.forEach((shop) => {
-        const markerId = `${shop.source}-${shop.id}`;
+        const markerId = `${shop.id}`;
         const markerData = markers[markerId];
         if (!markerData) return;
 
@@ -909,9 +897,7 @@
             );
         }
 
-        const element = document.querySelector(
-          `#shop-marker-${shop.source}-${shop.id}`
-        ) as HTMLElement | null;
+        const element = document.querySelector(`#shop-marker-${shop.id}`) as HTMLElement | null;
         if (element) {
           element.className = element.className.replace(
             /text-error|text-warning dark:text-info|text-info dark:text-success/g,
@@ -970,9 +956,7 @@
 
 <RouteGuidance
   bind:isOpen={routeGuidance.isOpen}
-  shop={routeGuidance.shopId
-    ? data.shops.find((s) => `${s.source}-${s.id}` === routeGuidance.shopId)
-    : null}
+  shop={routeGuidance.shopId ? data.shops.find((s) => `${s.id}` === routeGuidance.shopId) : null}
   selectedRouteIndex={routeGuidance.selectedRouteIndex}
   routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
   isLoading={!!routeGuidance.shopId && !travelData[routeGuidance.shopId]}
@@ -1223,22 +1207,22 @@
             <tr
               id="shop-{shop.id}"
               class="group cursor-pointer transition-all select-none {highlightedShopId ===
-              `${shop.source}-${shop.id}`
+              `${shop.id}`
                 ? 'bg-accent/8'
-                : hoveredShopId === `${shop.source}-${shop.id}`
+                : hoveredShopId === `${shop.id}`
                   ? 'bg-base-300/30'
                   : ''}"
               onmouseenter={() => {
-                hoveredShopId = `${shop.source}-${shop.id}`;
+                hoveredShopId = `${shop.id}`;
               }}
               onmouseleave={() => {
-                if (hoveredShopId === `${shop.source}-${shop.id}`) {
+                if (hoveredShopId === `${shop.id}`) {
                   hoveredShopId = null;
                 }
               }}
               onclick={(event) => {
                 if ((event.target as Element)?.closest('button, a')) return;
-                selectedShopId = `${shop.source}-${shop.id}`;
+                selectedShopId = `${shop.id}`;
                 if (!(isMobileView && routeGuidance.isOpen))
                   mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
@@ -1248,7 +1232,7 @@
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
                     <span class="text-sm">
-                      <span class="opacity-50">{shop.source.toUpperCase()} #{shop.id}</span>
+                      <span class="opacity-50">#{shop.id}</span>
                       <span class="opacity-50 sm:hidden">·</span>
                       <span
                         class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 sm:hidden"
@@ -1256,10 +1240,8 @@
                         {@render attendance('text-xs')}
                       </span>
                       {#if transportMethod}
-                        {@const hasTravelData =
-                          travelData[`${shop.source}-${shop.id}`] !== undefined}
-                        {@const distance =
-                          travelData[`${shop.source}-${shop.id}`]?.distance ?? shop.distance}
+                        {@const hasTravelData = travelData[`${shop.id}`] !== undefined}
+                        {@const distance = travelData[`${shop.id}`]?.distance ?? shop.distance}
                         <span class="opacity-50">·</span>
                         <span
                           class="whitespace-nowrap transition-opacity not-hover:opacity-50 {!hasTravelData
@@ -1282,7 +1264,7 @@
               </td>
               <td class="text-center">
                 {#if transportMethod}
-                  {#if travelData[`${shop.source}-${shop.id}`] === undefined}
+                  {#if travelData[`${shop.id}`] === undefined}
                     <span class="loading loading-spinner loading-sm"></span>
                   {:else}
                     <div
@@ -1290,15 +1272,13 @@
                         shop.id
                       ] === null
                         ? 'badge-neutral'
-                        : travelData[`${shop.source}-${shop.id}`]!.time <
-                            Math.max(avgTravelTime / 1.5, 1200)
+                        : travelData[`${shop.id}`]!.time < Math.max(avgTravelTime / 1.5, 1200)
                           ? 'badge-success'
-                          : travelData[`${shop.source}-${shop.id}`]!.time <
-                              Math.max(avgTravelTime * 1.5, 2400)
+                          : travelData[`${shop.id}`]!.time < Math.max(avgTravelTime * 1.5, 2400)
                             ? 'badge-warning'
                             : 'badge-error'}"
                     >
-                      {formatDuration(travelData[`${shop.source}-${shop.id}`]?.time)}
+                      {formatDuration(travelData[`${shop.id}`]?.time)}
                     </div>
                   {/if}
                 {:else}
@@ -1318,7 +1298,7 @@
                 {@const game = findGame(shop.games, gameInfo.id)}
                 <td class="text-center">
                   {#if game}
-                    {@const id = `${shop.source}-${shop.id}`}
+                    {@const id = `${shop.id}`}
                     <div class="flex items-center justify-center gap-3">
                       <div
                         class="group-hover:text-accent flex items-center gap-1 text-sm transition-colors"
@@ -1359,8 +1339,7 @@
                 <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
                     class="btn btn-ghost btn-sm text-nowrap"
-                    href={resolve('/(main)/shops/[source]/[id]', {
-                      source: shop.source,
+                    href={resolve('/(main)/shops/[id]', {
                       id: shop.id.toString()
                     })}
                     target={adaptiveNewTab()}

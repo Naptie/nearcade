@@ -55,11 +55,10 @@
             <div>
               <p class="font-semibold">{req.shopName}</p>
               <p class="text-base-content/60 text-sm">
-                {req.shopSource}/{req.shopId}
+                #{req.shopId}
                 &nbsp;·&nbsp;
                 <a
-                  href={resolve('/(main)/shops/[source]/[id]', {
-                    source: req.shopSource,
+                  href={resolve('/(main)/shops/[id]', {
                     id: String(req.shopId)
                   })}
                   class="link"

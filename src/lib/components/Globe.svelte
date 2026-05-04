@@ -444,7 +444,7 @@
   let shops = $state<ShopEntry[] | null>(null);
   const shopLookup = new SvelteMap<string, ShopEntry>();
 
-  const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
+  const getShopKey = (shop: Pick<Shop, 'id'>) => `${shop.id}`;
 
   // ---- Pinned / hover shop state ----
   let markerHoveredShop = $state<ShopWithExtras | null>(null);
@@ -2530,8 +2530,8 @@
         {:else if filteredShops !== null && filteredShops.length === 0}
           <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
         {:else if filteredShops !== null}
-          {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
-            {@const cardKey = `${shop.source}-${shop.id}`}
+          {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
+            {@const cardKey = `${shop.id}`}
             {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
             <div
               bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
@@ -2636,7 +2636,7 @@
       <!-- Instruction banner at the top -->
       <div
         class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
-               px-5 py-3 shadow-lg backdrop-blur-sm"
+               px-3 py-2 shadow-lg backdrop-blur-sm"
       >
         <i class="fa-solid fa-crosshairs text-success text-lg"></i>
         <p class="text-sm font-medium">{m.shop_pick_location_hint()}</p>
@@ -2644,8 +2644,8 @@
 
       <!-- Confirm / cancel bar at the bottom -->
       <div
-        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 bottom-6 mx-auto flex w-fit items-center gap-3 rounded-xl border
-               px-5 py-3 shadow-lg backdrop-blur-sm"
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 bottom-12 mx-auto flex w-fit items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg backdrop-blur-sm"
       >
         {#if pendingShopCoords}
           <span class="font-mono text-xs opacity-60">

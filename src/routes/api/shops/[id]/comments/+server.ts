@@ -3,16 +3,12 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
 import { commentId, protect, toPlainArray } from '$lib/utils';
-import { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
-    const { source, id } = params;
+    const { id } = params;
     const shopId = parseInt(id);
-    if (isNaN(shopId) || !Object.values(ShopSource).includes(source as ShopSource)) {
-      error(400, m.invalid_shop_id());
-    }
 
     const session = locals.session;
     const db = mongo.db();
@@ -21,7 +17,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
     const comments = await commentsCollection
       .aggregate<CommentWithAuthorAndVote>([
         {
-          $match: { shopSource: source, shopId: shopId }
+          $match: { shopId: shopId }
         },
         {
           $lookup: {
@@ -88,11 +84,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const { source, id } = params;
+    const { id } = params;
     const shopId = parseInt(id);
-    if (isNaN(shopId) || !Object.values(ShopSource).includes(source as ShopSource)) {
-      error(400, m.invalid_shop_id());
-    }
 
     const { content, parentCommentId } = (await request.json()) as {
       content: string;
@@ -108,7 +101,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     // Check if shop exists
     const shop = await shopsCollection.findOne({
-      source: source as ShopSource,
       id: shopId
     });
     if (!shop) {
@@ -121,7 +113,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       if (!parentComment) {
         error(404, m.parent_comment_not_found());
       }
-      if (parentComment.shopSource !== source || parentComment.shopId !== shopId) {
+      if (parentComment.shopId !== shopId) {
         error(400, m.parent_comment_not_found());
       }
     }
@@ -129,7 +121,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Create new comment
     const newComment: Comment = {
       id: commentId(),
-      shopSource: source as ShopSource,
       shopId: shopId,
       content: content.trim(),
       createdBy: session.user.id,

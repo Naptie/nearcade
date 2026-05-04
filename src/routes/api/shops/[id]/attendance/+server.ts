@@ -4,7 +4,6 @@ import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { AttendanceRecord, AttendanceReportRecord, Shop } from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
-import { ShopSource } from '$lib/constants';
 import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
@@ -21,9 +20,9 @@ const attend = async (
     plannedLeaveAt: Date;
   }
 ) => {
-  const { source, id } = shop;
+  const { id } = shop;
   const { games, attendedAt, plannedLeaveAt } = data;
-  const attendanceKey = `nearcade:attend:${source}-${id}:${user.id}:${encodeURIComponent(attendedAt.toISOString())}:${games.map((g) => g.id).join(',')}`;
+  const attendanceKey = `nearcade:attend:${id}:${user.id}:${encodeURIComponent(attendedAt.toISOString())}:${games.map((g) => g.id).join(',')}`;
   const attendanceData = {
     games,
     attendedAt: attendedAt.toISOString(),
@@ -40,8 +39,8 @@ const attend = async (
 };
 
 const leave = async (user: User, shop: Shop) => {
-  const { source, id } = shop;
-  const pattern = `nearcade:attend:${source}-${id}:${user.id}:*`;
+  const { id } = shop;
+  const pattern = `nearcade:attend:${id}:${user.id}:*`;
   await ensureConnected();
   const keys = await redis.keys(pattern);
   if (keys.length === 0) {
@@ -76,10 +75,7 @@ const leave = async (user: User, shop: Shop) => {
         version: shopGame ? shopGame.version : ''
       };
     }),
-    shop: {
-      id,
-      source
-    },
+    shopId: id,
     attendedAt: new Date(attendanceData.attendedAt),
     leftAt: new Date() // Actual leave time
   });
@@ -110,15 +106,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(401, m.unauthorized());
     }
     const matchedToken = dbUser.apiTokens?.find((t) => t.token === agentToken);
-    if (
-      matchedToken?.shop &&
-      matchedToken.shop.id.toString() !== params.id &&
-      matchedToken.shop.source !== params.source.toLowerCase().trim()
-    ) {
+    if (matchedToken?.shopId?.toString() !== params.id) {
       error(403, m.access_denied());
     }
     isOpenApiAccess = true;
-    isClaimedShopAccess = matchedToken?.shop ? true : false;
+    isClaimedShopAccess = matchedToken?.shopId ? true : false;
     user = dbUser;
     if (userToken) {
       attendingUser = await usersCollection.findOne({
@@ -148,13 +140,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(400, m.missing_required_parameters());
     }
 
-    const source = params.source.toLowerCase().trim() as ShopSource;
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
-
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
@@ -166,7 +151,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
     const shop = await shopsCollection.findOne({
-      source,
       id
     });
 
@@ -217,12 +201,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         plannedLeaveAt: plannedLeaveTime
       });
 
-      if (!user.frequentingArcades?.some((a) => a.id === shop.id && a.source === shop.source)) {
+      if (!user.frequentingArcades?.some((a) => a === shop.id)) {
         const attendancesCollection = db.collection<AttendanceRecord>('attendances');
         const count = await attendancesCollection.countDocuments({
           userId: user.id!,
-          'shop.id': id,
-          'shop.source': source
+          shopId: id
         });
         if (count + 1 >= (user.autoDiscovery?.attendanceThreshold ?? 2)) {
           const usersCollection = db.collection<User>('users');
@@ -230,7 +213,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             { id: user.id! },
             {
               $addToSet: {
-                frequentingArcades: { id: shop.id, source: shop.source }
+                frequentingArcades: id
               },
               $set: { updatedAt: new Date() }
             }
@@ -250,7 +233,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         ) {
           error(400, m.invalid_current_attendances_for_game({ id: game.id }));
         }
-        const attendanceKey = `nearcade:attend-report:${source}-${id}:${game.id}`;
+        const attendanceKey = `nearcade:attend-report:${id}:${game.id}`;
         const attendanceData = {
           currentAttendances: game.currentAttendances,
           reportedBy: user.id,
@@ -284,7 +267,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       const attendanceReportsCollection =
         db.collection<AttendanceReportRecord>('attendance_reports');
       await attendanceReportsCollection.insertOne({
-        shop: { id: shop.id, source: shop.source },
+        shopId: shop.id,
         games: games.map((game) => {
           const shopGame = shop.games.find((g) => g.gameId === game.id);
           return {
@@ -318,13 +301,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   }
 
   try {
-    const source = params.source.toLowerCase().trim() as ShopSource;
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
-
     const idRaw = params.id;
     const id = parseInt(idRaw);
 
@@ -339,7 +315,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
     const shop = await shopsCollection.findOne({
-      source,
       id
     });
     if (!shop) {
@@ -362,12 +337,6 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
     const fetchRegistered = ['0', 'false'].includes(url.searchParams.get('reported') || 'false');
     const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'true');
-    const source = params.source.toLowerCase().trim() as ShopSource;
-
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(source)) {
-      error(400, m.invalid_shop_source());
-    }
 
     const idRaw = params.id;
     const id = parseInt(idRaw);
@@ -382,14 +351,13 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     const session = locals.session;
 
-    const attendanceData = await getShopsAttendanceData([{ source, id }], {
+    const attendanceData = await getShopsAttendanceData([id], {
       fetchRegistered,
       fetchReported,
       session
     });
 
-    const shopIdentifier = `${source}-${id}`;
-    const result = attendanceData.get(shopIdentifier)!;
+    const result = attendanceData.get(id.toString())!;
 
     return json({
       success: true,

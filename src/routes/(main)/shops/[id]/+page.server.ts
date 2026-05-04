@@ -1,46 +1,18 @@
-import { error, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
 import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import { ShopSource, SHOP_ID_OFFSET_BEMANICN, SHOP_ID_OFFSET_ZIV } from '$lib/constants';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
-import { resolve } from '$app/paths';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
-  const { source: sourceRaw, id } = params;
-  const source = sourceRaw.toLowerCase().trim();
-
-  // Validate source
-  if (!Object.values(ShopSource).includes(source as ShopSource)) {
-    error(404, m.invalid_shop_source());
-  }
+  const { id } = params;
 
   // Validate id
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
     error(404, m.invalid_shop_id());
-  }
-
-  // Redirect legacy sources to nearcade
-  if (source === ShopSource.BEMANICN) {
-    redirect(
-      301,
-      resolve('/(main)/shops/[source]/[id]', {
-        source: ShopSource.NEARCADE,
-        id: String(shopId + SHOP_ID_OFFSET_BEMANICN)
-      })
-    );
-  }
-  if (source === ShopSource.ZIV) {
-    redirect(
-      301,
-      resolve('/(main)/shops/[source]/[id]', {
-        source: ShopSource.NEARCADE,
-        id: String(shopId + SHOP_ID_OFFSET_ZIV)
-      })
-    );
   }
 
   // Get session data immediately
@@ -52,9 +24,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       const db = mongo.db();
       const shopsCollection = db.collection<Shop>('shops');
 
-      // Find the shop by source and id
+      // Find the shop by id
       const shop = await shopsCollection.findOne({
-        source: source as ShopSource,
         id: shopId
       });
 
@@ -72,7 +43,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       const comments = await commentsCollection
         .aggregate<CommentWithAuthorAndVote>([
           {
-            $match: { shopSource: source, shopId: shopId }
+            $match: { shopId: shopId }
           },
           {
             $lookup: {

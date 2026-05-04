@@ -7,6 +7,7 @@ import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
 import { isOSSAvailable } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
+import { parseLegacyShopParams } from '$lib/utils/shop-id';
 import { building } from '$app/environment';
 
 const reportError: HandleServerError = ({ status, error }) => {
@@ -122,6 +123,36 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
+  const { pathname, search } = event.url;
+  const escapedBase = escapeRegExp(base);
+
+  // Match /shops/:source/:id
+  const shopPathRegex = new RegExp(`^${escapedBase}/shops/([^/]+)/([^/]+)/?$`);
+  const shopMatch = pathname.match(shopPathRegex);
+  if (shopMatch) {
+    const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
+    if (parsed) {
+      redirect(308, `${base}/shops/${parsed.unifiedId}${search}`);
+    }
+  }
+
+  // Match /api/shops/:source/:id/*
+  const apiPathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]+)/([^/]+)(/.*)?$`);
+  const apiMatch = pathname.match(apiPathRegex);
+  if (apiMatch) {
+    const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
+    if (parsed) {
+      const suffix = apiMatch[3] || '';
+      redirect(308, `${base}/api/shops/${parsed.unifiedId}${suffix}${search}`);
+    }
+  }
+
+  return resolve(event);
+};
+
 const handleAuth: Handle = async ({ event, resolve }) => {
   const { auth } = await import('$lib/auth/index.server');
   const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
@@ -136,6 +167,7 @@ export const handle: Handle = sequence(
   handleAMap,
   handleDiscoverShortcut,
   handleUserShortcut,
+  handleLegacyShopPaths,
   handleHeaders,
   handleAuth
 );

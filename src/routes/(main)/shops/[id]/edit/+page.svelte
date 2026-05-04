@@ -29,7 +29,7 @@
   let successMessage = $state('');
 
   async function handleSubmit(formData: ShopFormData) {
-    const response = await fetch(`/api/shops/${shop.source}/${shop.id}`, {
+    const response = await fetch(`/api/shops/${shop.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
@@ -42,7 +42,7 @@
 
     successMessage = m.shop_updated_successfully();
     await goto(
-      resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: String(shop.id) })
+      resolve('/(main)/shops/[id]', { id: String(shop.id) })
     );
   }
 </script>
