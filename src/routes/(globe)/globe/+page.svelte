@@ -4,6 +4,7 @@
   import Footer from '$lib/components/Footer.svelte';
   import { pageTitle } from '$lib/utils';
   import { fade } from 'svelte/transition';
+  import { isDarkMode } from '$lib/utils/scoped';
 </script>
 
 <svelte:head>
@@ -12,7 +13,7 @@
 
 <!-- NavigationBar sits above the globe map (z-999 in NavigationBar) -->
 <div in:fade={{ delay: 500 }} out:fade>
-  <NavigationBar />
+  <NavigationBar showCapsularBackground={!isDarkMode()} />
 </div>
 
 <!-- Full-screen spacer so the page takes up the full viewport (the globe fills the background) -->

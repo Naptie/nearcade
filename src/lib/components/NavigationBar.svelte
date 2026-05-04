@@ -26,6 +26,8 @@
     // .map((stop) => 100 - stop)
   }));
 
+  let { showCapsularBackground = false } = $props();
+
   let scrollY = $state(0);
   let isAtTop = $derived(scrollY <= 10);
   let orgHasCustomBackground = $state<boolean | null>(null);
@@ -63,9 +65,9 @@
 </script>
 
 <nav
-  class="navbar fixed top-0 z-999 w-full px-6 transition-colors duration-200 {textWhite} bg-linear-to-t from-transparent {isAtTop
-    ? 'to-transparent'
-    : 'to-base-100/50'}"
+  class="navbar fixed top-0 z-999 w-full transition-colors duration-200 {textWhite} bg-linear-to-t from-transparent {showCapsularBackground
+    ? 'px-3'
+    : 'px-6'} {isAtTop ? 'to-transparent' : 'to-base-100/50'}"
 >
   <div class="pointer-events-none absolute inset-0 z-0">
     {#each blurLayers as layer, index (index)}
@@ -82,11 +84,19 @@
   </div>
 
   <div class="relative z-10 flex-1">
-    <div class="absolute top-1/2 left-0 z-0 -translate-y-1/2">
+    <div
+      class="absolute top-1/2 left-0 z-0 -translate-y-1/2 {showCapsularBackground
+        ? 'bg-base-100/50 rounded-full px-3 backdrop-blur-lg'
+        : ''}"
+    >
       <SiteTitle class="xs:text-2xl ss:text-3xl text-lg md:text-4xl" />
     </div>
   </div>
-  <div class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2">
+  <div
+    class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2 {showCapsularBackground
+      ? 'bg-base-100/50 rounded-full px-3 backdrop-blur-lg'
+      : ''}"
+  >
     <LocaleSwitch class="text-shadow-lg" btnCls="text-shadow-lg" />
     <FancyButton
       callback={() => {

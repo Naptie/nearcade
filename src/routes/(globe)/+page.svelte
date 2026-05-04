@@ -340,7 +340,7 @@
 <div class="relative" class:pointer-events-none={!showCollapse}>
   <div class="hero min-h-screen">
     <div
-      class="pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2"
+      class="bg-base-100/50 pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 rounded-full backdrop-blur-lg md:gap-1 lg:gap-2"
       in:fade={{ delay: 500 }}
       out:fade
     >
@@ -376,9 +376,9 @@
         out:slide
       >
         <SiteTitle
-          class="text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'
+          class="title text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'
             ? 'xs:px-10 sm:px-14 md:px-18'
-            : ''}"
+            : ''} {showGlobe ? 'title-base-content' : ''}"
         />
         <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
           {m.greeting()}
@@ -926,5 +926,9 @@
 
   :global(gmp-internal-camera-control) {
     @apply -translate-y-10;
+  }
+
+  :global(.title-base-content) {
+    color: oklch(0.86768 0.001 17.911);
   }
 </style>
