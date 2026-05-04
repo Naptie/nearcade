@@ -241,6 +241,22 @@ export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verifi
   user: User | undefined;
 }
 
+export interface ShopDeleteRequest {
+  _id?: string | ObjectId;
+  id: string;
+  shopSource: ShopSource;
+  shopId: number;
+  shopName: string;
+  reason: string;
+  requestedBy: string | null;
+  requestedByName?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: Date;
+  reviewedAt?: Date | null;
+  reviewedBy?: string | null;
+  reviewNote?: string | null;
+}
+
 export interface JoinRequest {
   _id?: string | ObjectId;
   id: string;

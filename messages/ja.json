@@ -1251,5 +1251,21 @@
   "you_are_already_a_member_of_this_university": "あなたはすでにこの大学のメンバーです",
   "you_can_only_edit_your_own_comments": "自分のコメントのみ編集できます",
   "you_do_not_have_permission_to_edit_this_club": "このクラブを編集する権限がありません",
-  "you_must_be_a_member_of_the_hosting_university_to_join_this_club": "このクラブに参加するには、ホスト大学のメンバーである必要があります。"
+  "you_must_be_a_member_of_the_hosting_university_to_join_this_club": "このクラブに参加するには、ホスト大学のメンバーである必要があります。",
+  "shop_delete_request": "店舗削除申請",
+  "shop_delete_requests": "店舗削除申請",
+  "shop_delete_requests_description": "店舗削除申請を確認・管理する",
+  "shop_delete_request_pending": "保留中",
+  "shop_delete_request_approved": "承認済み",
+  "shop_delete_request_rejected": "却下済み",
+  "shop_delete_request_submitted": "削除申請が審査のために提出されました",
+  "shop_delete_request_reason": "削除理由",
+  "shop_delete_request_reason_placeholder": "この店舗を削除すべき理由を説明してください...",
+  "submit_delete_request": "削除申請を提出",
+  "no_delete_requests": "削除申請が見つかりません",
+  "admin_shop_delete_requests": "店舗削除申請",
+  "admin_shop_delete_requests_description": "ユーザーからの店舗削除申請を審査する",
+  "request_by": "申請者",
+  "shop_delete_request_review_note": "レビューメモ（任意）",
+  "shop_not_found_or_deleted": "店舗が見つからないか、削除されました"
 }

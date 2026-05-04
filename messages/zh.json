@@ -1251,5 +1251,21 @@
   "you_are_already_a_member_of_this_university": "您已经是此高校的成员",
   "you_can_only_edit_your_own_comments": "您只能编辑自己的评论",
   "you_do_not_have_permission_to_edit_this_club": "您无权编辑此社团",
-  "you_must_be_a_member_of_the_hosting_university_to_join_this_club": "您必须是托管高校的成员才能加入此社团"
+  "you_must_be_a_member_of_the_hosting_university_to_join_this_club": "您必须是托管高校的成员才能加入此社团",
+  "shop_delete_request": "店铺删除申请",
+  "shop_delete_requests": "店铺删除申请",
+  "shop_delete_requests_description": "审核和管理店铺删除申请",
+  "shop_delete_request_pending": "待审核",
+  "shop_delete_request_approved": "已批准",
+  "shop_delete_request_rejected": "已拒绝",
+  "shop_delete_request_submitted": "您的删除申请已提交审核",
+  "shop_delete_request_reason": "删除原因",
+  "shop_delete_request_reason_placeholder": "请说明为什么要删除此店铺...",
+  "submit_delete_request": "提交删除申请",
+  "no_delete_requests": "暂无删除申请",
+  "admin_shop_delete_requests": "店铺删除申请",
+  "admin_shop_delete_requests_description": "审核用户提交的店铺删除申请",
+  "request_by": "申请人",
+  "shop_delete_request_review_note": "审核备注（可选）",
+  "shop_not_found_or_deleted": "店铺不存在或已被删除"
 }

@@ -1269,5 +1269,21 @@
   "you_are_already_a_member_of_this_university": "You are already a member of this university",
   "you_can_only_edit_your_own_comments": "You can only edit your own comments",
   "you_do_not_have_permission_to_edit_this_club": "You do not have permission to edit this club",
-  "you_must_be_a_member_of_the_hosting_university_to_join_this_club": "You must be a member of the hosting university to join this club"
+  "you_must_be_a_member_of_the_hosting_university_to_join_this_club": "You must be a member of the hosting university to join this club",
+  "shop_delete_request": "Delete Shop Request",
+  "shop_delete_requests": "Delete Shop Requests",
+  "shop_delete_requests_description": "Review and manage shop deletion requests",
+  "shop_delete_request_pending": "Pending",
+  "shop_delete_request_approved": "Approved",
+  "shop_delete_request_rejected": "Rejected",
+  "shop_delete_request_submitted": "Your delete request has been submitted for review",
+  "shop_delete_request_reason": "Reason for deletion request",
+  "shop_delete_request_reason_placeholder": "Please explain why this shop should be deleted...",
+  "submit_delete_request": "Submit Delete Request",
+  "no_delete_requests": "No deletion requests found",
+  "admin_shop_delete_requests": "Shop Delete Requests",
+  "admin_shop_delete_requests_description": "Review shop deletion requests from users",
+  "request_by": "Requested by",
+  "shop_delete_request_review_note": "Review note (optional)",
+  "shop_not_found_or_deleted": "Shop not found or has been deleted"
 }
