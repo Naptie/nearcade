@@ -64,9 +64,5 @@
     </div>
   {/if}
 
-  <ShopForm
-    {initialData}
-    onSubmit={handleSubmit}
-    submitLabel={m.save_changes()}
-  />
+  <ShopForm {initialData} onSubmit={handleSubmit} submitLabel={m.save_changes()} />
 </div>

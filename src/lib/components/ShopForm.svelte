@@ -4,7 +4,7 @@
   import { base } from '$app/paths';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
-  import { SUPPORTED_COUNTRIES, getSupportedCountryByName } from '$lib/countries';
+  import { getSupportedCountryByName } from '$lib/countries';
   import type { GlobeFeatureCollection, GlobeFeature } from '$lib/utils/globe/geojson';
 
   // ---- Types ----
@@ -47,6 +47,7 @@
   let comment = $state(initialData.comment ?? '');
   let detailedAddress = $state(initialData.address?.detailed ?? '');
   let location = $state<ShopFormData['location']>(initialData.location ?? null);
+  let locationName = $state<string>('');
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let showLocationModal = $state(false);
@@ -85,7 +86,9 @@
       return initialData.openingHours.map(initSlot);
     }
     const base = initSlot(initialData.openingHours?.[0]);
-    return openingHoursMode === 'per_day' ? Array.from({ length: 7 }, () => [...base] as [number, number, number, number]) : [base];
+    return openingHoursMode === 'per_day'
+      ? Array.from({ length: 7 }, () => [...base] as [number, number, number, number])
+      : [base];
   });
 
   function setOpeningHoursMode(mode: 'constant' | 'per_day') {
@@ -128,11 +131,32 @@
 
   let selectedCountryObj = $derived(getSupportedCountryByName(selectedCountryName));
   let countryLevels = $derived(selectedCountryObj?.levels ?? []);
-  let selectSlots = $derived(countryLevels.length); // number of select fields
 
-  // Total address parts = selects + extra fields
+  // For a supported country: select fields are the sub-national levels (province/city/county).
+  // For a non-supported country: the country name itself is the single address part.
+  // The country select is always shown but is the pivot, not counted separately.
+  let selectSlots = $derived(
+    selectedCountryObj ? countryLevels.length : selectedCountryName ? 1 : 0
+  );
+
+  // Total address parts = select-driven parts + extra free-text fields (max 4)
   let totalParts = $derived(selectSlots + extraFields.length);
   const MAX_PARTS = 4;
+
+  // Whether all currently-visible selects have been chosen (gating extra inputs)
+  let allSelectsFilled = $derived.by(() => {
+    if (!selectedCountryName) return false;
+    if (!selectedCountryObj) return true; // non-supported: country chosen = done
+    const levels = selectedCountryObj.levels;
+    if (levels.length === 0) return true;
+    if (!selectedProvinceName) return false;
+    if (levels.length === 1) return true;
+    if (!selectedCityName) return false;
+    if (levels.length === 2) return true;
+    // Level 3: county select only appears when cityFeatures are loaded
+    // – we allow adding extra fields once city is chosen even if counties aren't needed
+    return true;
+  });
 
   function addExtraField() {
     if (totalParts < MAX_PARTS) {
@@ -409,10 +433,7 @@
     {#if selectedCountryObj && selectedCountryObj.levels.length > 2 && countyFeatures.length > 0}
       <div class="flex flex-col gap-1">
         <label class="label-text text-sm">{m.shop_address_county()}</label>
-        <select
-          class="select select-bordered w-full"
-          bind:value={selectedCountyName}
-        >
+        <select class="select select-bordered w-full" bind:value={selectedCountyName}>
           <option value="">{m.shop_select_county()}</option>
           {#each countyFeatures as f (f.properties.featureId)}
             <option value={f.properties.name}>{f.properties.name}</option>
@@ -421,39 +442,42 @@
       </div>
     {/if}
 
-    <!-- Extra free-text fields -->
-    {#each extraFields as _, idx}
-      <div class="flex items-center gap-2">
-        <input
-          type="text"
-          class="input input-bordered flex-1"
-          bind:value={extraFields[idx]}
-        />
-        <button
-          type="button"
-          class="btn btn-ghost btn-sm btn-circle"
-          onclick={() => removeExtraField(idx)}
-          aria-label="Remove field"
-        >
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    {/each}
+    <!-- Extra free-text fields (only shown after all selects are filled) -->
+    {#if allSelectsFilled}
+      {#each extraFields as extraField, idx (idx)}
+        <div class="flex items-center gap-2">
+          <input
+            type="text"
+            class="input input-bordered flex-1"
+            value={extraField}
+            oninput={(e) => {
+              extraFields[idx] = (e.target as HTMLInputElement).value;
+            }}
+          />
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm btn-circle"
+            onclick={() => removeExtraField(idx)}
+            aria-label="Remove field"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      {/each}
 
-    {#if totalParts < MAX_PARTS}
-      <button
-        type="button"
-        class="btn btn-ghost btn-sm self-start"
-        onclick={addExtraField}
-      >
-        <i class="fa-solid fa-plus"></i>
-        {m.shop_address_add_field()}
-      </button>
+      {#if totalParts < MAX_PARTS}
+        <button type="button" class="btn btn-ghost btn-sm self-start" onclick={addExtraField}>
+          <i class="fa-solid fa-plus"></i>
+          {m.shop_address_add_field()}
+        </button>
+      {/if}
     {/if}
 
     <!-- Detailed address -->
-    <div class="flex flex-col gap-1 mt-2">
-      <label class="label-text text-sm" for="shop-address-detailed">{m.shop_address_detailed()}</label>
+    <div class="mt-2 flex flex-col gap-1">
+      <label class="label-text text-sm" for="shop-address-detailed"
+        >{m.shop_address_detailed()}</label
+      >
       <input
         id="shop-address-detailed"
         type="text"
@@ -492,47 +516,35 @@
       </label>
     </div>
 
-    {#each slots as slot, idx}
-      <div class="flex flex-wrap items-center gap-3 rounded-lg border border-base-300 p-3">
+    {#each slots as slot, idx (idx)}
+      <div class="border-base-300 flex flex-wrap items-center gap-3 rounded-lg border p-3">
         {#if openingHoursMode === 'per_day'}
           <span class="w-16 text-sm font-medium">{DAY_LABELS()[idx]}</span>
         {/if}
         <div class="flex items-center gap-2">
           <span class="text-xs opacity-60">{m.shop_open_time()}</span>
-          <select
-            class="select select-bordered select-sm"
-            bind:value={slot[0]}
-          >
-            {#each HOUR_OPTIONS as h}
+          <select class="select select-bordered select-sm" bind:value={slot[0]}>
+            {#each HOUR_OPTIONS as h (h)}
               <option value={h}>{String(h).padStart(2, '0')}</option>
             {/each}
           </select>
           <span class="text-xs">:</span>
-          <select
-            class="select select-bordered select-sm"
-            bind:value={slot[1]}
-          >
-            {#each MINUTE_OPTIONS as min}
+          <select class="select select-bordered select-sm" bind:value={slot[1]}>
+            {#each MINUTE_OPTIONS as min (min)}
               <option value={min}>{String(min).padStart(2, '0')}</option>
             {/each}
           </select>
         </div>
         <div class="flex items-center gap-2">
           <span class="text-xs opacity-60">{m.shop_close_time()}</span>
-          <select
-            class="select select-bordered select-sm"
-            bind:value={slot[2]}
-          >
-            {#each HOUR_OPTIONS as h}
+          <select class="select select-bordered select-sm" bind:value={slot[2]}>
+            {#each HOUR_OPTIONS as h (h)}
               <option value={h}>{String(h).padStart(2, '0')}</option>
             {/each}
           </select>
           <span class="text-xs">:</span>
-          <select
-            class="select select-bordered select-sm"
-            bind:value={slot[3]}
-          >
-            {#each MINUTE_OPTIONS as min}
+          <select class="select select-bordered select-sm" bind:value={slot[3]}>
+            {#each MINUTE_OPTIONS as min (min)}
               <option value={min}>{String(min).padStart(2, '0')}</option>
             {/each}
           </select>
@@ -545,18 +557,19 @@
   <div class="form-control gap-3">
     <span class="label-text font-medium">{m.shop_location()}</span>
     {#if location}
-      <div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
-        <i class="fa-solid fa-location-dot text-primary"></i>
-        <span class="font-mono text-sm">
-          {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
-        </span>
+      <div class="bg-base-200 flex items-start gap-3 rounded-lg p-3">
+        <i class="fa-solid fa-location-dot text-primary mt-0.5"></i>
+        <div class="flex flex-col gap-0.5">
+          {#if locationName}
+            <span class="text-sm font-medium">{locationName}</span>
+          {/if}
+          <span class="font-mono text-xs opacity-70">
+            {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
+          </span>
+        </div>
       </div>
     {/if}
-    <button
-      type="button"
-      class="btn btn-soft w-fit"
-      onclick={() => (showLocationModal = true)}
-    >
+    <button type="button" class="btn btn-soft w-fit" onclick={() => (showLocationModal = true)}>
       <i class="fa-solid fa-map-location-dot"></i>
       {location ? m.save_location() : m.a_place_on_map()}
     </button>
@@ -566,8 +579,8 @@
   <div class="form-control gap-3">
     <span class="label-text font-medium">{m.shop_games()}</span>
 
-    {#each games as game, idx}
-      <div class="flex flex-col gap-3 rounded-xl border border-base-300 p-4">
+    {#each games as game, idx (idx)}
+      <div class="border-base-300 flex flex-col gap-3 rounded-xl border p-4">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium opacity-60">#{idx + 1}</span>
           <button
@@ -585,7 +598,7 @@
           <label class="label-text text-sm">{m.shop_game_title()}</label>
           <select class="select select-bordered" bind:value={game.titleId}>
             <option value={0}>{m.shop_select_game_title()}</option>
-            {#each GAMES as g}
+            {#each GAMES as g (g.id)}
               <option value={g.id}>{g.key}</option>
             {/each}
           </select>
@@ -620,23 +633,23 @@
         <!-- Comment -->
         <div class="form-control gap-1">
           <label class="label-text text-sm">{m.shop_game_comment()}</label>
-          <MarkdownEditor bind:value={game.comment} placeholder={m.shop_game_comment()} minHeight="min-h-20" />
+          <MarkdownEditor
+            bind:value={game.comment}
+            placeholder={m.shop_game_comment()}
+            minHeight="min-h-20"
+          />
         </div>
       </div>
     {/each}
 
-    <button
-      type="button"
-      class="btn btn-ghost btn-sm self-start"
-      onclick={addGame}
-    >
+    <button type="button" class="btn btn-ghost btn-sm self-start" onclick={addGame}>
       <i class="fa-solid fa-plus"></i>
       {m.shop_add_game()}
     </button>
   </div>
 
   <!-- Submit -->
-  <div class="flex justify-end gap-3 border-t border-base-300 pt-6">
+  <div class="border-base-300 flex justify-end gap-3 border-t pt-6">
     <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
       {#if isSubmitting}
         <span class="loading loading-spinner loading-sm"></span>
@@ -653,5 +666,10 @@
       type: 'Point',
       coordinates: [loc.longitude, loc.latitude]
     };
+    locationName = loc.name ?? '';
+    // Pre-populate detailed address only if currently empty
+    if (!detailedAddress && loc.address) {
+      detailedAddress = loc.address;
+    }
   }}
 />

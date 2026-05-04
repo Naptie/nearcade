@@ -41,9 +41,7 @@ async function migrateShopSources() {
     let skipped = 0;
 
     // Migrate bemanicn → nearcade
-    const bemanicnShops = await shopsCollection
-      .find({ source: 'bemanicn' })
-      .toArray();
+    const bemanicnShops = await shopsCollection.find({ source: 'bemanicn' }).toArray();
 
     console.log(`Found ${bemanicnShops.length} bemanicn shops`);
 
@@ -70,9 +68,7 @@ async function migrateShopSources() {
     }
 
     // Migrate ziv → nearcade
-    const zivShops = await shopsCollection
-      .find({ source: 'ziv' })
-      .toArray();
+    const zivShops = await shopsCollection.find({ source: 'ziv' }).toArray();
 
     console.log(`Found ${zivShops.length} ziv shops`);
 

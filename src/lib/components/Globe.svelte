@@ -336,6 +336,11 @@
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
 
+  // ---- Shop location pick mode ----
+  let shopLocationPickMode = $state(false);
+  let pendingShopCoords = $state<{ lat: number; lng: number } | null>(null);
+  let shopPickMarker: maplibregl.Marker | null = null;
+
   // ---- Globe feature settings ----
   type GlobeFeatureSettings = {
     visualLayers: {
@@ -745,6 +750,32 @@
         block: 'nearest'
       });
     });
+  };
+
+  const enterShopLocationPickMode = () => {
+    shopLocationPickMode = true;
+    pendingShopCoords = null;
+    // Reset cursor
+    map?.getCanvas().setAttribute('style', 'cursor: crosshair');
+  };
+
+  const exitShopLocationPickMode = () => {
+    shopLocationPickMode = false;
+    pendingShopCoords = null;
+    shopPickMarker?.remove();
+    shopPickMarker = null;
+    map?.getCanvas().removeAttribute('style');
+  };
+
+  const confirmShopLocation = () => {
+    if (!pendingShopCoords) return;
+    const { lat, lng } = pendingShopCoords;
+    const params = new URLSearchParams({
+      lat: lat.toFixed(6),
+      lng: lng.toFixed(6)
+    });
+    exitShopLocationPickMode();
+    void goto(`${base}/shops/new?${params}`);
   };
 
   const applyShopRegionFilter = (shop: ShopWithExtras) => {
@@ -2013,6 +2044,10 @@
 
       const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
         if (mode !== 'fullscreen') return;
+        if (shopLocationPickMode) {
+          instance.getCanvas().style.cursor = 'crosshair';
+          return;
+        }
         const feature = getTopFeatureAtPoint(instance, event.point);
         const newId = feature?.properties?.featureId ?? null;
         if (newId === hoveredFeatureId) return;
@@ -2038,6 +2073,21 @@
 
         if (mode === 'landing') {
           if (!landingDragOccurred) void goto(resolve('/globe'));
+          return;
+        }
+
+        // In shop location pick mode, clicking sets the pending coordinates.
+        if (shopLocationPickMode) {
+          const { lat, lng } = event.lngLat;
+          pendingShopCoords = { lat, lng };
+          // Place / move the marker
+          if (shopPickMarker) {
+            shopPickMarker.setLngLat([lng, lat]);
+          } else {
+            shopPickMarker = new maplibregl.Marker({ color: '#22c55e' })
+              .setLngLat([lng, lat])
+              .addTo(instance);
+          }
           return;
         }
 
@@ -2081,11 +2131,15 @@
         }
 
         const subdivisionLevelIndex = SUPPORTED_COUNTRIES.reduce<number>(
-          (found, c) => (found >= 0 ? found : c.levels.findIndex((l) => l.dataset === feature.properties.dataset)),
+          (found, c) =>
+            found >= 0
+              ? found
+              : c.levels.findIndex((l) => l.dataset === feature.properties.dataset),
           -1
         );
         if (subdivisionLevelIndex === 0) {
-          activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
+          activeSupportedCountry =
+            getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.adcode ?? null;
           activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
@@ -2097,7 +2151,8 @@
         if (subdivisionLevelIndex === 1) {
           const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
           const prevCityAdcode = activeCityAdcode;
-          activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
+          activeSupportedCountry =
+            getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = cityAdcode;
           if (cityAdcode !== prevCityAdcode) {
@@ -2110,7 +2165,8 @@
           return;
         }
         if (subdivisionLevelIndex === 2) {
-          activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
+          activeSupportedCountry =
+            getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = feature.properties.parentAdcode ?? null;
           syncMapData(instance);
@@ -2458,15 +2514,7 @@
             class="btn btn-soft hover:btn-success shrink-0"
             title={m.create_shop()}
             aria-label={m.create_shop()}
-            onclick={() => {
-              const center = map?.getCenter();
-              const params = new URLSearchParams();
-              if (center) {
-                params.set('lat', center.lat.toFixed(6));
-                params.set('lng', center.lng.toFixed(6));
-              }
-              goto(`${base}/shops/new${params.size ? `?${params}` : ''}`);
-            }}
+            onclick={enterShopLocationPickMode}
           >
             <i class="fa-solid fa-plus"></i>
           </button>
@@ -2577,6 +2625,46 @@
       style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
     >
       <ShopCard shop={markerHoveredShop} />
+    </div>
+  {/if}
+
+  <!-- ================================================================
+       Shop location pick mode overlay
+       ================================================================ -->
+  {#if shopLocationPickMode}
+    <div class="pointer-events-none absolute inset-0 z-30" transition:fade={{ duration: 150 }}>
+      <!-- Instruction banner at the top -->
+      <div
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
+               px-5 py-3 shadow-lg backdrop-blur-sm"
+      >
+        <i class="fa-solid fa-crosshairs text-success text-lg"></i>
+        <p class="text-sm font-medium">{m.shop_pick_location_hint()}</p>
+      </div>
+
+      <!-- Confirm / cancel bar at the bottom -->
+      <div
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 bottom-6 mx-auto flex w-fit items-center gap-3 rounded-xl border
+               px-5 py-3 shadow-lg backdrop-blur-sm"
+      >
+        {#if pendingShopCoords}
+          <span class="font-mono text-xs opacity-60">
+            {pendingShopCoords.lat.toFixed(5)}, {pendingShopCoords.lng.toFixed(5)}
+          </span>
+        {/if}
+        <button
+          class="btn btn-success btn-sm"
+          disabled={!pendingShopCoords}
+          onclick={confirmShopLocation}
+        >
+          <i class="fa-solid fa-check"></i>
+          {m.confirm()}
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick={exitShopLocationPickMode}>
+          <i class="fa-solid fa-xmark"></i>
+          {m.cancel()}
+        </button>
+      </div>
     </div>
   {/if}
 

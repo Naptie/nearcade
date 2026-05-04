@@ -83,7 +83,9 @@ async function validateOpeningHours() {
         console.log(`  ... and ${issues.length - 20} more`);
       }
     } else {
-      console.log('\nAll shops have integer opening hours — schema migration is backwards compatible.');
+      console.log(
+        '\nAll shops have integer opening hours — schema migration is backwards compatible.'
+      );
     }
   } finally {
     await client.close();

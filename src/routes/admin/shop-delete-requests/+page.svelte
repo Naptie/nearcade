@@ -24,7 +24,7 @@
 
   <!-- Status filter -->
   <div class="flex gap-2">
-    {#each ['pending', 'approved', 'rejected', 'all'] as s}
+    {#each ['pending', 'approved', 'rejected', 'all'] as s (s)}
       <a
         href="{resolve('/admin/shop-delete-requests')}?status={s}"
         class="btn btn-sm {data.currentStatus === s ? 'btn-primary' : 'btn-ghost'}"
@@ -137,5 +137,3 @@
     </div>
   {/if}
 </div>
-
-

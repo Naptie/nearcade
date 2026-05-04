@@ -25,10 +25,22 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
   // Redirect legacy sources to nearcade
   if (source === ShopSource.BEMANICN) {
-    redirect(301, resolve('/(main)/shops/[source]/[id]', { source: ShopSource.NEARCADE, id: String(shopId + SHOP_ID_OFFSET_BEMANICN) }));
+    redirect(
+      301,
+      resolve('/(main)/shops/[source]/[id]', {
+        source: ShopSource.NEARCADE,
+        id: String(shopId + SHOP_ID_OFFSET_BEMANICN)
+      })
+    );
   }
   if (source === ShopSource.ZIV) {
-    redirect(301, resolve('/(main)/shops/[source]/[id]', { source: ShopSource.NEARCADE, id: String(shopId + SHOP_ID_OFFSET_ZIV) }));
+    redirect(
+      301,
+      resolve('/(main)/shops/[source]/[id]', {
+        source: ShopSource.NEARCADE,
+        id: String(shopId + SHOP_ID_OFFSET_ZIV)
+      })
+    );
   }
 
   // Get session data immediately

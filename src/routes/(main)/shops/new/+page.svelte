@@ -36,7 +36,9 @@
 
     const { shop } = await response.json();
     successMessage = m.shop_created_successfully();
-    await goto(resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: String(shop.id) }));
+    await goto(
+      resolve('/(main)/shops/[source]/[id]', { source: shop.source, id: String(shop.id) })
+    );
   }
 </script>
 
@@ -56,9 +58,5 @@
     </div>
   {/if}
 
-  <ShopForm
-    {initialData}
-    onSubmit={handleSubmit}
-    submitLabel={m.create_shop()}
-  />
+  <ShopForm {initialData} onSubmit={handleSubmit} submitLabel={m.create_shop()} />
 </div>
