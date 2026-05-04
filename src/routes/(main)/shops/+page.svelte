@@ -5,12 +5,7 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import {
-    aggregateGames,
-    formatShopAddress,
-    getGameName,
-    pageTitle
-  } from '$lib/utils';
+  import { aggregateGames, formatShopAddress, getGameName, pageTitle } from '$lib/utils';
   import { PAGINATION, GAMES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';

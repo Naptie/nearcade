@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       });
     }
 
-    const arcadeIdentifiers = club.starredArcades.filter((arcade) => !isNaN(arcade.id));
+    const arcadeIdentifiers = club.starredArcades.filter((arcade) => !isNaN(arcade));
 
     // Get total count for pagination
     const totalArcades = arcadeIdentifiers.length;
@@ -47,21 +47,14 @@ export const GET: RequestHandler = async ({ params, url }) => {
     if (pageArcadeIdentifiers.length > 0) {
       const arcadeResults = await shopsCollection
         .find({
-          $and: [
-            { id: { $in: pageArcadeIdentifiers.map((arcade) => arcade.id) } },
-            { source: { $in: pageArcadeIdentifiers.map((arcade) => arcade.source) } }
-          ]
+          id: { $in: pageArcadeIdentifiers }
         })
         .toArray();
 
       // Sort arcades to match the order in club.starredArcades
-      const arcadeMap = new Map(
-        arcadeResults.map((arcade) => [`${arcade.source}-${arcade.id}`, arcade])
-      );
+      const arcadeMap = new Map(arcadeResults.map((arcade) => [arcade.id, arcade]));
       arcades = toPlainArray(
-        pageArcadeIdentifiers
-          .map((arcade) => arcadeMap.get(`${arcade.source}-${arcade.id}`))
-          .filter(Boolean) as Shop[]
+        pageArcadeIdentifiers.map((arcade) => arcadeMap.get(arcade)).filter(Boolean) as Shop[]
       );
     }
 

@@ -1028,7 +1028,7 @@ export const formatHourLiteral = (hourNum: number) => {
 
 const normalizeOpeningHourTime = (time: unknown) => {
   if (typeof time === 'number') {
-    const normalized = (((time % 24) + 24) % 24) || 0;
+    const normalized = ((time % 24) + 24) % 24 || 0;
     let hour = Math.floor(normalized);
     let minute = Math.round((normalized - hour) * 60);
     if (minute === 60) {
@@ -1131,11 +1131,7 @@ const toleranceMsForShopClose = 150 * 60 * 1000; // 2.5 hours tolerance
 /**
  * Calculate the next occurrence of the specified local time in the location.
  */
-export const getNextTimeAtHour = (
-  location: Location,
-  hours: unknown[],
-  basisHour: unknown
-) => {
+export const getNextTimeAtHour = (location: Location, hours: unknown[], basisHour: unknown) => {
   const normalizeHourMinute = (time: unknown) => {
     const normalized = normalizeOpeningHourTime(time);
     const hour = normalized.hour;
@@ -1158,9 +1154,8 @@ export const getNextTimeAtHour = (
   const month = nowShifted.getUTCMonth();
   const date = nowShifted.getUTCDate();
 
-  let targetUtcMs = Date.UTC(year, month, date, 0, 0, 0, 0) +
-    basis.totalMinutes * 60 * 1000 -
-    offsetMs;
+  let targetUtcMs =
+    Date.UTC(year, month, date, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
 
   // If that target time is not in the future, move to next day
   let i = 0;
@@ -1177,8 +1172,8 @@ export const getNextTimeAtHour = (
   }
 
   return {
-    hours: normalizedHours.map((hour) =>
-      new Date(targetUtcMs + (hour.totalMinutes - basis.totalMinutes) * 60 * 1000)
+    hours: normalizedHours.map(
+      (hour) => new Date(targetUtcMs + (hour.totalMinutes - basis.totalMinutes) * 60 * 1000)
     ),
     hour: new Date(targetUtcMs)
   };

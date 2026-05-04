@@ -400,9 +400,7 @@
               </div>
               <div class="flex justify-between py-1">
                 <span class="opacity-60">{m.bound_shop()}</span>
-                <span
-                  >{selectedMachine.shop?.name || `#${selectedMachine.shopId}`}</span
-                >
+                <span>{selectedMachine.shop?.name || `#${selectedMachine.shopId}`}</span>
               </div>
               <div class="flex justify-between py-1">
                 <span class="opacity-60">{m.status()}</span>

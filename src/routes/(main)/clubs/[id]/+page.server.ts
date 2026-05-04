@@ -82,15 +82,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       let starredArcades: Shop[] = [];
       if (club.starredArcades && club.starredArcades.length > 0) {
         // Convert string IDs to numbers for shop queries
-        const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade.id));
+        const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade));
 
         if (arcades.length > 0) {
           starredArcades = toPlainArray(
             await shopsCollection
               .find({
-                $or: arcades.map((arcade) => {
-                  return { $and: [{ source: arcade.source }, { id: arcade.id }] };
-                })
+                id: { $in: arcades }
               })
               .limit(PAGINATION.PAGE_SIZE)
               .toArray()

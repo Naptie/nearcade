@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     // Get total count
     const totalCount = await attendanceReportsCollection.countDocuments({
-      'shop.id': id,
+      'shop.id': id
     });
 
     // Get paginated reports with user data
@@ -51,7 +51,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       .aggregate([
         {
           $match: {
-            'shop.id': id,
+            'shop.id': id
           }
         },
         {

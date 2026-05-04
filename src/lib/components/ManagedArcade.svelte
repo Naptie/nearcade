@@ -27,9 +27,7 @@
   let showRemoveConfirm = $state(false);
 
   const confirmRemoveArcade = () => {
-    const form = document.getElementById(
-      `remove-arcade-${shop.id}`
-    ) as HTMLFormElement;
+    const form = document.getElementById(`remove-arcade-${shop.id}`) as HTMLFormElement;
     if (form) {
       form.requestSubmit();
     }
@@ -91,12 +89,7 @@
         <i class="fa-solid fa-map-location-dot"></i>
       </a>
       {#if page.url.pathname.startsWith(resolve('/(main)/settings') + '/')}
-        <form
-          id="remove-arcade-{shop.id}"
-          method="POST"
-          action="?/removeArcade"
-          use:enhance
-        >
+        <form id="remove-arcade-{shop.id}" method="POST" action="?/removeArcade" use:enhance>
           <input type="hidden" name="arcadeId" value={shop.id} />
         </form>
         <button

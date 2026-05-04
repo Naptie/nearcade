@@ -120,20 +120,14 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     if (openingHours !== undefined) {
       const normalizedOpeningHours = normalizeOpeningHours(openingHours);
       if (!normalizedOpeningHours) {
-        error(
-          400,
-          'openingHours must be a non-empty array of [ {hour, minute}, {hour, minute} ]'
-        );
+        error(400, 'openingHours must be a non-empty array of [ {hour, minute}, {hour, minute} ]');
       }
       updateFields.openingHours = normalizedOpeningHours;
     }
     if (location !== undefined) updateFields.location = location;
     if (games !== undefined) updateFields.games = games;
 
-    await shopsCollection.updateOne(
-      { id: shopId },
-      { $set: updateFields }
-    );
+    await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
 
     const updated = await shopsCollection.findOne({ id: shopId });
     return json({ shop: toPlainObject(updated!) });

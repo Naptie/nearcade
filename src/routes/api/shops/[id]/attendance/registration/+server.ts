@@ -12,10 +12,7 @@ const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 const MAX_EXPIRATION_SECONDS = 2 * 60; // 2 minutes
 
 // Helper to validate machine API secret and check shop binding
-const validateMachineAuth = async (
-  request: Request,
-  shopId: number
-): Promise<Machine> => {
+const validateMachineAuth = async (request: Request, shopId: number): Promise<Machine> => {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw error(401, m.unauthorized());

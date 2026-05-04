@@ -41,9 +41,7 @@
     }
 
     successMessage = m.shop_updated_successfully();
-    await goto(
-      resolve('/(main)/shops/[id]', { id: String(shop.id) })
-    );
+    await goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }));
   }
 </script>
 

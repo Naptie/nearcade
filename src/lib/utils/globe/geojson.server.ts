@@ -6,7 +6,11 @@ import chinaProvincesGeoJson from '$lib/assets/globe/china_provinces.geo.json';
 import chinaCitiesGeoJson from '$lib/assets/globe/china_cities.geo.json';
 import chinaCountiesGeoJson from '$lib/assets/globe/china_counties.geo.json';
 
-import { SUPPORTED_COUNTRIES, type SupportedCountry, type SupportedCountryLevel } from '$lib/countries';
+import {
+  SUPPORTED_COUNTRIES,
+  type SupportedCountry,
+  type SupportedCountryLevel
+} from '$lib/countries';
 import {
   normalizeWorldGeoJson,
   type GlobeDataset,

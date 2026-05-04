@@ -87,10 +87,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       // Get frequenting arcades for the university
       let frequentingArcades: Shop[] = [];
       if (university.frequentingArcades && university.frequentingArcades.length > 0) {
-        const frequentingArcadeIds = university.frequentingArcades.slice(
-          0,
-          PAGINATION.PAGE_SIZE
-        );
+        const frequentingArcadeIds = university.frequentingArcades.slice(0, PAGINATION.PAGE_SIZE);
         frequentingArcades = (await shopsCollection
           .find({
             id: { $in: frequentingArcadeIds }

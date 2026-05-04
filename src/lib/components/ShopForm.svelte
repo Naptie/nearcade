@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { untrack, tick } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { GAMES } from '$lib/constants';
   import { base } from '$app/paths';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
-  import { getSupportedCountryByName } from '$lib/countries';
+  import { getSupportedCountryByName, SUPPORTED_COUNTRIES } from '$lib/countries';
   import type { OpeningHourTime } from '$lib/types';
 
   // ---- Types ----
@@ -152,14 +152,22 @@
   // Extra free-text fields beyond selects
   let extraFields = $state<string[]>([]);
 
+  // Pending auto-fill data – applied reactively as sub-level options load.
+  type PendingFill = {
+    province?: { value: string; adcode: string };
+    city?: { value: string; adcode: string };
+    county?: { value: string };
+    extras?: string[];
+  };
+  let pendingFill = $state<PendingFill | null>(null);
+
   let selectedCountryObj = $derived(getSupportedCountryByName(selectedCountryName));
   let countryLevels = $derived(selectedCountryObj?.levels ?? []);
 
-  // For a supported country: select fields are the sub-national levels (province/city/county).
-  // For a non-supported country: the country name itself is the single address part.
-  // The country select is always shown but is the pivot, not counted separately.
+  // selectSlots = 1 (country) + sub-levels for supported countries;
+  // = 1 for an unsupported country with a name chosen; = 0 when no country is chosen.
   let selectSlots = $derived(
-    selectedCountryObj ? countryLevels.length : selectedCountryName ? 1 : 0
+    selectedCountryName ? (selectedCountryObj ? 1 + countryLevels.length : 1) : 0
   );
 
   // Total address parts = select-driven parts + extra free-text fields (max 4)
@@ -211,7 +219,7 @@
       .catch(console.error);
   });
 
-  // Load provinces when country changes
+  // Load provinces when country changes; apply pendingFill if present.
   $effect(() => {
     if (!selectedCountryObj) {
       provinceOptions = [];
@@ -222,6 +230,7 @@
       selectedCityName = '';
       selectedCityAdcode = '';
       selectedCountyName = '';
+      pendingFill = null;
       return;
     }
     if (selectedCountryObj.levels.length > 0) {
@@ -229,12 +238,30 @@
       fetchAddressOptions(dataset)
         .then((options) => {
           provinceOptions = options;
+          const pf = pendingFill;
+          if (pf?.province) {
+            const match = options.find((o) => o.value === pf.province!.value);
+            if (match) {
+              selectedProvinceName = match.value;
+              selectedProvinceAdcode = match.adcode ?? '';
+            } else {
+              extraFields = pf.extras ?? [];
+              pendingFill = null;
+            }
+          }
         })
         .catch(console.error);
+    } else {
+      // No province level – apply extras right away.
+      const pf = pendingFill;
+      if (pf) {
+        extraFields = pf.extras ?? [];
+        pendingFill = null;
+      }
     }
   });
 
-  // Load cities when province changes
+  // Load cities when province changes; apply pendingFill if present.
   $effect(() => {
     if (!selectedProvinceAdcode || !selectedCountryObj || selectedCountryObj.levels.length < 2) {
       cityOptions = [];
@@ -248,29 +275,63 @@
     fetchAddressOptions(dataset, selectedProvinceAdcode)
       .then((options) => {
         cityOptions = options;
+        const pf = pendingFill;
+        if (pf?.city) {
+          const match = options.find((o) => o.value === pf.city!.value);
+          if (match) {
+            selectedCityName = match.value;
+            selectedCityAdcode = match.adcode ?? '';
+          } else {
+            extraFields = pf.extras ?? [];
+            pendingFill = null;
+          }
+        } else if (pf && !pf.city) {
+          extraFields = pf.extras ?? [];
+          pendingFill = null;
+        }
       })
       .catch(console.error);
   });
 
-  // Load counties when city changes
+  // Load counties when city changes; apply pendingFill if present.
   $effect(() => {
     if (!selectedCityAdcode || !selectedCountryObj || selectedCountryObj.levels.length < 3) {
       countyOptions = [];
       selectedCountyName = '';
+      // If there is no county level, apply pending extras here.
+      const pf = pendingFill;
+      if (pf && selectedCountryObj && selectedCountryObj.levels.length < 3 && selectedCityAdcode) {
+        extraFields = pf.extras ?? [];
+        pendingFill = null;
+      }
       return;
     }
     const dataset = selectedCountryObj.levels[2].dataset;
     fetchAddressOptions(dataset, selectedCityAdcode)
       .then((options) => {
         countyOptions = options;
+        const pf = pendingFill;
+        if (pf) {
+          if (pf.county) {
+            const match = options.find((o) => o.value === pf.county!.value);
+            if (match) {
+              selectedCountyName = match.value;
+            }
+          }
+          // Always apply extras and clear pendingFill at the deepest level.
+          extraFields = pf.extras ?? [];
+          pendingFill = null;
+        }
       })
       .catch(console.error);
   });
 
-  // Build the general address array from selects + extra fields
+  // Build the general address array from selects + extra fields.
+  // Country addressName is always prepended for supported countries.
   let generalAddress = $derived.by(() => {
     const parts: string[] = [];
     if (selectedCountryObj) {
+      parts.push(selectedCountryObj.addressName);
       if (selectedProvinceName) parts.push(selectedProvinceName);
       if (selectedCityName) parts.push(selectedCityName);
       if (selectedCountyName) parts.push(selectedCountyName);
@@ -283,13 +344,152 @@
     return parts;
   });
 
-  // Pre-populate address from initialData
+  // Auto-fill selects and extras from an array of stored general address parts.
+  // Handles the new format (parts[0] = addressName) and the legacy format (no country name).
+  async function autoFillFromAddressParts(parts: string[]): Promise<void> {
+    if (!parts.length || countryOptions.length === 0) return;
+
+    let partIdx = 0;
+    let matchedCountry: (typeof SUPPORTED_COUNTRIES)[0] | undefined;
+
+    // New format: parts[0] is the country's addressName (e.g. '中国')
+    for (const country of SUPPORTED_COUNTRIES) {
+      if (parts[0] === country.addressName) {
+        matchedCountry = country;
+        partIdx = 1;
+        break;
+      }
+    }
+
+    // Backward-compat: parts[0] might be a province name with no country prefix.
+    if (!matchedCountry && parts.length > 0) {
+      for (const country of SUPPORTED_COUNTRIES) {
+        if (country.levels.length === 0) continue;
+        const provinces = await fetchAddressOptions(country.levels[0].dataset).catch(() => []);
+        const prov = provinces.find((p) => p.value === parts[0]);
+        if (prov) {
+          matchedCountry = country;
+          partIdx = 0;
+          break;
+        }
+      }
+    }
+
+    if (matchedCountry) {
+      const subParts = parts.slice(partIdx);
+      const fill: PendingFill = { extras: [] };
+      let subIdx = 0;
+
+      if (subParts[subIdx] && matchedCountry.levels.length > 0) {
+        const provinces = await fetchAddressOptions(matchedCountry.levels[0].dataset).catch(
+          () => []
+        );
+        const prov = provinces.find((p) => p.value === subParts[subIdx]);
+        if (prov) {
+          fill.province = { value: prov.value, adcode: prov.adcode ?? '' };
+          subIdx++;
+
+          if (subParts[subIdx] && matchedCountry.levels.length > 1 && prov.adcode) {
+            const cities = await fetchAddressOptions(
+              matchedCountry.levels[1].dataset,
+              prov.adcode
+            ).catch(() => []);
+            const city = cities.find((c) => c.value === subParts[subIdx]);
+            if (city) {
+              fill.city = { value: city.value, adcode: city.adcode ?? '' };
+              subIdx++;
+
+              if (subParts[subIdx] && matchedCountry.levels.length > 2 && city.adcode) {
+                const counties = await fetchAddressOptions(
+                  matchedCountry.levels[2].dataset,
+                  city.adcode
+                ).catch(() => []);
+                const county = counties.find((c) => c.value === subParts[subIdx]);
+                if (county) {
+                  fill.county = { value: county.value };
+                  subIdx++;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      fill.extras = subParts.slice(subIdx).filter((p) => p.trim());
+      pendingFill = fill;
+      selectedCountryName = matchedCountry.name;
+    } else {
+      // Non-supported or unknown country.
+      const countryOpt = countryOptions.find((o) => o.value === parts[0]);
+      if (countryOpt) {
+        selectedCountryName = parts[0];
+        extraFields = parts.slice(1).filter((p) => p.trim());
+      } else {
+        extraFields = parts.filter((p) => p.trim());
+      }
+    }
+  }
+
+  // Auto-fill from a raw address string (e.g. from location picker).
+  // Returns the remaining address after extracting the general parts.
+  async function autoFillFromAddressString(raw: string): Promise<string> {
+    let remaining = raw;
+
+    for (const country of SUPPORTED_COUNTRIES) {
+      if (country.levels.length === 0) continue;
+      const provinces = await fetchAddressOptions(country.levels[0].dataset).catch(() => []);
+      const prov = provinces.find((p) => remaining.startsWith(p.value));
+      if (!prov) continue;
+
+      remaining = remaining.slice(prov.value.length);
+      const fill: PendingFill = {
+        province: { value: prov.value, adcode: prov.adcode ?? '' },
+        extras: []
+      };
+
+      if (country.levels.length >= 2 && prov.adcode) {
+        const cities = await fetchAddressOptions(country.levels[1].dataset, prov.adcode).catch(
+          () => []
+        );
+        const city = cities.find((c) => remaining.startsWith(c.value));
+        if (city) {
+          remaining = remaining.slice(city.value.length);
+          fill.city = { value: city.value, adcode: city.adcode ?? '' };
+
+          if (country.levels.length >= 3 && city.adcode) {
+            const counties = await fetchAddressOptions(
+              country.levels[2].dataset,
+              city.adcode
+            ).catch(() => []);
+            const county = counties.find((c) => remaining.startsWith(c.value));
+            if (county) {
+              remaining = remaining.slice(county.value.length);
+              fill.county = { value: county.value };
+            }
+          }
+        }
+      }
+
+      // If this country was already selected, reset first to force the reactive chain.
+      if (selectedCountryName === country.name) {
+        selectedCountryName = '';
+        await tick();
+      }
+      pendingFill = fill;
+      selectedCountryName = country.name;
+      return remaining; // remaining becomes the detailed address
+    }
+
+    return raw; // no match
+  }
+
+  // Pre-populate address from initialData – runs once when country options are available.
+  let addressPrefilled = $state(false);
   $effect(() => {
-    if (!initialData.address?.general) return;
-    const parts = initialData.address.general;
-    // Try to match to a country
-    // Just populate extra fields if no country match
-    extraFields = [...parts];
+    if (addressPrefilled || countryOptions.length === 0) return;
+    if (!initialData.address?.general?.length) return;
+    addressPrefilled = true;
+    autoFillFromAddressParts(initialData.address.general).catch(console.error);
   });
 
   // ---- Games ----
@@ -746,9 +946,16 @@
       coordinates: [loc.longitude, loc.latitude]
     };
     locationName = loc.name ?? '';
-    // Pre-populate detailed address only if currently empty
-    if (!detailedAddress && loc.address) {
-      detailedAddress = loc.address;
+    // Extract general address parts from the address string and auto-select selects.
+    // The remaining string (after general parts are removed) becomes the detailed address.
+    if (loc.address) {
+      autoFillFromAddressString(loc.address)
+        .then((remaining) => {
+          detailedAddress = remaining;
+        })
+        .catch(() => {
+          if (!detailedAddress) detailedAddress = loc.address;
+        });
     }
   }}
 />

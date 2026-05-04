@@ -9,10 +9,7 @@ import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
 
 // Helper to validate machine API secret and check shop binding
-const validateMachineAuth = async (
-  request: Request,
-  shopId: number
-): Promise<Machine> => {
+const validateMachineAuth = async (request: Request, shopId: number): Promise<Machine> => {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw error(401, m.unauthorized());

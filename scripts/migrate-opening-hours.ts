@@ -32,7 +32,7 @@ function clampInt(value: number, min: number, max: number) {
 }
 
 function normalizeNumericTime(value: number): OpeningHourTime {
-  const normalized = (((value % 24) + 24) % 24) || 0;
+  const normalized = ((value % 24) + 24) % 24 || 0;
   let hour = Math.floor(normalized);
   let minute = Math.round((normalized - hour) * 60);
 

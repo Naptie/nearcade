@@ -88,9 +88,7 @@
   let otherShop = $derived.by(() => {
     if (!currentAttendanceFromServer) return false;
     const attendance = currentAttendanceFromServer;
-    return shop && (attendance.shop.id !== shop.id)
-      ? attendance
-      : false;
+    return shop && attendance.shop.id !== shop.id ? attendance : false;
   });
   let hovered = $state<Record<number, boolean>>({});
   let isLoading = $state(0);
@@ -127,9 +125,7 @@
   const getAttendanceData = async () => {
     if (!shop || shop.isClaimed) return;
     try {
-      const attendanceResponse = await fetch(
-        fromPath(`/api/shops/${shop.id}/attendance`)
-      );
+      const attendanceResponse = await fetch(fromPath(`/api/shops/${shop.id}/attendance`));
       if (attendanceResponse.ok) {
         const result = (await attendanceResponse.json()) as {
           total: number;
@@ -677,20 +673,19 @@
         {/if}
       {/snippet}
       {#snippet header(isMain = true)}
-        {@const [link, label] =
-          !isShopChinaBased(shop)
-            ? [
-                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  `${shop.name} ${formatShopAddress(shop)}`
-                )}`,
-                m.view_in_google_maps()
-              ]
-            : [
-                `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${
-                  shop.location.coordinates[1]
-                }&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`,
-                m.view_in_amap()
-              ]}
+        {@const [link, label] = !isShopChinaBased(shop)
+          ? [
+              `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                `${shop.name} ${formatShopAddress(shop)}`
+              )}`,
+              m.view_in_google_maps()
+            ]
+          : [
+              `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${
+                shop.location.coordinates[1]
+              }&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`,
+              m.view_in_amap()
+            ]}
         <!-- Shop Header -->
         <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
           <div class="mb-4 flex items-center justify-between gap-2">
@@ -823,6 +818,15 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
+              {#if data.user?.userType === 'site_admin'}
+                <a
+                  href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}
+                  class="btn btn-secondary btn-soft"
+                >
+                  <i class="fa-solid fa-pen-to-square"></i>
+                  {m.edit_shop()}
+                </a>
+              {/if}
               <a
                 href={link}
                 target="_blank"

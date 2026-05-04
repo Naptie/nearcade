@@ -540,9 +540,7 @@ export async function getUserActivities(
       const dataStr = await redis.get(keys[0]);
       if (dataStr) {
         const id = keys[0].split(':')[2];
-        const shop = await db
-          .collection<Shop>('shops')
-          .findOne({ id: parseInt(id) });
+        const shop = await db.collection<Shop>('shops').findOne({ id: parseInt(id) });
         if (shop) {
           const data = JSON.parse(dataStr);
           const attendedAt = new Date(data.attendedAt);

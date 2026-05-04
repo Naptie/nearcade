@@ -21,9 +21,10 @@ const SUPPORTED_DATASETS = new Set(getAllSupportedDatasets());
 const toCountryOption = (feature: GlobeFeature, index: number): AddressOption => {
   const name = feature.properties.name;
   const supportedCountry = getSupportedCountryByName(name);
-  const idSuffix = feature.properties.numericCode && feature.properties.numericCode !== '0'
-    ? feature.properties.numericCode
-    : `${name}:${index}`;
+  const idSuffix =
+    feature.properties.numericCode && feature.properties.numericCode !== '0'
+      ? feature.properties.numericCode
+      : `${name}:${index}`;
 
   if (supportedCountry) {
     return {
@@ -86,7 +87,9 @@ export const GET: RequestHandler = ({ url }) => {
     error(400, 'A parentAdcode is required for this dataset');
   }
 
-  const options = getGlobeGeoJson(dataset as GlobeDataset, parentAdcode).features.map(toRegionOption);
+  const options = getGlobeGeoJson(dataset as GlobeDataset, parentAdcode).features.map(
+    toRegionOption
+  );
 
   return json(options, {
     headers: {
