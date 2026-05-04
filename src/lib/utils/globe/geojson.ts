@@ -1,3 +1,5 @@
+import { getSupportedCountry, type SupportedCountry } from '$lib/countries';
+
 export type GlobeDataset = 'world' | 'china-provinces' | 'china-cities' | 'china-counties';
 export type GlobeFeatureLevel = 'world' | 'province' | 'city' | 'district' | 'county';
 
@@ -15,6 +17,7 @@ export type GlobeFeatureProperties = {
   region?: string;
   subregion?: string;
   isChina?: boolean;
+  supportedCountryNumericCode?: string;
   hasCountyChildren?: boolean;
 };
 
@@ -217,6 +220,8 @@ export const normalizeWorldGeoJson = (data: RawGlobeFeatureCollection): GlobeFea
           region: toStringValue(properties.region),
           subregion: toStringValue(properties.subregion),
           isChina: name === 'China' || numericCode === '156',
+          supportedCountryNumericCode:
+            numericCode && getSupportedCountry(numericCode) ? numericCode : undefined,
           hasCountyChildren: false
         }
       }
@@ -406,6 +411,15 @@ export const filterCountiesByParentAdcode = (
 
 export const isChinaWorldFeature = (feature: GlobeFeature | null | undefined) =>
   feature?.properties?.dataset === 'world' && feature.properties.isChina === true;
+
+export const isSupportedCountryWorldFeature = (
+  feature: GlobeFeature | null | undefined
+): SupportedCountry | null => {
+  if (feature?.properties?.dataset !== 'world') return null;
+  const numericCode = feature.properties.numericCode;
+  if (!numericCode) return null;
+  return getSupportedCountry(numericCode) ?? null;
+};
 
 export const getCountyParentAdcode = (feature: GlobeFeature | null | undefined) => {
   if (feature?.properties?.dataset !== 'china-cities') {

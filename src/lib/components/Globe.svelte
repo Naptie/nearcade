@@ -16,11 +16,16 @@
     filterCitiesByProvince,
     getCountyParentAdcode,
     getFeatureBounds,
-    isChinaWorldFeature,
+    isSupportedCountryWorldFeature,
     type GlobeDataset,
     type GlobeFeature,
     type GlobeFeatureCollection
   } from '$lib/utils/globe/geojson';
+  import {
+    SUPPORTED_COUNTRIES,
+    getSupportedCountryByDataset,
+    type SupportedCountry
+  } from '$lib/countries';
   import { fade, slide } from 'svelte/transition';
   import {
     GlobeVisualsLayer,
@@ -138,7 +143,8 @@
   }> = [];
 
   const isFeatureInChina = (feature: GlobeFeature | null) =>
-    feature?.properties?.dataset?.startsWith('china-') || isChinaWorldFeature(feature);
+    feature?.properties?.dataset?.startsWith('china-') ||
+    isSupportedCountryWorldFeature(feature)?.numericCode === '156';
 
   const getFallbackGlobalTileUrls = () => {
     for (const candidate of [
@@ -324,7 +330,7 @@
   let geojsonStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('loading');
   let countyStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   let geojsonError = $state<string | null>(null);
-  let chinaActive = $state(false);
+  let activeSupportedCountry = $state<SupportedCountry | null>(null);
   let activeProvinceAdcode = $state<string | null>(null);
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
@@ -510,10 +516,16 @@
   type RegionFilter =
     | { type: 'world' }
     | { type: 'address'; address: string[] }
-    | { type: 'china' }
-    | { type: 'china-province'; name: string }
-    | { type: 'china-city'; provinceName: string; cityName: string }
-    | { type: 'china-county'; provinceName: string; cityName: string; countyName: string };
+    | { type: 'country'; countryName: string }
+    | { type: 'country-level1'; countryName: string; level1Name: string }
+    | { type: 'country-level2'; countryName: string; level1Name: string; level2Name: string }
+    | {
+        type: 'country-level3';
+        countryName: string;
+        level1Name: string;
+        level2Name: string;
+        level3Name: string;
+      };
 
   let regionFilter = $state<RegionFilter>({ type: 'world' });
 
@@ -523,14 +535,14 @@
         return m.world();
       case 'address':
         return regionFilter.address[regionFilter.address.length - 1];
-      case 'china':
-        return '中国';
-      case 'china-province':
-        return regionFilter.name;
-      case 'china-city':
-        return regionFilter.cityName;
-      case 'china-county':
-        return regionFilter.countyName;
+      case 'country':
+        return regionFilter.countryName;
+      case 'country-level1':
+        return regionFilter.level1Name;
+      case 'country-level2':
+        return regionFilter.level2Name;
+      case 'country-level3':
+        return regionFilter.level3Name;
     }
   });
 
@@ -540,14 +552,14 @@
         return [];
       case 'address':
         return getAddressParts(regionFilter.address).slice(0, -1);
-      case 'china':
+      case 'country':
         return [];
-      case 'china-province':
-        return ['中国'];
-      case 'china-city':
-        return ['中国', regionFilter.provinceName];
-      case 'china-county':
-        return ['中国', regionFilter.provinceName, regionFilter.cityName];
+      case 'country-level1':
+        return [regionFilter.countryName];
+      case 'country-level2':
+        return [regionFilter.countryName, regionFilter.level1Name];
+      case 'country-level3':
+        return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
     }
   });
 
@@ -566,24 +578,25 @@
             (v, i) => general.length <= i || v.toLowerCase() === general[i].toLowerCase()
           );
           break;
-        case 'china':
-          matchesRegion = general[0] === '中国';
+        case 'country':
+          matchesRegion = general[0] === regionFilter.countryName;
           break;
-        case 'china-province':
-          matchesRegion = general[0] === '中国' && general[1] === regionFilter.name;
-          break;
-        case 'china-city':
+        case 'country-level1':
           matchesRegion =
-            general[0] === '中国' &&
-            general[1] === regionFilter.provinceName &&
-            general[2] === regionFilter.cityName;
+            general[0] === regionFilter.countryName && general[1] === regionFilter.level1Name;
           break;
-        case 'china-county':
+        case 'country-level2':
           matchesRegion =
-            general[0] === '中国' &&
-            general[1] === regionFilter.provinceName &&
-            general[2] === regionFilter.cityName &&
-            general[3] === regionFilter.countyName;
+            general[0] === regionFilter.countryName &&
+            general[1] === regionFilter.level1Name &&
+            general[2] === regionFilter.level2Name;
+          break;
+        case 'country-level3':
+          matchesRegion =
+            general[0] === regionFilter.countryName &&
+            general[1] === regionFilter.level1Name &&
+            general[2] === regionFilter.level2Name &&
+            general[3] === regionFilter.level3Name;
           break;
       }
       if (!matchesRegion) return false;
@@ -716,7 +729,8 @@
         zoom: Math.max(instance.getZoom(), 10),
         duration: 1200
       },
-      entry.shop.address.general[0] === '中国'
+      SUPPORTED_COUNTRIES.find((c) => c.addressName === entry.shop.address.general[0])
+        ?.numericCode === '156'
     );
   };
 
@@ -898,13 +912,16 @@
   const currentDetailLevel = $derived.by(() => {
     if (countyData.features.length > 0 && viewZoom >= COUNTY_ZOOM_THRESHOLD) return 'Counties';
     if (visibleCityData.features.length > 0 && viewZoom >= CITY_ZOOM_THRESHOLD) return 'Cities';
-    if (chinaActive) return 'Provinces';
+    if (activeSupportedCountry) {
+      const lvl = activeSupportedCountry.levels[0].levelName;
+      return lvl.charAt(0).toUpperCase() + lvl.slice(1) + 's';
+    }
     return 'World';
   });
 
   const focusPath = $derived.by(() => {
     const parts = ['World'];
-    if (chinaActive) parts.push('China');
+    if (activeSupportedCountry) parts.push(activeSupportedCountry.name);
     if (activeProvinceName) parts.push(activeProvinceName);
     if (activeCityName) parts.push(activeCityName);
     return parts.join(' / ');
@@ -1009,7 +1026,8 @@
 
   const syncBasemapLayers = (instance: maplibregl.Map) => {
     const effectiveZoom = anticipatedBasemapTarget?.zoom ?? instance.getZoom();
-    const effectiveIsChina = anticipatedBasemapTarget?.isChina ?? chinaActive;
+    const effectiveIsChina =
+      anticipatedBasemapTarget?.isChina ?? activeSupportedCountry?.numericCode === '156';
     const showRegionalBasemap = effectiveZoom >= BASEMAP_SWITCH_ZOOM_THRESHOLD;
     const showChinaBasemap =
       showRegionalBasemap &&
@@ -1464,6 +1482,19 @@
     }
   };
 
+  const getSourceIdForDataset = (dataset: string | undefined): string => {
+    if (!dataset || dataset === 'world') return WORLD_SOURCE_ID;
+    const levelSourceIds = [PROVINCE_SOURCE_ID, CITY_SOURCE_ID, COUNTY_SOURCE_ID];
+    for (const country of SUPPORTED_COUNTRIES) {
+      for (let i = 0; i < country.levels.length; i++) {
+        if (country.levels[i].dataset === dataset && i < levelSourceIds.length) {
+          return levelSourceIds[i];
+        }
+      }
+    }
+    return COUNTY_SOURCE_ID;
+  };
+
   let activeFeatureState: { id: string | number; source: string } | null = null;
 
   const flushHoverToMap = (instance: maplibregl.Map, feature: GlobeFeature | null) => {
@@ -1473,14 +1504,7 @@
     }
     if (feature) {
       const fid = (feature as unknown as { id?: string | number }).id;
-      const sourceId =
-        feature.properties?.dataset === 'world'
-          ? WORLD_SOURCE_ID
-          : feature.properties?.dataset === 'china-provinces'
-            ? PROVINCE_SOURCE_ID
-            : feature.properties?.dataset === 'china-cities'
-              ? CITY_SOURCE_ID
-              : COUNTY_SOURCE_ID;
+      const sourceId = getSourceIdForDataset(feature.properties?.dataset);
       if (fid !== undefined) {
         activeFeatureState = { id: fid, source: sourceId };
         instance.setFeatureState(activeFeatureState, { hovered: true });
@@ -1526,7 +1550,7 @@
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
     syncBasemapLayers(instance);
 
-    const showProvinceLayers = chinaActive && provinceData.features.length > 0;
+    const showProvinceLayers = !!activeSupportedCountry && provinceData.features.length > 0;
     const showCityLayers =
       showProvinceLayers && visibleCityData.features.length > 0 && Boolean(activeProvinceAdcode);
     const showCountyLayers =
@@ -1542,9 +1566,10 @@
     setLayerVisibility(instance, COUNTY_LINE_LAYER_ID, showCountyLayers);
     setLayerVisibility(instance, COUNTY_LABEL_LAYER_ID, showCountyLayers);
 
-    const worldFilter: maplibregl.FilterSpecification | null = showProvinceLayers
-      ? ['!=', ['get', 'isChina'], true]
-      : null;
+    const worldFilter: maplibregl.FilterSpecification | null =
+      showProvinceLayers && activeSupportedCountry
+        ? ['!=', ['get', 'supportedCountryNumericCode'], activeSupportedCountry.numericCode]
+        : null;
     for (const layerId of [WORLD_FILL_LAYER_ID, WORLD_LINE_LAYER_ID]) {
       if (instance.getLayer(layerId)) instance.setFilter(layerId, worldFilter);
     }
@@ -1616,7 +1641,9 @@
     }
     countyStatus = 'loading';
     try {
-      const data = await fetchGeoJson('china-counties', parentAdcode);
+      const countyDataset = (activeSupportedCountry?.levels[2]?.dataset ??
+        'china-counties') as GlobeDataset;
+      const data = await fetchGeoJson(countyDataset, parentAdcode);
       countyCache[parentAdcode] = data;
       if (activeCityAdcode === parentAdcode) {
         countyData = data;
@@ -1635,7 +1662,7 @@
     anticipatedBasemapTarget = null;
     viewZoom = instance.getZoom();
     if (!isGeoJsonEnabled()) {
-      chinaActive = false;
+      activeSupportedCountry = null;
       activeProvinceAdcode = null;
       activeCityAdcode = null;
       countyData = emptyGlobeFeatureCollection();
@@ -1645,11 +1672,16 @@
     }
     const point = instance.project(instance.getCenter());
     const centeredFeature = getTopFeatureAtPoint(instance, point);
-    const isCenterInChina = isFeatureInChina(centeredFeature);
-    const nextChinaActive = !!(viewZoom >= COUNTRY_ZOOM_THRESHOLD && isCenterInChina);
-    chinaActive = nextChinaActive;
+    const centeredSupportedCountry =
+      isSupportedCountryWorldFeature(centeredFeature) ??
+      (centeredFeature?.properties?.dataset && centeredFeature.properties.dataset !== 'world'
+        ? (getSupportedCountryByDataset(centeredFeature.properties.dataset) ?? null)
+        : null);
+    const nextActiveSupportedCountry =
+      viewZoom >= COUNTRY_ZOOM_THRESHOLD ? centeredSupportedCountry : null;
+    activeSupportedCountry = nextActiveSupportedCountry;
 
-    if (!nextChinaActive) {
+    if (!nextActiveSupportedCountry) {
       activeProvinceAdcode = null;
       activeCityAdcode = null;
       countyData = emptyGlobeFeatureCollection();
@@ -1663,15 +1695,18 @@
 
     if (viewZoom >= PROVINCE_ZOOM_THRESHOLD && centeredFeature) {
       const dataset = centeredFeature.properties?.dataset;
-      if (dataset === 'china-provinces') {
+      const level0Dataset = nextActiveSupportedCountry.levels[0]?.dataset;
+      const level1Dataset = nextActiveSupportedCountry.levels[1]?.dataset;
+      const level2Dataset = nextActiveSupportedCountry.levels[2]?.dataset;
+      if (dataset === level0Dataset) {
         nextProvinceAdcode = centeredFeature.properties?.adcode ?? null;
-      } else if (dataset === 'china-cities' || dataset === 'china-counties') {
+      } else if (dataset === level1Dataset || dataset === level2Dataset) {
         nextProvinceAdcode = centeredFeature.properties?.provinceAdcode ?? null;
         if (viewZoom >= CITY_ZOOM_THRESHOLD) {
-          if (dataset === 'china-cities') {
+          if (dataset === level1Dataset) {
             nextCityAdcode =
               getCountyParentAdcode(centeredFeature as unknown as GlobeFeature) ?? null;
-          } else if (dataset === 'china-counties') {
+          } else if (dataset === level2Dataset) {
             nextCityAdcode = centeredFeature.properties?.parentAdcode ?? null;
           }
         }
@@ -1830,28 +1865,43 @@
     const props = feature.properties;
     if (!props) return;
     if (props.dataset === 'world') {
-      regionFilter = props.isChina ? { type: 'china' } : { type: 'address', address: [props.name] };
+      const supported = isSupportedCountryWorldFeature(feature);
+      if (supported) {
+        regionFilter = { type: 'country', countryName: supported.addressName };
+      } else {
+        regionFilter = { type: 'address', address: [props.name] };
+      }
       return;
     }
-    if (props.dataset === 'china-provinces') {
-      regionFilter = { type: 'china-province', name: props.name };
-      return;
-    }
-    if (props.dataset === 'china-cities') {
-      regionFilter = {
-        type: 'china-city',
-        provinceName: getProvinceNameByAdcode(props.provinceAdcode),
-        cityName: props.name
-      };
-      return;
-    }
-    if (props.dataset === 'china-counties') {
-      regionFilter = {
-        type: 'china-county',
-        provinceName: getProvinceNameByAdcode(props.provinceAdcode),
-        cityName: getCityNameByAdcode(props.parentAdcode),
-        countyName: props.name
-      };
+    for (const country of SUPPORTED_COUNTRIES) {
+      const levelIndex = country.levels.findIndex((l) => l.dataset === props.dataset);
+      if (levelIndex === 0) {
+        regionFilter = {
+          type: 'country-level1',
+          countryName: country.addressName,
+          level1Name: props.name
+        };
+        return;
+      }
+      if (levelIndex === 1) {
+        regionFilter = {
+          type: 'country-level2',
+          countryName: country.addressName,
+          level1Name: getProvinceNameByAdcode(props.provinceAdcode),
+          level2Name: props.name
+        };
+        return;
+      }
+      if (levelIndex === 2) {
+        regionFilter = {
+          type: 'country-level3',
+          countryName: country.addressName,
+          level1Name: getProvinceNameByAdcode(props.provinceAdcode),
+          level2Name: getCityNameByAdcode(props.parentAdcode),
+          level3Name: props.name
+        };
+        return;
+      }
     }
   };
 
@@ -1994,7 +2044,7 @@
         const feature = getTopFeatureAtPoint(instance, event.point);
         if (!feature?.properties) {
           regionFilter = { type: 'world' };
-          chinaActive = false;
+          activeSupportedCountry = null;
           activeProvinceAdcode = null;
           activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
@@ -2006,8 +2056,9 @@
         applyRegionFilter(feature);
 
         if (feature.properties.dataset === 'world') {
-          if (feature.properties.isChina) {
-            chinaActive = true;
+          const supported = isSupportedCountryWorldFeature(feature);
+          if (supported) {
+            activeSupportedCountry = supported;
             activeProvinceAdcode = null;
             activeCityAdcode = null;
             countyData = emptyGlobeFeatureCollection();
@@ -2015,7 +2066,7 @@
             syncMapData(instance);
             fitToFeature(instance, feature, 4.4);
           } else {
-            chinaActive = false;
+            activeSupportedCountry = null;
             activeProvinceAdcode = null;
             activeCityAdcode = null;
             countyData = emptyGlobeFeatureCollection();
@@ -2027,7 +2078,7 @@
         }
 
         if (feature.properties.dataset === 'china-provinces') {
-          chinaActive = true;
+          activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.adcode ?? null;
           activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
@@ -2040,7 +2091,7 @@
         if (feature.properties.dataset === 'china-cities') {
           const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
           const prevCityAdcode = activeCityAdcode;
-          chinaActive = true;
+          activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = cityAdcode;
           if (cityAdcode !== prevCityAdcode) {
@@ -2054,7 +2105,7 @@
         }
 
         if (feature.properties.dataset === 'china-counties') {
-          chinaActive = true;
+          activeSupportedCountry = getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = feature.properties.parentAdcode ?? null;
           syncMapData(instance);
