@@ -92,6 +92,13 @@
       href: resolve('/admin/join-requests'),
       requiresSiteAdmin: false,
       count: data.session?.session.pendingJoinRequests
+    },
+    {
+      id: 'shop-delete-requests',
+      label: m.admin_shop_delete_requests(),
+      icon: 'fa-trash-can',
+      href: resolve('/admin/shop-delete-requests'),
+      requiresSiteAdmin: true
     }
   ]);
 
