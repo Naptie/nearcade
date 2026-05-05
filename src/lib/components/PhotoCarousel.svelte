@@ -90,7 +90,8 @@
     <!-- Horizontal scroll carousel -->
     <div class="scrollbar-thin scrollbar-thumb-base-300 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
       {#each photos as photo, i (photo.id)}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div
           class="relative h-28 w-28 shrink-0 cursor-pointer overflow-hidden rounded-xl shadow"
           onclick={() => openViewer(i)}

@@ -10,7 +10,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  let photos = $state<ShopPhoto[]>(data.photos);
+  let photos = $derived<ShopPhoto[]>(data.photos);
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
   let uploadOpen = $state(false);
@@ -48,20 +48,17 @@
 <div class="mx-auto max-w-5xl px-4 pt-20 pb-12 sm:px-6 lg:px-8">
   <!-- Breadcrumb / header -->
   <div class="mb-6 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <a
-        href={resolve('/(main)/shops/[id]', { id: String(data.shop.id) })}
-        class="btn btn-ghost btn-sm"
-      >
+    <div class="flex items-center gap-1.5">
+      <a href={resolve('/(main)/shops/[id]', { id: String(data.shop.id) })} class="btn btn-ghost">
         <i class="fa-solid fa-arrow-left"></i>
         {data.shop.name}
       </a>
-      <span class="text-base-content/40">/</span>
+      <span class="text-base-content/40 mr-5">/</span>
       <span class="font-semibold">{m.shop_photos()}</span>
     </div>
 
     {#if data.user}
-      <button class="btn btn-primary btn-sm gap-2" onclick={() => (uploadOpen = true)}>
+      <button class="btn btn-primary btn-soft gap-2" onclick={() => (uploadOpen = true)}>
         <i class="fa-solid fa-upload"></i>
         {m.shop_photos_upload()}
       </button>
@@ -80,7 +77,8 @@
     <!-- Photo grid -->
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
       {#each photos as photo, i (photo.id)}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="group relative cursor-pointer overflow-hidden rounded-xl shadow"
           onclick={() => openViewer(i)}
@@ -95,7 +93,7 @@
           />
           <!-- Overlay -->
           <div
-            class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            class="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           >
             <p class="truncate text-xs text-white/90">
               {photo.uploadedByName ?? m.anonymous_user()}
