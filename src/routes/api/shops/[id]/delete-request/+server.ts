@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Shop, ShopDeleteRequest } from '$lib/types';
+import type { Shop, ShopDeleteRequest, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(400, m.invalid_shop_id());
   }
 
-  let body: { reason?: string };
+  let body: { reason?: string; photoId?: string };
   try {
     body = await request.json();
   } catch {
@@ -25,6 +25,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(400, 'Reason is required');
   }
 
+  const photoId = body.photoId?.trim() || null;
+
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
   const shop = await shopsCollection.findOne({ id: shopId });
@@ -33,13 +35,36 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(404, m.shop_not_found());
   }
 
-  // Enforce one pending request per shop
-  const existingPending = await db
-    .collection<ShopDeleteRequest>('shop_delete_requests')
-    .findOne({ shopId, status: 'pending' });
+  let photoUrl: string | null = null;
 
-  if (existingPending) {
-    error(409, m.shop_delete_request_already_pending());
+  if (photoId) {
+    // Validate the photo belongs to this shop
+    const photo = await db.collection<ShopPhoto>('shop_photos').findOne({ id: photoId, shopId });
+    if (!photo) {
+      error(404, m.shop_photo_not_found());
+    }
+    photoUrl = photo.url;
+
+    // Enforce one pending request per photo
+    const existingPending = await db
+      .collection<ShopDeleteRequest>('shop_delete_requests')
+      .findOne({ shopId, photoId, status: 'pending' });
+    if (existingPending) {
+      error(409, m.shop_photo_delete_request_already_pending());
+    }
+  } else {
+    // Enforce one pending request per shop (for shop delete requests without a photoId)
+    const existingPending = await db
+      .collection<ShopDeleteRequest>('shop_delete_requests')
+      .findOne({
+        shopId,
+        $or: [{ photoId: null }, { photoId: { $exists: false } }],
+        status: 'pending'
+      });
+
+    if (existingPending) {
+      error(409, m.shop_delete_request_already_pending());
+    }
   }
 
   const session = locals.session;
@@ -53,7 +78,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     requestedBy: user?.id ?? null,
     requestedByName: user?.name ?? null,
     status: 'pending',
-    createdAt: new Date()
+    createdAt: new Date(),
+    photoId: photoId,
+    photoUrl: photoUrl
   };
 
   await db.collection<ShopDeleteRequest>('shop_delete_requests').insertOne(deleteRequest);

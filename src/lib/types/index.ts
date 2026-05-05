@@ -258,6 +258,20 @@ export interface ShopDeleteRequest {
   reviewedAt?: Date | null;
   reviewedBy?: string | null;
   reviewNote?: string | null;
+  // Optional: if set, this is a photo delete request (not a shop delete request)
+  photoId?: string | null;
+  photoUrl?: string | null;
+}
+
+export interface ShopPhoto {
+  _id?: string | ObjectId;
+  id: string;
+  shopId: number;
+  shopName: string;
+  url: string;
+  uploadedBy: string | null;
+  uploadedByName?: string | null;
+  uploadedAt: Date;
 }
 
 export interface JoinRequest {

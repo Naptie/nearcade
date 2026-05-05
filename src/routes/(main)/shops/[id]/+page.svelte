@@ -45,6 +45,8 @@
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import type { OpeningHourTime } from '$lib/types';
   import { render } from '$lib/utils/markdown';
+  import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
+  import type { ShopPhoto } from '$lib/types';
 
   let { data }: { data: PageData } = $props();
 
@@ -70,6 +72,13 @@
   let shop = $derived(shopDataResolved?.shop);
   let currentAttendanceFromServer = $derived(shopDataResolved?.currentAttendance);
   let pendingDeleteRequest = $derived(shopDataResolved?.pendingDeleteRequest);
+  let photosFromServer = $derived(shopDataResolved?.photos ?? []);
+  // eslint-disable-next-line svelte/prefer-writable-derived
+  let photos = $state<ShopPhoto[]>([]);
+
+  $effect(() => {
+    photos = photosFromServer;
+  });
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);
   let showAttendanceModal = $state(false);
@@ -1659,6 +1668,18 @@
             </div>
             <p class="text-base-content/60">{m.no_games_available()}</p>
           </div>
+        {/if}
+
+        <!-- Photos Section -->
+        {#if shop}
+          <section class="mt-8">
+            <PhotoCarousel
+              shopId={shop.id}
+              bind:photos
+              currentUserId={data.user?.id}
+              isAdmin={data.user?.userType === 'site_admin'}
+            />
+          </section>
         {/if}
 
         <!-- Comments Section -->

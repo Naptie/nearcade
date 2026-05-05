@@ -87,8 +87,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
   if (action === 'approve') {
-    // Delete the shop
-    await db.collection<Shop>('shops').deleteOne({ id: deleteRequest.shopId });
+    if (deleteRequest.photoId) {
+      // Delete the specific photo
+      await db.collection('shop_photos').deleteOne({ id: deleteRequest.photoId });
+    } else {
+      // Delete the shop
+      await db.collection<Shop>('shops').deleteOne({ id: deleteRequest.shopId });
+    }
   }
 
   // Update the request status
@@ -114,7 +119,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         actorDisplayName: session.user.displayName ?? undefined,
         actorImage: session.user.image ?? undefined,
         targetUserId: deleteRequest.requestedBy,
-        content: deleteRequest.reviewNote || undefined,
+        content: reviewNote?.trim() || undefined,
         shopDeleteRequestId: deleteRequest.id,
         shopDeleteRequestStatus: newStatus,
         shopName: deleteRequest.shopName

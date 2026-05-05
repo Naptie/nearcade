@@ -105,7 +105,15 @@
         <div class="bg-base-100 border-base-300 rounded-2xl border p-5 shadow-sm">
           <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p class="font-semibold">{req.shopName}</p>
+              <div class="flex items-center gap-2">
+                <p class="font-semibold">{req.shopName}</p>
+                {#if req.photoId}
+                  <span class="badge badge-info badge-soft badge-sm">
+                    <i class="fa-solid fa-image mr-1"></i>
+                    {m.shop_photo_delete_request()}
+                  </span>
+                {/if}
+              </div>
               <p class="text-base-content/60 text-sm">
                 #{req.shopId}
               </p>
@@ -126,6 +134,16 @@
               {/if}
             </span>
           </div>
+
+          {#if req.photoUrl}
+            <div class="mb-3">
+              <img
+                src={req.photoUrl}
+                alt={req.shopName}
+                class="h-24 max-w-full rounded-lg object-cover shadow"
+              />
+            </div>
+          {/if}
 
           <div class="bg-base-200 mb-3 rounded-lg p-3">
             <span class="badge badge-soft badge-sm">{m.shop_delete_request_reason()}</span>

@@ -108,7 +108,9 @@
     <!-- Header -->
     <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">{m.shop_delete_request()}</h1>
+        <h1 class="text-2xl font-bold">
+          {req.photoId ? m.shop_photo_delete_request() : m.shop_delete_request()}
+        </h1>
         <p class="text-base-content/60 mt-1 font-mono text-sm">{req.id}</p>
       </div>
       <span class="badge {statusBadgeClass} badge-lg">
@@ -140,6 +142,20 @@
         </a>
       </div>
     </div>
+
+    <!-- Photo preview (for photo delete requests) -->
+    {#if req.photoUrl}
+      <div class="mb-6">
+        <h2 class="mb-2 text-sm font-semibold tracking-wide uppercase opacity-60">
+          {m.shop_photos()}
+        </h2>
+        <img
+          src={req.photoUrl}
+          alt={req.shopName}
+          class="max-h-60 max-w-full rounded-xl object-cover shadow"
+        />
+      </div>
+    {/if}
 
     <!-- Reason -->
     <div class="mb-6">

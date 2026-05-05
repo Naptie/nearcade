@@ -1,6 +1,12 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { Shop, Comment, CommentWithAuthorAndVote, ShopDeleteRequest } from '$lib/types';
+import type {
+  Shop,
+  Comment,
+  CommentWithAuthorAndVote,
+  ShopDeleteRequest,
+  ShopPhoto
+} from '$lib/types';
 import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
@@ -96,7 +102,15 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       // Load pending delete request for this shop
       const pendingDeleteRequest = await db
         .collection<ShopDeleteRequest>('shop_delete_requests')
-        .findOne({ shopId, status: 'pending' });
+        .findOne({ shopId, photoId: { $in: [null, undefined] }, status: 'pending' });
+
+      // Load photos (up to 20 for the carousel)
+      const photos = await db
+        .collection<ShopPhoto>('shop_photos')
+        .find({ shopId })
+        .sort({ uploadedAt: -1 })
+        .limit(20)
+        .toArray();
 
       return {
         shop: toPlainObject(shop),
@@ -104,7 +118,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
           ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
           : null,
         comments: toPlainArray(comments),
-        pendingDeleteRequest: pendingDeleteRequest ? toPlainObject(pendingDeleteRequest) : null
+        pendingDeleteRequest: pendingDeleteRequest ? toPlainObject(pendingDeleteRequest) : null,
+        photos: toPlainArray(photos)
       };
     } catch (err) {
       if (err && (isHttpError(err) || isRedirect(err))) {
