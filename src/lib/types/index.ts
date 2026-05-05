@@ -166,7 +166,8 @@ export type NotificationType =
   | 'REPLIES'
   | 'POST_VOTES'
   | 'COMMENT_VOTES'
-  | 'JOIN_REQUESTS';
+  | 'JOIN_REQUESTS'
+  | 'SHOP_DELETE_REQUESTS';
 
 export interface Club {
   _id?: string | ObjectId;
@@ -452,7 +453,7 @@ export interface Activity {
 export interface Notification {
   _id?: string | ObjectId;
   id: string;
-  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS';
+  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS' | 'SHOP_DELETE_REQUESTS';
   actorUserId: string;
   actorName: string;
   actorDisplayName?: string;
@@ -472,6 +473,11 @@ export interface Notification {
   joinRequestId?: string;
   joinRequestStatus?: 'approved' | 'rejected';
   joinRequestType?: 'university' | 'club';
+
+  // Shop delete request details
+  shopDeleteRequestId?: string;
+  shopDeleteRequestStatus?: 'approved' | 'rejected';
+  shopName?: string;
 
   // Navigation
   universityId?: string;

@@ -30,10 +30,11 @@ export const notify = async (
     'REPLIES',
     'POST_VOTES',
     'COMMENT_VOTES',
-    'JOIN_REQUESTS'
+    'JOIN_REQUESTS',
+    'SHOP_DELETE_REQUESTS'
   ];
 
-  if (!userNotificationTypes.includes(notification.type)) {
+  if (notification.type !== 'SHOP_DELETE_REQUESTS' && !userNotificationTypes.includes(notification.type)) {
     // User has disabled this type of notification
     return;
   }

@@ -1,6 +1,6 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
+import type { Shop, Comment, CommentWithAuthorAndVote, ShopDeleteRequest } from '$lib/types';
 import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
@@ -93,12 +93,18 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         .toArray()
         .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
 
+      // Load pending delete request for this shop
+      const pendingDeleteRequest = await db
+        .collection<ShopDeleteRequest>('shop_delete_requests')
+        .findOne({ shopId, status: 'pending' });
+
       return {
         shop: toPlainObject(shop),
         currentAttendance: userAttendance
           ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
           : null,
-        comments: toPlainArray(comments)
+        comments: toPlainArray(comments),
+        pendingDeleteRequest: pendingDeleteRequest ? toPlainObject(pendingDeleteRequest) : null
       };
     } catch (err) {
       if (err && (isHttpError(err) || isRedirect(err))) {

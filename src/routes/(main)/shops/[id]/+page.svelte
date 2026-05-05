@@ -69,6 +69,7 @@
 
   let shop = $derived(shopDataResolved?.shop);
   let currentAttendanceFromServer = $derived(shopDataResolved?.currentAttendance);
+  let pendingDeleteRequest = $derived(shopDataResolved?.pendingDeleteRequest);
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);
   let showAttendanceModal = $state(false);
@@ -578,6 +579,16 @@
   let isSubmittingReply = $state(false);
   let isCommentsRendered = $state(false);
 
+  // Delete request state
+  let showDeleteRequestModal = $state(false);
+  let deleteRequestReason = $state('');
+  let isSubmittingDeleteRequest = $state(false);
+  let deleteRequestError = $state('');
+  let deleteRequestSuccess = $state('');
+  let deleteRequestReviewNote = $state('');
+  let isProcessingDeleteRequest = $state(false);
+  let deleteRequestProcessError = $state('');
+
   onMount(() => {
     isCommentsRendered = true;
   });
@@ -702,6 +713,82 @@
     } catch (error) {
       console.error('Error deleting comment:', error);
       alert(m.network_error_try_again());
+    }
+  };
+
+  const handleSubmitDeleteRequest = async () => {
+    if (!shop || !deleteRequestReason.trim() || isSubmittingDeleteRequest) return;
+    isSubmittingDeleteRequest = true;
+    deleteRequestError = '';
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}/delete-request`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: deleteRequestReason.trim() })
+      });
+      if (response.ok) {
+        deleteRequestSuccess = m.shop_delete_request_submitted();
+        deleteRequestReason = '';
+        showDeleteRequestModal = false;
+        invalidateAll();
+      } else {
+        const err = (await response.json()) as { message?: string };
+        deleteRequestError = err.message || m.error_occurred();
+      }
+    } catch {
+      deleteRequestError = m.network_error_try_again();
+    } finally {
+      isSubmittingDeleteRequest = false;
+    }
+  };
+
+  const handleRetractDeleteRequest = async () => {
+    if (!pendingDeleteRequest || isProcessingDeleteRequest) return;
+    if (!confirm(m.retract_delete_request_confirm())) return;
+    isProcessingDeleteRequest = true;
+    deleteRequestProcessError = '';
+    try {
+      const response = await fetch(
+        fromPath(`/api/shop-delete-requests/${pendingDeleteRequest.id}`),
+        { method: 'DELETE' }
+      );
+      if (response.ok) {
+        invalidateAll();
+      } else {
+        const err = (await response.json()) as { message?: string };
+        deleteRequestProcessError = err.message || m.error_occurred();
+      }
+    } catch {
+      deleteRequestProcessError = m.network_error_try_again();
+    } finally {
+      isProcessingDeleteRequest = false;
+    }
+  };
+
+  const handleProcessDeleteRequest = async (action: 'approve' | 'reject') => {
+    if (!pendingDeleteRequest || isProcessingDeleteRequest) return;
+    isProcessingDeleteRequest = true;
+    deleteRequestProcessError = '';
+    try {
+      const response = await fetch(
+        fromPath(`/api/shop-delete-requests/${pendingDeleteRequest.id}`),
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, reviewNote: deleteRequestReviewNote.trim() || null })
+        }
+      );
+      if (response.ok) {
+        deleteRequestReviewNote = '';
+        invalidateAll();
+      } else {
+        const err = (await response.json()) as { message?: string };
+        deleteRequestProcessError = err.message || m.error_occurred();
+      }
+    } catch {
+      deleteRequestProcessError = m.network_error_try_again();
+    } finally {
+      isProcessingDeleteRequest = false;
     }
   };
 </script>
@@ -970,15 +1057,50 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              {#if data.user?.userType === 'site_admin'}
-                <a
-                  href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}
-                  class="btn btn-secondary btn-soft"
+              <!-- Three-dots dropdown for shop actions -->
+              <div class="dropdown dropdown-end">
+                <button
+                  type="button"
+                  tabindex="0"
+                  class="btn btn-circle btn-soft"
+                  aria-label={m.more_actions()}
+                  title={m.more_actions()}
                 >
-                  <i class="fa-solid fa-pen-to-square"></i>
-                  {m.edit_shop()}
-                </a>
-              {/if}
+                  <i class="fa-solid fa-ellipsis"></i>
+                </button>
+                <ul
+                  tabindex="0"
+                  class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow"
+                >
+                  {#if data.user?.userType === 'site_admin'}
+                    <li>
+                      <a href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}>
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        {m.edit_shop()}
+                      </a>
+                    </li>
+                  {/if}
+                  {#if data.user}
+                    <li>
+                      <button
+                        onclick={() => {
+                          if (pendingDeleteRequest) return;
+                          showDeleteRequestModal = true;
+                        }}
+                        disabled={!!pendingDeleteRequest}
+                        class:opacity-50={!!pendingDeleteRequest}
+                        class:cursor-not-allowed={!!pendingDeleteRequest}
+                        title={pendingDeleteRequest
+                          ? m.shop_delete_request_already_pending()
+                          : undefined}
+                      >
+                        <i class="fa-solid fa-trash-can"></i>
+                        {m.request_delete_shop()}
+                      </button>
+                    </li>
+                  {/if}
+                </ul>
+              </div>
               <a
                 href={link}
                 target="_blank"
@@ -1220,6 +1342,107 @@
           <!-- Attendance Reports -->
           {#if !shop.isClaimed}
             <AttendanceReports shopId={shop.id} gamesList={GAMES} />
+          {/if}
+
+          <!-- Pending Delete Request -->
+          {#if pendingDeleteRequest}
+            <div class="card border border-warning/40 bg-warning/5">
+              <div class="card-body p-6">
+                <h3 class="text-warning mb-3 flex items-center gap-2 text-lg font-semibold">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  {m.pending_delete_request()}
+                </h3>
+
+                <div class="space-y-2 text-sm">
+                  <div>
+                    <span class="text-base-content/60">{m.shop_delete_request_reason()}:</span>
+                    <p class="mt-1 font-medium">{pendingDeleteRequest.reason}</p>
+                  </div>
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-base-content/60">{m.request_by()}:</span>
+                    <span class="text-right font-medium">
+                      {pendingDeleteRequest.requestedByName ?? m.anonymous_user()}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-base-content/60">{m.created_at()}:</span>
+                    <span class="text-right font-medium">
+                      {new Date(pendingDeleteRequest.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                {#if deleteRequestProcessError}
+                  <div class="alert alert-error alert-soft mt-3 py-2 text-sm">
+                    {deleteRequestProcessError}
+                  </div>
+                {/if}
+
+                <div class="mt-3 space-y-2">
+                  <!-- Requester: retract button -->
+                  {#if data.user?.id === pendingDeleteRequest.requestedBy}
+                    <button
+                      class="btn btn-warning btn-soft btn-sm w-full"
+                      onclick={handleRetractDeleteRequest}
+                      disabled={isProcessingDeleteRequest}
+                    >
+                      {#if isProcessingDeleteRequest}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <i class="fa-solid fa-rotate-left"></i>
+                      {/if}
+                      {m.retract_delete_request()}
+                    </button>
+                  {/if}
+
+                  <!-- Admin: approve/reject with review note -->
+                  {#if data.user?.userType === 'site_admin'}
+                    <input
+                      type="text"
+                      class="input input-bordered input-sm w-full"
+                      placeholder={m.shop_delete_request_review_note()}
+                      bind:value={deleteRequestReviewNote}
+                    />
+                    <div class="flex gap-2">
+                      <button
+                        class="btn btn-success btn-sm flex-1"
+                        onclick={() => handleProcessDeleteRequest('approve')}
+                        disabled={isProcessingDeleteRequest}
+                      >
+                        {#if isProcessingDeleteRequest}
+                          <span class="loading loading-spinner loading-xs"></span>
+                        {:else}
+                          <i class="fa-solid fa-check"></i>
+                        {/if}
+                        {m.admin_approve()}
+                      </button>
+                      <button
+                        class="btn btn-error btn-sm flex-1"
+                        onclick={() => handleProcessDeleteRequest('reject')}
+                        disabled={isProcessingDeleteRequest}
+                      >
+                        {#if isProcessingDeleteRequest}
+                          <span class="loading loading-spinner loading-xs"></span>
+                        {:else}
+                          <i class="fa-solid fa-xmark"></i>
+                        {/if}
+                        {m.admin_reject()}
+                      </button>
+                    </div>
+                  {/if}
+
+                  <a
+                    href={resolve('/(main)/shops/delete-requests/[id]', {
+                      id: pendingDeleteRequest.id
+                    })}
+                    class="btn btn-ghost btn-sm w-full"
+                  >
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    {m.view_delete_request()}
+                  </a>
+                </div>
+              </div>
+            </div>
           {/if}
         </div>
       </div>
@@ -1671,6 +1894,99 @@
           }
         }}
       ></div>
+    </div>
+  {/if}
+
+  <!-- Delete Request Modal -->
+  {#if showDeleteRequestModal && shop}
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="mb-4 text-lg font-bold">
+          <i class="fa-solid fa-trash-can text-warning mr-2"></i>
+          {m.request_delete_shop()}
+        </h3>
+
+        {#if deleteRequestError}
+          <div class="alert alert-error alert-soft mb-4">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <span>{deleteRequestError}</span>
+          </div>
+        {/if}
+
+        <div class="form-control mb-4">
+          <label class="label" for="delete-request-reason">
+            <span class="label-text">{m.shop_delete_request_reason()}</span>
+          </label>
+          <textarea
+            id="delete-request-reason"
+            class="textarea textarea-bordered w-full"
+            rows="4"
+            placeholder={m.shop_delete_request_reason_placeholder()}
+            bind:value={deleteRequestReason}
+            disabled={isSubmittingDeleteRequest}
+          ></textarea>
+        </div>
+
+        <div class="modal-action">
+          <button
+            class="btn btn-ghost"
+            onclick={() => {
+              showDeleteRequestModal = false;
+              deleteRequestReason = '';
+              deleteRequestError = '';
+            }}
+            disabled={isSubmittingDeleteRequest}
+          >
+            {m.cancel()}
+          </button>
+          <button
+            class="btn btn-warning"
+            onclick={handleSubmitDeleteRequest}
+            disabled={isSubmittingDeleteRequest || !deleteRequestReason.trim()}
+          >
+            {#if isSubmittingDeleteRequest}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <i class="fa-solid fa-paper-plane"></i>
+            {/if}
+            {m.submit_delete_request()}
+          </button>
+        </div>
+      </div>
+      <div
+        class="modal-backdrop"
+        role="button"
+        tabindex="0"
+        onclick={() => {
+          showDeleteRequestModal = false;
+          deleteRequestReason = '';
+          deleteRequestError = '';
+        }}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            showDeleteRequestModal = false;
+            deleteRequestReason = '';
+            deleteRequestError = '';
+          }
+        }}
+      ></div>
+    </div>
+  {/if}
+
+  <!-- Delete Request Success Toast -->
+  {#if deleteRequestSuccess}
+    <div class="toast toast-end toast-bottom z-50">
+      <div class="alert alert-success">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>{deleteRequestSuccess}</span>
+        <button
+          class="btn btn-ghost btn-xs"
+          onclick={() => (deleteRequestSuccess = '')}
+          aria-label={m.close()}
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
     </div>
   {/if}
 {/if}

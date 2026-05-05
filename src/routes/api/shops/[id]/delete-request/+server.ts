@@ -33,6 +33,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(404, m.shop_not_found());
   }
 
+  // Enforce one pending request per shop
+  const existingPending = await db
+    .collection<ShopDeleteRequest>('shop_delete_requests')
+    .findOne({ shopId, status: 'pending' });
+
+  if (existingPending) {
+    error(409, m.shop_delete_request_already_pending());
+  }
+
   const session = locals.session;
   const user = session?.user ?? null;
 

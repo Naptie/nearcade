@@ -36,10 +36,12 @@
       }
     )}</a>`;
     const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${
-      notification.postTitle ??
-      (notification.joinRequestType === 'university'
-        ? notification.universityName
-        : notification.clubName)
+      notification.type === 'SHOP_DELETE_REQUESTS'
+        ? (notification.shopName ?? '')
+        : (notification.postTitle ??
+          (notification.joinRequestType === 'university'
+            ? notification.universityName
+            : notification.clubName))
     }</a>`;
 
     switch (notification.type) {
@@ -59,6 +61,16 @@
         return notification.joinRequestStatus === 'approved'
           ? m.notification_user_approved_join_request({ userName: actorName, targetName })
           : m.notification_user_rejected_join_request({ userName: actorName, targetName });
+      case 'SHOP_DELETE_REQUESTS':
+        return notification.shopDeleteRequestStatus === 'approved'
+          ? m.notification_delete_request_approved({
+              userName: actorName,
+              shopName: notification.shopName ?? ''
+            })
+          : m.notification_delete_request_rejected({
+              userName: actorName,
+              shopName: notification.shopName ?? ''
+            });
       default:
         return '';
     }
@@ -81,6 +93,10 @@
         return notification.joinRequestStatus === 'approved'
           ? 'fa-solid fa-user-check text-success'
           : 'fa-solid fa-user-xmark text-error';
+      case 'SHOP_DELETE_REQUESTS':
+        return notification.shopDeleteRequestStatus === 'approved'
+          ? 'fa-solid fa-trash-can text-success'
+          : 'fa-solid fa-trash-can text-error';
       default:
         return 'fa-solid fa-bell';
     }

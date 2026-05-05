@@ -36,6 +36,16 @@ export const getNotificationTitle = (notification: Notification) => {
       return notification.joinRequestStatus === 'approved'
         ? m.notification_user_approved_join_request({ userName: actorName, targetName })
         : m.notification_user_rejected_join_request({ userName: actorName, targetName });
+    case 'SHOP_DELETE_REQUESTS':
+      return notification.shopDeleteRequestStatus === 'approved'
+        ? m.notification_delete_request_approved({
+            userName: actorName,
+            shopName: notification.shopName ?? ''
+          })
+        : m.notification_delete_request_rejected({
+            userName: actorName,
+            shopName: notification.shopName ?? ''
+          });
     default:
       return '';
   }
@@ -58,6 +68,12 @@ export const getNotificationLink = (notification: Notification, base = '', fallb
         return `${base}/universities/${notification.universityId}/posts/${notification.postId}`;
       } else if (notification.clubId) {
         return `${base}/clubs/${notification.clubId}/posts/${notification.postId}`;
+      }
+      return fallback;
+
+    case 'SHOP_DELETE_REQUESTS':
+      if (notification.shopDeleteRequestId) {
+        return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}`;
       }
       return fallback;
 

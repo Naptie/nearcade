@@ -89,7 +89,35 @@
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
   <!-- Header -->
-  <h1 class="mb-4 text-3xl font-bold">{m.browse_shops()}</h1>
+  <div class="mb-4 flex items-center gap-3">
+    <h1 class="flex-1 text-3xl font-bold">{m.browse_shops()}</h1>
+    <!-- Three-dots dropdown for shop-level actions -->
+    <div class="dropdown dropdown-end">
+      <button
+        type="button"
+        tabindex="0"
+        class="btn btn-circle btn-soft"
+        aria-label={m.more_actions()}
+        title={m.more_actions()}
+      >
+        <i class="fa-solid fa-ellipsis"></i>
+      </button>
+      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-56 p-2 shadow">
+        <li>
+          <a href={resolve('/(main)/shops/new')}>
+            <i class="fa-solid fa-plus"></i>
+            {m.create_shop()}
+          </a>
+        </li>
+        <li>
+          <a href={resolve('/(main)/shops/delete-requests')}>
+            <i class="fa-solid fa-trash-can-arrow-up"></i>
+            {m.shop_delete_requests()}
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
 
   <!-- Search Bar -->
   <div class="mb-8">
