@@ -45,10 +45,11 @@
   type Props = {
     initialData?: Partial<ShopFormData>;
     onSubmit: (data: ShopFormData) => Promise<void>;
+    onCancel: () => void;
     submitLabel?: string;
   };
 
-  let { initialData = {}, onSubmit, submitLabel = m.save() }: Props = $props();
+  let { initialData = {}, onSubmit, onCancel, submitLabel = m.save() }: Props = $props();
 
   // ---- Form state ----
 
@@ -94,27 +95,25 @@
     return [oh, om, ch, cm];
   }
 
-  let openingHoursMode = $state<'constant' | 'per_day'>(
-    untrack(() =>
-      initialData.openingHours && initialData.openingHours.length === 7 ? 'per_day' : 'constant'
-    )
+  let isConstant = $state<boolean>(
+    untrack(() => !(initialData.openingHours && initialData.openingHours.length === 7))
   );
 
   // Each slot: [openHour, openMin, closeHour, closeMin]
   const initialSlots = (() => {
-    if (openingHoursMode === 'per_day' && untrack(() => initialData.openingHours?.length === 7)) {
+    if (!isConstant && untrack(() => initialData.openingHours?.length === 7)) {
       return untrack(() => initialData.openingHours!.map(initSlot));
     }
     const base = initSlot(untrack(() => initialData.openingHours?.[0]));
-    return openingHoursMode === 'per_day'
+    return !isConstant
       ? Array.from({ length: 7 }, () => [...base] as [number, number, number, number])
       : [base];
   })();
   let slots = $state<[number, number, number, number][]>(initialSlots);
 
-  function setOpeningHoursMode(mode: 'constant' | 'per_day') {
-    openingHoursMode = mode;
-    if (mode === 'constant') {
+  function toggleConstant() {
+    isConstant = !isConstant;
+    if (isConstant) {
       slots = [slots[0] ?? [...DEFAULT_SLOT]];
     } else {
       const base = slots[0] ?? [...DEFAULT_SLOT];
@@ -123,13 +122,13 @@
   }
 
   const DAY_LABELS = () => [
-    m.sunday(),
     m.monday(),
     m.tuesday(),
     m.wednesday(),
     m.thursday(),
     m.friday(),
-    m.saturday()
+    m.saturday(),
+    m.sunday()
   ];
 
   // ---- Address ----
@@ -570,9 +569,7 @@
 
   <!-- Name -->
   <div class="form-control gap-1.5">
-    <label class="label" for="shop-name">
-      <span class="label-text font-medium">{m.shop_name()}</span>
-    </label>
+    <span class="label-text font-medium">{m.shop_name()}</span>
     <input
       id="shop-name"
       type="text"
@@ -583,140 +580,131 @@
   </div>
 
   <!-- Comment -->
-  <div class="form-control gap-1.5">
+  <div class="form-control gap-1.5 pb-5">
     <span class="label-text font-medium">{m.shop_comment()}</span>
     <MarkdownEditor bind:value={comment} placeholder={m.shop_comment()} />
   </div>
 
   <!-- Address -->
   <div class="form-control gap-3">
-    <span class="label-text font-medium">{m.shop_address_general()}</span>
-
-    <!-- Country select (always shown) -->
+    <span class="label-text font-medium">{m.shop_address()}</span>
     <div class="flex flex-col gap-1">
-      <label class="label-text text-sm" for="shop-address-country">{m.shop_address_country()}</label
-      >
-      <select
-        id="shop-address-country"
-        class="select select-bordered w-full"
-        bind:value={selectedCountryName}
-        onchange={() => {
-          selectedProvinceName = '';
-          selectedProvinceAdcode = '';
-          selectedCityName = '';
-          selectedCityAdcode = '';
-          selectedCountyName = '';
-          extraFields = [];
-        }}
-      >
-        <option value="">{m.shop_select_country()}</option>
-        {#each countryOptions as option (option.id)}
-          <option value={option.value}>{option.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <!-- Province select (for supported countries) -->
-    {#if selectedCountryObj && selectedCountryObj.levels.length > 0 && provinceOptions.length > 0}
-      <div class="flex flex-col gap-1">
-        <label class="label-text text-sm" for="shop-address-province"
-          >{m.shop_address_province()}</label
-        >
+      <div class="grid grid-cols-2 gap-1">
         <select
-          id="shop-address-province"
+          id="shop-address-country"
           class="select select-bordered w-full"
-          bind:value={selectedProvinceName}
-          onchange={(e) => {
-            const target = e.target as HTMLSelectElement;
-            const option = provinceOptions.find((o) => o.value === target.value);
-            selectedProvinceAdcode = option?.adcode ?? '';
+          class:col-span-2={!(
+            selectedCountryObj &&
+            selectedCountryObj.levels.length > 0 &&
+            provinceOptions.length > 0
+          )}
+          bind:value={selectedCountryName}
+          onchange={() => {
+            selectedProvinceName = '';
+            selectedProvinceAdcode = '';
             selectedCityName = '';
             selectedCityAdcode = '';
             selectedCountyName = '';
+            extraFields = [];
           }}
         >
-          <option value="">{m.shop_select_province()}</option>
-          {#each provinceOptions as option (option.id)}
+          <option value="">{m.shop_select_country()}</option>
+          {#each countryOptions as option (option.id)}
             <option value={option.value}>{option.label}</option>
           {/each}
         </select>
-      </div>
-    {/if}
-
-    <!-- City select -->
-    {#if selectedCountryObj && selectedCountryObj.levels.length > 1 && cityOptions.length > 0}
-      <div class="flex flex-col gap-1">
-        <label class="label-text text-sm" for="shop-address-city">{m.shop_address_city()}</label>
-        <select
-          id="shop-address-city"
-          class="select select-bordered w-full"
-          bind:value={selectedCityName}
-          onchange={(e) => {
-            const target = e.target as HTMLSelectElement;
-            const option = cityOptions.find((o) => o.value === target.value);
-            selectedCityAdcode = option?.adcode ?? '';
-            selectedCountyName = '';
-          }}
-        >
-          <option value="">{m.shop_select_city()}</option>
-          {#each cityOptions as option (option.id)}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
-
-    <!-- County select -->
-    {#if selectedCountryObj && selectedCountryObj.levels.length > 2 && countyOptions.length > 0}
-      <div class="flex flex-col gap-1">
-        <label class="label-text text-sm" for="shop-address-county">{m.shop_address_county()}</label
-        >
-        <select
-          id="shop-address-county"
-          class="select select-bordered w-full"
-          bind:value={selectedCountyName}
-        >
-          <option value="">{m.shop_select_county()}</option>
-          {#each countyOptions as option (option.id)}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
-
-    <!-- Extra free-text fields (only shown after all selects are filled) -->
-    {#if allSelectsFilled}
-      {#each extraFields as extraField, idx (idx)}
-        <div class="flex items-center gap-2">
-          <input
-            type="text"
-            class="input input-bordered flex-1"
-            value={extraField}
-            oninput={(e) => {
-              extraFields[idx] = (e.target as HTMLInputElement).value;
+        {#if selectedCountryObj && selectedCountryObj.levels.length > 0 && provinceOptions.length > 0}
+          <select
+            id="shop-address-province"
+            class="select select-bordered w-full"
+            bind:value={selectedProvinceName}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              const option = provinceOptions.find((o) => o.value === target.value);
+              selectedProvinceAdcode = option?.adcode ?? '';
+              selectedCityName = '';
+              selectedCityAdcode = '';
+              selectedCountyName = '';
             }}
-          />
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm btn-circle"
-            onclick={() => removeExtraField(idx)}
-            aria-label="Remove field"
           >
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      {/each}
+            <option value="">{m.shop_select_province()}</option>
+            {#each provinceOptions as option (option.id)}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        {/if}
+        {#if selectedCountryObj && selectedCountryObj.levels.length > 1 && cityOptions.length > 0}
+          <select
+            id="shop-address-city"
+            class="select select-bordered w-full"
+            class:col-span-2={!(
+              selectedCountryObj &&
+              selectedCountryObj.levels.length > 2 &&
+              countyOptions.length > 0
+            )}
+            bind:value={selectedCityName}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              const option = cityOptions.find((o) => o.value === target.value);
+              selectedCityAdcode = option?.adcode ?? '';
+              selectedCountyName = '';
+            }}
+          >
+            <option value="">{m.shop_select_city()}</option>
+            {#each cityOptions as option (option.id)}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+          <!-- County select -->
+          {#if selectedCountryObj && selectedCountryObj.levels.length > 2 && countyOptions.length > 0}
+            <select
+              id="shop-address-county"
+              class="select select-bordered w-full"
+              bind:value={selectedCountyName}
+            >
+              <option value="">{m.shop_select_county()}</option>
+              {#each countyOptions as option (option.id)}
+                <option value={option.value}>{option.label}</option>
+              {/each}
+            </select>
+          {/if}
+        {/if}
+      </div>
 
-      {#if totalParts < MAX_PARTS}
-        <button type="button" class="btn btn-ghost btn-sm self-start" onclick={addExtraField}>
-          <i class="fa-solid fa-plus"></i>
-          {m.shop_address_add_field()}
-        </button>
+      <!-- Extra free-text fields (only shown after all selects are filled) -->
+      {#if allSelectsFilled}
+        {#each extraFields as extraField, idx (idx)}
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              class="input input-bordered flex-1"
+              value={extraField}
+              oninput={(e) => {
+                extraFields[idx] = (e.target as HTMLInputElement).value;
+              }}
+            />
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-circle"
+              onclick={() => removeExtraField(idx)}
+              aria-label="Remove field"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        {/each}
+
+        {#if totalParts < MAX_PARTS}
+          <button type="button" class="btn btn-ghost btn-sm self-start" onclick={addExtraField}>
+            <i class="fa-solid fa-plus"></i>
+            {m.shop_address_add_field()}
+          </button>
+        {/if}
       {/if}
-    {/if}
+    </div>
 
     <!-- Detailed address -->
-    <div class="mt-2 flex flex-col gap-1">
+    <div class="mt-2 flex flex-col">
       <label class="label-text text-sm" for="shop-address-detailed"
         >{m.shop_address_detailed()}</label
       >
@@ -729,105 +717,114 @@
     </div>
   </div>
 
-  <!-- Opening Hours -->
-  <div class="form-control gap-3">
-    <span class="label-text font-medium">{m.shop_opening_hours()}</span>
-
-    <div class="flex gap-4">
-      <label class="flex cursor-pointer items-center gap-2">
-        <input
-          type="radio"
-          class="radio radio-sm"
-          name="opening-hours-mode"
-          value="constant"
-          checked={openingHoursMode === 'constant'}
-          onchange={() => setOpeningHoursMode('constant')}
-        />
-        <span class="text-sm">{m.shop_opening_hours_constant()}</span>
-      </label>
-      <label class="flex cursor-pointer items-center gap-2">
-        <input
-          type="radio"
-          class="radio radio-sm"
-          name="opening-hours-mode"
-          value="per_day"
-          checked={openingHoursMode === 'per_day'}
-          onchange={() => setOpeningHoursMode('per_day')}
-        />
-        <span class="text-sm">{m.shop_opening_hours_per_day()}</span>
-      </label>
-    </div>
-
-    {#each slots as slot, idx (idx)}
-      <div class="border-base-300 flex flex-wrap items-center gap-3 rounded-lg border p-3">
-        {#if openingHoursMode === 'per_day'}
-          <span class="w-16 text-sm font-medium">{DAY_LABELS()[idx]}</span>
-        {/if}
-        <div class="flex items-center gap-2">
-          <span class="text-xs opacity-60">{m.shop_open_time()}</span>
-          <select class="select select-bordered select-sm" bind:value={slot[0]}>
-            {#each HOUR_OPTIONS as h (h)}
-              <option value={h}>{String(h).padStart(2, '0')}</option>
-            {/each}
-          </select>
-          <span class="text-xs">:</span>
-          <select class="select select-bordered select-sm" bind:value={slot[1]}>
-            {#each MINUTE_OPTIONS as min (min)}
-              <option value={min}>{String(min).padStart(2, '0')}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs opacity-60">{m.shop_close_time()}</span>
-          <select class="select select-bordered select-sm" bind:value={slot[2]}>
-            {#each HOUR_OPTIONS as h (h)}
-              <option value={h}>{String(h).padStart(2, '0')}</option>
-            {/each}
-          </select>
-          <span class="text-xs">:</span>
-          <select class="select select-bordered select-sm" bind:value={slot[3]}>
-            {#each MINUTE_OPTIONS as min (min)}
-              <option value={min}>{String(min).padStart(2, '0')}</option>
-            {/each}
-          </select>
-        </div>
-      </div>
-    {/each}
-  </div>
-
   <!-- Location -->
   <div class="form-control gap-3">
     <span class="label-text font-medium">{m.shop_location()}</span>
-    {#if location}
-      <div class="bg-base-200 flex items-start gap-3 rounded-lg p-3">
-        <i class="fa-solid fa-location-dot text-primary mt-0.5"></i>
-        <div class="flex flex-col gap-0.5">
-          {#if locationName}
-            <span class="text-sm font-medium">{locationName}</span>
-          {/if}
-          <span class="font-mono text-xs opacity-70">
-            {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
-          </span>
+    <div class="bg-base-200/50 flex items-center gap-3 rounded-xl p-3">
+      {#if location}
+        <div class="flex flex-1 items-center gap-3">
+          <i class="fa-solid fa-location-dot text-primary"></i>
+          <div class="flex flex-col gap-0.5">
+            {#if locationName}
+              <span class="text-sm font-medium">{locationName}</span>
+            {/if}
+            <span class="font-mono {locationName ? 'text-xs opacity-70' : 'text-sm'}">
+              {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
+            </span>
+          </div>
         </div>
-      </div>
-    {/if}
-    <button type="button" class="btn btn-soft w-fit" onclick={() => (showLocationModal = true)}>
-      <i class="fa-solid fa-map-location-dot"></i>
-      {location ? m.save_location() : m.a_place_on_map()}
-    </button>
+      {/if}
+      <button
+        type="button"
+        class="btn btn-soft w-fit self-end"
+        onclick={() => (showLocationModal = true)}
+      >
+        <i class="fa-solid fa-map-location-dot"></i>
+        {m.pick_location()}
+      </button>
+    </div>
+  </div>
+
+  <!-- Opening Hours -->
+  <div class="form-control gap-3">
+    <div class="mb-2 flex w-full flex-wrap justify-between gap-2">
+      <span class="label-text font-medium">{m.shop_opening_hours()}</span>
+      <label class="flex cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          class="toggle toggle-sm"
+          checked={isConstant}
+          onchange={toggleConstant}
+        />
+        <span class="text-sm">{m.shop_opening_hours_constant()}</span>
+      </label>
+    </div>
+    <div class="flex flex-col">
+      {#each slots as slot, idx (idx)}
+        <div
+          class="hover:bg-base-200 border-base-content/20 flex flex-wrap items-center justify-between gap-3 border p-3 transition not-first:border-t-transparent first:rounded-t-xl last:rounded-b-xl"
+        >
+          {#if !isConstant}
+            <span class="text-sm font-medium">{DAY_LABELS()[idx]}</span>
+          {/if}
+          <div class="flex flex-wrap justify-end gap-3">
+            <div class="flex items-center gap-2">
+              <span class="flex-1 text-xs opacity-60">{m.shop_open_time()}</span>
+              <select
+                class="select select-bordered select-sm w-18 cursor-pointer"
+                bind:value={slot[0]}
+              >
+                {#each HOUR_OPTIONS as h (h)}
+                  <option value={h}>{String(h).padStart(2, '0')}</option>
+                {/each}
+              </select>
+              <span class="text-xs">:</span>
+              <select
+                class="select select-bordered select-sm w-18 cursor-pointer"
+                bind:value={slot[1]}
+              >
+                {#each MINUTE_OPTIONS as min (min)}
+                  <option value={min}>{String(min).padStart(2, '0')}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="flex-1 text-xs opacity-60">{m.shop_close_time()}</span>
+              <select
+                class="select select-bordered select-sm w-18 cursor-pointer"
+                bind:value={slot[2]}
+              >
+                {#each HOUR_OPTIONS as h (h)}
+                  <option value={h}>{String(h).padStart(2, '0')}</option>
+                {/each}
+              </select>
+              <span class="text-xs">:</span>
+              <select
+                class="select select-bordered select-sm w-18 cursor-pointer"
+                bind:value={slot[3]}
+              >
+                {#each MINUTE_OPTIONS as min (min)}
+                  <option value={min}>{String(min).padStart(2, '0')}</option>
+                {/each}
+              </select>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
   </div>
 
   <!-- Games -->
-  <div class="form-control gap-3">
+  <div class="flex flex-col gap-3">
     <span class="label-text font-medium">{m.shop_games()}</span>
 
     {#each games as game, idx (idx)}
-      <div class="border-base-300 flex flex-col gap-3 rounded-xl border p-4">
+      <div class="border-base-content/20 flex flex-col gap-3 rounded-xl border p-4">
         <div class="flex items-center justify-between">
-          <span class="text-sm font-medium opacity-60">#{idx + 1}</span>
+          <span class="font-medium opacity-60">#{idx + 1}</span>
           <button
             type="button"
-            class="btn btn-ghost btn-xs btn-circle"
+            class="btn btn-ghost btn-sm btn-circle"
             onclick={() => removeGame(idx)}
             aria-label="Remove game"
           >
@@ -846,7 +843,7 @@
           >
             <option value={0}>{m.shop_select_game_title()}</option>
             {#each GAMES as g (g.id)}
-              <option value={g.id}>{g.key}</option>
+              <option value={g.id}>{m[g.key]()}</option>
             {/each}
           </select>
         </div>
@@ -905,7 +902,7 @@
         </div>
 
         <!-- Comment -->
-        <div class="form-control gap-1">
+        <div class="form-control mb-6 gap-1">
           <span class="label-text text-sm">{m.shop_game_comment()}</span>
           <MarkdownEditor
             bind:value={game.comment}
@@ -923,7 +920,10 @@
   </div>
 
   <!-- Submit -->
-  <div class="border-base-300 flex justify-end gap-3 border-t pt-6">
+  <div class="border-base-content/20 flex justify-end gap-3 border-t pt-6">
+    <button class="btn btn-ghost" disabled={isSubmitting} onclick={onCancel}>
+      {m.cancel()}
+    </button>
     <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
       {#if isSubmitting}
         <span class="loading loading-spinner loading-sm"></span>

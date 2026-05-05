@@ -2,7 +2,6 @@ import rehypeFormat from 'rehype-format';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
-import remarkDirective from 'remark-directive';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -23,7 +22,6 @@ const barebone = unified()
 const processor = unified()
   .use(remarkParse)
   .use(remarkBreaks)
-  .use(remarkDirective)
   .use(remarkFrontmatter)
   .use(remarkGfm)
   .use(remarkMath)

@@ -56,5 +56,10 @@
     </div>
   {/if}
 
-  <ShopForm {initialData} onSubmit={handleSubmit} submitLabel={m.create_shop()} />
+  <ShopForm
+    {initialData}
+    onSubmit={handleSubmit}
+    onCancel={() => goto(resolve('/(main)/shops'))}
+    submitLabel={m.create_shop()}
+  />
 </div>

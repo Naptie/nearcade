@@ -9,11 +9,13 @@
     convertCoordinates,
     formatDistance,
     formatHourLiteral,
+    formatOpeningHourLiteral,
     formatShopAddress,
     formatTime,
     getFnsLocale,
     getGameName,
     getMyLocation,
+    getShopTimezone,
     getShopOpeningHours,
     isShopChinaBased,
     pageTitle,
@@ -30,6 +32,7 @@
   import { onMount } from 'svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
+  import { fromZonedTime } from 'date-fns-tz';
   import { getLocale } from '$lib/paraglide/runtime';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
@@ -40,6 +43,8 @@
   import { fade } from 'svelte/transition';
   import Comment from '$lib/components/Comment.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
+  import type { OpeningHourTime } from '$lib/types';
+  import { render } from '$lib/utils/markdown';
 
   let { data }: { data: PageData } = $props();
 
@@ -81,6 +86,7 @@
   >([]);
   let totalAttendance = $state(0);
   let openingHours = $derived(shop && getShopOpeningHours(shop));
+  let showOpeningHoursInUserTime = $state(false);
   let now = $state(new Date());
   let isShopOpen = $derived(
     openingHours && now >= openingHours.openTolerated && now <= openingHours.closeTolerated
@@ -120,7 +126,8 @@
   let distance = $state<number | null>(null); // Distance to shop
   let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
   let locationError = $state<string | null>(null);
-  let shopComment = $state({ sanitized: false, content: '' });
+  let shopComment = $state({ rendered: false, content: '' });
+  let gameComments: Record<string, string> = $state({});
 
   const getAttendanceData = async () => {
     if (!shop || shop.isClaimed) return;
@@ -194,12 +201,13 @@
       } else {
         getAttendanceData();
       }
-      sanitizeHTML(shop.comment).then((content) => {
-        shopComment = { sanitized: true, content };
+      render(shop.comment).then((content) => {
+        shopComment = { rendered: true, content };
       });
 
       Promise.all(
         shop.games.map(async (game) => {
+          gameComments[game.gameId] = await render(game.comment);
           costs[game.gameId] = await sanitizeHTML(game.cost);
         })
       );
@@ -241,6 +249,150 @@
 
   const getGameInfo = (titleId: number) => {
     return GAMES.find((g) => g.id === titleId);
+  };
+
+  const DAY_LABELS = () => [
+    m.monday(),
+    m.tuesday(),
+    m.wednesday(),
+    m.thursday(),
+    m.friday(),
+    m.saturday(),
+    m.sunday()
+  ];
+
+  const JS_DAY_LABELS = () => [
+    m.sunday(),
+    m.monday(),
+    m.tuesday(),
+    m.wednesday(),
+    m.thursday(),
+    m.friday(),
+    m.saturday()
+  ];
+
+  const normalizeOpeningHourTime = (time: OpeningHourTime | number): OpeningHourTime => {
+    if (typeof time === 'number') {
+      const normalized = ((time % 24) + 24) % 24 || 0;
+      let hour = Math.floor(normalized);
+      let minute = Math.round((normalized - hour) * 60);
+      if (minute === 60) {
+        minute = 0;
+        hour = (hour + 1) % 24;
+      }
+      return { hour, minute };
+    }
+
+    return {
+      hour: Math.max(0, Math.min(23, Math.floor(Number(time?.hour) || 0))),
+      minute: Math.max(0, Math.min(59, Math.floor(Number(time?.minute) || 0)))
+    };
+  };
+
+  const getOpeningHourTotalMinutes = (time: OpeningHourTime | number) => {
+    const normalized = normalizeOpeningHourTime(time);
+    return normalized.hour * 60 + normalized.minute;
+  };
+
+  const formatShopOpeningHourPair = (pair: [OpeningHourTime | number, OpeningHourTime | number]) =>
+    `${formatOpeningHourLiteral(pair[0])} – ${formatOpeningHourLiteral(pair[1])}`;
+
+  const padTimePart = (value: number) => String(value).padStart(2, '0');
+
+  const makeZonedDate = (
+    timeZone: string,
+    dateParts: { year: number; month: number; day: number },
+    time: OpeningHourTime | number
+  ) => {
+    const normalized = normalizeOpeningHourTime(time);
+    return fromZonedTime(
+      `${dateParts.year}-${padTimePart(dateParts.month)}-${padTimePart(dateParts.day)}T${padTimePart(
+        normalized.hour
+      )}:${padTimePart(normalized.minute)}:00`,
+      timeZone
+    );
+  };
+
+  const getShopWeekDateParts = (weekdayIndex: number) => {
+    if (!shop) return undefined;
+    const timeZone = getShopTimezone(shop.location);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short'
+    }).formatToParts(now);
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+    const weekdayMap: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6
+    };
+    const currentJsDay = weekdayMap[part('weekday')] ?? 0;
+    const daysSinceMonday = (currentJsDay + 6) % 7;
+    const mondayUtc = Date.UTC(
+      Number(part('year')),
+      Number(part('month')) - 1,
+      Number(part('day')) - daysSinceMonday
+    );
+    const targetDate = new Date(mondayUtc + weekdayIndex * 24 * 60 * 60 * 1000);
+
+    return {
+      timeZone,
+      year: targetDate.getUTCFullYear(),
+      month: targetDate.getUTCMonth() + 1,
+      day: targetDate.getUTCDate()
+    };
+  };
+
+  const formatUserOpeningHourPair = (
+    pair: [OpeningHourTime | number, OpeningHourTime | number],
+    weekdayIndex: number
+  ) => {
+    const dateParts = getShopWeekDateParts(weekdayIndex);
+    if (!dateParts) return formatShopOpeningHourPair(pair);
+
+    const open = makeZonedDate(dateParts.timeZone, dateParts, pair[0]);
+    const closesNextShopDay =
+      getOpeningHourTotalMinutes(pair[1]) <= getOpeningHourTotalMinutes(pair[0]);
+    const closeDateParts = closesNextShopDay
+      ? (() => {
+          const date = new Date(Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day + 1));
+          return {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth() + 1,
+            day: date.getUTCDate()
+          };
+        })()
+      : dateParts;
+    const close = makeZonedDate(dateParts.timeZone, closeDateParts, pair[1]);
+    const expectedOpenDay = (weekdayIndex + 1) % 7;
+    const expectedCloseDay = (expectedOpenDay + (closesNextShopDay ? 1 : 0)) % 7;
+    const showOpenDay = open.getDay() !== expectedOpenDay;
+    const showCloseDay = close.getDay() !== expectedCloseDay || showOpenDay;
+    const labels = JS_DAY_LABELS();
+    const openLabel = `${showOpenDay ? `${labels[open.getDay()]} ` : ''}${formatTime(open)}`;
+    const closeLabel = `${showCloseDay ? `${labels[close.getDay()]} ` : ''}${formatTime(close)}`;
+
+    return `${openLabel} – ${closeLabel}`;
+  };
+
+  const getUserOffset = () => {
+    const minutes = now.getTimezoneOffset();
+    const sign = minutes <= 0 ? '+' : '-';
+    return `${sign}${formatHourLiteral(Math.abs(minutes / 60))}`;
+  };
+
+  const getShopOffset = () => {
+    if (!openingHours) return '+00:00';
+    const hours = openingHours.offsetHours;
+    const sign = hours >= 0 ? '+' : '-';
+    return `${sign}${formatHourLiteral(Math.abs(hours))}`;
   };
 
   const getGameAttendance = (id: number): number => {
@@ -574,7 +726,7 @@
       <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
         <div class="space-y-6">
           <!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-          {#each Array(3) as _, idx (idx)}
+          {#each Array(4) as _, idx (idx)}
             <div class="card bg-base-200">
               <div class="card-body p-6">
                 <div class="skeleton mb-4 h-6 w-32"></div>
@@ -728,8 +880,8 @@
 
           {#if shopComment.content}
             <div class="text-base-content/80 mt-4">
-              <p class="whitespace-pre-line" class:prose={shopComment.sanitized}>
-                {#if shopComment.sanitized}
+              <p class="prose-md h-auto flex-1 overflow-auto" class:prose={shopComment.rendered}>
+                {#if shopComment.rendered}
                   {@html shopComment.content}
                 {:else}
                   {shopComment.content}
@@ -852,34 +1004,6 @@
               <h3 class="mb-2 text-lg font-semibold">{m.shop_info()}</h3>
 
               <div class="space-y-2">
-                {#if openingHours}
-                  {@const offset = (() => {
-                    const minutes = now.getTimezoneOffset();
-                    const sign = minutes <= 0 ? '+' : '-';
-                    return `${sign}${formatHourLiteral(Math.abs(minutes / 60))}`;
-                  })()}
-                  {@const offsetLocal = (() => {
-                    const hours = openingHours.offsetHours;
-                    const sign = hours >= 0 ? '+' : '-';
-                    return `${sign}${formatHourLiteral(Math.abs(hours))}`;
-                  })()}
-                  <div class="group flex items-center justify-between gap-1">
-                    <span class="text-base-content/60 truncate group-hover:hidden"
-                      >{m.opening_hours()} (UTC{offset})</span
-                    >
-                    <span
-                      class="text-base-content/60 truncate not-group-hover:hidden"
-                      title={m.local_time()}>{m.opening_hours()} (UTC{offsetLocal})</span
-                    >
-                    <span class="text-right font-semibold group-hover:hidden"
-                      >{formatTime(openingHours.open)} – {formatTime(openingHours.close)}</span
-                    >
-                    <span class="text-right font-semibold not-group-hover:hidden"
-                      >{openingHours.openLocal} – {openingHours.closeLocal}</span
-                    >
-                  </div>
-                {/if}
-
                 {#if shop.createdAt}
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60 truncate">{m.created()}</span>
@@ -904,6 +1028,63 @@
               </div>
             </div>
           </div>
+
+          <!-- Opening Hours -->
+          {#if openingHours && shop.openingHours.length > 0}
+            <div class="card bg-base-200">
+              <div class="card-body p-6">
+                <div class="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="text-lg font-semibold">{m.opening_hours()}</h3>
+                    <p class="text-base-content/60 text-xs">
+                      UTC{showOpeningHoursInUserTime ? getUserOffset() : getShopOffset()}
+                    </p>
+                  </div>
+                  <label
+                    class="flex cursor-pointer items-center gap-2 text-right"
+                    title={showOpeningHoursInUserTime ? m.local_time() : m.my_location()}
+                  >
+                    <span class="text-xs whitespace-nowrap opacity-70">
+                      {showOpeningHoursInUserTime ? m.my_location() : m.local_time()}
+                    </span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-sm"
+                      bind:checked={showOpeningHoursInUserTime}
+                    />
+                  </label>
+                </div>
+
+                <div class="space-y-2">
+                  {#if shop.openingHours.length === 7}
+                    {#each shop.openingHours as hours, idx (idx)}
+                      <div class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-base-content/60 truncate font-medium"
+                          >{DAY_LABELS()[idx]}</span
+                        >
+                        <span class="text-right font-semibold">
+                          {showOpeningHoursInUserTime
+                            ? formatUserOpeningHourPair(hours, idx)
+                            : formatShopOpeningHourPair(hours)}
+                        </span>
+                      </div>
+                    {/each}
+                  {:else}
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="text-base-content/60 truncate">
+                        {showOpeningHoursInUserTime ? m.my_location() : m.local_time()}
+                      </span>
+                      <span class="text-right font-semibold">
+                        {showOpeningHoursInUserTime
+                          ? formatTime(openingHours.open) + ' – ' + formatTime(openingHours.close)
+                          : openingHours.openLocal + ' – ' + openingHours.closeLocal}
+                      </span>
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/if}
 
           <!-- Shop Statistics -->
           <div class="card bg-base-200 not-md:hidden">
@@ -1106,10 +1287,14 @@
                         {@html costs[game.gameId]}
                       </div>
                     {/if}
-                    {#if game.comment}
-                      <div class="flex items-center gap-2 whitespace-pre-line">
-                        <i class="fa-solid fa-circle-info"></i>
-                        {game.comment}
+                    {#if gameComments[game.gameId]}
+                      <div class="flex items-start gap-2 whitespace-pre-line">
+                        <i class="fa-solid fa-circle-info mt-1"></i>
+                        <div
+                          class="prose prose-sm flex h-auto flex-1 items-center gap-2 overflow-auto"
+                        >
+                          {@html gameComments[game.gameId]}
+                        </div>
                       </div>
                     {/if}
                   </div>

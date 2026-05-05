@@ -1,18 +1,25 @@
 #!/usr/bin/env tsx
 /**
- * Migration script: remove legacy ShopSource usage from MongoDB data.
+ * Shop data migration script.
  *
- * Final schema:
- * - shops use one numeric id and no source field
- * - references that were { source, id } become the unified numeric id
- * - BEMANICN ids are offset by +10000
- * - ZIv ids are offset by +20000
+ * This script performs all shop-schema migrations in one pass:
+ * - removes legacy ShopSource usage from shops and shop references
+ * - normalizes openingHours to object pairs ({ hour, minute })
+ * - normalizes games to remove legacy id fields and recompute deterministic gameId
  *
- * The script is idempotent and can recover from the previous half-migration that
- * inserted offset copies while keeping source on both old and copied shop docs.
+ * Final gameId rule:
+ *   gameId = shopId * 1000 + index
+ * where index is assigned after sorting by (titleId, name, version).
  */
 
-import { MongoClient, type Collection, type Document, type ObjectId, type WithId } from 'mongodb';
+import {
+  MongoClient,
+  type AnyBulkWriteOperation,
+  type Collection,
+  type Document,
+  type ObjectId,
+  type WithId
+} from 'mongodb';
 import dotenv from 'dotenv';
 
 if (!('MONGODB_URI' in process.env)) {
@@ -38,7 +45,16 @@ type ShopDoc = WithId<Document> & {
   source?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
+  openingHours?: unknown;
+  games?: unknown;
 };
+
+type OpeningHourTime = {
+  hour: number;
+  minute: number;
+};
+
+type OpeningHourPair = [OpeningHourTime, OpeningHourTime];
 
 const normalizeSource = (source: unknown): LegacyShopSource | null => {
   if (typeof source !== 'string') return null;
@@ -63,6 +79,159 @@ const toUnifiedId = (source: LegacyShopSource, id: number) => {
 };
 
 const shopKey = (source: LegacyShopSource, id: number) => `${source}:${id}`;
+
+const clampInt = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, Math.floor(value)));
+
+const normalizeNumericTime = (value: number): OpeningHourTime => {
+  const normalized = ((value % 24) + 24) % 24 || 0;
+  let hour = Math.floor(normalized);
+  let minute = Math.round((normalized - hour) * 60);
+
+  if (minute === 60) {
+    minute = 0;
+    hour = (hour + 1) % 24;
+  }
+
+  return { hour, minute };
+};
+
+const normalizeObjectTime = (value: unknown): OpeningHourTime | null => {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as { hour?: unknown; minute?: unknown };
+  if (typeof candidate.hour !== 'number' || typeof candidate.minute !== 'number') {
+    return null;
+  }
+
+  return {
+    hour: clampInt(candidate.hour, 0, 23),
+    minute: clampInt(candidate.minute, 0, 59)
+  };
+};
+
+const normalizeOpeningHourPair = (
+  entry: unknown
+): { pair: OpeningHourPair; converted: boolean } | null => {
+  if (!Array.isArray(entry) || entry.length < 2) {
+    return null;
+  }
+
+  const [openRaw, closeRaw] = entry;
+  const openObject = normalizeObjectTime(openRaw);
+  const closeObject = normalizeObjectTime(closeRaw);
+
+  if (openObject && closeObject) {
+    return { pair: [openObject, closeObject], converted: false };
+  }
+
+  if (typeof openRaw === 'number' && typeof closeRaw === 'number') {
+    return {
+      pair: [normalizeNumericTime(openRaw), normalizeNumericTime(closeRaw)],
+      converted: true
+    };
+  }
+
+  return null;
+};
+
+const normalizeOpeningHours = (
+  value: unknown
+): {
+  normalized: OpeningHourPair[];
+  converted: boolean;
+} | null => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const normalized: OpeningHourPair[] = [];
+  let converted = false;
+
+  for (const entry of value) {
+    const parsed = normalizeOpeningHourPair(entry);
+    if (!parsed) return null;
+    normalized.push(parsed.pair);
+    converted = converted || parsed.converted;
+  }
+
+  return { normalized, converted };
+};
+
+const normalizeGamesForShop = (shopId: number, value: unknown): Document[] | null => {
+  if (!Array.isArray(value)) return null;
+
+  const parsed = value.map((entry, originalIndex) => {
+    if (!entry || typeof entry !== 'object') return null;
+
+    const candidate = entry as {
+      id?: unknown;
+      gameId?: unknown;
+      titleId?: unknown;
+      name?: unknown;
+      version?: unknown;
+      comment?: unknown;
+      quantity?: unknown;
+      cost?: unknown;
+    } & Document;
+
+    const titleId = toInteger(candidate.titleId);
+    if (
+      titleId === null ||
+      typeof candidate.name !== 'string' ||
+      typeof candidate.version !== 'string'
+    ) {
+      return null;
+    }
+
+    const { id: _legacyId, gameId: _legacyGameId, ...rest } = candidate;
+    void _legacyId;
+    void _legacyGameId;
+
+    return {
+      originalIndex,
+      game: {
+        ...rest,
+        titleId,
+        name: candidate.name,
+        version: candidate.version,
+        comment: typeof candidate.comment === 'string' ? candidate.comment : '',
+        quantity:
+          typeof candidate.quantity === 'number' && Number.isFinite(candidate.quantity)
+            ? Math.max(0, Math.floor(candidate.quantity))
+            : 1,
+        cost: typeof candidate.cost === 'string' ? candidate.cost : ''
+      }
+    };
+  });
+
+  if (parsed.some((item) => item === null)) return null;
+
+  const validGames = parsed as Array<{
+    originalIndex: number;
+    game: Document & { titleId: number; name: string; version: string };
+  }>;
+  const sorted = [...validGames].sort((left, right) => {
+    return (
+      left.game.titleId - right.game.titleId ||
+      left.game.name.localeCompare(right.game.name) ||
+      left.game.version.localeCompare(right.game.version) ||
+      left.originalIndex - right.originalIndex
+    );
+  });
+
+  const gameIdByOriginalIndex = new Map<number, number>();
+  sorted.forEach((entry, index) => {
+    gameIdByOriginalIndex.set(entry.originalIndex, shopId * 1000 + index);
+  });
+
+  return validGames.map((entry) => ({
+    ...entry.game,
+    gameId: gameIdByOriginalIndex.get(entry.originalIndex)!
+  }));
+};
+
+const hasSameJsonValue = (left: unknown, right: unknown) =>
+  JSON.stringify(left) === JSON.stringify(right);
 
 /**
  * The earlier migration inserted copies with offset ids, but accidentally kept
@@ -245,6 +414,60 @@ const migrateShops = async (db: ReturnType<MongoClient['db']>) => {
   );
 };
 
+const migrateShopSchemaFields = async (db: ReturnType<MongoClient['db']>) => {
+  const shops = db.collection<Document>('shops');
+  const allShops = (await shops.find({}).toArray()) as ShopDoc[];
+
+  const bulkOps: AnyBulkWriteOperation<Document>[] = [];
+  let migratedOpeningHours = 0;
+  let migratedGames = 0;
+  let invalidOpeningHours = 0;
+  let invalidGames = 0;
+  let invalidShopId = 0;
+
+  for (const shop of allShops) {
+    const updateSet: Document = {};
+
+    const openingHours = normalizeOpeningHours(shop.openingHours);
+    if (!openingHours) {
+      invalidOpeningHours += 1;
+    } else if (!hasSameJsonValue(shop.openingHours, openingHours.normalized)) {
+      updateSet.openingHours = openingHours.normalized;
+      migratedOpeningHours += 1;
+    }
+
+    const shopId = toInteger(shop.id);
+    if (shopId === null) {
+      invalidShopId += 1;
+    } else {
+      const normalizedGames = normalizeGamesForShop(shopId, shop.games);
+      if (!normalizedGames) {
+        invalidGames += 1;
+      } else if (!hasSameJsonValue(shop.games, normalizedGames)) {
+        updateSet.games = normalizedGames;
+        migratedGames += 1;
+      }
+    }
+
+    if (Object.keys(updateSet).length > 0) {
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: shop._id },
+          update: { $set: updateSet }
+        }
+      });
+    }
+  }
+
+  if (bulkOps.length > 0 && !DRY_RUN) {
+    await shops.bulkWrite(bulkOps, { ordered: false });
+  }
+
+  console.log(
+    `shops schema fields: openingHours updated ${migratedOpeningHours}, games updated ${migratedGames}, invalid openingHours ${invalidOpeningHours}, invalid games ${invalidGames}, invalid shop id ${invalidShopId}`
+  );
+};
+
 const migrateArrayField = async (
   db: ReturnType<MongoClient['db']>,
   collectionName: string,
@@ -324,7 +547,7 @@ const migrateNestedShopReference = async (
 };
 
 async function migrateShopSources() {
-  console.log('Starting ShopSource removal migration...');
+  console.log('Starting shop data migration...');
   console.log(`Using MongoDB URI: ${MONGODB_URI}`);
   if (DRY_RUN) {
     console.log('DRY RUN: no writes will be performed');
@@ -341,6 +564,7 @@ async function migrateShopSources() {
     const db = client.db();
 
     await migrateShops(db);
+    await migrateShopSchemaFields(db);
 
     await migrateArrayField(db, 'users', 'frequentingArcades');
     await migrateArrayField(db, 'users', 'starredArcades');

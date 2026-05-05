@@ -6,8 +6,6 @@ import { getShopOpeningHours, getShopTimezone, toPlainArray, toPlainObject } fro
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 
-const NEARCADE_ID_START = 30000;
-
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
 
@@ -31,6 +29,82 @@ const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | nu
   }
 
   return normalized;
+};
+
+const findLowestUnoccupiedShopId = (ids: number[]) => {
+  const occupied = new Set(ids.filter((id) => Number.isInteger(id) && id > 0));
+  let candidate = 1;
+  while (occupied.has(candidate)) {
+    candidate += 1;
+  }
+  return candidate;
+};
+
+const normalizeGamesForShop = (shopId: number, games: unknown): Shop['games'] | null => {
+  if (!Array.isArray(games)) return null;
+
+  const parsed = games.map((item, originalIndex) => {
+    if (!item || typeof item !== 'object') return null;
+
+    const candidate = item as {
+      titleId?: unknown;
+      name?: unknown;
+      version?: unknown;
+      comment?: unknown;
+      quantity?: unknown;
+      cost?: unknown;
+    };
+
+    if (
+      typeof candidate.titleId !== 'number' ||
+      !Number.isInteger(candidate.titleId) ||
+      typeof candidate.name !== 'string' ||
+      typeof candidate.version !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      originalIndex,
+      game: {
+        titleId: candidate.titleId,
+        name: candidate.name,
+        version: candidate.version,
+        comment: typeof candidate.comment === 'string' ? candidate.comment : '',
+        quantity:
+          typeof candidate.quantity === 'number' && Number.isFinite(candidate.quantity)
+            ? Math.max(0, Math.floor(candidate.quantity))
+            : 1,
+        cost: typeof candidate.cost === 'string' ? candidate.cost : ''
+      }
+    };
+  });
+
+  if (parsed.some((item) => item === null)) return null;
+
+  const validGames = parsed as Array<{
+    originalIndex: number;
+    game: Omit<Shop['games'][number], 'gameId'>;
+  }>;
+
+  const sorted = [...validGames].sort((left, right) => {
+    return (
+      left.game.titleId - right.game.titleId ||
+      left.game.name.localeCompare(right.game.name) ||
+      left.game.version.localeCompare(right.game.version) ||
+      left.originalIndex - right.originalIndex
+    );
+  });
+
+  const idByOriginalIndex = new Map<number, number>();
+  sorted.forEach((entry, index) => {
+    idByOriginalIndex.set(entry.originalIndex, shopId * 1000 + index);
+  });
+
+  return validGames.map((entry) => ({
+    ...entry.game,
+    gameId: idByOriginalIndex.get(entry.originalIndex)!
+  }));
 };
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -187,16 +261,16 @@ export const POST: RequestHandler = async ({ request }) => {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
-    const lastNearcadeShop = await shopsCollection
-      .find({ id: { $gte: NEARCADE_ID_START } })
-      .sort({ id: -1 })
-      .limit(1)
-      .toArray();
+    const existingIds = await shopsCollection.find({}, { projection: { id: 1 } }).toArray();
+    const newId = findLowestUnoccupiedShopId(existingIds.map((shop) => shop.id));
 
-    const newId =
-      lastNearcadeShop.length > 0
-        ? Math.max(lastNearcadeShop[0].id + 1, NEARCADE_ID_START)
-        : NEARCADE_ID_START;
+    const normalizedGames = games === undefined ? [] : normalizeGamesForShop(newId, games);
+    if (games !== undefined && !normalizedGames) {
+      return json(
+        { error: 'games must be an array of game objects with titleId, name, and version' },
+        { status: 400 }
+      );
+    }
 
     const now = new Date();
     const newShop: Shop = {
@@ -207,7 +281,7 @@ export const POST: RequestHandler = async ({ request }) => {
       address: address ?? { general: [], detailed: '' },
       openingHours: normalizedOpeningHours,
       location,
-      games: games ?? [],
+      games: normalizedGames ?? [],
       createdAt: now,
       updatedAt: now
     };
