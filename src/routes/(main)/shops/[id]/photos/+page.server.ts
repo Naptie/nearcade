@@ -7,18 +7,13 @@ import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { session } = await parent();
-  const { id } = params;
-
-  const shopId = parseInt(id);
+  const shopId = parseInt(params.id);
   if (isNaN(shopId)) {
     error(404, m.invalid_shop_id());
   }
 
   const db = mongo.db();
-  const shop = await db.collection<Shop>('shops').findOne({
-    id: shopId
-  });
-
+  const shop = await db.collection<Shop>('shops').findOne({ id: shopId });
   if (!shop) {
     error(404, m.shop_not_found());
   }

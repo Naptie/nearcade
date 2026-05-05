@@ -5,6 +5,8 @@
   import { pageTitle } from '$lib/utils';
   import ShopForm, { type ShopFormData } from '$lib/components/ShopForm.svelte';
   import type { PageData } from './$types';
+  import type { ShopPhoto } from '$lib/types';
+  import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -21,6 +23,8 @@
   });
 
   let successMessage = $state('');
+  let createdShopId = $state<number | null>(null);
+  let createdShopPhotos = $state<ShopPhoto[]>([]);
 
   async function handleSubmit(formData: ShopFormData) {
     const response = await fetch('/api/shops', {
@@ -36,7 +40,7 @@
 
     const { shop } = await response.json();
     successMessage = m.shop_created_successfully();
-    await goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }));
+    createdShopId = shop.id;
   }
 </script>
 
@@ -56,10 +60,31 @@
     </div>
   {/if}
 
-  <ShopForm
-    {initialData}
-    onSubmit={handleSubmit}
-    onCancel={() => goto(resolve('/(main)/shops'))}
-    submitLabel={m.create_shop()}
-  />
+  {#if createdShopId === null}
+    <ShopForm
+      {initialData}
+      onSubmit={handleSubmit}
+      onCancel={() => goto(resolve('/(main)/shops'))}
+      submitLabel={m.create_shop()}
+    />
+  {:else}
+    <!-- Shop created: let user upload photos before navigating -->
+    <div class="bg-base-100 border-base-300 mb-6 rounded-2xl border p-6 shadow-sm">
+      <PhotoCarousel
+        shopId={createdShopId}
+        bind:photos={createdShopPhotos}
+        currentUserId={data.user?.id}
+        isAdmin={data.user?.userType === 'site_admin'}
+      />
+    </div>
+    <div class="flex gap-3">
+      <button
+        class="btn btn-primary flex-1"
+        onclick={() => goto(resolve('/(main)/shops/[id]', { id: String(createdShopId) }))}
+      >
+        <i class="fa-solid fa-store"></i>
+        {m.view_shop()}
+      </button>
+    </div>
+  {/if}
 </div>
