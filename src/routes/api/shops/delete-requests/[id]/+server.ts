@@ -119,7 +119,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         actorDisplayName: session.user.displayName ?? undefined,
         actorImage: session.user.image ?? undefined,
         targetUserId: deleteRequest.requestedBy,
-        content: deleteRequest.reviewNote || undefined,
+        content: reviewNote?.trim() || undefined,
         shopDeleteRequestId: deleteRequest.id,
         shopDeleteRequestStatus: newStatus,
         shopName: deleteRequest.shopName

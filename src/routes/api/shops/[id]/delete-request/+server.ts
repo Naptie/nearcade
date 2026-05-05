@@ -53,10 +53,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(409, m.shop_photo_delete_request_already_pending());
     }
   } else {
-    // Enforce one pending request per shop (for shop delete requests)
+    // Enforce one pending request per shop (for shop delete requests without a photoId)
     const existingPending = await db
       .collection<ShopDeleteRequest>('shop_delete_requests')
-      .findOne({ shopId, photoId: { $in: [null, undefined] }, status: 'pending' });
+      .findOne({
+        shopId,
+        $or: [{ photoId: null }, { photoId: { $exists: false } }],
+        status: 'pending'
+      });
 
     if (existingPending) {
       error(409, m.shop_delete_request_already_pending());
@@ -75,8 +79,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     requestedByName: user?.name ?? null,
     status: 'pending',
     createdAt: new Date(),
-    photoId: photoId ?? undefined,
-    photoUrl: photoUrl ?? undefined
+    photoId: photoId,
+    photoUrl: photoUrl
   };
 
   await db.collection<ShopDeleteRequest>('shop_delete_requests').insertOne(deleteRequest);

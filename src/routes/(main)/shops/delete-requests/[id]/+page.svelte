@@ -149,7 +149,11 @@
         <h2 class="mb-2 text-sm font-semibold tracking-wide uppercase opacity-60">
           {m.shop_photos()}
         </h2>
-        <img src={req.photoUrl} alt={req.shopName} />
+        <img
+          src={req.photoUrl}
+          alt={req.shopName}
+          class="max-h-60 max-w-full rounded-xl object-cover shadow"
+        />
       </div>
     {/if}
 

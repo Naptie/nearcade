@@ -87,7 +87,9 @@
         >
           <img
             src={photo.url}
-            alt={photo.shopName}
+            alt={m.shop_photos_uploaded_by({
+              name: photo.uploadedByName ?? m.anonymous_user()
+            })}
             class="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-105"
             loading="lazy"
           />

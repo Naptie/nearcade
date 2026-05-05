@@ -137,7 +137,11 @@
 
           {#if req.photoUrl}
             <div class="mb-3">
-              <img src={req.photoUrl} alt={req.shopName} />
+              <img
+                src={req.photoUrl}
+                alt={req.shopName}
+                class="h-24 max-w-full rounded-lg object-cover shadow"
+              />
             </div>
           {/if}
 
