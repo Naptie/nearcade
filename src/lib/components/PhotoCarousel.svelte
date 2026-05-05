@@ -5,12 +5,12 @@
   import UploadModal from './UploadModal.svelte';
   import type { ShopPhoto } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
+  import type { User } from '$lib/auth/types';
 
   interface Props {
     shopId: number;
     photos: ShopPhoto[];
-    currentUserId?: string | null;
-    isAdmin?: boolean;
+    currentUser?: User | undefined;
     /** Called after a photo is deleted so the parent can refresh */
     onPhotoDeleted?: (photo: ShopPhoto) => void;
     /** Called after a photo is uploaded */
@@ -20,8 +20,7 @@
   let {
     shopId,
     photos = $bindable(),
-    currentUserId,
-    isAdmin = false,
+    currentUser = undefined,
     onPhotoDeleted,
     onPhotoUploaded
   }: Props = $props();
@@ -46,7 +45,8 @@
       shopId,
       shopName: '',
       url: result.url,
-      uploadedBy: currentUserId ?? null,
+      uploadedBy: currentUser?.id ?? null,
+      uploader: currentUser,
       uploadedAt: new Date()
     };
     photos = [newPhoto, ...photos];
@@ -60,7 +60,7 @@
   <div class="flex items-center justify-between gap-2">
     <h3 class="text-base font-semibold">{m.shop_photos()}</h3>
     <div class="flex items-center gap-2">
-      {#if currentUserId}
+      {#if currentUser}
         <button class="btn btn-ghost btn-sm gap-1" onclick={() => (uploadOpen = true)}>
           <i class="fa-solid fa-upload text-xs"></i>
           {m.shop_photos_upload()}
@@ -82,7 +82,7 @@
     <div class="border-base-300 rounded-xl border p-6 text-center">
       <i class="fa-solid fa-camera text-base-content/30 mb-2 text-2xl"></i>
       <p class="text-base-content/60 text-sm">{m.shop_photos_empty()}</p>
-      {#if currentUserId}
+      {#if currentUser}
         <p class="text-base-content/40 mt-1 text-xs">{m.shop_photos_empty_hint()}</p>
       {/if}
     </div>
@@ -112,8 +112,7 @@
   bind:isOpen={viewerOpen}
   {photos}
   initialIndex={viewerIndex}
-  {currentUserId}
-  {isAdmin}
+  {currentUser}
   onDelete={handleDelete}
 />
 

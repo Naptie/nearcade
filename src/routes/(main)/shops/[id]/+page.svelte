@@ -1676,8 +1676,7 @@
             <PhotoCarousel
               shopId={shop.id}
               bind:photos
-              currentUserId={data.user?.id}
-              isAdmin={data.user?.userType === 'site_admin'}
+              currentUser={data.user}
             />
           </section>
         {/if}

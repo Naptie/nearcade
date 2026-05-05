@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
-  import { pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
   import type { PageData } from './$types';
   import type { ShopPhoto } from '$lib/types';
   import ImageViewerModal from '$lib/components/ImageViewerModal.svelte';
@@ -14,8 +14,6 @@
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
   let uploadOpen = $state(false);
-
-  const isAdmin = $derived(data.user?.userType === 'site_admin');
 
   const openViewer = (index: number) => {
     viewerIndex = index;
@@ -33,7 +31,7 @@
       shopName: data.shop.name,
       url: result.url,
       uploadedBy: data.user?.id ?? null,
-      uploadedByName: data.user?.name ?? null,
+      uploader: data.user,
       uploadedAt: new Date()
     };
     photos = [newPhoto, ...photos];
@@ -86,7 +84,7 @@
           <img
             src={photo.url}
             alt={m.shop_photos_uploaded_by({
-              name: photo.uploadedByName ?? m.anonymous_user()
+              name: getDisplayName(photo.uploader) ?? m.anonymous_user()
             })}
             class="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-105"
             loading="lazy"
@@ -96,7 +94,7 @@
             class="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           >
             <p class="truncate text-xs text-white/90">
-              {photo.uploadedByName ?? m.anonymous_user()}
+              {getDisplayName(photo.uploader) ?? m.anonymous_user()}
             </p>
             <p class="text-xs text-white/60">
               {new Date(photo.uploadedAt).toLocaleDateString()}
@@ -112,8 +110,7 @@
   bind:isOpen={viewerOpen}
   {photos}
   initialIndex={viewerIndex}
-  currentUserId={data.user?.id}
-  {isAdmin}
+  currentUser={data.user}
   onDelete={handleDelete}
 />
 

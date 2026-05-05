@@ -3,13 +3,14 @@
   import { onMount, onDestroy } from 'svelte';
   import { fromPath } from '$lib/utils/scoped';
   import type { ShopPhoto } from '$lib/types';
+  import type { User } from '$lib/auth/types';
+    import { getDisplayName } from '$lib/utils';
 
   interface Props {
     photos: ShopPhoto[];
     initialIndex?: number;
     isOpen: boolean;
-    currentUserId?: string | null;
-    isAdmin?: boolean;
+    currentUser?: User | undefined;
     onClose?: () => void;
     onDelete?: (photo: ShopPhoto) => void;
   }
@@ -18,8 +19,7 @@
     photos,
     initialIndex = 0,
     isOpen = $bindable(),
-    currentUserId,
-    isAdmin = false,
+    currentUser = undefined,
     onClose,
     onDelete
   }: Props = $props();
@@ -31,6 +31,8 @@
     void initialIndex;
     indexOffset = 0;
   });
+
+  let isAdmin = $derived(currentUser?.userType === 'site_admin');
 
   let currentIndex = $derived(
     Math.min(
@@ -49,9 +51,9 @@
 
   let currentPhoto = $derived(photos[currentIndex] ?? null);
   let canDeleteDirectly = $derived(
-    !!currentPhoto && (isAdmin || currentPhoto.uploadedBy === currentUserId)
+    !!currentPhoto && (isAdmin || currentPhoto.uploadedBy === currentUser?.id)
   );
-  let canRequestDeletion = $derived(!!currentPhoto && !!currentUserId && !canDeleteDirectly);
+  let canRequestDeletion = $derived(!!currentPhoto && !!currentUser?.id && !canDeleteDirectly);
 
   const prev = () => {
     if (photos.length > 1) {
@@ -176,7 +178,7 @@
       <div class="flex w-full items-center justify-between gap-4 text-white">
         <div class="min-w-0 text-sm">
           <p class="truncate text-white/80">
-            {m.shop_photos_uploaded_by({ name: currentPhoto.uploadedByName ?? m.anonymous_user() })}
+            {m.shop_photos_uploaded_by({ name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user() })}
           </p>
           <p class="text-xs text-white/50">
             {new Date(currentPhoto.uploadedAt).toLocaleString()}

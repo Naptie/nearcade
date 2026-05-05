@@ -270,7 +270,7 @@ export interface ShopPhoto {
   shopName: string;
   url: string;
   uploadedBy: string | null;
-  uploadedByName?: string | null;
+  uploader?: User;
   uploadedAt: Date;
 }
 
