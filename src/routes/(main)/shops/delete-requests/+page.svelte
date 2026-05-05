@@ -18,7 +18,7 @@
     isProcessing[requestId] = true;
     processErrors[requestId] = '';
     try {
-      const response = await fetch(fromPath(`/api/shop-delete-requests/${requestId}`), {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${requestId}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, reviewNote: reviewNotes[requestId]?.trim() || null })
@@ -42,7 +42,7 @@
     isDeletingRequest[requestId] = true;
     processErrors[requestId] = '';
     try {
-      const response = await fetch(fromPath(`/api/shop-delete-requests/${requestId}`), {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${requestId}`), {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -68,7 +68,9 @@
   <div class="mb-8 flex items-center justify-between gap-4">
     <div>
       <h1 class="text-3xl font-bold">{m.shop_delete_requests()}</h1>
-      <p class="text-base-content/60 mt-1">{m.shop_delete_requests_description()}</p>
+      {#if data.user?.userType === 'site_admin'}
+        <p class="text-base-content/60 mt-1">{m.admin_shop_delete_requests_description()}</p>
+      {/if}
     </div>
   </div>
 
@@ -106,22 +108,6 @@
               <p class="font-semibold">{req.shopName}</p>
               <p class="text-base-content/60 text-sm">
                 #{req.shopId}
-                &nbsp;·&nbsp;
-                <a
-                  href={resolve('/(main)/shops/[id]', { id: String(req.shopId) })}
-                  class="link"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  {m.view()}
-                </a>
-                &nbsp;·&nbsp;
-                <a
-                  href={resolve('/(main)/shops/delete-requests/[id]', { id: req.id })}
-                  class="link"
-                >
-                  {m.view_delete_request()}
-                </a>
               </p>
             </div>
             <span
@@ -142,13 +128,13 @@
           </div>
 
           <div class="bg-base-200 mb-3 rounded-lg p-3">
-            <p class="text-sm font-medium">{m.shop_delete_request_reason()}:</p>
+            <span class="badge badge-soft badge-sm">{m.shop_delete_request_reason()}</span>
             <p class="text-sm">{req.reason}</p>
           </div>
 
           <p class="text-base-content/60 mb-1 text-xs">
             {m.request_by()}: {req.requestedByName ?? m.anonymous_user()}
-            &nbsp;·&nbsp;
+            &nbsp;@&nbsp;
             {new Date(req.createdAt).toLocaleString()}
           </p>
 
@@ -164,41 +150,78 @@
             </div>
           {/if}
 
-          <!-- Admin actions -->
-          {#if data.user?.userType === 'site_admin'}
-            {#if req.status === 'pending'}
-              <div class="border-base-300 mt-3 flex flex-col gap-2 border-t pt-3">
+          <div class="border-base-300 mt-3 space-y-2 border-t pt-3">
+            {#if data.user?.userType === 'site_admin'}
+              {#if req.status === 'pending'}
                 <input
                   type="text"
                   class="input input-bordered input-sm w-full"
                   placeholder={m.shop_delete_request_review_note()}
                   bind:value={reviewNotes[req.id]}
                 />
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    class="btn btn-success btn-sm"
-                    onclick={() => handleProcess(req.id, 'approve')}
-                    disabled={isProcessing[req.id]}
-                  >
-                    {#if isProcessing[req.id]}
-                      <span class="loading loading-spinner loading-xs"></span>
-                    {:else}
-                      <i class="fa-solid fa-check"></i>
-                    {/if}
-                    {m.admin_approve()}
-                  </button>
-                  <button
-                    class="btn btn-error btn-sm"
-                    onclick={() => handleProcess(req.id, 'reject')}
-                    disabled={isProcessing[req.id]}
-                  >
-                    {#if isProcessing[req.id]}
-                      <span class="loading loading-spinner loading-xs"></span>
-                    {:else}
-                      <i class="fa-solid fa-xmark"></i>
-                    {/if}
-                    {m.admin_reject()}
-                  </button>
+              {/if}
+            {/if}
+            <div class="flex flex-row-reverse justify-between gap-2">
+              <div class="flex flex-wrap gap-2">
+                <a
+                  href={resolve('/(main)/shops/[id]', { id: String(req.shopId) })}
+                  target="_blank"
+                  rel="noopener"
+                  class="btn btn-primary btn-soft btn-sm gap-2"
+                >
+                  <i class="fa-solid fa-store"></i>
+                  {m.view_shop()}
+                </a>
+                <a
+                  href={resolve('/(main)/shops/delete-requests/[id]', { id: req.id })}
+                  class="btn btn-secondary btn-soft btn-sm gap-2"
+                >
+                  <i class="fa-solid fa-file-lines"></i>
+                  {m.view_delete_request()}
+                </a>
+              </div>
+              <!-- Admin actions -->
+              {#if data.user?.userType === 'site_admin'}
+                {#if req.status === 'pending'}
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      class="btn btn-success btn-sm"
+                      onclick={() => handleProcess(req.id, 'approve')}
+                      disabled={isProcessing[req.id]}
+                    >
+                      {#if isProcessing[req.id]}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <i class="fa-solid fa-check"></i>
+                      {/if}
+                      {m.admin_approve()}
+                    </button>
+                    <button
+                      class="btn btn-error btn-sm"
+                      onclick={() => handleProcess(req.id, 'reject')}
+                      disabled={isProcessing[req.id]}
+                    >
+                      {#if isProcessing[req.id]}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <i class="fa-solid fa-xmark"></i>
+                      {/if}
+                      {m.admin_reject()}
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      onclick={() => handleDeleteRequest(req.id)}
+                      disabled={isDeletingRequest[req.id]}
+                    >
+                      {#if isDeletingRequest[req.id]}
+                        <span class="loading loading-spinner loading-xs"></span>
+                      {:else}
+                        <i class="fa-solid fa-trash"></i>
+                      {/if}
+                      {m.delete_this_request()}
+                    </button>
+                  </div>
+                {:else}
                   <button
                     class="btn btn-ghost btn-sm"
                     onclick={() => handleDeleteRequest(req.id)}
@@ -211,25 +234,10 @@
                     {/if}
                     {m.delete_this_request()}
                   </button>
-                </div>
-              </div>
-            {:else}
-              <div class="border-base-300 mt-3 border-t pt-3">
-                <button
-                  class="btn btn-ghost btn-sm"
-                  onclick={() => handleDeleteRequest(req.id)}
-                  disabled={isDeletingRequest[req.id]}
-                >
-                  {#if isDeletingRequest[req.id]}
-                    <span class="loading loading-spinner loading-xs"></span>
-                  {:else}
-                    <i class="fa-solid fa-trash"></i>
-                  {/if}
-                  {m.delete_this_request()}
-                </button>
-              </div>
-            {/if}
-          {/if}
+                {/if}
+              {/if}
+            </div>
+          </div>
         </div>
       {/each}
     </div>

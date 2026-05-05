@@ -102,7 +102,8 @@
       >
         <i class="fa-solid fa-ellipsis"></i>
       </button>
-      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-56 p-2 shadow">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-56 p-2 shadow">
         <li>
           <a href={resolve('/(main)/shops/new')}>
             <i class="fa-solid fa-plus"></i>

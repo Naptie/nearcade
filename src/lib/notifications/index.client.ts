@@ -14,6 +14,7 @@ export const getNotificationTitle = (notification: Notification) => {
   });
   const targetName =
     notification.postTitle ??
+    notification.shopName ??
     ((notification.joinRequestType === 'university'
       ? notification.universityName
       : notification.clubName) ||
@@ -40,11 +41,11 @@ export const getNotificationTitle = (notification: Notification) => {
       return notification.shopDeleteRequestStatus === 'approved'
         ? m.notification_delete_request_approved({
             userName: actorName,
-            shopName: notification.shopName ?? ''
+            targetName
           })
         : m.notification_delete_request_rejected({
             userName: actorName,
-            shopName: notification.shopName ?? ''
+            targetName
           });
     default:
       return '';

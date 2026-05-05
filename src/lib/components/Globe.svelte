@@ -49,7 +49,7 @@
   let { mode, shopData, attendanceData }: Props = $props();
 
   // ---- Globe layer/source IDs ----
-  const GEOJSON_ENDPOINT = `${base}/api/globe/geojson`;
+  const GEOJSON_ENDPOINT = `${base}/api/geo/dataset`;
   const COUNTRY_ZOOM_THRESHOLD = 3.5;
   const PROVINCE_ZOOM_THRESHOLD = 4.6;
   const CITY_ZOOM_THRESHOLD = 6.2;
@@ -988,8 +988,8 @@
 
   const buildGeoJsonUrl = (dataset: GlobeDataset, parentAdcode?: string) => {
     const query = parentAdcode
-      ? `dataset=${encodeURIComponent(dataset)}&parentAdcode=${encodeURIComponent(parentAdcode)}`
-      : `dataset=${encodeURIComponent(dataset)}`;
+      ? `name=${encodeURIComponent(dataset)}&parentAdcode=${encodeURIComponent(parentAdcode)}`
+      : `name=${encodeURIComponent(dataset)}`;
     return `${GEOJSON_ENDPOINT}?${query}`;
   };
 
@@ -2509,15 +2509,29 @@
               class="input input-bordered w-full pl-7"
             />
           </div>
-          <button
-            type="button"
-            class="btn btn-soft hover:btn-success shrink-0"
-            title={m.create_shop()}
-            aria-label={m.create_shop()}
-            onclick={enterShopLocationPickMode}
-          >
-            <i class="fa-solid fa-plus"></i>
-          </button>
+          <div class="dropdown dropdown-end">
+            <button
+              type="button"
+              tabindex="0"
+              class="btn btn-circle btn-soft"
+              aria-label={m.more_actions()}
+              title={m.more_actions()}
+            >
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <ul
+              tabindex="0"
+              class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow"
+            >
+              <li>
+                <button onclick={enterShopLocationPickMode}>
+                  <i class="fa-solid fa-plus"></i>
+                  {m.create_shop()}
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 

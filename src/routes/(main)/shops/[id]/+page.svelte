@@ -749,7 +749,7 @@
     deleteRequestProcessError = '';
     try {
       const response = await fetch(
-        fromPath(`/api/shop-delete-requests/${pendingDeleteRequest.id}`),
+        fromPath(`/api/shops/delete-requests/${pendingDeleteRequest.id}`),
         { method: 'DELETE' }
       );
       if (response.ok) {
@@ -771,7 +771,7 @@
     deleteRequestProcessError = '';
     try {
       const response = await fetch(
-        fromPath(`/api/shop-delete-requests/${pendingDeleteRequest.id}`),
+        fromPath(`/api/shops/delete-requests/${pendingDeleteRequest.id}`),
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -1057,30 +1057,29 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              <!-- Three-dots dropdown for shop actions -->
-              <div class="dropdown dropdown-end">
-                <button
-                  type="button"
-                  tabindex="0"
-                  class="btn btn-circle btn-soft"
-                  aria-label={m.more_actions()}
-                  title={m.more_actions()}
-                >
-                  <i class="fa-solid fa-ellipsis"></i>
-                </button>
-                <ul
-                  tabindex="0"
-                  class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow"
-                >
-                  {#if data.user?.userType === 'site_admin'}
+              {#if data.user}
+                <!-- Three-dots dropdown for shop actions -->
+                <div class="dropdown dropdown-end">
+                  <button
+                    type="button"
+                    tabindex="0"
+                    class="btn btn-circle btn-soft"
+                    aria-label={m.more_actions()}
+                    title={m.more_actions()}
+                  >
+                    <i class="fa-solid fa-ellipsis"></i>
+                  </button>
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                  <ul
+                    tabindex="0"
+                    class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow"
+                  >
                     <li>
                       <a href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}>
                         <i class="fa-solid fa-pen-to-square"></i>
                         {m.edit_shop()}
                       </a>
                     </li>
-                  {/if}
-                  {#if data.user}
                     <li>
                       <button
                         onclick={() => {
@@ -1098,9 +1097,9 @@
                         {m.request_delete_shop()}
                       </button>
                     </li>
-                  {/if}
-                </ul>
-              </div>
+                  </ul>
+                </div>
+              {/if}
               <a
                 href={link}
                 target="_blank"
@@ -1339,11 +1338,6 @@
             </div>
           </div>
 
-          <!-- Attendance Reports -->
-          {#if !shop.isClaimed}
-            <AttendanceReports shopId={shop.id} gamesList={GAMES} />
-          {/if}
-
           <!-- Pending Delete Request -->
           {#if pendingDeleteRequest}
             <div class="card border-warning/40 bg-warning/5 border">
@@ -1443,6 +1437,11 @@
                 </div>
               </div>
             </div>
+          {/if}
+
+          <!-- Attendance Reports -->
+          {#if !shop.isClaimed}
+            <AttendanceReports shopId={shop.id} gamesList={GAMES} />
           {/if}
         </div>
       </div>
@@ -1919,7 +1918,7 @@
           </label>
           <textarea
             id="delete-request-reason"
-            class="textarea textarea-bordered w-full"
+            class="textarea textarea-bordered w-full rounded-xl"
             rows="4"
             placeholder={m.shop_delete_request_reason_placeholder()}
             bind:value={deleteRequestReason}

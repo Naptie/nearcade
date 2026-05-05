@@ -5,6 +5,8 @@ import {
   getSupportedCountryByLevelDataset
 } from '$lib/utils/globe/geojson.server';
 import { SUPPORTED_COUNTRIES, getSupportedCountryByName } from '$lib/countries';
+import mongo from '$lib/db/index.server';
+import type { Shop } from '$lib/types';
 import type { GlobeDataset, GlobeFeature } from '$lib/utils/globe/geojson';
 import type { RequestHandler } from './$types';
 
@@ -49,29 +51,82 @@ const toRegionOption = (feature: GlobeFeature): AddressOption => ({
   adcode: feature.properties.adcode
 });
 
-const getCountryOptions = (): AddressOption[] => {
+const getCountryPopularityMap = async (): Promise<Map<string, number>> => {
+  const db = mongo.db();
+  const shopsCollection = db.collection<Shop>('shops');
+
+  const counts = await shopsCollection
+    .aggregate<{ _id: string; count: number }>([
+      {
+        $project: {
+          country: {
+            $trim: {
+              input: {
+                $ifNull: [{ $arrayElemAt: ['$address.general', 0] }, '']
+              }
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          country: { $type: 'string', $ne: '' }
+        }
+      },
+      {
+        $group: {
+          _id: '$country',
+          count: { $sum: 1 }
+        }
+      }
+    ])
+    .toArray();
+
+  return new Map(counts.map(({ _id, count }) => [_id, count]));
+};
+
+const getCountryOptions = async (): Promise<AddressOption[]> => {
   const worldFeatures = getGlobeGeoJson('world').features;
   const supportedNames = new Set(SUPPORTED_COUNTRIES.map((country) => country.name));
+  const popularityMap = await getCountryPopularityMap();
+
+  const compareByPopularity = (
+    left: AddressOption,
+    right: AddressOption,
+    getKey: (option: AddressOption) => string
+  ) => {
+    const leftCount = popularityMap.get(getKey(left)) || 0;
+    const rightCount = popularityMap.get(getKey(right)) || 0;
+    if (leftCount !== rightCount) return rightCount - leftCount;
+    return left.label.localeCompare(right.label, 'en');
+  };
 
   const supportedOptions = SUPPORTED_COUNTRIES.flatMap((country) => {
     const index = worldFeatures.findIndex((f) => f.properties.name === country.name);
     return index >= 0 ? [toCountryOption(worldFeatures[index], index)] : [];
-  });
+  }).sort((left, right) =>
+    compareByPopularity(
+      left,
+      right,
+      (option) => getSupportedCountryByName(option.value)?.addressName || ''
+    )
+  );
 
   const unsupportedOptions = worldFeatures
     .map((feature, index) => ({ feature, index }))
     .filter(({ feature }) => !supportedNames.has(feature.properties.name))
-    .map(({ feature, index }) => toCountryOption(feature, index));
+    .map(({ feature, index }) => toCountryOption(feature, index))
+    .sort((left, right) => compareByPopularity(left, right, (option) => option.value));
 
   return [...supportedOptions, ...unsupportedOptions];
 };
 
-export const GET: RequestHandler = ({ url }) => {
+export const GET: RequestHandler = async ({ url }) => {
   const dataset = url.searchParams.get('dataset')?.trim() || 'countries';
   const parentAdcode = url.searchParams.get('parentAdcode')?.trim() || undefined;
 
   if (dataset === 'countries') {
-    return json(getCountryOptions(), {
+    return json(await getCountryOptions(), {
       headers: {
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
       }

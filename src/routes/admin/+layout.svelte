@@ -95,7 +95,7 @@
     },
     {
       id: 'shop-delete-requests',
-      label: m.admin_shop_delete_requests(),
+      label: m.shop_delete_requests(),
       icon: 'fa-trash-can',
       href: resolve('/(main)/shops/delete-requests'),
       requiresSiteAdmin: true

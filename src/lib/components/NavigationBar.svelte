@@ -8,6 +8,7 @@
   import { resolve } from '$app/paths';
   import AuthModal from '$lib/components/AuthModal.svelte';
   import { beforeNavigate } from '$app/navigation';
+  import { page } from '$app/state';
 
   // Gradient blur configuration with exponential blur values
   // Each layer uses CSS mask to create smooth transitions and avoid edge artifacts
@@ -107,20 +108,33 @@
       text={m.donate()}
       stayExpandedOnWideScreens
     />
-    <FancyButton
-      href={resolve('/globe')}
-      class="fa-solid fa-globe fa-lg text-shadow-lg"
-      btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
-      text={m.globe()}
-      stayExpandedOnWideScreens
-    />
-    <FancyButton
-      href={resolve('/(main)/rankings')}
-      class="fa-solid fa-trophy fa-lg text-shadow-lg"
-      btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
-      text={m.campus_rankings()}
-      stayExpandedOnWideScreens
-    />
+    {#if page.url.pathname !== resolve('/globe')}
+      <FancyButton
+        href={resolve('/globe')}
+        class="fa-solid fa-globe fa-lg text-shadow-lg"
+        btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
+        text={m.globe()}
+        stayExpandedOnWideScreens
+      />
+    {/if}
+    {#if page.url.pathname !== resolve('/(main)/rankings')}
+      <FancyButton
+        href={resolve('/(main)/rankings')}
+        class="fa-solid fa-trophy fa-lg text-shadow-lg"
+        btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
+        text={m.campus_rankings()}
+        stayExpandedOnWideScreens
+      />
+    {/if}
+    {#if page.url.pathname !== resolve('/(main)/shops')}
+      <FancyButton
+        href={resolve('/(main)/shops')}
+        class="fa-solid fa-gamepad fa-lg text-shadow-lg"
+        btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
+        text={m.browse_shops()}
+        stayExpandedOnWideScreens
+      />
+    {/if}
     <FancyButton
       href={resolve('/')}
       class="fa-solid fa-home fa-lg text-shadow-lg"

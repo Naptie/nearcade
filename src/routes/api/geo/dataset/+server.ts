@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
 const VALID_DATASETS = new Set<string>(['world', ...getAllSupportedDatasets()]);
 
 export const GET: RequestHandler = ({ url }) => {
-  const dataset = url.searchParams.get('dataset') ?? '';
+  const dataset = url.searchParams.get('name') ?? '';
   const parentAdcode = url.searchParams.get('parentAdcode')?.trim() || undefined;
 
   if (!dataset || !VALID_DATASETS.has(dataset)) {

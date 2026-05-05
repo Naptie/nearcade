@@ -134,7 +134,7 @@
   // ---- Address ----
 
   // Prepared address options from the shop address endpoint
-  const ADDRESS_OPTIONS_ENDPOINT = `${base}/api/shop/address-options`;
+  const ADDRESS_OPTIONS_ENDPOINT = `${base}/api/geo/address`;
 
   let countryOptions = $state<AddressOption[]>([]);
   let selectedCountryName = $state('');

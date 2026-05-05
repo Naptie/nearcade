@@ -65,11 +65,11 @@
         return notification.shopDeleteRequestStatus === 'approved'
           ? m.notification_delete_request_approved({
               userName: actorName,
-              shopName: notification.shopName ?? ''
+              targetName
             })
           : m.notification_delete_request_rejected({
               userName: actorName,
-              shopName: notification.shopName ?? ''
+              targetName
             });
       default:
         return '';
@@ -132,8 +132,8 @@
         {@html text}
       </div>
 
-      <!-- Preview for Comments/Replies -->
-      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES') && content}
+      <!-- Preview for Comments/Replies/Shop Delete Requests -->
+      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES' || notification.type === 'SHOP_DELETE_REQUESTS') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
         </div>

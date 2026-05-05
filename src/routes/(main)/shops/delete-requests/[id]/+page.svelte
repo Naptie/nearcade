@@ -20,7 +20,7 @@
     isProcessing = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shop-delete-requests/${req.id}`), {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, reviewNote: reviewNote.trim() || null })
@@ -45,7 +45,7 @@
     isProcessing = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shop-delete-requests/${req.id}`), {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}`), {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -66,7 +66,7 @@
     isDeleting = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shop-delete-requests/${req.id}`), {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}`), {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -92,7 +92,7 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle(m.shop_delete_request_details(), m.shop_delete_requests())}</title>
+  <title>{pageTitle(req.shopName, m.shop_delete_requests())}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-2xl px-4 pt-20 pb-12 sm:px-6 lg:px-8">
@@ -108,7 +108,7 @@
     <!-- Header -->
     <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">{m.shop_delete_request_details()}</h1>
+        <h1 class="text-2xl font-bold">{m.shop_delete_request()}</h1>
         <p class="text-base-content/60 mt-1 font-mono text-sm">{req.id}</p>
       </div>
       <span class="badge {statusBadgeClass} badge-lg">
@@ -159,29 +159,19 @@
         <span class="text-base-content/60">{m.created_at()}</span>
         <p class="font-medium">{new Date(req.createdAt).toLocaleString()}</p>
       </div>
-    </div>
-
-    <!-- Review details -->
-    {#if req.reviewedAt}
-      <div class="border-base-300 mb-6 border-t pt-6">
-        <h2 class="mb-3 text-sm font-semibold tracking-wide uppercase opacity-60">
-          {m.details()}
-        </h2>
-        <div class="grid gap-3 text-sm sm:grid-cols-2">
+      {#if req.reviewedAt}
+        {#if req.reviewNote}
           <div>
-            <span class="text-base-content/60"
-              >{m.reviewed_at({ time: new Date(req.reviewedAt).toLocaleString() })}</span
-            >
+            <span class="text-base-content/60">{m.shop_delete_request_review_note()}</span>
+            <p class="font-medium">{req.reviewNote}</p>
           </div>
-          {#if req.reviewNote}
-            <div>
-              <span class="text-base-content/60">{m.shop_delete_request_review_note()}</span>
-              <p class="font-medium">{req.reviewNote}</p>
-            </div>
-          {/if}
+        {/if}
+        <div>
+          <span class="text-base-content/60">{m.reviewed_at()}</span>
+          <p class="font-medium">{new Date(req.reviewedAt).toLocaleString()}</p>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
 
     {#if processError}
       <div class="alert alert-error alert-soft mb-4">

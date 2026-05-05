@@ -6,7 +6,7 @@ import { m } from '$lib/paraglide/messages';
 import { notify } from '$lib/notifications/index.server';
 
 /**
- * DELETE /api/shop-delete-requests/:id
+ * DELETE /api/shops/delete-requests/:id
  * - Submitter can retract their own pending request
  * - Admin can delete any request regardless of status
  */
@@ -45,7 +45,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 };
 
 /**
- * PATCH /api/shop-delete-requests/:id
+ * PATCH /api/shops/delete-requests/:id
  * Body: { action: 'approve' | 'reject', reviewNote?: string }
  * Admin only: approve or reject a pending request
  */
@@ -114,6 +114,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         actorDisplayName: session.user.displayName ?? undefined,
         actorImage: session.user.image ?? undefined,
         targetUserId: deleteRequest.requestedBy,
+        content: deleteRequest.reviewNote || undefined,
         shopDeleteRequestId: deleteRequest.id,
         shopDeleteRequestStatus: newStatus,
         shopName: deleteRequest.shopName
