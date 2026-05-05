@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import type { ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { logShopChange } from '$lib/utils/shopChangelog.server';
 
 /**
  * DELETE /api/shops/:id/photos/:photoId
@@ -35,6 +36,19 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   }
 
   await db.collection('shop_photos').deleteOne({ id: photoId });
+
+  // Log to shop changelog (non-fatal)
+  try {
+    await logShopChange(mongo, {
+      shopId,
+      shopName: photo.shopName,
+      action: 'photo_deleted',
+      user: { id: session.user.id, name: session.user.name, image: session.user.image },
+      fieldInfo: { field: 'photo', photoId, photoUrl: photo.url }
+    });
+  } catch (logErr) {
+    console.error('Failed to log photo deletion changelog:', logErr);
+  }
 
   return json({ success: true });
 };

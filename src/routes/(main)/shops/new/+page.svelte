@@ -73,8 +73,7 @@
       <PhotoCarousel
         shopId={createdShopId}
         bind:photos={createdShopPhotos}
-        currentUserId={data.user?.id}
-        isAdmin={data.user?.userType === 'site_admin'}
+        currentUser={data.user}
       />
     </div>
     <div class="flex gap-3">

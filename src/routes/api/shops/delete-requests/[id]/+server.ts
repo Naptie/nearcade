@@ -4,6 +4,7 @@ import type { Shop, ShopDeleteRequest, Notification } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { notify } from '$lib/notifications/index.server';
+import { logShopChange } from '$lib/utils/shopChangelog.server';
 
 /**
  * DELETE /api/shops/delete-requests/:id
@@ -129,6 +130,34 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       // Non-fatal: log but don't fail the request
       console.error('Failed to send delete request notification:', err);
     }
+  }
+
+  // Log to shop changelog (non-fatal)
+  try {
+    const isPhotoRequest = !!deleteRequest.photoId;
+    const changelogAction = isPhotoRequest
+      ? action === 'approve'
+        ? 'photo_delete_request_approved'
+        : 'photo_delete_request_rejected'
+      : action === 'approve'
+        ? 'delete_request_approved'
+        : 'delete_request_rejected';
+
+    await logShopChange(mongo, {
+      shopId: deleteRequest.shopId,
+      shopName: deleteRequest.shopName,
+      action: changelogAction,
+      user: { id: session.user.id, name: session.user.name, image: session.user.image },
+      fieldInfo: {
+        field: isPhotoRequest ? 'photo' : 'delete_request',
+        deleteRequestId: deleteRequest.id,
+        photoId: deleteRequest.photoId ?? null,
+        photoUrl: deleteRequest.photoUrl ?? null
+      },
+      metadata: reviewNote?.trim() ? { reviewNote: reviewNote.trim() } : undefined
+    });
+  } catch (logErr) {
+    console.error('Failed to log delete request review changelog:', logErr);
   }
 
   return json({ success: true, status: newStatus });

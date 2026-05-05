@@ -104,12 +104,27 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         .collection<ShopDeleteRequest>('shop_delete_requests')
         .findOne({ shopId, photoId: { $in: [null, undefined] }, status: 'pending' });
 
-      // Load photos (up to 20 for the carousel)
+      // Load photos (up to 20 for the carousel) with uploader data joined
       const photos = await db
         .collection<ShopPhoto>('shop_photos')
-        .find({ shopId })
-        .sort({ uploadedAt: -1 })
-        .limit(20)
+        .aggregate<ShopPhoto>([
+          { $match: { shopId } },
+          { $sort: { uploadedAt: -1 } },
+          { $limit: 20 },
+          {
+            $lookup: {
+              from: 'users',
+              let: { uid: '$uploadedBy' },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
+                { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+              ],
+              as: 'uploaderArr'
+            }
+          },
+          { $addFields: { uploader: { $arrayElemAt: ['$uploaderArr', 0] } } },
+          { $project: { uploaderArr: 0 } }
+        ])
         .toArray();
 
       return {

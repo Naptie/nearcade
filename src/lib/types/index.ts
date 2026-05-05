@@ -274,6 +274,55 @@ export interface ShopPhoto {
   uploadedAt: Date;
 }
 
+export type ShopChangelogAction =
+  | 'created'
+  | 'modified'
+  | 'deleted'
+  | 'game_added'
+  | 'game_modified'
+  | 'game_deleted'
+  | 'photo_uploaded'
+  | 'photo_deleted'
+  | 'delete_request_submitted'
+  | 'delete_request_approved'
+  | 'delete_request_rejected'
+  | 'photo_delete_request_submitted'
+  | 'photo_delete_request_approved'
+  | 'photo_delete_request_rejected';
+
+export interface ShopChangelogEntry {
+  _id?: string | ObjectId;
+  id: string;
+  shopId: number;
+  shopName: string;
+  action: ShopChangelogAction;
+  fieldInfo: {
+    field: string; // 'name' | 'comment' | 'address' | 'openingHours' | 'location' | 'game' | 'photo' | 'delete_request'
+    gameId?: number | null;
+    gameName?: string | null;
+    gameVersion?: string | null;
+    photoId?: string | null;
+    photoUrl?: string | null;
+    deleteRequestId?: string | null;
+  };
+  oldValue?: string | null;
+  newValue?: string | null;
+  metadata?: {
+    [key: string]: string | number | boolean | null;
+  };
+  userId: string | null;
+  createdAt: Date;
+}
+
+export interface ShopChangelogEntryWithUser extends ShopChangelogEntry {
+  user?: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    image: string | null;
+  };
+}
+
 export interface JoinRequest {
   _id?: string | ObjectId;
   id: string;

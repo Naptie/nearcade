@@ -74,11 +74,6 @@
 
   <!-- Photos section -->
   <div class="bg-base-100 border-base-300 mt-8 rounded-2xl border p-6 shadow-sm">
-    <PhotoCarousel
-      shopId={shop.id}
-      bind:photos
-      currentUserId={data.user?.id}
-      isAdmin={data.user?.userType === 'site_admin'}
-    />
+    <PhotoCarousel shopId={shop.id} bind:photos currentUser={data.user} />
   </div>
 </div>

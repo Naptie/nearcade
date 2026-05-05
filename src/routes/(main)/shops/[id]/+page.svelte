@@ -46,6 +46,7 @@
   import type { OpeningHourTime } from '$lib/types';
   import { render } from '$lib/utils/markdown';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
+  import ShopChangelogView from '$lib/components/ShopChangelogView.svelte';
   import type { ShopPhoto } from '$lib/types';
 
   let { data }: { data: PageData } = $props();
@@ -1673,11 +1674,7 @@
         <!-- Photos Section -->
         {#if shop}
           <section class="mt-8">
-            <PhotoCarousel
-              shopId={shop.id}
-              bind:photos
-              currentUser={data.user}
-            />
+            <PhotoCarousel shopId={shop.id} bind:photos currentUser={data.user} />
           </section>
         {/if}
 
@@ -1828,6 +1825,28 @@
             </div>
           {/if}
         </section>
+
+        <!-- Changelog Section -->
+        {#if shop}
+          <section class="mt-8">
+            <details class="group">
+              <summary
+                class="hover:bg-base-200 flex cursor-pointer list-none items-center gap-2 rounded-xl px-1 py-2 transition-colors"
+              >
+                <i
+                  class="fa-solid fa-clock-rotate-left text-base-content/60 transition-transform group-open:rotate-90"
+                ></i>
+                <h2 class="text-xl font-semibold">{m.shop_changelog()}</h2>
+                <i
+                  class="fa-solid fa-chevron-right text-base-content/40 ml-auto text-xs transition-transform group-open:rotate-90"
+                ></i>
+              </summary>
+              <div class="mt-4">
+                <ShopChangelogView shopId={shop.id} />
+              </div>
+            </details>
+          </section>
+        {/if}
       </div>
     </div>
   </div>

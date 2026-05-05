@@ -4,7 +4,7 @@
   import { fromPath } from '$lib/utils/scoped';
   import type { ShopPhoto } from '$lib/types';
   import type { User } from '$lib/auth/types';
-    import { getDisplayName } from '$lib/utils';
+  import { getDisplayName } from '$lib/utils';
 
   interface Props {
     photos: ShopPhoto[];
@@ -178,7 +178,9 @@
       <div class="flex w-full items-center justify-between gap-4 text-white">
         <div class="min-w-0 text-sm">
           <p class="truncate text-white/80">
-            {m.shop_photos_uploaded_by({ name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user() })}
+            {m.shop_photos_uploaded_by({
+              name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
+            })}
           </p>
           <p class="text-xs text-white/50">
             {new Date(currentPhoto.uploadedAt).toLocaleString()}

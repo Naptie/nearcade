@@ -1,6 +1,8 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
+  import { fly, fade } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
   import ImageViewerModal from './ImageViewerModal.svelte';
   import UploadModal from './UploadModal.svelte';
   import type { ShopPhoto } from '$lib/types';
@@ -90,11 +92,16 @@
     <!-- Horizontal scroll carousel -->
     <div class="scrollbar-thin scrollbar-thumb-base-300 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
       {#each photos as photo, i (photo.id)}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div
+          animate:flip={{ duration: 250 }}
+          in:fly={{ x: -32, duration: 250, delay: 50 }}
+          out:fade={{ duration: 180 }}
           class="relative h-28 w-28 shrink-0 cursor-pointer overflow-hidden rounded-xl shadow"
+          role="button"
+          tabindex="0"
           onclick={() => openViewer(i)}
+          onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && openViewer(i)}
+          aria-label={m.shop_photos_uploaded_by({ name: photo.shopName })}
         >
           <img
             src={photo.url}

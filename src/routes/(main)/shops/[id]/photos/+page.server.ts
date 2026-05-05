@@ -20,13 +20,28 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
   const photos = await db
     .collection<ShopPhoto>('shop_photos')
-    .find({ shopId })
-    .sort({ uploadedAt: -1 })
+    .aggregate<ShopPhoto>([
+      { $match: { shopId } },
+      { $sort: { uploadedAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { uid: '$uploadedBy' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
+            { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+          ],
+          as: 'uploaderArr'
+        }
+      },
+      { $addFields: { uploader: { $arrayElemAt: ['$uploaderArr', 0] } } },
+      { $project: { uploaderArr: 0 } }
+    ])
     .toArray();
 
   return {
     shop: toPlainObject(shop),
-    photos: toPlainArray(photos),
+    photos: toPlainArray(photos) as unknown as ShopPhoto[],
     user: session?.user
   };
 };

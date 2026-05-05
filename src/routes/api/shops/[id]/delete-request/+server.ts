@@ -4,6 +4,7 @@ import type { Shop, ShopDeleteRequest, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
+import { logShopChange } from '$lib/utils/shopChangelog.server';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { id } = params;
@@ -54,13 +55,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
   } else {
     // Enforce one pending request per shop (for shop delete requests without a photoId)
-    const existingPending = await db
-      .collection<ShopDeleteRequest>('shop_delete_requests')
-      .findOne({
-        shopId,
-        $or: [{ photoId: null }, { photoId: { $exists: false } }],
-        status: 'pending'
-      });
+    const existingPending = await db.collection<ShopDeleteRequest>('shop_delete_requests').findOne({
+      shopId,
+      $or: [{ photoId: null }, { photoId: { $exists: false } }],
+      status: 'pending'
+    });
 
     if (existingPending) {
       error(409, m.shop_delete_request_already_pending());
@@ -84,6 +83,25 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   };
 
   await db.collection<ShopDeleteRequest>('shop_delete_requests').insertOne(deleteRequest);
+
+  // Log to shop changelog (non-fatal)
+  try {
+    await logShopChange(mongo, {
+      shopId,
+      shopName: shop.name,
+      action: photoId ? 'photo_delete_request_submitted' : 'delete_request_submitted',
+      user: { id: user?.id ?? null, name: user?.name, image: user?.image },
+      fieldInfo: {
+        field: photoId ? 'photo' : 'delete_request',
+        deleteRequestId: deleteRequest.id,
+        photoId: photoId ?? null,
+        photoUrl: photoUrl ?? null
+      },
+      metadata: { reason }
+    });
+  } catch (logErr) {
+    console.error('Failed to log delete request changelog:', logErr);
+  }
 
   return json({ success: true, id: deleteRequest.id }, { status: 201 });
 };

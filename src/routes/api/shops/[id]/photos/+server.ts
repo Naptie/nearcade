@@ -6,10 +6,33 @@ import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 import { upload } from '$lib/oss/index';
 import { toPlainArray } from '$lib/utils';
+import { logShopChange } from '$lib/utils/shopChangelog.server';
+
+const photosWithUploaderPipeline = (shopId: number, limit?: number) => {
+  const pipeline: object[] = [
+    { $match: { shopId } },
+    { $sort: { uploadedAt: -1 } },
+    ...(limit ? [{ $limit: limit }] : []),
+    {
+      $lookup: {
+        from: 'users',
+        let: { uid: '$uploadedBy' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
+          { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+        ],
+        as: 'uploaderArr'
+      }
+    },
+    { $addFields: { uploader: { $arrayElemAt: ['$uploaderArr', 0] } } },
+    { $project: { uploaderArr: 0 } }
+  ];
+  return pipeline;
+};
 
 /**
  * GET /api/shops/:id/photos
- * Returns all photos for a shop.
+ * Returns all photos for a shop, with uploader data joined via $lookup.
  */
 export const GET: RequestHandler = async ({ params }) => {
   const { id } = params;
@@ -21,8 +44,7 @@ export const GET: RequestHandler = async ({ params }) => {
   const db = mongo.db();
   const photos = await db
     .collection<ShopPhoto>('shop_photos')
-    .find({ shopId })
-    .sort({ uploadedAt: -1 })
+    .aggregate<ShopPhoto>(photosWithUploaderPipeline(shopId))
     .toArray();
 
   return json({ photos: toPlainArray(photos) });
@@ -100,10 +122,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         shopName: shop.name,
         url,
         uploadedBy: session.user.id,
-        uploadedByName: session.user.name ?? null,
         uploadedAt: new Date()
       };
       await db.collection<ShopPhoto>('shop_photos').insertOne(photo);
+
+      // Log to shop changelog (non-fatal)
+      try {
+        await logShopChange(mongo, {
+          shopId,
+          shopName: shop.name,
+          action: 'photo_uploaded',
+          user: { id: session.user.id, name: session.user.name, image: session.user.image },
+          fieldInfo: { field: 'photo', photoId, photoUrl: url }
+        });
+      } catch (logErr) {
+        console.error('Failed to log photo upload changelog:', logErr);
+      }
 
       const line = JSON.stringify({ phase: 'done', photoId, url }) + '\n';
       streamController.enqueue(encoder.encode(line));

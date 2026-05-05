@@ -4,6 +4,7 @@ import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils'
 import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
+import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shopChangelog.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -242,7 +243,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
   }
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
   const { id } = params;
 
   const shopId = parseInt(id);
@@ -296,6 +297,39 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     }
 
     await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
+
+    // Log changes to shop changelog (non-fatal)
+    const changelogUser = {
+      id: locals.session?.user?.id ?? null,
+      name: locals.session?.user?.name,
+      image: locals.session?.user?.image
+    };
+    try {
+      await logShopFieldChanges(
+        mongo,
+        shopId,
+        existing.name,
+        existing,
+        updateFields,
+        changelogUser
+      );
+    } catch (logErr) {
+      console.error('Failed to log shop field changes:', logErr);
+    }
+    if (updateFields.games !== undefined) {
+      try {
+        await logShopGamesChanges(
+          mongo,
+          shopId,
+          updateFields.name ?? existing.name,
+          existing.games ?? [],
+          updateFields.games,
+          changelogUser
+        );
+      } catch (logErr) {
+        console.error('Failed to log shop games changes:', logErr);
+      }
+    }
 
     const updated = await shopsCollection.findOne({ id: shopId });
     return json({ shop: toPlainObject(updated!) });
