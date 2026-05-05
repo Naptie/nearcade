@@ -134,6 +134,10 @@ const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
   'atmosphere'
 ];
 
+const GLOBE_MESH_WIDTH_SEGMENTS = 48;
+const GLOBE_MESH_HEIGHT_SEGMENTS = 24;
+const MESH_REVEAL_STAGGER_MS = 120;
+
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
 const specularVertexShader = /* glsl */ `
@@ -412,6 +416,8 @@ export class GlobeVisualsLayer {
   private map: maplibregl.Map | null = null;
   private loaded = false;
   private aborted = false;
+  private didLogFirstRender = false;
+  private revealTimeoutIds: number[] = [];
 
   // Re-used every frame to avoid GC pressure
   private readonly _projection = new THREE.Matrix4();
@@ -502,6 +508,12 @@ export class GlobeVisualsLayer {
     this.map = map;
     this.aborted = false;
     this.loaded = false;
+    this.didLogFirstRender = false;
+
+    console.debug('[GlobeVisualsDebug] onAdd', {
+      enabledLayers: Array.from(this.enabledLayers),
+      canvas: { width: map.getCanvas().width, height: map.getCanvas().height }
+    });
 
     // Share MapLibre's canvas & WebGL context — no extra canvas needed.
     // Three.js types only declare WebGLRenderingContext for the context option but
@@ -522,7 +534,11 @@ export class GlobeVisualsLayer {
     let cloudMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('clouds')) {
       // ── Cloud sphere ────────────────────────────────────────────────────────
-      const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
+      const cloudGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
       cloudMat = new THREE.ShaderMaterial({
         uniforms: {
           uCloudMap: { value: null },
@@ -552,13 +568,17 @@ export class GlobeVisualsLayer {
       // Shift the default SphereGeometry seam from 90°W to the date line.
       this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
       this.cloudMesh.renderOrder = 40;
-      this.cloudMesh.visible = this._meshVisibility.clouds;
+      this.cloudMesh.visible = false;
     }
 
     let cloudShadowMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('cloudShadow')) {
       // ── Cloud shadow sphere ─────────────────────────────────────────────────
-      const cloudShadowGeom = new THREE.SphereGeometry(1, 64, 32);
+      const cloudShadowGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
       cloudShadowMat = new THREE.ShaderMaterial({
         uniforms: {
           uCloudMap: { value: null },
@@ -581,13 +601,17 @@ export class GlobeVisualsLayer {
       // than as depth-tested geometry, so it does not fight the earth surface.
       this.cloudShadowMesh.scale.setScalar(CLOUD_SHADOW_ALTITUDE_SCALE);
       this.cloudShadowMesh.renderOrder = 10;
-      this.cloudShadowMesh.visible = this._meshVisibility.cloudShadow;
+      this.cloudShadowMesh.visible = false;
     }
 
     let nightLightsMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('nightLights')) {
       // ── Night lights ────────────────────────────────────────────────────────
-      const nightLightsGeom = new THREE.SphereGeometry(1, 64, 32);
+      const nightLightsGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
       nightLightsMat = new THREE.ShaderMaterial({
         uniforms: {
           uNightMap: { value: null },
@@ -620,13 +644,17 @@ export class GlobeVisualsLayer {
       nightLightsMat.uniforms.uDominantBlend.value = 1;
       nightLightsMat.needsUpdate = true;
       this.nightLightsMesh.renderOrder = 20;
-      this.nightLightsMesh.visible = this._meshVisibility.nightLights;
+      this.nightLightsMesh.visible = false;
     }
 
     let specMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('specular')) {
       // ── Specular + normal sphere ────────────────────────────────────────────
-      const specGeom = new THREE.SphereGeometry(1, 64, 32);
+      const specGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
       specMat = new THREE.ShaderMaterial({
         uniforms: {
           uSpecularMap: { value: null },
@@ -651,12 +679,16 @@ export class GlobeVisualsLayer {
       this.specMesh = new THREE.Mesh(specGeom, specMat);
       this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
       this.specMesh.renderOrder = 30;
-      this.specMesh.visible = this._meshVisibility.specular;
+      this.specMesh.visible = false;
     }
 
     if (this.isLayerEnabled('atmosphere')) {
       // ── Atmosphere shell ────────────────────────────────────────────────────
-      const atmosphereGeom = new THREE.SphereGeometry(1, 64, 32);
+      const atmosphereGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
       const atmosphereMat = new THREE.ShaderMaterial({
         uniforms: {
           uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
@@ -682,7 +714,7 @@ export class GlobeVisualsLayer {
       this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
       this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
       this.atmosphereMesh.renderOrder = 50;
-      this.atmosphereMesh.visible = this._meshVisibility.atmosphere;
+      this.atmosphereMesh.visible = false;
     }
 
     // Render order: shadow → night lights → specular → clouds → atmosphere
@@ -740,9 +772,39 @@ export class GlobeVisualsLayer {
         }
 
         this.loaded = true;
+        console.debug('[GlobeVisualsDebug] textures ready', {
+          cloud: Boolean(cloudTex),
+          nightLights: Boolean(nightLightsTex),
+          specular: Boolean(specTex),
+          normal: Boolean(normalTex)
+        });
+
+        const revealOrder: GlobeLayerName[] = [
+          'atmosphere',
+          'specular',
+          'nightLights',
+          'cloudShadow',
+          'clouds'
+        ];
+        this.revealTimeoutIds.forEach((id) => window.clearTimeout(id));
+        this.revealTimeoutIds = [];
+        revealOrder.forEach((name, index) => {
+          const timeoutId = window.setTimeout(() => {
+            if (this.aborted) return;
+            const mesh = this._getMeshByName(name);
+            if (!mesh) return;
+            mesh.visible = this._meshVisibility[name] && this.isLayerEnabled(name);
+            this.map?.triggerRepaint();
+          }, index * MESH_REVEAL_STAGGER_MS);
+          this.revealTimeoutIds.push(timeoutId);
+        });
+
+        // Deferred layer attachment can happen when the map is otherwise idle.
+        // Request one repaint so the first textured frame is actually drawn.
+        this.map?.triggerRepaint();
       })
       .catch((err: unknown) => {
-        console.warn('[GlobeVisuals] texture load failed:', err);
+        console.debug('[GlobeVisualsDebug] warn: texture load failed', err);
       });
   }
 
@@ -751,6 +813,11 @@ export class GlobeVisualsLayer {
     options: CustomRenderMethodInput
   ): void {
     if (!this.loaded || !this.renderer || !this.scene || !this.camera || !this.map) return;
+
+    if (!this.didLogFirstRender) {
+      this.didLogFirstRender = true;
+      console.debug('[GlobeVisualsDebug] first render frame');
+    }
 
     const zoom = this.map.getZoom();
     // Opacity ramps from 0→1 between FADE_IN_ZOOM and FADE_OUT_ZOOM.
@@ -826,8 +893,11 @@ export class GlobeVisualsLayer {
   }
 
   onRemove(): void {
+    console.debug('[GlobeVisualsDebug] onRemove');
     this.aborted = true;
     this.loaded = false;
+    this.revealTimeoutIds.forEach((id) => window.clearTimeout(id));
+    this.revealTimeoutIds = [];
 
     if (this.cloudMesh) {
       this.cloudMesh.geometry.dispose();

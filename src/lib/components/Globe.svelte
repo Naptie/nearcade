@@ -108,6 +108,10 @@
     overseasTileUrls: string[];
   };
 
+  type EnsureMapLayersOptions = {
+    deferVisuals?: boolean;
+  };
+
   type AnticipatedBasemapTarget = {
     zoom: number;
     isChina: boolean;
@@ -157,6 +161,12 @@
       if (candidate.length > 0) return candidate;
     }
     return [] as string[];
+  };
+
+  const getInitialGlobalTileUrls = () => {
+    if (BASEMAP_TILE_URLS_PRIMARY.length > 0) return BASEMAP_TILE_URLS_PRIMARY;
+    if (BASEMAP_TILE_URLS_SECONDARY.length > 0) return BASEMAP_TILE_URLS_SECONDARY;
+    return getFallbackGlobalTileUrls();
   };
 
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
@@ -913,6 +923,10 @@
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
+  const rasterSourceTileRevisions = new SvelteMap<string, string>();
+  let deferredVisualsRafId: number | null = null;
+  let deferredVisualsRafTailId: number | null = null;
+  let deferredVisualsRetryTimeoutId: number | null = null;
   const sunPosition = $derived.by(() => {
     const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
     return { azimuth: azimuthDeg, polar: polarDeg };
@@ -1033,9 +1047,15 @@
     instance: maplibregl.Map,
     sourceId: string,
     layerId: string,
-    tileUrls: string[]
+    tileUrls: string[],
+    defaultVisibility: 'visible' | 'none' = 'none',
+    beforeLayerId?: string
   ) => {
     if (tileUrls.length === 0) return;
+
+    const nextTileRevision = normalizeTileUrlSet(tileUrls).join('|');
+    const prevTileRevision = rasterSourceTileRevisions.get(sourceId);
+
     if (!instance.getSource(sourceId)) {
       instance.addSource(sourceId, {
         type: 'raster',
@@ -1044,15 +1064,104 @@
         minzoom: 0,
         maxzoom: 19
       });
-    }
-    if (!instance.getLayer(layerId)) {
-      instance.addLayer({
-        id: layerId,
+      rasterSourceTileRevisions.set(sourceId, nextTileRevision);
+    } else if (prevTileRevision && prevTileRevision !== nextTileRevision) {
+      const currentVisibility = instance.getLayer(layerId)
+        ? ((instance.getLayoutProperty(layerId, 'visibility') as 'visible' | 'none' | undefined) ??
+          defaultVisibility)
+        : defaultVisibility;
+
+      if (instance.getLayer(layerId)) instance.removeLayer(layerId);
+      instance.removeSource(sourceId);
+
+      instance.addSource(sourceId, {
         type: 'raster',
-        source: sourceId,
-        layout: { visibility: 'none' }
+        tiles: tileUrls,
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 19
       });
+      rasterSourceTileRevisions.set(sourceId, nextTileRevision);
+
+      instance.addLayer(
+        {
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+          layout: { visibility: currentVisibility }
+        },
+        beforeLayerId
+      );
+      return;
     }
+
+    if (!instance.getLayer(layerId)) {
+      instance.addLayer(
+        {
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+          layout: { visibility: defaultVisibility }
+        },
+        beforeLayerId
+      );
+    }
+
+    if (!prevTileRevision) rasterSourceTileRevisions.set(sourceId, nextTileRevision);
+  };
+
+  const cancelDeferredVisualsLayer = () => {
+    if (deferredVisualsRafId !== null) window.cancelAnimationFrame(deferredVisualsRafId);
+    if (deferredVisualsRafTailId !== null) window.cancelAnimationFrame(deferredVisualsRafTailId);
+    if (deferredVisualsRetryTimeoutId !== null) window.clearTimeout(deferredVisualsRetryTimeoutId);
+    deferredVisualsRafId = null;
+    deferredVisualsRafTailId = null;
+    deferredVisualsRetryTimeoutId = null;
+  };
+
+  const scheduleDeferredVisualsLayer = (instance: maplibregl.Map) => {
+    if (instance.getLayer('globe-visuals')) {
+      console.debug('[GlobeVisualsDebug] deferred schedule skipped: layer already exists');
+      return;
+    }
+    if (
+      deferredVisualsRafId !== null ||
+      deferredVisualsRafTailId !== null ||
+      deferredVisualsRetryTimeoutId !== null
+    ) {
+      console.debug('[GlobeVisualsDebug] deferred schedule skipped: task already queued');
+      return;
+    }
+
+    console.debug('[GlobeVisualsDebug] queueing deferred visuals attach');
+
+    deferredVisualsRafId = window.requestAnimationFrame(() => {
+      deferredVisualsRafId = null;
+      deferredVisualsRafTailId = window.requestAnimationFrame(() => {
+        deferredVisualsRafTailId = null;
+        if (!map || map.getCanvas() !== instance.getCanvas() || !instance.isStyleLoaded()) {
+          console.debug('[GlobeVisualsDebug] warn: deferred attach skipped', {
+            hasMap: Boolean(map),
+            sameCanvas: Boolean(map && map.getCanvas() === instance.getCanvas()),
+            styleLoaded: instance.isStyleLoaded()
+          });
+
+          // Style can still report not-loaded right after style.load while
+          // MapLibre continues internal setup. Retry shortly instead of giving up.
+          if (map && map.getCanvas() === instance.getCanvas() && !instance.isStyleLoaded()) {
+            deferredVisualsRetryTimeoutId = window.setTimeout(() => {
+              deferredVisualsRetryTimeoutId = null;
+              scheduleDeferredVisualsLayer(instance);
+            }, 180);
+          }
+          return;
+        }
+        if (!instance.getLayer('globe-visuals')) {
+          console.debug('[GlobeVisualsDebug] deferred attach running ensureVisualsLayer');
+          ensureVisualsLayer(instance);
+        }
+      });
+    });
   };
 
   const syncBasemapLayers = (instance: maplibregl.Map) => {
@@ -1117,14 +1226,22 @@
 
   const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
     if (forceRebuild && instance.getLayer('globe-visuals')) {
+      console.debug('[GlobeVisualsDebug] removing existing visuals layer for rebuild');
       instance.removeLayer('globe-visuals');
       visualsLayer = null;
     }
 
     const enabledLayerNames = getEnabledVisualLayerNames();
-    if (enabledLayerNames.length === 0) return;
+    if (enabledLayerNames.length === 0) {
+      console.debug('[GlobeVisualsDebug] visuals disabled by settings');
+      return;
+    }
 
     if (!instance.getLayer('globe-visuals')) {
+      console.debug('[GlobeVisualsDebug] creating visuals layer', {
+        enabledLayerNames,
+        styleLoaded: instance.isStyleLoaded()
+      });
       visualsLayer = new GlobeVisualsLayer(
         `${base}/globe/clouds.jpg`,
         `${base}/globe/nightlights.jpg`,
@@ -1135,9 +1252,11 @@
       applyVisualsDevSettings(visualsLayer);
       const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
       instance.addLayer(visualsLayer, beforeId);
+      console.debug('[GlobeVisualsDebug] visuals layer added', { beforeId: beforeId ?? null });
       return;
     }
 
+    console.debug('[GlobeVisualsDebug] visuals layer already present, syncing settings');
     if (visualsLayer) applyVisualsDevSettings(visualsLayer);
   };
 
@@ -1176,7 +1295,7 @@
     }
   };
 
-  const ensureMapLayers = (instance: maplibregl.Map) => {
+  const ensureMapLayers = (instance: maplibregl.Map, options: EnsureMapLayersOptions = {}) => {
     if (isGeoJsonEnabled()) {
       upsertGeoJsonSource(instance, WORLD_SOURCE_ID, worldData);
       upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
@@ -1184,6 +1303,15 @@
       upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
       upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
     }
+
+    ensureRasterSourceLayer(
+      instance,
+      BASEMAP_SOURCE_ID,
+      BASEMAP_LAYER_ID,
+      selectedGlobalTileUrls,
+      'visible',
+      BASEMAP_CN_LAYER_ID
+    );
 
     ensureRasterSourceLayer(
       instance,
@@ -1207,7 +1335,11 @@
 
     // Globe visual enhancements (clouds + night lights + specular + atmosphere).
     // Inserted below the boundary fill layers so effects appear under country overlays.
-    ensureVisualsLayer(instance);
+    if (options.deferVisuals) {
+      scheduleDeferredVisualsLayer(instance);
+    } else {
+      ensureVisualsLayer(instance);
+    }
 
     if (isGeoJsonEnabled() && !instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -1787,7 +1919,7 @@
       cityData = nextCityData;
       geojsonStatus = 'ready';
       if (map?.isStyleLoaded()) {
-        ensureMapLayers(map);
+        ensureMapLayers(map, { deferVisuals: true });
         applyModeLayers(map, mode);
         syncDrilldown(map);
       }
@@ -1802,7 +1934,7 @@
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
     syncScene(instance);
-    ensureMapLayers(instance);
+    ensureMapLayers(instance, { deferVisuals: true });
     applyModeLayers(instance, mode);
   });
 
@@ -1976,14 +2108,18 @@
         geojsonStatus = 'idle';
         geojsonError = null;
       }
-      const { globalTileUrls: globalTileUrls, overseasTileUrls } = await resolveBasemapTileUrls();
-      selectedGlobalTileUrls = globalTileUrls;
-      selectedOverseasTileUrls = overseasTileUrls;
+
+      selectedGlobalTileUrls = getInitialGlobalTileUrls();
+      selectedOverseasTileUrls =
+        BASEMAP_TILE_URLS_OVERSEAS.length > 0
+          ? BASEMAP_TILE_URLS_OVERSEAS
+          : BASEMAP_TILE_URLS_OVERSEAS_FALLBACK;
+
       if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
 
       const instance = new maplibregl.Map({
         container: mapContainer,
-        style: buildMapStyle(globalTileUrls),
+        style: buildMapStyle(selectedGlobalTileUrls),
         center:
           cameraSnapshot?.center ??
           (mode === 'landing' ? [LANDING_LONGITUDE, LANDING_LATITUDE] : [155, 45]),
@@ -1998,8 +2134,11 @@
 
       const syncStyle = () => {
         sourceDataRevisions.clear();
+        rasterSourceTileRevisions.clear();
+        visualsLayer = null;
+        console.debug('[GlobeVisualsDebug] style.load sync start');
         syncScene(instance);
-        ensureMapLayers(instance);
+        ensureMapLayers(instance, { deferVisuals: true });
         applyModeLayers(instance, mode);
         syncDrilldown(instance);
         const shopsData = shops;
@@ -2031,7 +2170,31 @@
         if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
           instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
         }
+
+        // If deferred scheduling was skipped or canceled, force one retry.
+        window.setTimeout(() => {
+          if (destroyed || map !== instance) return;
+          if (!instance.getLayer('globe-visuals')) {
+            console.debug('[GlobeVisualsDebug] warn: fallback timeout forcing visuals attach');
+            if (instance.isStyleLoaded()) {
+              ensureVisualsLayer(instance);
+            } else {
+              scheduleDeferredVisualsLayer(instance);
+            }
+          }
+        }, 700);
       };
+
+      void resolveBasemapTileUrls().then(({ globalTileUrls, overseasTileUrls }) => {
+        if (destroyed || map !== instance || featureSettingsKey !== globeFeatureSettingsKey) return;
+
+        selectedGlobalTileUrls = globalTileUrls;
+        selectedOverseasTileUrls = overseasTileUrls;
+
+        if (!instance.isStyleLoaded()) return;
+        ensureMapLayers(instance, { deferVisuals: true });
+        syncBasemapLayers(instance);
+      });
 
       const handleMoveEnd = () => {
         anticipatedBasemapTarget = null;
@@ -2283,6 +2446,7 @@
 
       const dispose = () => {
         stopAutoRotation();
+        cancelDeferredVisualsLayer();
         instance.off('style.load', syncStyle);
         instance.off('moveend', handleMoveEnd);
         instance.off('mousemove', handlePointerMove);
@@ -2330,6 +2494,7 @@
       cleanupMap?.();
       cleanupMap = undefined;
       sourceDataRevisions.clear();
+      rasterSourceTileRevisions.clear();
       visualsLayer = null;
       navigationControl = null;
       anticipatedBasemapTarget = null;
@@ -2351,6 +2516,7 @@
     return () => {
       destroyed = true;
       reinitializeGlobe = null;
+      cancelDeferredVisualsLayer();
       cleanupMap?.();
       clearInterval(refreshInterval);
     };
