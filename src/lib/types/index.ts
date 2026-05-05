@@ -453,7 +453,13 @@ export interface Activity {
 export interface Notification {
   _id?: string | ObjectId;
   id: string;
-  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS' | 'SHOP_DELETE_REQUESTS';
+  type:
+    | 'COMMENTS'
+    | 'REPLIES'
+    | 'POST_VOTES'
+    | 'COMMENT_VOTES'
+    | 'JOIN_REQUESTS'
+    | 'SHOP_DELETE_REQUESTS';
   actorUserId: string;
   actorName: string;
   actorDisplayName?: string;

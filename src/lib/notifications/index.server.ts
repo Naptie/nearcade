@@ -34,7 +34,10 @@ export const notify = async (
     'SHOP_DELETE_REQUESTS'
   ];
 
-  if (notification.type !== 'SHOP_DELETE_REQUESTS' && !userNotificationTypes.includes(notification.type)) {
+  if (
+    notification.type !== 'SHOP_DELETE_REQUESTS' &&
+    !userNotificationTypes.includes(notification.type)
+  ) {
     // User has disabled this type of notification
     return;
   }

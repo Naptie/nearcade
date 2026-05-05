@@ -111,7 +111,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         type: 'SHOP_DELETE_REQUESTS',
         actorUserId: session.user.id,
         actorName: session.user.name ?? '',
-        actorDisplayName: session.user.displayName ?? null,
+        actorDisplayName: session.user.displayName ?? undefined,
         actorImage: session.user.image ?? undefined,
         targetUserId: deleteRequest.requestedBy,
         shopDeleteRequestId: deleteRequest.id,

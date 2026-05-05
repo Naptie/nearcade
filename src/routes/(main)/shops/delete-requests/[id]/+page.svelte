@@ -143,7 +143,7 @@
 
     <!-- Reason -->
     <div class="mb-6">
-      <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide opacity-60">
+      <h2 class="mb-2 text-sm font-semibold tracking-wide uppercase opacity-60">
         {m.shop_delete_request_reason()}
       </h2>
       <p class="bg-base-200 rounded-xl p-4 text-sm">{req.reason}</p>
@@ -164,13 +164,14 @@
     <!-- Review details -->
     {#if req.reviewedAt}
       <div class="border-base-300 mb-6 border-t pt-6">
-        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 class="mb-3 text-sm font-semibold tracking-wide uppercase opacity-60">
           {m.details()}
         </h2>
         <div class="grid gap-3 text-sm sm:grid-cols-2">
           <div>
-            <span class="text-base-content/60">{m.reviewed_at({ time: '' }).trim()}</span>
-            <p class="font-medium">{new Date(req.reviewedAt).toLocaleString()}</p>
+            <span class="text-base-content/60"
+              >{m.reviewed_at({ time: new Date(req.reviewedAt).toLocaleString() })}</span
+            >
           </div>
           {#if req.reviewNote}
             <div>
@@ -244,11 +245,7 @@
                 {m.admin_reject()}
               </button>
             </div>
-            <button
-              class="btn btn-ghost w-full"
-              onclick={handleDelete}
-              disabled={isDeleting}
-            >
+            <button class="btn btn-ghost w-full" onclick={handleDelete} disabled={isDeleting}>
               {#if isDeleting}
                 <span class="loading loading-spinner loading-xs"></span>
               {:else}
@@ -261,11 +258,7 @@
       </div>
     {:else if data.user?.userType === 'site_admin'}
       <div class="border-base-300 border-t pt-6">
-        <button
-          class="btn btn-ghost"
-          onclick={handleDelete}
-          disabled={isDeleting}
-        >
+        <button class="btn btn-ghost" onclick={handleDelete} disabled={isDeleting}>
           {#if isDeleting}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}

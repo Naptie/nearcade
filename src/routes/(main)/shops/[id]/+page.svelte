@@ -1346,7 +1346,7 @@
 
           <!-- Pending Delete Request -->
           {#if pendingDeleteRequest}
-            <div class="card border border-warning/40 bg-warning/5">
+            <div class="card border-warning/40 bg-warning/5 border">
               <div class="card-body p-6">
                 <h3 class="text-warning mb-3 flex items-center gap-2 text-lg font-semibold">
                   <i class="fa-solid fa-triangle-exclamation"></i>
