@@ -84,7 +84,9 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     let canDelete = false;
     const isOwner = comment.createdBy === session.user.id;
 
-    if (comment.shopId) {
+    if (comment.shopDeleteRequestId) {
+      canDelete = isOwner || session.user.userType === 'site_admin';
+    } else if (comment.shopId) {
       // Shop comment: only the owner can delete
       canDelete = isOwner;
     } else {

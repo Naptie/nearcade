@@ -1,6 +1,6 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getShopChangelogEntries } from '$lib/utils/shopChangelog.server';
+import { getShopChangelogEntries } from '$lib/utils/shops/changelog.server';
 import mongo from '$lib/db/index.server';
 import { PAGINATION } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';

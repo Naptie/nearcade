@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 import { upload } from '$lib/oss/index';
 import { toPlainArray } from '$lib/utils';
-import { logShopChange } from '$lib/utils/shopChangelog.server';
+import { logShopChange } from '$lib/utils/shops/changelog.server';
 
 const photosWithUploaderPipeline = (shopId: number, limit?: number) => {
   const pipeline: object[] = [

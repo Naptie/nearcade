@@ -4,7 +4,7 @@ import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils'
 import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
-import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shopChangelog.server';
+import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;

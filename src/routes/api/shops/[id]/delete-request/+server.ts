@@ -4,7 +4,7 @@ import type { Shop, ShopDeleteRequest, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
-import { logShopChange } from '$lib/utils/shopChangelog.server';
+import { logShopChange } from '$lib/utils/shops/changelog.server';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { id } = params;

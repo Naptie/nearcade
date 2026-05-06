@@ -1,8 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { ShopDeleteRequest } from '$lib/types';
-import { toPlainObject } from '$lib/utils';
+import { toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import {
+  getShopDeleteRequestComments,
+  getShopDeleteRequestVoteSummary
+} from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
@@ -18,8 +22,15 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     error(404, m.shop_delete_request_not_found());
   }
 
+  const [comments, voteSummary] = await Promise.all([
+    getShopDeleteRequestComments(db, deleteRequest.id, session?.user?.id),
+    getShopDeleteRequestVoteSummary(db, deleteRequest.id, session?.user?.id)
+  ]);
+
   return {
     deleteRequest: toPlainObject(deleteRequest),
+    comments: toPlainArray(comments),
+    voteSummary,
     user: session?.user
   };
 };

@@ -4,7 +4,7 @@ import type { Shop, ShopDeleteRequest, Notification, ShopPhoto } from '$lib/type
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { notify } from '$lib/notifications/index.server';
-import { logShopChange } from '$lib/utils/shopChangelog.server';
+import { logShopChange } from '$lib/utils/shops/changelog.server';
 
 /**
  * DELETE /api/shops/delete-requests/:id
@@ -127,8 +127,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         actorImage: session.user.image ?? undefined,
         targetUserId: deleteRequest.requestedBy,
         content: reviewNote?.trim() || undefined,
+        shopId: deleteRequest.shopId,
         shopDeleteRequestId: deleteRequest.id,
         shopDeleteRequestStatus: newStatus,
+        shopDeleteRequestType: deleteRequest.photoId ? 'photo' : 'shop',
         shopName: deleteRequest.shopName
       };
       await notify(notification);

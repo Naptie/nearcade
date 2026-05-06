@@ -7,7 +7,7 @@ import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
 import { isOSSAvailable } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
-import { parseLegacyShopParams } from '$lib/utils/shop-id';
+import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
 
 const reportError: HandleServerError = ({ status, error }) => {

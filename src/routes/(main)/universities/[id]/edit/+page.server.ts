@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { PostReadability, PostWritability, type University } from '$lib/types';
 import { checkUniversityPermission, toPlainObject } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
-import { logUniversityChanges } from '$lib/utils/changelog.server';
+import { logUniversityChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { resolve } from '$app/paths';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';

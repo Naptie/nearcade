@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import type { ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { logShopChange } from '$lib/utils/shopChangelog.server';
+import { logShopChange } from '$lib/utils/shops/changelog.server';
 
 /**
  * DELETE /api/shops/:id/photos/:photoId

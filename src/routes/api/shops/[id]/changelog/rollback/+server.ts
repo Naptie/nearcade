@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { applyShopRollback, buildShopRollbackPreview } from '$lib/utils/shopChangelog.server';
+import { applyShopRollback, buildShopRollbackPreview } from '$lib/utils/shops/changelog.server';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';

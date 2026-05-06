@@ -1,7 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import type { CommentWithAuthorAndVote } from '$lib/types';
+  import type { CommentWithAuthorAndVote, ShopDeleteRequestVoteType } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
@@ -24,6 +24,7 @@
     onVote?: (commentId: string, voteType: 'upvote' | 'downvote') => void;
     isPostRendered: boolean;
     depth?: number;
+    deleteRequestVoteType?: ShopDeleteRequestVoteType | null;
   }
 
   let {
@@ -36,7 +37,8 @@
     onDelete,
     onVote,
     isPostRendered,
-    depth = 0
+    depth = 0,
+    deleteRequestVoteType = null
   }: Props = $props();
 
   let content = $state('');
@@ -155,6 +157,17 @@
           >
             {getDisplayName(comment.author)}
           </a>
+          {#if deleteRequestVoteType}
+            <span
+              class="badge badge-xs badge-soft {deleteRequestVoteType === 'favor'
+                ? 'badge-success'
+                : 'badge-error'}"
+            >
+              {deleteRequestVoteType === 'favor'
+                ? m.delete_request_vote_favor()
+                : m.delete_request_vote_against()}
+            </span>
+          {/if}
           <span class="text-base-content/60">
             {formatDistanceToNow(comment.createdAt, {
               addSuffix: true,

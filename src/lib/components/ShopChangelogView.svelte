@@ -11,7 +11,7 @@
     getShopChangelogActionName,
     getShopChangelogActionBadgeClass,
     getShopChangelogActionIcon
-  } from '$lib/utils/shopChangelog';
+  } from '$lib/utils/shops/changelog';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';

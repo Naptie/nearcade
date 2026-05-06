@@ -263,6 +263,24 @@ export interface ShopDeleteRequest {
   photoUrl?: string | null;
 }
 
+export type ShopDeleteRequestVoteType = 'favor' | 'against';
+
+export interface ShopDeleteRequestVote {
+  _id?: string | ObjectId;
+  id: string;
+  shopDeleteRequestId: string;
+  userId: string;
+  voteType: ShopDeleteRequestVoteType;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface ShopDeleteRequestVoteSummary {
+  favorVotes: number;
+  againstVotes: number;
+  userVote?: ShopDeleteRequestVoteType | null;
+}
+
 export interface ShopPhoto {
   _id?: string | ObjectId;
   id: string;
@@ -421,6 +439,7 @@ export interface Comment {
   id: string;
   postId?: string;
   shopId?: number;
+  shopDeleteRequestId?: string;
   content: string; // Markdown content
   createdBy: string; // User ID
   createdAt: Date;
@@ -436,6 +455,7 @@ export interface Comment {
 export interface CommentWithAuthorAndVote extends Comment {
   author: User | undefined;
   vote?: CommentVote;
+  authorDeleteRequestVote?: ShopDeleteRequestVote | null;
 }
 
 export interface CommentVote {
@@ -456,8 +476,15 @@ export interface Activity {
     | 'post'
     | 'comment'
     | 'reply'
+    | 'shop_comment'
+    | 'shop_reply'
     | 'post_vote'
     | 'comment_vote'
+    | 'shop_comment_vote'
+    | 'shop_delete_request_comment'
+    | 'shop_delete_request_reply'
+    | 'shop_delete_request_comment_vote'
+    | 'shop_delete_request_vote'
     | 'changelog'
     | 'university_join'
     | 'club_join'
@@ -482,7 +509,15 @@ export interface Activity {
 
   // Vote activity
   voteType?: 'upvote' | 'downvote';
-  targetType?: 'post' | 'comment' | 'reply';
+  targetType?:
+    | 'post'
+    | 'comment'
+    | 'reply'
+    | 'shop_comment'
+    | 'shop_reply'
+    | 'shop_delete_request'
+    | 'shop_delete_request_comment'
+    | 'shop_delete_request_reply';
   targetTitle?: string;
   targetAuthorName?: string;
   targetAuthorDisplayName?: string;
@@ -511,6 +546,11 @@ export interface Activity {
   leaveAt?: Date;
   attendanceGames?: string; // Comma-separated game names
   isLive?: boolean; // Whether the attendance is still ongoing
+
+  // Shop delete request activity
+  shopDeleteRequestId?: string;
+  shopDeleteRequestType?: 'shop' | 'photo';
+  shopDeleteRequestVoteType?: ShopDeleteRequestVoteType;
 }
 
 // Notification types for active notification system
@@ -538,6 +578,7 @@ export interface Notification {
   postTitle?: string;
   commentId?: string;
   voteType?: 'upvote' | 'downvote';
+  shopId?: number;
 
   // Join request details
   joinRequestId?: string;
@@ -547,6 +588,7 @@ export interface Notification {
   // Shop delete request details
   shopDeleteRequestId?: string;
   shopDeleteRequestStatus?: 'approved' | 'rejected';
+  shopDeleteRequestType?: 'shop' | 'photo';
   shopName?: string;
 
   // Navigation

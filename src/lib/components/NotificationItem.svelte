@@ -9,7 +9,7 @@
   import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
   import { strip } from '$lib/utils/markdown';
-  import { getNotificationLink } from '$lib/notifications/index.client';
+  import { getNotificationLink, getNotificationTargetName } from '$lib/notifications/index.client';
 
   interface Props {
     notification: Notification;
@@ -35,14 +35,7 @@
         displayName: notification.actorDisplayName
       }
     )}</a>`;
-    const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${
-      notification.type === 'SHOP_DELETE_REQUESTS'
-        ? (notification.shopName ?? '')
-        : (notification.postTitle ??
-          (notification.joinRequestType === 'university'
-            ? notification.universityName
-            : notification.clubName))
-    }</a>`;
+    const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${getNotificationTargetName(notification)}</a>`;
 
     switch (notification.type) {
       case 'COMMENTS':

@@ -1,7 +1,15 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import { type Club, type Comment, type CommentVote, type Post, type University } from '$lib/types';
+import {
+  type Club,
+  type Comment,
+  type CommentVote,
+  type Post,
+  type Shop,
+  type ShopDeleteRequest,
+  type University
+} from '$lib/types';
 import { nanoid } from 'nanoid';
 import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
@@ -36,8 +44,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(404, m.comment_not_found());
     }
 
-    // Get the post to check permissions (only for post comments)
+    // Get the parent entity to check permissions and build notification context.
     let post: Post | null = null;
+    let shop: Shop | null = null;
+    let deleteRequest: ShopDeleteRequest | null = null;
     if (comment.postId) {
       const postsCollection = db.collection<Post>('posts');
       post = await postsCollection.findOne({ id: comment.postId });
@@ -81,6 +91,23 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         if (!canInteract) {
           error(403, m.post_is_locked());
         }
+      }
+    } else if (comment.shopDeleteRequestId) {
+      deleteRequest = await db
+        .collection<ShopDeleteRequest>('shop_delete_requests')
+        .findOne({ id: comment.shopDeleteRequestId });
+
+      if (!deleteRequest) {
+        error(404, m.shop_delete_request_not_found());
+      }
+
+      if (deleteRequest.status !== 'pending') {
+        error(409, 'This delete request is closed');
+      }
+    } else if (comment.shopId) {
+      shop = await db.collection<Shop>('shops').findOne({ id: comment.shopId });
+      if (!shop) {
+        error(404, m.shop_not_found());
       }
     }
 
@@ -167,6 +194,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             postTitle: post?.title,
             commentId: comment.id,
             voteType: voteType,
+            shopId: comment.shopId ?? deleteRequest?.shopId,
+            shopDeleteRequestId: comment.shopDeleteRequestId,
+            shopDeleteRequestType: deleteRequest?.photoId
+              ? 'photo'
+              : deleteRequest
+                ? 'shop'
+                : undefined,
+            shopName: shop?.name ?? deleteRequest?.shopName,
             universityId: post?.universityId,
             clubId: post?.clubId
           });

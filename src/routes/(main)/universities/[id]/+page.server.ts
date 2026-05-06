@@ -9,7 +9,7 @@ import {
   updateUserType
 } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-import { logCampusChanges } from '$lib/utils/changelog.server';
+import { logCampusChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';

@@ -1,19 +1,186 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { pageTitle } from '$lib/utils';
-  import { invalidateAll } from '$app/navigation';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import Comment from '$lib/components/Comment.svelte';
+  import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
+  import type { ShopDeleteRequestVoteType } from '$lib/types';
   import type { PageData } from './$types';
   import { fromPath } from '$lib/utils/scoped';
 
   let { data }: { data: PageData } = $props();
 
   let req = $derived(data.deleteRequest);
+  let comments = $derived(data.comments ?? []);
+  let voteSummary = $derived(data.voteSummary);
+  let canParticipate = $derived(!!data.user && req.status === 'pending');
   let reviewNote = $state('');
   let isProcessing = $state(false);
   let processError = $state('');
   let isDeleting = $state(false);
+  let isSubmittingVote = $state<ShopDeleteRequestVoteType | null>(null);
+  let voteError = $state('');
+  let newCommentContent = $state('');
+  let isSubmittingComment = $state(false);
+  let commentError = $state('');
+  let replyingTo = $state<string | null>(null);
+  let replyContent = $state('');
+  let isSubmittingReply = $state(false);
+  let isCommentsRendered = $state(false);
+
+  onMount(() => {
+    isCommentsRendered = true;
+  });
+
+  const handleDeleteRequestVote = async (voteType: ShopDeleteRequestVoteType) => {
+    if (!canParticipate || isSubmittingVote) return;
+
+    isSubmittingVote = voteType;
+    voteError = '';
+    try {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/vote`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteType })
+      });
+
+      if (response.ok) {
+        invalidateAll();
+      } else {
+        const err = (await response.json()) as { message?: string };
+        voteError = err.message || m.error_occurred();
+      }
+    } catch {
+      voteError = m.network_error_try_again();
+    } finally {
+      isSubmittingVote = null;
+    }
+  };
+
+  const handleCommentSubmit = async () => {
+    if (!canParticipate || !newCommentContent.trim() || isSubmittingComment) return;
+
+    isSubmittingComment = true;
+    commentError = '';
+
+    try {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newCommentContent.trim() })
+      });
+
+      if (response.ok) {
+        newCommentContent = '';
+        invalidateAll();
+      } else {
+        const errorData = (await response.json()) as { message?: string };
+        commentError = errorData.message || m.failed_to_post_comment();
+      }
+    } catch {
+      commentError = m.network_error_try_again();
+    } finally {
+      isSubmittingComment = false;
+    }
+  };
+
+  const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
+    if (!canParticipate) return;
+
+    try {
+      const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteType })
+      });
+
+      if (response.ok) {
+        invalidateAll();
+      }
+    } catch (error) {
+      console.error('Error voting on comment:', error);
+    }
+  };
+
+  const handleCommentReply = (commentId: string) => {
+    replyingTo = commentId;
+    replyContent = '';
+  };
+
+  const submitReply = async () => {
+    if (!canParticipate || !replyContent.trim() || !replyingTo || isSubmittingReply) return;
+
+    isSubmittingReply = true;
+    commentError = '';
+
+    try {
+      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: replyContent.trim(),
+          parentCommentId: replyingTo
+        })
+      });
+
+      if (response.ok) {
+        replyingTo = null;
+        replyContent = '';
+        invalidateAll();
+      } else {
+        const errorData = (await response.json()) as { message?: string };
+        commentError = errorData.message || m.failed_to_post_comment();
+      }
+    } catch {
+      commentError = m.network_error_try_again();
+    } finally {
+      isSubmittingReply = false;
+    }
+  };
+
+  const handleCommentEdit = async (commentId: string, newContent: string) => {
+    if (!data.user) return;
+
+    try {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as { message?: string };
+        throw new Error(errorData.message || 'Failed to edit comment');
+      }
+
+      invalidateAll();
+    } catch (error) {
+      console.error('Error editing comment:', error);
+      throw error;
+    }
+  };
+
+  const handleCommentDelete = async (commentId: string) => {
+    if (!data.user) return;
+
+    try {
+      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as { message?: string };
+        alert(errorData.message || 'Failed to delete comment');
+      } else {
+        invalidateAll();
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      alert(m.network_error_try_again());
+    }
+  };
 
   const handleProcess = async (action: 'approve' | 'reject') => {
     if (isProcessing) return;
@@ -95,7 +262,7 @@
   <title>{pageTitle(req.shopName, m.shop_delete_requests())}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-2xl px-4 pt-20 pb-12 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-3xl px-4 pt-20 pb-12 sm:px-6 lg:px-8">
   <!-- Breadcrumb -->
   <div class="mb-6">
     <a href={resolve('/(main)/shops/delete-requests')} class="btn btn-ghost btn-sm">
@@ -163,6 +330,63 @@
         {m.shop_delete_request_reason()}
       </h2>
       <p class="bg-base-200 rounded-xl p-4 text-sm">{req.reason}</p>
+    </div>
+
+    <!-- Voting -->
+    <div class="mb-6">
+      <div class="mb-2 flex items-center justify-between gap-3">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-60">
+          {m.delete_request_vote_section()}
+        </h2>
+        <span class="text-base-content/60 text-sm">
+          {req.status === 'pending' ? m.delete_request_vote_open() : m.delete_request_vote_closed()}
+        </span>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <button
+          class="btn justify-between {voteSummary.userVote === 'favor'
+            ? 'btn-success'
+            : 'btn-ghost'}"
+          onclick={() => handleDeleteRequestVote('favor')}
+          disabled={!canParticipate || !!isSubmittingVote}
+        >
+          <span class="flex items-center gap-2">
+            {#if isSubmittingVote === 'favor'}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <i class="fa-solid fa-thumbs-up"></i>
+            {/if}
+            {m.delete_request_vote_favor()}
+          </span>
+          <span class="badge badge-soft">{voteSummary.favorVotes}</span>
+        </button>
+
+        <button
+          class="btn justify-between {voteSummary.userVote === 'against'
+            ? 'btn-error'
+            : 'btn-ghost'}"
+          onclick={() => handleDeleteRequestVote('against')}
+          disabled={!canParticipate || !!isSubmittingVote}
+        >
+          <span class="flex items-center gap-2">
+            {#if isSubmittingVote === 'against'}
+              <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+              <i class="fa-solid fa-thumbs-down"></i>
+            {/if}
+            {m.delete_request_vote_against()}
+          </span>
+          <span class="badge badge-soft">{voteSummary.againstVotes}</span>
+        </button>
+      </div>
+
+      {#if voteError}
+        <div class="alert alert-error alert-soft mt-3">
+          <i class="fa-solid fa-exclamation-triangle"></i>
+          <span>{voteError}</span>
+        </div>
+      {/if}
     </div>
 
     <!-- Metadata -->
@@ -272,6 +496,161 @@
           {/if}
           {m.delete_this_request()}
         </button>
+      </div>
+    {/if}
+  </div>
+
+  <div class="bg-base-100 border-base-300 mt-6 rounded-2xl border p-6 shadow-sm">
+    <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold">
+      <i class="fa-solid fa-comments"></i>
+      {m.comments()} ({comments.length})
+    </h2>
+
+    {#if canParticipate}
+      <div class="bg-base-200 mb-6 rounded-xl p-4">
+        {#if commentError}
+          <div class="alert alert-error mb-4">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <span>{commentError}</span>
+          </div>
+        {/if}
+
+        <MarkdownEditor
+          bind:value={newCommentContent}
+          placeholder={m.comment_placeholder()}
+          disabled={isSubmittingComment}
+          minHeight="min-h-[100px]"
+        />
+
+        <div class="mt-3 flex items-end justify-between gap-3">
+          <p class="text-base-content/60 text-xs">
+            {m.delete_request_comment_stance_hint()}
+          </p>
+          <button
+            class="btn btn-primary btn-sm"
+            onclick={handleCommentSubmit}
+            disabled={isSubmittingComment || !newCommentContent.trim()}
+          >
+            {#if isSubmittingComment}
+              <span class="loading loading-spinner loading-sm"></span>
+            {:else}
+              <i class="fa-solid fa-paper-plane"></i>
+            {/if}
+            {m.post_comment()}
+          </button>
+        </div>
+      </div>
+    {:else if data.user}
+      <div class="bg-base-200 text-base-content/60 mb-6 rounded-xl p-4 text-sm">
+        <i class="fa-solid fa-lock mr-2"></i>
+        {m.delete_request_discussion_closed()}
+      </div>
+    {:else}
+      <div class="bg-base-200 mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
+        <i class="fa-solid fa-comment text-base-content/40 text-2xl"></i>
+        <button
+          class="text-base-content/60 hover:link-accent cursor-pointer text-sm transition-colors"
+          onclick={() => {
+            window.dispatchEvent(new CustomEvent('nearcade-login'));
+          }}
+        >
+          {m.login_to_comment()}
+        </button>
+      </div>
+    {/if}
+
+    {#if comments.length > 0}
+      <div class="space-y-1">
+        {#each comments.filter((comment) => !comment.parentCommentId) as comment (comment.id)}
+          <div>
+            <Comment
+              {comment}
+              currentUserId={data.user?.id}
+              canReply={canParticipate}
+              canEdit={data.user?.userType === 'site_admin'}
+              onVote={canParticipate ? handleCommentVote : undefined}
+              onReply={canParticipate ? handleCommentReply : undefined}
+              onEdit={handleCommentEdit}
+              onDelete={handleCommentDelete}
+              isPostRendered={isCommentsRendered}
+              depth={0}
+              deleteRequestVoteType={comment.authorDeleteRequestVote?.voteType ?? null}
+            />
+
+            {#if replyingTo === comment.id}
+              <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
+                {#if commentError}
+                  <div class="alert alert-error mb-4">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    <span>{commentError}</span>
+                  </div>
+                {/if}
+
+                <MarkdownEditor
+                  bind:value={replyContent}
+                  placeholder={m.reply_to_comment()}
+                  disabled={isSubmittingReply}
+                  minHeight="min-h-[100px]"
+                />
+
+                <div class="mt-3 flex items-center justify-end">
+                  <div class="flex gap-2">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      onclick={() => {
+                        replyingTo = null;
+                        replyContent = '';
+                      }}
+                      disabled={isSubmittingReply}
+                    >
+                      {m.cancel()}
+                    </button>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick={submitReply}
+                      disabled={isSubmittingReply || !replyContent.trim()}
+                    >
+                      {#if isSubmittingReply}
+                        <span class="loading loading-spinner loading-sm"></span>
+                      {:else}
+                        <i class="fa-solid fa-paper-plane"></i>
+                      {/if}
+                      {m.reply()}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            {/if}
+
+            {#each comments.filter((reply) => reply.parentCommentId === comment.id) as reply (reply.id)}
+              <Comment
+                comment={reply}
+                currentUserId={data.user?.id}
+                canReply={canParticipate}
+                canEdit={data.user?.userType === 'site_admin'}
+                onVote={canParticipate ? handleCommentVote : undefined}
+                onReply={canParticipate ? handleCommentReply : undefined}
+                onEdit={handleCommentEdit}
+                onDelete={handleCommentDelete}
+                isPostRendered={isCommentsRendered}
+                depth={1}
+                deleteRequestVoteType={reply.authorDeleteRequestVote?.voteType ?? null}
+              />
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="bg-base-200 rounded-xl p-8 text-center">
+        <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
+        <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
+        {#if canParticipate}
+          <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+        {:else if data.user}
+          <p class="text-base-content/60">{m.delete_request_discussion_closed()}</p>
+        {:else}
+          <p class="text-base-content/60">{m.login_to_comment()}</p>
+        {/if}
       </div>
     {/if}
   </div>
