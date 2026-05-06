@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Shop, ShopDeleteRequest, Notification } from '$lib/types';
+import type { Shop, ShopDeleteRequest, Notification, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { notify } from '$lib/notifications/index.server';
@@ -89,6 +89,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   if (action === 'approve') {
     if (deleteRequest.photoId) {
+      const photo = await db
+        .collection<ShopPhoto>('shop_photos')
+        .findOne({ id: deleteRequest.photoId, shopId: deleteRequest.shopId });
+      if (photo) {
+        deleteRequest.photoUrl = photo.url;
+      }
       // Delete the specific photo
       await db.collection('shop_photos').deleteOne({ id: deleteRequest.photoId });
     } else {
@@ -154,7 +160,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         photoId: deleteRequest.photoId ?? null,
         photoUrl: deleteRequest.photoUrl ?? null
       },
-      metadata: reviewNote?.trim() ? { reviewNote: reviewNote.trim() } : undefined
+      metadata: {
+        ...(reviewNote?.trim() ? { reviewNote: reviewNote.trim() } : {}),
+        requestedBy: deleteRequest.requestedBy ?? null
+      }
     });
   } catch (logErr) {
     console.error('Failed to log delete request review changelog:', logErr);

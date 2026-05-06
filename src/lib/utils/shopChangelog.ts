@@ -1,5 +1,6 @@
 import type { m as mFunc } from '$lib/paraglide/messages';
 import type { ShopChangelogEntry } from '$lib/types';
+import { GAMES } from '$lib/constants';
 
 export const getShopChangelogActionName = (
   action: ShopChangelogEntry['action'],
@@ -12,6 +13,7 @@ export const getShopChangelogActionName = (
     game_added: m.shop_changelog_action_game_added(),
     game_modified: m.shop_changelog_action_game_modified(),
     game_deleted: m.shop_changelog_action_game_deleted(),
+    rollback: m.shop_changelog_action_rollback(),
     photo_uploaded: m.shop_changelog_action_photo_uploaded(),
     photo_deleted: m.shop_changelog_action_photo_deleted(),
     delete_request_submitted: m.shop_changelog_action_delete_request_submitted(),
@@ -32,10 +34,27 @@ export const getShopChangelogFieldName = (field: string, m: typeof mFunc): strin
     openingHours: m.shop_opening_hours(),
     location: m.shop_location(),
     game: m.shop_games(),
+    'game.titleId': m.shop_game_title(),
+    'game.name': m.shop_game_name(),
+    'game.version': m.shop_game_version(),
+    'game.comment': m.shop_game_comment(),
+    'game.quantity': m.shop_game_quantity(),
+    'game.cost': m.shop_game_cost(),
     photo: m.shop_photos(),
     delete_request: m.shop_delete_request()
   };
   return fieldMap[field] ?? field;
+};
+
+const formatShopChangelogValue = (value: string, field: string, m: typeof mFunc): string => {
+  if (!value || value === 'null') return m.not_specified();
+
+  if (field === 'game.titleId') {
+    const title = GAMES.find((game) => game.id.toString() === value);
+    if (title) return m[title.key]();
+  }
+
+  return value;
 };
 
 export const formatShopChangelogDescription = (
@@ -51,6 +70,13 @@ export const formatShopChangelogDescription = (
         gameVersion: entry.fieldInfo.gameVersion ?? ''
       });
     case 'game_modified':
+      if (entry.fieldInfo.field.startsWith('game.')) {
+        return m.shop_changelog_updated_game({
+          field: fieldName,
+          gameName: entry.fieldInfo.gameName ?? '',
+          gameVersion: entry.fieldInfo.gameVersion ?? ''
+        });
+      }
       return m.shop_changelog_modified_game({
         gameName: entry.fieldInfo.gameName ?? '',
         gameVersion: entry.fieldInfo.gameVersion ?? ''
@@ -64,6 +90,8 @@ export const formatShopChangelogDescription = (
       return m.shop_changelog_uploaded_photo();
     case 'photo_deleted':
       return m.shop_changelog_deleted_photo();
+    case 'rollback':
+      return m.shop_changelog_rollback();
     case 'delete_request_submitted':
       return m.shop_changelog_submitted_delete_request();
     case 'delete_request_approved':
@@ -83,12 +111,15 @@ export const formatShopChangelogDescription = (
         if (entry.oldValue && entry.newValue) {
           return m.changelog_changed_from_to({
             field: fieldName,
-            oldValue: entry.oldValue,
-            newValue: entry.newValue
+            oldValue: formatShopChangelogValue(entry.oldValue, entry.fieldInfo.field, m),
+            newValue: formatShopChangelogValue(entry.newValue, entry.fieldInfo.field, m)
           });
         }
         if (entry.newValue && !entry.oldValue) {
-          return m.changelog_set_to({ field: fieldName, newValue: entry.newValue });
+          return m.changelog_set_to({
+            field: fieldName,
+            newValue: formatShopChangelogValue(entry.newValue, entry.fieldInfo.field, m)
+          });
         }
         if (entry.oldValue && !entry.newValue) {
           return m.changelog_cleared({ field: fieldName });
@@ -116,6 +147,8 @@ export const getShopChangelogActionBadgeClass = (action: ShopChangelogEntry['act
     case 'modified':
     case 'game_modified':
       return 'badge-info';
+    case 'rollback':
+      return 'badge-primary';
     case 'delete_request_approved':
     case 'photo_delete_request_approved':
       return 'badge-warning';
@@ -144,6 +177,8 @@ export const getShopChangelogActionIcon = (action: ShopChangelogEntry['action'])
       return 'fa-gamepad text-info';
     case 'game_deleted':
       return 'fa-gamepad text-error';
+    case 'rollback':
+      return 'fa-rotate-left text-primary';
     case 'photo_uploaded':
       return 'fa-image text-success';
     case 'photo_deleted':

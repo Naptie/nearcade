@@ -1,7 +1,11 @@
 <script lang="ts">
+  /* eslint svelte/no-at-html-tags: "off" */
   import { onMount } from 'svelte';
+  import { createTwoFilesPatch } from 'diff';
+  import * as Diff2Html from 'diff2html';
+  import 'diff2html/bundles/css/diff2html.min.css';
   import { m } from '$lib/paraglide/messages';
-  import type { ShopChangelogEntryWithUser } from '$lib/types';
+  import type { Shop, ShopChangelogEntryWithUser } from '$lib/types';
   import {
     formatShopChangelogDescription,
     getShopChangelogActionName,
@@ -17,9 +21,10 @@
 
   interface Props {
     shopId: number;
+    isSiteAdmin?: boolean;
   }
 
-  let { shopId }: Props = $props();
+  let { shopId, isSiteAdmin = false }: Props = $props();
 
   let entries = $state<ShopChangelogEntryWithUser[]>([]);
   let isLoading = $state(true);
@@ -27,8 +32,42 @@
   let hasMore = $state(true);
   let currentPage = $state(1);
   let error = $state<string | null>(null);
+  let rollbackPreview = $state<{
+    targetEntryId: string | null;
+    currentShop: Shop;
+    rolledBackShop: Shop;
+    appliedEntryIds: string[];
+    rollbackEntryCount: number;
+  } | null>(null);
+  let rollbackError = $state<string | null>(null);
+  let isPreviewingRollback = $state(false);
+  let isApplyingRollback = $state(false);
+  let rollbackDiffHtml = $state('');
 
   const ITEMS_PER_PAGE = 10;
+
+  const stringifyJson = (value: unknown) => JSON.stringify(value, null, 2);
+
+  const renderJsonDiff = (currentShop: Shop, rolledBackShop: Shop) => {
+    const patch = createTwoFilesPatch(
+      m.shop_changelog_rollback_current_state(),
+      m.shop_changelog_rollback_target_state(),
+      stringifyJson(currentShop),
+      stringifyJson(rolledBackShop),
+      '',
+      '',
+      { context: Number.MAX_SAFE_INTEGER }
+    );
+
+    return Diff2Html.html(patch, {
+      drawFileList: false,
+      matching: 'lines',
+      outputFormat: 'side-by-side',
+      renderNothingWhenEmpty: false
+    })
+      .replace(/\s*<tr>\s*<td[^>]*d2h-info[\s\S]*?<\/tr>\s*/g, '')
+      .replace(/\s*<span class="d2h-code-line-prefix">[\s\S]*?<\/span>\s*/g, '');
+  };
 
   const loadEntries = async (page = 1, append = false) => {
     if (page === 1) {
@@ -67,6 +106,72 @@
   const loadMore = async () => {
     if (!hasMore || isLoadingMore) return;
     await loadEntries(currentPage + 1, true);
+  };
+
+  const deleteEntry = async (entry: ShopChangelogEntryWithUser) => {
+    if (!confirm(m.shop_changelog_rollback_delete_confirm())) return;
+
+    const response = await fetch(fromPath(`/api/shops/${shopId}/changelog/${entry.id}`), {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      error = m.failed_to_fetch_changelog_entries();
+      return;
+    }
+
+    entries = entries.filter((item) => item.id !== entry.id);
+  };
+
+  const previewRollback = async (entry: ShopChangelogEntryWithUser) => {
+    rollbackError = null;
+    isPreviewingRollback = true;
+
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shopId}/changelog/rollback`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetEntryId: entry.id })
+      });
+
+      if (!response.ok) throw new Error(await response.text());
+      rollbackPreview = (await response.json()) as typeof rollbackPreview;
+      if (rollbackPreview) {
+        rollbackDiffHtml = renderJsonDiff(
+          rollbackPreview.currentShop,
+          rollbackPreview.rolledBackShop
+        );
+      }
+    } catch (err) {
+      console.error('Failed to preview rollback:', err);
+      rollbackError = m.shop_changelog_rollback_preview_failed();
+    } finally {
+      isPreviewingRollback = false;
+    }
+  };
+
+  const applyRollback = async () => {
+    if (!rollbackPreview || isApplyingRollback) return;
+    isApplyingRollback = true;
+    rollbackError = null;
+
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shopId}/changelog/rollback`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetEntryId: rollbackPreview.targetEntryId })
+      });
+
+      if (!response.ok) throw new Error(await response.text());
+      rollbackPreview = null;
+      rollbackDiffHtml = '';
+      await loadEntries();
+    } catch (err) {
+      console.error('Failed to apply rollback:', err);
+      rollbackError = m.failed_to_update();
+    } finally {
+      isApplyingRollback = false;
+    }
   };
 
   onMount(() => {
@@ -140,6 +245,26 @@
                   <div class="text-base-content/80 text-sm">
                     {formatShopChangelogDescription(entry, m)}
                   </div>
+
+                  {#if isSiteAdmin}
+                    <div class="mt-2 flex flex-wrap gap-2">
+                      <button
+                        class="btn btn-primary btn-xs btn-soft"
+                        onclick={() => previewRollback(entry)}
+                        disabled={isPreviewingRollback}
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                        {m.shop_changelog_rollback_action()}
+                      </button>
+                      <button
+                        class="btn btn-error btn-xs btn-soft"
+                        onclick={() => deleteEntry(entry)}
+                      >
+                        <i class="fa-solid fa-trash"></i>
+                        {m.shop_changelog_rollback_delete_action()}
+                      </button>
+                    </div>
+                  {/if}
 
                   <!-- Photo thumbnail for photo events -->
                   {#if (entry.action === 'photo_uploaded' || entry.action === 'photo_deleted' || entry.action === 'photo_delete_request_submitted' || entry.action === 'photo_delete_request_approved' || entry.action === 'photo_delete_request_rejected') && entry.fieldInfo.photoUrl}
@@ -219,3 +344,188 @@
     {/if}
   {/if}
 </div>
+
+{#if rollbackPreview}
+  <div class="modal modal-open">
+    <div class="modal-box max-w-5xl overflow-hidden">
+      <h3 class="text-lg font-bold">{m.shop_changelog_rollback_preview()}</h3>
+      <p class="text-base-content/70 mt-1 text-sm">
+        {m.shop_changelog_rollback_preview_description()}
+      </p>
+
+      {#if rollbackError}
+        <div class="alert alert-error mt-4">
+          <i class="fa-solid fa-exclamation-triangle"></i>
+          <span>{rollbackError}</span>
+        </div>
+      {/if}
+
+      <div class="rollback-diff-pane border-base-300 mt-4 overflow-auto rounded-xl border text-xs">
+        {@html rollbackDiffHtml}
+      </div>
+
+      <div class="modal-action">
+        <button
+          class="btn btn-ghost"
+          onclick={() => {
+            rollbackPreview = null;
+            rollbackDiffHtml = '';
+          }}
+          disabled={isApplyingRollback}
+        >
+          {m.cancel()}
+        </button>
+        <button class="btn btn-primary" onclick={applyRollback} disabled={isApplyingRollback}>
+          {#if isApplyingRollback}<span class="loading loading-spinner loading-sm"></span>{/if}
+          {m.shop_changelog_rollback_confirm()}
+        </button>
+      </div>
+    </div>
+    <button
+      class="modal-backdrop"
+      onclick={() => {
+        rollbackPreview = null;
+        rollbackDiffHtml = '';
+      }}>{m.close()}</button
+    >
+  </div>
+{/if}
+
+<style>
+  :global(.rollback-diff-pane) {
+    max-height: 28rem;
+    overflow: auto;
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  :global(.rollback-diff-pane .d2h-file-wrapper) {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--color-base-100);
+  }
+
+  :global(.rollback-diff-pane .d2h-file-header) {
+    display: none;
+  }
+
+  :global(.rollback-diff-pane .d2h-files-diff) {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  :global(.rollback-diff-pane .d2h-file-side-diff) {
+    display: block;
+    flex: 1 1 0;
+    width: 50%;
+    min-width: 0;
+    margin: 0;
+    overflow-x: hidden;
+  }
+
+  :global(.rollback-diff-pane .d2h-file-side-diff:first-child) {
+    border-right: 1px solid var(--color-base-300);
+  }
+
+  :global(.rollback-diff-pane .d2h-diff-table) {
+    width: 100%;
+    table-layout: fixed;
+    font-family: var(--font-mono, 'JetBrains Mono Variable', monospace);
+    font-size: 0.6875rem;
+    border-collapse: collapse;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-wrapper) {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  :global(.rollback-diff-pane tr),
+  :global(.rollback-diff-pane td) {
+    height: auto !important;
+    min-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    vertical-align: top !important;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-side-linenumber),
+  :global(.rollback-diff-pane .d2h-code-linenumber) {
+    display: none;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-side-line),
+  :global(.rollback-diff-pane .d2h-code-line) {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0;
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  :global(.rollback-diff-pane .d2h-info) {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-side-line),
+  :global(.rollback-diff-pane .d2h-code-line) {
+    font-size: 0;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-line-prefix) {
+    display: none !important;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-line-ctn) {
+    display: block;
+    width: 100% !important;
+    padding: 0 0.25rem !important;
+    color: inherit;
+    font-size: 0.6875rem;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  :global(.rollback-diff-pane .d2h-del),
+  :global(.rollback-diff-pane .d2h-cntx.d2h-del) {
+    background: color-mix(in oklab, var(--color-error) 16%, var(--color-base-100));
+  }
+
+  :global(.rollback-diff-pane .d2h-ins),
+  :global(.rollback-diff-pane .d2h-cntx.d2h-ins) {
+    background: color-mix(in oklab, var(--color-success) 16%, var(--color-base-100));
+  }
+
+  :global(.rollback-diff-pane .d2h-del .d2h-code-line-ctn) {
+    background: transparent;
+  }
+
+  :global(.rollback-diff-pane .d2h-ins .d2h-code-line-ctn) {
+    background: transparent;
+  }
+
+  :global(.rollback-diff-pane .d2h-code-side-emptyplaceholder),
+  :global(.rollback-diff-pane .d2h-emptyplaceholder) {
+    background: color-mix(in oklab, var(--color-base-200) 65%, transparent);
+  }
+
+  :global(.rollback-diff-pane .d2h-code-side-line:hover),
+  :global(.rollback-diff-pane .d2h-code-line:hover) {
+    background: color-mix(in oklab, var(--color-base-content) 7%, var(--color-base-100));
+  }
+</style>

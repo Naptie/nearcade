@@ -5,7 +5,7 @@ import mongo from '$lib/db/index.server';
 import { PAGINATION } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ params, url, locals }) => {
   const { id } = params;
   const shopId = parseInt(id);
   if (isNaN(shopId)) {
@@ -22,7 +22,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
   try {
     const { entries, total } = await getShopChangelogEntries(mongo, shopId, {
       limit,
-      offset: (page - 1) * limit
+      offset: (page - 1) * limit,
+      viewer: locals.session?.user ?? null
     });
 
     return json({

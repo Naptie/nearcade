@@ -281,9 +281,9 @@
           </label>
           <textarea
             id="photo-delete-reason"
-            class="textarea textarea-bordered w-full"
+            class="textarea textarea-bordered w-full rounded-xl"
             rows="3"
-            placeholder={m.shop_delete_request_reason_placeholder()}
+            placeholder={m.shop_photo_delete_request_reason_placeholder()}
             bind:value={deleteRequestReason}
           ></textarea>
           <div class="mt-4 flex gap-2">
@@ -291,7 +291,7 @@
               {m.cancel()}
             </button>
             <button
-              class="btn btn-warning flex-1"
+              class="btn btn-warning w-fit flex-1"
               onclick={handleSubmitDeleteRequest}
               disabled={!deleteRequestReason.trim() || isSubmittingDeleteRequest}
             >

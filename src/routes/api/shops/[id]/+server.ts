@@ -31,7 +31,9 @@ const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | nu
   return normalized;
 };
 
-type ParsedGameInput = Omit<Shop['games'][number], 'gameId'>;
+type ParsedGameInput = {
+  gameId?: number;
+} & Omit<Shop['games'][number], 'gameId'>;
 
 const parseGamesInput = (games: unknown): ParsedGameInput[] | null => {
   if (!Array.isArray(games)) return null;
@@ -40,6 +42,7 @@ const parseGamesInput = (games: unknown): ParsedGameInput[] | null => {
     if (!item || typeof item !== 'object') return null;
 
     const candidate = item as {
+      gameId?: unknown;
       titleId?: unknown;
       name?: unknown;
       version?: unknown;
@@ -58,6 +61,10 @@ const parseGamesInput = (games: unknown): ParsedGameInput[] | null => {
     }
 
     return {
+      gameId:
+        typeof candidate.gameId === 'number' && Number.isInteger(candidate.gameId)
+          ? candidate.gameId
+          : undefined,
       titleId: candidate.titleId,
       name: candidate.name,
       version: candidate.version,
@@ -76,6 +83,9 @@ const parseGamesInput = (games: unknown): ParsedGameInput[] | null => {
 
 const gameKey = (game: ParsedGameInput) =>
   `${game.titleId}\u0000${game.name}\u0000${game.version}\u0000${game.comment}\u0000${game.quantity}\u0000${game.cost}`;
+
+const gameIdentityKey = (game: ParsedGameInput) =>
+  `${game.titleId}\u0000${game.name}\u0000${game.version}`;
 
 const compareGameInput = (left: ParsedGameInput, right: ParsedGameInput) => {
   return (
@@ -134,6 +144,9 @@ const normalizeGamesForShopUpdate = (
 
   const existingById = new Map<number, Shop['games'][number]>();
   const existingByKey = new Map<string, Shop['games'][number][]>();
+  const existingByIdentityKey = new Map<string, Shop['games'][number][]>();
+  const existingByTitleId = new Map<number, Shop['games'][number][]>();
+  const consumedExistingIds = new Set<number>();
 
   for (const game of existingGames) {
     if (!Number.isInteger(game.gameId)) continue;
@@ -150,20 +163,94 @@ const normalizeGamesForShopUpdate = (
     const bucket = existingByKey.get(key);
     if (bucket) bucket.push(game);
     else existingByKey.set(key, [game]);
+
+    const identityKey = gameIdentityKey({
+      titleId: game.titleId,
+      name: game.name,
+      version: game.version,
+      comment: game.comment,
+      quantity: game.quantity,
+      cost: game.cost
+    });
+    const identityBucket = existingByIdentityKey.get(identityKey);
+    if (identityBucket) identityBucket.push(game);
+    else existingByIdentityKey.set(identityKey, [game]);
+
+    const titleBucket = existingByTitleId.get(game.titleId);
+    if (titleBucket) titleBucket.push(game);
+    else existingByTitleId.set(game.titleId, [game]);
   }
 
   const occupiedIds = new Set<number>(existingById.keys());
   const resolved = new Array<Shop['games'][number]>(parsedIncoming.length);
   const newCandidates: Array<{ index: number; game: ParsedGameInput }> = [];
 
-  for (const [index, game] of parsedIncoming.entries()) {
-    const key = gameKey(game);
-    const bucket = existingByKey.get(key);
-    if (bucket && bucket.length > 0) {
+  const takeUnconsumed = (
+    bucket: Shop['games'][number][] | undefined
+  ): Shop['games'][number] | null => {
+    if (!bucket || bucket.length === 0) return null;
+
+    while (bucket.length > 0) {
       const matched = bucket.shift()!;
+      if (consumedExistingIds.has(matched.gameId)) continue;
+      consumedExistingIds.add(matched.gameId);
+      return matched;
+    }
+
+    return null;
+  };
+
+  const takeUniqueUnconsumed = (
+    bucket: Shop['games'][number][] | undefined
+  ): Shop['games'][number] | null => {
+    if (!bucket || bucket.length === 0) return null;
+
+    const candidates = bucket.filter((item) => !consumedExistingIds.has(item.gameId));
+    if (candidates.length !== 1) return null;
+
+    const matched = candidates[0];
+    consumedExistingIds.add(matched.gameId);
+    return matched;
+  };
+
+  for (const [index, game] of parsedIncoming.entries()) {
+    if (game.gameId !== undefined) {
+      const matchedById = existingById.get(game.gameId);
+      if (matchedById && !consumedExistingIds.has(matchedById.gameId)) {
+        consumedExistingIds.add(matchedById.gameId);
+        resolved[index] = {
+          ...game,
+          gameId: matchedById.gameId
+        };
+        continue;
+      }
+    }
+
+    const key = gameKey(game);
+    const matchedByExact = takeUnconsumed(existingByKey.get(key));
+    if (matchedByExact) {
       resolved[index] = {
         ...game,
-        gameId: matched.gameId
+        gameId: matchedByExact.gameId
+      };
+      continue;
+    }
+
+    const identityKey = gameIdentityKey(game);
+    const matchedByIdentity = takeUnconsumed(existingByIdentityKey.get(identityKey));
+    if (matchedByIdentity) {
+      resolved[index] = {
+        ...game,
+        gameId: matchedByIdentity.gameId
+      };
+      continue;
+    }
+
+    const matchedByTitle = takeUniqueUnconsumed(existingByTitleId.get(game.titleId));
+    if (matchedByTitle) {
+      resolved[index] = {
+        ...game,
+        gameId: matchedByTitle.gameId
       };
       continue;
     }

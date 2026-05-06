@@ -44,7 +44,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       shopName: photo.shopName,
       action: 'photo_deleted',
       user: { id: session.user.id, name: session.user.name, image: session.user.image },
-      fieldInfo: { field: 'photo', photoId, photoUrl: photo.url }
+      fieldInfo: { field: 'photo', photoId, photoUrl: photo.url },
+      metadata: { uploadedBy: photo.uploadedBy }
     });
   } catch (logErr) {
     console.error('Failed to log photo deletion changelog:', logErr);

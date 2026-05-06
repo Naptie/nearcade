@@ -283,6 +283,7 @@ export type ShopChangelogAction =
   | 'game_deleted'
   | 'photo_uploaded'
   | 'photo_deleted'
+  | 'rollback'
   | 'delete_request_submitted'
   | 'delete_request_approved'
   | 'delete_request_rejected'
@@ -308,7 +309,7 @@ export interface ShopChangelogEntry {
   oldValue?: string | null;
   newValue?: string | null;
   metadata?: {
-    [key: string]: string | number | boolean | null;
+    [key: string]: unknown;
   };
   userId: string | null;
   createdAt: Date;

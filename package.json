@@ -86,6 +86,8 @@
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
+    "diff": "^9.0.0",
+    "diff2html": "^3.4.56",
     "firebase-admin": "^13.8.0",
     "leancloud-storage": "^4.15.2",
     "mailparser": "^3.9.8",
