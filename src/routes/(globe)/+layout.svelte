@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
+  import { beforeNavigate, afterNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import Globe from '$lib/components/Globe.svelte';
-  import { setContext } from 'svelte';
+  import { onDestroy } from 'svelte';
   import type { LayoutData } from './$types';
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
 
@@ -14,23 +16,60 @@
   const isGlobePage = $derived(page.url.pathname === resolve('/globe'));
   const globeMode = $derived<'landing' | 'fullscreen'>(isGlobePage ? 'fullscreen' : 'landing');
 
-  let isCollapseExpanded = $state(false);
+  const TRANSITION_SCROLLBAR_HIDE_MS = 400;
+  let transitionScrollbarTimer: ReturnType<typeof setTimeout> | undefined;
 
-  setContext('collapse', {
-    get: () => isCollapseExpanded,
-    set: (v: boolean) => (isCollapseExpanded = v)
+  const setTransitionScrollbarHidden = (hidden: boolean) => {
+    if (!browser) return;
+    document.documentElement.classList.toggle('transition-scrollbar-hidden', hidden);
+  };
+
+  const scheduleTransitionScrollbarRestore = () => {
+    clearTimeout(transitionScrollbarTimer);
+    transitionScrollbarTimer = setTimeout(() => {
+      setTransitionScrollbarHidden(false);
+    }, TRANSITION_SCROLLBAR_HIDE_MS);
+  };
+
+  // Keep scrolling enabled on the landing page, but visually suppress the
+  // transient root scrollbar while route transition animations settle.
+  beforeNavigate(({ to }) => {
+    const nextPath = to?.url.pathname;
+    const navigatingWithinGlobeRoutes =
+      showGlobe &&
+      ((isLandingPage && nextPath === resolve('/globe')) ||
+        (isGlobePage && nextPath === resolve('/')));
+
+    if (navigatingWithinGlobeRoutes) {
+      setTransitionScrollbarHidden(true);
+      scheduleTransitionScrollbarRestore();
+    }
   });
 
-  // Prevent the page body from scrolling while on globe pages so that
-  // Svelte transition animations (slide/fade) don't briefly show a scrollbar.
-  $effect(() => {
-    const prev = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = isCollapseExpanded || !showGlobe ? prev : 'hidden';
-    return () => {
-      document.documentElement.style.overflow = prev;
-    };
+  afterNavigate(() => {
+    if (browser && document.documentElement.classList.contains('transition-scrollbar-hidden')) {
+      scheduleTransitionScrollbarRestore();
+    }
+  });
+
+  onDestroy(() => {
+    clearTimeout(transitionScrollbarTimer);
+    setTransitionScrollbarHidden(false);
   });
 </script>
+
+<svelte:head>
+  <style>
+    html.transition-scrollbar-hidden {
+      scrollbar-width: none;
+    }
+
+    html.transition-scrollbar-hidden::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+  </style>
+</svelte:head>
 
 <!-- Globe is always mounted while navigating between / and /globe.
      It is positioned fixed behind all page content and controls its own overlay UI. -->
