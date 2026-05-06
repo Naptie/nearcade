@@ -410,12 +410,6 @@
     display: none;
   }
 
-  :global(.rollback-diff-pane .d2h-files-diff) {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-  }
-
   :global(.rollback-diff-pane .d2h-file-side-diff) {
     display: block;
     flex: 1 1 0;
@@ -423,10 +417,6 @@
     min-width: 0;
     margin: 0;
     overflow-x: hidden;
-  }
-
-  :global(.rollback-diff-pane .d2h-file-side-diff:first-child) {
-    border-right: 1px solid var(--color-base-300);
   }
 
   :global(.rollback-diff-pane .d2h-diff-table) {
@@ -437,91 +427,46 @@
     border-collapse: collapse;
   }
 
-  :global(.rollback-diff-pane .d2h-code-wrapper) {
-    width: 100%;
-    overflow: hidden;
-  }
-
-  :global(.rollback-diff-pane tr),
-  :global(.rollback-diff-pane td) {
-    height: auto !important;
-    min-height: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    vertical-align: top !important;
-  }
-
   :global(.rollback-diff-pane .d2h-code-side-linenumber),
   :global(.rollback-diff-pane .d2h-code-linenumber) {
     display: none;
   }
 
+  :global(.rollback-diff-pane .d2h-code-line-prefix) {
+    display: none;
+  }
+
   :global(.rollback-diff-pane .d2h-code-side-line),
   :global(.rollback-diff-pane .d2h-code-line) {
-    display: block !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 0 !important;
-    padding: 0 !important;
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 0;
     border: 0;
     background: var(--color-base-100);
     color: var(--color-base-content);
   }
 
   :global(.rollback-diff-pane .d2h-info) {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    overflow: hidden !important;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-side-line),
-  :global(.rollback-diff-pane .d2h-code-line) {
-    font-size: 0;
-    white-space: pre-wrap !important;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-line-prefix) {
-    display: none !important;
+    display: none;
+    width: 0;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
   }
 
   :global(.rollback-diff-pane .d2h-code-line-ctn) {
     display: block;
-    width: 100% !important;
-    padding: 0 0.25rem !important;
+    width: 100%;
+    padding: 0 0.25rem;
     color: inherit;
     font-size: 0.6875rem;
-    white-space: pre-wrap !important;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
-  }
-
-  :global(.rollback-diff-pane .d2h-del),
-  :global(.rollback-diff-pane .d2h-cntx.d2h-del) {
-    background: color-mix(in oklab, var(--color-error) 16%, var(--color-base-100));
-  }
-
-  :global(.rollback-diff-pane .d2h-ins),
-  :global(.rollback-diff-pane .d2h-cntx.d2h-ins) {
-    background: color-mix(in oklab, var(--color-success) 16%, var(--color-base-100));
-  }
-
-  :global(.rollback-diff-pane .d2h-del .d2h-code-line-ctn) {
-    background: transparent;
-  }
-
-  :global(.rollback-diff-pane .d2h-ins .d2h-code-line-ctn) {
-    background: transparent;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-side-emptyplaceholder),
-  :global(.rollback-diff-pane .d2h-emptyplaceholder) {
-    background: color-mix(in oklab, var(--color-base-200) 65%, transparent);
   }
 
   :global(.rollback-diff-pane .d2h-code-side-line:hover),
@@ -529,30 +474,13 @@
     background: color-mix(in oklab, var(--color-base-content) 7%, var(--color-base-100));
   }
 
-  /* ── Inline character-level highlights (ins/del inside diff lines) ───────── */
-  /* diff2html emits <ins> inside .d2h-del rows and <del> inside .d2h-ins rows  */
-  /* to mark the exact characters that changed. Override its hardcoded colours. */
-  :global(.rollback-diff-pane .d2h-del ins),
-  :global(.rollback-diff-pane .d2h-code-side-line.d2h-del ins),
-  :global(.rollback-diff-pane td.d2h-del ins) {
-    background: color-mix(in oklab, var(--color-error) 45%, transparent) !important;
-    color: inherit !important;
-    text-decoration: none !important;
-    border-radius: 2px;
+  :global(.d2h-code-line ins, .d2h-code-side-line ins) {
+    background: color-mix(in oklab, var(--color-success) 10%, transparent);
+    color: var(--color-success);
   }
 
-  :global(.rollback-diff-pane .d2h-ins del),
-  :global(.rollback-diff-pane .d2h-code-side-line.d2h-ins del),
-  :global(.rollback-diff-pane td.d2h-ins del) {
-    background: color-mix(in oklab, var(--color-success) 45%, transparent) !important;
-    color: inherit !important;
-    text-decoration: none !important;
-    border-radius: 2px;
-  }
-
-  /* Neutral (context) lines in each side panel keep the base background */
-  :global(.rollback-diff-pane .d2h-cntx) {
-    background: var(--color-base-100);
-    color: var(--color-base-content);
+  :global(.d2h-code-line del, .d2h-code-side-line del) {
+    background: color-mix(in oklab, var(--color-error) 10%, transparent);
+    color: var(--color-error);
   }
 </style>
