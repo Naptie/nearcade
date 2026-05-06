@@ -16,7 +16,7 @@
   const isGlobePage = $derived(page.url.pathname === resolve('/globe'));
   const globeMode = $derived<'landing' | 'fullscreen'>(isGlobePage ? 'fullscreen' : 'landing');
 
-  const TRANSITION_SCROLLBAR_HIDE_MS = 400;
+  const TRANSITION_SCROLLBAR_HIDE_MS = 1000;
   let transitionScrollbarTimer: ReturnType<typeof setTimeout> | undefined;
 
   const setTransitionScrollbarHidden = (hidden: boolean) => {
