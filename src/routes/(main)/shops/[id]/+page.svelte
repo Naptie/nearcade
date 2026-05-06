@@ -987,6 +987,10 @@
             </div>
           {/if}
 
+          <section class="mt-6">
+            <PhotoCarousel shopId={shop.id} bind:photos currentUser={data.user} />
+          </section>
+
           <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
             <div class="flex flex-wrap items-center gap-2">
               <a
@@ -1669,13 +1673,6 @@
             </div>
             <p class="text-base-content/60">{m.no_games_available()}</p>
           </div>
-        {/if}
-
-        <!-- Photos Section -->
-        {#if shop}
-          <section class="mt-8">
-            <PhotoCarousel shopId={shop.id} bind:photos currentUser={data.user} />
-          </section>
         {/if}
 
         <!-- Comments Section -->

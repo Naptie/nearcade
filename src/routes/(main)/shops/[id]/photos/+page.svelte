@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
+  import { tick } from 'svelte';
   import { getDisplayName, pageTitle } from '$lib/utils';
   import type { PageData } from './$types';
   import type { ShopPhoto } from '$lib/types';
@@ -13,10 +14,14 @@
   let photos = $derived<ShopPhoto[]>(data.photos);
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
+  let viewerSession = $state(0);
   let uploadOpen = $state(false);
 
-  const openViewer = (index: number) => {
+  const openViewer = async (index: number) => {
     viewerIndex = index;
+    viewerSession = viewerSession + 1;
+    viewerOpen = false;
+    await tick();
     viewerOpen = true;
   };
 
@@ -106,13 +111,15 @@
   {/if}
 </div>
 
-<ImageViewerModal
-  bind:isOpen={viewerOpen}
-  {photos}
-  initialIndex={viewerIndex}
-  currentUser={data.user}
-  onDelete={handleDelete}
-/>
+{#key viewerSession}
+  <ImageViewerModal
+    bind:isOpen={viewerOpen}
+    {photos}
+    initialIndex={viewerIndex}
+    currentUser={data.user}
+    onDelete={handleDelete}
+  />
+{/key}
 
 <UploadModal
   bind:isOpen={uploadOpen}

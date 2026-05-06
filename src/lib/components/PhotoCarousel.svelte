@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
+  import { tick } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import ImageViewerModal from './ImageViewerModal.svelte';
@@ -29,10 +30,14 @@
 
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
+  let viewerSession = $state(0);
   let uploadOpen = $state(false);
 
-  const openViewer = (index: number) => {
+  const openViewer = async (index: number) => {
     viewerIndex = index;
+    viewerSession = viewerSession + 1;
+    viewerOpen = false;
+    await tick();
     viewerOpen = true;
   };
 
@@ -115,13 +120,15 @@
   {/if}
 </div>
 
-<ImageViewerModal
-  bind:isOpen={viewerOpen}
-  {photos}
-  initialIndex={viewerIndex}
-  {currentUser}
-  onDelete={handleDelete}
-/>
+{#key viewerSession}
+  <ImageViewerModal
+    bind:isOpen={viewerOpen}
+    {photos}
+    initialIndex={viewerIndex}
+    {currentUser}
+    onDelete={handleDelete}
+  />
+{/key}
 
 <UploadModal
   bind:isOpen={uploadOpen}

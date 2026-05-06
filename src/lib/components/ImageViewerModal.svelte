@@ -25,21 +25,15 @@
     onDelete
   }: Props = $props();
 
-  // Track a user-initiated offset from initialIndex; reset to 0 when initialIndex changes
+  // Track a user-initiated offset from the clicked image while the viewer is open.
   let indexOffset = $state(0);
-  $effect(() => {
-    // When initialIndex changes, reset user's navigation offset
-    void initialIndex;
-    indexOffset = 0;
-  });
 
   let isAdmin = $derived(currentUser?.userType === 'site_admin');
 
+  const wrapIndex = (index: number, length: number) => ((index % length) + length) % length;
+
   let currentIndex = $derived(
-    Math.min(
-      (initialIndex + indexOffset + photos.length) % Math.max(1, photos.length),
-      Math.max(0, photos.length - 1)
-    )
+    photos.length === 0 ? 0 : wrapIndex(initialIndex + indexOffset, photos.length)
   );
   let isDeleting = $state(false);
   let navigationDirection = $state<-1 | 1>(1);
@@ -145,7 +139,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/90"
+    class="fixed inset-0 z-1100 flex items-center justify-center bg-black/90"
     transition:fade={{ duration: 180 }}
     onclick={(e) => {
       if (e.target === e.currentTarget && !showDeleteRequestModal) handleClose();
@@ -174,66 +168,68 @@
     {/if}
 
     <!-- Main image -->
-    <div
-      class="flex w-full max-w-screen-lg items-center justify-center px-14 py-10"
-      in:scale={{ duration: 180, start: 0.96 }}
-      out:scale={{ duration: 140, start: 0.98 }}
-    >
+    <div class="grid w-full max-w-screen-2xl place-items-center overflow-hidden px-14 py-10">
       {#key currentPhoto.id}
         <div
-          class="flex max-h-screen w-full flex-col items-center gap-3"
-          in:fly={{ x: navigationDirection * 40, duration: 220 }}
-          out:fly={{ x: navigationDirection * -40, duration: 180 }}
+          class="col-start-1 row-start-1 w-full"
+          in:scale={{ duration: 220, start: 0.96 }}
+          out:scale={{ duration: 180, start: 0.98 }}
         >
-          <img
-            src={currentPhoto.url}
-            alt={currentPhoto.shopName}
-            class="max-h-[75vh] max-w-full rounded-lg object-contain shadow-2xl"
-          />
+          <div
+            class="flex max-h-screen w-full flex-col items-center gap-3"
+            in:fly={{ x: navigationDirection * 40, duration: 220 }}
+            out:fly={{ x: navigationDirection * -40, duration: 180 }}
+          >
+            <img
+              src={currentPhoto.url}
+              alt={currentPhoto.shopName}
+              class="max-h-[75vh] max-w-full rounded-lg object-contain shadow-2xl"
+            />
 
-          <!-- Photo info bar -->
-          <div class="flex w-full items-center justify-between gap-4 text-white">
-            <div class="min-w-0 text-sm">
-              <p class="truncate text-white/80">
-                {m.shop_photos_uploaded_by({
-                  name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
-                })}
-              </p>
-              <p class="text-xs text-white/50">
-                {new Date(currentPhoto.uploadedAt).toLocaleString()}
-              </p>
-            </div>
+            <!-- Photo info bar -->
+            <div class="flex w-full items-center justify-between gap-4 text-white">
+              <div class="min-w-0 text-sm">
+                <p class="truncate text-white/80">
+                  {m.shop_photos_uploaded_by({
+                    name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
+                  })}
+                </p>
+                <p class="text-xs text-white/50">
+                  {new Date(currentPhoto.uploadedAt).toLocaleString()}
+                </p>
+              </div>
 
-            <div class="flex shrink-0 items-center gap-2">
-              {#if photos.length > 1}
-                <span class="text-sm text-white/50">{currentIndex + 1} / {photos.length}</span>
-              {/if}
-              {#if canDeleteDirectly}
-                <button
-                  class="btn btn-error btn-soft btn-sm"
-                  onclick={handleDelete}
-                  disabled={isDeleting}
-                >
-                  {#if isDeleting}
-                    <span class="loading loading-spinner loading-xs"></span>
-                  {:else}
-                    <i class="fa-solid fa-trash-can"></i>
-                  {/if}
-                  {m.delete()}
-                </button>
-              {:else if canRequestDeletion}
-                <button
-                  class="btn btn-warning btn-soft btn-sm"
-                  onclick={() => {
-                    showDeleteRequestModal = true;
-                    deleteRequestSuccess = false;
-                    deleteRequestError = '';
-                  }}
-                >
-                  <i class="fa-solid fa-flag"></i>
-                  {m.request_delete_shop()}
-                </button>
-              {/if}
+              <div class="flex shrink-0 items-center gap-2">
+                {#if photos.length > 1}
+                  <span class="text-sm text-white/50">{currentIndex + 1} / {photos.length}</span>
+                {/if}
+                {#if canDeleteDirectly}
+                  <button
+                    class="btn btn-error btn-soft btn-sm"
+                    onclick={handleDelete}
+                    disabled={isDeleting}
+                  >
+                    {#if isDeleting}
+                      <span class="loading loading-spinner loading-xs"></span>
+                    {:else}
+                      <i class="fa-solid fa-trash-can"></i>
+                    {/if}
+                    {m.delete()}
+                  </button>
+                {:else if canRequestDeletion}
+                  <button
+                    class="btn btn-warning btn-soft btn-sm"
+                    onclick={() => {
+                      showDeleteRequestModal = true;
+                      deleteRequestSuccess = false;
+                      deleteRequestError = '';
+                    }}
+                  >
+                    <i class="fa-solid fa-flag"></i>
+                    {m.request_delete_shop()}
+                  </button>
+                {/if}
+              </div>
             </div>
           </div>
         </div>
@@ -258,7 +254,7 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="fixed inset-0 z-[1110] flex items-center justify-center bg-black/60 p-4"
+      class="fixed inset-0 z-1110 flex items-center justify-center bg-black/60 p-4"
       transition:fade={{ duration: 150 }}
       onclick={(e) => {
         if (e.target === e.currentTarget) showDeleteRequestModal = false;

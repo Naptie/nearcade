@@ -5,7 +5,6 @@
   import { pageTitle } from '$lib/utils';
   import ShopForm, { type ShopFormData } from '$lib/components/ShopForm.svelte';
   import type { PageData } from './$types';
-  import type { ShopPhoto } from '$lib/types';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
 
   let { data }: { data: PageData } = $props();
@@ -29,7 +28,6 @@
   }));
 
   let successMessage = $state('');
-  let photos = $state<ShopPhoto[]>(data.photos);
 
   async function handleSubmit(formData: ShopFormData) {
     const response = await fetch(`/api/shops/${shop.id}`, {
@@ -74,6 +72,6 @@
 
   <!-- Photos section -->
   <div class="bg-base-100 border-base-300 mt-8 rounded-2xl border p-6 shadow-sm">
-    <PhotoCarousel shopId={shop.id} bind:photos currentUser={data.user} />
+    <PhotoCarousel shopId={shop.id} bind:photos={data.photos} currentUser={data.user} />
   </div>
 </div>
