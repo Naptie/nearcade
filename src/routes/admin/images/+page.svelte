@@ -8,8 +8,9 @@
 
   let { data }: { data: PageData } = $props();
 
-  let images = $state<ImageAsset[]>([...data.images]);
-  let totalCount = $state(data.totalCount);
+  let deletedImageIds = $state<string[]>([]);
+  let images = $derived(data.images.filter((image) => !deletedImageIds.includes(image.id)));
+  let totalCount = $derived(Math.max(0, data.totalCount - deletedImageIds.length));
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
 
@@ -24,8 +25,9 @@
   };
 
   const handleDelete = (image: ImageAsset) => {
-    images = images.filter((entry) => entry.id !== image.id);
-    totalCount = Math.max(0, totalCount - 1);
+    if (!deletedImageIds.includes(image.id)) {
+      deletedImageIds = [...deletedImageIds, image.id];
+    }
   };
 
   const getOwnerLabel = (image: ImageAsset) => {
@@ -98,13 +100,20 @@
               class="bg-base-200 block h-52 w-full overflow-hidden"
               onclick={() => openViewer(index)}
             >
-              <img src={image.url} alt={image.id} class="h-full w-full object-cover" loading="lazy" />
+              <img
+                src={image.url}
+                alt={image.id}
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
             </button>
 
             <div class="space-y-3 p-4">
               <div>
-                <div class="text-base-content/50 mb-1 text-xs font-medium">{m.admin_image_id()}</div>
-                <code class="block break-all text-xs">{image.id}</code>
+                <div class="text-base-content/50 mb-1 text-xs font-medium">
+                  {m.admin_image_id()}
+                </div>
+                <code class="block text-xs break-all">{image.id}</code>
               </div>
 
               <div>
@@ -118,7 +127,7 @@
                 <div class="text-base-content/50 mb-1 text-xs font-medium">
                   {m.admin_image_storage_key()}
                 </div>
-                <code class="block break-all text-xs">{image.storageKey}</code>
+                <code class="block text-xs break-all">{image.storageKey}</code>
               </div>
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">

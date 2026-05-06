@@ -1,7 +1,8 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import mongo from '$lib/db/index.server';
-import type { ImageAsset, User } from '$lib/types';
+import type { ImageAsset } from '$lib/types';
+import type { User } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import { protect, toPlainArray } from '$lib/utils';
 
@@ -42,7 +43,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   const imagesCollection = db.collection<ImageAsset>('images');
   const [images, totalCount] = await Promise.all([
-    imagesCollection.find(searchFilter).sort({ uploadedAt: -1 }).skip(skip).limit(limit + 1).toArray(),
+    imagesCollection
+      .find(searchFilter)
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(limit + 1)
+      .toArray(),
     imagesCollection.countDocuments(searchFilter)
   ]);
 
@@ -61,7 +67,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   const uploaders =
     uploaderIds.length > 0
-      ? await db.collection<User>('users').find({ id: { $in: uploaderIds } }).toArray()
+      ? await db
+          .collection<User>('users')
+          .find({ id: { $in: uploaderIds } })
+          .toArray()
       : [];
   const uploadersById = new Map(uploaders.map((uploader) => [uploader.id, protect(uploader)]));
 

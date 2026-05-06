@@ -2,13 +2,13 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { createUploadedImage, type ImageDraftContext } from '$lib/images/index.server';
+import {
+  createUploadedImage,
+  type ImageDraftContext,
+  type ImageOwnerReference
+} from '$lib/images/index.server';
 
-const getOptionalStringFromRequest = (
-  formData: FormData,
-  url: URL,
-  key: string
-) => {
+const getOptionalStringFromRequest = (formData: FormData, url: URL, key: string) => {
   const formValue = formData.get(key);
   if (typeof formValue === 'string' && formValue.trim()) {
     return formValue.trim();
