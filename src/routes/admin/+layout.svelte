@@ -79,6 +79,13 @@
       requiresSiteAdmin: true
     },
     {
+      id: 'images',
+      label: m.admin_images(),
+      icon: 'fa-images',
+      href: resolve('/admin/images'),
+      requiresSiteAdmin: true
+    },
+    {
       id: 'invites',
       label: m.admin_invites(),
       icon: 'fa-link',

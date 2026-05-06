@@ -2,15 +2,24 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { createUploadedImage, type ImageOwnerReference } from '$lib/images/index.server';
+import { createUploadedImage, type ImageDraftContext } from '$lib/images/index.server';
 
-const getOptionalString = (formData: FormData, key: keyof ImageOwnerReference) => {
-  const value = formData.get(key);
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+const getOptionalStringFromRequest = (
+  formData: FormData,
+  url: URL,
+  key: string
+) => {
+  const formValue = formData.get(key);
+  if (typeof formValue === 'string' && formValue.trim()) {
+    return formValue.trim();
+  }
+
+  const queryValue = url.searchParams.get(key);
+  return queryValue?.trim() || undefined;
 };
 
-const getOptionalShopId = (formData: FormData) => {
-  const value = getOptionalString(formData, 'shopId');
+const getOptionalShopIdFromRequest = (formData: FormData, url: URL) => {
+  const value = getOptionalStringFromRequest(formData, url, 'shopId');
   if (!value) return undefined;
 
   const shopId = Number.parseInt(value, 10);
@@ -42,11 +51,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(400, 'Only image files are allowed');
   }
 
+  const url = new URL(request.url);
   const owner: ImageOwnerReference = {
-    shopId: getOptionalShopId(formData),
-    commentId: getOptionalString(formData, 'commentId'),
-    postId: getOptionalString(formData, 'postId'),
-    deleteRequestId: getOptionalString(formData, 'deleteRequestId')
+    shopId: getOptionalShopIdFromRequest(formData, url),
+    commentId: getOptionalStringFromRequest(formData, url, 'commentId'),
+    postId: getOptionalStringFromRequest(formData, url, 'postId'),
+    deleteRequestId: getOptionalStringFromRequest(formData, url, 'deleteRequestId')
+  };
+  const draftContext: ImageDraftContext = {
+    kind: getOptionalStringFromRequest(formData, url, 'draftKind') as ImageDraftContext['kind'],
+    organizationType: getOptionalStringFromRequest(formData, url, 'organizationType') as
+      | 'university'
+      | 'club'
+      | undefined,
+    organizationId: getOptionalStringFromRequest(formData, url, 'organizationId'),
+    postId: getOptionalStringFromRequest(formData, url, 'postId'),
+    shopId: getOptionalShopIdFromRequest(formData, url),
+    deleteRequestId: getOptionalStringFromRequest(formData, url, 'deleteRequestId')
   };
 
   const arrayBuffer = await file.arrayBuffer();
@@ -71,6 +92,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         buffer,
         uploadedBy: session.user.id,
         owner,
+        draftContext,
         onProgress: (progress) => {
           const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
           streamController.enqueue(encoder.encode(line));

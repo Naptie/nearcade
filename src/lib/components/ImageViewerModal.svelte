@@ -5,6 +5,7 @@
   import { fromPath } from '$lib/utils/scoped';
   import type { ImageAsset } from '$lib/types';
   import type { User } from '$lib/auth/types';
+  import { buildImageUploadUrl } from '$lib/utils/image-upload';
   import { getDisplayName } from '$lib/utils';
   import { browser } from '$app/environment';
 
@@ -416,7 +417,10 @@
                   title={m.evidence_images()}
                   titleClass="label-text text-current/60"
                   uploadLabel={m.upload_image()}
-                  uploadUrl={fromPath('/api/images')}
+                  uploadUrl={buildImageUploadUrl({
+                    draftKind: 'shop-delete-request',
+                    shopId: currentPhoto?.shopId
+                  })}
                   allowDeleteRequest={false}
                   showEmptyState={false}
                   onDeletePhoto={handleDeleteRequestImageDelete}

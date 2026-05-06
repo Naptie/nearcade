@@ -10,6 +10,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { render } from '$lib/utils/markdown';
   import MarkdownEditor from './MarkdownEditor.svelte';
+  import { buildImageUploadUrl } from '$lib/utils/image-upload';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
@@ -262,7 +263,7 @@
             disabled={isSavingEdit}
             minHeight="min-h-[100px]"
             {currentUser}
-            imageUploadUrl={fromPath('/api/images')}
+            imageUploadUrl={buildImageUploadUrl({ commentId: comment.id })}
             persistedImageIds={comment.images ?? []}
           />
           <div class="flex justify-end gap-2">

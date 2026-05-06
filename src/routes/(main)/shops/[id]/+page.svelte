@@ -38,6 +38,7 @@
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
+  import { buildImageUploadUrl } from '$lib/utils/image-upload';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
   import { flip } from 'svelte/animate';
   import { fade } from 'svelte/transition';
@@ -1768,7 +1769,10 @@
                 disabled={isSubmittingComment}
                 minHeight="min-h-[100px]"
                 currentUser={data.user}
-                imageUploadUrl={fromPath('/api/images')}
+                imageUploadUrl={buildImageUploadUrl({
+                  draftKind: 'shop-comment',
+                  shopId: shop.id
+                })}
               />
 
               <div class="mt-3 flex justify-end">
@@ -1838,7 +1842,10 @@
                         disabled={isSubmittingReply}
                         minHeight="min-h-[100px]"
                         currentUser={data.user}
-                        imageUploadUrl={fromPath('/api/images')}
+                        imageUploadUrl={buildImageUploadUrl({
+                          draftKind: 'shop-comment',
+                          shopId: shop.id
+                        })}
                       />
 
                       <div class="mt-3 flex items-center justify-end">
@@ -2051,7 +2058,10 @@
           title={m.evidence_images()}
           titleClass="label-text text-current/60"
           uploadLabel={m.upload_image()}
-          uploadUrl={fromPath('/api/images')}
+          uploadUrl={buildImageUploadUrl({
+            draftKind: 'shop-delete-request',
+            shopId: shop.id
+          })}
           allowDeleteRequest={false}
           showEmptyState={deleteRequestAttachments.length > 0}
           onPhotoDeleted={(photo) => {

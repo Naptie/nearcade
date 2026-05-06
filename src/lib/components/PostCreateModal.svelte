@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import type { User } from '$lib/auth/types';
+  import { buildImageUploadUrl } from '$lib/utils/image-upload';
   import { getDefaultPostReadability } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { PostReadability, type ImageAsset } from '$lib/types';
@@ -197,7 +198,11 @@
         disabled={isSubmitting}
         minHeight="min-h-32"
         {currentUser}
-        imageUploadUrl={fromPath('/api/images')}
+        imageUploadUrl={buildImageUploadUrl({
+          draftKind: 'post',
+          organizationType,
+          organizationId
+        })}
         appendUploadedImagesToMarkdown={true}
       />
     </div>

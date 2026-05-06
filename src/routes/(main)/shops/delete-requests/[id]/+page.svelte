@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { pageTitle } from '$lib/utils';
+  import { buildImageUploadUrl } from '$lib/utils/image-upload';
   import { goto, invalidateAll } from '$app/navigation';
   import Comment from '$lib/components/Comment.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
@@ -595,7 +596,10 @@
           disabled={isSubmittingComment}
           minHeight="min-h-[100px]"
           currentUser={data.user}
-          imageUploadUrl={fromPath('/api/images')}
+          imageUploadUrl={buildImageUploadUrl({
+            draftKind: 'delete-request-comment',
+            deleteRequestId: req.id
+          })}
         />
 
         <div class="mt-3 flex items-end justify-between gap-3">
@@ -672,7 +676,10 @@
                   disabled={isSubmittingReply}
                   minHeight="min-h-[100px]"
                   currentUser={data.user}
-                  imageUploadUrl={fromPath('/api/images')}
+                  imageUploadUrl={buildImageUploadUrl({
+                    draftKind: 'delete-request-comment',
+                    deleteRequestId: req.id
+                  })}
                 />
 
                 <div class="mt-3 flex items-center justify-end">

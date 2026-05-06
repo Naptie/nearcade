@@ -20,6 +20,7 @@ export interface CreateUploadedImageOptions {
   buffer: Buffer<ArrayBufferLike>;
   uploadedBy: string;
   owner?: ImageOwnerReference;
+  draftContext?: ImageDraftContext;
   onProgress: (progress: number) => void;
 }
 
@@ -27,6 +28,20 @@ export interface ImageMutationAccess {
   userId: string;
   userType?: string;
   skipPermissionCheck?: boolean;
+}
+
+export interface ImageDraftContext {
+  kind?:
+    | 'post'
+    | 'post-comment'
+    | 'shop-comment'
+    | 'shop-delete-request'
+    | 'delete-request-comment';
+  organizationType?: 'university' | 'club';
+  organizationId?: string;
+  postId?: string;
+  shopId?: number;
+  deleteRequestId?: string;
 }
 
 export const IMAGES_COLLECTION = 'images';
@@ -57,11 +72,51 @@ const assertValidOwnerReference = (owner: ImageOwnerReference = {}, requireOwner
   }
 };
 
-const getImageFolder = (owner: ImageOwnerReference, uploadedBy: string) => {
+const getDraftImageFolder = (draftContext: ImageDraftContext, uploadedBy: string) => {
+  switch (draftContext.kind) {
+    case 'post':
+      if (draftContext.organizationType && draftContext.organizationId) {
+        return `${draftContext.organizationType}s/${draftContext.organizationId}/posts`;
+      }
+      return `posts/${uploadedBy}`;
+    case 'post-comment':
+      if (draftContext.postId) {
+        return `posts/${draftContext.postId}/comments`;
+      }
+      return `comments/${uploadedBy}`;
+    case 'shop-comment':
+      if (draftContext.shopId !== undefined) {
+        return `shops/${draftContext.shopId}/comments`;
+      }
+      return `comments/${uploadedBy}`;
+    case 'shop-delete-request':
+      if (draftContext.shopId !== undefined) {
+        return `shops/${draftContext.shopId}/delete-requests`;
+      }
+      if (draftContext.deleteRequestId) {
+        return `delete-requests/${draftContext.deleteRequestId}`;
+      }
+      return `delete-requests/${uploadedBy}`;
+    case 'delete-request-comment':
+      if (draftContext.deleteRequestId) {
+        return `delete-requests/${draftContext.deleteRequestId}/comments`;
+      }
+      return `delete-requests/${uploadedBy}/comments`;
+    default:
+      return `drafts/${uploadedBy}`;
+  }
+};
+
+const getImageFolder = (
+  owner: ImageOwnerReference,
+  uploadedBy: string,
+  draftContext?: ImageDraftContext
+) => {
   if (owner.shopId !== undefined) return `shops/${owner.shopId}`;
   if (owner.commentId) return `comments/${owner.commentId}`;
   if (owner.postId) return `posts/${owner.postId}`;
   if (owner.deleteRequestId) return `delete-requests/${owner.deleteRequestId}`;
+  if (draftContext) return getDraftImageFolder(draftContext, uploadedBy);
   return `drafts/${uploadedBy}`;
 };
 
@@ -168,11 +223,12 @@ export const buildImageStorageKey = (
   fileName: string,
   mimeType: string,
   uploadedBy: string,
-  owner: ImageOwnerReference = {}
+  owner: ImageOwnerReference = {},
+  draftContext?: ImageDraftContext
 ) => {
   const normalizedOwner = normalizeOwner(owner);
   const extension = getImageExtension(fileName, mimeType);
-  return `${IMAGE_STORAGE_PREFIX}/images/${getImageFolder(normalizedOwner, uploadedBy)}/${imageId}.${extension}`;
+  return `${IMAGE_STORAGE_PREFIX}/images/${getImageFolder(normalizedOwner, uploadedBy, draftContext)}/${imageId}.${extension}`;
 };
 
 export const createUploadedImage = async ({
@@ -182,13 +238,21 @@ export const createUploadedImage = async ({
   buffer,
   uploadedBy,
   owner = {},
+  draftContext,
   onProgress
 }: CreateUploadedImageOptions) => {
   assertValidOwnerReference(owner);
 
   const normalizedOwner = normalizeOwner(owner);
   const imageId = nanoid();
-  const storageKey = buildImageStorageKey(imageId, fileName, mimeType, uploadedBy, normalizedOwner);
+  const storageKey = buildImageStorageKey(
+    imageId,
+    fileName,
+    mimeType,
+    uploadedBy,
+    normalizedOwner,
+    draftContext
+  );
   const uploadedFile = await uploadFile(storageKey, buffer, onProgress);
 
   const image: ImageAsset = {

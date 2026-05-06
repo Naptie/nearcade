@@ -21,6 +21,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
   import { stripPostImageMarkdownByIds } from '$lib/utils/image-markdown';
+  import { buildImageUploadUrl } from '$lib/utils/image-upload';
   import { getDisplayName, getFnsLocale, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getLocale } from '$lib/paraglide/runtime';
@@ -657,7 +658,9 @@
             disabled={isSavingPost}
             minHeight="min-h-48"
             currentUser={canManagePostImages ? currentUser : undefined}
-            imageUploadUrl={canManagePostImages ? fromPath('/api/images') : undefined}
+            imageUploadUrl={canManagePostImages
+              ? buildImageUploadUrl({ postId: localPost.id })
+              : undefined}
             persistedImageIds={localPost.images ?? []}
             appendUploadedImagesToMarkdown={true}
           />
@@ -829,7 +832,10 @@
             disabled={isSubmittingComment}
             minHeight="min-h-[100px]"
             {currentUser}
-            imageUploadUrl={fromPath('/api/images')}
+            imageUploadUrl={buildImageUploadUrl({
+              draftKind: 'post-comment',
+              postId: localPost.id
+            })}
           />
 
           <div class="mt-3 flex justify-end">
@@ -913,7 +919,10 @@
                     disabled={isSubmittingReply}
                     minHeight="min-h-[100px]"
                     {currentUser}
-                    imageUploadUrl={fromPath('/api/images')}
+                    imageUploadUrl={buildImageUploadUrl({
+                      draftKind: 'post-comment',
+                      postId: localPost.id
+                    })}
                   />
 
                   <div class="mt-3 flex items-center justify-end">
