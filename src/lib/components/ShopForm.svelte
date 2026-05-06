@@ -6,6 +6,7 @@
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import { getSupportedCountryByName, SUPPORTED_COUNTRIES } from '$lib/countries';
+  import { getGameName } from '$lib/utils';
   import type { OpeningHourTime } from '$lib/types';
 
   // ---- Types ----
@@ -507,15 +508,42 @@
     )
   );
 
+  function getGameTitleName(titleId: number) {
+    return getGameName(titleId) ?? '';
+  }
+
   function addGame() {
+    const defaultTitleId = GAMES[0]?.id ?? 0;
     games = [
       ...games,
-      { titleId: GAMES[0].id, name: '', version: '', comment: '', cost: '', quantity: 1 }
+      {
+        titleId: defaultTitleId,
+        name: getGameTitleName(defaultTitleId),
+        version: '',
+        comment: '',
+        cost: '',
+        quantity: 1
+      }
     ];
   }
 
   function removeGame(idx: number) {
     games = games.filter((_, i) => i !== idx);
+  }
+
+  function handleGameTitleChange(idx: number, nextTitleId: number) {
+    const game = games[idx];
+    if (!game) return;
+
+    const previousTitleName = getGameTitleName(game.titleId);
+    const nextTitleName = getGameTitleName(nextTitleId);
+    const currentName = game.name.trim();
+
+    game.titleId = nextTitleId;
+
+    if (!currentName || currentName === previousTitleName) {
+      game.name = nextTitleName;
+    }
   }
 
   // ---- Submit ----
@@ -839,7 +867,9 @@
           <select
             id="shop-game-title-{idx}"
             class="select select-bordered w-full"
-            bind:value={game.titleId}
+            value={game.titleId}
+            onchange={(e) =>
+              handleGameTitleChange(idx, Number((e.target as HTMLSelectElement).value))}
           >
             <option value={0}>{m.shop_select_game_title()}</option>
             {#each GAMES as g (g.id)}

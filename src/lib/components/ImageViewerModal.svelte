@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { onMount, onDestroy } from 'svelte';
+  import { fade, fly, scale } from 'svelte/transition';
   import { fromPath } from '$lib/utils/scoped';
   import type { ShopPhoto } from '$lib/types';
   import type { User } from '$lib/auth/types';
@@ -41,6 +42,7 @@
     )
   );
   let isDeleting = $state(false);
+  let navigationDirection = $state<-1 | 1>(1);
 
   // Photo delete request modal state
   let showDeleteRequestModal = $state(false);
@@ -57,12 +59,14 @@
 
   const prev = () => {
     if (photos.length > 1) {
+      navigationDirection = -1;
       indexOffset = indexOffset - 1;
     }
   };
 
   const next = () => {
     if (photos.length > 1) {
+      navigationDirection = 1;
       indexOffset = indexOffset + 1;
     }
   };
@@ -85,8 +89,8 @@
         onDelete?.(currentPhoto);
         if (photos.length <= 1) {
           handleClose();
-        } else {
-          currentIndex = Math.min(currentIndex, photos.length - 2);
+        } else if (currentIndex >= photos.length - 1) {
+          indexOffset = indexOffset - 1;
         }
       }
     } finally {
@@ -141,7 +145,8 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+    class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/90"
+    transition:fade={{ duration: 180 }}
     onclick={(e) => {
       if (e.target === e.currentTarget && !showDeleteRequestModal) handleClose();
     }}
@@ -151,6 +156,7 @@
       class="btn btn-ghost btn-circle absolute top-4 right-4 text-white"
       onclick={handleClose}
       aria-label={m.close()}
+      transition:fade={{ duration: 180 }}
     >
       <i class="fa-solid fa-xmark text-xl"></i>
     </button>
@@ -161,64 +167,77 @@
         class="btn btn-ghost btn-circle absolute top-1/2 left-4 -translate-y-1/2 text-white"
         onclick={prev}
         aria-label="Previous"
+        transition:fade={{ duration: 180 }}
       >
         <i class="fa-solid fa-chevron-left text-xl"></i>
       </button>
     {/if}
 
     <!-- Main image -->
-    <div class="flex max-h-screen max-w-screen-lg flex-col items-center gap-3 p-14">
-      <img
-        src={currentPhoto.url}
-        alt={currentPhoto.shopName}
-        class="max-h-[75vh] max-w-full rounded-lg object-contain shadow-2xl"
-      />
+    <div
+      class="flex w-full max-w-screen-lg items-center justify-center px-14 py-10"
+      in:scale={{ duration: 180, start: 0.96 }}
+      out:scale={{ duration: 140, start: 0.98 }}
+    >
+      {#key currentPhoto.id}
+        <div
+          class="flex max-h-screen w-full flex-col items-center gap-3"
+          in:fly={{ x: navigationDirection * 40, duration: 220 }}
+          out:fly={{ x: navigationDirection * -40, duration: 180 }}
+        >
+          <img
+            src={currentPhoto.url}
+            alt={currentPhoto.shopName}
+            class="max-h-[75vh] max-w-full rounded-lg object-contain shadow-2xl"
+          />
 
-      <!-- Photo info bar -->
-      <div class="flex w-full items-center justify-between gap-4 text-white">
-        <div class="min-w-0 text-sm">
-          <p class="truncate text-white/80">
-            {m.shop_photos_uploaded_by({
-              name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
-            })}
-          </p>
-          <p class="text-xs text-white/50">
-            {new Date(currentPhoto.uploadedAt).toLocaleString()}
-          </p>
-        </div>
+          <!-- Photo info bar -->
+          <div class="flex w-full items-center justify-between gap-4 text-white">
+            <div class="min-w-0 text-sm">
+              <p class="truncate text-white/80">
+                {m.shop_photos_uploaded_by({
+                  name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
+                })}
+              </p>
+              <p class="text-xs text-white/50">
+                {new Date(currentPhoto.uploadedAt).toLocaleString()}
+              </p>
+            </div>
 
-        <div class="flex shrink-0 items-center gap-2">
-          {#if photos.length > 1}
-            <span class="text-sm text-white/50">{currentIndex + 1} / {photos.length}</span>
-          {/if}
-          {#if canDeleteDirectly}
-            <button
-              class="btn btn-error btn-soft btn-sm"
-              onclick={handleDelete}
-              disabled={isDeleting}
-            >
-              {#if isDeleting}
-                <span class="loading loading-spinner loading-xs"></span>
-              {:else}
-                <i class="fa-solid fa-trash-can"></i>
+            <div class="flex shrink-0 items-center gap-2">
+              {#if photos.length > 1}
+                <span class="text-sm text-white/50">{currentIndex + 1} / {photos.length}</span>
               {/if}
-              {m.delete()}
-            </button>
-          {:else if canRequestDeletion}
-            <button
-              class="btn btn-warning btn-soft btn-sm"
-              onclick={() => {
-                showDeleteRequestModal = true;
-                deleteRequestSuccess = false;
-                deleteRequestError = '';
-              }}
-            >
-              <i class="fa-solid fa-flag"></i>
-              {m.request_delete_shop()}
-            </button>
-          {/if}
+              {#if canDeleteDirectly}
+                <button
+                  class="btn btn-error btn-soft btn-sm"
+                  onclick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {#if isDeleting}
+                    <span class="loading loading-spinner loading-xs"></span>
+                  {:else}
+                    <i class="fa-solid fa-trash-can"></i>
+                  {/if}
+                  {m.delete()}
+                </button>
+              {:else if canRequestDeletion}
+                <button
+                  class="btn btn-warning btn-soft btn-sm"
+                  onclick={() => {
+                    showDeleteRequestModal = true;
+                    deleteRequestSuccess = false;
+                    deleteRequestError = '';
+                  }}
+                >
+                  <i class="fa-solid fa-flag"></i>
+                  {m.request_delete_shop()}
+                </button>
+              {/if}
+            </div>
+          </div>
         </div>
-      </div>
+      {/key}
     </div>
 
     <!-- Next button -->
@@ -227,6 +246,7 @@
         class="btn btn-ghost btn-circle absolute top-1/2 right-4 -translate-y-1/2 text-white"
         onclick={next}
         aria-label="Next"
+        transition:fade={{ duration: 180 }}
       >
         <i class="fa-solid fa-chevron-right text-xl"></i>
       </button>
@@ -238,7 +258,8 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4"
+      class="fixed inset-0 z-[1110] flex items-center justify-center bg-black/60 p-4"
+      transition:fade={{ duration: 150 }}
       onclick={(e) => {
         if (e.target === e.currentTarget) showDeleteRequestModal = false;
       }}
