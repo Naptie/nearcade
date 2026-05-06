@@ -325,7 +325,7 @@ const getRollbackEntries = async (
 
   const filter: Filter<ShopChangelogEntry> = { shopId };
   if (targetCreatedAt) {
-    filter.createdAt = { $gt: targetCreatedAt };
+    filter.createdAt = { $gte: targetCreatedAt };
   }
 
   return collection.find(filter).sort({ createdAt: -1 }).toArray();

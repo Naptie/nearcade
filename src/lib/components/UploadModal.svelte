@@ -27,6 +27,7 @@
   let fileInput = $state<HTMLInputElement | null>(null);
   let selectedFile = $state<File | null>(null);
   let previewUrl = $state<string | null>(null);
+  let isDragOver = $state(false);
 
   // Upload phase tracking
   // 'idle' | 'uploading-to-server' | 'uploading-to-oss' | 'done' | 'error'
@@ -39,9 +40,7 @@
 
   let isUploading = $derived(phase === 'uploading-to-server' || phase === 'uploading-to-oss');
 
-  const handleFileChange = (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+  const selectFile = (file: File | null) => {
     selectedFile = file;
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -49,6 +48,31 @@
     }
     if (file) {
       previewUrl = URL.createObjectURL(file);
+    }
+  };
+
+  const handleFileChange = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    selectFile(input.files?.[0] ?? null);
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    isDragOver = false;
+    if (isUploading || phase === 'done') return;
+    const file = e.dataTransfer?.files?.[0] ?? null;
+    if (file) selectFile(file);
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    if (!isUploading && phase !== 'done') isDragOver = true;
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    // Only clear if leaving the drop zone entirely (not entering a child)
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) {
+      isDragOver = false;
     }
   };
 
@@ -62,6 +86,7 @@
     browserServerProgress = 0;
     serverOssProgress = 0;
     errorMessage = '';
+    isDragOver = false;
     if (fileInput) fileInput.value = '';
   };
 
@@ -204,21 +229,29 @@
       </div>
 
       {#if phase === 'idle' || phase === 'error'}
-        <!-- File picker area -->
+        <!-- File picker / drop zone area -->
         <div
-          class="border-base-300 hover:border-primary mb-4 flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 transition-colors"
+          class="border-base-300 mb-4 flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 transition-colors {isDragOver
+            ? 'border-primary bg-primary/10'
+            : 'hover:border-primary'}"
           onclick={() => fileInput?.click()}
           onkeydown={(e) => e.key === 'Enter' && fileInput?.click()}
+          ondrop={handleDrop}
+          ondragover={handleDragOver}
+          ondragleave={handleDragLeave}
           role="button"
           tabindex="0"
         >
           {#if previewUrl}
             <img src={previewUrl} alt="Preview" class="max-h-48 rounded-lg object-contain shadow" />
             <span class="text-base-content/60 text-sm">{selectedFile?.name}</span>
+          {:else if isDragOver}
+            <i class="fa-solid fa-file-arrow-down text-primary text-4xl"></i>
+            <span class="text-primary text-sm font-medium">{m.drop_file_here()}</span>
           {:else}
             <i class="fa-solid fa-image text-base-content/30 text-4xl"></i>
             <span class="text-base-content/60 text-sm">
-              {m.upload_an_image()}
+              {m.upload_click_or_drag()}
             </span>
           {/if}
         </div>

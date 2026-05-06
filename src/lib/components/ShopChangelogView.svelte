@@ -528,4 +528,31 @@
   :global(.rollback-diff-pane .d2h-code-line:hover) {
     background: color-mix(in oklab, var(--color-base-content) 7%, var(--color-base-100));
   }
+
+  /* ── Inline character-level highlights (ins/del inside diff lines) ───────── */
+  /* diff2html emits <ins> inside .d2h-del rows and <del> inside .d2h-ins rows  */
+  /* to mark the exact characters that changed. Override its hardcoded colours. */
+  :global(.rollback-diff-pane .d2h-del ins),
+  :global(.rollback-diff-pane .d2h-code-side-line.d2h-del ins),
+  :global(.rollback-diff-pane td.d2h-del ins) {
+    background: color-mix(in oklab, var(--color-error) 45%, transparent) !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    border-radius: 2px;
+  }
+
+  :global(.rollback-diff-pane .d2h-ins del),
+  :global(.rollback-diff-pane .d2h-code-side-line.d2h-ins del),
+  :global(.rollback-diff-pane td.d2h-ins del) {
+    background: color-mix(in oklab, var(--color-success) 45%, transparent) !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    border-radius: 2px;
+  }
+
+  /* Neutral (context) lines in each side panel keep the base background */
+  :global(.rollback-diff-pane .d2h-cntx) {
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+  }
 </style>
