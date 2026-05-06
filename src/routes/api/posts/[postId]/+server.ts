@@ -6,6 +6,7 @@ import {
   type PostWithAuthor,
   type PostVote,
   type Comment,
+  type CommentVote,
   type CommentWithAuthorAndVote,
   type University,
   type Club,
@@ -20,6 +21,13 @@ import {
   protect
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
+import {
+  deleteImagesByIds,
+  deleteImagesForOwner,
+  hydrateEntitiesWithImages,
+  normalizeImageIds,
+  replaceOwnerImages
+} from '$lib/images/index.server';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -67,7 +75,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       error(404, m.post_not_found());
     }
 
-    const post = { ...postResult[0], author: protect(postResult[0].author) };
+    const [post] = await hydrateEntitiesWithImages(db, [
+      { ...postResult[0], author: protect(postResult[0].author) }
+    ]);
 
     // Check if user can read this post based on its readability setting
     const canRead = await canReadPost(
@@ -133,6 +143,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       ])
       .toArray()
       .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
+    const hydratedComments = await hydrateEntitiesWithImages(db, comments);
 
     // Get user's vote if logged in
     let userVote = null;
@@ -147,7 +158,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
     return json({
       post,
-      comments,
+      comments: hydratedComments,
       userVote
     });
   } catch (err) {
@@ -172,13 +183,15 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_post_id());
     }
 
-    const { title, content, readability, isPinned, isLocked } = (await request.json()) as {
+    const { title, content, readability, isPinned, isLocked, images } = (await request.json()) as {
       title?: string;
       content?: string;
       readability?: PostReadability;
       isPinned?: boolean;
       isLocked?: boolean;
+      images?: unknown;
     };
+    const normalizedImageIds = images === undefined ? undefined : normalizeImageIds(images);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -215,7 +228,8 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Determine what type of update this is
-    const isContentUpdate = title !== undefined || content !== undefined;
+    const isContentUpdate =
+      title !== undefined || content !== undefined || normalizedImageIds !== undefined;
     const isManagementUpdate = isPinned !== undefined || isLocked !== undefined;
 
     // Check permissions for content updates (owner or canEdit)
@@ -247,14 +261,40 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(403, m.permission_denied());
     }
 
+    const trimmedTitle = title?.trim();
+    const trimmedContent = content?.trim();
+    const nextTitle = trimmedTitle ?? post.title;
+    const nextContent = trimmedContent ?? post.content;
+    const nextImageIds = normalizedImageIds ?? post.images ?? [];
+
+    if (isContentUpdate) {
+      if (!nextTitle) {
+        error(400, m.title_and_content_are_required());
+      }
+
+      if (!nextContent && nextImageIds.length === 0) {
+        error(400, m.title_and_content_are_required());
+      }
+    }
+
     // Build update object
     const updateData: Partial<Post> = {};
 
     if (title !== undefined) {
-      updateData.title = title;
+      updateData.title = nextTitle;
     }
     if (content !== undefined) {
-      updateData.content = content;
+      updateData.content = nextContent;
+    }
+    if (normalizedImageIds !== undefined) {
+      await replaceOwnerImages(
+        db,
+        post.images ?? [],
+        normalizedImageIds,
+        { postId },
+        { userId: session.user.id, userType: session.user.userType }
+      );
+      updateData.images = normalizedImageIds;
     }
     if (readability !== undefined) {
       updateData.readability = readability;
@@ -330,9 +370,41 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       error(403, m.permission_denied());
     }
 
-    // Delete all comments associated with this post
-    const commentsCollection = db.collection('comments');
+    const commentsCollection = db.collection<Comment>('comments');
+    const comments = await commentsCollection
+      .find({ postId: postId })
+      .project({ id: 1, images: 1 })
+      .toArray();
+    const commentIds = comments.map((comment) => comment.id);
+    const commentImageIds = comments.flatMap((comment) => comment.images ?? []);
+
+    if ((post.images?.length ?? 0) > 0) {
+      await deleteImagesForOwner(
+        db,
+        { postId },
+        {
+          userId: session.user.id,
+          userType: session.user.userType,
+          skipPermissionCheck: true
+        }
+      );
+    }
+
+    if (commentImageIds.length > 0) {
+      await deleteImagesByIds(db, commentImageIds, {
+        userId: session.user.id,
+        userType: session.user.userType,
+        skipPermissionCheck: true
+      });
+    }
+
     await commentsCollection.deleteMany({ postId: postId });
+
+    if (commentIds.length > 0) {
+      await db
+        .collection<CommentVote>('comment_votes')
+        .deleteMany({ commentId: { $in: commentIds } });
+    }
 
     // Delete all votes associated with this post
     const votesCollection = db.collection('post_votes');

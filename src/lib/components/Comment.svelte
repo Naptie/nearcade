@@ -1,12 +1,14 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
-  import type { CommentWithAuthorAndVote, ShopDeleteRequestVoteType } from '$lib/types';
+  import type { CommentWithAuthorAndVote, ImageAsset, ShopDeleteRequestVoteType } from '$lib/types';
+  import type { User } from '$lib/auth/types';
+  import { fromPath } from '$lib/utils/scoped';
   import UserAvatar from './UserAvatar.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
+  import PhotoCarousel from './PhotoCarousel.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { render } from '$lib/utils/markdown';
-  import { onMount } from 'svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { resolve } from '$app/paths';
@@ -16,10 +18,11 @@
   interface Props {
     comment: CommentWithAuthorAndVote;
     currentUserId?: string;
+    currentUser?: User | undefined;
     canReply?: boolean;
     canEdit?: boolean;
     onReply?: (commentId: string) => void;
-    onEdit?: (commentId: string, newContent: string) => Promise<void>;
+    onEdit?: (commentId: string, newContent: string, imageIds: string[]) => Promise<void>;
     onDelete?: (commentId: string) => void;
     onVote?: (commentId: string, voteType: 'upvote' | 'downvote') => void;
     isPostRendered: boolean;
@@ -30,6 +33,7 @@
   let {
     comment,
     currentUserId,
+    currentUser = undefined,
     canReply: canReplyGeneral = false,
     canEdit = false,
     onReply,
@@ -44,7 +48,9 @@
   let content = $state('');
   let showMenu = $state(false);
   let isEditing = $state(false);
-  let editContent = $derived(comment.content);
+  let editContent = $state('');
+  let editImageIds = $state<string[]>([]);
+  let editAttachments = $state<ImageAsset[]>([]);
   let isSavingEdit = $state(false);
   let showDeleteConfirm = $state(false);
   let showHighlight = $state(false);
@@ -69,15 +75,39 @@
     }
   };
 
-  const startEditing = () => {
-    isEditing = true;
+  const resetEditState = () => {
     editContent = comment.content;
+    editImageIds = comment.images ? [...comment.images] : [];
+    editAttachments = comment.resolvedImages ? [...comment.resolvedImages] : [];
+  };
+
+  const cleanupDraftImages = async (imageIds: string[]) => {
+    await Promise.all(
+      imageIds.map(async (imageId) => {
+        try {
+          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
+        } catch (error) {
+          console.error('Failed to delete draft image:', error);
+        }
+      })
+    );
+  };
+
+  const startEditing = () => {
+    resetEditState();
+    isEditing = true;
     showMenu = false;
   };
 
   const cancelEditing = () => {
+    const originalImageIdSet = new Set(comment.images ?? []);
+    const addedDraftImageIds = editImageIds.filter((imageId) => !originalImageIdSet.has(imageId));
+    if (addedDraftImageIds.length > 0) {
+      void cleanupDraftImages(addedDraftImageIds);
+    }
+
     isEditing = false;
-    editContent = comment.content;
+    resetEditState();
   };
 
   const handleReply = () => {
@@ -99,14 +129,16 @@
   };
 
   const saveEdit = async () => {
-    if (!onEdit || !editContent.trim()) return;
+    const trimmedContent = editContent.trim();
+    if (!onEdit || (!trimmedContent && editImageIds.length === 0)) return;
 
     isSavingEdit = true;
     try {
-      await onEdit(comment.id, editContent.trim());
+      await onEdit(comment.id, trimmedContent, editImageIds);
       isEditing = false;
-      comment.content = editContent.trim();
-      // Re-render markdown content
+      comment.content = trimmedContent;
+      comment.images = [...editImageIds];
+      comment.resolvedImages = [...editAttachments];
       content = await render(comment.content);
     } catch (error) {
       console.error('Failed to save comment edit:', error);
@@ -115,8 +147,10 @@
     }
   };
 
-  onMount(async () => {
-    content = await render(comment.content);
+  $effect(() => {
+    render(comment.content).then((html) => {
+      content = html;
+    });
   });
 
   $effect(() => {
@@ -222,9 +256,14 @@
         <div class="space-y-3">
           <MarkdownEditor
             bind:value={editContent}
+            bind:attachments={editAttachments}
+            bind:imageIds={editImageIds}
             placeholder={m.comment_placeholder()}
             disabled={isSavingEdit}
             minHeight="min-h-[100px]"
+            {currentUser}
+            imageUploadUrl={fromPath('/api/images')}
+            persistedImageIds={comment.images ?? []}
           />
           <div class="flex justify-end gap-2">
             <button
@@ -239,7 +278,7 @@
               type="button"
               class="btn btn-soft btn-primary btn-sm"
               onclick={saveEdit}
-              disabled={isSavingEdit || !editContent.trim()}
+              disabled={isSavingEdit || (!editContent.trim() && editImageIds.length === 0)}
             >
               {#if isSavingEdit}
                 <span class="loading loading-spinner loading-xs"></span>
@@ -249,8 +288,28 @@
           </div>
         </div>
       {:else}
-        <div class="prose not-md:prose-xs md:prose-sm max-w-none overflow-x-auto break-all">
-          {@html content}
+        <div class="space-y-3">
+          {#if comment.content}
+            <div class="prose not-md:prose-xs md:prose-sm max-w-none overflow-x-auto break-all">
+              {@html content}
+            </div>
+          {/if}
+
+          {#if (comment.resolvedImages?.length ?? 0) > 0}
+            <PhotoCarousel
+              photos={comment.resolvedImages ?? []}
+              {currentUser}
+              title=""
+              allowDeleteRequest={false}
+              showEmptyState={false}
+              onPhotoDeleted={(photo) => {
+                comment.images = (comment.images ?? []).filter((imageId) => imageId !== photo.id);
+                comment.resolvedImages = (comment.resolvedImages ?? []).filter(
+                  (image) => image.id !== photo.id
+                );
+              }}
+            />
+          {/if}
         </div>
       {/if}
 

@@ -651,6 +651,7 @@
               organizationReadability={clubDataResolved.club.postReadability}
               canManage={userPrivileges.canManage}
               currentUserId={data.user?.id}
+              currentUser={data.user ?? undefined}
               canCreatePost={clubDataResolved.canWritePosts}
               initialPosts={[]}
             />

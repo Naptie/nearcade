@@ -11,6 +11,7 @@ import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
+import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -98,6 +99,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         ])
         .toArray()
         .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
+      const hydratedComments = await hydrateEntitiesWithImages(db, comments);
 
       // Load pending delete request for this shop
       const pendingDeleteRequest = await db
@@ -106,7 +108,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
       // Load photos (up to 20 for the carousel) with uploader data joined
       const photos = await db
-        .collection<ShopPhoto>('shop_photos')
+        .collection<ShopPhoto>('images')
         .aggregate<ShopPhoto>([
           { $match: { shopId } },
           { $sort: { uploadedAt: -1 } },
@@ -132,7 +134,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         currentAttendance: userAttendance
           ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
           : null,
-        comments: toPlainArray(comments),
+        comments: toPlainArray(hydratedComments),
         pendingDeleteRequest: pendingDeleteRequest ? toPlainObject(pendingDeleteRequest) : null,
         photos: toPlainArray(photos)
       };

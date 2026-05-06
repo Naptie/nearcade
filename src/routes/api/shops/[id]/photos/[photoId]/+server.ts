@@ -1,9 +1,10 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { ShopPhoto } from '$lib/types';
+import type { Shop, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
+import { deleteFile } from '$lib/oss/index';
 
 /**
  * DELETE /api/shops/:id/photos/:photoId
@@ -23,9 +24,16 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   }
 
   const db = mongo.db();
-  const photo = await db.collection<ShopPhoto>('shop_photos').findOne({ id: photoId, shopId });
+  const [shop, photo] = await Promise.all([
+    db.collection<Shop>('shops').findOne({ id: shopId }),
+    db.collection<ShopPhoto>('images').findOne({ id: photoId, shopId })
+  ]);
+
   if (!photo) {
     error(404, m.shop_photo_not_found());
+  }
+  if (!shop) {
+    error(404, m.shop_not_found());
   }
 
   const isAdmin = session.user.userType === 'site_admin';
@@ -35,13 +43,14 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     error(403, m.insufficient_permissions());
   }
 
-  await db.collection('shop_photos').deleteOne({ id: photoId });
+  await deleteFile(photo);
+  await db.collection('images').deleteOne({ id: photoId });
 
   // Log to shop changelog (non-fatal)
   try {
     await logShopChange(mongo, {
       shopId,
-      shopName: photo.shopName,
+      shopName: shop.name,
       action: 'photo_deleted',
       user: { id: session.user.id, name: session.user.name, image: session.user.image },
       fieldInfo: { field: 'photo', photoId, photoUrl: photo.url },

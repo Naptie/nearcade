@@ -5,6 +5,11 @@ import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
 import { commentId, protect, toPlainArray } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import {
+  attachImagesToOwner,
+  hydrateEntitiesWithImages,
+  normalizeImageIds
+} from '$lib/images/index.server';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -68,7 +73,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       .toArray()
       .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
 
-    return json(toPlainArray(comments));
+    const hydratedComments = await hydrateEntitiesWithImages(db, comments);
+
+    return json(toPlainArray(hydratedComments));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -88,11 +95,15 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const { id } = params;
     const shopId = parseInt(id);
 
-    const { content, parentCommentId } = (await request.json()) as {
+    const { content, parentCommentId, images } = (await request.json()) as {
       content: string;
       parentCommentId?: string;
+      images?: unknown;
     };
-    if (!content || !content.trim()) {
+    const imageIds = normalizeImageIds(images);
+    const trimmedContent = content?.trim() ?? '';
+
+    if (!trimmedContent && imageIds.length === 0) {
       error(400, m.comment_content_is_required());
     }
 
@@ -124,7 +135,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const newComment: Comment = {
       id: commentId(),
       shopId: shopId,
-      content: content.trim(),
+      content: trimmedContent,
+      images: imageIds,
       createdBy: session.user.id,
       createdAt: new Date(),
       parentCommentId: parentCommentId || null,
@@ -135,6 +147,20 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     await commentsCollection.insertOne(newComment);
 
     try {
+      if (imageIds.length > 0) {
+        await attachImagesToOwner(
+          db,
+          imageIds,
+          { commentId: newComment.id },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+      }
+    } catch (attachmentError) {
+      await commentsCollection.deleteOne({ id: newComment.id });
+      throw attachmentError;
+    }
+
+    try {
       if (parentComment?.createdBy && parentComment.createdBy !== session.user.id) {
         await notify({
           type: 'REPLIES',
@@ -143,7 +169,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           actorDisplayName: session.user.displayName || undefined,
           actorImage: session.user.image || undefined,
           targetUserId: parentComment.createdBy,
-          content: content.trim().substring(0, 200),
+          content: trimmedContent.substring(0, 200),
           commentId: newComment.id,
           shopId: shop.id,
           shopName: shop.name

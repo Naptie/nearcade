@@ -4,7 +4,7 @@
   import { tick } from 'svelte';
   import { getDisplayName, pageTitle } from '$lib/utils';
   import type { PageData } from './$types';
-  import type { ShopPhoto } from '$lib/types';
+  import type { ImageAsset, ShopPhoto } from '$lib/types';
   import ImageViewerModal from '$lib/components/ImageViewerModal.svelte';
   import UploadModal from '$lib/components/UploadModal.svelte';
   import { fromPath } from '$lib/utils/scoped';
@@ -25,16 +25,24 @@
     viewerOpen = true;
   };
 
-  const handleDelete = (photo: ShopPhoto) => {
+  const handleDelete = (photo: ImageAsset) => {
     photos = photos.filter((p) => p.id !== photo.id);
   };
 
-  const handleUploadSuccess = (result: { photoId: string; url: string }) => {
+  const handleUploadSuccess = (result: {
+    id: string;
+    url: string;
+    storageProvider: ShopPhoto['storageProvider'];
+    storageKey: string;
+    storageObjectId?: string | null;
+  }) => {
     const newPhoto: ShopPhoto = {
-      id: result.photoId,
+      id: result.id,
       shopId: data.shop.id,
-      shopName: data.shop.name,
       url: result.url,
+      storageProvider: result.storageProvider,
+      storageKey: result.storageKey,
+      storageObjectId: result.storageObjectId ?? null,
       uploadedBy: data.user?.id ?? null,
       uploader: data.user,
       uploadedAt: new Date()
@@ -124,5 +132,6 @@
 <UploadModal
   bind:isOpen={uploadOpen}
   uploadUrl={fromPath(`/api/shops/${data.shop.id}/photos`)}
+  confirmLabel={m.shop_photos_upload()}
   onSuccess={handleUploadSuccess}
 />

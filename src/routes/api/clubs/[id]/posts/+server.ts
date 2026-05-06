@@ -13,6 +13,7 @@ import {
   protect
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
+import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -115,12 +116,16 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_club_id());
     }
 
-    const { title, content, readability } = (await request.json()) as {
+    const { title, content, readability, images } = (await request.json()) as {
       title: string;
       content: string;
       readability?: PostReadability;
+      images?: unknown;
     };
-    if (!title || !content) {
+    const imageIds = normalizeImageIds(images);
+    const trimmedTitle = title?.trim() ?? '';
+    const trimmedContent = content?.trim() ?? '';
+    if (!trimmedTitle || (!trimmedContent && imageIds.length === 0)) {
       error(400, m.title_and_content_are_required());
     }
 
@@ -173,8 +178,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Create new post
     const newPost: Post = {
       id: postId(),
-      title: title.trim(),
-      content: content.trim(),
+      title: trimmedTitle,
+      content: trimmedContent,
+      images: imageIds,
       clubId: club.id,
       createdBy: session.user.id,
       createdAt: new Date(),
@@ -187,6 +193,20 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     };
 
     await postsCollection.insertOne(newPost);
+
+    try {
+      if (imageIds.length > 0) {
+        await attachImagesToOwner(
+          db,
+          imageIds,
+          { postId: newPost.id },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+      }
+    } catch (attachmentError) {
+      await postsCollection.deleteOne({ id: newPost.id });
+      throw attachmentError;
+    }
 
     return json({ success: true, postId: newPost.id }, { status: 201 });
   } catch (err) {

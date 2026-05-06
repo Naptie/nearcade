@@ -6,7 +6,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import Comment from '$lib/components/Comment.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
-  import type { ShopDeleteRequestVoteType } from '$lib/types';
+  import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
+  import type { ImageAsset, ShopDeleteRequestVoteType } from '$lib/types';
   import type { PageData } from './$types';
   import { fromPath } from '$lib/utils/scoped';
 
@@ -23,16 +24,49 @@
   let isSubmittingVote = $state<ShopDeleteRequestVoteType | null>(null);
   let voteError = $state('');
   let newCommentContent = $state('');
+  let newCommentImageIds = $state<string[]>([]);
+  let newCommentAttachments = $state<ImageAsset[]>([]);
   let isSubmittingComment = $state(false);
   let commentError = $state('');
   let replyingTo = $state<string | null>(null);
   let replyContent = $state('');
+  let replyImageIds = $state<string[]>([]);
+  let replyAttachments = $state<ImageAsset[]>([]);
   let isSubmittingReply = $state(false);
   let isCommentsRendered = $state(false);
 
   onMount(() => {
     isCommentsRendered = true;
   });
+
+  const resetNewCommentComposer = () => {
+    newCommentContent = '';
+    newCommentImageIds = [];
+    newCommentAttachments = [];
+  };
+
+  const cleanupDraftImages = async (imageIds: string[]) => {
+    await Promise.all(
+      imageIds.map(async (imageId) => {
+        try {
+          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
+        } catch (error) {
+          console.error('Failed to delete draft image:', error);
+        }
+      })
+    );
+  };
+
+  const resetReplyComposer = (cleanupDrafts = false) => {
+    if (cleanupDrafts && replyImageIds.length > 0) {
+      void cleanupDraftImages(replyImageIds);
+    }
+
+    replyingTo = null;
+    replyContent = '';
+    replyImageIds = [];
+    replyAttachments = [];
+  };
 
   const handleDeleteRequestVote = async (voteType: ShopDeleteRequestVoteType) => {
     if (!canParticipate || isSubmittingVote) return;
@@ -60,7 +94,12 @@
   };
 
   const handleCommentSubmit = async () => {
-    if (!canParticipate || !newCommentContent.trim() || isSubmittingComment) return;
+    if (
+      !canParticipate ||
+      (!newCommentContent.trim() && newCommentImageIds.length === 0) ||
+      isSubmittingComment
+    )
+      return;
 
     isSubmittingComment = true;
     commentError = '';
@@ -69,11 +108,11 @@
       const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newCommentContent.trim() })
+        body: JSON.stringify({ content: newCommentContent.trim(), images: newCommentImageIds })
       });
 
       if (response.ok) {
-        newCommentContent = '';
+        resetNewCommentComposer();
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message?: string };
@@ -105,12 +144,24 @@
   };
 
   const handleCommentReply = (commentId: string) => {
+    if (replyImageIds.length > 0) {
+      void cleanupDraftImages(replyImageIds);
+    }
+
     replyingTo = commentId;
     replyContent = '';
+    replyImageIds = [];
+    replyAttachments = [];
   };
 
   const submitReply = async () => {
-    if (!canParticipate || !replyContent.trim() || !replyingTo || isSubmittingReply) return;
+    if (
+      !canParticipate ||
+      (!replyContent.trim() && replyImageIds.length === 0) ||
+      !replyingTo ||
+      isSubmittingReply
+    )
+      return;
 
     isSubmittingReply = true;
     commentError = '';
@@ -121,13 +172,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: replyContent.trim(),
+          images: replyImageIds,
           parentCommentId: replyingTo
         })
       });
 
       if (response.ok) {
-        replyingTo = null;
-        replyContent = '';
+        resetReplyComposer();
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message?: string };
@@ -140,14 +191,14 @@
     }
   };
 
-  const handleCommentEdit = async (commentId: string, newContent: string) => {
+  const handleCommentEdit = async (commentId: string, newContent: string, imageIds: string[]) => {
     if (!data.user) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent })
+        body: JSON.stringify({ content: newContent, images: imageIds })
       });
 
       if (!response.ok) {
@@ -332,6 +383,27 @@
       <p class="bg-base-200 rounded-xl p-4 text-sm">{req.reason}</p>
     </div>
 
+    {#if (req.resolvedImages?.length ?? 0) > 0}
+      <div class="mb-6">
+        <h2 class="mb-2 text-sm font-semibold tracking-wide uppercase opacity-60">
+          {m.evidence_images()}
+        </h2>
+        <PhotoCarousel
+          photos={req.resolvedImages ?? []}
+          currentUser={data.user ?? undefined}
+          title=""
+          allowDeleteRequest={false}
+          showEmptyState={false}
+          onPhotoDeleted={(photo) => {
+            req.images = (req.images ?? []).filter((imageId) => imageId !== photo.id);
+            req.resolvedImages = (req.resolvedImages ?? []).filter(
+              (image) => image.id !== photo.id
+            );
+          }}
+        />
+      </div>
+    {/if}
+
     <!-- Voting -->
     <div class="mb-6">
       <div class="mb-2 flex items-center justify-between gap-3">
@@ -422,7 +494,7 @@
 
     <!-- Actions -->
     {#if req.status === 'pending'}
-      <div class="border-base-300 border-t pt-6">
+      <div class="border-base-300 space-y-3 border-t pt-6">
         <!-- Requester: retract -->
         {#if data.user?.id === req.requestedBy}
           <button
@@ -517,9 +589,13 @@
 
         <MarkdownEditor
           bind:value={newCommentContent}
+          bind:attachments={newCommentAttachments}
+          bind:imageIds={newCommentImageIds}
           placeholder={m.comment_placeholder()}
           disabled={isSubmittingComment}
           minHeight="min-h-[100px]"
+          currentUser={data.user}
+          imageUploadUrl={fromPath('/api/images')}
         />
 
         <div class="mt-3 flex items-end justify-between gap-3">
@@ -529,7 +605,8 @@
           <button
             class="btn btn-primary btn-sm"
             onclick={handleCommentSubmit}
-            disabled={isSubmittingComment || !newCommentContent.trim()}
+            disabled={isSubmittingComment ||
+              (!newCommentContent.trim() && newCommentImageIds.length === 0)}
           >
             {#if isSubmittingComment}
               <span class="loading loading-spinner loading-sm"></span>
@@ -566,6 +643,7 @@
             <Comment
               {comment}
               currentUserId={data.user?.id}
+              currentUser={data.user}
               canReply={canParticipate}
               canEdit={data.user?.userType === 'site_admin'}
               onVote={canParticipate ? handleCommentVote : undefined}
@@ -588,9 +666,13 @@
 
                 <MarkdownEditor
                   bind:value={replyContent}
+                  bind:attachments={replyAttachments}
+                  bind:imageIds={replyImageIds}
                   placeholder={m.reply_to_comment()}
                   disabled={isSubmittingReply}
                   minHeight="min-h-[100px]"
+                  currentUser={data.user}
+                  imageUploadUrl={fromPath('/api/images')}
                 />
 
                 <div class="mt-3 flex items-center justify-end">
@@ -598,8 +680,7 @@
                     <button
                       class="btn btn-ghost btn-sm"
                       onclick={() => {
-                        replyingTo = null;
-                        replyContent = '';
+                        resetReplyComposer(true);
                       }}
                       disabled={isSubmittingReply}
                     >
@@ -608,7 +689,8 @@
                     <button
                       class="btn btn-primary btn-sm"
                       onclick={submitReply}
-                      disabled={isSubmittingReply || !replyContent.trim()}
+                      disabled={isSubmittingReply ||
+                        (!replyContent.trim() && replyImageIds.length === 0)}
                     >
                       {#if isSubmittingReply}
                         <span class="loading loading-spinner loading-sm"></span>
@@ -626,6 +708,7 @@
               <Comment
                 comment={reply}
                 currentUserId={data.user?.id}
+                currentUser={data.user}
                 canReply={canParticipate}
                 canEdit={data.user?.userType === 'site_admin'}
                 onVote={canParticipate ? handleCommentVote : undefined}

@@ -40,6 +40,8 @@ export const SORT_CRITERIA = [
 
 export const ROUTE_CACHE_STORE = 'route-cache';
 export const ROUTE_CACHE_EXPIRY_HOURS = 24;
+export const APP_NAME = 'nearcade';
+export const IMAGE_STORAGE_PREFIX = APP_NAME;
 
 export const HOVERED_SHOP_INDEX = 40002;
 export const SELECTED_SHOP_INDEX = 40001;

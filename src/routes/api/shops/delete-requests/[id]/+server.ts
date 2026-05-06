@@ -5,6 +5,8 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { notify } from '$lib/notifications/index.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
+import { deleteFile } from '$lib/oss/index';
+import { deleteImagesForOwner } from '$lib/images/index.server';
 
 /**
  * DELETE /api/shops/delete-requests/:id
@@ -39,6 +41,16 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   if (!isAdmin && deleteRequest.status !== 'pending') {
     error(400, 'Can only retract pending requests');
   }
+
+  await deleteImagesForOwner(
+    db,
+    { deleteRequestId: id },
+    {
+      userId: session.user.id,
+      userType: session.user.userType,
+      skipPermissionCheck: true
+    }
+  );
 
   await db.collection('shop_delete_requests').deleteOne({ id });
 
@@ -90,13 +102,14 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (action === 'approve') {
     if (deleteRequest.photoId) {
       const photo = await db
-        .collection<ShopPhoto>('shop_photos')
+        .collection<ShopPhoto>('images')
         .findOne({ id: deleteRequest.photoId, shopId: deleteRequest.shopId });
       if (photo) {
         deleteRequest.photoUrl = photo.url;
+        await deleteFile(photo);
       }
       // Delete the specific photo
-      await db.collection('shop_photos').deleteOne({ id: deleteRequest.photoId });
+      await db.collection('images').deleteOne({ id: deleteRequest.photoId });
     } else {
       // Delete the shop
       await db.collection<Shop>('shops').deleteOne({ id: deleteRequest.shopId });

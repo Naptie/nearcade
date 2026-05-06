@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import AV from 'leancloud-storage';
+import type { UploadedFileDescriptor } from './index.js';
 
 export let isLeanCloudInitialized = false;
 
@@ -22,7 +23,7 @@ export const uploadToLeanCloud = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
   onProgress: (progress: number) => void
-) => {
+): Promise<UploadedFileDescriptor | undefined> => {
   if (!env.OSS_LEANCLOUD_APP_ID || !env.OSS_LEANCLOUD_APP_KEY) return;
 
   const ossFile = await new AV.File(name, buffer).save({
@@ -32,5 +33,41 @@ export const uploadToLeanCloud = async (
       onProgress(progress);
     }
   });
-  return ossFile.url();
+
+  const url = ossFile.url();
+  if (!url) {
+    throw new Error('LeanCloud upload did not return a file URL');
+  }
+  if (!ossFile.id) {
+    throw new Error('LeanCloud upload did not return a file object id');
+  }
+
+  return {
+    url,
+    storageProvider: 'leancloud',
+    storageKey: name,
+    storageObjectId: ossFile.id
+  };
+};
+
+export const deleteFromLeanCloud = async (objectId: string) => {
+  if (!env.OSS_LEANCLOUD_APP_ID || !env.OSS_LEANCLOUD_APP_KEY) {
+    throw new Error('LeanCloud is not configured');
+  }
+
+  if (env.OSS_LEANCLOUD_SERVER_URL) {
+    await fetch(`${env.OSS_LEANCLOUD_SERVER_URL}/1.1/files/${objectId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-LC-Id': env.OSS_LEANCLOUD_APP_ID,
+        'X-LC-Key': env.OSS_LEANCLOUD_MASTER_KEY
+          ? `${env.OSS_LEANCLOUD_MASTER_KEY},master`
+          : env.OSS_LEANCLOUD_APP_KEY
+      }
+    });
+  } else {
+    await AV.File.createWithoutData(objectId).destroy(
+      env.OSS_LEANCLOUD_MASTER_KEY ? { useMasterKey: true } : undefined
+    );
+  }
 };

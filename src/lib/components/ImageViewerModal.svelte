@@ -1,19 +1,25 @@
 <script lang="ts">
+  import { portal } from '$lib/actions/portal';
   import { m } from '$lib/paraglide/messages';
-  import { onMount, onDestroy } from 'svelte';
   import { fade, fly, scale } from 'svelte/transition';
   import { fromPath } from '$lib/utils/scoped';
-  import type { ShopPhoto } from '$lib/types';
+  import type { ImageAsset } from '$lib/types';
   import type { User } from '$lib/auth/types';
   import { getDisplayName } from '$lib/utils';
+  import { browser } from '$app/environment';
 
   interface Props {
-    photos: ShopPhoto[];
+    photos: ImageAsset[];
     initialIndex?: number;
     isOpen: boolean;
     currentUser?: User | undefined;
+    allowDeleteRequest?: boolean;
+    deletePhoto?: (photo: ImageAsset) => Promise<boolean> | boolean;
+    getDeleteUrl?: (photo: ImageAsset) => string;
+    getDeleteRequestUrl?: (photo: ImageAsset) => string | null;
+    getDeleteRequestBody?: (photo: ImageAsset, reason: string, imageIds: string[]) => unknown;
     onClose?: () => void;
-    onDelete?: (photo: ShopPhoto) => void;
+    onDelete?: (photo: ImageAsset) => void;
   }
 
   let {
@@ -21,6 +27,11 @@
     initialIndex = 0,
     isOpen = $bindable(),
     currentUser = undefined,
+    allowDeleteRequest = false,
+    deletePhoto,
+    getDeleteUrl,
+    getDeleteRequestUrl,
+    getDeleteRequestBody,
     onClose,
     onDelete
   }: Props = $props();
@@ -44,12 +55,80 @@
   let isSubmittingDeleteRequest = $state(false);
   let deleteRequestError = $state('');
   let deleteRequestSuccess = $state(false);
+  let deleteRequestImageIds = $state<string[]>([]);
+  let deleteRequestAttachments = $state<ImageAsset[]>([]);
 
   let currentPhoto = $derived(photos[currentIndex] ?? null);
+  let currentDeleteRequestUrl = $derived.by(() => {
+    if (!currentPhoto) return null;
+    return (
+      getDeleteRequestUrl?.(currentPhoto) ??
+      (currentPhoto.shopId !== undefined
+        ? fromPath(`/api/shops/${currentPhoto.shopId}/delete-request`)
+        : null)
+    );
+  });
   let canDeleteDirectly = $derived(
     !!currentPhoto && (isAdmin || currentPhoto.uploadedBy === currentUser?.id)
   );
-  let canRequestDeletion = $derived(!!currentPhoto && !!currentUser?.id && !canDeleteDirectly);
+  let canRequestDeletion = $derived(
+    !!currentPhoto &&
+      !!currentUser?.id &&
+      !canDeleteDirectly &&
+      allowDeleteRequest &&
+      !!currentDeleteRequestUrl
+  );
+
+  const resolveDeleteUrl = (photo: ImageAsset) =>
+    getDeleteUrl?.(photo) ??
+    (photo.shopId !== undefined
+      ? fromPath(`/api/shops/${photo.shopId}/photos/${photo.id}`)
+      : fromPath(`/api/images/${photo.id}`));
+
+  const resolveDeleteRequestBody = (photo: ImageAsset, reason: string) =>
+    getDeleteRequestBody?.(photo, reason, deleteRequestImageIds) ??
+    (photo.shopId !== undefined
+      ? { reason, photoId: photo.id, images: deleteRequestImageIds }
+      : { reason, images: deleteRequestImageIds });
+
+  const cleanupDeleteRequestDrafts = async () => {
+    await Promise.all(
+      deleteRequestImageIds.map(async (imageId) => {
+        try {
+          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
+        } catch (error) {
+          console.error('Failed to delete draft delete request image:', error);
+        }
+      })
+    );
+  };
+
+  const closeDeleteRequestModal = (preserveImages = false) => {
+    if (!preserveImages && deleteRequestImageIds.length > 0) {
+      void cleanupDeleteRequestDrafts();
+    }
+
+    showDeleteRequestModal = false;
+    deleteRequestReason = '';
+    deleteRequestError = '';
+    deleteRequestSuccess = false;
+    deleteRequestImageIds = [];
+    deleteRequestAttachments = [];
+  };
+
+  const handleDeleteRequestImageDelete = async (image: ImageAsset) => {
+    try {
+      const response = await fetch(fromPath(`/api/images/${image.id}`), { method: 'DELETE' });
+      if (!response.ok) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to delete draft delete request image:', error);
+      return false;
+    }
+  };
 
   const prev = () => {
     if (photos.length > 1) {
@@ -72,14 +151,14 @@
 
   const handleDelete = async () => {
     if (!currentPhoto || isDeleting) return;
-    if (!confirm(m.delete() + '?')) return;
+    if (!confirm(m.delete_image_confirm())) return;
     isDeleting = true;
     try {
-      const res = await fetch(
-        fromPath(`/api/shops/${currentPhoto.shopId}/photos/${currentPhoto.id}`),
-        { method: 'DELETE' }
-      );
-      if (res.ok) {
+      const deleted = deletePhoto
+        ? await deletePhoto(currentPhoto)
+        : await fetch(resolveDeleteUrl(currentPhoto), { method: 'DELETE' }).then((res) => res.ok);
+
+      if (deleted) {
         onDelete?.(currentPhoto);
         if (photos.length <= 1) {
           handleClose();
@@ -96,17 +175,20 @@
     if (!currentPhoto || isSubmittingDeleteRequest) return;
     const reason = deleteRequestReason.trim();
     if (!reason) return;
+    if (!currentDeleteRequestUrl) return;
     isSubmittingDeleteRequest = true;
     deleteRequestError = '';
     try {
-      const res = await fetch(fromPath(`/api/shops/${currentPhoto.shopId}/delete-request`), {
+      const res = await fetch(currentDeleteRequestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, photoId: currentPhoto.id })
+        body: JSON.stringify(resolveDeleteRequestBody(currentPhoto, reason))
       });
       if (res.ok) {
         deleteRequestSuccess = true;
         deleteRequestReason = '';
+        deleteRequestImageIds = [];
+        deleteRequestAttachments = [];
       } else {
         const data = (await res.json()) as { message?: string };
         deleteRequestError = data.message || m.error_occurred();
@@ -126,28 +208,38 @@
     else if (e.key === 'Escape') handleClose();
   };
 
-  onMount(() => {
-    window.addEventListener('keydown', handleKeydown);
-  });
-  onDestroy(() => {
-    window.removeEventListener('keydown', handleKeydown);
+  $effect(() => {
+    if (browser) {
+      window.addEventListener('keydown', handleKeydown);
+      return () => {
+        window.removeEventListener('keydown', handleKeydown);
+      };
+    }
   });
 </script>
 
 {#if isOpen && currentPhoto}
-  <!-- Backdrop -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-1100 flex items-center justify-center bg-black/90"
+    use:portal
+    class="fixed inset-0 z-1000 flex items-center justify-center bg-black/90"
     transition:fade={{ duration: 180 }}
     onclick={(e) => {
       if (e.target === e.currentTarget && !showDeleteRequestModal) handleClose();
     }}
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        e.preventDefault();
+        if (!showDeleteRequestModal) {
+          handleClose();
+        }
+      }
+    }}
+    role="button"
+    tabindex="0"
   >
     <!-- Close button -->
     <button
-      class="btn btn-ghost btn-circle absolute top-4 right-4 text-white"
+      class="btn btn-ghost btn-circle absolute top-14 right-4 text-white"
       onclick={handleClose}
       aria-label={m.close()}
       transition:fade={{ duration: 180 }}
@@ -182,7 +274,9 @@
           >
             <img
               src={currentPhoto.url}
-              alt={currentPhoto.shopName}
+              alt={m.shop_photos_uploaded_by({
+                name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
+              })}
               class="max-h-[75vh] max-w-full rounded-lg object-contain shadow-2xl"
             />
 
@@ -223,6 +317,9 @@
                       showDeleteRequestModal = true;
                       deleteRequestSuccess = false;
                       deleteRequestError = '';
+                      deleteRequestReason = '';
+                      deleteRequestImageIds = [];
+                      deleteRequestAttachments = [];
                     }}
                   >
                     <i class="fa-solid fa-flag"></i>
@@ -251,21 +348,28 @@
 
   <!-- Photo delete request modal (shown on top of viewer) -->
   {#if showDeleteRequestModal}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="fixed inset-0 z-1110 flex items-center justify-center bg-black/60 p-4"
+      use:portal
+      class="fixed inset-0 z-1010 flex items-center justify-center bg-black/60 p-4"
       transition:fade={{ duration: 150 }}
       onclick={(e) => {
-        if (e.target === e.currentTarget) showDeleteRequestModal = false;
+        if (e.target === e.currentTarget) closeDeleteRequestModal();
       }}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+          e.preventDefault();
+          closeDeleteRequestModal();
+        }
+      }}
+      role="button"
+      tabindex="0"
     >
       <div class="bg-base-100 w-full max-w-md rounded-2xl p-6 shadow-xl">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-bold">{m.shop_photo_delete_request()}</h3>
           <button
             class="btn btn-ghost btn-circle btn-sm"
-            onclick={() => (showDeleteRequestModal = false)}
+            onclick={() => closeDeleteRequestModal()}
             aria-label={m.close()}
           >
             <i class="fa-solid fa-xmark"></i>
@@ -279,8 +383,7 @@
             <button
               class="btn btn-primary w-full"
               onclick={() => {
-                showDeleteRequestModal = false;
-                deleteRequestSuccess = false;
+                closeDeleteRequestModal(true);
               }}
             >
               {m.close()}
@@ -303,8 +406,38 @@
             placeholder={m.shop_photo_delete_request_reason_placeholder()}
             bind:value={deleteRequestReason}
           ></textarea>
+
+          {#if currentUser}
+            <div class="mt-4 space-y-3">
+              {#await import('./PhotoCarousel.svelte') then { default: PhotoCarousel }}
+                <PhotoCarousel
+                  bind:photos={deleteRequestAttachments}
+                  {currentUser}
+                  title={m.evidence_images()}
+                  titleClass="label-text text-current/60"
+                  uploadLabel={m.upload_image()}
+                  uploadUrl={fromPath('/api/images')}
+                  allowDeleteRequest={false}
+                  showEmptyState={false}
+                  onDeletePhoto={handleDeleteRequestImageDelete}
+                  onPhotoDeleted={(photo) => {
+                    deleteRequestImageIds = deleteRequestImageIds.filter(
+                      (imageId) => imageId !== photo.id
+                    );
+                  }}
+                  onPhotoUploaded={(photo) => {
+                    deleteRequestImageIds = [
+                      photo.id,
+                      ...deleteRequestImageIds.filter((imageId) => imageId !== photo.id)
+                    ];
+                  }}
+                />
+              {/await}
+            </div>
+          {/if}
+
           <div class="mt-4 flex gap-2">
-            <button class="btn btn-ghost flex-1" onclick={() => (showDeleteRequestModal = false)}>
+            <button class="btn btn-ghost flex-1" onclick={() => closeDeleteRequestModal()}>
               {m.cancel()}
             </button>
             <button

@@ -5,6 +5,7 @@ import type {
   ShopDeleteRequestVote,
   ShopDeleteRequestVoteSummary
 } from '$lib/types';
+import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import { protect } from '$lib/utils';
 
 export const getShopDeleteRequestVoteSummary = async (
@@ -19,7 +20,10 @@ export const getShopDeleteRequestVoteSummary = async (
       .aggregate<{
         _id: ShopDeleteRequestVote['voteType'];
         count: number;
-      }>([{ $match: { shopDeleteRequestId } }, { $group: { _id: '$voteType', count: { $sum: 1 } } }])
+      }>([
+        { $match: { shopDeleteRequestId } },
+        { $group: { _id: '$voteType', count: { $sum: 1 } } }
+      ])
       .toArray(),
     userId
       ? votesCollection.findOne({ shopDeleteRequestId, userId })
@@ -116,8 +120,10 @@ export const getShopDeleteRequestComments = async (
     ])
     .toArray();
 
-  return comments.map((comment) => ({
+  const protectedComments = comments.map((comment) => ({
     ...comment,
     author: protect(comment.author)
   }));
+
+  return hydrateEntitiesWithImages(db, protectedComments);
 };

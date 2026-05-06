@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   }
 
   const photos = await db
-    .collection<ShopPhoto>('shop_photos')
+    .collection<ShopPhoto>('images')
     .aggregate<ShopPhoto>([
       { $match: { shopId } },
       { $sort: { uploadedAt: -1 } },

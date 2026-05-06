@@ -4,6 +4,7 @@ import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
+import { deleteImagesByIds, normalizeImageIds, replaceOwnerImages } from '$lib/images/index.server';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -17,10 +18,14 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_comment_id());
     }
 
-    const { content } = (await request.json()) as {
+    const { content, images } = (await request.json()) as {
       content: string;
+      images?: unknown;
     };
-    if (!content || !content.trim()) {
+    const imageIds = normalizeImageIds(images);
+    const trimmedContent = content?.trim() ?? '';
+
+    if (!trimmedContent && imageIds.length === 0) {
       error(400, m.comment_content_is_required());
     }
 
@@ -37,12 +42,21 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(403, m.you_can_only_edit_your_own_comments());
     }
 
+    await replaceOwnerImages(
+      db,
+      comment.images ?? [],
+      imageIds,
+      { commentId },
+      { userId: session.user.id, userType: session.user.userType }
+    );
+
     // Update comment
     await commentsCollection.updateOne(
       { id: commentId },
       {
         $set: {
-          content: content.trim(),
+          content: trimmedContent,
+          images: imageIds,
           updatedAt: new Date()
         }
       }
@@ -119,9 +133,20 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Find all comment IDs to be deleted (parent + replies)
     const commentsToDelete = await commentsCollection
       .find({ $or: [{ id: commentId }, { parentCommentId: commentId }] })
-      .project({ id: 1 })
+      .project({ id: 1, images: 1 })
       .toArray();
     const commentIdsToDelete = commentsToDelete.map((c) => c.id);
+    const imageIdsToDelete = commentsToDelete.flatMap(
+      (commentToDelete) => commentToDelete.images ?? []
+    );
+
+    if (imageIdsToDelete.length > 0) {
+      await deleteImagesByIds(db, imageIdsToDelete, {
+        userId: session.user.id,
+        userType: session.user.userType,
+        skipPermissionCheck: true
+      });
+    }
 
     // Delete comment and all its replies
     const deleteResult = await commentsCollection.deleteMany({

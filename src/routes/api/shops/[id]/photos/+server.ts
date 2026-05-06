@@ -4,9 +4,10 @@ import type { Shop, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
-import { upload } from '$lib/oss/index';
+import { uploadFile } from '$lib/oss/index';
 import { toPlainArray } from '$lib/utils';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
+import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
 
 const photosWithUploaderPipeline = (shopId: number, limit?: number) => {
   const pipeline: object[] = [
@@ -43,7 +44,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
   const db = mongo.db();
   const photos = await db
-    .collection<ShopPhoto>('shop_photos')
+    .collection<ShopPhoto>('images')
     .aggregate<ShopPhoto>(photosWithUploaderPipeline(shopId))
     .toArray();
 
@@ -97,7 +98,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Generate a stable photo ID and derive a unique OSS object name
   const photoId = nanoid();
   const ext = (file.name.split('.').pop() || file.type.split('/')[1] || 'jpg').toLowerCase();
-  const ossName = `shop-photos/${shopId}/${photoId}.${ext}`;
+  const ossName = `${IMAGE_STORAGE_PREFIX}/images/shops/${shopId}/${photoId}.${ext}`;
 
   const encoder = new TextEncoder();
   let streamController!: ReadableStreamDefaultController<Uint8Array>;
@@ -111,7 +112,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Run the OSS upload asynchronously so we can return the streaming response immediately
   (async () => {
     try {
-      const url = await upload(ossName, buffer, (progress) => {
+      const uploadedFile = await uploadFile(ossName, buffer, (progress) => {
         const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
         streamController.enqueue(encoder.encode(line));
       });
@@ -119,12 +120,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       const photo: ShopPhoto = {
         id: photoId,
         shopId,
-        shopName: shop.name,
-        url,
+        url: uploadedFile.url,
+        storageProvider: uploadedFile.storageProvider,
+        storageKey: uploadedFile.storageKey,
+        storageObjectId: uploadedFile.storageObjectId ?? null,
         uploadedBy: session.user.id,
         uploadedAt: new Date()
       };
-      await db.collection<ShopPhoto>('shop_photos').insertOne(photo);
+      await db.collection<ShopPhoto>('images').insertOne(photo);
 
       // Log to shop changelog (non-fatal)
       try {
@@ -133,13 +136,21 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
           shopName: shop.name,
           action: 'photo_uploaded',
           user: { id: session.user.id, name: session.user.name, image: session.user.image },
-          fieldInfo: { field: 'photo', photoId, photoUrl: url }
+          fieldInfo: { field: 'photo', photoId, photoUrl: uploadedFile.url }
         });
       } catch (logErr) {
         console.error('Failed to log photo upload changelog:', logErr);
       }
 
-      const line = JSON.stringify({ phase: 'done', photoId, url }) + '\n';
+      const line =
+        JSON.stringify({
+          phase: 'done',
+          photoId,
+          url: uploadedFile.url,
+          storageProvider: uploadedFile.storageProvider,
+          storageKey: uploadedFile.storageKey,
+          storageObjectId: uploadedFile.storageObjectId ?? null
+        }) + '\n';
       streamController.enqueue(encoder.encode(line));
       streamController.close();
     } catch (err) {

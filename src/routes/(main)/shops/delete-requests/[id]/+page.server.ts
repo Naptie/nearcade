@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { ShopDeleteRequest } from '$lib/types';
 import { toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import {
   getShopDeleteRequestComments,
   getShopDeleteRequestVoteSummary
@@ -22,13 +23,15 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     error(404, m.shop_delete_request_not_found());
   }
 
+  const [hydratedDeleteRequest] = await hydrateEntitiesWithImages(db, [deleteRequest]);
+
   const [comments, voteSummary] = await Promise.all([
-    getShopDeleteRequestComments(db, deleteRequest.id, session?.user?.id),
-    getShopDeleteRequestVoteSummary(db, deleteRequest.id, session?.user?.id)
+    getShopDeleteRequestComments(db, hydratedDeleteRequest.id, session?.user?.id),
+    getShopDeleteRequestVoteSummary(db, hydratedDeleteRequest.id, session?.user?.id)
   ]);
 
   return {
-    deleteRequest: toPlainObject(deleteRequest),
+    deleteRequest: toPlainObject(hydratedDeleteRequest),
     comments: toPlainArray(comments),
     voteSummary,
     user: session?.user

@@ -7,6 +7,7 @@ import type { Comment, Notification, ShopDeleteRequest } from '$lib/types';
 import { commentId, toPlainArray } from '$lib/utils';
 import { getShopDeleteRequestComments } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
+import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -42,12 +43,16 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const { content, parentCommentId } = (await request.json()) as {
+    const { content, parentCommentId, images } = (await request.json()) as {
       content: string;
       parentCommentId?: string;
+      images?: unknown;
     };
 
-    if (!content || !content.trim()) {
+    const imageIds = normalizeImageIds(images);
+    const trimmedContent = content?.trim() ?? '';
+
+    if (!trimmedContent && imageIds.length === 0) {
       error(400, m.comment_content_is_required());
     }
 
@@ -75,7 +80,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const newComment: Comment = {
       id: commentId(),
       shopDeleteRequestId: deleteRequest.id,
-      content: content.trim(),
+      content: trimmedContent,
+      images: imageIds,
       createdBy: session.user.id,
       createdAt: new Date(),
       parentCommentId: parentCommentId || null,
@@ -84,6 +90,20 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     };
 
     await commentsCollection.insertOne(newComment);
+
+    try {
+      if (imageIds.length > 0) {
+        await attachImagesToOwner(
+          db,
+          imageIds,
+          { commentId: newComment.id },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+      }
+    } catch (attachmentError) {
+      await commentsCollection.deleteOne({ id: newComment.id });
+      throw attachmentError;
+    }
 
     try {
       const notificationTargets = new Map<string, Notification['type']>();
@@ -108,7 +128,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             actorDisplayName: session.user.displayName || undefined,
             actorImage: session.user.image || undefined,
             targetUserId,
-            content: content.trim().substring(0, 200),
+            content: trimmedContent.substring(0, 200),
             commentId: newComment.id,
             shopId: deleteRequest.shopId,
             shopDeleteRequestId: deleteRequest.id,

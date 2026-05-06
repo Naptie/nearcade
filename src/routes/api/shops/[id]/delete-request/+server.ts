@@ -5,6 +5,7 @@ import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
+import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { id } = params;
@@ -14,7 +15,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(400, m.invalid_shop_id());
   }
 
-  let body: { reason?: string; photoId?: string };
+  let body: { reason?: string; photoId?: string; images?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -27,6 +28,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   }
 
   const photoId = body.photoId?.trim() || null;
+  const imageIds = normalizeImageIds(body.images);
 
   const db = mongo.db();
   const shopsCollection = db.collection<Shop>('shops');
@@ -40,7 +42,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   if (photoId) {
     // Validate the photo belongs to this shop
-    const photo = await db.collection<ShopPhoto>('shop_photos').findOne({ id: photoId, shopId });
+    const photo = await db.collection<ShopPhoto>('images').findOne({ id: photoId, shopId });
     if (!photo) {
       error(404, m.shop_photo_not_found());
     }
@@ -74,6 +76,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     shopId,
     shopName: shop.name,
     reason,
+    images: imageIds,
     requestedBy: user?.id ?? null,
     requestedByName: user?.name ?? null,
     status: 'pending',
@@ -83,6 +86,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   };
 
   await db.collection<ShopDeleteRequest>('shop_delete_requests').insertOne(deleteRequest);
+
+  try {
+    if (imageIds.length > 0) {
+      await attachImagesToOwner(
+        db,
+        imageIds,
+        { deleteRequestId: deleteRequest.id },
+        { userId: user?.id ?? '', userType: user?.userType }
+      );
+    }
+  } catch (attachmentError) {
+    await db
+      .collection<ShopDeleteRequest>('shop_delete_requests')
+      .deleteOne({ id: deleteRequest.id });
+    throw attachmentError;
+  }
 
   // Log to shop changelog (non-fatal)
   try {

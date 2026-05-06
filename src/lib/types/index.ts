@@ -251,6 +251,8 @@ export interface ShopDeleteRequest {
   shopId: number;
   shopName: string;
   reason: string;
+  images?: string[];
+  resolvedImages?: ImageAsset[];
   requestedBy: string | null;
   requestedByName?: string | null;
   status: 'pending' | 'approved' | 'rejected';
@@ -281,16 +283,27 @@ export interface ShopDeleteRequestVoteSummary {
   userVote?: ShopDeleteRequestVoteType | null;
 }
 
-export interface ShopPhoto {
+export type ImageStorageProvider = 's3' | 'leancloud';
+
+export interface ImageAsset {
   _id?: string | ObjectId;
   id: string;
-  shopId: number;
-  shopName: string;
+  shopId?: number;
+  commentId?: string;
+  postId?: string;
+  deleteRequestId?: string;
   url: string;
+  storageProvider: ImageStorageProvider;
+  storageKey: string;
+  storageObjectId?: string | null;
   uploadedBy: string | null;
   uploader?: User;
   uploadedAt: Date;
 }
+
+export type ShopPhoto = ImageAsset & {
+  shopId: number;
+};
 
 export type ShopChangelogAction =
   | 'created'
@@ -401,6 +414,7 @@ export interface Post {
   id: string;
   title: string;
   content: string; // Markdown content
+  images?: string[];
   // Organization affiliation - either universityId or clubId will be set
   universityId?: string;
   clubId?: string;
@@ -422,6 +436,7 @@ export interface Post {
 // Composite type with author data joined
 export interface PostWithAuthor extends Post {
   author: User | undefined;
+  resolvedImages?: ImageAsset[];
 }
 
 export interface PostVote {
@@ -441,6 +456,7 @@ export interface Comment {
   shopId?: number;
   shopDeleteRequestId?: string;
   content: string; // Markdown content
+  images?: string[];
   createdBy: string; // User ID
   createdAt: Date;
   updatedAt?: Date;
@@ -456,6 +472,7 @@ export interface CommentWithAuthorAndVote extends Comment {
   author: User | undefined;
   vote?: CommentVote;
   authorDeleteRequestVote?: ShopDeleteRequestVote | null;
+  resolvedImages?: ImageAsset[];
 }
 
 export interface CommentVote {

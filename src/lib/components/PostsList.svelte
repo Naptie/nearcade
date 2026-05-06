@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, type PostWithAuthor } from '$lib/types';
+  import type { User } from '$lib/auth/types';
   import PostCard from './PostCard.svelte';
   import PostCreateModal from './PostCreateModal.svelte';
   import { PAGINATION } from '$lib/constants';
@@ -14,6 +15,7 @@
     organizationSlug?: string;
     organizationReadability?: PostReadability;
     currentUserId?: string;
+    currentUser?: User | undefined;
     canManage: boolean;
     canCreatePost: boolean;
     initialPosts?: PostWithAuthor[];
@@ -26,6 +28,7 @@
     organizationSlug,
     organizationReadability,
     currentUserId,
+    currentUser = undefined,
     canManage,
     canCreatePost,
     initialPosts = []
@@ -188,6 +191,7 @@
   {organizationName}
   organizationReadability={organizationReadability || PostReadability.PUBLIC}
   {canManage}
+  {currentUser}
   onClose={() => (showCreateModal = false)}
   onSuccess={handlePostCreated}
 />
