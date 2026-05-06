@@ -170,10 +170,6 @@
     places = [];
   };
 
-  $effect(() => {
-    getContext<{ set: (v: boolean) => void }>('collapse').set(showCollapse);
-  });
-
   // Reset selections when mode changes
   $effect(() => {
     if (mode === 0) {
