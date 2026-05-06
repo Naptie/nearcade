@@ -1845,6 +1845,7 @@
                 <ShopChangelogView
                   shopId={shop.id}
                   isSiteAdmin={data.user?.userType === 'site_admin'}
+                  onRollbackApplied={invalidateAll}
                 />
               </div>
             </details>

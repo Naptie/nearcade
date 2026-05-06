@@ -22,9 +22,10 @@
   interface Props {
     shopId: number;
     isSiteAdmin?: boolean;
+    onRollbackApplied?: () => void | Promise<void>;
   }
 
-  let { shopId, isSiteAdmin = false }: Props = $props();
+  let { shopId, isSiteAdmin = false, onRollbackApplied }: Props = $props();
 
   let entries = $state<ShopChangelogEntryWithUser[]>([]);
   let isLoading = $state(true);
@@ -166,6 +167,7 @@
       rollbackPreview = null;
       rollbackDiffHtml = '';
       await loadEntries();
+      await onRollbackApplied?.();
     } catch (err) {
       console.error('Failed to apply rollback:', err);
       rollbackError = m.failed_to_update();

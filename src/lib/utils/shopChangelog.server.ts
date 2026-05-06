@@ -98,6 +98,13 @@ const sanitizeDeletedPhotoEntry = (entry: ShopChangelogEntry): ShopChangelogEntr
   };
 };
 
+const applyShopSnapshot = (shop: Shop, snapshot: unknown): boolean => {
+  if (!isObjectRecord(snapshot)) return false;
+
+  Object.assign(shop, clone(snapshot));
+  return true;
+};
+
 export const canViewDeletedPhotoInChangelog = (
   entry: Pick<ShopChangelogEntry, 'action' | 'userId' | 'fieldInfo' | 'metadata'>,
   viewer?: ShopChangelogViewer | null
@@ -372,10 +379,9 @@ const applyInverseEntry = (shop: Shop, entry: ShopChangelogEntry): boolean => {
       return true;
     }
     case 'rollback': {
-      const oldShop = entry.metadata?.oldShop;
-      if (!isObjectRecord(oldShop)) return false;
-      Object.assign(shop, clone(oldShop));
-      return true;
+      // A rollback changelog entry is itself reversible: restoring its pre-rollback
+      // snapshot brings the shop back to the state it had immediately before that rollback.
+      return applyShopSnapshot(shop, entry.metadata?.oldShop);
     }
     default:
       return false;
@@ -398,7 +404,6 @@ export const buildShopRollbackPreview = async (
   const appliedEntryIds: string[] = [];
 
   for (const entry of entries) {
-    if (entry.action === 'rollback') continue;
     if (applyInverseEntry(rolledBackShop, entry)) {
       appliedEntryIds.push(entry.id);
     }
