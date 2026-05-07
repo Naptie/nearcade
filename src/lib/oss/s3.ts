@@ -35,6 +35,8 @@ if (s3Config) {
   isS3Initialized = true;
 }
 
+export const getS3Config = () => s3Config;
+
 export const uploadToS3 = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,

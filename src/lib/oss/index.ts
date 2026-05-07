@@ -1,6 +1,11 @@
 import type { ImageStorageProvider } from '$lib/types';
-import { deleteFromLeanCloud, isLeanCloudInitialized, uploadToLeanCloud } from './leancloud.js';
-import { deleteFromS3, isS3Initialized, uploadToS3 } from './s3.js';
+import {
+  deleteFromLeanCloud,
+  getLeanCloudConfig,
+  isLeanCloudInitialized,
+  uploadToLeanCloud
+} from './leancloud.js';
+import { deleteFromS3, getS3Config, isS3Initialized, uploadToS3 } from './s3.js';
 
 export interface UploadedFileDescriptor {
   url: string;
@@ -15,7 +20,12 @@ export interface StoredFileReference {
   storageObjectId?: string | null;
 }
 
-export const isOSSAvailable = () => isS3Initialized || isLeanCloudInitialized;
+export const getAvailableOSS = () =>
+  isS3Initialized
+    ? { name: 'S3', url: getS3Config()?.endpoint }
+    : isLeanCloudInitialized
+      ? { name: 'LeanCloud', url: getLeanCloudConfig()?.serverURL }
+      : null;
 
 export const uploadFile = async (
   name: string,

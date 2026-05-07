@@ -5,7 +5,7 @@ import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
-import { isOSSAvailable } from '$lib/oss';
+import { getAvailableOSS } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
 import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
@@ -176,7 +176,32 @@ export const handleError: HandleServerError = reportError;
 
 export const init: ServerInit = async () => {
   if (!building) {
-    await (await import('$lib/db/meili.server')).init();
-    console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
+    const meili = await import('$lib/db/meili.server');
+    await meili.init();
+    const mongo = (await import('$lib/db/index.server')).default;
+    const redis = (await import('$lib/db/redis.server')).default;
+    const oss = getAvailableOSS();
+    console.log(
+      [
+        '                                     _       ',
+        '  _ __   ___  __ _ _ __ ___ __ _  __| | ___  ',
+        " | '_ \\ / _ \\/ _` | '__/ __/ _` |/ _` |/ _ \\ ",
+        ' | | | |  __/ (_| | | | (_| (_| | (_| |  __/ ',
+        ' |_| |_|\\___|\\__,_|_|  \\___\\__,_|\\__,_|\\___| ',
+        '                                             '
+      ].join('\n')
+    );
+    console.log('=============================================\n|');
+    console.log(
+      '| Disk DB:',
+      mongo.options.hosts.map((h) => `mongodb://${h.toString()}`).join(', ')
+    );
+    console.log('| RAM DB:', redis.options?.url || 'connected');
+    console.log('| Search:', `Meilisearch @ ${meili.default.config.host}`);
+    console.log(
+      '| OSS:',
+      oss ? `${oss.name || 'unknown'} @ ${oss.url || 'unknown'}` : 'Not connected'
+    );
+    console.log('|\n=============================================');
   }
 };

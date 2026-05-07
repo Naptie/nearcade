@@ -4,8 +4,10 @@ import type { UploadedFileDescriptor } from './index.js';
 
 export let isLeanCloudInitialized = false;
 
+let options: { appId: string; appKey: string; serverURL?: string; masterKey?: string };
+
 if (env.OSS_LEANCLOUD_APP_ID && env.OSS_LEANCLOUD_APP_KEY) {
-  const options: { appId: string; appKey: string; serverURL?: string; masterKey?: string } = {
+  options = {
     appId: env.OSS_LEANCLOUD_APP_ID,
     appKey: env.OSS_LEANCLOUD_APP_KEY
   };
@@ -18,6 +20,8 @@ if (env.OSS_LEANCLOUD_APP_ID && env.OSS_LEANCLOUD_APP_KEY) {
   AV.init(options);
   isLeanCloudInitialized = true;
 }
+
+export const getLeanCloudConfig = (): typeof options | undefined => options;
 
 export const uploadToLeanCloud = async (
   name: string,
