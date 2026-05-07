@@ -92,7 +92,7 @@
   "admin_image_usage_shop": "Shop #{id}",
   "admin_image_usage_unassigned": "Unassigned",
   "admin_images": "Images",
-  "admin_images_description": "Manage uploaded images stored in the images collection",
+  "admin_images_description": "Manage user uploaded images",
   "admin_images_search_placeholder": "Search by image ID, storage key, URL, uploader, or owner ID...",
   "admin_invite_code": "Invite Code",
   "admin_invite_copy_link": "Copy invite link",

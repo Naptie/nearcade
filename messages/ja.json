@@ -91,7 +91,7 @@
   "admin_image_usage_shop": "店舗 #{id}",
   "admin_image_usage_unassigned": "未割り当て",
   "admin_images": "画像管理",
-  "admin_images_description": "images コレクションに保存されている画像を管理する",
+  "admin_images_description": "ユーザーがアップロードした画像を管理する",
   "admin_images_search_placeholder": "画像 ID、保存キー、URL、アップロード者、または所有先 ID で検索...",
   "admin_invite_code": "招待コード",
   "admin_invite_copy_link": "招待リンクをコピー",

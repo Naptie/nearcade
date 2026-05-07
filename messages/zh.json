@@ -91,7 +91,7 @@
   "admin_image_usage_shop": "店铺 #{id}",
   "admin_image_usage_unassigned": "未归属",
   "admin_images": "图片管理",
-  "admin_images_description": "管理 images 集合中的已上传图片",
+  "admin_images_description": "管理用户上传图片",
   "admin_images_search_placeholder": "按图片 ID、存储键、URL、上传者或归属 ID 搜索...",
   "admin_invite_code": "邀请码",
   "admin_invite_copy_link": "复制邀请链接",

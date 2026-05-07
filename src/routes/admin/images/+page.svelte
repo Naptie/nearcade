@@ -31,7 +31,7 @@
   };
 
   const getOwnerLabel = (image: ImageAsset) => {
-    if (image.shopId !== undefined) {
+    if (image.shopId) {
       return m.admin_image_usage_shop({ id: image.shopId });
     }
     if (image.postId) {
@@ -161,6 +161,7 @@
                   type="button"
                   class="btn btn-error btn-soft btn-sm"
                   onclick={async () => {
+                    if (!confirm(m.delete_image_confirm())) return;
                     if (!(await handleDeleteRequest(image))) return;
                     handleDelete(image);
                   }}

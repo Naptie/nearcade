@@ -55,19 +55,7 @@ export const deleteFromLeanCloud = async (objectId: string) => {
     throw new Error('LeanCloud is not configured');
   }
 
-  if (env.OSS_LEANCLOUD_SERVER_URL) {
-    await fetch(`${env.OSS_LEANCLOUD_SERVER_URL}/1.1/files/${objectId}`, {
-      method: 'DELETE',
-      headers: {
-        'X-LC-Id': env.OSS_LEANCLOUD_APP_ID,
-        'X-LC-Key': env.OSS_LEANCLOUD_MASTER_KEY
-          ? `${env.OSS_LEANCLOUD_MASTER_KEY},master`
-          : env.OSS_LEANCLOUD_APP_KEY
-      }
-    });
-  } else {
-    await AV.File.createWithoutData(objectId).destroy(
-      env.OSS_LEANCLOUD_MASTER_KEY ? { useMasterKey: true } : undefined
-    );
-  }
+  await AV.File.createWithoutData(objectId).destroy(
+    env.OSS_LEANCLOUD_MASTER_KEY ? { useMasterKey: true } : undefined
+  );
 };

@@ -278,7 +278,7 @@
               alt={m.shop_photos_uploaded_by({
                 name: getDisplayName(currentPhoto.uploader) ?? m.anonymous_user()
               })}
-              class="max-h-[75vh] max-w-full rounded-lg object-contain shadow-2xl"
+              class="max-h-[75vh] w-full rounded-lg object-contain shadow-2xl"
             />
 
             <!-- Photo info bar -->
