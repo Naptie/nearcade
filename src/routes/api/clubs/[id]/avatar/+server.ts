@@ -52,6 +52,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       const db = mongo.db();
       const clubsCollection = db.collection<Club>('clubs');
 
+      // checkClubPermission requires the club object, so the DB fetch must happen first
       const club = await clubsCollection.findOne({
         $or: [{ id }, { slug: id }]
       });
