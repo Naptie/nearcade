@@ -1,6 +1,6 @@
 import type { m as mFunc } from '$lib/paraglide/messages';
 import type { ShopChangelogEntry } from '$lib/types';
-import { GAMES } from '$lib/constants';
+import { GAME_TITLES } from '$lib/constants';
 
 export const getShopChangelogActionName = (
   action: ShopChangelogEntry['action'],
@@ -50,7 +50,7 @@ const formatShopChangelogValue = (value: string, field: string, m: typeof mFunc)
   if (!value || value === 'null') return m.not_specified();
 
   if (field === 'game.titleId') {
-    const title = GAMES.find((game) => game.id.toString() === value);
+    const title = GAME_TITLES.find((game) => game.id.toString() === value);
     if (title) return m[title.key]();
   }
 

@@ -21,7 +21,7 @@
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
-  import { ATTENDANCE_RADIUS_KM, GAMES } from '$lib/constants';
+  import { ATTENDANCE_RADIUS_KM, GAME_TITLES } from '$lib/constants';
   import { getContext } from 'svelte';
   import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
@@ -260,7 +260,7 @@
   };
 
   const getGameInfo = (titleId: number) => {
-    return GAMES.find((g) => g.id === titleId);
+    return GAME_TITLES.find((g) => g.id === titleId);
   };
 
   const DAY_LABELS = () => [
@@ -1343,7 +1343,7 @@
                   {#each aggregatedGames as game (game.titleId)}
                     {@const gameInfo = getGameInfo(game.titleId)}
                     {@const positions =
-                      game.quantity * (GAMES.find((g) => g.id === game.titleId)?.seats || 1)}
+                      game.quantity * (GAME_TITLES.find((g) => g.id === game.titleId)?.seats || 1)}
                     {#if shop.isClaimed}
                       <!-- For claimed shops, show queue-based per-game attendance -->
                       {@const queueGameAttendance = shop.games.reduce(
@@ -1524,7 +1524,7 @@
 
           <!-- Attendance Reports -->
           {#if !shop.isClaimed}
-            <AttendanceReports shopId={shop.id} gamesList={GAMES} />
+            <AttendanceReports shopId={shop.id} gamesList={GAME_TITLES} />
           {/if}
         </div>
       </div>

@@ -5,7 +5,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { onMount } from 'svelte';
   import UserAvatar from './UserAvatar.svelte';
-  import type { GAMES } from '$lib/constants';
+  import type { GAME_TITLES } from '$lib/constants';
   import { fromPath } from '$lib/utils/scoped';
 
   interface AttendanceReport {
@@ -28,7 +28,7 @@
     gamesList
   }: {
     shopId: number;
-    gamesList: readonly (typeof GAMES)[number][];
+    gamesList: readonly (typeof GAME_TITLES)[number][];
   } = $props();
 
   let reports = $state<AttendanceReport[]>([]);

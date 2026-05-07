@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { GAMES } from '$lib/constants';
+  import { GAME_TITLES } from '$lib/constants';
   import { formatDateTime, formatTime, getGameName, getShopOpeningHours } from '$lib/utils';
   import type { Shop } from '$lib/types';
 
@@ -43,7 +43,7 @@
   );
 
   const getGameInfo = (gameId: number) => {
-    return GAMES.find((g) => g.id === gameId);
+    return GAME_TITLES.find((g) => g.id === gameId);
   };
 
   $effect(() => {

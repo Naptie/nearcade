@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack, tick } from 'svelte';
   import { m } from '$lib/paraglide/messages';
-  import { GAMES } from '$lib/constants';
+  import { GAME_TITLES } from '$lib/constants';
   import { base } from '$app/paths';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
@@ -513,7 +513,7 @@
   }
 
   function addGame() {
-    const defaultTitleId = GAMES[0]?.id ?? 0;
+    const defaultTitleId = GAME_TITLES[0]?.id ?? 0;
     games = [
       ...games,
       {
@@ -872,7 +872,7 @@
               handleGameTitleChange(idx, Number((e.target as HTMLSelectElement).value))}
           >
             <option value={0}>{m.shop_select_game_title()}</option>
-            {#each GAMES as g (g.id)}
+            {#each GAME_TITLES as g (g.id)}
               <option value={g.id}>{m[g.key]()}</option>
             {/each}
           </select>

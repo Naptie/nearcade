@@ -6,7 +6,7 @@
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
   import { aggregateGames, formatShopAddress, getGameName, pageTitle } from '$lib/utils';
-  import { PAGINATION, GAMES } from '$lib/constants';
+  import { PAGINATION, GAME_TITLES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
@@ -74,7 +74,7 @@
   };
 
   const getGameInfo = (gameId: number) => {
-    return GAMES.find((g) => g.id === gameId);
+    return GAME_TITLES.find((g) => g.id === gameId);
   };
 </script>
 
@@ -145,7 +145,7 @@
           <div class="card-body p-4">
             <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
             <div class="space-y-2">
-              {#each GAMES as game (game.id)}
+              {#each GAME_TITLES as game (game.id)}
                 <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                   <input
                     type="checkbox"
@@ -242,7 +242,7 @@
             {:else if data.titleIds.length > 0}
               <div class="inline-flex flex-wrap items-center gap-2">
                 {@html m.showing_shops_with_games({
-                  games: GAMES.filter((g) => data.titleIds.includes(g.id))
+                  games: GAME_TITLES.filter((g) => data.titleIds.includes(g.id))
                     .map(
                       (g) =>
                         `<span class="badge badge-soft badge-sm px-1.75">${getGameName(g.key)}</span>`

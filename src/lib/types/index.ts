@@ -1,5 +1,5 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, GAMES } from '../constants';
+import type { RADIUS_OPTIONS, GAME_TITLES } from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { User } from '$lib/auth/types';
 
@@ -132,7 +132,7 @@ export interface UniversityRankingCache {
   data: UniversityRankingData[];
 }
 
-export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAMES)[number]['key'];
+export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAME_TITLES)[number]['key'];
 
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 

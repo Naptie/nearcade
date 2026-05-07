@@ -38,7 +38,7 @@
     SHOP_INDEX,
     SELECTED_SHOP_INDEX,
     HOVERED_SHOP_INDEX,
-    GAMES
+    GAME_TITLES
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
@@ -447,7 +447,7 @@
     return games?.find((game) => game.titleId === titleId) || null;
   };
 
-  const allGames = GAMES.map((game) => ({
+  const allGames = GAME_TITLES.map((game) => ({
     id: game.id,
     name: getGameName(game.key)
   }));
@@ -1065,7 +1065,7 @@
                 </button>
               </h3>
               <div class="space-y-2">
-                {#each GAMES as game (game.id)}
+                {#each GAME_TITLES as game (game.id)}
                   <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                     <input
                       type="checkbox"

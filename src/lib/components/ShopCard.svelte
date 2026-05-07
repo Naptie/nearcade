@@ -9,7 +9,7 @@
     isShopChinaBased
   } from '$lib/utils';
   import { resolve } from '$app/paths';
-  import { GAMES } from '$lib/constants';
+  import { GAME_TITLES } from '$lib/constants';
   import type { Shop, ShopWithExtras } from '$lib/types';
   import FancyButton from './FancyButton.svelte';
 
@@ -38,7 +38,7 @@
     }
   };
 
-  const getGameInfo = (titleId: number) => GAMES.find((g) => g.id === titleId);
+  const getGameInfo = (titleId: number) => GAME_TITLES.find((g) => g.id === titleId);
 
   const getTotalMachines = (s: Pick<Shop, 'games'>) =>
     s.games.reduce((total, game) => total + game.quantity, 0);

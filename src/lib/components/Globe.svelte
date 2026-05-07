@@ -9,7 +9,7 @@
   import { m } from '$lib/paraglide/messages';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import { getShopOpeningHours, isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
-  import { GAMES } from '$lib/constants';
+  import { GAME_TITLES } from '$lib/constants';
   import type { Shop, ShopWithExtras } from '$lib/types';
   import {
     emptyGlobeFeatureCollection,
@@ -676,7 +676,7 @@
         }, 0);
         const positions =
           games.reduce((sum, g) => sum + g.quantity, 0) *
-          (GAMES.find((game) => game.id === games[0].titleId)?.seats || 1);
+          (GAME_TITLES.find((game) => game.id === games[0].titleId)?.seats || 1);
         return attendances / positions;
       })
       .reduce((max, curr) => (isNaN(curr) ? max : Math.max(max, curr)), 0);
@@ -2631,7 +2631,7 @@
               <div class="card-body p-4">
                 <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
                 <div class="space-y-2">
-                  {#each GAMES as game (game.id)}
+                  {#each GAME_TITLES as game (game.id)}
                     <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                       <input
                         type="checkbox"

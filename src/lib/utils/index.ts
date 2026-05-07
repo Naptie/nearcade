@@ -1,6 +1,6 @@
 import { m } from '$lib/paraglide/messages';
 import { Database } from '$lib/db/index.client';
-import { GAMES } from '$lib/constants';
+import { GAME_TITLES } from '$lib/constants';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
@@ -183,7 +183,7 @@ export const parseRelativeTime = (date: Date, locale: string) => {
 };
 
 export const getGameName = (identifier?: number | string): string | undefined => {
-  const game = GAMES.find((g) =>
+  const game = GAME_TITLES.find((g) =>
     typeof identifier === 'number' ? g.id === identifier : g.key === identifier
   );
   return game ? m[game.key]() : identifier?.toString();
