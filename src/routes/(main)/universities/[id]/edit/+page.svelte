@@ -251,7 +251,9 @@
               </div>
             {:else}
               <div class="avatar placeholder">
-                <div class="bg-neutral text-neutral-content h-16 w-16 rounded-full">
+                <div
+                  class="bg-neutral text-neutral-content flex h-16 w-16 items-center justify-center rounded-full"
+                >
                   <span class="text-xl">{data.university.name.charAt(0)}</span>
                 </div>
               </div>
