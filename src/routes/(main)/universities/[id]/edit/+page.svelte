@@ -240,13 +240,13 @@
         <!-- Avatar -->
         <div class="form-control">
           <div class="label">
-            <span class="label-text">{m.avatar()}</span>
+            <span class="label-text">{m.logo()}</span>
           </div>
           <div class="flex items-center gap-4">
             {#if avatarUrl}
               <div class="avatar">
                 <div class="h-16 w-16 rounded-full">
-                  <img src={avatarUrl} alt={m.avatar()} />
+                  <img src={avatarUrl} alt={m.logo()} />
                 </div>
               </div>
             {:else}
