@@ -258,7 +258,7 @@
           </div>
           <button
             type="button"
-            class="btn btn-circle btn-sm border-base-100 absolute right-0 bottom-0 border-2"
+            class="btn btn-circle btn-soft btn-sm border-base-100 absolute right-0 bottom-0 border-2"
             onclick={() => (isAvatarUploadOpen = true)}
             aria-label={m.change_avatar()}
           >
