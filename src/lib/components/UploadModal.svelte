@@ -290,7 +290,7 @@
       {#if phase === 'idle' || phase === 'error'}
         <!-- File picker / drop zone area -->
         <div
-          class="border-base-300 mb-4 flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 transition-colors {isDragOver
+          class="border-base-content/20 mb-4 flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 transition-colors {isDragOver
             ? 'border-primary bg-primary/10'
             : 'hover:border-primary'}"
           onclick={() => fileInput?.click()}

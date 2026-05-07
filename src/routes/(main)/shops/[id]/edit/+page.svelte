@@ -71,7 +71,7 @@
   />
 
   <!-- Photos section -->
-  <div class="bg-base-100 border-base-300 mt-8 rounded-2xl border p-6 shadow-sm">
+  <div class="bg-base-100 border-base-content/20 mt-8 rounded-2xl border p-6 shadow-sm">
     <PhotoCarousel shopId={shop.id} bind:photos={data.photos} currentUser={data.user} />
   </div>
 </div>

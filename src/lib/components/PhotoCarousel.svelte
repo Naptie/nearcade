@@ -142,7 +142,7 @@
   {/if}
 
   {#if photos.length === 0 && showEmptyState}
-    <div class="border-base-300 rounded-xl border p-6 text-center">
+    <div class="border-base-content/20 rounded-xl border p-6 text-center">
       <i class="fa-solid fa-camera text-base-content/30 mb-2 text-2xl"></i>
       <p class="text-base-content/60 text-sm">{emptyMessage}</p>
       {#if currentUser}
