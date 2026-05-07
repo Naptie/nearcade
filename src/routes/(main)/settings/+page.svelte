@@ -5,11 +5,13 @@
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName } from '$lib/utils';
   import type { PageData, ActionData } from './$types';
+  import UploadModal from '$lib/components/UploadModal.svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let isSubmitting = $state(false);
   let showSuccess = $state(false);
+  let isAvatarUploadOpen = $state(false);
 
   // Form data with error handling
   let displayName = $derived(data.userProfile?.displayName || '');
@@ -240,18 +242,28 @@
   {#if data.userProfile}
     <div class="bg-base-100 rounded-lg p-6">
       <div class="xs:flex-row xs:gap-6 flex flex-col items-center gap-4">
-        <div class="avatar">
-          <div class="h-20 w-20 rounded-full">
-            {#if data.userProfile.image}
-              <img src={data.userProfile.image} alt={m.profile_image()} />
-            {:else}
-              <div
-                class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-2xl font-bold"
-              >
-                {data.userProfile.name?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-            {/if}
+        <div class="relative">
+          <div class="avatar">
+            <div class="h-20 w-20 rounded-full">
+              {#if data.userProfile.image}
+                <img src={data.userProfile.image} alt={m.profile_image()} />
+              {:else}
+                <div
+                  class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-2xl font-bold"
+                >
+                  {data.userProfile.name?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+              {/if}
+            </div>
           </div>
+          <button
+            type="button"
+            class="btn btn-circle btn-sm border-base-100 absolute right-0 bottom-0 border-2"
+            onclick={() => (isAvatarUploadOpen = true)}
+            aria-label={m.change_avatar()}
+          >
+            <i class="fa-solid fa-camera text-xs"></i>
+          </button>
         </div>
         <div>
           <h2 class="text-xl font-semibold">
@@ -265,6 +277,14 @@
         </div>
       </div>
     </div>
+
+    <UploadModal
+      bind:isOpen={isAvatarUploadOpen}
+      uploadUrl="/api/users/avatar"
+      title={m.upload_avatar()}
+      confirmLabel={m.upload_avatar()}
+      onSuccess={() => invalidateAll()}
+    />
   {/if}
 
   <!-- Profile Form -->

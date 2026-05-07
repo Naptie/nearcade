@@ -6,12 +6,14 @@
   import { resolve } from '$app/paths';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
+  import UploadModal from '$lib/components/UploadModal.svelte';
 
   let { data }: { data: PageData } = $props();
 
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let errors = $state<string[]>([]);
+  let isAvatarUploadOpen = $state(false);
 
   // Form data
   let formData = $derived({
@@ -25,12 +27,14 @@
     isDoubleFirstClass: data.university.isDoubleFirstClass || false,
     description: data.university.description || '',
     website: data.university.website || '',
-    avatarUrl: data.university.avatarUrl || '',
     backgroundColor: data.university.backgroundColor || '#3b82f6',
     slug: data.university.slug || '',
     postReadability: data.university.postReadability || PostReadability.PUBLIC,
     postWritability: data.university.postWritability || PostWritability.UNIV_MEMBERS
   });
+
+  // avatarUrl as separate state so it can be updated after upload
+  let avatarUrl = $state(data.university.avatarUrl || '');
 
   // Track whether user wants to set a custom background color
   let useCustomBackgroundColor = $derived(!!data.university.backgroundColor);
@@ -233,19 +237,36 @@
           />
         </div>
 
-        <!-- Avatar URL -->
+        <!-- Avatar -->
         <div class="form-control">
-          <label class="label" for="university-avatar">
-            <span class="label-text">{m.avatar_url()}</span>
-          </label>
-          <input
-            id="university-avatar"
-            name="avatarUrl"
-            type="url"
-            bind:value={formData.avatarUrl}
-            placeholder={m.logo_placeholder()}
-            class="input input-bordered w-full"
-          />
+          <div class="label">
+            <span class="label-text">{m.avatar()}</span>
+          </div>
+          <div class="flex items-center gap-4">
+            {#if avatarUrl}
+              <div class="avatar">
+                <div class="h-16 w-16 rounded-full">
+                  <img src={avatarUrl} alt={m.avatar()} />
+                </div>
+              </div>
+            {:else}
+              <div class="avatar placeholder">
+                <div class="bg-neutral text-neutral-content h-16 w-16 rounded-full">
+                  <span class="text-xl">{data.university.name.charAt(0)}</span>
+                </div>
+              </div>
+            {/if}
+            <button
+              type="button"
+              class="btn btn-soft btn-primary btn-sm"
+              onclick={() => (isAvatarUploadOpen = true)}
+            >
+              <i class="fa-solid fa-camera"></i>
+              {m.change_avatar()}
+            </button>
+          </div>
+          <!-- Hidden input preserves avatarUrl in the main form submission -->
+          <input type="hidden" name="avatarUrl" value={avatarUrl} />
         </div>
 
         <!-- Background Color -->
@@ -400,3 +421,14 @@
     </div>
   </form>
 </div>
+
+<UploadModal
+  bind:isOpen={isAvatarUploadOpen}
+  uploadUrl="/api/universities/{data.university.id}/avatar"
+  title={m.upload_avatar()}
+  confirmLabel={m.upload_avatar()}
+  onSuccess={(result) => {
+    avatarUrl = result.url;
+    invalidateAll();
+  }}
+/>
