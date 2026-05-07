@@ -2,15 +2,10 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { deleteFile, uploadFile } from '$lib/oss/index';
-import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
+import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
 import { checkUniversityPermission } from '$lib/utils';
 import { logChange } from '$lib/utils/universities-clubs/changelog.server';
-import { nanoid } from 'nanoid';
-import type { ImageStorageProvider, University } from '$lib/types';
-
-const getAvatarExtension = (fileName: string, mimeType: string) =>
-  (fileName.split('.').pop() || mimeType.split('/')[1] || 'jpg').toLowerCase();
+import type { University } from '$lib/types';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
   const session = locals.session;
@@ -69,39 +64,42 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       }
 
       const universityId = university.id;
-      const avatarId = nanoid();
-      const extension = getAvatarExtension(file.name, file.type);
-      const storageKey = `${IMAGE_STORAGE_PREFIX}/avatars/universities/${universityId}/${avatarId}.${extension}`;
+      const oldAvatarImageId = university.avatarImageId ?? null;
 
-      const uploadedFile = await uploadFile(storageKey, buffer, (progress) => {
-        const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-        streamController.enqueue(encoder.encode(line));
+      // Upload new avatar as an ImageAsset owned by this university
+      const image = await createUploadedImage({
+        db,
+        fileName: file.name,
+        mimeType: file.type,
+        buffer,
+        uploadedBy: session.user.id,
+        owner: { universityId },
+        onProgress: (progress) => {
+          const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
+          streamController.enqueue(encoder.encode(line));
+        }
       });
 
-      // Delete old avatar from OSS if it was stored there
-      if (university.avatarStorageKey && university.avatarStorageProvider) {
-        try {
-          await deleteFile({
-            storageProvider: university.avatarStorageProvider as ImageStorageProvider,
-            storageKey: university.avatarStorageKey,
-            storageObjectId: university.avatarStorageObjectId ?? null
+      // Delete old avatar image (OSS + images collection)
+      if (oldAvatarImageId) {
+        const oldImages = await getImagesByIds(db, [oldAvatarImageId]);
+        if (oldImages.length > 0) {
+          await deleteImagesByIds(db, [oldAvatarImageId], {
+            userId: session.user.id,
+            skipPermissionCheck: true
           });
-        } catch (err) {
-          console.error('Failed to delete old university avatar from OSS:', err);
         }
       }
 
       const oldAvatarUrl = university.avatarUrl ?? null;
 
-      // Update university avatarUrl and storage metadata
+      // Update university avatarUrl and avatarImageId
       await universitiesCollection.updateOne(
         { id: universityId },
         {
           $set: {
-            avatarUrl: uploadedFile.url,
-            avatarStorageProvider: uploadedFile.storageProvider,
-            avatarStorageKey: uploadedFile.storageKey,
-            avatarStorageObjectId: uploadedFile.storageObjectId ?? null,
+            avatarUrl: image.url,
+            avatarImageId: image.id,
             updatedAt: new Date()
           }
         }
@@ -119,17 +117,17 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
         },
         fieldInfo: { field: 'avatarUrl' },
         oldValue: oldAvatarUrl,
-        newValue: uploadedFile.url
+        newValue: image.url
       });
 
       const line =
         JSON.stringify({
           phase: 'done',
-          imageId: universityId,
-          url: uploadedFile.url,
-          storageProvider: uploadedFile.storageProvider,
-          storageKey: uploadedFile.storageKey,
-          storageObjectId: uploadedFile.storageObjectId ?? null
+          imageId: image.id,
+          url: image.url,
+          storageProvider: image.storageProvider,
+          storageKey: image.storageKey,
+          storageObjectId: image.storageObjectId ?? null
         }) + '\n';
       streamController.enqueue(encoder.encode(line));
       streamController.close();

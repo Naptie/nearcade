@@ -2,15 +2,10 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { deleteFile, uploadFile } from '$lib/oss/index';
-import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
+import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
 import { checkClubPermission } from '$lib/utils';
 import { logChange } from '$lib/utils/universities-clubs/changelog.server';
-import { nanoid } from 'nanoid';
-import type { Club, ImageStorageProvider } from '$lib/types';
-
-const getAvatarExtension = (fileName: string, mimeType: string) =>
-  (fileName.split('.').pop() || mimeType.split('/')[1] || 'jpg').toLowerCase();
+import type { Club } from '$lib/types';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
   const session = locals.session;
@@ -73,39 +68,42 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       }
 
       const clubId = club.id;
-      const avatarId = nanoid();
-      const extension = getAvatarExtension(file.name, file.type);
-      const storageKey = `${IMAGE_STORAGE_PREFIX}/avatars/clubs/${clubId}/${avatarId}.${extension}`;
+      const oldAvatarImageId = club.avatarImageId ?? null;
 
-      const uploadedFile = await uploadFile(storageKey, buffer, (progress) => {
-        const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-        streamController.enqueue(encoder.encode(line));
+      // Upload new avatar as an ImageAsset owned by this club
+      const image = await createUploadedImage({
+        db,
+        fileName: file.name,
+        mimeType: file.type,
+        buffer,
+        uploadedBy: session.user.id,
+        owner: { clubId },
+        onProgress: (progress) => {
+          const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
+          streamController.enqueue(encoder.encode(line));
+        }
       });
 
-      // Delete old avatar from OSS if it was stored there
-      if (club.avatarStorageKey && club.avatarStorageProvider) {
-        try {
-          await deleteFile({
-            storageProvider: club.avatarStorageProvider as ImageStorageProvider,
-            storageKey: club.avatarStorageKey,
-            storageObjectId: club.avatarStorageObjectId ?? null
+      // Delete old avatar image (OSS + images collection)
+      if (oldAvatarImageId) {
+        const oldImages = await getImagesByIds(db, [oldAvatarImageId]);
+        if (oldImages.length > 0) {
+          await deleteImagesByIds(db, [oldAvatarImageId], {
+            userId: session.user.id,
+            skipPermissionCheck: true
           });
-        } catch (err) {
-          console.error('Failed to delete old club avatar from OSS:', err);
         }
       }
 
       const oldAvatarUrl = club.avatarUrl ?? null;
 
-      // Update club avatarUrl and storage metadata
+      // Update club avatarUrl and avatarImageId
       await clubsCollection.updateOne(
         { id: clubId },
         {
           $set: {
-            avatarUrl: uploadedFile.url,
-            avatarStorageProvider: uploadedFile.storageProvider,
-            avatarStorageKey: uploadedFile.storageKey,
-            avatarStorageObjectId: uploadedFile.storageObjectId ?? null,
+            avatarUrl: image.url,
+            avatarImageId: image.id,
             updatedAt: new Date()
           }
         }
@@ -123,17 +121,17 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
         },
         fieldInfo: { field: 'avatarUrl' },
         oldValue: oldAvatarUrl,
-        newValue: uploadedFile.url
+        newValue: image.url
       });
 
       const line =
         JSON.stringify({
           phase: 'done',
-          imageId: clubId,
-          url: uploadedFile.url,
-          storageProvider: uploadedFile.storageProvider,
-          storageKey: uploadedFile.storageKey,
-          storageObjectId: uploadedFile.storageObjectId ?? null
+          imageId: image.id,
+          url: image.url,
+          storageProvider: image.storageProvider,
+          storageKey: image.storageKey,
+          storageObjectId: image.storageObjectId ?? null
         }) + '\n';
       streamController.enqueue(encoder.encode(line));
       streamController.close();

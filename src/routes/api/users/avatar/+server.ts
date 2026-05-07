@@ -2,13 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { deleteFile, uploadFile } from '$lib/oss/index';
-import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
-import { nanoid } from 'nanoid';
-import type { ImageStorageProvider } from '$lib/types';
-
-const getAvatarExtension = (fileName: string, mimeType: string) =>
-  (fileName.split('.').pop() || mimeType.split('/')[1] || 'jpg').toLowerCase();
+import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = locals.session;
@@ -49,40 +43,39 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const db = mongo.db();
       const usersCollection = db.collection('users');
 
-      // Get current user to check for existing avatar in OSS
+      // Get current user to find the old avatar image ID
       const user = await usersCollection.findOne({ id: userId });
+      const oldAvatarImageId = user?.avatarImageId ?? null;
 
-      const avatarId = nanoid();
-      const extension = getAvatarExtension(file.name, file.type);
-      const storageKey = `${IMAGE_STORAGE_PREFIX}/avatars/users/${userId}/${avatarId}.${extension}`;
-
-      const uploadedFile = await uploadFile(storageKey, buffer, (progress) => {
-        const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-        streamController.enqueue(encoder.encode(line));
+      // Upload new avatar as an ImageAsset owned by this user
+      const image = await createUploadedImage({
+        db,
+        fileName: file.name,
+        mimeType: file.type,
+        buffer,
+        uploadedBy: userId,
+        owner: { userId },
+        onProgress: (progress) => {
+          const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
+          streamController.enqueue(encoder.encode(line));
+        }
       });
 
-      // Delete old avatar from OSS if it was stored there
-      if (user?.avatarStorageKey && user?.avatarStorageProvider) {
-        try {
-          await deleteFile({
-            storageProvider: user.avatarStorageProvider as ImageStorageProvider,
-            storageKey: user.avatarStorageKey,
-            storageObjectId: user.avatarStorageObjectId ?? null
-          });
-        } catch (err) {
-          console.error('Failed to delete old user avatar from OSS:', err);
+      // Delete old avatar image (OSS + images collection)
+      if (oldAvatarImageId) {
+        const oldImages = await getImagesByIds(db, [oldAvatarImageId]);
+        if (oldImages.length > 0) {
+          await deleteImagesByIds(db, [oldAvatarImageId], { userId, skipPermissionCheck: true });
         }
       }
 
-      // Update user image and storage metadata
+      // Update user image URL and avatarImageId
       await usersCollection.updateOne(
         { id: userId },
         {
           $set: {
-            image: uploadedFile.url,
-            avatarStorageProvider: uploadedFile.storageProvider,
-            avatarStorageKey: uploadedFile.storageKey,
-            avatarStorageObjectId: uploadedFile.storageObjectId ?? null,
+            image: image.url,
+            avatarImageId: image.id,
             updatedAt: new Date()
           }
         }
@@ -91,11 +84,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const line =
         JSON.stringify({
           phase: 'done',
-          imageId: userId,
-          url: uploadedFile.url,
-          storageProvider: uploadedFile.storageProvider,
-          storageKey: uploadedFile.storageKey,
-          storageObjectId: uploadedFile.storageObjectId ?? null
+          imageId: image.id,
+          url: image.url,
+          storageProvider: image.storageProvider,
+          storageKey: image.storageKey,
+          storageObjectId: image.storageObjectId ?? null
         }) + '\n';
       streamController.enqueue(encoder.encode(line));
       streamController.close();

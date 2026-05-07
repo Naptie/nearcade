@@ -1,13 +1,21 @@
 import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
 import { deleteFile, uploadFile } from '$lib/oss/index';
 import type { User } from '$lib/auth/types';
-import type { Comment, ImageAsset, Post, ShopDeleteRequest } from '$lib/types';
+import type { Club, Comment, ImageAsset, Post, ShopDeleteRequest, University } from '$lib/types';
 import { protect } from '$lib/utils';
 import { stripPostImageMarkdownByIds } from '$lib/utils/image-markdown';
 import { nanoid } from 'nanoid';
 import type { Db, Filter } from 'mongodb';
 
-const IMAGE_OWNER_KEYS = ['shopId', 'commentId', 'postId', 'deleteRequestId'] as const;
+const IMAGE_OWNER_KEYS = [
+  'shopId',
+  'commentId',
+  'postId',
+  'deleteRequestId',
+  'userId',
+  'universityId',
+  'clubId'
+] as const;
 
 type ImageOwnerKey = (typeof IMAGE_OWNER_KEYS)[number];
 
@@ -116,6 +124,9 @@ const getImageFolder = (
   if (owner.commentId) return `comments/${owner.commentId}`;
   if (owner.postId) return `posts/${owner.postId}`;
   if (owner.deleteRequestId) return `delete-requests/${owner.deleteRequestId}`;
+  if (owner.userId) return `avatars/users/${owner.userId}`;
+  if (owner.universityId) return `avatars/universities/${owner.universityId}`;
+  if (owner.clubId) return `avatars/clubs/${owner.clubId}`;
   if (draftContext) return getDraftImageFolder(draftContext, uploadedBy);
   return `drafts/${uploadedBy}`;
 };
@@ -322,6 +333,9 @@ const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
   const commentImageIdsByOwner = new Map<string, string[]>();
   const postImageIdsByOwner = new Map<string, string[]>();
   const deleteRequestImageIdsByOwner = new Map<string, string[]>();
+  const userAvatarIds = new Set<string>();
+  const universityAvatarIds = new Set<string>();
+  const clubAvatarIds = new Set<string>();
 
   for (const image of images) {
     if (image.commentId) {
@@ -344,6 +358,10 @@ const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
         image.id
       ]);
     }
+
+    if (image.userId) userAvatarIds.add(image.userId);
+    if (image.universityId) universityAvatarIds.add(image.universityId);
+    if (image.clubId) clubAvatarIds.add(image.clubId);
   }
 
   await Promise.all([
@@ -376,6 +394,21 @@ const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
       db
         .collection<ShopDeleteRequest>('shop_delete_requests')
         .updateOne({ id: deleteRequestId }, { $pull: { images: { $in: imageIdsForOwner } } })
+    ),
+    ...[...userAvatarIds].map((userId) =>
+      db
+        .collection<User>('users')
+        .updateOne({ id: userId }, { $unset: { avatarImageId: '', image: '' } })
+    ),
+    ...[...universityAvatarIds].map((universityId) =>
+      db
+        .collection<University>('universities')
+        .updateOne({ id: universityId }, { $unset: { avatarImageId: '', avatarUrl: '' } })
+    ),
+    ...[...clubAvatarIds].map((clubId) =>
+      db
+        .collection<Club>('clubs')
+        .updateOne({ id: clubId }, { $unset: { avatarImageId: '', avatarUrl: '' } })
     )
   ]);
 };

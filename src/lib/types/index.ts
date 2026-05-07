@@ -70,9 +70,7 @@ export interface University {
   // Customization fields
   backgroundColor?: string; // Hex color code
   avatarUrl?: string; // University avatar/logo URL
-  avatarStorageProvider?: string | null;
-  avatarStorageKey?: string | null;
-  avatarStorageObjectId?: string | null;
+  avatarImageId?: string | null;
   description?: string; // University description
   website?: string; // Official website
   // Settings
@@ -180,9 +178,7 @@ export interface Club {
   slug?: string; // Customizable URL slug
   description?: string;
   avatarUrl?: string;
-  avatarStorageProvider?: string | null;
-  avatarStorageKey?: string | null;
-  avatarStorageObjectId?: string | null;
+  avatarImageId?: string | null;
   backgroundColor?: string;
   website?: string;
   // Settings
@@ -298,6 +294,9 @@ export interface ImageAsset {
   commentId?: string;
   postId?: string;
   deleteRequestId?: string;
+  userId?: string | null;
+  universityId?: string | null;
+  clubId?: string | null;
   url: string;
   storageProvider: ImageStorageProvider;
   storageKey: string;

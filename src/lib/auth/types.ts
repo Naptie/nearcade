@@ -9,9 +9,7 @@ export interface User {
   email?: string;
   emailVerified: boolean;
   image?: string | null;
-  avatarStorageProvider?: string | null;
-  avatarStorageKey?: string | null;
-  avatarStorageObjectId?: string | null;
+  avatarImageId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   displayName?: string | null;
