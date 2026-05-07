@@ -18,6 +18,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { nanoid } from 'nanoid';
 import dotenv from 'dotenv';
+import AV from 'leancloud-storage';
 
 if (!('MONGODB_URI' in process.env)) {
   dotenv.config();
@@ -25,6 +26,10 @@ if (!('MONGODB_URI' in process.env)) {
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const OSS_S3_BASE64 = process.env.OSS_S3_BASE64;
+const OSS_LEANCLOUD_APP_ID = process.env.OSS_LEANCLOUD_APP_ID;
+const OSS_LEANCLOUD_APP_KEY = process.env.OSS_LEANCLOUD_APP_KEY;
+const OSS_LEANCLOUD_SERVER_URL = process.env.OSS_LEANCLOUD_SERVER_URL;
+const OSS_LEANCLOUD_MASTER_KEY = process.env.OSS_LEANCLOUD_MASTER_KEY;
 const IMAGE_STORAGE_PREFIX = 'nearcade';
 const IMAGES_COLLECTION = 'images';
 
@@ -35,15 +40,15 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-if (!OSS_S3_BASE64) {
+if (!OSS_S3_BASE64 && (!OSS_LEANCLOUD_APP_ID || !OSS_LEANCLOUD_APP_KEY)) {
   console.error(
-    'OSS_S3_BASE64 is not set (only S3-compatible storage is supported by this script)'
+    'No OSS provider is configured (set OSS_S3_BASE64 or OSS_LEANCLOUD_APP_ID + OSS_LEANCLOUD_APP_KEY)'
   );
   process.exit(1);
 }
 
 // ---------------------------------------------------------------------------
-// S3 setup
+// OSS setup
 // ---------------------------------------------------------------------------
 
 interface S3Config {
@@ -56,23 +61,56 @@ interface S3Config {
   forcePathStyle: boolean;
 }
 
-const s3Config: S3Config = JSON.parse(Buffer.from(OSS_S3_BASE64, 'base64').toString('utf8'));
+interface UploadedFileDescriptor {
+  url: string;
+  storageProvider: 's3' | 'leancloud';
+  storageKey: string;
+  storageObjectId: string | null;
+}
 
-const s3 = new S3Client({
-  region: s3Config.region,
-  endpoint: s3Config.endpoint,
-  bucketEndpoint: s3Config.bucketEndpoint,
-  forcePathStyle: s3Config.forcePathStyle,
-  credentials: {
-    accessKeyId: s3Config.accessKeyId,
-    secretAccessKey: s3Config.secretAccessKey
+const s3Config: S3Config | undefined = OSS_S3_BASE64
+  ? JSON.parse(Buffer.from(OSS_S3_BASE64, 'base64').toString('utf8'))
+  : undefined;
+
+const s3 = s3Config
+  ? new S3Client({
+      region: s3Config.region,
+      endpoint: s3Config.endpoint,
+      bucketEndpoint: s3Config.bucketEndpoint,
+      forcePathStyle: s3Config.forcePathStyle,
+      credentials: {
+        accessKeyId: s3Config.accessKeyId,
+        secretAccessKey: s3Config.secretAccessKey
+      }
+    })
+  : undefined;
+
+if (OSS_LEANCLOUD_APP_ID && OSS_LEANCLOUD_APP_KEY) {
+  const options: { appId: string; appKey: string; serverURL?: string; masterKey?: string } = {
+    appId: OSS_LEANCLOUD_APP_ID,
+    appKey: OSS_LEANCLOUD_APP_KEY
+  };
+  if (OSS_LEANCLOUD_SERVER_URL) {
+    options.serverURL = OSS_LEANCLOUD_SERVER_URL;
   }
-});
+  if (OSS_LEANCLOUD_MASTER_KEY) {
+    options.masterKey = OSS_LEANCLOUD_MASTER_KEY;
+  }
+  AV.init(options);
+}
 
-const getS3BaseUrl = () =>
-  s3Config.bucketEndpoint ? s3Config.bucket : `${s3Config.endpoint}/${s3Config.bucket}`;
+const getS3BaseUrl = () => {
+  if (!s3Config) return undefined;
+  return s3Config.bucketEndpoint ? s3Config.bucket : `${s3Config.endpoint}/${s3Config.bucket}`;
+};
 
-const uploadToS3 = async (key: string, buffer: Buffer, contentType: string): Promise<string> => {
+const uploadToS3 = async (
+  key: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<UploadedFileDescriptor | undefined> => {
+  if (!s3 || !s3Config) return undefined;
+
   const upload = new Upload({
     client: s3,
     params: {
@@ -84,7 +122,53 @@ const uploadToS3 = async (key: string, buffer: Buffer, contentType: string): Pro
   });
 
   await upload.done();
-  return `${getS3BaseUrl()}/${encodeURIComponent(key)}`;
+  return {
+    url: `${getS3BaseUrl()}/${encodeURIComponent(key)}`,
+    storageProvider: 's3',
+    storageKey: key,
+    storageObjectId: null
+  };
+};
+
+const uploadToLeanCloud = async (
+  key: string,
+  buffer: Buffer
+): Promise<UploadedFileDescriptor | undefined> => {
+  if (!OSS_LEANCLOUD_APP_ID || !OSS_LEANCLOUD_APP_KEY) return undefined;
+
+  const ossFile = await new AV.File(key, buffer).save({
+    keepFileName: true
+  });
+
+  const url = ossFile.url();
+  if (!url) {
+    throw new Error('LeanCloud upload did not return a file URL');
+  }
+  if (!ossFile.id) {
+    throw new Error('LeanCloud upload did not return a file object id');
+  }
+
+  return {
+    url,
+    storageProvider: 'leancloud',
+    storageKey: key,
+    storageObjectId: ossFile.id
+  };
+};
+
+const uploadToOSS = async (
+  key: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<UploadedFileDescriptor> => {
+  const uploadedFile =
+    (await uploadToS3(key, buffer, contentType)) || (await uploadToLeanCloud(key, buffer));
+
+  if (!uploadedFile) {
+    throw new Error('No OSS provider available');
+  }
+
+  return uploadedFile;
 };
 
 // ---------------------------------------------------------------------------
@@ -93,8 +177,15 @@ const uploadToS3 = async (key: string, buffer: Buffer, contentType: string): Pro
 
 const isOssUrl = (url: string): boolean => {
   const baseUrl = getS3BaseUrl();
-  return url.startsWith(baseUrl);
+  return !!baseUrl && url.startsWith(baseUrl);
 };
+
+const getImageAssetStorageFields = (uploadedFile: UploadedFileDescriptor) => ({
+  url: uploadedFile.url,
+  storageProvider: uploadedFile.storageProvider,
+  storageKey: uploadedFile.storageKey,
+  storageObjectId: uploadedFile.storageObjectId
+});
 
 const getExtensionFromUrl = (url: string, contentType: string): string => {
   const urlPath = url.split('?')[0];
@@ -178,15 +269,12 @@ const migrateUserAvatars = async (db: ReturnType<MongoClient['db']>) => {
     const storageKey = `${IMAGE_STORAGE_PREFIX}/images/avatars/users/${user.id}/${imageId}.${extension}`;
 
     try {
-      const newUrl = await uploadToS3(storageKey, downloaded.buffer, downloaded.contentType);
+      const uploadedFile = await uploadToOSS(storageKey, downloaded.buffer, downloaded.contentType);
 
       await imagesCollection.insertOne({
         id: imageId,
         userId: user.id,
-        url: newUrl,
-        storageProvider: 's3',
-        storageKey,
-        storageObjectId: null,
+        ...getImageAssetStorageFields(uploadedFile),
         uploadedBy: user.id,
         uploadedAt: new Date()
       });
@@ -195,7 +283,7 @@ const migrateUserAvatars = async (db: ReturnType<MongoClient['db']>) => {
         { id: user.id },
         {
           $set: {
-            image: newUrl,
+            image: uploadedFile.url,
             avatarImageId: imageId,
             updatedAt: new Date()
           }
@@ -254,15 +342,12 @@ const migrateUniversityAvatars = async (db: ReturnType<MongoClient['db']>) => {
     const storageKey = `${IMAGE_STORAGE_PREFIX}/images/avatars/universities/${university.id}/${imageId}.${extension}`;
 
     try {
-      const newUrl = await uploadToS3(storageKey, downloaded.buffer, downloaded.contentType);
+      const uploadedFile = await uploadToOSS(storageKey, downloaded.buffer, downloaded.contentType);
 
       await imagesCollection.insertOne({
         id: imageId,
         universityId: university.id,
-        url: newUrl,
-        storageProvider: 's3',
-        storageKey,
-        storageObjectId: null,
+        ...getImageAssetStorageFields(uploadedFile),
         uploadedBy: null,
         uploadedAt: new Date()
       });
@@ -271,7 +356,7 @@ const migrateUniversityAvatars = async (db: ReturnType<MongoClient['db']>) => {
         { id: university.id },
         {
           $set: {
-            avatarUrl: newUrl,
+            avatarUrl: uploadedFile.url,
             avatarImageId: imageId,
             updatedAt: new Date()
           }
@@ -330,15 +415,12 @@ const migrateClubAvatars = async (db: ReturnType<MongoClient['db']>) => {
     const storageKey = `${IMAGE_STORAGE_PREFIX}/images/avatars/clubs/${club.id}/${imageId}.${extension}`;
 
     try {
-      const newUrl = await uploadToS3(storageKey, downloaded.buffer, downloaded.contentType);
+      const uploadedFile = await uploadToOSS(storageKey, downloaded.buffer, downloaded.contentType);
 
       await imagesCollection.insertOne({
         id: imageId,
         clubId: club.id,
-        url: newUrl,
-        storageProvider: 's3',
-        storageKey,
-        storageObjectId: null,
+        ...getImageAssetStorageFields(uploadedFile),
         uploadedBy: null,
         uploadedAt: new Date()
       });
@@ -347,7 +429,7 @@ const migrateClubAvatars = async (db: ReturnType<MongoClient['db']>) => {
         { id: club.id },
         {
           $set: {
-            avatarUrl: newUrl,
+            avatarUrl: uploadedFile.url,
             avatarImageId: imageId,
             updatedAt: new Date()
           }
