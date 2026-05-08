@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { InviteLink } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
+  import { createInviteRequestSchema } from '$lib/schemas/invite';
 
   let { isOpen = $bindable(false), type = 'university', targetId = '', targetName = '' } = $props();
 
@@ -13,9 +14,26 @@
   let isGenerating = $state(false);
   let isCopied = $state(false);
   let generatedLink = $state<InviteLink | null>(null);
+  let errorMessage = $state('');
 
   const handleGenerate = async () => {
+    const payload = createInviteRequestSchema.safeParse({
+      type,
+      targetId,
+      title: title.trim() || null,
+      description: description.trim() || null,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      maxUses,
+      requireApproval
+    });
+
+    if (!payload.success) {
+      errorMessage = payload.error.issues[0]?.message ?? 'Invalid invite settings';
+      return;
+    }
+
     isGenerating = true;
+    errorMessage = '';
 
     try {
       const response = await fetch(fromPath('/api/invites'), {
@@ -23,25 +41,19 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          type,
-          targetId,
-          title,
-          description,
-          expiresAt: expiresAt ? new Date(expiresAt) : null,
-          maxUses,
-          requireApproval
-        })
+        body: JSON.stringify(payload.data)
       });
 
       if (response.ok) {
         const data = (await response.json()) as { invite: InviteLink };
         generatedLink = data.invite;
       } else {
-        console.error('Failed to generate invite');
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        errorMessage = data.error ?? 'Failed to generate invite';
       }
     } catch (error) {
       console.error('Error generating invite:', error);
+      errorMessage = 'Failed to generate invite';
     } finally {
       isGenerating = false;
     }
@@ -56,6 +68,7 @@
     maxUses = null;
     requireApproval = false;
     generatedLink = null;
+    errorMessage = '';
   };
 
   const copyLink = async () => {
@@ -87,6 +100,12 @@
     {#if !generatedLink}
       <!-- Invite Form -->
       <div class="space-y-4">
+        {#if errorMessage}
+          <div class="alert alert-error">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <span>{errorMessage}</span>
+          </div>
+        {/if}
         <!-- Title -->
         <div class="form-control">
           <!-- svelte-ignore a11y_label_has_associated_control -->

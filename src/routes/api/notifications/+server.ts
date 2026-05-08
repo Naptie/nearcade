@@ -5,6 +5,8 @@ import { markNotificationsAsRead } from '$lib/notifications/index.server';
 import type { Notification } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
+import { notificationsActionSchema } from '$lib/schemas/notifications';
+import { validationMessage } from '$lib/schemas/common';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const session = locals.session;
@@ -73,7 +75,17 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   }
 
   try {
-    const { action } = (await request.json()) as { action: string };
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = notificationsActionSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.invalid_action()));
+    }
+
+    const { action } = parsedBody.data;
 
     if (action === 'markAsRead') {
       await markNotificationsAsRead(mongo, session.user.id!);

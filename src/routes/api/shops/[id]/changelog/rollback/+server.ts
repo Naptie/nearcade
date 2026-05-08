@@ -4,28 +4,25 @@ import { applyShopRollback, buildShopRollbackPreview } from '$lib/utils/shops/ch
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';
+import { rollbackRequestSchema } from '$lib/schemas/shop';
+import { validationMessage } from '$lib/schemas/common';
 
 const parseTargetEntryId = async (request: Request): Promise<string | null> => {
-  let body: { targetEntryId?: unknown };
-  try {
-    body = (await request.json()) as { targetEntryId?: unknown };
-  } catch {
+  const rawBody = await request.json().catch(() => null);
+  if (rawBody === null) {
     error(400, 'Invalid request body');
   }
 
-  if (
-    body.targetEntryId === undefined ||
-    body.targetEntryId === null ||
-    body.targetEntryId === ''
-  ) {
+  const parsedBody = rollbackRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    error(400, validationMessage(parsedBody.error.issues));
+  }
+
+  if (!parsedBody.data.targetEntryId) {
     return null;
   }
 
-  if (typeof body.targetEntryId !== 'string') {
-    error(400, 'targetEntryId must be a string or null');
-  }
-
-  return body.targetEntryId;
+  return parsedBody.data.targetEntryId;
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {

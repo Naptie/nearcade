@@ -7,6 +7,8 @@ import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '$lib/auth/types';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
+import { queueUpdateRequestSchema } from '$lib/schemas/shop';
+import { validationMessage } from '$lib/schemas/common';
 
 // Helper to validate machine API secret and check shop binding
 const validateMachineAuth = async (request: Request, shopId: number): Promise<Machine> => {
@@ -121,15 +123,17 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Validate machine authentication and shop binding
     const machine = await validateMachineAuth(request, id);
 
-    const body = (await request.json()) as {
-      queues: QueueGameData[];
-    };
-
-    const { queues: newQueuesData } = body;
-
-    if (!Array.isArray(newQueuesData)) {
-      error(400, m.missing_required_parameters());
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
     }
+
+    const parsedBody = queueUpdateRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.invalid_queue_format()));
+    }
+
+    const { queues: newQueuesData } = parsedBody.data as { queues: QueueGameData[] };
 
     // Validate queue structure for all games (in the update payload)
     for (const queueData of newQueuesData) {

@@ -1,14 +1,17 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import { sveltekitOpenApi } from '@sveltekit-openapi/core/vite';
 import tailwindcss from '@tailwindcss/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import openApiConfig from './sveltekit-openapi.config.mjs';
 
 export default defineConfig({
   plugins: [
     tailwindcss(),
     sveltekit(),
+    sveltekitOpenApi(openApiConfig),
     devtoolsJson(),
     // i18n
     paraglideVitePlugin({

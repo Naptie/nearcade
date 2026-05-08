@@ -5,6 +5,8 @@ import type { Shop } from '$lib/types';
 import { getShopOpeningHours, getShopTimezone, toPlainArray, toPlainObject } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
+import { createShopRequestSchema } from '$lib/schemas/shop';
+import { validationMessage } from '$lib/schemas/common';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -236,18 +238,18 @@ export const GET: RequestHandler = async ({ url }) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-  let body: Partial<Shop>;
-  try {
-    body = await request.json();
-  } catch {
+  const rawBody = await request.json().catch(() => null);
+  if (rawBody === null) {
     return json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { name, location, openingHours, address, comment, games } = body;
-
-  if (!name || !location || !openingHours) {
-    return json({ error: 'name, location, and openingHours are required' }, { status: 400 });
+  const parsedBody = createShopRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    return json({ error: validationMessage(parsedBody.error.issues) }, { status: 400 });
   }
+
+  const body = parsedBody.data;
+  const { name, location, openingHours, address, comment, games } = body;
 
   const normalizedOpeningHours = normalizeOpeningHours(openingHours);
   if (!normalizedOpeningHours) {
@@ -276,7 +278,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const newShop: Shop = {
       _id: nanoid(),
       id: newId,
-      name: name.trim(),
+      name,
       comment: comment ?? '',
       address: address ?? { general: [], detailed: '' },
       openingHours: normalizedOpeningHours,

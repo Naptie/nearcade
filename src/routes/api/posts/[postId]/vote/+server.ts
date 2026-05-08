@@ -6,6 +6,8 @@ import { nanoid } from 'nanoid';
 import { checkUniversityPermission, checkClubPermission, canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import { voteRequestSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -19,10 +21,17 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_post_id());
     }
 
-    const { voteType } = (await request.json()) as { voteType: 'upvote' | 'downvote' };
-    if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      error(400, m.invalid_vote_type());
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
     }
+
+    const parsedBody = voteRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.invalid_vote_type()));
+    }
+
+    const { voteType } = parsedBody.data;
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');

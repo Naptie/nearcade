@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { storeFCMToken, removeFCMToken } from '$lib/notifications/fcm.server';
 import { m } from '$lib/paraglide/messages';
+import { fcmTokenActionSchema } from '$lib/schemas/notifications';
+import { validationMessage } from '$lib/schemas/common';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = locals.session;
@@ -12,14 +14,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
-    const { token, action } = (await request.json()) as {
-      token: string;
-      action: 'store' | 'remove';
-    };
-
-    if (!token || !action) {
-      error(400, m.missing_token_or_action());
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
     }
+
+    const parsedBody = fcmTokenActionSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.missing_token_or_action()));
+    }
+
+    const { token, action } = parsedBody.data;
 
     if (action === 'store') {
       await storeFCMToken(mongo, session.user.id, token);

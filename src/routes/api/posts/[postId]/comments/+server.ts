@@ -12,6 +12,8 @@ import {
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
 import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { commentCreateRequestSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -25,11 +27,17 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_post_id());
     }
 
-    const { content, parentCommentId, images } = (await request.json()) as {
-      content: string;
-      parentCommentId?: string;
-      images?: unknown;
-    };
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = commentCreateRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues));
+    }
+
+    const { content, parentCommentId, images } = parsedBody.data;
     const imageIds = normalizeImageIds(images);
     const trimmedContent = content?.trim() ?? '';
 

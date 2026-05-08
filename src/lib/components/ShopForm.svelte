@@ -8,32 +8,16 @@
   import { getSupportedCountryByName, SUPPORTED_COUNTRIES } from '$lib/countries';
   import { getGameName } from '$lib/utils';
   import type { OpeningHourTime } from '$lib/types';
+  import {
+    shopFormSchema,
+    type ShopFormData as ShopFormSchemaData,
+    type ShopGameInput
+  } from '$lib/schemas/shop';
 
   // ---- Types ----
 
-  export interface GameFormData {
-    titleId: number;
-    name: string;
-    version: string;
-    comment: string;
-    cost: string;
-    quantity: number;
-  }
-
-  export interface ShopFormData {
-    name: string;
-    comment: string;
-    address: {
-      general: string[];
-      detailed: string;
-    };
-    openingHours: [OpeningHourTime, OpeningHourTime][];
-    location: {
-      type: 'Point';
-      coordinates: [number, number];
-    } | null;
-    games: GameFormData[];
-  }
+  export type GameFormData = ShopGameInput;
+  export type ShopFormData = ShopFormSchemaData;
 
   type AddressOption = {
     id: string;
@@ -57,7 +41,9 @@
   let name = $state(untrack(() => initialData.name ?? ''));
   let comment = $state(untrack(() => initialData.comment ?? ''));
   let detailedAddress = $state(untrack(() => initialData.address?.detailed ?? ''));
-  let location = $state<ShopFormData['location']>(untrack(() => initialData.location ?? null));
+  let location = $state<ShopFormData['location'] | null>(
+    untrack(() => initialData.location ?? null)
+  );
   let locationName = $state<string>('');
   let isSubmitting = $state(false);
   let errorMessage = $state('');
@@ -568,7 +554,7 @@
 
     isSubmitting = true;
     try {
-      await onSubmit({
+      const parsed = shopFormSchema.safeParse({
         name: name.trim(),
         comment,
         address: {
@@ -579,6 +565,13 @@
         location,
         games
       });
+
+      if (!parsed.success) {
+        errorMessage = parsed.error.issues[0]?.message ?? 'Invalid shop data';
+        return;
+      }
+
+      await onSubmit(parsed.data);
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : 'An error occurred';
     } finally {

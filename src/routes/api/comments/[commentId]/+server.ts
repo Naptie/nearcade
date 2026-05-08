@@ -5,6 +5,8 @@ import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 import { deleteImagesByIds, normalizeImageIds, replaceOwnerImages } from '$lib/images/index.server';
+import { commentUpdateRequestSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -18,10 +20,17 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_comment_id());
     }
 
-    const { content, images } = (await request.json()) as {
-      content: string;
-      images?: unknown;
-    };
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = commentUpdateRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues));
+    }
+
+    const { content, images } = parsedBody.data;
     const imageIds = normalizeImageIds(images);
     const trimmedContent = content?.trim() ?? '';
 

@@ -8,6 +8,8 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import { attendanceRequestSchema } from '$lib/schemas/shop';
+import { validationMessage } from '$lib/schemas/common';
 
 const attend = async (
   user: User,
@@ -124,12 +126,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   }
 
   try {
-    const body = (await request.json()) as {
-      games: { id: number; currentAttendances?: number; attend?: boolean }[];
-      plannedLeaveAt?: string;
-      comment?: string;
-    };
-    const { games, plannedLeaveAt, comment } = body;
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = attendanceRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.missing_required_parameters()));
+    }
+
+    const { games, plannedLeaveAt, comment } = parsedBody.data;
 
     // Validate input
     if (

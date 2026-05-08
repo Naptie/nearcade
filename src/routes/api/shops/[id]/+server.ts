@@ -5,6 +5,8 @@ import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
+import { updateShopRequestSchema } from '$lib/schemas/shop';
+import { validationMessage } from '$lib/schemas/common';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -338,18 +340,18 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     error(400, m.invalid_shop_id());
   }
 
-  let body: Partial<Shop>;
-  try {
-    body = await request.json();
-  } catch {
+  const rawBody = await request.json().catch(() => null);
+  if (rawBody === null) {
     error(400, 'Invalid request body');
   }
 
-  const { name, comment, address, openingHours, location, games } = body;
-
-  if (!name && !comment && !address && !openingHours && !location && !games) {
-    error(400, 'No fields to update');
+  const parsedBody = updateShopRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    error(400, validationMessage(parsedBody.error.issues));
   }
+
+  const body = parsedBody.data;
+  const { name, comment, address, openingHours, location, games } = body;
 
   try {
     const db = mongo.db();

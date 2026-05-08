@@ -7,6 +7,8 @@ import { notify } from '$lib/notifications/index.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { deleteFile } from '$lib/oss/index';
 import { deleteImagesForOwner } from '$lib/images/index.server';
+import { shopDeleteRequestReviewSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 /**
  * DELETE /api/shops/delete-requests/:id
@@ -70,17 +72,17 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   const { id } = params;
 
-  let body: { action?: string; reviewNote?: string };
-  try {
-    body = await request.json();
-  } catch {
+  const rawBody = await request.json().catch(() => null);
+  if (rawBody === null) {
     error(400, 'Invalid request body');
   }
 
-  const { action, reviewNote } = body;
-  if (action !== 'approve' && action !== 'reject') {
-    error(400, 'action must be "approve" or "reject"');
+  const parsedBody = shopDeleteRequestReviewSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    error(400, validationMessage(parsedBody.error.issues));
   }
+
+  const { action, reviewNote } = parsedBody.data;
 
   const db = mongo.db();
 

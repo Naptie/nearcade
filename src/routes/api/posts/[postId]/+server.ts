@@ -28,6 +28,8 @@ import {
   normalizeImageIds,
   replaceOwnerImages
 } from '$lib/images/index.server';
+import { postUpdateRequestSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -183,14 +185,17 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_post_id());
     }
 
-    const { title, content, readability, isPinned, isLocked, images } = (await request.json()) as {
-      title?: string;
-      content?: string;
-      readability?: PostReadability;
-      isPinned?: boolean;
-      isLocked?: boolean;
-      images?: unknown;
-    };
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = postUpdateRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues));
+    }
+
+    const { title, content, readability, isPinned, isLocked, images } = parsedBody.data;
     const normalizedImageIds = images === undefined ? undefined : normalizeImageIds(images);
 
     const db = mongo.db();

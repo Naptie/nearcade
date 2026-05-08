@@ -5,6 +5,8 @@ import mongo from '$lib/db/index.server';
 import type { ShopDeleteRequest, ShopDeleteRequestVote } from '$lib/types';
 import { getShopDeleteRequestVoteSummary } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
+import { shopDeleteRequestVoteSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -13,10 +15,17 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const { voteType } = (await request.json()) as { voteType: ShopDeleteRequestVote['voteType'] };
-    if (!voteType || !['favor', 'against'].includes(voteType)) {
-      error(400, m.invalid_vote_type());
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
     }
+
+    const parsedBody = shopDeleteRequestVoteSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.invalid_vote_type()));
+    }
+
+    const { voteType } = parsedBody.data;
 
     const db = mongo.db();
     const deleteRequestsCollection = db.collection<ShopDeleteRequest>('shop_delete_requests');

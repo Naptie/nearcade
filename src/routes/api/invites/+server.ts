@@ -5,16 +5,8 @@ import type { InviteLink } from '$lib/types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-
-interface CreateInviteRequest {
-  type: 'university' | 'club';
-  targetId: string;
-  title?: string | null;
-  description?: string | null;
-  expiresAt?: string | null;
-  maxUses?: number | null;
-  requireApproval?: boolean;
-}
+import { createInviteRequestSchema } from '$lib/schemas/invite';
+import { validationMessage } from '$lib/schemas/common';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = locals.session;
@@ -24,17 +16,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
-    const body: CreateInviteRequest = await request.json();
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = createInviteRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues, m.missing_required_fields()));
+    }
+
+    const body = parsedBody.data;
     const { type, targetId, title, description, expiresAt, maxUses, requireApproval } = body;
-
-    // Validate input
-    if (!type || !targetId) {
-      error(400, m.missing_required_fields());
-    }
-
-    if (!['university', 'club'].includes(type)) {
-      error(400, m.invalid_invite_type());
-    }
 
     const db = mongo.db();
 

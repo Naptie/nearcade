@@ -6,6 +6,7 @@
   import { getDefaultPostReadability } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { PostReadability, type ImageAsset } from '$lib/types';
+  import { postCreateRequestSchema } from '$lib/schemas/content';
 
   interface Props {
     isOpen: boolean;
@@ -68,8 +69,15 @@
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || (!content.trim() && imageIds.length === 0)) {
-      error = 'Title and content are required';
+    const payload = postCreateRequestSchema.safeParse({
+      title: title.trim(),
+      content: content.trim(),
+      readability,
+      images: imageIds
+    });
+
+    if (!payload.success) {
+      error = payload.error.issues[0]?.message ?? 'Title and content are required';
       return;
     }
 
@@ -85,12 +93,7 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          readability,
-          images: imageIds
-        })
+        body: JSON.stringify(payload.data)
       });
 
       if (response.ok) {

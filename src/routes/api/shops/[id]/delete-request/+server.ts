@@ -6,6 +6,8 @@ import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { shopDeleteRequestCreateSchema } from '$lib/schemas/shop';
+import { validationMessage } from '$lib/schemas/common';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { id } = params;
@@ -15,18 +17,18 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(400, m.invalid_shop_id());
   }
 
-  let body: { reason?: string; photoId?: string; images?: unknown };
-  try {
-    body = await request.json();
-  } catch {
+  const rawBody = await request.json().catch(() => null);
+  if (rawBody === null) {
     error(400, 'Invalid request body');
   }
 
-  const reason = (body.reason || '').trim();
-  if (!reason) {
-    error(400, 'Reason is required');
+  const parsedBody = shopDeleteRequestCreateSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    error(400, validationMessage(parsedBody.error.issues));
   }
 
+  const body = parsedBody.data;
+  const reason = (body.reason || '').trim();
   const photoId = body.photoId?.trim() || null;
   const imageIds = normalizeImageIds(body.images);
 

@@ -14,6 +14,8 @@ import {
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { postCreateRequestSchema } from '$lib/schemas/content';
+import { validationMessage } from '$lib/schemas/common';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -116,12 +118,17 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_university_id());
     }
 
-    const { title, content, readability, images } = (await request.json()) as {
-      title: string;
-      content: string;
-      readability?: PostReadability;
-      images?: unknown;
-    };
+    const rawBody = await request.json().catch(() => null);
+    if (rawBody === null) {
+      error(400, 'Invalid request body');
+    }
+
+    const parsedBody = postCreateRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      error(400, validationMessage(parsedBody.error.issues));
+    }
+
+    const { title, content, readability, images } = parsedBody.data;
     const imageIds = normalizeImageIds(images);
     const trimmedTitle = title?.trim() ?? '';
     const trimmedContent = content?.trim() ?? '';
