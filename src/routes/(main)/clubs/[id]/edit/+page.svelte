@@ -20,7 +20,7 @@
   let description = $derived(data.club.description || '');
   let website = $derived(data.club.website || '');
   // avatarUrl as separate state so it can be updated after upload
-  let avatarUrl = $state(data.club.avatarUrl || '');
+  let avatarUrl = $derived(data.club.avatarUrl || '');
   let backgroundColor = $derived(data.club.backgroundColor || '#3b82f6');
   let acceptJoinRequests = $derived(data.club.acceptJoinRequests);
   let postReadability = $derived(data.club.postReadability);
