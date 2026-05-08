@@ -70,8 +70,8 @@
 
   const handleSubmit = async () => {
     const payload = postCreateRequestSchema.safeParse({
-      title: title.trim(),
-      content: content.trim(),
+      title,
+      content,
       readability,
       images: imageIds
     });
