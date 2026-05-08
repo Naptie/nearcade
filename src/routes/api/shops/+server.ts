@@ -278,7 +278,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const newShop: Shop = {
       _id: nanoid(),
       id: newId,
-      name,
+      name: name.trim(),
       comment: comment ?? '',
       address: address ?? { general: [], detailed: '' },
       openingHours: normalizedOpeningHours,

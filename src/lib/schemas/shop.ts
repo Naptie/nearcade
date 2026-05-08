@@ -47,8 +47,8 @@ export const updateShopRequestSchema = z
     comment: z.string().optional(),
     address: z
       .object({
-        general: z.array(nonEmptyTrimmedStringSchema).max(4).optional(),
-        detailed: z.string().optional()
+        general: z.array(nonEmptyTrimmedStringSchema).max(4),
+        detailed: z.string()
       })
       .optional(),
     openingHours: z
