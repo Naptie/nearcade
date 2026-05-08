@@ -48,8 +48,8 @@
         const data = (await response.json()) as { invite: InviteLink };
         generatedLink = data.invite;
       } else {
-        const data = (await response.json().catch(() => ({}))) as { error?: string };
-        errorMessage = data.error ?? 'Failed to generate invite';
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        errorMessage = data?.error ?? `Failed to generate invite (${response.status})`;
       }
     } catch (error) {
       console.error('Error generating invite:', error);
