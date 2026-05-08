@@ -49,16 +49,7 @@ export const GET: RequestHandler = async ({ url }) => {
           }
         ])
         .toArray()) as unknown as University[];
-    } catch (err) {
-      if (
-        err &&
-        typeof err === 'object' &&
-        'code' in err &&
-        err.code !== 6047401 /* SearchNotEnabled */
-      ) {
-        // If the error is not related to the index not existing, rethrow it
-        throw err;
-      }
+    } catch {
       universities = (await universitiesCollection
         .find({
           $or: [
