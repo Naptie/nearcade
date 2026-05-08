@@ -365,7 +365,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     const updateFields: Partial<Shop> = { updatedAt: new Date() };
     if (name !== undefined) updateFields.name = name;
     if (comment !== undefined) updateFields.comment = comment;
-    if (address !== undefined) updateFields.address = address;
+    if (address !== undefined) {
+      updateFields.address = {
+        general: address.general ?? [],
+        detailed: address.detailed ?? ''
+      };
+    }
     if (openingHours !== undefined) {
       const normalizedOpeningHours = normalizeOpeningHours(openingHours);
       if (!normalizedOpeningHours) {

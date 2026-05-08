@@ -79,9 +79,9 @@ export const queueMemberSchema = z.object({
 });
 
 export const queuePositionSchema = z.object({
-  machineName: optionalTrimmedStringSchema,
+  machineName: z.string().default(''),
   position: z.number().int(),
-  isPublic: z.boolean().optional(),
+  isPublic: z.boolean().default(false),
   status: z.enum(['playing', 'queued', 'deferred']),
   members: z.array(queueMemberSchema)
 });

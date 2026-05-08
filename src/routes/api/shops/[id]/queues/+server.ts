@@ -106,11 +106,6 @@ const sendQueueNotification = async (
   }
 };
 
-interface QueueGameData {
-  gameId: number;
-  queue: QueuePosition[];
-}
-
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
     const idRaw = params.id;
@@ -133,7 +128,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       error(400, validationMessage(parsedBody.error.issues, m.invalid_queue_format()));
     }
 
-    const { queues: newQueuesData } = parsedBody.data as { queues: QueueGameData[] };
+    const { queues: newQueuesData } = parsedBody.data;
 
     // Validate queue structure for all games (in the update payload)
     for (const queueData of newQueuesData) {
