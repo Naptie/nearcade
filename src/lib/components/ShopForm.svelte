@@ -8,32 +8,9 @@
   import { getSupportedCountryByName, SUPPORTED_COUNTRIES } from '$lib/countries';
   import { getGameName } from '$lib/utils';
   import type { OpeningHourTime } from '$lib/types';
+  import type { GameFormData, ShopFormData } from '$lib/schemas/forms';
 
   // ---- Types ----
-
-  export interface GameFormData {
-    titleId: number;
-    name: string;
-    version: string;
-    comment: string;
-    cost: string;
-    quantity: number;
-  }
-
-  export interface ShopFormData {
-    name: string;
-    comment: string;
-    address: {
-      general: string[];
-      detailed: string;
-    };
-    openingHours: [OpeningHourTime, OpeningHourTime][];
-    location: {
-      type: 'Point';
-      coordinates: [number, number];
-    } | null;
-    games: GameFormData[];
-  }
 
   type AddressOption = {
     id: string;
@@ -57,7 +34,9 @@
   let name = $state(untrack(() => initialData.name ?? ''));
   let comment = $state(untrack(() => initialData.comment ?? ''));
   let detailedAddress = $state(untrack(() => initialData.address?.detailed ?? ''));
-  let location = $state<ShopFormData['location']>(untrack(() => initialData.location ?? null));
+  let location = $state<ShopFormData['location'] | null>(
+    untrack(() => initialData.location ?? null)
+  );
   let locationName = $state<string>('');
   let isSubmitting = $state(false);
   let errorMessage = $state('');

@@ -3,7 +3,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { pageTitle } from '$lib/utils';
-  import ShopForm, { type ShopFormData } from '$lib/components/ShopForm.svelte';
+  import ShopForm from '$lib/components/ShopForm.svelte';
+  import type { ShopFormData } from '$lib/schemas/forms';
   import type { PageData } from './$types';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
 

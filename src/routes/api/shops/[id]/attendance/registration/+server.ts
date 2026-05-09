@@ -7,6 +7,13 @@ import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
 import { protect } from '$lib/utils';
+import { registrationBodySchema, registrationQuerySchema } from '$lib/schemas/machines';
+import { shopIdParamSchema } from '$lib/schemas/shops';
+import {
+  parseJsonOrError,
+  parseParamsOrError,
+  parseQueryOrError
+} from '$lib/utils/validation.server';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 const MAX_EXPIRATION_SECONDS = 2 * 60; // 2 minutes
@@ -41,26 +48,14 @@ const validateMachineAuth = async (request: Request, shopId: number): Promise<Ma
 
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
 
     // Validate machine authentication
     const machine = await validateMachineAuth(request, id);
 
-    const body = (await request.json()) as {
-      slotIndex: string;
-      expires?: number;
-    };
+    const body = await parseJsonOrError(request, registrationBodySchema);
 
     const { slotIndex, expires } = body;
-
-    if (!slotIndex || typeof slotIndex !== 'string') {
-      error(400, m.missing_required_parameters());
-    }
 
     // Calculate expiration (max 2 minutes)
     const ttlSeconds = Math.min(
@@ -107,17 +102,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 export const GET: RequestHandler = async ({ params, request, url }) => {
   try {
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-    const token = url.searchParams.get('token');
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
-
-    if (!token) {
-      error(400, m.missing_required_parameters());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
+    const { token } = parseQueryOrError(registrationQuerySchema, url);
 
     // Validate machine authentication
     await validateMachineAuth(request, id);
@@ -159,17 +145,8 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
 
 export const DELETE: RequestHandler = async ({ params, request, url }) => {
   try {
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-    const token = url.searchParams.get('token');
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
-
-    if (!token) {
-      error(400, m.missing_required_parameters());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
+    const { token } = parseQueryOrError(registrationQuerySchema, url);
 
     // Validate machine authentication
     await validateMachineAuth(request, id);

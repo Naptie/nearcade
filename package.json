@@ -10,6 +10,7 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "openapi:generate": "tsx ./scripts/generate-openapi.ts",
     "format": "prettier --write .",
     "lint": "eslint .",
     "fl": "prettier --write . && eslint . --fix",
@@ -76,7 +77,8 @@
     "workbox-routing": "^7.4.0",
     "workbox-strategies": "^7.4.0",
     "workbox-window": "^7.4.0",
-    "wrangler": "^4.84.1"
+    "wrangler": "^4.84.1",
+    "zod-openapi": "^5.4.6"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1035.0",

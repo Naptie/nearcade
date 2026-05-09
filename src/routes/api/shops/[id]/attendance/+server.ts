@@ -8,6 +8,16 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import {
+  attendancePostBodySchema,
+  attendanceQuerySchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
+import {
+  parseJsonOrError,
+  parseParamsOrError,
+  parseQueryOrError
+} from '$lib/utils/validation.server';
 
 const attend = async (
   user: User,
@@ -124,11 +134,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   }
 
   try {
-    const body = (await request.json()) as {
-      games: { id: number; currentAttendances?: number; attend?: boolean }[];
-      plannedLeaveAt?: string;
-      comment?: string;
-    };
+    const body = await parseJsonOrError(request, attendancePostBodySchema);
     const { games, plannedLeaveAt, comment } = body;
 
     // Validate input
@@ -140,12 +146,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(400, m.missing_required_parameters());
     }
 
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
 
     // Validate shop exists
     const db = mongo.db();
@@ -301,12 +302,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   }
 
   try {
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
 
     if (!redis) {
       error(500, m.redis_not_available());
@@ -335,15 +331,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
+    parseQueryOrError(attendanceQuerySchema, url);
     const fetchRegistered = ['0', 'false'].includes(url.searchParams.get('reported') || 'false');
     const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'true');
 
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
 
     if (!redis) {
       error(500, m.redis_not_available());

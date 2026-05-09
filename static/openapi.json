@@ -1,0 +1,3291 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "nearcade API",
+    "version": "0.1.0",
+    "description": "OpenAPI documentation generated from endpoint-local Zod definitions. Descriptions include English and Chinese text where handwritten documentation exists."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API base URL"
+    }
+  ],
+  "paths": {
+    "/discover": {
+      "get": {
+        "tags": [
+          "discover"
+        ],
+        "summary": "Discover nearby shops / 获取附近店铺",
+        "description": "Find shops near an origin point, optionally including attendance and computed opening-time information.\n\n获取原点附近的店铺，可选择是否包含在勤人数和计算得出的营业时间信息。",
+        "operationId": "getDiscover",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "longitude",
+            "schema": {
+              "description": "Origin longitude.\n\n原点经度。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Origin longitude.\n\n原点经度。"
+          },
+          {
+            "in": "query",
+            "name": "latitude",
+            "schema": {
+              "description": "Origin latitude.\n\n原点纬度。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Origin latitude.\n\n原点纬度。"
+          },
+          {
+            "in": "query",
+            "name": "radius",
+            "schema": {
+              "description": "Search radius in kilometers. Defaults to 10.\n\n范围半径，单位 km；默认为 10。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Search radius in kilometers. Defaults to 10.\n\n范围半径，单位 km；默认为 10。"
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "description": "Origin display name.\n\n原点地名。",
+              "type": "string"
+            },
+            "description": "Origin display name.\n\n原点地名。"
+          },
+          {
+            "in": "query",
+            "name": "fetchAttendance",
+            "schema": {
+              "description": "Fetch attendance data. Defaults to true.\n\n是否获取在勤人数。默认为是。",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Fetch attendance data. Defaults to true.\n\n是否获取在勤人数。默认为是。"
+          },
+          {
+            "in": "query",
+            "name": "includeTimeInfo",
+            "schema": {
+              "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearby shops / 附近店铺",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      }
+    },
+    "/machines/activate": {
+      "post": {
+        "tags": [
+          "machines"
+        ],
+        "summary": "Activate machine / 激活机台",
+        "description": "Activate a machine by serial number and return its API secret.\n\n通过机台序列号激活机台，并返回 API 密钥。",
+        "operationId": "postMachinesActivate",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "sn",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Machine serial number.\n\n机台序列号。"
+            },
+            "required": true,
+            "description": "Machine serial number.\n\n机台序列号。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Machine activated / 机台已激活",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineActivationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "404": {
+            "description": "Machine not found / 机台不存在"
+          }
+        }
+      }
+    },
+    "/shops": {
+      "get": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "List shops / 获取店铺列表",
+        "description": "Get a paginated list of shops. Supports text search and optional computed time information.\n\n获取分页店铺列表。支持查询字符串，并可选择是否包含计算得出的时区与营业状态。",
+        "operationId": "getShops",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "description": "Page number. Defaults to 1.\n\n页数。默认为 1。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Page number. Defaults to 1.\n\n页数。默认为 1。"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "Items per page. Defaults to the site page size.\n\n每页条目数。默认为站点分页大小。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Items per page. Defaults to the site page size.\n\n每页条目数。默认为站点分页大小。"
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "default": "",
+              "description": "Search query string.\n\n查询字符串。",
+              "type": "string"
+            },
+            "description": "Search query string.\n\n查询字符串。"
+          },
+          {
+            "in": "query",
+            "name": "includeTimeInfo",
+            "schema": {
+              "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shops list / 店铺列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopsListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Create shop / 创建店铺",
+        "description": "Create a new shop.\n\n创建新店铺。",
+        "operationId": "postShops",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created shop / 已创建店铺",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      }
+    },
+    "/shops/{id}": {
+      "get": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Get shop details / 获取店铺详情",
+        "description": "Get details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.\n\n按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。",
+        "operationId": "getShopsById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          },
+          {
+            "in": "query",
+            "name": "includeTimeInfo",
+            "schema": {
+              "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop details / 店铺详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "404": {
+            "description": "Shop not found / 店铺不存在"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Update shop / 更新店铺",
+        "description": "Update shop fields by numeric ID.\n\n按数字 ID 更新店铺字段。",
+        "operationId": "putShopsById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated shop / 已更新店铺",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "404": {
+            "description": "Shop not found / 店铺不存在"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      }
+    },
+    "/shops/{id}/attendance": {
+      "get": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Get attendance / 获取在勤人数",
+        "description": "Get combined, registered, and reported attendance for a shop.\n\n获取店铺综合、登记和上报的在勤人数。",
+        "operationId": "getShopsByIdAttendance",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          },
+          {
+            "in": "query",
+            "name": "reported",
+            "schema": {
+              "description": "Whether to fetch only registered (`false`) or reported (`true`) attendance records.\n\n是否仅获取登记 (false) / 上报 (true) 的在勤人数。",
+              "type": "string"
+            },
+            "description": "Whether to fetch only registered (`false`) or reported (`true`) attendance records.\n\n是否仅获取登记 (false) / 上报 (true) 的在勤人数。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance data / 在勤数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Report or register attendance / 上报或登记在勤人数",
+        "description": "Report current attendance counts or register a user attendance session. Requires login or bearer API token depending on the mode.\n\n上报当前在勤人数，或登记用户在勤。根据模式需要登录或 Bearer API 令牌。",
+        "operationId": "postShopsByIdAttendance",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success / 成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "401": {
+            "description": "Unauthorized / 未授权"
+          },
+          "403": {
+            "description": "Forbidden / 禁止访问"
+          },
+          "404": {
+            "description": "Not Found / 不存在"
+          },
+          "409": {
+            "description": "Conflict / 冲突"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Leave attendance / 退勤",
+        "description": "Remove the current user from active attendance at a shop.\n\n从某店铺的当前在勤中移除当前用户。",
+        "operationId": "deleteShopsByIdAttendance",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success / 成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized / 未授权"
+          },
+          "404": {
+            "description": "Shop not found / 店铺不存在"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      }
+    },
+    "/shops/{id}/attendance/registration": {
+      "post": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Create player registration token / 申请玩家登记令牌",
+        "description": "Create a short-lived player registration token for a machine slot.\n\n为机台槽位创建短期玩家登记令牌。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "postShopsByIdAttendanceRegistration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration token / 登记令牌",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceRegistrationCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "401": {
+            "description": "Invalid machine credentials / 机台凭据无效"
+          },
+          "403": {
+            "description": "Machine not bound to this shop / 机台未绑定到该店铺"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Get player registration / 获取玩家登记信息",
+        "description": "Get player registration data by token.\n\n通过令牌获取玩家登记信息。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "getShopsByIdAttendanceRegistration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Player registration token.\n\n玩家登记令牌。"
+            },
+            "required": true,
+            "description": "Player registration token.\n\n玩家登记令牌。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration data / 登记信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceRegistrationGetResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "401": {
+            "description": "Invalid machine credentials / 机台凭据无效"
+          },
+          "403": {
+            "description": "Forbidden / 禁止访问"
+          },
+          "404": {
+            "description": "Registration not found or expired / 登记不存在或已过期"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Delete player registration token / 销毁玩家登记令牌",
+        "description": "Delete a player registration token.\n\n销毁玩家登记令牌。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "deleteShopsByIdAttendanceRegistration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Player registration token.\n\n玩家登记令牌。"
+            },
+            "required": true,
+            "description": "Player registration token.\n\n玩家登记令牌。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success / 成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "401": {
+            "description": "Invalid machine credentials / 机台凭据无效"
+          },
+          "404": {
+            "description": "Registration not found or expired / 登记不存在或已过期"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      }
+    },
+    "/shops/{id}/queues": {
+      "get": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Get machine queues / 获取机台队列",
+        "description": "Get current queue data for a shop.\n\n获取店铺当前机台队列数据。",
+        "operationId": "getShopsByIdQueues",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue data / 队列数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "shops"
+        ],
+        "summary": "Report machine queues / 上报机台队列",
+        "description": "Report machine queue states for one or more games in a shop.\n\n上报店铺中一个或多个游戏的机台队列状态。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "postShopsByIdQueues",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "Shop ID.\n\n店铺 ID。",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "Shop ID.\n\n店铺 ID。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Queue report accepted / 队列上报成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request / 请求错误"
+          },
+          "401": {
+            "description": "Invalid machine credentials / 机台凭据无效"
+          },
+          "403": {
+            "description": "Machine not bound to this shop / 机台未绑定到该店铺"
+          },
+          "404": {
+            "description": "Shop or game not found / 店铺或游戏不存在"
+          },
+          "500": {
+            "description": "Internal Server Error / 服务器错误"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateShopRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Shop name.\n\n店铺名称。"
+          },
+          "comment": {
+            "default": "",
+            "description": "Shop note.\n\n店铺说明。",
+            "type": "string"
+          },
+          "address": {
+            "default": {
+              "general": [],
+              "detailed": ""
+            },
+            "type": "object",
+            "properties": {
+              "general": {
+                "default": [],
+                "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "detailed": {
+                "default": "",
+                "description": "Detailed street address.\n\n详细地址。",
+                "type": "string"
+              }
+            }
+          },
+          "openingHours": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "hour": {
+                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 23
+                      },
+                      "minute": {
+                        "description": "Minute.\n\n分钟。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 59
+                      }
+                    },
+                    "required": [
+                      "hour",
+                      "minute"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "hour": {
+                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 23
+                      },
+                      "minute": {
+                        "description": "Minute.\n\n分钟。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 59
+                      }
+                    },
+                    "required": [
+                      "hour",
+                      "minute"
+                    ]
+                  }
+                ]
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Point"
+                ],
+                "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+              },
+              "coordinates": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": -180,
+                      "maximum": 180,
+                      "description": "Longitude.\n\n经度。"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": -90,
+                      "maximum": 90,
+                      "description": "Latitude.\n\n纬度。"
+                    }
+                  ]
+                },
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+              }
+            },
+            "required": [
+              "type",
+              "coordinates"
+            ]
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "titleId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game series ID.\n\n游戏系列 ID。"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Game name.\n\n游戏名。"
+                },
+                "version": {
+                  "type": "string",
+                  "description": "Game version.\n\n游戏版本。"
+                },
+                "comment": {
+                  "default": "",
+                  "description": "Game note.\n\n游戏说明。",
+                  "type": "string"
+                },
+                "quantity": {
+                  "description": "Number of machines.\n\n机台数量。",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "cost": {
+                  "default": "",
+                  "description": "Price note.\n\n价格说明。",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "titleId",
+                "name",
+                "version"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "openingHours",
+          "location"
+        ]
+      },
+      "UpdateShopRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Shop name.\n\n店铺名称。",
+            "type": "string",
+            "minLength": 1
+          },
+          "comment": {
+            "description": "Shop note.\n\n店铺说明。",
+            "type": "string"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "general": {
+                "default": [],
+                "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "detailed": {
+                "default": "",
+                "description": "Detailed street address.\n\n详细地址。",
+                "type": "string"
+              }
+            }
+          },
+          "openingHours": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "hour": {
+                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 23
+                      },
+                      "minute": {
+                        "description": "Minute.\n\n分钟。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 59
+                      }
+                    },
+                    "required": [
+                      "hour",
+                      "minute"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "hour": {
+                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 23
+                      },
+                      "minute": {
+                        "description": "Minute.\n\n分钟。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 59
+                      }
+                    },
+                    "required": [
+                      "hour",
+                      "minute"
+                    ]
+                  }
+                ]
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Point"
+                ],
+                "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+              },
+              "coordinates": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": -180,
+                      "maximum": 180,
+                      "description": "Longitude.\n\n经度。"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": -90,
+                      "maximum": 90,
+                      "description": "Latitude.\n\n纬度。"
+                    }
+                  ]
+                },
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+              }
+            },
+            "required": [
+              "type",
+              "coordinates"
+            ]
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "titleId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game series ID.\n\n游戏系列 ID。"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Game name.\n\n游戏名。"
+                },
+                "version": {
+                  "type": "string",
+                  "description": "Game version.\n\n游戏版本。"
+                },
+                "comment": {
+                  "default": "",
+                  "description": "Game note.\n\n游戏说明。",
+                  "type": "string"
+                },
+                "quantity": {
+                  "description": "Number of machines.\n\n机台数量。",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "cost": {
+                  "default": "",
+                  "description": "Price note.\n\n价格说明。",
+                  "type": "string"
+                },
+                "gameId": {
+                  "description": "Existing game ID, when updating a known game.\n\n已有游戏 ID，用于更新已知机台。",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "titleId",
+                "name",
+                "version"
+              ]
+            }
+          }
+        }
+      },
+      "AttendanceRequest": {
+        "type": "object",
+        "properties": {
+          "games": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                },
+                "currentAttendances": {
+                  "description": "Reported current attendance count.\n\n在勤人数。",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "attend": {
+                  "description": "When acting on behalf of a user, register or remove that user from attendance.\n\n代表用户操作时，登记或移除该用户的在勤。",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            }
+          },
+          "plannedLeaveAt": {
+            "description": "Planned leave time for attendance registration.\n\n计划退勤时间。",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "comment": {
+            "description": "Attendance report note.\n\n上报说明。",
+            "type": "string"
+          }
+        },
+        "required": [
+          "games"
+        ]
+      },
+      "AttendanceRegistrationRequest": {
+        "type": "object",
+        "properties": {
+          "slotIndex": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Slot index.\n\n槽位编号。"
+          },
+          "expires": {
+            "description": "Expiration time in seconds.\n\n过期时间，单位：秒。",
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "slotIndex"
+        ]
+      },
+      "QueueReportRequest": {
+        "type": "object",
+        "properties": {
+          "queues": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gameId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                },
+                "queue": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "machineName": {
+                        "type": "string",
+                        "description": "Machine name.\n\n机台名。"
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Queue position.\n\n位置。"
+                      },
+                      "isPublic": {
+                        "type": "boolean",
+                        "description": "Whether this position is public.\n\n是否为公开位置。"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "playing",
+                          "queued",
+                          "deferred"
+                        ],
+                        "description": "Queue status.\n\n状态。"
+                      },
+                      "members": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slotIndex": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Slot index.\n\n槽位。"
+                            },
+                            "userId": {
+                              "nullable": true,
+                              "description": "User ID in the slot, or null for an empty/private slot.\n\n用户 ID；空位或非公开位置可为 null。",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "slotIndex",
+                            "userId"
+                          ]
+                        },
+                        "description": "Members in this queue position.\n\n成员列表。"
+                      }
+                    },
+                    "required": [
+                      "machineName",
+                      "position",
+                      "isPublic",
+                      "status",
+                      "members"
+                    ]
+                  },
+                  "description": "Queue positions.\n\n队列。"
+                }
+              },
+              "required": [
+                "gameId",
+                "queue"
+              ]
+            }
+          }
+        },
+        "required": [
+          "queues"
+        ]
+      },
+      "DiscoverResponse": {
+        "type": "object",
+        "properties": {
+          "shops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "_id": {
+                  "type": "string",
+                  "description": "MongoDB ID.\n\nMongoDB ID。"
+                },
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.\n\n店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Shop name.\n\n店铺名称。"
+                },
+                "comment": {
+                  "type": "string",
+                  "description": "Shop note.\n\n店铺说明。"
+                },
+                "address": {
+                  "type": "object",
+                  "properties": {
+                    "general": {
+                      "default": [],
+                      "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "detailed": {
+                      "default": "",
+                      "description": "Detailed street address.\n\n详细地址。",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "general",
+                    "detailed"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Shop address.\n\n店铺地址。"
+                },
+                "openingHours": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "hour": {
+                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 23
+                            },
+                            "minute": {
+                              "description": "Minute.\n\n分钟。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 59
+                            }
+                          },
+                          "required": [
+                            "hour",
+                            "minute"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "hour": {
+                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 23
+                            },
+                            "minute": {
+                              "description": "Minute.\n\n分钟。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 59
+                            }
+                          },
+                          "required": [
+                            "hour",
+                            "minute"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+                },
+                "games": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "gameId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                      },
+                      "titleId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Game series ID.\n\n游戏系列 ID。"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Game name.\n\n游戏名。"
+                      },
+                      "version": {
+                        "type": "string",
+                        "description": "Game version.\n\n游戏版本。"
+                      },
+                      "comment": {
+                        "default": "",
+                        "description": "Game note.\n\n游戏说明。",
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "default": 1,
+                        "description": "Number of machines.\n\n机台数量。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "cost": {
+                        "default": "",
+                        "description": "Price note.\n\n价格说明。",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "gameId",
+                      "titleId",
+                      "name",
+                      "version",
+                      "comment",
+                      "quantity",
+                      "cost"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Machines/games available at the shop.\n\n机台。"
+                },
+                "location": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "Point"
+                      ],
+                      "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                    },
+                    "coordinates": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180,
+                            "description": "Longitude.\n\n经度。"
+                          },
+                          {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90,
+                            "description": "Latitude.\n\n纬度。"
+                          }
+                        ]
+                      },
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "coordinates"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Shop coordinates.\n\n店铺坐标。"
+                },
+                "timezone": {
+                  "description": "Computed shop timezone.\n\n店铺时区。",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Timezone name.\n\n时区名称。"
+                    },
+                    "offset": {
+                      "type": "number",
+                      "description": "Timezone offset in hours.\n\n时区偏移，单位：小时。"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "offset"
+                  ],
+                  "additionalProperties": false
+                },
+                "isOpen": {
+                  "description": "Whether the shop is currently open.\n\n店铺营业状态。",
+                  "type": "boolean"
+                },
+                "isClaimed": {
+                  "description": "Whether this shop is claimed by a machine/operator.\n\n店铺是否已被认领。",
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "description": "Creation time.\n\n创建时间。",
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "updatedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Update time.\n\n更新时间。"
+                },
+                "source": {
+                  "description": "Legacy shop data source when present.\n\n店铺来源；当前数据可能不返回该字段。",
+                  "type": "string"
+                },
+                "distance": {
+                  "type": "number",
+                  "description": "Distance from the origin in kilometers.\n\n店铺距离，单位 km。"
+                },
+                "totalAttendance": {
+                  "description": "Combined shop attendance count.\n\n店铺综合在勤人数。",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "currentReportedAttendance": {
+                  "description": "Current attendance report.\n\n当前在勤人数报告。",
+                  "nullable": true,
+                  "type": "object",
+                  "properties": {
+                    "reportedAt": {
+                      "type": "string"
+                    },
+                    "reportedBy": {
+                      "type": "string"
+                    },
+                    "reporter": {
+                      "type": "object",
+                      "properties": {
+                        "_id": {
+                          "description": "MongoDB ID. Use `id` in clients.\n\nMongoDB ID。客户端请使用 id。",
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string",
+                          "description": "User ID.\n\n用户 ID。"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Username. Display with an @ prefix.\n\n用户名。展示时请在前面加 @ 符号。"
+                        },
+                        "email": {
+                          "description": "Email address when the user has made it public.\n\n邮箱，仅在用户勾选“邮箱可见性”时存在。",
+                          "type": "string"
+                        },
+                        "image": {
+                          "type": "string",
+                          "description": "Avatar URL.\n\n头像。"
+                        },
+                        "joinedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Join time.\n\n加入时间。"
+                        },
+                        "lastActiveAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Last active time.\n\n最后活跃时间。"
+                        },
+                        "userType": {
+                          "description": "User type.\n\n用户类型。",
+                          "type": "string",
+                          "enum": [
+                            "site_admin",
+                            "school_admin",
+                            "school_moderator",
+                            "club_admin",
+                            "club_moderator",
+                            "student",
+                            "regular"
+                          ]
+                        },
+                        "bio": {
+                          "type": "string",
+                          "description": "User bio.\n\n个人简介。"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "description": "Display name, preferred over `name` when present.\n\n用户示名，展示优先级高于 name。",
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "Profile update time.\n\n资料更新时间。"
+                        },
+                        "socialLinks": {
+                          "description": "Social links visible to clients.\n\n社交链接。",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string"
+                              },
+                              "username": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "username"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "frequentingArcades": {
+                          "description": "Frequently visited arcades when made public.\n\n常去机厅，仅在用户勾选“常去机厅可见性”时存在。",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "starredArcades": {
+                          "description": "Starred arcades when made public.\n\n收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "image",
+                        "joinedAt",
+                        "lastActiveAt",
+                        "bio",
+                        "displayName",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "comment": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "reportedAt",
+                    "reportedBy",
+                    "comment"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "_id",
+                "id",
+                "name",
+                "comment",
+                "address",
+                "openingHours",
+                "games",
+                "location",
+                "updatedAt",
+                "distance"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Nearby shops.\n\n店铺列表。"
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "name",
+              "latitude",
+              "longitude"
+            ],
+            "additionalProperties": false,
+            "description": "Origin location.\n\n原点。"
+          },
+          "radius": {
+            "type": "number",
+            "description": "Search radius in kilometers.\n\n范围半径。"
+          }
+        },
+        "required": [
+          "shops",
+          "location",
+          "radius"
+        ],
+        "additionalProperties": false
+      },
+      "MachineActivationResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded.\n\n是否成功。"
+          },
+          "apiSecret": {
+            "type": "string",
+            "description": "Generated API secret for the activated machine.\n\n生成的机台 API 密钥。"
+          },
+          "shop": {
+            "nullable": true,
+            "description": "Shop bound to the machine.\n\n机台绑定的店铺。",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "success",
+          "apiSecret",
+          "shop"
+        ],
+        "additionalProperties": false
+      },
+      "ShopsListResponse": {
+        "type": "object",
+        "properties": {
+          "shops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "_id": {
+                  "type": "string",
+                  "description": "MongoDB ID.\n\nMongoDB ID。"
+                },
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.\n\n店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Shop name.\n\n店铺名称。"
+                },
+                "comment": {
+                  "type": "string",
+                  "description": "Shop note.\n\n店铺说明。"
+                },
+                "address": {
+                  "type": "object",
+                  "properties": {
+                    "general": {
+                      "default": [],
+                      "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "detailed": {
+                      "default": "",
+                      "description": "Detailed street address.\n\n详细地址。",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "general",
+                    "detailed"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Shop address.\n\n店铺地址。"
+                },
+                "openingHours": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "hour": {
+                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 23
+                            },
+                            "minute": {
+                              "description": "Minute.\n\n分钟。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 59
+                            }
+                          },
+                          "required": [
+                            "hour",
+                            "minute"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "hour": {
+                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 23
+                            },
+                            "minute": {
+                              "description": "Minute.\n\n分钟。",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 59
+                            }
+                          },
+                          "required": [
+                            "hour",
+                            "minute"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+                },
+                "games": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "gameId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                      },
+                      "titleId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Game series ID.\n\n游戏系列 ID。"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Game name.\n\n游戏名。"
+                      },
+                      "version": {
+                        "type": "string",
+                        "description": "Game version.\n\n游戏版本。"
+                      },
+                      "comment": {
+                        "default": "",
+                        "description": "Game note.\n\n游戏说明。",
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "default": 1,
+                        "description": "Number of machines.\n\n机台数量。",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "cost": {
+                        "default": "",
+                        "description": "Price note.\n\n价格说明。",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "gameId",
+                      "titleId",
+                      "name",
+                      "version",
+                      "comment",
+                      "quantity",
+                      "cost"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Machines/games available at the shop.\n\n机台。"
+                },
+                "location": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "Point"
+                      ],
+                      "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                    },
+                    "coordinates": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180,
+                            "description": "Longitude.\n\n经度。"
+                          },
+                          {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90,
+                            "description": "Latitude.\n\n纬度。"
+                          }
+                        ]
+                      },
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "coordinates"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Shop coordinates.\n\n店铺坐标。"
+                },
+                "timezone": {
+                  "description": "Computed shop timezone.\n\n店铺时区。",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Timezone name.\n\n时区名称。"
+                    },
+                    "offset": {
+                      "type": "number",
+                      "description": "Timezone offset in hours.\n\n时区偏移，单位：小时。"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "offset"
+                  ],
+                  "additionalProperties": false
+                },
+                "isOpen": {
+                  "description": "Whether the shop is currently open.\n\n店铺营业状态。",
+                  "type": "boolean"
+                },
+                "isClaimed": {
+                  "description": "Whether this shop is claimed by a machine/operator.\n\n店铺是否已被认领。",
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "description": "Creation time.\n\n创建时间。",
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "updatedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "description": "Update time.\n\n更新时间。"
+                },
+                "source": {
+                  "description": "Legacy shop data source when present.\n\n店铺来源；当前数据可能不返回该字段。",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_id",
+                "id",
+                "name",
+                "comment",
+                "address",
+                "openingHours",
+                "games",
+                "location",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currentPage": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "hasPrevPage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shops",
+          "totalCount",
+          "currentPage",
+          "hasNextPage",
+          "hasPrevPage"
+        ],
+        "additionalProperties": false
+      },
+      "ShopResponse": {
+        "type": "object",
+        "properties": {
+          "shop": {
+            "type": "object",
+            "properties": {
+              "_id": {
+                "type": "string",
+                "description": "MongoDB ID.\n\nMongoDB ID。"
+              },
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.\n\n店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。"
+              },
+              "name": {
+                "type": "string",
+                "description": "Shop name.\n\n店铺名称。"
+              },
+              "comment": {
+                "type": "string",
+                "description": "Shop note.\n\n店铺说明。"
+              },
+              "address": {
+                "type": "object",
+                "properties": {
+                  "general": {
+                    "default": [],
+                    "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "detailed": {
+                    "default": "",
+                    "description": "Detailed street address.\n\n详细地址。",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "general",
+                  "detailed"
+                ],
+                "additionalProperties": false,
+                "description": "Shop address.\n\n店铺地址。"
+              },
+              "openingHours": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "hour": {
+                            "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 23
+                          },
+                          "minute": {
+                            "description": "Minute.\n\n分钟。",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 59
+                          }
+                        },
+                        "required": [
+                          "hour",
+                          "minute"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "hour": {
+                            "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 23
+                          },
+                          "minute": {
+                            "description": "Minute.\n\n分钟。",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 59
+                          }
+                        },
+                        "required": [
+                          "hour",
+                          "minute"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+              },
+              "games": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "gameId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                    },
+                    "titleId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Game series ID.\n\n游戏系列 ID。"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Game name.\n\n游戏名。"
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "Game version.\n\n游戏版本。"
+                    },
+                    "comment": {
+                      "default": "",
+                      "description": "Game note.\n\n游戏说明。",
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "default": 1,
+                      "description": "Number of machines.\n\n机台数量。",
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "cost": {
+                      "default": "",
+                      "description": "Price note.\n\n价格说明。",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "gameId",
+                    "titleId",
+                    "name",
+                    "version",
+                    "comment",
+                    "quantity",
+                    "cost"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Machines/games available at the shop.\n\n机台。"
+              },
+              "location": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "Point"
+                    ],
+                    "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                  },
+                  "coordinates": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180,
+                          "description": "Longitude.\n\n经度。"
+                        },
+                        {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90,
+                          "description": "Latitude.\n\n纬度。"
+                        }
+                      ]
+                    },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                  }
+                },
+                "required": [
+                  "type",
+                  "coordinates"
+                ],
+                "additionalProperties": false,
+                "description": "Shop coordinates.\n\n店铺坐标。"
+              },
+              "timezone": {
+                "description": "Computed shop timezone.\n\n店铺时区。",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Timezone name.\n\n时区名称。"
+                  },
+                  "offset": {
+                    "type": "number",
+                    "description": "Timezone offset in hours.\n\n时区偏移，单位：小时。"
+                  }
+                },
+                "required": [
+                  "name",
+                  "offset"
+                ],
+                "additionalProperties": false
+              },
+              "isOpen": {
+                "description": "Whether the shop is currently open.\n\n店铺营业状态。",
+                "type": "boolean"
+              },
+              "isClaimed": {
+                "description": "Whether this shop is claimed by a machine/operator.\n\n店铺是否已被认领。",
+                "type": "boolean"
+              },
+              "createdAt": {
+                "description": "Creation time.\n\n创建时间。",
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "updatedAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "Update time.\n\n更新时间。"
+              },
+              "source": {
+                "description": "Legacy shop data source when present.\n\n店铺来源；当前数据可能不返回该字段。",
+                "type": "string"
+              }
+            },
+            "required": [
+              "_id",
+              "id",
+              "name",
+              "comment",
+              "address",
+              "openingHours",
+              "games",
+              "location",
+              "updatedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "shop"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Combined attendance count from registered and reported data.\n\n综合在勤人数，结合登记与上报人数综合计算得出。"
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gameId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                },
+                "titleId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game series ID.\n\n游戏系列 ID。"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Game name.\n\n游戏名。"
+                },
+                "version": {
+                  "type": "string",
+                  "description": "Game version.\n\n游戏版本。"
+                },
+                "comment": {
+                  "default": "",
+                  "description": "Game note.\n\n游戏说明。",
+                  "type": "string"
+                },
+                "quantity": {
+                  "default": 1,
+                  "description": "Number of machines.\n\n机台数量。",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cost": {
+                  "default": "",
+                  "description": "Price note.\n\n价格说明。",
+                  "type": "string"
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Combined attendance count for this game.\n\n机台综合在勤人数。"
+                }
+              },
+              "required": [
+                "gameId",
+                "titleId",
+                "name",
+                "version",
+                "comment",
+                "quantity",
+                "cost",
+                "total"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "registered": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string"
+                },
+                "gameId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                },
+                "attendedAt": {
+                  "type": "string"
+                },
+                "plannedLeaveAt": {
+                  "type": "string"
+                },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "_id": {
+                      "description": "MongoDB ID. Use `id` in clients.\n\nMongoDB ID。客户端请使用 id。",
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "User ID.\n\n用户 ID。"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Username. Display with an @ prefix.\n\n用户名。展示时请在前面加 @ 符号。"
+                    },
+                    "email": {
+                      "description": "Email address when the user has made it public.\n\n邮箱，仅在用户勾选“邮箱可见性”时存在。",
+                      "type": "string"
+                    },
+                    "image": {
+                      "type": "string",
+                      "description": "Avatar URL.\n\n头像。"
+                    },
+                    "joinedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Join time.\n\n加入时间。"
+                    },
+                    "lastActiveAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Last active time.\n\n最后活跃时间。"
+                    },
+                    "userType": {
+                      "description": "User type.\n\n用户类型。",
+                      "type": "string",
+                      "enum": [
+                        "site_admin",
+                        "school_admin",
+                        "school_moderator",
+                        "club_admin",
+                        "club_moderator",
+                        "student",
+                        "regular"
+                      ]
+                    },
+                    "bio": {
+                      "type": "string",
+                      "description": "User bio.\n\n个人简介。"
+                    },
+                    "displayName": {
+                      "nullable": true,
+                      "description": "Display name, preferred over `name` when present.\n\n用户示名，展示优先级高于 name。",
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Profile update time.\n\n资料更新时间。"
+                    },
+                    "socialLinks": {
+                      "description": "Social links visible to clients.\n\n社交链接。",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "platform",
+                          "username"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "frequentingArcades": {
+                      "description": "Frequently visited arcades when made public.\n\n常去机厅，仅在用户勾选“常去机厅可见性”时存在。",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "source": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "starredArcades": {
+                      "description": "Starred arcades when made public.\n\n收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "source": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "image",
+                    "joinedAt",
+                    "lastActiveAt",
+                    "bio",
+                    "displayName",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "gameId",
+                "attendedAt",
+                "plannedLeaveAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "reported": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gameId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                },
+                "currentAttendances": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "comment": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "reportedBy": {
+                  "type": "string"
+                },
+                "reportedAt": {
+                  "type": "string"
+                },
+                "reporter": {
+                  "type": "object",
+                  "properties": {
+                    "_id": {
+                      "description": "MongoDB ID. Use `id` in clients.\n\nMongoDB ID。客户端请使用 id。",
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "User ID.\n\n用户 ID。"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Username. Display with an @ prefix.\n\n用户名。展示时请在前面加 @ 符号。"
+                    },
+                    "email": {
+                      "description": "Email address when the user has made it public.\n\n邮箱，仅在用户勾选“邮箱可见性”时存在。",
+                      "type": "string"
+                    },
+                    "image": {
+                      "type": "string",
+                      "description": "Avatar URL.\n\n头像。"
+                    },
+                    "joinedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Join time.\n\n加入时间。"
+                    },
+                    "lastActiveAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Last active time.\n\n最后活跃时间。"
+                    },
+                    "userType": {
+                      "description": "User type.\n\n用户类型。",
+                      "type": "string",
+                      "enum": [
+                        "site_admin",
+                        "school_admin",
+                        "school_moderator",
+                        "club_admin",
+                        "club_moderator",
+                        "student",
+                        "regular"
+                      ]
+                    },
+                    "bio": {
+                      "type": "string",
+                      "description": "User bio.\n\n个人简介。"
+                    },
+                    "displayName": {
+                      "nullable": true,
+                      "description": "Display name, preferred over `name` when present.\n\n用户示名，展示优先级高于 name。",
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "Profile update time.\n\n资料更新时间。"
+                    },
+                    "socialLinks": {
+                      "description": "Social links visible to clients.\n\n社交链接。",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "platform",
+                          "username"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "frequentingArcades": {
+                      "description": "Frequently visited arcades when made public.\n\n常去机厅，仅在用户勾选“常去机厅可见性”时存在。",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "source": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "starredArcades": {
+                      "description": "Starred arcades when made public.\n\n收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "source": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "image",
+                    "joinedAt",
+                    "lastActiveAt",
+                    "bio",
+                    "displayName",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "gameId",
+                "currentAttendances",
+                "comment",
+                "reportedBy",
+                "reportedAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "success",
+          "total",
+          "games",
+          "registered",
+          "reported"
+        ],
+        "additionalProperties": false
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded.\n\n是否成功。"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceRegistrationCreateResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded.\n\n是否成功。"
+          },
+          "token": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "shopName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "token",
+          "expiresAt",
+          "shopName"
+        ],
+        "additionalProperties": false
+      },
+      "AttendanceRegistrationGetResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded.\n\n是否成功。"
+          },
+          "registration": {
+            "type": "object",
+            "properties": {
+              "shopId": {
+                "type": "string"
+              },
+              "machineId": {
+                "type": "string"
+              },
+              "slotIndex": {
+                "type": "string"
+              },
+              "expiresAt": {
+                "type": "string"
+              },
+              "userId": {
+                "type": "string"
+              },
+              "user": {}
+            },
+            "required": [
+              "shopId",
+              "machineId",
+              "slotIndex",
+              "expiresAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "success",
+          "registration"
+        ],
+        "additionalProperties": false
+      },
+      "QueueListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded.\n\n是否成功。"
+          },
+          "queues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gameId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                },
+                "queue": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "machineName": {
+                        "type": "string",
+                        "description": "Machine name.\n\n机台名。"
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Queue position.\n\n位置。"
+                      },
+                      "isPublic": {
+                        "type": "boolean",
+                        "description": "Whether this position is public.\n\n是否为公开位置。"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "playing",
+                          "queued",
+                          "deferred"
+                        ],
+                        "description": "Queue status.\n\n状态。"
+                      },
+                      "members": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slotIndex": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Slot index.\n\n槽位。"
+                            },
+                            "userId": {
+                              "nullable": true,
+                              "description": "User ID in the slot, or null for an empty/private slot.\n\n用户 ID；空位或非公开位置可为 null。",
+                              "type": "string"
+                            },
+                            "user": {
+                              "nullable": true,
+                              "description": "Resolved user data for a visible queue member.\n\n公开队列成员对应的用户信息。",
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "description": "User ID.\n\n用户 ID。"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "Username.\n\n用户名。"
+                                },
+                                "displayName": {
+                                  "description": "Display name when available.\n\n用户示名。",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "image": {
+                                  "description": "Avatar URL when available.\n\n头像。",
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "slotIndex",
+                            "userId",
+                            "user"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Members in this queue position, enriched with public user data.\n\n该位置的成员列表，包含公开的用户信息。"
+                      }
+                    },
+                    "required": [
+                      "machineName",
+                      "position",
+                      "isPublic",
+                      "status",
+                      "members"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Queue positions for the game.\n\n该游戏的队列位置。"
+                }
+              },
+              "required": [
+                "gameId",
+                "queue"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Current queue data for the shop.\n\n店铺当前机台队列数据。"
+          }
+        },
+        "required": [
+          "success",
+          "queues"
+        ],
+        "additionalProperties": false
+      },
+      "QueueReportResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded.\n\n是否成功。"
+          },
+          "notificationsQueued": {
+            "description": "Number of notifications queued by the update.\n\n本次更新加入通知队列的数量。",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

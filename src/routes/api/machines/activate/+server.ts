@@ -4,13 +4,11 @@ import mongo from '$lib/db/index.server';
 import type { Machine, Shop } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
+import { activateMachineQuerySchema } from '$lib/schemas/machines';
+import { parseQueryOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ url }) => {
-  const serialNumber = url.searchParams.get('sn');
-
-  if (!serialNumber) {
-    error(400, m.missing_required_parameters());
-  }
+  const { sn: serialNumber } = parseQueryOrError(activateMachineQuerySchema, url);
 
   const db = mongo.db();
   const machinesCollection = db.collection<Machine>('machines');

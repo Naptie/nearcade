@@ -7,6 +7,8 @@ import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '$lib/auth/types';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
+import { queuesPostBodySchema, shopIdParamSchema } from '$lib/schemas/shops';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 // Helper to validate machine API secret and check shop binding
 const validateMachineAuth = async (request: Request, shopId: number): Promise<Machine> => {
@@ -104,67 +106,16 @@ const sendQueueNotification = async (
   }
 };
 
-interface QueueGameData {
-  gameId: number;
-  queue: QueuePosition[];
-}
-
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
 
     // Validate machine authentication and shop binding
     const machine = await validateMachineAuth(request, id);
 
-    const body = (await request.json()) as {
-      queues: QueueGameData[];
-    };
+    const body = await parseJsonOrError(request, queuesPostBodySchema);
 
     const { queues: newQueuesData } = body;
-
-    if (!Array.isArray(newQueuesData)) {
-      error(400, m.missing_required_parameters());
-    }
-
-    // Validate queue structure for all games (in the update payload)
-    for (const queueData of newQueuesData) {
-      if (typeof queueData.gameId !== 'number' || !Array.isArray(queueData.queue)) {
-        error(400, m.invalid_queue_format());
-      }
-
-      for (const position of queueData.queue) {
-        if (
-          typeof position.position !== 'number' ||
-          !['playing', 'queued', 'deferred'].includes(position.status) ||
-          !Array.isArray(position.members)
-        ) {
-          error(400, m.invalid_queue_format());
-        }
-
-        // Validate optional new fields
-        if (position.machineName !== undefined && typeof position.machineName !== 'string') {
-          error(400, m.invalid_queue_format());
-        }
-
-        if (position.isPublic !== undefined && typeof position.isPublic !== 'boolean') {
-          error(400, m.invalid_queue_format());
-        }
-
-        for (const member of position.members) {
-          if (
-            typeof member.slotIndex !== 'string' ||
-            (member.userId !== null && typeof member.userId !== 'string')
-          ) {
-            error(400, m.invalid_queue_format());
-          }
-        }
-      }
-    }
 
     // Verify shop exists and has the games
     const db = mongo.db();
@@ -342,12 +293,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 export const GET: RequestHandler = async ({ params }) => {
   try {
-    const idRaw = params.id;
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
 
     const db = mongo.db();
     const queuesCollection = db.collection<QueueRecord>('queues');

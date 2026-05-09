@@ -1,36 +1,34 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Game, Shop } from '$lib/types';
-import {
-  areValidCoordinates,
-  calculateDistance,
-  toPlainObject,
-  getShopOpeningHours,
-  getShopTimezone
-} from '$lib/utils';
+import { calculateDistance, toPlainObject, getShopOpeningHours, getShopTimezone } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from './attendance.server';
 import type { User } from '$lib/auth/types';
+import { discoverQuerySchema } from '$lib/schemas/discover';
+import { parseQueryOrError } from '$lib/utils/validation.server';
 
 export const loadShops = async ({ url }: { url: URL }) => {
-  const latParam = url.searchParams.get('latitude') ?? url.searchParams.get('lat');
-  const lngParam = url.searchParams.get('longitude') ?? url.searchParams.get('lng');
-  if (!latParam || !lngParam) {
+  const queryUrl = new URL(url);
+  if (!queryUrl.searchParams.has('latitude') && queryUrl.searchParams.has('lat')) {
+    queryUrl.searchParams.set('latitude', queryUrl.searchParams.get('lat')!);
+  }
+  if (!queryUrl.searchParams.has('longitude') && queryUrl.searchParams.has('lng')) {
+    queryUrl.searchParams.set('longitude', queryUrl.searchParams.get('lng')!);
+  }
+  if (!queryUrl.searchParams.has('latitude') || !queryUrl.searchParams.has('longitude')) {
     error(400, m.latitude_and_longitude_parameters_are_required());
   }
 
-  const validationResult = areValidCoordinates(latParam, lngParam);
-  if (!validationResult.isValid) {
-    error(400, m.invalid_latitude_or_longitude_format());
-  }
-
-  const fetchAttendance = url.searchParams.get('fetchAttendance') !== 'false';
-  const includeTimeInfo = url.searchParams.get('includeTimeInfo') !== 'false';
+  const {
+    latitude,
+    longitude,
+    radius: radiusKm,
+    fetchAttendance,
+    includeTimeInfo
+  } = parseQueryOrError(discoverQuerySchema, queryUrl);
 
   try {
-    const { latitude, longitude } = validationResult;
-    const radiusParam = url.searchParams.get('radius');
-    const radiusKm = radiusParam ? Math.max(1, Math.min(30, parseInt(radiusParam))) : 10;
     const radiusRadians = radiusKm / 6371;
 
     const db = mongo.db();

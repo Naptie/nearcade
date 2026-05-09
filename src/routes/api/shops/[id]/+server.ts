@@ -5,6 +5,12 @@ import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
+import { shopDetailQuerySchema, shopIdParamSchema, updateShopBodySchema } from '$lib/schemas/shops';
+import {
+  parseJsonOrError,
+  parseParamsOrError,
+  parseQueryOrError
+} from '$lib/utils/validation.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -278,15 +284,8 @@ const normalizeGamesForShopUpdate = (
 };
 
 export const GET: RequestHandler = async ({ params, url }) => {
-  const { id } = params;
-
-  // Validate id
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(404, m.invalid_shop_id());
-  }
-
-  const includeTimeInfo = url.searchParams.get('includeTimeInfo') !== 'false';
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
+  const { includeTimeInfo } = parseQueryOrError(shopDetailQuerySchema, url);
 
   try {
     const db = mongo.db();
@@ -331,25 +330,10 @@ export const GET: RequestHandler = async ({ params, url }) => {
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
-  const { id } = params;
-
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
-
-  let body: Partial<Shop>;
-  try {
-    body = await request.json();
-  } catch {
-    error(400, 'Invalid request body');
-  }
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
+  const body = await parseJsonOrError(request, updateShopBodySchema);
 
   const { name, comment, address, openingHours, location, games } = body;
-
-  if (!name && !comment && !address && !openingHours && !location && !games) {
-    error(400, 'No fields to update');
-  }
 
   try {
     const db = mongo.db();
