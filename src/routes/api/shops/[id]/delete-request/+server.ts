@@ -77,12 +77,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const deleteRequest: ShopDeleteRequest = {
     id: nanoid(),
-      shopId,
-      shopName: shop.name,
-      reason,
-      images: imageIds,
-      requestedBy: user.id,
-      requestedByName: user.name ?? null,
+    shopId,
+    shopName: shop.name,
+    reason,
+    images: imageIds,
+    requestedBy: user.id,
+    requestedByName: user.name ?? null,
     status: 'pending',
     createdAt: new Date(),
     photoId: photoId,
