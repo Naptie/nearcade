@@ -14,9 +14,7 @@
   "paths": {
     "/discover": {
       "get": {
-        "tags": [
-          "discover"
-        ],
+        "tags": ["discover"],
         "summary": "获取附近店铺 / Discover nearby shops",
         "description": "获取原点附近的店铺，可选择是否包含在勤人数和计算得出的营业时间信息。\n\nFind shops near an origin point, optionally including attendance and computed opening-time information.",
         "operationId": "getDiscover",
@@ -98,9 +96,7 @@
                 {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 },
                 {
                   "not": {}
@@ -124,9 +120,7 @@
                 {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 },
                 {
                   "not": {}
@@ -158,9 +152,7 @@
     },
     "/machines/activate": {
       "post": {
-        "tags": [
-          "machines"
-        ],
+        "tags": ["machines"],
         "summary": "激活机台 / Activate machine",
         "description": "通过机台序列号激活机台，并返回 API 密钥。\n\nActivate a machine by serial number and return its API secret.",
         "operationId": "postMachinesActivate",
@@ -199,9 +191,7 @@
     },
     "/shops": {
       "get": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "获取店铺列表 / List shops",
         "description": "获取分页店铺列表。支持查询字符串，并可选择是否包含计算得出的时区与营业状态。\n\nGet a paginated list of shops. Supports text search and optional computed time information.",
         "operationId": "getShops",
@@ -221,9 +211,7 @@
                 {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 },
                 {
                   "not": {}
@@ -247,9 +235,7 @@
                 {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 },
                 {
                   "not": {}
@@ -283,9 +269,7 @@
                 {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 },
                 {
                   "not": {}
@@ -315,9 +299,7 @@
         }
       },
       "post": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "创建店铺 / Create shop",
         "description": "创建新店铺。\n\nCreate a new shop.",
         "operationId": "postShops",
@@ -353,9 +335,7 @@
     },
     "/shops/{id}": {
       "get": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "获取店铺详情 / Get shop details",
         "description": "按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。\n\nGet details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.",
         "operationId": "getShopsById",
@@ -392,9 +372,7 @@
                 {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 },
                 {
                   "not": {}
@@ -427,9 +405,7 @@
         }
       },
       "put": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "更新店铺 / Update shop",
         "description": "按数字 ID 更新店铺字段。\n\nUpdate shop fields by numeric ID.",
         "operationId": "putShopsById",
@@ -487,9 +463,7 @@
     },
     "/shops/{id}/attendance": {
       "get": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "获取在勤人数 / Get attendance",
         "description": "获取店铺综合、登记和上报的在勤人数。\n\nGet combined, registered, and reported attendance for a shop.",
         "operationId": "getShopsByIdAttendance",
@@ -541,9 +515,7 @@
         }
       },
       "post": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "上报或登记在勤人数 / Report or register attendance",
         "description": "上报当前在勤人数，或登记用户在勤。根据模式需要登录或 Bearer API 令牌。\n\nReport current attendance counts or register a user attendance session. Requires login or bearer API token depending on the mode.",
         "operationId": "postShopsByIdAttendance",
@@ -608,9 +580,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "退勤 / Leave attendance",
         "description": "从某店铺的当前在勤中移除当前用户。\n\nRemove the current user from active attendance at a shop.",
         "operationId": "deleteShopsByIdAttendance",
@@ -658,9 +628,7 @@
     },
     "/shops/{id}/attendance/registration": {
       "post": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "申请玩家登记令牌 / Create player registration token",
         "description": "为机台槽位创建短期玩家登记令牌。\n\nCreate a short-lived player registration token for a machine slot.",
         "security": [
@@ -724,9 +692,7 @@
         }
       },
       "get": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "获取玩家登记信息 / Get player registration",
         "description": "通过令牌获取玩家登记信息。\n\nGet player registration data by token.",
         "security": [
@@ -794,9 +760,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "销毁玩家登记令牌 / Delete player registration token",
         "description": "销毁玩家登记令牌。\n\nDelete a player registration token.",
         "security": [
@@ -863,9 +827,7 @@
     },
     "/shops/{id}/queues": {
       "get": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "获取机台队列 / Get machine queues",
         "description": "获取店铺当前机台队列数据。\n\nGet current queue data for a shop.",
         "operationId": "getShopsByIdQueues",
@@ -908,9 +870,7 @@
         }
       },
       "post": {
-        "tags": [
-          "shops"
-        ],
+        "tags": ["shops"],
         "summary": "上报机台队列 / Report machine queues",
         "description": "上报店铺中一个或多个游戏的机台队列状态。\n\nReport machine queue states for one or more games in a shop.",
         "security": [
@@ -1038,10 +998,7 @@
                         "maximum": 59
                       }
                     },
-                    "required": [
-                      "hour",
-                      "minute"
-                    ]
+                    "required": ["hour", "minute"]
                   },
                   {
                     "type": "object",
@@ -1059,10 +1016,7 @@
                         "maximum": 59
                       }
                     },
-                    "required": [
-                      "hour",
-                      "minute"
-                    ]
+                    "required": ["hour", "minute"]
                   }
                 ]
               },
@@ -1076,9 +1030,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "Point"
-                ],
+                "enum": ["Point"],
                 "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
               },
               "coordinates": {
@@ -1104,10 +1056,7 @@
                 "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
               }
             },
-            "required": [
-              "type",
-              "coordinates"
-            ]
+            "required": ["type", "coordinates"]
           },
           "games": {
             "type": "array",
@@ -1144,19 +1093,11 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "titleId",
-                "name",
-                "version"
-              ]
+              "required": ["titleId", "name", "version"]
             }
           }
         },
-        "required": [
-          "name",
-          "openingHours",
-          "location"
-        ]
+        "required": ["name", "openingHours", "location"]
       },
       "UpdateShopRequest": {
         "type": "object",
@@ -1211,10 +1152,7 @@
                         "maximum": 59
                       }
                     },
-                    "required": [
-                      "hour",
-                      "minute"
-                    ]
+                    "required": ["hour", "minute"]
                   },
                   {
                     "type": "object",
@@ -1232,10 +1170,7 @@
                         "maximum": 59
                       }
                     },
-                    "required": [
-                      "hour",
-                      "minute"
-                    ]
+                    "required": ["hour", "minute"]
                   }
                 ]
               },
@@ -1249,9 +1184,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "Point"
-                ],
+                "enum": ["Point"],
                 "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
               },
               "coordinates": {
@@ -1277,10 +1210,7 @@
                 "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
               }
             },
-            "required": [
-              "type",
-              "coordinates"
-            ]
+            "required": ["type", "coordinates"]
           },
           "games": {
             "type": "array",
@@ -1323,11 +1253,7 @@
                   "maximum": 9007199254740991
                 }
               },
-              "required": [
-                "titleId",
-                "name",
-                "version"
-              ]
+              "required": ["titleId", "name", "version"]
             }
           }
         }
@@ -1358,9 +1284,7 @@
                   "type": "boolean"
                 }
               },
-              "required": [
-                "id"
-              ]
+              "required": ["id"]
             }
           },
           "plannedLeaveAt": {
@@ -1374,9 +1298,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "games"
-        ]
+        "required": ["games"]
       },
       "AttendanceRegistrationRequest": {
         "type": "object",
@@ -1393,9 +1315,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "slotIndex"
-        ]
+        "required": ["slotIndex"]
       },
       "QueueReportRequest": {
         "type": "object",
@@ -1433,11 +1353,7 @@
                       },
                       "status": {
                         "type": "string",
-                        "enum": [
-                          "playing",
-                          "queued",
-                          "deferred"
-                        ],
+                        "enum": ["playing", "queued", "deferred"],
                         "description": "状态。\n\nQueue status."
                       },
                       "members": {
@@ -1456,35 +1372,21 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "slotIndex",
-                            "userId"
-                          ]
+                          "required": ["slotIndex", "userId"]
                         },
                         "description": "成员列表。\n\nMembers in this queue position."
                       }
                     },
-                    "required": [
-                      "machineName",
-                      "position",
-                      "isPublic",
-                      "status",
-                      "members"
-                    ]
+                    "required": ["machineName", "position", "isPublic", "status", "members"]
                   },
                   "description": "队列。\n\nQueue positions."
                 }
               },
-              "required": [
-                "gameId",
-                "queue"
-              ]
+              "required": ["gameId", "queue"]
             }
           }
         },
-        "required": [
-          "queues"
-        ]
+        "required": ["queues"]
       },
       "DiscoverResponse": {
         "type": "object",
@@ -1529,10 +1431,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "general",
-                    "detailed"
-                  ],
+                  "required": ["general", "detailed"],
                   "additionalProperties": false,
                   "description": "店铺地址。\n\nShop address."
                 },
@@ -1559,10 +1458,7 @@
                               "maximum": 59
                             }
                           },
-                          "required": [
-                            "hour",
-                            "minute"
-                          ],
+                          "required": ["hour", "minute"],
                           "additionalProperties": false
                         },
                         {
@@ -1581,10 +1477,7 @@
                               "maximum": 59
                             }
                           },
-                          "required": [
-                            "hour",
-                            "minute"
-                          ],
+                          "required": ["hour", "minute"],
                           "additionalProperties": false
                         }
                       ]
@@ -1655,9 +1548,7 @@
                   "properties": {
                     "type": {
                       "type": "string",
-                      "enum": [
-                        "Point"
-                      ],
+                      "enum": ["Point"],
                       "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
                     },
                     "coordinates": {
@@ -1683,10 +1574,7 @@
                       "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
                     }
                   },
-                  "required": [
-                    "type",
-                    "coordinates"
-                  ],
+                  "required": ["type", "coordinates"],
                   "additionalProperties": false,
                   "description": "店铺坐标。\n\nShop coordinates."
                 },
@@ -1703,10 +1591,7 @@
                       "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
                     }
                   },
-                  "required": [
-                    "name",
-                    "offset"
-                  ],
+                  "required": ["name", "offset"],
                   "additionalProperties": false
                 },
                 "isOpen": {
@@ -1855,10 +1740,7 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "platform",
-                              "username"
-                            ],
+                            "required": ["platform", "username"],
                             "additionalProperties": false
                           }
                         },
@@ -1877,9 +1759,7 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "id"
-                            ],
+                            "required": ["id"],
                             "additionalProperties": false
                           }
                         },
@@ -1898,9 +1778,7 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "id"
-                            ],
+                            "required": ["id"],
                             "additionalProperties": false
                           }
                         }
@@ -1922,11 +1800,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "reportedAt",
-                    "reportedBy",
-                    "comment"
-                  ],
+                  "required": ["reportedAt", "reportedBy", "comment"],
                   "additionalProperties": false
                 }
               },
@@ -1960,11 +1834,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "name",
-              "latitude",
-              "longitude"
-            ],
+            "required": ["name", "latitude", "longitude"],
             "additionalProperties": false,
             "description": "原点。\n\nOrigin location."
           },
@@ -1973,11 +1843,7 @@
             "description": "范围半径。\n\nSearch radius in kilometers."
           }
         },
-        "required": [
-          "shops",
-          "location",
-          "radius"
-        ],
+        "required": ["shops", "location", "radius"],
         "additionalProperties": false
       },
       "MachineActivationResponse": {
@@ -2008,18 +1874,11 @@
                 "type": "string"
               }
             },
-            "required": [
-              "id",
-              "name"
-            ],
+            "required": ["id", "name"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "success",
-          "apiSecret",
-          "shop"
-        ],
+        "required": ["success", "apiSecret", "shop"],
         "additionalProperties": false
       },
       "ShopsListResponse": {
@@ -2065,10 +1924,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "general",
-                    "detailed"
-                  ],
+                  "required": ["general", "detailed"],
                   "additionalProperties": false,
                   "description": "店铺地址。\n\nShop address."
                 },
@@ -2095,10 +1951,7 @@
                               "maximum": 59
                             }
                           },
-                          "required": [
-                            "hour",
-                            "minute"
-                          ],
+                          "required": ["hour", "minute"],
                           "additionalProperties": false
                         },
                         {
@@ -2117,10 +1970,7 @@
                               "maximum": 59
                             }
                           },
-                          "required": [
-                            "hour",
-                            "minute"
-                          ],
+                          "required": ["hour", "minute"],
                           "additionalProperties": false
                         }
                       ]
@@ -2191,9 +2041,7 @@
                   "properties": {
                     "type": {
                       "type": "string",
-                      "enum": [
-                        "Point"
-                      ],
+                      "enum": ["Point"],
                       "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
                     },
                     "coordinates": {
@@ -2219,10 +2067,7 @@
                       "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
                     }
                   },
-                  "required": [
-                    "type",
-                    "coordinates"
-                  ],
+                  "required": ["type", "coordinates"],
                   "additionalProperties": false,
                   "description": "店铺坐标。\n\nShop coordinates."
                 },
@@ -2239,10 +2084,7 @@
                       "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
                     }
                   },
-                  "required": [
-                    "name",
-                    "offset"
-                  ],
+                  "required": ["name", "offset"],
                   "additionalProperties": false
                 },
                 "isOpen": {
@@ -2311,13 +2153,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "shops",
-          "totalCount",
-          "currentPage",
-          "hasNextPage",
-          "hasPrevPage"
-        ],
+        "required": ["shops", "totalCount", "currentPage", "hasNextPage", "hasPrevPage"],
         "additionalProperties": false
       },
       "ShopResponse": {
@@ -2361,10 +2197,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "general",
-                  "detailed"
-                ],
+                "required": ["general", "detailed"],
                 "additionalProperties": false,
                 "description": "店铺地址。\n\nShop address."
               },
@@ -2391,10 +2224,7 @@
                             "maximum": 59
                           }
                         },
-                        "required": [
-                          "hour",
-                          "minute"
-                        ],
+                        "required": ["hour", "minute"],
                         "additionalProperties": false
                       },
                       {
@@ -2413,10 +2243,7 @@
                             "maximum": 59
                           }
                         },
-                        "required": [
-                          "hour",
-                          "minute"
-                        ],
+                        "required": ["hour", "minute"],
                         "additionalProperties": false
                       }
                     ]
@@ -2487,9 +2314,7 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": [
-                      "Point"
-                    ],
+                    "enum": ["Point"],
                     "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
                   },
                   "coordinates": {
@@ -2515,10 +2340,7 @@
                     "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
                   }
                 },
-                "required": [
-                  "type",
-                  "coordinates"
-                ],
+                "required": ["type", "coordinates"],
                 "additionalProperties": false,
                 "description": "店铺坐标。\n\nShop coordinates."
               },
@@ -2535,10 +2357,7 @@
                     "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
                   }
                 },
-                "required": [
-                  "name",
-                  "offset"
-                ],
+                "required": ["name", "offset"],
                 "additionalProperties": false
               },
               "isOpen": {
@@ -2590,9 +2409,7 @@
             "additionalProperties": false
           }
         },
-        "required": [
-          "shop"
-        ],
+        "required": ["shop"],
         "additionalProperties": false
       },
       "AttendanceResponse": {
@@ -2780,10 +2597,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "platform",
-                          "username"
-                        ],
+                        "required": ["platform", "username"],
                         "additionalProperties": false
                       }
                     },
@@ -2802,9 +2616,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id"
-                        ],
+                        "required": ["id"],
                         "additionalProperties": false
                       }
                     },
@@ -2823,9 +2635,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id"
-                        ],
+                        "required": ["id"],
                         "additionalProperties": false
                       }
                     }
@@ -2843,11 +2653,7 @@
                   "additionalProperties": false
                 }
               },
-              "required": [
-                "gameId",
-                "attendedAt",
-                "plannedLeaveAt"
-              ],
+              "required": ["gameId", "attendedAt", "plannedLeaveAt"],
               "additionalProperties": false
             }
           },
@@ -2968,10 +2774,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "platform",
-                          "username"
-                        ],
+                        "required": ["platform", "username"],
                         "additionalProperties": false
                       }
                     },
@@ -2990,9 +2793,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id"
-                        ],
+                        "required": ["id"],
                         "additionalProperties": false
                       }
                     },
@@ -3011,9 +2812,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id"
-                        ],
+                        "required": ["id"],
                         "additionalProperties": false
                       }
                     }
@@ -3031,24 +2830,12 @@
                   "additionalProperties": false
                 }
               },
-              "required": [
-                "gameId",
-                "currentAttendances",
-                "comment",
-                "reportedBy",
-                "reportedAt"
-              ],
+              "required": ["gameId", "currentAttendances", "comment", "reportedBy", "reportedAt"],
               "additionalProperties": false
             }
           }
         },
-        "required": [
-          "success",
-          "total",
-          "games",
-          "registered",
-          "reported"
-        ],
+        "required": ["success", "total", "games", "registered", "reported"],
         "additionalProperties": false
       },
       "SuccessResponse": {
@@ -3059,9 +2846,7 @@
             "description": "是否成功。\n\nWhether the operation succeeded."
           }
         },
-        "required": [
-          "success"
-        ],
+        "required": ["success"],
         "additionalProperties": false
       },
       "AttendanceRegistrationCreateResponse": {
@@ -3082,12 +2867,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "success",
-          "token",
-          "expiresAt",
-          "shopName"
-        ],
+        "required": ["success", "token", "expiresAt", "shopName"],
         "additionalProperties": false
       },
       "AttendanceRegistrationGetResponse": {
@@ -3117,19 +2897,11 @@
               },
               "user": {}
             },
-            "required": [
-              "shopId",
-              "machineId",
-              "slotIndex",
-              "expiresAt"
-            ],
+            "required": ["shopId", "machineId", "slotIndex", "expiresAt"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "success",
-          "registration"
-        ],
+        "required": ["success", "registration"],
         "additionalProperties": false
       },
       "QueueListResponse": {
@@ -3171,11 +2943,7 @@
                       },
                       "status": {
                         "type": "string",
-                        "enum": [
-                          "playing",
-                          "queued",
-                          "deferred"
-                        ],
+                        "enum": ["playing", "queued", "deferred"],
                         "description": "状态。\n\nQueue status."
                       },
                       "members": {
@@ -3217,48 +2985,29 @@
                                   "type": "string"
                                 }
                               },
-                              "required": [
-                                "id",
-                                "name"
-                              ],
+                              "required": ["id", "name"],
                               "additionalProperties": false
                             }
                           },
-                          "required": [
-                            "slotIndex",
-                            "userId",
-                            "user"
-                          ],
+                          "required": ["slotIndex", "userId", "user"],
                           "additionalProperties": false
                         },
                         "description": "该位置的成员列表，包含公开的用户信息。\n\nMembers in this queue position, enriched with public user data."
                       }
                     },
-                    "required": [
-                      "machineName",
-                      "position",
-                      "isPublic",
-                      "status",
-                      "members"
-                    ],
+                    "required": ["machineName", "position", "isPublic", "status", "members"],
                     "additionalProperties": false
                   },
                   "description": "该游戏的队列位置。\n\nQueue positions for the game."
                 }
               },
-              "required": [
-                "gameId",
-                "queue"
-              ],
+              "required": ["gameId", "queue"],
               "additionalProperties": false
             },
             "description": "店铺当前机台队列数据。\n\nCurrent queue data for the shop."
           }
         },
-        "required": [
-          "success",
-          "queues"
-        ],
+        "required": ["success", "queues"],
         "additionalProperties": false
       },
       "QueueReportResponse": {
@@ -3275,9 +3024,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "success"
-        ],
+        "required": ["success"],
         "additionalProperties": false
       }
     },

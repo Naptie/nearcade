@@ -12,13 +12,19 @@ export default defineOpenApiRoute({
   get: {
     tags: ['shops'],
     summary: bilingual('获取在勤人数', 'Get attendance', true),
-    description: bilingual('获取店铺综合、登记和上报的在勤人数。', 'Get combined, registered, and reported attendance for a shop.'),
+    description: bilingual(
+      '获取店铺综合、登记和上报的在勤人数。',
+      'Get combined, registered, and reported attendance for a shop.'
+    ),
     requestParams: {
       path: shopIdParamSchema,
       query: attendanceQuerySchema
     },
     responses: {
-      '200': jsonResponse(bilingual('在勤数据', 'Attendance data', true), attendanceResponseOpenApiSchema),
+      '200': jsonResponse(
+        bilingual('在勤数据', 'Attendance data', true),
+        attendanceResponseOpenApiSchema
+      ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }
@@ -26,7 +32,10 @@ export default defineOpenApiRoute({
   post: {
     tags: ['shops'],
     summary: bilingual('上报或登记在勤人数', 'Report or register attendance', true),
-    description: bilingual('上报当前在勤人数，或登记用户在勤。根据模式需要登录或 Bearer API 令牌。', 'Report current attendance counts or register a user attendance session. Requires login or bearer API token depending on the mode.'),
+    description: bilingual(
+      '上报当前在勤人数，或登记用户在勤。根据模式需要登录或 Bearer API 令牌。',
+      'Report current attendance counts or register a user attendance session. Requires login or bearer API token depending on the mode.'
+    ),
     requestParams: {
       path: shopIdParamSchema
     },
@@ -44,7 +53,10 @@ export default defineOpenApiRoute({
   delete: {
     tags: ['shops'],
     summary: bilingual('退勤', 'Leave attendance', true),
-    description: bilingual('从某店铺的当前在勤中移除当前用户。', 'Remove the current user from active attendance at a shop.'),
+    description: bilingual(
+      '从某店铺的当前在勤中移除当前用户。',
+      'Remove the current user from active attendance at a shop.'
+    ),
     requestParams: {
       path: shopIdParamSchema
     },

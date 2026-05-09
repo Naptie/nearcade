@@ -8,6 +8,11 @@ import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
+  const session = locals.session;
+  if (!session?.user) {
+    error(401, m.unauthorized());
+  }
+
   const { id } = params;
 
   const shopId = parseInt(id);
@@ -68,8 +73,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
   }
 
-  const session = locals.session;
-  const user = session?.user ?? null;
+  const user = session.user;
 
   const deleteRequest: ShopDeleteRequest = {
     id: nanoid(),
@@ -77,8 +81,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     shopName: shop.name,
     reason,
     images: imageIds,
-    requestedBy: user?.id ?? null,
-    requestedByName: user?.name ?? null,
+    requestedBy: user.id,
+    requestedByName: user.name,
     status: 'pending',
     createdAt: new Date(),
     photoId: photoId,
@@ -93,7 +97,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         db,
         imageIds,
         { deleteRequestId: deleteRequest.id },
-        { userId: user?.id ?? '', userType: user?.userType }
+        { userId: user.id, userType: user.userType }
       );
     }
   } catch (attachmentError) {
@@ -109,7 +113,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       shopId,
       shopName: shop.name,
       action: photoId ? 'photo_delete_request_submitted' : 'delete_request_submitted',
-      user: { id: user?.id ?? null, name: user?.name, image: user?.image },
+      user: { id: user.id, name: user.name, image: user.image ?? null },
       fieldInfo: {
         field: photoId ? 'photo' : 'delete_request',
         deleteRequestId: deleteRequest.id,

@@ -15,7 +15,10 @@ export const shopAddressSchema = z.object({
     .array(z.string())
     .default([])
     .describe(
-      bilingual('大致地址，一般为：[国家/地区, 省, 市, 区]。', 'General address, usually [country/region, province, city, district].')
+      bilingual(
+        '大致地址，一般为：[国家/地区, 省, 市, 区]。',
+        'General address, usually [country/region, province, city, district].'
+      )
     ),
   detailed: z.string().default('').describe(bilingual('详细地址。', 'Detailed street address.'))
 });
@@ -24,7 +27,10 @@ export const gameSchema = z.object({
   gameId: z
     .int()
     .describe(
-      bilingual('游戏（版本）ID；BEMANICN 数据源等同于机台 ID。', 'Game/version ID. For BEMANICN this equals the machine ID.')
+      bilingual(
+        '游戏（版本）ID；BEMANICN 数据源等同于机台 ID。',
+        'Game/version ID. For BEMANICN this equals the machine ID.'
+      )
     ),
   titleId: z.int().describe(bilingual('游戏系列 ID。', 'Game series ID.')),
   name: z.string().describe(bilingual('游戏名。', 'Game name.')),
@@ -56,7 +62,10 @@ export const shopSchema = z.object({
   id: z
     .int()
     .describe(
-      bilingual('店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。', 'Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.')
+      bilingual(
+        '店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。',
+        'Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.'
+      )
     ),
   name: z.string().describe(bilingual('店铺名称。', 'Shop name.')),
   comment: z.string().describe(bilingual('店铺说明。', 'Shop note.')),
@@ -99,7 +108,10 @@ export const shopsListQuerySchema = paginationQuerySchema.extend({
   includeTimeInfo: optionalBooleanString
     .default(true)
     .describe(
-      bilingual('是否包含时间信息（包括 timezone 与 isOpen）。默认为是。', 'Include computed timezone and open status. Defaults to true.')
+      bilingual(
+        '是否包含时间信息（包括 timezone 与 isOpen）。默认为是。',
+        'Include computed timezone and open status. Defaults to true.'
+      )
     )
 });
 
@@ -107,7 +119,10 @@ export const shopDetailQuerySchema = z.object({
   includeTimeInfo: optionalBooleanString
     .default(true)
     .describe(
-      bilingual('是否包含时间信息（包括 timezone 与 isOpen）。默认为是。', 'Include computed timezone and open status. Defaults to true.')
+      bilingual(
+        '是否包含时间信息（包括 timezone 与 isOpen）。默认为是。',
+        'Include computed timezone and open status. Defaults to true.'
+      )
     )
 });
 
@@ -152,7 +167,10 @@ export const attendanceGameRequestSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      bilingual('代表用户操作时，登记或移除该用户的在勤。', 'When acting on behalf of a user, register or remove that user from attendance.')
+      bilingual(
+        '代表用户操作时，登记或移除该用户的在勤。',
+        'When acting on behalf of a user, register or remove that user from attendance.'
+      )
     )
 });
 
@@ -171,7 +189,10 @@ export const attendanceQuerySchema = z.object({
     .string()
     .optional()
     .describe(
-      bilingual('是否仅获取登记 (false) / 上报 (true) 的在勤人数。', 'Whether to fetch only registered (`false`) or reported (`true`) attendance records.')
+      bilingual(
+        '是否仅获取登记 (false) / 上报 (true) 的在勤人数。',
+        'Whether to fetch only registered (`false`) or reported (`true`) attendance records.'
+      )
     )
 });
 
@@ -180,7 +201,10 @@ export const attendanceResponseSchema = z.object({
   total: z
     .int()
     .describe(
-      bilingual('综合在勤人数，结合登记与上报人数综合计算得出。', 'Combined attendance count from registered and reported data.')
+      bilingual(
+        '综合在勤人数，结合登记与上报人数综合计算得出。',
+        'Combined attendance count from registered and reported data.'
+      )
     ),
   games: z.array(
     gameSchema.extend({
@@ -218,7 +242,10 @@ export const queueMemberSchema = z.object({
     .string()
     .nullable()
     .describe(
-      bilingual('用户 ID；空位或非公开位置可为 null。', 'User ID in the slot, or null for an empty/private slot.')
+      bilingual(
+        '用户 ID；空位或非公开位置可为 null。',
+        'User ID in the slot, or null for an empty/private slot.'
+      )
     )
 });
 
@@ -279,7 +306,10 @@ export const queuePositionWithUsersSchema = queuePositionSchema.extend({
   members: z
     .array(queueMemberWithUserSchema)
     .describe(
-      bilingual('该位置的成员列表，包含公开的用户信息。', 'Members in this queue position, enriched with public user data.')
+      bilingual(
+        '该位置的成员列表，包含公开的用户信息。',
+        'Members in this queue position, enriched with public user data.'
+      )
     )
 });
 

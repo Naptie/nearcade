@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
@@ -7,6 +7,7 @@ import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import { createShopBodySchema, shopsListQuerySchema } from '$lib/schemas/shops';
 import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.server';
+import { m } from '$lib/paraglide/messages';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -239,7 +240,12 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+  const session = locals.session;
+  if (!session?.user) {
+    error(401, m.unauthorized());
+  }
+
   const body = await parseJsonOrError(request, createShopBodySchema);
   const { name, location, openingHours, address, comment, games } = body;
 
