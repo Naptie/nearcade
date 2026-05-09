@@ -82,7 +82,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     reason,
     images: imageIds,
     requestedBy: user.id,
-    requestedByName: user.name ?? null,
+    requestedByName: user.name,
     status: 'pending',
     createdAt: new Date(),
     photoId: photoId,
@@ -113,7 +113,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       shopId,
       shopName: shop.name,
       action: photoId ? 'photo_delete_request_submitted' : 'delete_request_submitted',
-      user: { id: user.id, name: user.name ?? null, image: user.image ?? null },
+      user: { id: user.id, name: user.name, image: user.image ?? null },
       fieldInfo: {
         field: photoId ? 'photo' : 'delete_request',
         deleteRequestId: deleteRequest.id,
