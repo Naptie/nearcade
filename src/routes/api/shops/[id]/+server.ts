@@ -377,8 +377,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     // Log changes to shop changelog (non-fatal)
     const changelogUser = {
       id: session.user.id,
-      name: session.user.name,
-      image: session.user.image
+      name: session.user.name ?? null,
+      image: session.user.image ?? null
     };
     try {
       await logShopFieldChanges(
