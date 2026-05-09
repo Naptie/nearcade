@@ -9,6 +9,7 @@ import { getAvailableOSS } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
 import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
+import { auth } from '$lib/auth/index.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -154,7 +155,6 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
 };
 
 const handleAuth: Handle = async ({ event, resolve }) => {
-  const { auth } = await import('$lib/auth/index.server');
   const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
   event.locals.session = session as App.Locals['session'];
   event.locals.user = (session?.user as App.Locals['user']) ?? null;
