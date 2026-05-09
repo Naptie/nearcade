@@ -1172,9 +1172,13 @@ export const getNextTimeAtHour = (location: Location, hours: unknown[], basisHou
   }
 
   return {
-    hours: normalizedHours.map(
-      (hour) => new Date(targetUtcMs + (hour.totalMinutes - basis.totalMinutes) * 60 * 1000)
-    ),
+    hours: normalizedHours.map((hour) => {
+      let diff = hour.totalMinutes - basis.totalMinutes;
+      // If diff is positive, the time appears "after" the basis in the same day,
+      // meaning it actually belongs to the previous day.
+      if (diff > 0) diff -= 1440;
+      return new Date(targetUtcMs + diff * 60 * 1000);
+    }),
     hour: new Date(targetUtcMs)
   };
 };

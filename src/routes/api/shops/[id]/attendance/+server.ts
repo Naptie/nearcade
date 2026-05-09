@@ -222,9 +222,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
       }
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
-      if (now < openTolerated.getTime() || now > closeTolerated.getTime()) {
-        error(400, m.shop_is_currently_closed());
-      }
       for (const game of games) {
         if (
           game.currentAttendances === undefined ||
