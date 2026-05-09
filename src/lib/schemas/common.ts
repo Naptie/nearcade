@@ -42,7 +42,10 @@ export const paginationQuerySchema = z.object({
       return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
     })
     .describe(
-      bilingual('每页条目数。默认为站点分页大小。', 'Items per page. Defaults to the site page size.')
+      bilingual(
+        '每页条目数。默认为站点分页大小。',
+        'Items per page. Defaults to the site page size.'
+      )
     )
 });
 
@@ -63,7 +66,10 @@ export const openingHoursSchema = z
   .array(z.tuple([openingHourTimeSchema, openingHourTimeSchema]))
   .min(1)
   .describe(
-    bilingual('营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。', 'Opening hours. One item means the same hours for the whole week; seven items map to weekdays.')
+    bilingual(
+      '营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。',
+      'Opening hours. One item means the same hours for the whole week; seven items map to weekdays.'
+    )
   );
 
 export const locationSchema = z.object({
@@ -74,7 +80,10 @@ export const locationSchema = z.object({
       z.number().min(-90).max(90).describe(bilingual('纬度。', 'Latitude.'))
     ])
     .describe(
-      bilingual('GeoJSON 坐标，顺序为 [经度, 纬度]。', 'GeoJSON coordinates in [longitude, latitude] order.')
+      bilingual(
+        'GeoJSON 坐标，顺序为 [经度, 纬度]。',
+        'GeoJSON coordinates in [longitude, latitude] order.'
+      )
     )
 });
 
@@ -102,7 +111,10 @@ export const userPublicSchema = z.object({
     .string()
     .optional()
     .describe(
-      bilingual('邮箱，仅在用户勾选“邮箱可见性”时存在。', 'Email address when the user has made it public.')
+      bilingual(
+        '邮箱，仅在用户勾选“邮箱可见性”时存在。',
+        'Email address when the user has made it public.'
+      )
     ),
   image: z.string().describe(bilingual('头像。', 'Avatar URL.')),
   joinedAt: z.union([z.string(), z.date()]).describe(bilingual('加入时间。', 'Join time.')),
@@ -126,7 +138,10 @@ export const userPublicSchema = z.object({
     .string()
     .nullable()
     .describe(
-      bilingual('用户示名，展示优先级高于 name。', 'Display name, preferred over `name` when present.')
+      bilingual(
+        '用户示名，展示优先级高于 name。',
+        'Display name, preferred over `name` when present.'
+      )
     ),
   updatedAt: z
     .union([z.string(), z.date()])
@@ -139,13 +154,19 @@ export const userPublicSchema = z.object({
     .array(z.object({ id: z.int(), source: z.string().optional() }))
     .optional()
     .describe(
-      bilingual('常去机厅，仅在用户勾选“常去机厅可见性”时存在。', 'Frequently visited arcades when made public.')
+      bilingual(
+        '常去机厅，仅在用户勾选“常去机厅可见性”时存在。',
+        'Frequently visited arcades when made public.'
+      )
     ),
   starredArcades: z
     .array(z.object({ id: z.int(), source: z.string().optional() }))
     .optional()
     .describe(
-      bilingual('收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。', 'Starred arcades when made public.')
+      bilingual(
+        '收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。',
+        'Starred arcades when made public.'
+      )
     )
 });
 

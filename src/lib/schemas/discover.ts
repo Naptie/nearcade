@@ -30,7 +30,10 @@ export const discoverQuerySchema = z.object({
   includeTimeInfo: optionalBooleanString
     .default(true)
     .describe(
-      bilingual('是否包含时间信息（包括 timezone 与 isOpen）。默认为是。', 'Include computed timezone and open status. Defaults to true.')
+      bilingual(
+        '是否包含时间信息（包括 timezone 与 isOpen）。默认为是。',
+        'Include computed timezone and open status. Defaults to true.'
+      )
     )
 });
 

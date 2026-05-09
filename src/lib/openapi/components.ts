@@ -27,7 +27,10 @@ const gameOpenApiSchema = z.object({
   gameId: z
     .int()
     .describe(
-      bilingual('游戏（版本）ID；BEMANICN 数据源等同于机台 ID。', 'Game/version ID. For BEMANICN this equals the machine ID.')
+      bilingual(
+        '游戏（版本）ID；BEMANICN 数据源等同于机台 ID。',
+        'Game/version ID. For BEMANICN this equals the machine ID.'
+      )
     ),
   titleId: z.int().describe(bilingual('游戏系列 ID。', 'Game series ID.')),
   name: z.string().describe(bilingual('游戏名。', 'Game name.')),
@@ -42,7 +45,10 @@ const shopOpenApiSchema = z.object({
   id: z
     .int()
     .describe(
-      bilingual('店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。', 'Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.')
+      bilingual(
+        '店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。',
+        'Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.'
+      )
     ),
   name: z.string().describe(bilingual('店铺名称。', 'Shop name.')),
   comment: z.string().describe(bilingual('店铺说明。', 'Shop note.')),
@@ -93,7 +99,10 @@ const attendanceResponseOutputSchema = z.object({
   total: z
     .int()
     .describe(
-      bilingual('综合在勤人数，结合登记与上报人数综合计算得出。', 'Combined attendance count from registered and reported data.')
+      bilingual(
+        '综合在勤人数，结合登记与上报人数综合计算得出。',
+        'Combined attendance count from registered and reported data.'
+      )
     ),
   games: z.array(attendanceGameOpenApiSchema),
   registered: z.array(

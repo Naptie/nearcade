@@ -7,7 +7,10 @@ export default defineOpenApiRoute({
   get: {
     tags: ['shops'],
     summary: bilingual('获取店铺详情', 'Get shop details', true),
-    description: bilingual('按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。', 'Get details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.'),
+    description: bilingual(
+      '按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。',
+      'Get details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.'
+    ),
     requestParams: {
       path: shopIdParamSchema,
       query: shopDetailQuerySchema

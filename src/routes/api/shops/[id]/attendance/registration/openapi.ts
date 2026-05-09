@@ -18,7 +18,10 @@ export default defineOpenApiRoute({
   post: {
     tags: ['shops'],
     summary: bilingual('申请玩家登记令牌', 'Create player registration token', true),
-    description: bilingual('为机台槽位创建短期玩家登记令牌。', 'Create a short-lived player registration token for a machine slot.'),
+    description: bilingual(
+      '为机台槽位创建短期玩家登记令牌。',
+      'Create a short-lived player registration token for a machine slot.'
+    ),
     security: bearerAuth,
     requestParams: {
       path: shopIdParamSchema
@@ -31,7 +34,9 @@ export default defineOpenApiRoute({
       ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('机台凭据无效', 'Invalid machine credentials', true) },
-      '403': { description: bilingual('机台未绑定到该店铺', 'Machine not bound to this shop', true) },
+      '403': {
+        description: bilingual('机台未绑定到该店铺', 'Machine not bound to this shop', true)
+      },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }
   },
@@ -52,7 +57,9 @@ export default defineOpenApiRoute({
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('机台凭据无效', 'Invalid machine credentials', true) },
       '403': { description: bilingual('禁止访问', 'Forbidden', true) },
-      '404': { description: bilingual('登记不存在或已过期', 'Registration not found or expired', true) },
+      '404': {
+        description: bilingual('登记不存在或已过期', 'Registration not found or expired', true)
+      },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }
   },
@@ -69,7 +76,9 @@ export default defineOpenApiRoute({
       '200': successJsonResponse(),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('机台凭据无效', 'Invalid machine credentials', true) },
-      '404': { description: bilingual('登记不存在或已过期', 'Registration not found or expired', true) },
+      '404': {
+        description: bilingual('登记不存在或已过期', 'Registration not found or expired', true)
+      },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }
   }
