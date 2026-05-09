@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  multilingual,
+  bilingual,
   locationSchema,
   openingHoursSchema,
   successResponseSchema,
@@ -27,71 +27,65 @@ const gameOpenApiSchema = z.object({
   gameId: z
     .int()
     .describe(
-      multilingual(
-        'Game/version ID. For BEMANICN this equals the machine ID.',
-        '游戏（版本）ID；BEMANICN 数据源等同于机台 ID。'
-      )
+      bilingual('游戏（版本）ID；BEMANICN 数据源等同于机台 ID。', 'Game/version ID. For BEMANICN this equals the machine ID.')
     ),
-  titleId: z.int().describe(multilingual('Game series ID.', '游戏系列 ID。')),
-  name: z.string().describe(multilingual('Game name.', '游戏名。')),
-  version: z.string().describe(multilingual('Game version.', '游戏版本。')),
-  comment: z.string().default('').describe(multilingual('Game note.', '游戏说明。')),
-  quantity: z.int().min(0).default(1).describe(multilingual('Number of machines.', '机台数量。')),
-  cost: z.string().default('').describe(multilingual('Price note.', '价格说明。'))
+  titleId: z.int().describe(bilingual('游戏系列 ID。', 'Game series ID.')),
+  name: z.string().describe(bilingual('游戏名。', 'Game name.')),
+  version: z.string().describe(bilingual('游戏版本。', 'Game version.')),
+  comment: z.string().default('').describe(bilingual('游戏说明。', 'Game note.')),
+  quantity: z.int().min(0).default(1).describe(bilingual('机台数量。', 'Number of machines.')),
+  cost: z.string().default('').describe(bilingual('价格说明。', 'Price note.'))
 });
 
 const shopOpenApiSchema = z.object({
-  _id: z.string().describe(multilingual('MongoDB ID.', 'MongoDB ID。')),
+  _id: z.string().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   id: z
     .int()
     .describe(
-      multilingual(
-        'Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.',
-        '店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。'
-      )
+      bilingual('店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。', 'Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.')
     ),
-  name: z.string().describe(multilingual('Shop name.', '店铺名称。')),
-  comment: z.string().describe(multilingual('Shop note.', '店铺说明。')),
-  address: shopAddressSchema.describe(multilingual('Shop address.', '店铺地址。')),
+  name: z.string().describe(bilingual('店铺名称。', 'Shop name.')),
+  comment: z.string().describe(bilingual('店铺说明。', 'Shop note.')),
+  address: shopAddressSchema.describe(bilingual('店铺地址。', 'Shop address.')),
   openingHours: openingHoursSchema,
   games: z
     .array(gameOpenApiSchema)
-    .describe(multilingual('Machines/games available at the shop.', '机台。')),
-  location: locationSchema.describe(multilingual('Shop coordinates.', '店铺坐标。')),
+    .describe(bilingual('机台。', 'Machines/games available at the shop.')),
+  location: locationSchema.describe(bilingual('店铺坐标。', 'Shop coordinates.')),
   timezone: z
     .object({
-      name: z.string().describe(multilingual('Timezone name.', '时区名称。')),
-      offset: z.number().describe(multilingual('Timezone offset in hours.', '时区偏移，单位：小时。'))
+      name: z.string().describe(bilingual('时区名称。', 'Timezone name.')),
+      offset: z.number().describe(bilingual('时区偏移，单位：小时。', 'Timezone offset in hours.'))
     })
     .optional()
-    .describe(multilingual('Computed shop timezone.', '店铺时区。')),
+    .describe(bilingual('店铺时区。', 'Computed shop timezone.')),
   isOpen: z
     .boolean()
     .optional()
-    .describe(multilingual('Whether the shop is currently open.', '店铺营业状态。')),
+    .describe(bilingual('店铺营业状态。', 'Whether the shop is currently open.')),
   isClaimed: z
     .boolean()
     .optional()
     .describe(
-      multilingual('Whether this shop is claimed by a machine/operator.', '店铺是否已被认领。')
+      bilingual('店铺是否已被认领。', 'Whether this shop is claimed by a machine/operator.')
     ),
   createdAt: z
     .union([z.string(), z.date()])
     .optional()
-    .describe(multilingual('Creation time.', '创建时间。')),
-  updatedAt: z.union([z.string(), z.date()]).describe(multilingual('Update time.', '更新时间。')),
+    .describe(bilingual('创建时间。', 'Creation time.')),
+  updatedAt: z.union([z.string(), z.date()]).describe(bilingual('更新时间。', 'Update time.')),
   source: z
     .string()
     .optional()
     .describe(
-      multilingual('Legacy shop data source when present.', '店铺来源；当前数据可能不返回该字段。')
+      bilingual('店铺来源；当前数据可能不返回该字段。', 'Legacy shop data source when present.')
     )
 });
 
 const attendanceGameOpenApiSchema = gameOpenApiSchema.extend({
   total: z
     .int()
-    .describe(multilingual('Combined attendance count for this game.', '机台综合在勤人数。'))
+    .describe(bilingual('机台综合在勤人数。', 'Combined attendance count for this game.'))
 });
 
 const attendanceResponseOutputSchema = z.object({
@@ -99,10 +93,7 @@ const attendanceResponseOutputSchema = z.object({
   total: z
     .int()
     .describe(
-      multilingual(
-        'Combined attendance count from registered and reported data.',
-        '综合在勤人数，结合登记与上报人数综合计算得出。'
-      )
+      bilingual('综合在勤人数，结合登记与上报人数综合计算得出。', 'Combined attendance count from registered and reported data.')
     ),
   games: z.array(attendanceGameOpenApiSchema),
   registered: z.array(
@@ -129,11 +120,11 @@ const attendanceResponseOutputSchema = z.object({
 const discoverShopOpenApiSchema = shopOpenApiSchema.extend({
   distance: z
     .number()
-    .describe(multilingual('Distance from the origin in kilometers.', '店铺距离，单位 km。')),
+    .describe(bilingual('店铺距离，单位 km。', 'Distance from the origin in kilometers.')),
   totalAttendance: z
     .int()
     .optional()
-    .describe(multilingual('Combined shop attendance count.', '店铺综合在勤人数。')),
+    .describe(bilingual('店铺综合在勤人数。', 'Combined shop attendance count.')),
   currentReportedAttendance: z
     .object({
       reportedAt: z.string(),
@@ -143,19 +134,19 @@ const discoverShopOpenApiSchema = shopOpenApiSchema.extend({
     })
     .nullable()
     .optional()
-    .describe(multilingual('Current attendance report.', '当前在勤人数报告。'))
+    .describe(bilingual('当前在勤人数报告。', 'Current attendance report.'))
 });
 
 const discoverResponseOutputSchema = z.object({
-  shops: z.array(discoverShopOpenApiSchema).describe(multilingual('Nearby shops.', '店铺列表。')),
+  shops: z.array(discoverShopOpenApiSchema).describe(bilingual('店铺列表。', 'Nearby shops.')),
   location: z
     .object({
       name: z.string().nullable(),
       latitude: z.number(),
       longitude: z.number()
     })
-    .describe(multilingual('Origin location.', '原点。')),
-  radius: z.number().describe(multilingual('Search radius in kilometers.', '范围半径。'))
+    .describe(bilingual('原点。', 'Origin location.')),
+  radius: z.number().describe(bilingual('范围半径。', 'Search radius in kilometers.'))
 });
 
 export const successOpenApiSchema = successResponseSchema.meta({ id: 'SuccessResponse' });

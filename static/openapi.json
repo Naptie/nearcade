@@ -17,15 +17,15 @@
         "tags": [
           "discover"
         ],
-        "summary": "Discover nearby shops / 获取附近店铺",
-        "description": "Find shops near an origin point, optionally including attendance and computed opening-time information.\n\n获取原点附近的店铺，可选择是否包含在勤人数和计算得出的营业时间信息。",
+        "summary": "获取附近店铺 / Discover nearby shops",
+        "description": "获取原点附近的店铺，可选择是否包含在勤人数和计算得出的营业时间信息。\n\nFind shops near an origin point, optionally including attendance and computed opening-time information.",
         "operationId": "getDiscover",
         "parameters": [
           {
             "in": "query",
             "name": "longitude",
             "schema": {
-              "description": "Origin longitude.\n\n原点经度。",
+              "description": "原点经度。\n\nOrigin longitude.",
               "anyOf": [
                 {
                   "type": "string"
@@ -36,13 +36,13 @@
               ]
             },
             "required": true,
-            "description": "Origin longitude.\n\n原点经度。"
+            "description": "原点经度。\n\nOrigin longitude."
           },
           {
             "in": "query",
             "name": "latitude",
             "schema": {
-              "description": "Origin latitude.\n\n原点纬度。",
+              "description": "原点纬度。\n\nOrigin latitude.",
               "anyOf": [
                 {
                   "type": "string"
@@ -53,13 +53,13 @@
               ]
             },
             "required": true,
-            "description": "Origin latitude.\n\n原点纬度。"
+            "description": "原点纬度。\n\nOrigin latitude."
           },
           {
             "in": "query",
             "name": "radius",
             "schema": {
-              "description": "Search radius in kilometers. Defaults to 10.\n\n范围半径，单位 km；默认为 10。",
+              "description": "范围半径，单位 km；默认为 10。\n\nSearch radius in kilometers. Defaults to 10.",
               "anyOf": [
                 {
                   "type": "string"
@@ -72,22 +72,22 @@
                 }
               ]
             },
-            "description": "Search radius in kilometers. Defaults to 10.\n\n范围半径，单位 km；默认为 10。"
+            "description": "范围半径，单位 km；默认为 10。\n\nSearch radius in kilometers. Defaults to 10."
           },
           {
             "in": "query",
             "name": "name",
             "schema": {
-              "description": "Origin display name.\n\n原点地名。",
+              "description": "原点地名。\n\nOrigin display name.",
               "type": "string"
             },
-            "description": "Origin display name.\n\n原点地名。"
+            "description": "原点地名。\n\nOrigin display name."
           },
           {
             "in": "query",
             "name": "fetchAttendance",
             "schema": {
-              "description": "Fetch attendance data. Defaults to true.\n\n是否获取在勤人数。默认为是。",
+              "description": "是否获取在勤人数。默认为是。\n\nFetch attendance data. Defaults to true.",
               "anyOf": [
                 {
                   "type": "boolean"
@@ -107,13 +107,13 @@
                 }
               ]
             },
-            "description": "Fetch attendance data. Defaults to true.\n\n是否获取在勤人数。默认为是。"
+            "description": "是否获取在勤人数。默认为是。\n\nFetch attendance data. Defaults to true."
           },
           {
             "in": "query",
             "name": "includeTimeInfo",
             "schema": {
-              "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。",
+              "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true.",
               "anyOf": [
                 {
                   "type": "boolean"
@@ -133,12 +133,12 @@
                 }
               ]
             },
-            "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。"
+            "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true."
           }
         ],
         "responses": {
           "200": {
-            "description": "Nearby shops / 附近店铺",
+            "description": "附近店铺 / Nearby shops",
             "content": {
               "application/json": {
                 "schema": {
@@ -148,10 +148,10 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       }
@@ -161,8 +161,8 @@
         "tags": [
           "machines"
         ],
-        "summary": "Activate machine / 激活机台",
-        "description": "Activate a machine by serial number and return its API secret.\n\n通过机台序列号激活机台，并返回 API 密钥。",
+        "summary": "激活机台 / Activate machine",
+        "description": "通过机台序列号激活机台，并返回 API 密钥。\n\nActivate a machine by serial number and return its API secret.",
         "operationId": "postMachinesActivate",
         "parameters": [
           {
@@ -171,15 +171,15 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Machine serial number.\n\n机台序列号。"
+              "description": "机台序列号。\n\nMachine serial number."
             },
             "required": true,
-            "description": "Machine serial number.\n\n机台序列号。"
+            "description": "机台序列号。\n\nMachine serial number."
           }
         ],
         "responses": {
           "200": {
-            "description": "Machine activated / 机台已激活",
+            "description": "机台已激活 / Machine activated",
             "content": {
               "application/json": {
                 "schema": {
@@ -189,10 +189,10 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "404": {
-            "description": "Machine not found / 机台不存在"
+            "description": "机台不存在 / Machine not found"
           }
         }
       }
@@ -202,15 +202,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "List shops / 获取店铺列表",
-        "description": "Get a paginated list of shops. Supports text search and optional computed time information.\n\n获取分页店铺列表。支持查询字符串，并可选择是否包含计算得出的时区与营业状态。",
+        "summary": "获取店铺列表 / List shops",
+        "description": "获取分页店铺列表。支持查询字符串，并可选择是否包含计算得出的时区与营业状态。\n\nGet a paginated list of shops. Supports text search and optional computed time information.",
         "operationId": "getShops",
         "parameters": [
           {
             "in": "query",
             "name": "page",
             "schema": {
-              "description": "Page number. Defaults to 1.\n\n页数。默认为 1。",
+              "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
               "anyOf": [
                 {
                   "type": "string"
@@ -230,13 +230,13 @@
                 }
               ]
             },
-            "description": "Page number. Defaults to 1.\n\n页数。默认为 1。"
+            "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
-              "description": "Items per page. Defaults to the site page size.\n\n每页条目数。默认为站点分页大小。",
+              "description": "每页条目数。默认为站点分页大小。\n\nItems per page. Defaults to the site page size.",
               "anyOf": [
                 {
                   "type": "string"
@@ -256,23 +256,23 @@
                 }
               ]
             },
-            "description": "Items per page. Defaults to the site page size.\n\n每页条目数。默认为站点分页大小。"
+            "description": "每页条目数。默认为站点分页大小。\n\nItems per page. Defaults to the site page size."
           },
           {
             "in": "query",
             "name": "q",
             "schema": {
               "default": "",
-              "description": "Search query string.\n\n查询字符串。",
+              "description": "查询字符串。\n\nSearch query string.",
               "type": "string"
             },
-            "description": "Search query string.\n\n查询字符串。"
+            "description": "查询字符串。\n\nSearch query string."
           },
           {
             "in": "query",
             "name": "includeTimeInfo",
             "schema": {
-              "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。",
+              "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true.",
               "anyOf": [
                 {
                   "type": "boolean"
@@ -292,12 +292,12 @@
                 }
               ]
             },
-            "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。"
+            "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true."
           }
         ],
         "responses": {
           "200": {
-            "description": "Shops list / 店铺列表",
+            "description": "店铺列表 / Shops list",
             "content": {
               "application/json": {
                 "schema": {
@@ -307,10 +307,10 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -318,8 +318,8 @@
         "tags": [
           "shops"
         ],
-        "summary": "Create shop / 创建店铺",
-        "description": "Create a new shop.\n\n创建新店铺。",
+        "summary": "创建店铺 / Create shop",
+        "description": "创建新店铺。\n\nCreate a new shop.",
         "operationId": "postShops",
         "requestBody": {
           "required": true,
@@ -333,7 +333,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created shop / 已创建店铺",
+            "description": "已创建店铺 / Created shop",
             "content": {
               "application/json": {
                 "schema": {
@@ -343,10 +343,10 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       }
@@ -356,15 +356,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "Get shop details / 获取店铺详情",
-        "description": "Get details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.\n\n按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。",
+        "summary": "获取店铺详情 / Get shop details",
+        "description": "按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。\n\nGet details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.",
         "operationId": "getShopsById",
         "parameters": [
           {
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -375,13 +375,13 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           },
           {
             "in": "query",
             "name": "includeTimeInfo",
             "schema": {
-              "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。",
+              "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true.",
               "anyOf": [
                 {
                   "type": "boolean"
@@ -401,12 +401,12 @@
                 }
               ]
             },
-            "description": "Include computed timezone and open status. Defaults to true.\n\n是否包含时间信息（包括 timezone 与 isOpen）。默认为是。"
+            "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true."
           }
         ],
         "responses": {
           "200": {
-            "description": "Shop details / 店铺详情",
+            "description": "店铺详情 / Shop details",
             "content": {
               "application/json": {
                 "schema": {
@@ -416,13 +416,13 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "404": {
-            "description": "Shop not found / 店铺不存在"
+            "description": "店铺不存在 / Shop not found"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -430,15 +430,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "Update shop / 更新店铺",
-        "description": "Update shop fields by numeric ID.\n\n按数字 ID 更新店铺字段。",
+        "summary": "更新店铺 / Update shop",
+        "description": "按数字 ID 更新店铺字段。\n\nUpdate shop fields by numeric ID.",
         "operationId": "putShopsById",
         "parameters": [
           {
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -449,7 +449,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           }
         ],
         "requestBody": {
@@ -464,7 +464,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated shop / 已更新店铺",
+            "description": "已更新店铺 / Updated shop",
             "content": {
               "application/json": {
                 "schema": {
@@ -474,13 +474,13 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "404": {
-            "description": "Shop not found / 店铺不存在"
+            "description": "店铺不存在 / Shop not found"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       }
@@ -490,15 +490,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "Get attendance / 获取在勤人数",
-        "description": "Get combined, registered, and reported attendance for a shop.\n\n获取店铺综合、登记和上报的在勤人数。",
+        "summary": "获取在勤人数 / Get attendance",
+        "description": "获取店铺综合、登记和上报的在勤人数。\n\nGet combined, registered, and reported attendance for a shop.",
         "operationId": "getShopsByIdAttendance",
         "parameters": [
           {
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -509,21 +509,21 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           },
           {
             "in": "query",
             "name": "reported",
             "schema": {
-              "description": "Whether to fetch only registered (`false`) or reported (`true`) attendance records.\n\n是否仅获取登记 (false) / 上报 (true) 的在勤人数。",
+              "description": "是否仅获取登记 (false) / 上报 (true) 的在勤人数。\n\nWhether to fetch only registered (`false`) or reported (`true`) attendance records.",
               "type": "string"
             },
-            "description": "Whether to fetch only registered (`false`) or reported (`true`) attendance records.\n\n是否仅获取登记 (false) / 上报 (true) 的在勤人数。"
+            "description": "是否仅获取登记 (false) / 上报 (true) 的在勤人数。\n\nWhether to fetch only registered (`false`) or reported (`true`) attendance records."
           }
         ],
         "responses": {
           "200": {
-            "description": "Attendance data / 在勤数据",
+            "description": "在勤数据 / Attendance data",
             "content": {
               "application/json": {
                 "schema": {
@@ -533,10 +533,10 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -544,15 +544,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "Report or register attendance / 上报或登记在勤人数",
-        "description": "Report current attendance counts or register a user attendance session. Requires login or bearer API token depending on the mode.\n\n上报当前在勤人数，或登记用户在勤。根据模式需要登录或 Bearer API 令牌。",
+        "summary": "上报或登记在勤人数 / Report or register attendance",
+        "description": "上报当前在勤人数，或登记用户在勤。根据模式需要登录或 Bearer API 令牌。\n\nReport current attendance counts or register a user attendance session. Requires login or bearer API token depending on the mode.",
         "operationId": "postShopsByIdAttendance",
         "parameters": [
           {
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -563,7 +563,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           }
         ],
         "requestBody": {
@@ -588,22 +588,22 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "401": {
-            "description": "Unauthorized / 未授权"
+            "description": "未授权 / Unauthorized"
           },
           "403": {
-            "description": "Forbidden / 禁止访问"
+            "description": "禁止访问 / Forbidden"
           },
           "404": {
-            "description": "Not Found / 不存在"
+            "description": "不存在 / Not Found"
           },
           "409": {
-            "description": "Conflict / 冲突"
+            "description": "冲突 / Conflict"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -611,15 +611,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "Leave attendance / 退勤",
-        "description": "Remove the current user from active attendance at a shop.\n\n从某店铺的当前在勤中移除当前用户。",
+        "summary": "退勤 / Leave attendance",
+        "description": "从某店铺的当前在勤中移除当前用户。\n\nRemove the current user from active attendance at a shop.",
         "operationId": "deleteShopsByIdAttendance",
         "parameters": [
           {
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -630,7 +630,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           }
         ],
         "responses": {
@@ -645,13 +645,13 @@
             }
           },
           "401": {
-            "description": "Unauthorized / 未授权"
+            "description": "未授权 / Unauthorized"
           },
           "404": {
-            "description": "Shop not found / 店铺不存在"
+            "description": "店铺不存在 / Shop not found"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       }
@@ -661,8 +661,8 @@
         "tags": [
           "shops"
         ],
-        "summary": "Create player registration token / 申请玩家登记令牌",
-        "description": "Create a short-lived player registration token for a machine slot.\n\n为机台槽位创建短期玩家登记令牌。",
+        "summary": "申请玩家登记令牌 / Create player registration token",
+        "description": "为机台槽位创建短期玩家登记令牌。\n\nCreate a short-lived player registration token for a machine slot.",
         "security": [
           {
             "bearerAuth": []
@@ -674,7 +674,7 @@
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -685,7 +685,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           }
         ],
         "requestBody": {
@@ -700,7 +700,7 @@
         },
         "responses": {
           "200": {
-            "description": "Registration token / 登记令牌",
+            "description": "登记令牌 / Registration token",
             "content": {
               "application/json": {
                 "schema": {
@@ -710,16 +710,16 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "401": {
-            "description": "Invalid machine credentials / 机台凭据无效"
+            "description": "机台凭据无效 / Invalid machine credentials"
           },
           "403": {
-            "description": "Machine not bound to this shop / 机台未绑定到该店铺"
+            "description": "机台未绑定到该店铺 / Machine not bound to this shop"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -727,8 +727,8 @@
         "tags": [
           "shops"
         ],
-        "summary": "Get player registration / 获取玩家登记信息",
-        "description": "Get player registration data by token.\n\n通过令牌获取玩家登记信息。",
+        "summary": "获取玩家登记信息 / Get player registration",
+        "description": "通过令牌获取玩家登记信息。\n\nGet player registration data by token.",
         "security": [
           {
             "bearerAuth": []
@@ -740,7 +740,7 @@
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -751,7 +751,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           },
           {
             "in": "query",
@@ -759,15 +759,15 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Player registration token.\n\n玩家登记令牌。"
+              "description": "玩家登记令牌。\n\nPlayer registration token."
             },
             "required": true,
-            "description": "Player registration token.\n\n玩家登记令牌。"
+            "description": "玩家登记令牌。\n\nPlayer registration token."
           }
         ],
         "responses": {
           "200": {
-            "description": "Registration data / 登记信息",
+            "description": "登记信息 / Registration data",
             "content": {
               "application/json": {
                 "schema": {
@@ -777,19 +777,19 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "401": {
-            "description": "Invalid machine credentials / 机台凭据无效"
+            "description": "机台凭据无效 / Invalid machine credentials"
           },
           "403": {
-            "description": "Forbidden / 禁止访问"
+            "description": "禁止访问 / Forbidden"
           },
           "404": {
-            "description": "Registration not found or expired / 登记不存在或已过期"
+            "description": "登记不存在或已过期 / Registration not found or expired"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -797,8 +797,8 @@
         "tags": [
           "shops"
         ],
-        "summary": "Delete player registration token / 销毁玩家登记令牌",
-        "description": "Delete a player registration token.\n\n销毁玩家登记令牌。",
+        "summary": "销毁玩家登记令牌 / Delete player registration token",
+        "description": "销毁玩家登记令牌。\n\nDelete a player registration token.",
         "security": [
           {
             "bearerAuth": []
@@ -810,7 +810,7 @@
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -821,7 +821,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           },
           {
             "in": "query",
@@ -829,10 +829,10 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Player registration token.\n\n玩家登记令牌。"
+              "description": "玩家登记令牌。\n\nPlayer registration token."
             },
             "required": true,
-            "description": "Player registration token.\n\n玩家登记令牌。"
+            "description": "玩家登记令牌。\n\nPlayer registration token."
           }
         ],
         "responses": {
@@ -847,16 +847,16 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "401": {
-            "description": "Invalid machine credentials / 机台凭据无效"
+            "description": "机台凭据无效 / Invalid machine credentials"
           },
           "404": {
-            "description": "Registration not found or expired / 登记不存在或已过期"
+            "description": "登记不存在或已过期 / Registration not found or expired"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       }
@@ -866,15 +866,15 @@
         "tags": [
           "shops"
         ],
-        "summary": "Get machine queues / 获取机台队列",
-        "description": "Get current queue data for a shop.\n\n获取店铺当前机台队列数据。",
+        "summary": "获取机台队列 / Get machine queues",
+        "description": "获取店铺当前机台队列数据。\n\nGet current queue data for a shop.",
         "operationId": "getShopsByIdQueues",
         "parameters": [
           {
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -885,12 +885,12 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           }
         ],
         "responses": {
           "200": {
-            "description": "Queue data / 队列数据",
+            "description": "队列数据 / Queue data",
             "content": {
               "application/json": {
                 "schema": {
@@ -900,10 +900,10 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       },
@@ -911,8 +911,8 @@
         "tags": [
           "shops"
         ],
-        "summary": "Report machine queues / 上报机台队列",
-        "description": "Report machine queue states for one or more games in a shop.\n\n上报店铺中一个或多个游戏的机台队列状态。",
+        "summary": "上报机台队列 / Report machine queues",
+        "description": "上报店铺中一个或多个游戏的机台队列状态。\n\nReport machine queue states for one or more games in a shop.",
         "security": [
           {
             "bearerAuth": []
@@ -924,7 +924,7 @@
             "in": "path",
             "name": "id",
             "schema": {
-              "description": "Shop ID.\n\n店铺 ID。",
+              "description": "店铺 ID。\n\nShop ID.",
               "anyOf": [
                 {
                   "type": "string"
@@ -935,7 +935,7 @@
               ]
             },
             "required": true,
-            "description": "Shop ID.\n\n店铺 ID。"
+            "description": "店铺 ID。\n\nShop ID."
           }
         ],
         "requestBody": {
@@ -950,7 +950,7 @@
         },
         "responses": {
           "200": {
-            "description": "Queue report accepted / 队列上报成功",
+            "description": "队列上报成功 / Queue report accepted",
             "content": {
               "application/json": {
                 "schema": {
@@ -960,19 +960,19 @@
             }
           },
           "400": {
-            "description": "Bad Request / 请求错误"
+            "description": "请求错误 / Bad Request"
           },
           "401": {
-            "description": "Invalid machine credentials / 机台凭据无效"
+            "description": "机台凭据无效 / Invalid machine credentials"
           },
           "403": {
-            "description": "Machine not bound to this shop / 机台未绑定到该店铺"
+            "description": "机台未绑定到该店铺 / Machine not bound to this shop"
           },
           "404": {
-            "description": "Shop or game not found / 店铺或游戏不存在"
+            "description": "店铺或游戏不存在 / Shop or game not found"
           },
           "500": {
-            "description": "Internal Server Error / 服务器错误"
+            "description": "服务器错误 / Internal Server Error"
           }
         }
       }
@@ -986,11 +986,11 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "description": "Shop name.\n\n店铺名称。"
+            "description": "店铺名称。\n\nShop name."
           },
           "comment": {
             "default": "",
-            "description": "Shop note.\n\n店铺说明。",
+            "description": "店铺说明。\n\nShop note.",
             "type": "string"
           },
           "address": {
@@ -1002,7 +1002,7 @@
             "properties": {
               "general": {
                 "default": [],
-                "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -1010,7 +1010,7 @@
               },
               "detailed": {
                 "default": "",
-                "description": "Detailed street address.\n\n详细地址。",
+                "description": "详细地址。\n\nDetailed street address.",
                 "type": "string"
               }
             }
@@ -1026,13 +1026,13 @@
                     "type": "object",
                     "properties": {
                       "hour": {
-                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 23
                       },
                       "minute": {
-                        "description": "Minute.\n\n分钟。",
+                        "description": "分钟。\n\nMinute.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 59
@@ -1047,13 +1047,13 @@
                     "type": "object",
                     "properties": {
                       "hour": {
-                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 23
                       },
                       "minute": {
-                        "description": "Minute.\n\n分钟。",
+                        "description": "分钟。\n\nMinute.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 59
@@ -1069,7 +1069,7 @@
               "minItems": 2,
               "maxItems": 2
             },
-            "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+            "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
           },
           "location": {
             "type": "object",
@@ -1079,7 +1079,7 @@
                 "enum": [
                   "Point"
                 ],
-                "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
               },
               "coordinates": {
                 "type": "array",
@@ -1089,19 +1089,19 @@
                       "type": "number",
                       "minimum": -180,
                       "maximum": 180,
-                      "description": "Longitude.\n\n经度。"
+                      "description": "经度。\n\nLongitude."
                     },
                     {
                       "type": "number",
                       "minimum": -90,
                       "maximum": 90,
-                      "description": "Latitude.\n\n纬度。"
+                      "description": "纬度。\n\nLatitude."
                     }
                   ]
                 },
                 "minItems": 2,
                 "maxItems": 2,
-                "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
               }
             },
             "required": [
@@ -1118,29 +1118,29 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game series ID.\n\n游戏系列 ID。"
+                  "description": "游戏系列 ID。\n\nGame series ID."
                 },
                 "name": {
                   "type": "string",
-                  "description": "Game name.\n\n游戏名。"
+                  "description": "游戏名。\n\nGame name."
                 },
                 "version": {
                   "type": "string",
-                  "description": "Game version.\n\n游戏版本。"
+                  "description": "游戏版本。\n\nGame version."
                 },
                 "comment": {
                   "default": "",
-                  "description": "Game note.\n\n游戏说明。",
+                  "description": "游戏说明。\n\nGame note.",
                   "type": "string"
                 },
                 "quantity": {
-                  "description": "Number of machines.\n\n机台数量。",
+                  "description": "机台数量。\n\nNumber of machines.",
                   "type": "integer",
                   "minimum": 0
                 },
                 "cost": {
                   "default": "",
-                  "description": "Price note.\n\n价格说明。",
+                  "description": "价格说明。\n\nPrice note.",
                   "type": "string"
                 }
               },
@@ -1162,12 +1162,12 @@
         "type": "object",
         "properties": {
           "name": {
-            "description": "Shop name.\n\n店铺名称。",
+            "description": "店铺名称。\n\nShop name.",
             "type": "string",
             "minLength": 1
           },
           "comment": {
-            "description": "Shop note.\n\n店铺说明。",
+            "description": "店铺说明。\n\nShop note.",
             "type": "string"
           },
           "address": {
@@ -1175,7 +1175,7 @@
             "properties": {
               "general": {
                 "default": [],
-                "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -1183,7 +1183,7 @@
               },
               "detailed": {
                 "default": "",
-                "description": "Detailed street address.\n\n详细地址。",
+                "description": "详细地址。\n\nDetailed street address.",
                 "type": "string"
               }
             }
@@ -1199,13 +1199,13 @@
                     "type": "object",
                     "properties": {
                       "hour": {
-                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 23
                       },
                       "minute": {
-                        "description": "Minute.\n\n分钟。",
+                        "description": "分钟。\n\nMinute.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 59
@@ -1220,13 +1220,13 @@
                     "type": "object",
                     "properties": {
                       "hour": {
-                        "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 23
                       },
                       "minute": {
-                        "description": "Minute.\n\n分钟。",
+                        "description": "分钟。\n\nMinute.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 59
@@ -1242,7 +1242,7 @@
               "minItems": 2,
               "maxItems": 2
             },
-            "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+            "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
           },
           "location": {
             "type": "object",
@@ -1252,7 +1252,7 @@
                 "enum": [
                   "Point"
                 ],
-                "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
               },
               "coordinates": {
                 "type": "array",
@@ -1262,19 +1262,19 @@
                       "type": "number",
                       "minimum": -180,
                       "maximum": 180,
-                      "description": "Longitude.\n\n经度。"
+                      "description": "经度。\n\nLongitude."
                     },
                     {
                       "type": "number",
                       "minimum": -90,
                       "maximum": 90,
-                      "description": "Latitude.\n\n纬度。"
+                      "description": "纬度。\n\nLatitude."
                     }
                   ]
                 },
                 "minItems": 2,
                 "maxItems": 2,
-                "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
               }
             },
             "required": [
@@ -1291,33 +1291,33 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game series ID.\n\n游戏系列 ID。"
+                  "description": "游戏系列 ID。\n\nGame series ID."
                 },
                 "name": {
                   "type": "string",
-                  "description": "Game name.\n\n游戏名。"
+                  "description": "游戏名。\n\nGame name."
                 },
                 "version": {
                   "type": "string",
-                  "description": "Game version.\n\n游戏版本。"
+                  "description": "游戏版本。\n\nGame version."
                 },
                 "comment": {
                   "default": "",
-                  "description": "Game note.\n\n游戏说明。",
+                  "description": "游戏说明。\n\nGame note.",
                   "type": "string"
                 },
                 "quantity": {
-                  "description": "Number of machines.\n\n机台数量。",
+                  "description": "机台数量。\n\nNumber of machines.",
                   "type": "integer",
                   "minimum": 0
                 },
                 "cost": {
                   "default": "",
-                  "description": "Price note.\n\n价格说明。",
+                  "description": "价格说明。\n\nPrice note.",
                   "type": "string"
                 },
                 "gameId": {
-                  "description": "Existing game ID, when updating a known game.\n\n已有游戏 ID，用于更新已知机台。",
+                  "description": "已有游戏 ID，用于更新已知机台。\n\nExisting game ID, when updating a known game.",
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
@@ -1345,16 +1345,16 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                  "description": "游戏（版本）ID。\n\nGame/version ID."
                 },
                 "currentAttendances": {
-                  "description": "Reported current attendance count.\n\n在勤人数。",
+                  "description": "在勤人数。\n\nReported current attendance count.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9007199254740991
                 },
                 "attend": {
-                  "description": "When acting on behalf of a user, register or remove that user from attendance.\n\n代表用户操作时，登记或移除该用户的在勤。",
+                  "description": "代表用户操作时，登记或移除该用户的在勤。\n\nWhen acting on behalf of a user, register or remove that user from attendance.",
                   "type": "boolean"
                 }
               },
@@ -1364,13 +1364,13 @@
             }
           },
           "plannedLeaveAt": {
-            "description": "Planned leave time for attendance registration.\n\n计划退勤时间。",
+            "description": "计划退勤时间。\n\nPlanned leave time for attendance registration.",
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
           },
           "comment": {
-            "description": "Attendance report note.\n\n上报说明。",
+            "description": "上报说明。\n\nAttendance report note.",
             "type": "string"
           }
         },
@@ -1384,10 +1384,10 @@
           "slotIndex": {
             "type": "string",
             "minLength": 1,
-            "description": "Slot index.\n\n槽位编号。"
+            "description": "槽位编号。\n\nSlot index."
           },
           "expires": {
-            "description": "Expiration time in seconds.\n\n过期时间，单位：秒。",
+            "description": "过期时间，单位：秒。\n\nExpiration time in seconds.",
             "type": "integer",
             "minimum": 10,
             "maximum": 9007199254740991
@@ -1410,7 +1410,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                  "description": "游戏（版本）ID。\n\nGame/version ID."
                 },
                 "queue": {
                   "type": "array",
@@ -1419,17 +1419,17 @@
                     "properties": {
                       "machineName": {
                         "type": "string",
-                        "description": "Machine name.\n\n机台名。"
+                        "description": "机台名。\n\nMachine name."
                       },
                       "position": {
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Queue position.\n\n位置。"
+                        "description": "位置。\n\nQueue position."
                       },
                       "isPublic": {
                         "type": "boolean",
-                        "description": "Whether this position is public.\n\n是否为公开位置。"
+                        "description": "是否为公开位置。\n\nWhether this position is public."
                       },
                       "status": {
                         "type": "string",
@@ -1438,7 +1438,7 @@
                           "queued",
                           "deferred"
                         ],
-                        "description": "Queue status.\n\n状态。"
+                        "description": "状态。\n\nQueue status."
                       },
                       "members": {
                         "type": "array",
@@ -1448,11 +1448,11 @@
                             "slotIndex": {
                               "type": "string",
                               "minLength": 1,
-                              "description": "Slot index.\n\n槽位。"
+                              "description": "槽位。\n\nSlot index."
                             },
                             "userId": {
                               "nullable": true,
-                              "description": "User ID in the slot, or null for an empty/private slot.\n\n用户 ID；空位或非公开位置可为 null。",
+                              "description": "用户 ID；空位或非公开位置可为 null。\n\nUser ID in the slot, or null for an empty/private slot.",
                               "type": "string"
                             }
                           },
@@ -1461,7 +1461,7 @@
                             "userId"
                           ]
                         },
-                        "description": "Members in this queue position.\n\n成员列表。"
+                        "description": "成员列表。\n\nMembers in this queue position."
                       }
                     },
                     "required": [
@@ -1472,7 +1472,7 @@
                       "members"
                     ]
                   },
-                  "description": "Queue positions.\n\n队列。"
+                  "description": "队列。\n\nQueue positions."
                 }
               },
               "required": [
@@ -1496,28 +1496,28 @@
               "properties": {
                 "_id": {
                   "type": "string",
-                  "description": "MongoDB ID.\n\nMongoDB ID。"
+                  "description": "MongoDB ID。\n\nMongoDB ID."
                 },
                 "id": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.\n\n店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。"
+                  "description": "店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。\n\nShop ID. Unique together with the source in legacy docs; current API routes use the numeric ID."
                 },
                 "name": {
                   "type": "string",
-                  "description": "Shop name.\n\n店铺名称。"
+                  "description": "店铺名称。\n\nShop name."
                 },
                 "comment": {
                   "type": "string",
-                  "description": "Shop note.\n\n店铺说明。"
+                  "description": "店铺说明。\n\nShop note."
                 },
                 "address": {
                   "type": "object",
                   "properties": {
                     "general": {
                       "default": [],
-                      "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                      "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -1525,7 +1525,7 @@
                     },
                     "detailed": {
                       "default": "",
-                      "description": "Detailed street address.\n\n详细地址。",
+                      "description": "详细地址。\n\nDetailed street address.",
                       "type": "string"
                     }
                   },
@@ -1534,7 +1534,7 @@
                     "detailed"
                   ],
                   "additionalProperties": false,
-                  "description": "Shop address.\n\n店铺地址。"
+                  "description": "店铺地址。\n\nShop address."
                 },
                 "openingHours": {
                   "minItems": 1,
@@ -1547,13 +1547,13 @@
                           "type": "object",
                           "properties": {
                             "hour": {
-                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 23
                             },
                             "minute": {
-                              "description": "Minute.\n\n分钟。",
+                              "description": "分钟。\n\nMinute.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 59
@@ -1569,13 +1569,13 @@
                           "type": "object",
                           "properties": {
                             "hour": {
-                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 23
                             },
                             "minute": {
-                              "description": "Minute.\n\n分钟。",
+                              "description": "分钟。\n\nMinute.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 59
@@ -1592,7 +1592,7 @@
                     "minItems": 2,
                     "maxItems": 2
                   },
-                  "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+                  "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
                 },
                 "games": {
                   "type": "array",
@@ -1603,37 +1603,37 @@
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                        "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                       },
                       "titleId": {
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Game series ID.\n\n游戏系列 ID。"
+                        "description": "游戏系列 ID。\n\nGame series ID."
                       },
                       "name": {
                         "type": "string",
-                        "description": "Game name.\n\n游戏名。"
+                        "description": "游戏名。\n\nGame name."
                       },
                       "version": {
                         "type": "string",
-                        "description": "Game version.\n\n游戏版本。"
+                        "description": "游戏版本。\n\nGame version."
                       },
                       "comment": {
                         "default": "",
-                        "description": "Game note.\n\n游戏说明。",
+                        "description": "游戏说明。\n\nGame note.",
                         "type": "string"
                       },
                       "quantity": {
                         "default": 1,
-                        "description": "Number of machines.\n\n机台数量。",
+                        "description": "机台数量。\n\nNumber of machines.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       },
                       "cost": {
                         "default": "",
-                        "description": "Price note.\n\n价格说明。",
+                        "description": "价格说明。\n\nPrice note.",
                         "type": "string"
                       }
                     },
@@ -1648,7 +1648,7 @@
                     ],
                     "additionalProperties": false
                   },
-                  "description": "Machines/games available at the shop.\n\n机台。"
+                  "description": "机台。\n\nMachines/games available at the shop."
                 },
                 "location": {
                   "type": "object",
@@ -1658,7 +1658,7 @@
                       "enum": [
                         "Point"
                       ],
-                      "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                      "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
                     },
                     "coordinates": {
                       "type": "array",
@@ -1668,19 +1668,19 @@
                             "type": "number",
                             "minimum": -180,
                             "maximum": 180,
-                            "description": "Longitude.\n\n经度。"
+                            "description": "经度。\n\nLongitude."
                           },
                           {
                             "type": "number",
                             "minimum": -90,
                             "maximum": 90,
-                            "description": "Latitude.\n\n纬度。"
+                            "description": "纬度。\n\nLatitude."
                           }
                         ]
                       },
                       "minItems": 2,
                       "maxItems": 2,
-                      "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                      "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
                     }
                   },
                   "required": [
@@ -1688,19 +1688,19 @@
                     "coordinates"
                   ],
                   "additionalProperties": false,
-                  "description": "Shop coordinates.\n\n店铺坐标。"
+                  "description": "店铺坐标。\n\nShop coordinates."
                 },
                 "timezone": {
-                  "description": "Computed shop timezone.\n\n店铺时区。",
+                  "description": "店铺时区。\n\nComputed shop timezone.",
                   "type": "object",
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Timezone name.\n\n时区名称。"
+                      "description": "时区名称。\n\nTimezone name."
                     },
                     "offset": {
                       "type": "number",
-                      "description": "Timezone offset in hours.\n\n时区偏移，单位：小时。"
+                      "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
                     }
                   },
                   "required": [
@@ -1710,15 +1710,15 @@
                   "additionalProperties": false
                 },
                 "isOpen": {
-                  "description": "Whether the shop is currently open.\n\n店铺营业状态。",
+                  "description": "店铺营业状态。\n\nWhether the shop is currently open.",
                   "type": "boolean"
                 },
                 "isClaimed": {
-                  "description": "Whether this shop is claimed by a machine/operator.\n\n店铺是否已被认领。",
+                  "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                   "type": "boolean"
                 },
                 "createdAt": {
-                  "description": "Creation time.\n\n创建时间。",
+                  "description": "创建时间。\n\nCreation time.",
                   "anyOf": [
                     {
                       "type": "string"
@@ -1737,24 +1737,24 @@
                       "type": "string"
                     }
                   ],
-                  "description": "Update time.\n\n更新时间。"
+                  "description": "更新时间。\n\nUpdate time."
                 },
                 "source": {
-                  "description": "Legacy shop data source when present.\n\n店铺来源；当前数据可能不返回该字段。",
+                  "description": "店铺来源；当前数据可能不返回该字段。\n\nLegacy shop data source when present.",
                   "type": "string"
                 },
                 "distance": {
                   "type": "number",
-                  "description": "Distance from the origin in kilometers.\n\n店铺距离，单位 km。"
+                  "description": "店铺距离，单位 km。\n\nDistance from the origin in kilometers."
                 },
                 "totalAttendance": {
-                  "description": "Combined shop attendance count.\n\n店铺综合在勤人数。",
+                  "description": "店铺综合在勤人数。\n\nCombined shop attendance count.",
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
                 "currentReportedAttendance": {
-                  "description": "Current attendance report.\n\n当前在勤人数报告。",
+                  "description": "当前在勤人数报告。\n\nCurrent attendance report.",
                   "nullable": true,
                   "type": "object",
                   "properties": {
@@ -1768,24 +1768,24 @@
                       "type": "object",
                       "properties": {
                         "_id": {
-                          "description": "MongoDB ID. Use `id` in clients.\n\nMongoDB ID。客户端请使用 id。",
+                          "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
                           "type": "string"
                         },
                         "id": {
                           "type": "string",
-                          "description": "User ID.\n\n用户 ID。"
+                          "description": "用户 ID。\n\nUser ID."
                         },
                         "name": {
                           "type": "string",
-                          "description": "Username. Display with an @ prefix.\n\n用户名。展示时请在前面加 @ 符号。"
+                          "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
                         },
                         "email": {
-                          "description": "Email address when the user has made it public.\n\n邮箱，仅在用户勾选“邮箱可见性”时存在。",
+                          "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
                           "type": "string"
                         },
                         "image": {
                           "type": "string",
-                          "description": "Avatar URL.\n\n头像。"
+                          "description": "头像。\n\nAvatar URL."
                         },
                         "joinedAt": {
                           "anyOf": [
@@ -1796,7 +1796,7 @@
                               "type": "string"
                             }
                           ],
-                          "description": "Join time.\n\n加入时间。"
+                          "description": "加入时间。\n\nJoin time."
                         },
                         "lastActiveAt": {
                           "anyOf": [
@@ -1807,10 +1807,10 @@
                               "type": "string"
                             }
                           ],
-                          "description": "Last active time.\n\n最后活跃时间。"
+                          "description": "最后活跃时间。\n\nLast active time."
                         },
                         "userType": {
-                          "description": "User type.\n\n用户类型。",
+                          "description": "用户类型。\n\nUser type.",
                           "type": "string",
                           "enum": [
                             "site_admin",
@@ -1824,11 +1824,11 @@
                         },
                         "bio": {
                           "type": "string",
-                          "description": "User bio.\n\n个人简介。"
+                          "description": "个人简介。\n\nUser bio."
                         },
                         "displayName": {
                           "nullable": true,
-                          "description": "Display name, preferred over `name` when present.\n\n用户示名，展示优先级高于 name。",
+                          "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
                           "type": "string"
                         },
                         "updatedAt": {
@@ -1840,10 +1840,10 @@
                               "type": "string"
                             }
                           ],
-                          "description": "Profile update time.\n\n资料更新时间。"
+                          "description": "资料更新时间。\n\nProfile update time."
                         },
                         "socialLinks": {
-                          "description": "Social links visible to clients.\n\n社交链接。",
+                          "description": "社交链接。\n\nSocial links visible to clients.",
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -1863,7 +1863,7 @@
                           }
                         },
                         "frequentingArcades": {
-                          "description": "Frequently visited arcades when made public.\n\n常去机厅，仅在用户勾选“常去机厅可见性”时存在。",
+                          "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -1884,7 +1884,7 @@
                           }
                         },
                         "starredArcades": {
-                          "description": "Starred arcades when made public.\n\n收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。",
+                          "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -1944,7 +1944,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Nearby shops.\n\n店铺列表。"
+            "description": "店铺列表。\n\nNearby shops."
           },
           "location": {
             "type": "object",
@@ -1966,11 +1966,11 @@
               "longitude"
             ],
             "additionalProperties": false,
-            "description": "Origin location.\n\n原点。"
+            "description": "原点。\n\nOrigin location."
           },
           "radius": {
             "type": "number",
-            "description": "Search radius in kilometers.\n\n范围半径。"
+            "description": "范围半径。\n\nSearch radius in kilometers."
           }
         },
         "required": [
@@ -1985,15 +1985,15 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "description": "Whether the operation succeeded.\n\n是否成功。"
+            "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "apiSecret": {
             "type": "string",
-            "description": "Generated API secret for the activated machine.\n\n生成的机台 API 密钥。"
+            "description": "生成的机台 API 密钥。\n\nGenerated API secret for the activated machine."
           },
           "shop": {
             "nullable": true,
-            "description": "Shop bound to the machine.\n\n机台绑定的店铺。",
+            "description": "机台绑定的店铺。\n\nShop bound to the machine.",
             "type": "object",
             "properties": {
               "id": {
@@ -2032,28 +2032,28 @@
               "properties": {
                 "_id": {
                   "type": "string",
-                  "description": "MongoDB ID.\n\nMongoDB ID。"
+                  "description": "MongoDB ID。\n\nMongoDB ID."
                 },
                 "id": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.\n\n店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。"
+                  "description": "店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。\n\nShop ID. Unique together with the source in legacy docs; current API routes use the numeric ID."
                 },
                 "name": {
                   "type": "string",
-                  "description": "Shop name.\n\n店铺名称。"
+                  "description": "店铺名称。\n\nShop name."
                 },
                 "comment": {
                   "type": "string",
-                  "description": "Shop note.\n\n店铺说明。"
+                  "description": "店铺说明。\n\nShop note."
                 },
                 "address": {
                   "type": "object",
                   "properties": {
                     "general": {
                       "default": [],
-                      "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                      "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -2061,7 +2061,7 @@
                     },
                     "detailed": {
                       "default": "",
-                      "description": "Detailed street address.\n\n详细地址。",
+                      "description": "详细地址。\n\nDetailed street address.",
                       "type": "string"
                     }
                   },
@@ -2070,7 +2070,7 @@
                     "detailed"
                   ],
                   "additionalProperties": false,
-                  "description": "Shop address.\n\n店铺地址。"
+                  "description": "店铺地址。\n\nShop address."
                 },
                 "openingHours": {
                   "minItems": 1,
@@ -2083,13 +2083,13 @@
                           "type": "object",
                           "properties": {
                             "hour": {
-                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 23
                             },
                             "minute": {
-                              "description": "Minute.\n\n分钟。",
+                              "description": "分钟。\n\nMinute.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 59
@@ -2105,13 +2105,13 @@
                           "type": "object",
                           "properties": {
                             "hour": {
-                              "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                              "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 23
                             },
                             "minute": {
-                              "description": "Minute.\n\n分钟。",
+                              "description": "分钟。\n\nMinute.",
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 59
@@ -2128,7 +2128,7 @@
                     "minItems": 2,
                     "maxItems": 2
                   },
-                  "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+                  "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
                 },
                 "games": {
                   "type": "array",
@@ -2139,37 +2139,37 @@
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                        "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                       },
                       "titleId": {
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Game series ID.\n\n游戏系列 ID。"
+                        "description": "游戏系列 ID。\n\nGame series ID."
                       },
                       "name": {
                         "type": "string",
-                        "description": "Game name.\n\n游戏名。"
+                        "description": "游戏名。\n\nGame name."
                       },
                       "version": {
                         "type": "string",
-                        "description": "Game version.\n\n游戏版本。"
+                        "description": "游戏版本。\n\nGame version."
                       },
                       "comment": {
                         "default": "",
-                        "description": "Game note.\n\n游戏说明。",
+                        "description": "游戏说明。\n\nGame note.",
                         "type": "string"
                       },
                       "quantity": {
                         "default": 1,
-                        "description": "Number of machines.\n\n机台数量。",
+                        "description": "机台数量。\n\nNumber of machines.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       },
                       "cost": {
                         "default": "",
-                        "description": "Price note.\n\n价格说明。",
+                        "description": "价格说明。\n\nPrice note.",
                         "type": "string"
                       }
                     },
@@ -2184,7 +2184,7 @@
                     ],
                     "additionalProperties": false
                   },
-                  "description": "Machines/games available at the shop.\n\n机台。"
+                  "description": "机台。\n\nMachines/games available at the shop."
                 },
                 "location": {
                   "type": "object",
@@ -2194,7 +2194,7 @@
                       "enum": [
                         "Point"
                       ],
-                      "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                      "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
                     },
                     "coordinates": {
                       "type": "array",
@@ -2204,19 +2204,19 @@
                             "type": "number",
                             "minimum": -180,
                             "maximum": 180,
-                            "description": "Longitude.\n\n经度。"
+                            "description": "经度。\n\nLongitude."
                           },
                           {
                             "type": "number",
                             "minimum": -90,
                             "maximum": 90,
-                            "description": "Latitude.\n\n纬度。"
+                            "description": "纬度。\n\nLatitude."
                           }
                         ]
                       },
                       "minItems": 2,
                       "maxItems": 2,
-                      "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                      "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
                     }
                   },
                   "required": [
@@ -2224,19 +2224,19 @@
                     "coordinates"
                   ],
                   "additionalProperties": false,
-                  "description": "Shop coordinates.\n\n店铺坐标。"
+                  "description": "店铺坐标。\n\nShop coordinates."
                 },
                 "timezone": {
-                  "description": "Computed shop timezone.\n\n店铺时区。",
+                  "description": "店铺时区。\n\nComputed shop timezone.",
                   "type": "object",
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Timezone name.\n\n时区名称。"
+                      "description": "时区名称。\n\nTimezone name."
                     },
                     "offset": {
                       "type": "number",
-                      "description": "Timezone offset in hours.\n\n时区偏移，单位：小时。"
+                      "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
                     }
                   },
                   "required": [
@@ -2246,15 +2246,15 @@
                   "additionalProperties": false
                 },
                 "isOpen": {
-                  "description": "Whether the shop is currently open.\n\n店铺营业状态。",
+                  "description": "店铺营业状态。\n\nWhether the shop is currently open.",
                   "type": "boolean"
                 },
                 "isClaimed": {
-                  "description": "Whether this shop is claimed by a machine/operator.\n\n店铺是否已被认领。",
+                  "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                   "type": "boolean"
                 },
                 "createdAt": {
-                  "description": "Creation time.\n\n创建时间。",
+                  "description": "创建时间。\n\nCreation time.",
                   "anyOf": [
                     {
                       "type": "string"
@@ -2273,10 +2273,10 @@
                       "type": "string"
                     }
                   ],
-                  "description": "Update time.\n\n更新时间。"
+                  "description": "更新时间。\n\nUpdate time."
                 },
                 "source": {
-                  "description": "Legacy shop data source when present.\n\n店铺来源；当前数据可能不返回该字段。",
+                  "description": "店铺来源；当前数据可能不返回该字段。\n\nLegacy shop data source when present.",
                   "type": "string"
                 }
               },
@@ -2328,28 +2328,28 @@
             "properties": {
               "_id": {
                 "type": "string",
-                "description": "MongoDB ID.\n\nMongoDB ID。"
+                "description": "MongoDB ID。\n\nMongoDB ID."
               },
               "id": {
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991,
-                "description": "Shop ID. Unique together with the source in legacy docs; current API routes use the numeric ID.\n\n店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。"
+                "description": "店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。\n\nShop ID. Unique together with the source in legacy docs; current API routes use the numeric ID."
               },
               "name": {
                 "type": "string",
-                "description": "Shop name.\n\n店铺名称。"
+                "description": "店铺名称。\n\nShop name."
               },
               "comment": {
                 "type": "string",
-                "description": "Shop note.\n\n店铺说明。"
+                "description": "店铺说明。\n\nShop note."
               },
               "address": {
                 "type": "object",
                 "properties": {
                   "general": {
                     "default": [],
-                    "description": "General address, usually [country/region, province, city, district].\n\n大致地址，一般为：[国家/地区, 省, 市, 区]。",
+                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -2357,7 +2357,7 @@
                   },
                   "detailed": {
                     "default": "",
-                    "description": "Detailed street address.\n\n详细地址。",
+                    "description": "详细地址。\n\nDetailed street address.",
                     "type": "string"
                   }
                 },
@@ -2366,7 +2366,7 @@
                   "detailed"
                 ],
                 "additionalProperties": false,
-                "description": "Shop address.\n\n店铺地址。"
+                "description": "店铺地址。\n\nShop address."
               },
               "openingHours": {
                 "minItems": 1,
@@ -2379,13 +2379,13 @@
                         "type": "object",
                         "properties": {
                           "hour": {
-                            "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 23
                           },
                           "minute": {
-                            "description": "Minute.\n\n分钟。",
+                            "description": "分钟。\n\nMinute.",
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 59
@@ -2401,13 +2401,13 @@
                         "type": "object",
                         "properties": {
                           "hour": {
-                            "description": "Hour in 24-hour local time.\n\n24 小时制本地小时。",
+                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 23
                           },
                           "minute": {
-                            "description": "Minute.\n\n分钟。",
+                            "description": "分钟。\n\nMinute.",
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 59
@@ -2424,7 +2424,7 @@
                   "minItems": 2,
                   "maxItems": 2
                 },
-                "description": "Opening hours. One item means the same hours for the whole week; seven items map to weekdays.\n\n营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。"
+                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
               },
               "games": {
                 "type": "array",
@@ -2435,37 +2435,37 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991,
-                      "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                     },
                     "titleId": {
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991,
-                      "description": "Game series ID.\n\n游戏系列 ID。"
+                      "description": "游戏系列 ID。\n\nGame series ID."
                     },
                     "name": {
                       "type": "string",
-                      "description": "Game name.\n\n游戏名。"
+                      "description": "游戏名。\n\nGame name."
                     },
                     "version": {
                       "type": "string",
-                      "description": "Game version.\n\n游戏版本。"
+                      "description": "游戏版本。\n\nGame version."
                     },
                     "comment": {
                       "default": "",
-                      "description": "Game note.\n\n游戏说明。",
+                      "description": "游戏说明。\n\nGame note.",
                       "type": "string"
                     },
                     "quantity": {
                       "default": 1,
-                      "description": "Number of machines.\n\n机台数量。",
+                      "description": "机台数量。\n\nNumber of machines.",
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
                     "cost": {
                       "default": "",
-                      "description": "Price note.\n\n价格说明。",
+                      "description": "价格说明。\n\nPrice note.",
                       "type": "string"
                     }
                   },
@@ -2480,7 +2480,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Machines/games available at the shop.\n\n机台。"
+                "description": "机台。\n\nMachines/games available at the shop."
               },
               "location": {
                 "type": "object",
@@ -2490,7 +2490,7 @@
                     "enum": [
                       "Point"
                     ],
-                    "description": "GeoJSON geometry type.\n\nGeoJSON 几何类型。"
+                    "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
                   },
                   "coordinates": {
                     "type": "array",
@@ -2500,19 +2500,19 @@
                           "type": "number",
                           "minimum": -180,
                           "maximum": 180,
-                          "description": "Longitude.\n\n经度。"
+                          "description": "经度。\n\nLongitude."
                         },
                         {
                           "type": "number",
                           "minimum": -90,
                           "maximum": 90,
-                          "description": "Latitude.\n\n纬度。"
+                          "description": "纬度。\n\nLatitude."
                         }
                       ]
                     },
                     "minItems": 2,
                     "maxItems": 2,
-                    "description": "GeoJSON coordinates in [longitude, latitude] order.\n\nGeoJSON 坐标，顺序为 [经度, 纬度]。"
+                    "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
                   }
                 },
                 "required": [
@@ -2520,19 +2520,19 @@
                   "coordinates"
                 ],
                 "additionalProperties": false,
-                "description": "Shop coordinates.\n\n店铺坐标。"
+                "description": "店铺坐标。\n\nShop coordinates."
               },
               "timezone": {
-                "description": "Computed shop timezone.\n\n店铺时区。",
+                "description": "店铺时区。\n\nComputed shop timezone.",
                 "type": "object",
                 "properties": {
                   "name": {
                     "type": "string",
-                    "description": "Timezone name.\n\n时区名称。"
+                    "description": "时区名称。\n\nTimezone name."
                   },
                   "offset": {
                     "type": "number",
-                    "description": "Timezone offset in hours.\n\n时区偏移，单位：小时。"
+                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
                   }
                 },
                 "required": [
@@ -2542,15 +2542,15 @@
                 "additionalProperties": false
               },
               "isOpen": {
-                "description": "Whether the shop is currently open.\n\n店铺营业状态。",
+                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
                 "type": "boolean"
               },
               "isClaimed": {
-                "description": "Whether this shop is claimed by a machine/operator.\n\n店铺是否已被认领。",
+                "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                 "type": "boolean"
               },
               "createdAt": {
-                "description": "Creation time.\n\n创建时间。",
+                "description": "创建时间。\n\nCreation time.",
                 "anyOf": [
                   {
                     "type": "string"
@@ -2569,10 +2569,10 @@
                     "type": "string"
                   }
                 ],
-                "description": "Update time.\n\n更新时间。"
+                "description": "更新时间。\n\nUpdate time."
               },
               "source": {
-                "description": "Legacy shop data source when present.\n\n店铺来源；当前数据可能不返回该字段。",
+                "description": "店铺来源；当前数据可能不返回该字段。\n\nLegacy shop data source when present.",
                 "type": "string"
               }
             },
@@ -2605,7 +2605,7 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
-            "description": "Combined attendance count from registered and reported data.\n\n综合在勤人数，结合登记与上报人数综合计算得出。"
+            "description": "综合在勤人数，结合登记与上报人数综合计算得出。\n\nCombined attendance count from registered and reported data."
           },
           "games": {
             "type": "array",
@@ -2616,44 +2616,44 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game/version ID. For BEMANICN this equals the machine ID.\n\n游戏（版本）ID；BEMANICN 数据源等同于机台 ID。"
+                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                 },
                 "titleId": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game series ID.\n\n游戏系列 ID。"
+                  "description": "游戏系列 ID。\n\nGame series ID."
                 },
                 "name": {
                   "type": "string",
-                  "description": "Game name.\n\n游戏名。"
+                  "description": "游戏名。\n\nGame name."
                 },
                 "version": {
                   "type": "string",
-                  "description": "Game version.\n\n游戏版本。"
+                  "description": "游戏版本。\n\nGame version."
                 },
                 "comment": {
                   "default": "",
-                  "description": "Game note.\n\n游戏说明。",
+                  "description": "游戏说明。\n\nGame note.",
                   "type": "string"
                 },
                 "quantity": {
                   "default": 1,
-                  "description": "Number of machines.\n\n机台数量。",
+                  "description": "机台数量。\n\nNumber of machines.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9007199254740991
                 },
                 "cost": {
                   "default": "",
-                  "description": "Price note.\n\n价格说明。",
+                  "description": "价格说明。\n\nPrice note.",
                   "type": "string"
                 },
                 "total": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Combined attendance count for this game.\n\n机台综合在勤人数。"
+                  "description": "机台综合在勤人数。\n\nCombined attendance count for this game."
                 }
               },
               "required": [
@@ -2681,7 +2681,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                  "description": "游戏（版本）ID。\n\nGame/version ID."
                 },
                 "attendedAt": {
                   "type": "string"
@@ -2693,24 +2693,24 @@
                   "type": "object",
                   "properties": {
                     "_id": {
-                      "description": "MongoDB ID. Use `id` in clients.\n\nMongoDB ID。客户端请使用 id。",
+                      "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
                       "type": "string"
                     },
                     "id": {
                       "type": "string",
-                      "description": "User ID.\n\n用户 ID。"
+                      "description": "用户 ID。\n\nUser ID."
                     },
                     "name": {
                       "type": "string",
-                      "description": "Username. Display with an @ prefix.\n\n用户名。展示时请在前面加 @ 符号。"
+                      "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
                     },
                     "email": {
-                      "description": "Email address when the user has made it public.\n\n邮箱，仅在用户勾选“邮箱可见性”时存在。",
+                      "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
                       "type": "string"
                     },
                     "image": {
                       "type": "string",
-                      "description": "Avatar URL.\n\n头像。"
+                      "description": "头像。\n\nAvatar URL."
                     },
                     "joinedAt": {
                       "anyOf": [
@@ -2721,7 +2721,7 @@
                           "type": "string"
                         }
                       ],
-                      "description": "Join time.\n\n加入时间。"
+                      "description": "加入时间。\n\nJoin time."
                     },
                     "lastActiveAt": {
                       "anyOf": [
@@ -2732,10 +2732,10 @@
                           "type": "string"
                         }
                       ],
-                      "description": "Last active time.\n\n最后活跃时间。"
+                      "description": "最后活跃时间。\n\nLast active time."
                     },
                     "userType": {
-                      "description": "User type.\n\n用户类型。",
+                      "description": "用户类型。\n\nUser type.",
                       "type": "string",
                       "enum": [
                         "site_admin",
@@ -2749,11 +2749,11 @@
                     },
                     "bio": {
                       "type": "string",
-                      "description": "User bio.\n\n个人简介。"
+                      "description": "个人简介。\n\nUser bio."
                     },
                     "displayName": {
                       "nullable": true,
-                      "description": "Display name, preferred over `name` when present.\n\n用户示名，展示优先级高于 name。",
+                      "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
                       "type": "string"
                     },
                     "updatedAt": {
@@ -2765,10 +2765,10 @@
                           "type": "string"
                         }
                       ],
-                      "description": "Profile update time.\n\n资料更新时间。"
+                      "description": "资料更新时间。\n\nProfile update time."
                     },
                     "socialLinks": {
-                      "description": "Social links visible to clients.\n\n社交链接。",
+                      "description": "社交链接。\n\nSocial links visible to clients.",
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -2788,7 +2788,7 @@
                       }
                     },
                     "frequentingArcades": {
-                      "description": "Frequently visited arcades when made public.\n\n常去机厅，仅在用户勾选“常去机厅可见性”时存在。",
+                      "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -2809,7 +2809,7 @@
                       }
                     },
                     "starredArcades": {
-                      "description": "Starred arcades when made public.\n\n收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。",
+                      "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -2860,7 +2860,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                  "description": "游戏（版本）ID。\n\nGame/version ID."
                 },
                 "currentAttendances": {
                   "type": "integer",
@@ -2881,24 +2881,24 @@
                   "type": "object",
                   "properties": {
                     "_id": {
-                      "description": "MongoDB ID. Use `id` in clients.\n\nMongoDB ID。客户端请使用 id。",
+                      "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
                       "type": "string"
                     },
                     "id": {
                       "type": "string",
-                      "description": "User ID.\n\n用户 ID。"
+                      "description": "用户 ID。\n\nUser ID."
                     },
                     "name": {
                       "type": "string",
-                      "description": "Username. Display with an @ prefix.\n\n用户名。展示时请在前面加 @ 符号。"
+                      "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
                     },
                     "email": {
-                      "description": "Email address when the user has made it public.\n\n邮箱，仅在用户勾选“邮箱可见性”时存在。",
+                      "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
                       "type": "string"
                     },
                     "image": {
                       "type": "string",
-                      "description": "Avatar URL.\n\n头像。"
+                      "description": "头像。\n\nAvatar URL."
                     },
                     "joinedAt": {
                       "anyOf": [
@@ -2909,7 +2909,7 @@
                           "type": "string"
                         }
                       ],
-                      "description": "Join time.\n\n加入时间。"
+                      "description": "加入时间。\n\nJoin time."
                     },
                     "lastActiveAt": {
                       "anyOf": [
@@ -2920,10 +2920,10 @@
                           "type": "string"
                         }
                       ],
-                      "description": "Last active time.\n\n最后活跃时间。"
+                      "description": "最后活跃时间。\n\nLast active time."
                     },
                     "userType": {
-                      "description": "User type.\n\n用户类型。",
+                      "description": "用户类型。\n\nUser type.",
                       "type": "string",
                       "enum": [
                         "site_admin",
@@ -2937,11 +2937,11 @@
                     },
                     "bio": {
                       "type": "string",
-                      "description": "User bio.\n\n个人简介。"
+                      "description": "个人简介。\n\nUser bio."
                     },
                     "displayName": {
                       "nullable": true,
-                      "description": "Display name, preferred over `name` when present.\n\n用户示名，展示优先级高于 name。",
+                      "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
                       "type": "string"
                     },
                     "updatedAt": {
@@ -2953,10 +2953,10 @@
                           "type": "string"
                         }
                       ],
-                      "description": "Profile update time.\n\n资料更新时间。"
+                      "description": "资料更新时间。\n\nProfile update time."
                     },
                     "socialLinks": {
-                      "description": "Social links visible to clients.\n\n社交链接。",
+                      "description": "社交链接。\n\nSocial links visible to clients.",
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -2976,7 +2976,7 @@
                       }
                     },
                     "frequentingArcades": {
-                      "description": "Frequently visited arcades when made public.\n\n常去机厅，仅在用户勾选“常去机厅可见性”时存在。",
+                      "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -2997,7 +2997,7 @@
                       }
                     },
                     "starredArcades": {
-                      "description": "Starred arcades when made public.\n\n收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。",
+                      "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -3056,7 +3056,7 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "description": "Whether the operation succeeded.\n\n是否成功。"
+            "description": "是否成功。\n\nWhether the operation succeeded."
           }
         },
         "required": [
@@ -3069,7 +3069,7 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "description": "Whether the operation succeeded.\n\n是否成功。"
+            "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "token": {
             "type": "string"
@@ -3095,7 +3095,7 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "description": "Whether the operation succeeded.\n\n是否成功。"
+            "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "registration": {
             "type": "object",
@@ -3137,7 +3137,7 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "description": "Whether the operation succeeded.\n\n是否成功。"
+            "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "queues": {
             "type": "array",
@@ -3148,7 +3148,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "Game/version ID.\n\n游戏（版本）ID。"
+                  "description": "游戏（版本）ID。\n\nGame/version ID."
                 },
                 "queue": {
                   "type": "array",
@@ -3157,17 +3157,17 @@
                     "properties": {
                       "machineName": {
                         "type": "string",
-                        "description": "Machine name.\n\n机台名。"
+                        "description": "机台名。\n\nMachine name."
                       },
                       "position": {
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991,
-                        "description": "Queue position.\n\n位置。"
+                        "description": "位置。\n\nQueue position."
                       },
                       "isPublic": {
                         "type": "boolean",
-                        "description": "Whether this position is public.\n\n是否为公开位置。"
+                        "description": "是否为公开位置。\n\nWhether this position is public."
                       },
                       "status": {
                         "type": "string",
@@ -3176,7 +3176,7 @@
                           "queued",
                           "deferred"
                         ],
-                        "description": "Queue status.\n\n状态。"
+                        "description": "状态。\n\nQueue status."
                       },
                       "members": {
                         "type": "array",
@@ -3186,33 +3186,33 @@
                             "slotIndex": {
                               "type": "string",
                               "minLength": 1,
-                              "description": "Slot index.\n\n槽位。"
+                              "description": "槽位。\n\nSlot index."
                             },
                             "userId": {
                               "nullable": true,
-                              "description": "User ID in the slot, or null for an empty/private slot.\n\n用户 ID；空位或非公开位置可为 null。",
+                              "description": "用户 ID；空位或非公开位置可为 null。\n\nUser ID in the slot, or null for an empty/private slot.",
                               "type": "string"
                             },
                             "user": {
                               "nullable": true,
-                              "description": "Resolved user data for a visible queue member.\n\n公开队列成员对应的用户信息。",
+                              "description": "公开队列成员对应的用户信息。\n\nResolved user data for a visible queue member.",
                               "type": "object",
                               "properties": {
                                 "id": {
                                   "type": "string",
-                                  "description": "User ID.\n\n用户 ID。"
+                                  "description": "用户 ID。\n\nUser ID."
                                 },
                                 "name": {
                                   "type": "string",
-                                  "description": "Username.\n\n用户名。"
+                                  "description": "用户名。\n\nUsername."
                                 },
                                 "displayName": {
-                                  "description": "Display name when available.\n\n用户示名。",
+                                  "description": "用户示名。\n\nDisplay name when available.",
                                   "nullable": true,
                                   "type": "string"
                                 },
                                 "image": {
-                                  "description": "Avatar URL when available.\n\n头像。",
+                                  "description": "头像。\n\nAvatar URL when available.",
                                   "nullable": true,
                                   "type": "string"
                                 }
@@ -3231,7 +3231,7 @@
                           ],
                           "additionalProperties": false
                         },
-                        "description": "Members in this queue position, enriched with public user data.\n\n该位置的成员列表，包含公开的用户信息。"
+                        "description": "该位置的成员列表，包含公开的用户信息。\n\nMembers in this queue position, enriched with public user data."
                       }
                     },
                     "required": [
@@ -3243,7 +3243,7 @@
                     ],
                     "additionalProperties": false
                   },
-                  "description": "Queue positions for the game.\n\n该游戏的队列位置。"
+                  "description": "该游戏的队列位置。\n\nQueue positions for the game."
                 }
               },
               "required": [
@@ -3252,7 +3252,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Current queue data for the shop.\n\n店铺当前机台队列数据。"
+            "description": "店铺当前机台队列数据。\n\nCurrent queue data for the shop."
           }
         },
         "required": [
@@ -3266,10 +3266,10 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "description": "Whether the operation succeeded.\n\n是否成功。"
+            "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "notificationsQueued": {
-            "description": "Number of notifications queued by the update.\n\n本次更新加入通知队列的数量。",
+            "description": "本次更新加入通知队列的数量。\n\nNumber of notifications queued by the update.",
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991

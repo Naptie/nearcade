@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const multilingual = (...messages: string[]) => messages.join('\n\n');
+export const bilingual = (chinese: string, english: string, singleLine = false) =>
+  singleLine ? `${chinese} / ${english}` : [chinese, english].join('\n\n');
 
 export const numericString = z
   .union([z.string(), z.number()])
@@ -12,7 +13,7 @@ export const integerString = numericString.pipe(z.int());
 export const positiveIntegerString = integerString.pipe(z.int().positive());
 
 export const shopIdParamSchema = z.object({
-  id: positiveIntegerString.describe(multilingual('Shop ID.', '店铺 ID。'))
+  id: positiveIntegerString.describe(bilingual('店铺 ID。', 'Shop ID.'))
 });
 
 export const optionalBooleanString = z
@@ -33,7 +34,7 @@ export const paginationQuerySchema = z.object({
       const parsed = value === null || value === undefined || value === '' ? 1 : Number(value);
       return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
     })
-    .describe(multilingual('Page number. Defaults to 1.', '页数。默认为 1。')),
+    .describe(bilingual('页数。默认为 1。', 'Page number. Defaults to 1.')),
   limit: z
     .union([z.string(), z.number(), z.null(), z.undefined()])
     .transform((value) => {
@@ -41,10 +42,7 @@ export const paginationQuerySchema = z.object({
       return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
     })
     .describe(
-      multilingual(
-        'Items per page. Defaults to the site page size.',
-        '每页条目数。默认为站点分页大小。'
-      )
+      bilingual('每页条目数。默认为站点分页大小。', 'Items per page. Defaults to the site page size.')
     )
 });
 
@@ -52,12 +50,12 @@ export const openingHourTimeSchema = z.object({
   hour: z
     .number()
     .transform((value) => Math.max(0, Math.min(23, Math.floor(value))))
-    .describe(multilingual('Hour in 24-hour local time.', '24 小时制本地小时。'))
+    .describe(bilingual('24 小时制本地小时。', 'Hour in 24-hour local time.'))
     .meta({ override: { type: 'integer', minimum: 0, maximum: 23 } }),
   minute: z
     .number()
     .transform((value) => Math.max(0, Math.min(59, Math.floor(value))))
-    .describe(multilingual('Minute.', '分钟。'))
+    .describe(bilingual('分钟。', 'Minute.'))
     .meta({ override: { type: 'integer', minimum: 0, maximum: 59 } })
 });
 
@@ -65,61 +63,52 @@ export const openingHoursSchema = z
   .array(z.tuple([openingHourTimeSchema, openingHourTimeSchema]))
   .min(1)
   .describe(
-    multilingual(
-      'Opening hours. One item means the same hours for the whole week; seven items map to weekdays.',
-      '营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。'
-    )
+    bilingual('营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。', 'Opening hours. One item means the same hours for the whole week; seven items map to weekdays.')
   );
 
 export const locationSchema = z.object({
-  type: z.literal('Point').describe(multilingual('GeoJSON geometry type.', 'GeoJSON 几何类型。')),
+  type: z.literal('Point').describe(bilingual('GeoJSON 几何类型。', 'GeoJSON geometry type.')),
   coordinates: z
     .tuple([
-      z.number().min(-180).max(180).describe(multilingual('Longitude.', '经度。')),
-      z.number().min(-90).max(90).describe(multilingual('Latitude.', '纬度。'))
+      z.number().min(-180).max(180).describe(bilingual('经度。', 'Longitude.')),
+      z.number().min(-90).max(90).describe(bilingual('纬度。', 'Latitude.'))
     ])
     .describe(
-      multilingual(
-        'GeoJSON coordinates in [longitude, latitude] order.',
-        'GeoJSON 坐标，顺序为 [经度, 纬度]。'
-      )
+      bilingual('GeoJSON 坐标，顺序为 [经度, 纬度]。', 'GeoJSON coordinates in [longitude, latitude] order.')
     )
 });
 
 export const successResponseSchema = z.object({
-  success: z.boolean().describe(multilingual('Whether the operation succeeded.', '是否成功。'))
+  success: z.boolean().describe(bilingual('是否成功。', 'Whether the operation succeeded.'))
 });
 
 export const errorResponseSchema = z.object({
-  error: z.string().optional().describe(multilingual('Error message.', '错误信息。')),
-  message: z.string().optional().describe(multilingual('Error message.', '错误信息。'))
+  error: z.string().optional().describe(bilingual('错误信息。', 'Error message.')),
+  message: z.string().optional().describe(bilingual('错误信息。', 'Error message.'))
 });
 
 export const userPublicSchema = z.object({
   _id: z
     .string()
     .optional()
-    .describe(multilingual('MongoDB ID. Use `id` in clients.', 'MongoDB ID。客户端请使用 id。')),
-  id: z.string().describe(multilingual('User ID.', '用户 ID。')),
+    .describe(bilingual('MongoDB ID。客户端请使用 id。', 'MongoDB ID. Use `id` in clients.')),
+  id: z.string().describe(bilingual('用户 ID。', 'User ID.')),
   name: z
     .string()
     .describe(
-      multilingual('Username. Display with an @ prefix.', '用户名。展示时请在前面加 @ 符号。')
+      bilingual('用户名。展示时请在前面加 @ 符号。', 'Username. Display with an @ prefix.')
     ),
   email: z
     .string()
     .optional()
     .describe(
-      multilingual(
-        'Email address when the user has made it public.',
-        '邮箱，仅在用户勾选“邮箱可见性”时存在。'
-      )
+      bilingual('邮箱，仅在用户勾选“邮箱可见性”时存在。', 'Email address when the user has made it public.')
     ),
-  image: z.string().describe(multilingual('Avatar URL.', '头像。')),
-  joinedAt: z.union([z.string(), z.date()]).describe(multilingual('Join time.', '加入时间。')),
+  image: z.string().describe(bilingual('头像。', 'Avatar URL.')),
+  joinedAt: z.union([z.string(), z.date()]).describe(bilingual('加入时间。', 'Join time.')),
   lastActiveAt: z
     .union([z.string(), z.date()])
-    .describe(multilingual('Last active time.', '最后活跃时间。')),
+    .describe(bilingual('最后活跃时间。', 'Last active time.')),
   userType: z
     .enum([
       'site_admin',
@@ -131,41 +120,32 @@ export const userPublicSchema = z.object({
       'regular'
     ])
     .optional()
-    .describe(multilingual('User type.', '用户类型。')),
-  bio: z.string().describe(multilingual('User bio.', '个人简介。')),
+    .describe(bilingual('用户类型。', 'User type.')),
+  bio: z.string().describe(bilingual('个人简介。', 'User bio.')),
   displayName: z
     .string()
     .nullable()
     .describe(
-      multilingual(
-        'Display name, preferred over `name` when present.',
-        '用户示名，展示优先级高于 name。'
-      )
+      bilingual('用户示名，展示优先级高于 name。', 'Display name, preferred over `name` when present.')
     ),
   updatedAt: z
     .union([z.string(), z.date()])
-    .describe(multilingual('Profile update time.', '资料更新时间。')),
+    .describe(bilingual('资料更新时间。', 'Profile update time.')),
   socialLinks: z
     .array(z.object({ platform: z.string(), username: z.string() }))
     .optional()
-    .describe(multilingual('Social links visible to clients.', '社交链接。')),
+    .describe(bilingual('社交链接。', 'Social links visible to clients.')),
   frequentingArcades: z
     .array(z.object({ id: z.int(), source: z.string().optional() }))
     .optional()
     .describe(
-      multilingual(
-        'Frequently visited arcades when made public.',
-        '常去机厅，仅在用户勾选“常去机厅可见性”时存在。'
-      )
+      bilingual('常去机厅，仅在用户勾选“常去机厅可见性”时存在。', 'Frequently visited arcades when made public.')
     ),
   starredArcades: z
     .array(z.object({ id: z.int(), source: z.string().optional() }))
     .optional()
     .describe(
-      multilingual(
-        'Starred arcades when made public.',
-        '收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。'
-      )
+      bilingual('收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。', 'Starred arcades when made public.')
     )
 });
 

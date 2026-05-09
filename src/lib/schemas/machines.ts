@@ -1,15 +1,15 @@
 import { z } from 'zod';
-import { multilingual, successResponseSchema } from './common';
+import { bilingual, successResponseSchema } from './common';
 
 export const activateMachineQuerySchema = z.object({
-  sn: z.string().min(1).describe(multilingual('Machine serial number.', '机台序列号。'))
+  sn: z.string().min(1).describe(bilingual('机台序列号。', 'Machine serial number.'))
 });
 
 export const activateMachineResponseSchema = successResponseSchema.extend({
   apiSecret: z
     .string()
     .describe(
-      multilingual('Generated API secret for the activated machine.', '生成的机台 API 密钥。')
+      bilingual('生成的机台 API 密钥。', 'Generated API secret for the activated machine.')
     ),
   shop: z
     .object({
@@ -18,20 +18,20 @@ export const activateMachineResponseSchema = successResponseSchema.extend({
       source: z.string().optional()
     })
     .nullable()
-    .describe(multilingual('Shop bound to the machine.', '机台绑定的店铺。'))
+    .describe(bilingual('机台绑定的店铺。', 'Shop bound to the machine.'))
 });
 
 export const registrationBodySchema = z.object({
-  slotIndex: z.string().min(1).describe(multilingual('Slot index.', '槽位编号。')),
+  slotIndex: z.string().min(1).describe(bilingual('槽位编号。', 'Slot index.')),
   expires: z
     .int()
     .min(10)
     .optional()
-    .describe(multilingual('Expiration time in seconds.', '过期时间，单位：秒。'))
+    .describe(bilingual('过期时间，单位：秒。', 'Expiration time in seconds.'))
 });
 
 export const registrationQuerySchema = z.object({
-  token: z.string().min(1).describe(multilingual('Player registration token.', '玩家登记令牌。'))
+  token: z.string().min(1).describe(bilingual('玩家登记令牌。', 'Player registration token.'))
 });
 
 export const registrationCreateResponseSchema = successResponseSchema.extend({
