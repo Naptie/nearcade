@@ -2,8 +2,8 @@ import { defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/schemas/
 import { bilingual } from '$lib/schemas/common';
 import {
   createShopRequestSchema,
-  shopResponseOpenApiSchema,
-  shopsListResponseOpenApiSchema,
+  shopResponseSchema,
+  shopsListResponseSchema,
   shopsListQuerySchema
 } from '$lib/schemas/shops';
 
@@ -19,10 +19,7 @@ export default defineOpenApiRoute({
       query: shopsListQuerySchema
     },
     responses: {
-      '200': jsonResponse(
-        bilingual('店铺列表', 'Shops list', true),
-        shopsListResponseOpenApiSchema
-      ),
+      '200': jsonResponse(bilingual('店铺列表', 'Shops list', true), shopsListResponseSchema),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }
@@ -33,7 +30,7 @@ export default defineOpenApiRoute({
     description: bilingual('创建新店铺。', 'Create a new shop.'),
     requestBody: jsonRequestBody(createShopRequestSchema),
     responses: {
-      '201': jsonResponse(bilingual('已创建店铺', 'Created shop', true), shopResponseOpenApiSchema),
+      '201': jsonResponse(bilingual('已创建店铺', 'Created shop', true), shopResponseSchema),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }

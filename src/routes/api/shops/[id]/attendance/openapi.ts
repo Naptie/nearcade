@@ -7,7 +7,7 @@ import {
 import { bilingual } from '$lib/schemas/common';
 import {
   attendanceRequestSchema,
-  attendanceResponseOpenApiSchema,
+  attendanceResponseSchema,
   attendanceQuerySchema,
   shopIdParamSchema
 } from '$lib/schemas/shops';
@@ -25,10 +25,7 @@ export default defineOpenApiRoute({
       query: attendanceQuerySchema
     },
     responses: {
-      '200': jsonResponse(
-        bilingual('在勤数据', 'Attendance data', true),
-        attendanceResponseOpenApiSchema
-      ),
+      '200': jsonResponse(bilingual('在勤数据', 'Attendance data', true), attendanceResponseSchema),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }

@@ -1,4 +1,7 @@
+import type { ObjectId } from 'mongodb';
 import { z } from 'zod';
+
+import { SOCIAL_PLATFORMS, USER_TYPES } from '../constants';
 
 export const bilingual = (chinese: string, english: string, singleLine = false) =>
   singleLine ? `${chinese} / ${english}` : [chinese, english].join('\n\n');
@@ -98,9 +101,51 @@ export const errorResponseSchema = z.object({
 
 export const userIdSchema = z.string().describe(bilingual('用户 ID。', 'User ID.'));
 
+const NOTIFICATION_TYPES = [
+  'COMMENTS',
+  'REPLIES',
+  'POST_VOTES',
+  'COMMENT_VOTES',
+  'JOIN_REQUESTS',
+  'SHOP_DELETE_REQUESTS'
+] as const;
+
+const objectIdSchema = z
+  .custom<ObjectId>(
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      (value as { constructor?: { name?: string } }).constructor?.name === 'ObjectId'
+  )
+  .describe(bilingual('MongoDB ObjectId。', 'MongoDB ObjectId.'))
+  .meta({ override: { type: 'string' } });
+
+export const dateTimeSchema = (description: string) =>
+  z
+    .codec(z.iso.datetime(), z.date(), {
+      decode: (isoString) => new Date(isoString),
+      encode: (date) => date.toISOString()
+    })
+    .describe(description)
+    .meta({ override: { type: 'string', format: 'date-time' } });
+
+const socialLinkSchema = z.object({
+  platform: z.enum(SOCIAL_PLATFORMS).describe(bilingual('社交平台。', 'Social platform.')),
+  username: z.string().describe(bilingual('用户名。', 'Username.'))
+});
+
+const apiTokenSchema = z.object({
+  id: z.string().describe(bilingual('API 令牌 ID。', 'API token ID.')),
+  name: z.string().describe(bilingual('API 令牌名称。', 'API token name.')),
+  token: z.string().describe(bilingual('API 令牌。', 'API token.')),
+  shopId: z.int().optional().describe(bilingual('店铺 ID。', 'Shop ID.')),
+  expiresAt: dateTimeSchema(bilingual('过期时间。', 'Expiration time.')),
+  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.'))
+});
+
 export const userPublicSchema = z.object({
   _id: z
-    .string()
+    .union([z.string(), objectIdSchema])
     .optional()
     .describe(bilingual('MongoDB ID。客户端请使用 id。', 'MongoDB ID. Use `id` in clients.')),
   id: userIdSchema,
@@ -118,34 +163,30 @@ export const userPublicSchema = z.object({
         'Email address when the user has made it public.'
       )
     ),
-  image: z.string().describe(bilingual('头像。', 'Avatar URL.')),
-  joinedAt: z.iso.datetime().describe(bilingual('加入时间。', 'Join time.')),
-  lastActiveAt: z.iso.datetime().describe(bilingual('最后活跃时间。', 'Last active time.')),
-  userType: z
-    .enum([
-      'site_admin',
-      'school_admin',
-      'school_moderator',
-      'club_admin',
-      'club_moderator',
-      'student',
-      'regular'
-    ])
+  image: z.string().nullable().optional().describe(bilingual('头像。', 'Avatar URL.')),
+  avatarImageId: z
+    .string()
+    .nullable()
     .optional()
-    .describe(bilingual('用户类型。', 'User type.')),
-  bio: z.string().describe(bilingual('个人简介。', 'User bio.')),
+    .describe(bilingual('头像图片资源 ID。', 'Avatar image asset ID.')),
+  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')),
+  updatedAt: dateTimeSchema(bilingual('资料更新时间。', 'Profile update time.')),
+  joinedAt: dateTimeSchema(bilingual('加入时间。', 'Join time.')).optional(),
+  lastActiveAt: dateTimeSchema(bilingual('最后活跃时间。', 'Last active time.')).optional(),
+  userType: z.enum(USER_TYPES).optional().describe(bilingual('用户类型。', 'User type.')),
+  bio: z.string().nullable().optional().describe(bilingual('个人简介。', 'User bio.')),
   displayName: z
     .string()
     .nullable()
+    .optional()
     .describe(
       bilingual(
         '用户示名，展示优先级高于 name。',
         'Display name, preferred over `name` when present.'
       )
     ),
-  updatedAt: z.iso.datetime().describe(bilingual('资料更新时间。', 'Profile update time.')),
   socialLinks: z
-    .array(z.object({ platform: z.string(), username: z.string() }))
+    .array(socialLinkSchema)
     .optional()
     .describe(bilingual('社交链接。', 'Social links visible to clients.')),
   frequentingArcades: z
@@ -168,10 +209,63 @@ export const userPublicSchema = z.object({
     )
 });
 
+export const userSchema = userPublicSchema.extend({
+  emailVerified: z
+    .boolean()
+    .describe(bilingual('邮箱是否已验证。', 'Whether the email is verified.')),
+  notificationReadAt: dateTimeSchema(
+    bilingual('通知已读时间。', 'Notification read time.')
+  ).optional(),
+  autoDiscovery: z
+    .object({
+      discoveryInteractionThreshold: z
+        .number()
+        .describe(bilingual('自动发现互动阈值。', 'Auto-discovery interaction threshold.')),
+      attendanceThreshold: z
+        .number()
+        .describe(bilingual('自动发现出勤阈值。', 'Auto-discovery attendance threshold.'))
+    })
+    .optional()
+    .describe(bilingual('自动发现设置。', 'Auto-discovery settings.')),
+  isEmailPublic: z
+    .boolean()
+    .optional()
+    .describe(bilingual('邮箱是否公开。', 'Whether the email is public.')),
+  isActivityPublic: z
+    .boolean()
+    .optional()
+    .describe(bilingual('活动是否公开。', 'Whether activity is public.')),
+  isFootprintPublic: z
+    .boolean()
+    .optional()
+    .describe(bilingual('足迹是否公开。', 'Whether footprints are public.')),
+  isUniversityPublic: z
+    .boolean()
+    .optional()
+    .describe(bilingual('学校信息是否公开。', 'Whether university info is public.')),
+  isFrequentingArcadePublic: z
+    .boolean()
+    .optional()
+    .describe(bilingual('常去机厅是否公开。', 'Whether frequenting arcades are public.')),
+  isStarredArcadePublic: z
+    .boolean()
+    .optional()
+    .describe(bilingual('收藏机厅是否公开。', 'Whether starred arcades are public.')),
+  notificationTypes: z
+    .array(z.enum(NOTIFICATION_TYPES))
+    .optional()
+    .describe(bilingual('通知类型。', 'Notification types.')),
+  fcmTokens: z.array(z.string()).optional().describe(bilingual('FCM 令牌。', 'FCM tokens.')),
+  fcmTokenUpdatedAt: dateTimeSchema(
+    bilingual('FCM 令牌更新时间。', 'FCM token update time.')
+  ).optional(),
+  apiTokens: z.array(apiTokenSchema).optional().describe(bilingual('API 令牌列表。', 'API tokens.'))
+});
+
+export const userPrivateFieldNames = Object.keys(userSchema.shape).filter(
+  (key) => !(key in userPublicSchema.shape)
+);
+
 export const parseSearchParams = <Schema extends z.ZodTypeAny>(schema: Schema, url: URL) => {
   return schema.parse(Object.fromEntries(url.searchParams));
 };
-
-export const successOpenApiSchema = successResponseSchema.meta({ id: 'SuccessResponse' });
-
-export type OpeningHourTimeInput = z.infer<typeof openingHourTimeSchema>;

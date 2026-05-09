@@ -10,7 +10,7 @@ import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
-  attendancePostBodySchema,
+  attendanceRequestSchema,
   attendanceQuerySchema,
   shopIdParamSchema
 } from '$lib/schemas/shops';
@@ -136,7 +136,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   }
 
   try {
-    const body = await parseJsonOrError(request, attendancePostBodySchema);
+    const body = await parseJsonOrError(request, attendanceRequestSchema);
     const { games, plannedLeaveAt, comment } = body;
 
     // Validate input

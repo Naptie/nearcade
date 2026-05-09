@@ -4,7 +4,7 @@ import { calculateDistance, toPlainObject, getShopOpeningHours, getShopTimezone 
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from './attendance.server';
-import type { User } from '$lib/auth/types';
+import type { PublicUser } from '$lib/auth/types';
 import {
   discoverQuerySchema,
   discoverResponseSchema,
@@ -56,7 +56,7 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       currentReportedAttendance?: {
         reportedAt: string;
         reportedBy: string;
-        reporter: User;
+        reporter: PublicUser;
         comment: string | null;
       } | null;
       timezone?: { name: string; offset: number };

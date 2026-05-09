@@ -9,7 +9,7 @@ import {
   shopDetailQuerySchema,
   shopIdParamSchema,
   shopResponseSchema,
-  updateShopBodySchema
+  updateShopRequestSchema
 } from '$lib/schemas/shops';
 import {
   parseJsonOrError,
@@ -345,7 +345,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   }
 
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
-  const body = await parseJsonOrError(request, updateShopBodySchema);
+  const body = await parseJsonOrError(request, updateShopRequestSchema);
 
   const { name, comment, address, openingHours, location, games } = body;
 

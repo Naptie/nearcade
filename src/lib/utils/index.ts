@@ -1,6 +1,7 @@
 import { m } from '$lib/paraglide/messages';
 import { Database } from '$lib/db/index.client';
 import { GAME_TITLES } from '$lib/constants';
+import { userPrivateFieldNames } from '$lib/schemas/common';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
@@ -20,7 +21,7 @@ import {
   PostReadability
 } from '$lib/types';
 import { ROUTE_CACHE_STORE } from '$lib/constants';
-import type { User } from '$lib/auth/types';
+import type { PublicUser, User } from '$lib/auth/types';
 import { customAlphabet, nanoid } from 'nanoid';
 import rehypeParse from 'rehype-parse';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
@@ -1349,36 +1350,23 @@ export const getFnsLocale = (locale: string) => {
   }
 };
 
-export const protect = <T extends User | undefined>(user: T): T => {
+export const protect = (user: User | PublicUser | undefined): PublicUser | undefined => {
   if (!user) return user;
-  const propertiesToRemove = [
-    'emailVerified',
-    'notificationReadAt',
-    'isActivityPublic',
-    'isEmailPublic',
-    'isFootprintPublic',
-    'isFrequentingArcadePublic',
-    'isStarredArcadePublic',
-    'isUniversityPublic',
-    'notificationTypes',
-    'fcmTokenUpdatedAt',
-    'fcmTokens',
-    'autoDiscovery',
-    'apiTokens'
-  ];
-  if (user.isEmailPublic !== true) {
-    delete user.email;
+  const protectedUser = user as PublicUser & Partial<User>;
+
+  if (protectedUser.isEmailPublic !== true) {
+    delete protectedUser.email;
   }
-  if (user.isFrequentingArcadePublic === false) {
-    delete user.frequentingArcades;
+  if (protectedUser.isFrequentingArcadePublic === false) {
+    delete protectedUser.frequentingArcades;
   }
-  if (user.isStarredArcadePublic === false) {
-    delete user.starredArcades;
+  if (protectedUser.isStarredArcadePublic === false) {
+    delete protectedUser.starredArcades;
   }
-  for (const prop of propertiesToRemove) {
-    if (prop in user) {
-      delete (user as never)[prop];
+  for (const prop of userPrivateFieldNames) {
+    if (prop in protectedUser) {
+      delete (protectedUser as never)[prop];
     }
   }
-  return user;
+  return protectedUser;
 };

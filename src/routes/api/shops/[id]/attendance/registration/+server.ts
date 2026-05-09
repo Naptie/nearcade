@@ -8,9 +8,9 @@ import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
 import { protect, toPlainObject } from '$lib/utils';
 import {
-  registrationBodySchema,
-  registrationCreateResponseSchema,
-  registrationGetResponseSchema,
+  attendanceRegistrationPostRequestSchema,
+  attendanceRegistrationCreateResponseSchema,
+  attendanceRegistrationGetResponseSchema,
   registrationQuerySchema
 } from '$lib/schemas/machines';
 import { shopIdParamSchema } from '$lib/schemas/shops';
@@ -59,7 +59,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Validate machine authentication
     const machine = await validateMachineAuth(request, id);
 
-    const body = await parseJsonOrError(request, registrationBodySchema);
+    const body = await parseJsonOrError(request, attendanceRegistrationPostRequestSchema);
 
     const { slotIndex, expires } = body;
 
@@ -91,7 +91,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const db = mongo.db();
     const shop = await db.collection<Shop>('shops').findOne({ id });
 
-    const response = registrationCreateResponseSchema.parse({
+    const response = attendanceRegistrationCreateResponseSchema.parse({
       success: true,
       token,
       expiresAt: registration.expiresAt,
@@ -138,7 +138,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
       user = (await usersCollection.findOne({ id: registration.userId })) ?? undefined;
     }
 
-    const response = registrationGetResponseSchema.parse(
+    const response = attendanceRegistrationGetResponseSchema.parse(
       toPlainObject({
         success: true,
         registration: user ? { ...registration, user: protect(user) } : registration

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   bilingual,
+  dateTimeSchema,
   locationSchema,
   openingHoursSchema,
   optionalBooleanString,
@@ -55,18 +56,20 @@ export const gameAttendanceTotalSchema = z
   .min(0)
   .describe(bilingual('机台综合在勤人数。', 'Combined attendance count for this game.'));
 const attendanceUserIdSchema = userIdSchema.optional().describe(bilingual('用户 ID。', 'User ID.'));
-const attendedAtSchema = z.iso
-  .datetime()
-  .describe(bilingual('登记在勤时间。', 'Attendance registration time.'));
-const plannedLeaveAtSchema = z.iso
-  .datetime()
-  .describe(bilingual('计划退勤时间。', 'Planned leave time.'));
-const optionalPlannedLeaveAtSchema = z.iso
-  .datetime()
-  .optional()
-  .describe(bilingual('计划退勤时间。', 'Planned leave time for attendance registration.'));
+const attendedAtSchema = dateTimeSchema(
+  bilingual('登记在勤时间。', 'Attendance registration time.')
+);
+const plannedLeaveAtSchema = dateTimeSchema(bilingual('计划退勤时间。', 'Planned leave time.'));
+const optionalPlannedLeaveAtSchema = dateTimeSchema(
+  bilingual('计划退勤时间。', 'Planned leave time for attendance registration.')
+).optional();
 export const partialAttendanceUserSchema = userPublicSchema
-  .partial()
+  .pick({
+    id: true,
+    name: true,
+    image: true,
+    displayName: true
+  })
   .optional()
   .describe(bilingual('关联用户。', 'Associated user when available.'));
 export const currentAttendancesSchema = z
@@ -87,9 +90,7 @@ const optionalAttendancePostCommentSchema = z
   .optional()
   .describe(bilingual('上报说明。', 'Attendance report note.'));
 export const reportedBySchema = z.string().describe(bilingual('上报者 ID。', 'Reporter user ID.'));
-export const reportedAtSchema = z.iso
-  .datetime()
-  .describe(bilingual('上报时间。', 'Attendance report time.'));
+export const reportedAtSchema = dateTimeSchema(bilingual('上报时间。', 'Attendance report time.'));
 
 export const includeTimeInfoSchema = optionalBooleanString
   .default(true)
@@ -196,8 +197,8 @@ export const shopSchema = z.object({
     .describe(
       bilingual('店铺是否已被认领。', 'Whether this shop is claimed by a machine/operator.')
     ),
-  createdAt: z.iso.datetime().optional().describe(bilingual('创建时间。', 'Creation time.')),
-  updatedAt: z.iso.datetime().describe(bilingual('更新时间。', 'Update time.'))
+  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')).optional(),
+  updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });
 
 export const shopsListQuerySchema = paginationQuerySchema.extend({
@@ -209,7 +210,7 @@ export const shopDetailQuerySchema = z.object({
   includeTimeInfo: includeTimeInfoSchema
 });
 
-export const createShopBodySchema = z.object({
+export const createShopRequestSchema = z.object({
   name: shopNameInputSchema,
   comment: optionalShopCommentSchema.default(''),
   address: shopAddressSchema
@@ -225,7 +226,7 @@ export const createShopBodySchema = z.object({
     .describe(bilingual('机台。', 'Machines/games available at the shop.'))
 });
 
-export const updateShopBodySchema = z
+export const updateShopRequestSchema = z
   .object({
     name: shopNameInputSchema.optional().describe(bilingual('店铺名称。', 'Shop name.')),
     comment: optionalShopCommentSchema,
@@ -276,7 +277,7 @@ export const attendanceGameRequestSchema = z.object({
     )
 });
 
-export const attendancePostBodySchema = z.object({
+export const attendanceRequestSchema = z.object({
   games: z
     .array(attendanceGameRequestSchema)
     .min(1)
@@ -336,7 +337,7 @@ export const queuePositionSchema = z.object({
     .describe(bilingual('成员列表。', 'Members in this queue position.'))
 });
 
-export const queuesPostBodySchema = z.object({
+export const queueReportRequestSchema = z.object({
   queues: z
     .array(
       z.object({
@@ -404,26 +405,4 @@ export const queuesListResponseSchema = successResponseSchema.extend({
     .describe(bilingual('店铺当前机台队列数据。', 'Current queue data for the shop.'))
 });
 
-export const createShopRequestSchema = createShopBodySchema.meta({ id: 'CreateShopRequest' });
-export const shopResponseOpenApiSchema = shopResponseSchema.meta({ id: 'ShopResponse' });
-export const shopsListResponseOpenApiSchema = shopsListResponseSchema.meta({
-  id: 'ShopsListResponse'
-});
-export const updateShopRequestSchema = updateShopBodySchema.meta({ id: 'UpdateShopRequest' });
-export const attendanceRequestSchema = attendancePostBodySchema.meta({ id: 'AttendanceRequest' });
-export const attendanceResponseOpenApiSchema = attendanceResponseSchema.meta({
-  id: 'AttendanceResponse'
-});
-export const queueReportRequestSchema = queuesPostBodySchema.meta({ id: 'QueueReportRequest' });
-export const queueReportResponseOpenApiSchema = queueReportResponseSchema.meta({
-  id: 'QueueReportResponse'
-});
-export const queueListResponseOpenApiSchema = queuesListResponseSchema.meta({
-  id: 'QueueListResponse'
-});
-
 export { shopIdParamSchema };
-
-export type CreateShopBody = z.infer<typeof createShopBodySchema>;
-export type UpdateShopBody = z.infer<typeof updateShopBodySchema>;
-export type QueueGameDataBody = z.infer<typeof queuesPostBodySchema>['queues'][number];

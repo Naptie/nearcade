@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { bilingual, successResponseSchema, userIdSchema, userPublicSchema } from './common';
+import {
+  bilingual,
+  dateTimeSchema,
+  successResponseSchema,
+  userIdSchema,
+  userPublicSchema
+} from './common';
 import { queueSlotIndexSchema, shopNameSchema, shopSummarySchema } from './shops';
 
 const machineSerialNumberSchema = z
@@ -18,7 +24,7 @@ const registrationTokenSchema = z
   .string()
   .min(1)
   .describe(bilingual('玩家登记令牌。', 'Player registration token.'));
-const expiresAtSchema = z.iso.datetime().describe(bilingual('过期时间。', 'Expiration time.'));
+const expiresAtSchema = dateTimeSchema(bilingual('过期时间。', 'Expiration time.'));
 const machineIdSchema = z.string().describe(bilingual('机台 ID。', 'Machine ID.'));
 const shopIdStringSchema = z.string().describe(bilingual('店铺 ID。', 'Shop ID.'));
 
@@ -33,7 +39,7 @@ export const activateMachineResponseSchema = successResponseSchema.extend({
     .describe(bilingual('机台绑定的店铺。', 'Shop bound to the machine.'))
 });
 
-export const registrationBodySchema = z.object({
+export const attendanceRegistrationPostRequestSchema = z.object({
   slotIndex: queueSlotIndexSchema.describe(bilingual('槽位编号。', 'Slot index.')),
   expires: registrationExpiresSchema
 });
@@ -42,7 +48,7 @@ export const registrationQuerySchema = z.object({
   token: registrationTokenSchema
 });
 
-export const registrationCreateResponseSchema = successResponseSchema.extend({
+export const attendanceRegistrationCreateResponseSchema = successResponseSchema.extend({
   token: registrationTokenSchema.describe(
     bilingual('生成的玩家登记令牌。', 'Generated player registration token.')
   ),
@@ -50,7 +56,7 @@ export const registrationCreateResponseSchema = successResponseSchema.extend({
   shopName: shopNameSchema.nullable().describe(bilingual('店铺名称。', 'Shop name.'))
 });
 
-export const registrationGetResponseSchema = successResponseSchema.extend({
+export const attendanceRegistrationGetResponseSchema = successResponseSchema.extend({
   registration: z
     .object({
       shopId: shopIdStringSchema,
@@ -61,18 +67,4 @@ export const registrationGetResponseSchema = successResponseSchema.extend({
       user: userPublicSchema.optional().describe(bilingual('关联用户。', 'Associated user.'))
     })
     .describe(bilingual('登记令牌信息。', 'Registration token details.'))
-});
-
-export type RegistrationBody = z.infer<typeof registrationBodySchema>;
-
-export const machineActivationResponseOpenApiSchema = activateMachineResponseSchema.meta({
-  id: 'MachineActivationResponse'
-});
-export const attendanceRegistrationRequestSchema = registrationBodySchema.meta({
-  id: 'AttendanceRegistrationRequest'
-});
-export const attendanceRegistrationCreateResponseOpenApiSchema =
-  registrationCreateResponseSchema.meta({ id: 'AttendanceRegistrationCreateResponse' });
-export const attendanceRegistrationGetResponseOpenApiSchema = registrationGetResponseSchema.meta({
-  id: 'AttendanceRegistrationGetResponse'
 });

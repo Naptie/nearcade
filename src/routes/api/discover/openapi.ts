@@ -1,6 +1,6 @@
 import { defineOpenApiRoute, jsonResponse } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
-import { discoverResponseOpenApiSchema, discoverQuerySchema } from '$lib/schemas/discover';
+import { discoverResponseSchema, discoverQuerySchema } from '$lib/schemas/discover';
 
 export default defineOpenApiRoute({
   get: {
@@ -14,10 +14,7 @@ export default defineOpenApiRoute({
       query: discoverQuerySchema
     },
     responses: {
-      '200': jsonResponse(
-        bilingual('附近店铺', 'Nearby shops', true),
-        discoverResponseOpenApiSchema
-      ),
+      '200': jsonResponse(bilingual('附近店铺', 'Nearby shops', true), discoverResponseSchema),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }

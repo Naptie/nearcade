@@ -1,7 +1,9 @@
 import type { ObjectId } from 'mongodb';
 import type { RADIUS_OPTIONS, GAME_TITLES } from '../constants';
 import type { TransportSearchResult } from './amap';
-import type { User } from '$lib/auth/types';
+import type { PublicUser } from '$lib/auth/types';
+import { z } from 'zod';
+import type { shopSchema } from '$lib/schemas/shops';
 
 export interface Location {
   type: 'Point';
@@ -13,22 +15,7 @@ export interface OpeningHourTime {
   minute: number;
 }
 
-export interface Shop {
-  _id: string;
-  id: number;
-  name: string;
-  comment: string;
-  address: {
-    general: string[];
-    detailed: string;
-  };
-  openingHours: [openTime: OpeningHourTime, closeTime: OpeningHourTime][];
-  location: Location;
-  games: Game[];
-  isClaimed?: boolean;
-  createdAt?: Date;
-  updatedAt: Date;
-}
+export type Shop = z.infer<typeof shopSchema>;
 
 export interface Game {
   gameId: number;
@@ -207,7 +194,7 @@ export interface ClubMember {
 
 // Composite type with user data joined
 export interface ClubMemberWithUser extends ClubMember {
-  user: User | undefined;
+  user: PublicUser | undefined;
 }
 
 export interface InviteLink {
@@ -244,7 +231,7 @@ export interface UniversityMember {
 
 // Composite type with user data joined
 export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verificationEmail'> {
-  user: User | undefined;
+  user: PublicUser | undefined;
 }
 
 export interface ShopDeleteRequest {
@@ -302,7 +289,7 @@ export interface ImageAsset {
   storageKey: string;
   storageObjectId?: string | null;
   uploadedBy: string | null;
-  uploader?: User;
+  uploader?: PublicUser;
   uploadedAt: Date;
 }
 
@@ -376,8 +363,8 @@ export interface JoinRequest {
 
 // Composite type with user data joined
 export interface JoinRequestWithUser extends JoinRequest {
-  user: User | undefined;
-  reviewer?: User;
+  user: PublicUser | undefined;
+  reviewer?: PublicUser;
 }
 
 export interface ChangelogEntry {
@@ -440,7 +427,7 @@ export interface Post {
 
 // Composite type with author data joined
 export interface PostWithAuthor extends Post {
-  author: User | undefined;
+  author: PublicUser | undefined;
   resolvedImages?: ImageAsset[];
 }
 
@@ -474,7 +461,7 @@ export interface Comment {
 
 // Composite type with author data joined
 export interface CommentWithAuthorAndVote extends Comment {
-  author: User | undefined;
+  author: PublicUser | undefined;
   vote?: CommentVote;
   authorDeleteRequestVote?: ShopDeleteRequestVote | null;
   resolvedImages?: ImageAsset[];
@@ -622,7 +609,7 @@ export interface Notification {
 
 export type AttendanceData = Array<{
   userId?: string;
-  user?: User;
+  user?: PublicUser;
   attendedAt: string;
   plannedLeaveAt: string;
   gameId: number;
@@ -632,7 +619,7 @@ export type AttendanceReport = Array<{
   gameId: number;
   currentAttendances?: number;
   reportedBy: string;
-  reporter?: User;
+  reporter?: PublicUser;
   reportedAt: string;
   comment: string | null;
 }>;
@@ -678,7 +665,7 @@ export interface ShopWithAttendance extends Shop {
   totalAttendance?: number;
   currentReportedAttendance?: {
     reportedAt: string;
-    reportedBy: User;
+    reportedBy: PublicUser;
     comment: string | null;
   } | null;
   isInAttendance?: boolean;

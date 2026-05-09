@@ -6,9 +6,9 @@ import {
 } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
 import {
-  queueListResponseOpenApiSchema,
+  queuesListResponseSchema,
   queueReportRequestSchema,
-  queueReportResponseOpenApiSchema,
+  queueReportResponseSchema,
   shopIdParamSchema
 } from '$lib/schemas/shops';
 
@@ -21,10 +21,7 @@ export default defineOpenApiRoute({
       path: shopIdParamSchema
     },
     responses: {
-      '200': jsonResponse(
-        bilingual('队列数据', 'Queue data', true),
-        queueListResponseOpenApiSchema
-      ),
+      '200': jsonResponse(bilingual('队列数据', 'Queue data', true), queuesListResponseSchema),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }
@@ -44,7 +41,7 @@ export default defineOpenApiRoute({
     responses: {
       '200': jsonResponse(
         bilingual('队列上报成功', 'Queue report accepted', true),
-        queueReportResponseOpenApiSchema
+        queueReportResponseSchema
       ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('机台凭据无效', 'Invalid machine credentials', true) },

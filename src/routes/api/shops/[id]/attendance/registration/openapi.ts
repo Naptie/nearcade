@@ -7,9 +7,9 @@ import {
 } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
 import {
-  attendanceRegistrationCreateResponseOpenApiSchema,
-  attendanceRegistrationGetResponseOpenApiSchema,
-  attendanceRegistrationRequestSchema,
+  attendanceRegistrationCreateResponseSchema,
+  attendanceRegistrationGetResponseSchema,
+  attendanceRegistrationPostRequestSchema,
   registrationQuerySchema
 } from '$lib/schemas/machines';
 import { shopIdParamSchema } from '$lib/schemas/shops';
@@ -26,11 +26,11 @@ export default defineOpenApiRoute({
     requestParams: {
       path: shopIdParamSchema
     },
-    requestBody: jsonRequestBody(attendanceRegistrationRequestSchema),
+    requestBody: jsonRequestBody(attendanceRegistrationPostRequestSchema),
     responses: {
       '200': jsonResponse(
         bilingual('登记令牌', 'Registration token', true),
-        attendanceRegistrationCreateResponseOpenApiSchema
+        attendanceRegistrationCreateResponseSchema
       ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('机台凭据无效', 'Invalid machine credentials', true) },
@@ -52,7 +52,7 @@ export default defineOpenApiRoute({
     responses: {
       '200': jsonResponse(
         bilingual('登记信息', 'Registration data', true),
-        attendanceRegistrationGetResponseOpenApiSchema
+        attendanceRegistrationGetResponseSchema
       ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('机台凭据无效', 'Invalid machine credentials', true) },

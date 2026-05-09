@@ -81,9 +81,4 @@ export const discoverResponseSchema = z.object({
   radius: z.number().describe(bilingual('范围半径。', 'Search radius in kilometers.'))
 });
 
-export type DiscoverQuery = z.infer<typeof discoverQuerySchema>;
 export type DiscoverResponse = z.infer<typeof discoverResponseSchema>;
-
-export const discoverResponseOpenApiSchema = discoverResponseSchema.meta({
-  id: 'DiscoverResponse'
-});

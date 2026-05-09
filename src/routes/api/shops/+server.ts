@@ -6,7 +6,7 @@ import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils'
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import {
-  createShopBodySchema,
+  createShopRequestSchema,
   shopResponseSchema,
   shopsListQuerySchema,
   shopsListResponseSchema
@@ -253,7 +253,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(401, m.unauthorized());
   }
 
-  const body = await parseJsonOrError(request, createShopBodySchema);
+  const body = await parseJsonOrError(request, createShopRequestSchema);
   const { name, location, openingHours, address, comment, games } = body;
 
   const normalizedOpeningHours = normalizeOpeningHours(openingHours);

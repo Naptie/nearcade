@@ -10,7 +10,7 @@ import { toPlainObject } from '$lib/utils';
 import {
   queueReportResponseSchema,
   queuesListResponseSchema,
-  queuesPostBodySchema,
+  queueReportRequestSchema,
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
@@ -118,7 +118,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Validate machine authentication and shop binding
     const machine = await validateMachineAuth(request, id);
 
-    const body = await parseJsonOrError(request, queuesPostBodySchema);
+    const body = await parseJsonOrError(request, queueReportRequestSchema);
 
     const { queues: newQueuesData } = body;
 

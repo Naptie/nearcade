@@ -197,7 +197,7 @@ export const getShopsAttendanceData = async (
     );
 
     result.reported.forEach((entry) => {
-      entry.reporter = protect(users.find((u) => u.id === entry.reportedBy)) as User;
+      entry.reporter = protect(users.find((u) => u.id === entry.reportedBy));
     });
     result.reported.sort(
       (a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()

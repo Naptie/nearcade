@@ -1,9 +1,6 @@
 import { defineOpenApiRoute, jsonResponse } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
-import {
-  machineActivationResponseOpenApiSchema,
-  activateMachineQuerySchema
-} from '$lib/schemas/machines';
+import { activateMachineResponseSchema, activateMachineQuerySchema } from '$lib/schemas/machines';
 
 export default defineOpenApiRoute({
   post: {
@@ -19,7 +16,7 @@ export default defineOpenApiRoute({
     responses: {
       '200': jsonResponse(
         bilingual('机台已激活', 'Machine activated', true),
-        machineActivationResponseOpenApiSchema
+        activateMachineResponseSchema
       ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '404': { description: bilingual('机台不存在', 'Machine not found', true) }
