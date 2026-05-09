@@ -330,6 +330,11 @@ export const GET: RequestHandler = async ({ params, url }) => {
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
+  const session = locals.session;
+  if (!session?.user) {
+    error(401, m.unauthorized());
+  }
+
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
   const body = await parseJsonOrError(request, updateShopBodySchema);
 
@@ -371,9 +376,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
     // Log changes to shop changelog (non-fatal)
     const changelogUser = {
-      id: locals.session?.user?.id ?? null,
-      name: locals.session?.user?.name,
-      image: locals.session?.user?.image
+      id: session.user.id,
+      name: session.user.name,
+      image: session.user.image
     };
     try {
       await logShopFieldChanges(
