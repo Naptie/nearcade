@@ -4,7 +4,7 @@ import mongo from '$lib/db/index.server';
 import type { Machine, Shop } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
-import { activateMachineQuerySchema } from '$lib/schemas/machines';
+import { activateMachineQuerySchema, activateMachineResponseSchema } from '$lib/schemas/machines';
 import { parseQueryOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ url }) => {
@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ url }) => {
     id: machine.shopId
   });
 
-  return json({
+  const response = activateMachineResponseSchema.parse({
     success: true,
     apiSecret,
     shop: shop
@@ -66,4 +66,6 @@ export const POST: RequestHandler = async ({ url }) => {
         }
       : null
   });
+
+  return json(response);
 };

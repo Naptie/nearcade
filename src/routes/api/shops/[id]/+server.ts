@@ -5,7 +5,12 @@ import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
-import { shopDetailQuerySchema, shopIdParamSchema, updateShopBodySchema } from '$lib/schemas/shops';
+import {
+  shopDetailQuerySchema,
+  shopIdParamSchema,
+  shopResponseSchema,
+  updateShopBodySchema
+} from '$lib/schemas/shops';
 import {
   parseJsonOrError,
   parseParamsOrError,
@@ -317,9 +322,13 @@ export const GET: RequestHandler = async ({ params, url }) => {
       };
     })();
 
-    return json({
-      shop: { ...toPlainObject(shop), ...extraTimeInfo }
-    });
+    const response = shopResponseSchema.parse(
+      toPlainObject({
+        shop: { ...shop, ...extraTimeInfo }
+      })
+    );
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -408,7 +417,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const updated = await shopsCollection.findOne({ id: shopId });
-    return json({ shop: toPlainObject(updated!) });
+    const response = shopResponseSchema.parse(toPlainObject({ shop: updated! }));
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

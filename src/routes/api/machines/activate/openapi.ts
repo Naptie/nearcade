@@ -1,7 +1,9 @@
-import { defineOpenApiRoute, jsonResponse } from '$lib/openapi/route';
-import { machineActivationResponseOpenApiSchema } from '$lib/openapi/components';
+import { defineOpenApiRoute, jsonResponse } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
-import { activateMachineQuerySchema } from '$lib/schemas/machines';
+import {
+  machineActivationResponseOpenApiSchema,
+  activateMachineQuerySchema
+} from '$lib/schemas/machines';
 
 export default defineOpenApiRoute({
   post: {

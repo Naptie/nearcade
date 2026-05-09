@@ -1,11 +1,11 @@
-import { defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/openapi/route';
+import { defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/schemas/openapi';
+import { bilingual } from '$lib/schemas/common';
 import {
   createShopRequestSchema,
   shopResponseOpenApiSchema,
-  shopsListResponseOpenApiSchema
-} from '$lib/openapi/components';
-import { bilingual } from '$lib/schemas/common';
-import { shopsListQuerySchema } from '$lib/schemas/shops';
+  shopsListResponseOpenApiSchema,
+  shopsListQuerySchema
+} from '$lib/schemas/shops';
 
 export default defineOpenApiRoute({
   get: {

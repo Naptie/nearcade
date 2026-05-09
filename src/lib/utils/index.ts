@@ -711,19 +711,34 @@ export const getDisplayName = (user?: { displayName?: string | null; name?: stri
     : user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());
 };
 
-export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
-  doc: T
-): T extends null ? null : Omit<T, '_id'> & { _id: string } => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toPlainObject = <T extends Record<string, any> | null>(
+  doc: T,
+  // Allow '_id' in the omit array even if T doesn't naturally contain it.
+  // Changed default to[] so that '_id' actually gets transformed instead of deleted!
+  omit: (keyof NonNullable<T> | '_id')[] = []
+): T extends null
+  ? null
+  : // Conditionally append { _id: string } ONLY if the original object had an '_id'
+    Omit<T, '_id'> & ('_id' extends keyof NonNullable<T> ? { _id: string } : unknown) => {
   if (doc === null) return null as T extends null ? null : Omit<T, '_id'> & { _id: string };
 
   const plainify = (value: unknown): unknown => {
     if (value === null || value === undefined) return value;
     if (Array.isArray(value)) return value.map(plainify);
+    if (value instanceof Date) return value.toISOString();
     if (typeof value === 'object') {
       const result: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {
+        if (omit.includes(key as keyof T)) {
+          continue;
+        }
         result[key] =
-          (key === '_id' && val) || val instanceof Date ? val.toString() : plainify(val);
+          key === '_id' && val
+            ? val.toString()
+            : val instanceof Date
+              ? val.toISOString()
+              : plainify(val);
       }
       return result;
     }
@@ -733,8 +748,12 @@ export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
   return plainify(doc) as T extends null ? null : Omit<T, '_id'> & { _id: string };
 };
 
-export const toPlainArray = <T extends { _id?: string | ObjectId } | null>(docs: T[]) => {
-  return docs.map(toPlainObject);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toPlainArray = <T extends Record<string, any> | null>(
+  docs: T[],
+  omit: (keyof NonNullable<T>)[] = []
+) => {
+  return docs.map((doc) => toPlainObject(doc, omit));
 };
 
 export const formatDate = (date?: Date | string | null): string => {

@@ -7,7 +7,12 @@ import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
 import type { User } from '$lib/auth/types';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
-import { queuesPostBodySchema, shopIdParamSchema } from '$lib/schemas/shops';
+import {
+  queueReportResponseSchema,
+  queuesListResponseSchema,
+  queuesPostBodySchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 // Helper to validate machine API secret and check shop binding
@@ -281,7 +286,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    return json({ success: true, notificationsQueued: notificationsToSend.length });
+    const response = queueReportResponseSchema.parse({
+      success: true,
+      notificationsQueued: notificationsToSend.length
+    });
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -335,15 +345,19 @@ export const GET: RequestHandler = async ({ params }) => {
         ...position,
         members: position.members.map((member) => ({
           ...member,
-          user: member.userId ? toPlainObject(userMap.get(member.userId) || null) : null
+          user: member.userId ? userMap.get(member.userId) || null : null
         }))
       }))
     }));
 
-    return json({
-      success: true,
-      queues: enrichedQueues
-    });
+    const response = queuesListResponseSchema.parse(
+      toPlainObject({
+        success: true,
+        queues: enrichedQueues
+      })
+    );
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

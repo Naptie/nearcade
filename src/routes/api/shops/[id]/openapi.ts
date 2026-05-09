@@ -1,16 +1,17 @@
-import { defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/openapi/route';
-import { shopResponseOpenApiSchema, updateShopRequestSchema } from '$lib/openapi/components';
+import { defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
-import { shopDetailQuerySchema, shopIdParamSchema } from '$lib/schemas/shops';
+import {
+  shopResponseOpenApiSchema,
+  updateShopRequestSchema,
+  shopDetailQuerySchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
 
 export default defineOpenApiRoute({
   get: {
     tags: ['shops'],
     summary: bilingual('获取店铺详情', 'Get shop details', true),
-    description: bilingual(
-      '按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。',
-      'Get details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.'
-    ),
+    description: bilingual('按 ID 获取店铺详情。', 'Get details for a shop by ID.'),
     requestParams: {
       path: shopIdParamSchema,
       query: shopDetailQuerySchema
@@ -25,7 +26,7 @@ export default defineOpenApiRoute({
   put: {
     tags: ['shops'],
     summary: bilingual('更新店铺', 'Update shop', true),
-    description: bilingual('按数字 ID 更新店铺字段。', 'Update shop fields by numeric ID.'),
+    description: bilingual('按 ID 更新店铺字段。', 'Update shop fields by ID.'),
     requestParams: {
       path: shopIdParamSchema
     },

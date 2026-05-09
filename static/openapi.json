@@ -337,7 +337,7 @@
       "get": {
         "tags": ["shops"],
         "summary": "获取店铺详情 / Get shop details",
-        "description": "按数字 ID 获取店铺详情。当前 API 路由为 `/shops/{id}`；旧版手写文档使用 `/shops/{source}/{id}`。\n\nGet details for a shop by numeric ID. The current API route is `/shops/{id}`; legacy handwritten docs used `/shops/{source}/{id}`.",
+        "description": "按 ID 获取店铺详情。\n\nGet details for a shop by ID.",
         "operationId": "getShopsById",
         "parameters": [
           {
@@ -407,7 +407,7 @@
       "put": {
         "tags": ["shops"],
         "summary": "更新店铺 / Update shop",
-        "description": "按数字 ID 更新店铺字段。\n\nUpdate shop fields by numeric ID.",
+        "description": "按 ID 更新店铺字段。\n\nUpdate shop fields by ID.",
         "operationId": "putShopsById",
         "parameters": [
           {
@@ -550,7 +550,7 @@
         },
         "responses": {
           "200": {
-            "description": "Success / 成功",
+            "description": "成功\n\nSuccess",
             "content": {
               "application/json": {
                 "schema": {
@@ -605,7 +605,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Success / 成功",
+            "description": "成功\n\nSuccess",
             "content": {
               "application/json": {
                 "schema": {
@@ -801,7 +801,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Success / 成功",
+            "description": "成功\n\nSuccess",
             "content": {
               "application/json": {
                 "schema": {
@@ -958,6 +958,7 @@
               "general": [],
               "detailed": ""
             },
+            "description": "店铺地址。\n\nShop address.",
             "type": "object",
             "properties": {
               "general": {
@@ -1056,9 +1057,12 @@
                 "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
               }
             },
-            "required": ["type", "coordinates"]
+            "required": ["type", "coordinates"],
+            "description": "店铺坐标。\n\nShop coordinates."
           },
           "games": {
+            "default": [],
+            "description": "机台。\n\nMachines/games available at the shop.",
             "type": "array",
             "items": {
               "type": "object",
@@ -1083,9 +1087,11 @@
                   "type": "string"
                 },
                 "quantity": {
+                  "default": 1,
                   "description": "机台数量。\n\nNumber of machines.",
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "maximum": 9007199254740991
                 },
                 "cost": {
                   "default": "",
@@ -1112,6 +1118,7 @@
             "type": "string"
           },
           "address": {
+            "description": "店铺地址。\n\nShop address.",
             "type": "object",
             "properties": {
               "general": {
@@ -1180,6 +1187,7 @@
             "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
           },
           "location": {
+            "description": "店铺坐标。\n\nShop coordinates.",
             "type": "object",
             "properties": {
               "type": {
@@ -1213,6 +1221,7 @@
             "required": ["type", "coordinates"]
           },
           "games": {
+            "description": "机台。\n\nMachines/games available at the shop.",
             "type": "array",
             "items": {
               "type": "object",
@@ -1237,9 +1246,11 @@
                   "type": "string"
                 },
                 "quantity": {
+                  "default": 1,
                   "description": "机台数量。\n\nNumber of machines.",
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "maximum": 9007199254740991
                 },
                 "cost": {
                   "default": "",
@@ -1271,7 +1282,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "游戏（版本）ID。\n\nGame/version ID."
+                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                 },
                 "currentAttendances": {
                   "description": "在勤人数。\n\nReported current attendance count.",
@@ -1285,7 +1296,8 @@
                 }
               },
               "required": ["id"]
-            }
+            },
+            "description": "在勤操作的游戏列表。\n\nGames included in the attendance operation."
           },
           "plannedLeaveAt": {
             "description": "计划退勤时间。\n\nPlanned leave time for attendance registration.",
@@ -1330,7 +1342,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "游戏（版本）ID。\n\nGame/version ID."
+                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                 },
                 "queue": {
                   "type": "array",
@@ -1383,7 +1395,8 @@
                 }
               },
               "required": ["gameId", "queue"]
-            }
+            },
+            "description": "按游戏提交的队列数据。\n\nQueue payload grouped by game."
           }
         },
         "required": ["queues"]
@@ -1404,7 +1417,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。\n\nShop ID. Unique together with the source in legacy docs; current API routes use the numeric ID."
+                  "description": "店铺 ID。\n\nShop ID."
                 },
                 "name": {
                   "type": "string",
@@ -1528,6 +1541,12 @@
                         "default": "",
                         "description": "价格说明。\n\nPrice note.",
                         "type": "string"
+                      },
+                      "totalAttendance": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "机台综合在勤人数。\n\nCombined attendance count for this game."
                       }
                     },
                     "required": [
@@ -1541,7 +1560,7 @@
                     ],
                     "additionalProperties": false
                   },
-                  "description": "机台。\n\nMachines/games available at the shop."
+                  "description": "附近店铺的机台列表。\n\nGames available at the nearby shop."
                 },
                 "location": {
                   "type": "object",
@@ -1604,29 +1623,15 @@
                 },
                 "createdAt": {
                   "description": "创建时间。\n\nCreation time.",
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ]
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                 },
                 "updatedAt": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ],
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                   "description": "更新时间。\n\nUpdate time."
-                },
-                "source": {
-                  "description": "店铺来源；当前数据可能不返回该字段。\n\nLegacy shop data source when present.",
-                  "type": "string"
                 },
                 "distance": {
                   "type": "number",
@@ -1635,7 +1640,7 @@
                 "totalAttendance": {
                   "description": "店铺综合在勤人数。\n\nCombined shop attendance count.",
                   "type": "integer",
-                  "minimum": -9007199254740991,
+                  "minimum": 0,
                   "maximum": 9007199254740991
                 },
                 "currentReportedAttendance": {
@@ -1644,12 +1649,17 @@
                   "type": "object",
                   "properties": {
                     "reportedAt": {
-                      "type": "string"
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "上报时间。\n\nAttendance report time."
                     },
                     "reportedBy": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "上报者 ID。\n\nReporter user ID."
                     },
                     "reporter": {
+                      "description": "关联用户。\n\nAssociated user when available.",
                       "type": "object",
                       "properties": {
                         "_id": {
@@ -1673,25 +1683,15 @@
                           "description": "头像。\n\nAvatar URL."
                         },
                         "joinedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                           "description": "加入时间。\n\nJoin time."
                         },
                         "lastActiveAt": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                           "description": "最后活跃时间。\n\nLast active time."
                         },
                         "userType": {
@@ -1717,14 +1717,9 @@
                           "type": "string"
                         },
                         "updatedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                           "description": "资料更新时间。\n\nProfile update time."
                         },
                         "socialLinks": {
@@ -1748,55 +1743,26 @@
                           "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              "source": {
-                                "type": "string"
-                              }
-                            },
-                            "required": ["id"],
-                            "additionalProperties": false
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "starredArcades": {
                           "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              "source": {
-                                "type": "string"
-                              }
-                            },
-                            "required": ["id"],
-                            "additionalProperties": false
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         }
                       },
-                      "required": [
-                        "id",
-                        "name",
-                        "image",
-                        "joinedAt",
-                        "lastActiveAt",
-                        "bio",
-                        "displayName",
-                        "updatedAt"
-                      ],
                       "additionalProperties": false
                     },
                     "comment": {
                       "nullable": true,
+                      "description": "上报说明。\n\nAttendance report note.",
                       "type": "string"
                     }
                   },
@@ -1825,13 +1791,16 @@
             "properties": {
               "name": {
                 "nullable": true,
+                "description": "原点地名。\n\nOrigin display name.",
                 "type": "string"
               },
               "latitude": {
-                "type": "number"
+                "type": "number",
+                "description": "原点纬度。\n\nOrigin latitude."
               },
               "longitude": {
-                "type": "number"
+                "type": "number",
+                "description": "原点经度。\n\nOrigin longitude."
               }
             },
             "required": ["name", "latitude", "longitude"],
@@ -1865,13 +1834,12 @@
               "id": {
                 "type": "integer",
                 "minimum": -9007199254740991,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "店铺 ID。\n\nShop ID."
               },
               "name": {
-                "type": "string"
-              },
-              "source": {
-                "type": "string"
+                "type": "string",
+                "description": "店铺名称。\n\nShop name."
               }
             },
             "required": ["id", "name"],
@@ -1897,7 +1865,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。\n\nShop ID. Unique together with the source in legacy docs; current API routes use the numeric ID."
+                  "description": "店铺 ID。\n\nShop ID."
                 },
                 "name": {
                   "type": "string",
@@ -2097,29 +2065,15 @@
                 },
                 "createdAt": {
                   "description": "创建时间。\n\nCreation time.",
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ]
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
                 },
                 "updatedAt": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ],
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                   "description": "更新时间。\n\nUpdate time."
-                },
-                "source": {
-                  "description": "店铺来源；当前数据可能不返回该字段。\n\nLegacy shop data source when present.",
-                  "type": "string"
                 }
               },
               "required": [
@@ -2134,23 +2088,28 @@
                 "updatedAt"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "店铺列表。\n\nShop list."
           },
           "totalCount": {
             "type": "integer",
             "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "总数。\n\nTotal count."
           },
           "currentPage": {
             "type": "integer",
             "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "当前页。\n\nCurrent page."
           },
           "hasNextPage": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "是否有下一页。\n\nWhether there is a next page."
           },
           "hasPrevPage": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "是否有上一页。\n\nWhether there is a previous page."
           }
         },
         "required": ["shops", "totalCount", "currentPage", "hasNextPage", "hasPrevPage"],
@@ -2170,7 +2129,7 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991,
-                "description": "店铺 ID。旧文档中须与 source 结合才能唯一确定店铺；当前 API 路由使用数字 ID。\n\nShop ID. Unique together with the source in legacy docs; current API routes use the numeric ID."
+                "description": "店铺 ID。\n\nShop ID."
               },
               "name": {
                 "type": "string",
@@ -2370,29 +2329,15 @@
               },
               "createdAt": {
                 "description": "创建时间。\n\nCreation time.",
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
               },
               "updatedAt": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ],
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                 "description": "更新时间。\n\nUpdate time."
-              },
-              "source": {
-                "description": "店铺来源；当前数据可能不返回该字段。\n\nLegacy shop data source when present.",
-                "type": "string"
               }
             },
             "required": [
@@ -2406,7 +2351,8 @@
               "location",
               "updatedAt"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "店铺详情。\n\nShop details."
           }
         },
         "required": ["shop"],
@@ -2416,7 +2362,8 @@
         "type": "object",
         "properties": {
           "success": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "total": {
             "type": "integer",
@@ -2468,7 +2415,7 @@
                 },
                 "total": {
                   "type": "integer",
-                  "minimum": -9007199254740991,
+                  "minimum": 0,
                   "maximum": 9007199254740991,
                   "description": "机台综合在勤人数。\n\nCombined attendance count for this game."
                 }
@@ -2484,7 +2431,8 @@
                 "total"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "按游戏汇总的在勤数据。\n\nAttendance data grouped by game."
           },
           "registered": {
             "type": "array",
@@ -2492,21 +2440,29 @@
               "type": "object",
               "properties": {
                 "userId": {
+                  "description": "用户 ID。\n\nUser ID.",
                   "type": "string"
                 },
                 "gameId": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "游戏（版本）ID。\n\nGame/version ID."
+                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                 },
                 "attendedAt": {
-                  "type": "string"
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "登记在勤时间。\n\nAttendance registration time."
                 },
                 "plannedLeaveAt": {
-                  "type": "string"
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "计划退勤时间。\n\nPlanned leave time."
                 },
                 "user": {
+                  "description": "关联用户。\n\nAssociated user when available.",
                   "type": "object",
                   "properties": {
                     "_id": {
@@ -2530,25 +2486,15 @@
                       "description": "头像。\n\nAvatar URL."
                     },
                     "joinedAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "description": "加入时间。\n\nJoin time."
                     },
                     "lastActiveAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "description": "最后活跃时间。\n\nLast active time."
                     },
                     "userType": {
@@ -2574,14 +2520,9 @@
                       "type": "string"
                     },
                     "updatedAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "description": "资料更新时间。\n\nProfile update time."
                     },
                     "socialLinks": {
@@ -2605,57 +2546,28 @@
                       "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
-                          },
-                          "source": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["id"],
-                        "additionalProperties": false
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     },
                     "starredArcades": {
                       "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
-                          },
-                          "source": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["id"],
-                        "additionalProperties": false
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     }
                   },
-                  "required": [
-                    "id",
-                    "name",
-                    "image",
-                    "joinedAt",
-                    "lastActiveAt",
-                    "bio",
-                    "displayName",
-                    "updatedAt"
-                  ],
                   "additionalProperties": false
                 }
               },
               "required": ["gameId", "attendedAt", "plannedLeaveAt"],
               "additionalProperties": false
-            }
+            },
+            "description": "登记在勤列表。\n\nRegistered attendance entries."
           },
           "reported": {
             "type": "array",
@@ -2666,24 +2578,32 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "游戏（版本）ID。\n\nGame/version ID."
+                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                 },
                 "currentAttendances": {
+                  "default": 0,
+                  "description": "在勤人数。\n\nReported current attendance count.",
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
                 "comment": {
                   "nullable": true,
+                  "description": "上报说明。\n\nAttendance report note.",
                   "type": "string"
                 },
                 "reportedBy": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "上报者 ID。\n\nReporter user ID."
                 },
                 "reportedAt": {
-                  "type": "string"
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "上报时间。\n\nAttendance report time."
                 },
                 "reporter": {
+                  "description": "关联用户。\n\nAssociated user when available.",
                   "type": "object",
                   "properties": {
                     "_id": {
@@ -2707,25 +2627,15 @@
                       "description": "头像。\n\nAvatar URL."
                     },
                     "joinedAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "description": "加入时间。\n\nJoin time."
                     },
                     "lastActiveAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "description": "最后活跃时间。\n\nLast active time."
                     },
                     "userType": {
@@ -2751,14 +2661,9 @@
                       "type": "string"
                     },
                     "updatedAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "description": "资料更新时间。\n\nProfile update time."
                     },
                     "socialLinks": {
@@ -2782,57 +2687,28 @@
                       "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
-                          },
-                          "source": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["id"],
-                        "additionalProperties": false
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     },
                     "starredArcades": {
                       "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
-                          },
-                          "source": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["id"],
-                        "additionalProperties": false
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     }
                   },
-                  "required": [
-                    "id",
-                    "name",
-                    "image",
-                    "joinedAt",
-                    "lastActiveAt",
-                    "bio",
-                    "displayName",
-                    "updatedAt"
-                  ],
                   "additionalProperties": false
                 }
               },
               "required": ["gameId", "currentAttendances", "comment", "reportedBy", "reportedAt"],
               "additionalProperties": false
-            }
+            },
+            "description": "上报在勤列表。\n\nReported attendance entries."
           }
         },
         "required": ["success", "total", "games", "registered", "reported"],
@@ -2857,13 +2733,19 @@
             "description": "是否成功。\n\nWhether the operation succeeded."
           },
           "token": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "description": "生成的玩家登记令牌。\n\nGenerated player registration token."
           },
           "expiresAt": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "过期时间。\n\nExpiration time."
           },
           "shopName": {
             "nullable": true,
+            "description": "店铺名称。\n\nShop name.",
             "type": "string"
           }
         },
@@ -2881,24 +2763,144 @@
             "type": "object",
             "properties": {
               "shopId": {
-                "type": "string"
+                "type": "string",
+                "description": "店铺 ID。\n\nShop ID."
               },
               "machineId": {
-                "type": "string"
+                "type": "string",
+                "description": "机台 ID。\n\nMachine ID."
               },
               "slotIndex": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1,
+                "description": "槽位。\n\nSlot index."
               },
               "expiresAt": {
-                "type": "string"
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                "description": "过期时间。\n\nExpiration time."
               },
               "userId": {
+                "description": "用户 ID。\n\nUser ID.",
                 "type": "string"
               },
-              "user": {}
+              "user": {
+                "description": "关联用户。\n\nAssociated user.",
+                "type": "object",
+                "properties": {
+                  "_id": {
+                    "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "用户 ID。\n\nUser ID."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                  },
+                  "email": {
+                    "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string",
+                    "description": "头像。\n\nAvatar URL."
+                  },
+                  "joinedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "加入时间。\n\nJoin time."
+                  },
+                  "lastActiveAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "最后活跃时间。\n\nLast active time."
+                  },
+                  "userType": {
+                    "description": "用户类型。\n\nUser type.",
+                    "type": "string",
+                    "enum": [
+                      "site_admin",
+                      "school_admin",
+                      "school_moderator",
+                      "club_admin",
+                      "club_moderator",
+                      "student",
+                      "regular"
+                    ]
+                  },
+                  "bio": {
+                    "type": "string",
+                    "description": "个人简介。\n\nUser bio."
+                  },
+                  "displayName": {
+                    "nullable": true,
+                    "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "资料更新时间。\n\nProfile update time."
+                  },
+                  "socialLinks": {
+                    "description": "社交链接。\n\nSocial links visible to clients.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "platform": {
+                          "type": "string"
+                        },
+                        "username": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["platform", "username"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "frequentingArcades": {
+                    "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "starredArcades": {
+                    "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "image",
+                  "joinedAt",
+                  "lastActiveAt",
+                  "bio",
+                  "displayName",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              }
             },
             "required": ["shopId", "machineId", "slotIndex", "expiresAt"],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "登记令牌信息。\n\nRegistration token details."
           }
         },
         "required": ["success", "registration"],
@@ -2920,7 +2922,7 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991,
-                  "description": "游戏（版本）ID。\n\nGame/version ID."
+                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
                 },
                 "queue": {
                   "type": "array",

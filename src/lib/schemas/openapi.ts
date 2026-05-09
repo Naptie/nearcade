@@ -5,7 +5,7 @@ import type {
   ZodOpenApiRequestBodyObject,
   ZodOpenApiResponseObject
 } from 'zod-openapi';
-import { successOpenApiSchema } from './components';
+import { bilingual, successOpenApiSchema } from './common';
 
 export type ApiRouteDefinition = {
   pathItem: ZodOpenApiPathItemObject;
@@ -44,5 +44,5 @@ export const bearerAuth = [{ bearerAuth: [] }] satisfies NonNullable<
   ZodOpenApiOperationObject['security']
 >;
 
-export const successJsonResponse = (description = 'Success / 成功') =>
+export const successJsonResponse = (description = bilingual('成功', 'Success')) =>
   jsonResponse(description, successOpenApiSchema);

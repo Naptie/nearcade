@@ -1,11 +1,16 @@
-import { bearerAuth, defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/openapi/route';
+import {
+  bearerAuth,
+  defineOpenApiRoute,
+  jsonRequestBody,
+  jsonResponse
+} from '$lib/schemas/openapi';
+import { bilingual } from '$lib/schemas/common';
 import {
   queueListResponseOpenApiSchema,
   queueReportRequestSchema,
-  queueReportResponseOpenApiSchema
-} from '$lib/openapi/components';
-import { bilingual } from '$lib/schemas/common';
-import { shopIdParamSchema } from '$lib/schemas/shops';
+  queueReportResponseOpenApiSchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
 
 export default defineOpenApiRoute({
   get: {

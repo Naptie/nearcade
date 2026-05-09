@@ -5,10 +5,14 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from './attendance.server';
 import type { User } from '$lib/auth/types';
-import { discoverQuerySchema } from '$lib/schemas/discover';
+import {
+  discoverQuerySchema,
+  discoverResponseSchema,
+  type DiscoverResponse
+} from '$lib/schemas/discover';
 import { parseQueryOrError } from '$lib/utils/validation.server';
 
-export const loadShops = async ({ url }: { url: URL }) => {
+export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse> => {
   const queryUrl = new URL(url);
   if (!queryUrl.searchParams.has('latitude') && queryUrl.searchParams.has('lat')) {
     queryUrl.searchParams.set('latitude', queryUrl.searchParams.get('lat')!);
@@ -83,7 +87,7 @@ export const loadShops = async ({ url }: { url: URL }) => {
       }
 
       return {
-        ...toPlainObject(shop),
+        ...shop,
         ...extraTimeInfo,
         distance
       };
@@ -112,7 +116,7 @@ export const loadShops = async ({ url }: { url: URL }) => {
               ? {
                   reportedAt: latestReport.reportedAt,
                   reportedBy: latestReport.reportedBy,
-                  reporter: toPlainObject(latestReport.reporter!),
+                  reporter: latestReport.reporter!,
                   comment: latestReport.comment ?? null
                 }
               : null
@@ -132,15 +136,19 @@ export const loadShops = async ({ url }: { url: URL }) => {
     }
 
     enrichedShops.sort((a, b) => a.distance - b.distance);
-    return {
-      shops: enrichedShops,
-      location: {
-        name: url.searchParams.get('name'),
-        latitude,
-        longitude
-      },
-      radius: radiusKm
-    };
+
+    const response = discoverResponseSchema.parse(
+      toPlainObject({
+        shops: enrichedShops,
+        location: {
+          name: url.searchParams.get('name'),
+          latitude,
+          longitude
+        },
+        radius: radiusKm
+      })
+    );
+    return response;
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

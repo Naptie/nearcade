@@ -2,10 +2,15 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Shop } from '$lib/types';
-import { getShopOpeningHours, getShopTimezone, toPlainArray, toPlainObject } from '$lib/utils';
+import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
-import { createShopBodySchema, shopsListQuerySchema } from '$lib/schemas/shops';
+import {
+  createShopBodySchema,
+  shopResponseSchema,
+  shopsListQuerySchema,
+  shopsListResponseSchema
+} from '$lib/schemas/shops';
 import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.server';
 import { m } from '$lib/paraglide/messages';
 
@@ -205,9 +210,9 @@ export const GET: RequestHandler = async ({ url }) => {
 
     const now = new Date();
 
-    return json({
-      shops: toPlainArray(
-        shops.map((shop) => {
+    const response = shopsListResponseSchema.parse(
+      toPlainObject({
+        shops: shops.map((shop) => {
           const extraTimeInfo = (() => {
             if (!includeTimeInfo)
               return {} as Partial<{
@@ -227,16 +232,18 @@ export const GET: RequestHandler = async ({ url }) => {
             ...shop,
             ...extraTimeInfo
           };
-        })
-      ),
-      totalCount,
-      currentPage: page,
-      hasNextPage: skip + shops.length < totalCount,
-      hasPrevPage: page > 1
-    });
+        }),
+        totalCount,
+        currentPage: page,
+        hasNextPage: skip + shops.length < totalCount,
+        hasPrevPage: page > 1
+      })
+    );
+
+    return json(response);
   } catch (error) {
     console.error('Error searching shops:', error);
-    return json({ shops: [] }, { status: 500 });
+    return json({ error: 'Failed to search shops' }, { status: 500 });
   }
 };
 
@@ -287,8 +294,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     };
 
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);
+    const response = shopResponseSchema.parse(toPlainObject({ shop: newShop }));
 
-    return json({ shop: toPlainObject(newShop) }, { status: 201 });
+    return json(response, { status: 201 });
   } catch (err) {
     console.error('Error creating shop:', err);
     return json({ error: 'Failed to create shop' }, { status: 500 });

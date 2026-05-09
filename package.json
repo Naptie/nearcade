@@ -10,7 +10,7 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "openapi:generate": "tsx ./scripts/generate-openapi.ts",
+    "openapi": "tsx ./scripts/generate-openapi.ts && prettier --write ./static/openapi.json",
     "format": "prettier --write .",
     "lint": "eslint .",
     "fl": "prettier --write . && eslint . --fix",

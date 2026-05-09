@@ -3,10 +3,14 @@ import {
   jsonRequestBody,
   jsonResponse,
   successJsonResponse
-} from '$lib/openapi/route';
-import { attendanceRequestSchema, attendanceResponseOpenApiSchema } from '$lib/openapi/components';
+} from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
-import { attendanceQuerySchema, shopIdParamSchema } from '$lib/schemas/shops';
+import {
+  attendanceRequestSchema,
+  attendanceResponseOpenApiSchema,
+  attendanceQuerySchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
 
 export default defineOpenApiRoute({
   get: {

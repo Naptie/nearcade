@@ -3,11 +3,12 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { AttendanceRecord, AttendanceReportRecord, Shop } from '$lib/types';
-import { getShopOpeningHours } from '$lib/utils';
+import { getShopOpeningHours, toPlainObject } from '$lib/utils';
 import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendancePostBodySchema,
   attendanceQuerySchema,
@@ -18,6 +19,7 @@ import {
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
+import { successResponseSchema } from '$lib/schemas/common';
 
 const attend = async (
   user: User,
@@ -316,7 +318,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
     await leave(session.user, shop);
 
-    return json({ success: true });
+    const response = successResponseSchema.parse({ success: true });
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -348,13 +352,28 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
     const result = attendanceData.get(id.toString())!;
 
-    return json({
-      success: true,
-      total: result.total,
-      games: result.games,
-      registered: result.registered,
-      reported: result.reported
-    });
+    const response = attendanceResponseSchema.parse(
+      toPlainObject({
+        success: true,
+        total: result.total,
+        games: result.games.map((game) => ({
+          ...game,
+          comment: '',
+          cost: ''
+        })),
+        registered: result.registered.map((entry) => ({
+          ...entry,
+          user: entry.user
+        })),
+        reported: result.reported.map((entry) => ({
+          ...entry,
+          currentAttendances: entry.currentAttendances ?? 0,
+          reporter: entry.reporter
+        }))
+      })
+    );
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

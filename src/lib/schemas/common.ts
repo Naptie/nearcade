@@ -96,12 +96,14 @@ export const errorResponseSchema = z.object({
   message: z.string().optional().describe(bilingual('错误信息。', 'Error message.'))
 });
 
+export const userIdSchema = z.string().describe(bilingual('用户 ID。', 'User ID.'));
+
 export const userPublicSchema = z.object({
   _id: z
     .string()
     .optional()
     .describe(bilingual('MongoDB ID。客户端请使用 id。', 'MongoDB ID. Use `id` in clients.')),
-  id: z.string().describe(bilingual('用户 ID。', 'User ID.')),
+  id: userIdSchema,
   name: z
     .string()
     .describe(
@@ -117,10 +119,8 @@ export const userPublicSchema = z.object({
       )
     ),
   image: z.string().describe(bilingual('头像。', 'Avatar URL.')),
-  joinedAt: z.union([z.string(), z.date()]).describe(bilingual('加入时间。', 'Join time.')),
-  lastActiveAt: z
-    .union([z.string(), z.date()])
-    .describe(bilingual('最后活跃时间。', 'Last active time.')),
+  joinedAt: z.iso.datetime().describe(bilingual('加入时间。', 'Join time.')),
+  lastActiveAt: z.iso.datetime().describe(bilingual('最后活跃时间。', 'Last active time.')),
   userType: z
     .enum([
       'site_admin',
@@ -143,15 +143,13 @@ export const userPublicSchema = z.object({
         'Display name, preferred over `name` when present.'
       )
     ),
-  updatedAt: z
-    .union([z.string(), z.date()])
-    .describe(bilingual('资料更新时间。', 'Profile update time.')),
+  updatedAt: z.iso.datetime().describe(bilingual('资料更新时间。', 'Profile update time.')),
   socialLinks: z
     .array(z.object({ platform: z.string(), username: z.string() }))
     .optional()
     .describe(bilingual('社交链接。', 'Social links visible to clients.')),
   frequentingArcades: z
-    .array(z.object({ id: z.int(), source: z.string().optional() }))
+    .array(z.int())
     .optional()
     .describe(
       bilingual(
@@ -160,7 +158,7 @@ export const userPublicSchema = z.object({
       )
     ),
   starredArcades: z
-    .array(z.object({ id: z.int(), source: z.string().optional() }))
+    .array(z.int())
     .optional()
     .describe(
       bilingual(
@@ -173,5 +171,7 @@ export const userPublicSchema = z.object({
 export const parseSearchParams = <Schema extends z.ZodTypeAny>(schema: Schema, url: URL) => {
   return schema.parse(Object.fromEntries(url.searchParams));
 };
+
+export const successOpenApiSchema = successResponseSchema.meta({ id: 'SuccessResponse' });
 
 export type OpeningHourTimeInput = z.infer<typeof openingHourTimeSchema>;

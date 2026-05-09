@@ -1,7 +1,6 @@
-import { defineOpenApiRoute, jsonResponse } from '$lib/openapi/route';
-import { discoverResponseOpenApiSchema } from '$lib/openapi/components';
+import { defineOpenApiRoute, jsonResponse } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
-import { discoverQuerySchema } from '$lib/schemas/discover';
+import { discoverResponseOpenApiSchema, discoverQuerySchema } from '$lib/schemas/discover';
 
 export default defineOpenApiRoute({
   get: {

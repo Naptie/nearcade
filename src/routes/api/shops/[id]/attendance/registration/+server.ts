@@ -6,14 +6,20 @@ import type { Machine, AttendanceRegistration, Shop } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
-import { protect } from '$lib/utils';
-import { registrationBodySchema, registrationQuerySchema } from '$lib/schemas/machines';
+import { protect, toPlainObject } from '$lib/utils';
+import {
+  registrationBodySchema,
+  registrationCreateResponseSchema,
+  registrationGetResponseSchema,
+  registrationQuerySchema
+} from '$lib/schemas/machines';
 import { shopIdParamSchema } from '$lib/schemas/shops';
 import {
   parseJsonOrError,
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
+import { successResponseSchema } from '$lib/schemas/common';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 const MAX_EXPIRATION_SECONDS = 2 * 60; // 2 minutes
@@ -85,12 +91,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const db = mongo.db();
     const shop = await db.collection<Shop>('shops').findOne({ id });
 
-    return json({
+    const response = registrationCreateResponseSchema.parse({
       success: true,
       token,
       expiresAt: registration.expiresAt,
       shopName: shop?.name || null
     });
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -130,10 +138,14 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
       user = (await usersCollection.findOne({ id: registration.userId })) ?? undefined;
     }
 
-    return json({
-      success: true,
-      registration: user ? { ...registration, user: protect(user) } : registration
-    });
+    const response = registrationGetResponseSchema.parse(
+      toPlainObject({
+        success: true,
+        registration: user ? { ...registration, user: protect(user) } : registration
+      })
+    );
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -159,7 +171,9 @@ export const DELETE: RequestHandler = async ({ params, request, url }) => {
       error(404, m.registration_not_found_or_expired());
     }
 
-    return json({ success: true });
+    const response = successResponseSchema.parse({ success: true });
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

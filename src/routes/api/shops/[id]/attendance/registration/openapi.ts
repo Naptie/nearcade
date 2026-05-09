@@ -4,14 +4,14 @@ import {
   jsonRequestBody,
   jsonResponse,
   successJsonResponse
-} from '$lib/openapi/route';
+} from '$lib/schemas/openapi';
+import { bilingual } from '$lib/schemas/common';
 import {
   attendanceRegistrationCreateResponseOpenApiSchema,
   attendanceRegistrationGetResponseOpenApiSchema,
-  attendanceRegistrationRequestSchema
-} from '$lib/openapi/components';
-import { bilingual } from '$lib/schemas/common';
-import { registrationQuerySchema } from '$lib/schemas/machines';
+  attendanceRegistrationRequestSchema,
+  registrationQuerySchema
+} from '$lib/schemas/machines';
 import { shopIdParamSchema } from '$lib/schemas/shops';
 
 export default defineOpenApiRoute({
