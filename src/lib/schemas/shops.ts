@@ -672,12 +672,6 @@ export const shopDeleteRequestSchema = z
   })
   .describe(bilingual('店铺删除申请。', 'Shop delete request.'));
 
-export const shopDeleteRequestByShopListResponseSchema = z.object({
-  requests: z
-    .array(shopDeleteRequestSchema)
-    .describe(bilingual('店铺删除申请列表。', 'Delete requests for the shop.'))
-});
-
 export const shopDeleteRequestsListQuerySchema = z.object({
   status: shopDeleteRequestStatusFilterSchema
 });
