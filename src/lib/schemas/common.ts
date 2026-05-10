@@ -110,7 +110,7 @@ const NOTIFICATION_TYPES = [
   'SHOP_DELETE_REQUESTS'
 ] as const;
 
-const objectIdSchema = z
+export const objectIdSchema = z
   .custom<ObjectId>(
     (value) =>
       typeof value === 'object' &&
@@ -129,7 +129,7 @@ export const dateTimeSchema = (description: string) =>
     .describe(description)
     .meta({ override: { type: 'string', format: 'date-time' } });
 
-const socialLinkSchema = z.object({
+export const socialLinkSchema = z.object({
   platform: z.enum(SOCIAL_PLATFORMS).describe(bilingual('社交平台。', 'Social platform.')),
   username: z.string().describe(bilingual('用户名。', 'Username.'))
 });

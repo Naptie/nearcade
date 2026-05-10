@@ -3,6 +3,9 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
+import { avatarUploadResponseSchema } from '$lib/schemas/users';
+import { imageUploadFormDataSchema } from '$lib/schemas/images';
+import { parseOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = locals.session;
@@ -17,13 +20,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(400, 'Invalid form data');
   }
 
-  const file = formData.get('file') as File | null;
-  if (!file) {
-    error(400, 'A file is required');
-  }
-  if (!file.type.startsWith('image/')) {
-    error(400, 'Only image files are allowed');
-  }
+  const { file } = parseOrError(imageUploadFormDataSchema.pick({ file: true }), {
+    file: formData.get('file')
+  });
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -36,6 +35,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       streamController = controller;
     }
   });
+
+  const enqueueEvent = (event: unknown) => {
+    const payload = avatarUploadResponseSchema.parse(event);
+    streamController.enqueue(encoder.encode(JSON.stringify(payload) + '\n'));
+  };
 
   (async () => {
     try {
@@ -56,8 +60,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         uploadedBy: userId,
         owner: { userId },
         onProgress: (progress) => {
-          const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-          streamController.enqueue(encoder.encode(line));
+          enqueueEvent({ phase: 'uploading', progress });
         }
       });
 
@@ -81,22 +84,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
       );
 
-      const line =
-        JSON.stringify({
-          phase: 'done',
-          imageId: image.id,
-          url: image.url,
-          storageProvider: image.storageProvider,
-          storageKey: image.storageKey,
-          storageObjectId: image.storageObjectId ?? null
-        }) + '\n';
-      streamController.enqueue(encoder.encode(line));
+      enqueueEvent({
+        phase: 'done',
+        imageId: image.id,
+        url: image.url,
+        storageProvider: image.storageProvider,
+        storageKey: image.storageKey,
+        storageObjectId: image.storageObjectId ?? null
+      });
       streamController.close();
     } catch (err) {
       console.error('User avatar upload error:', err);
-      const line = JSON.stringify({ phase: 'error', message: m.image_upload_failed() }) + '\n';
       try {
-        streamController.enqueue(encoder.encode(line));
+        enqueueEvent({ phase: 'error', message: m.image_upload_failed() });
         streamController.close();
       } catch {
         // controller may already be closed

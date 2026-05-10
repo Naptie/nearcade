@@ -3,7 +3,16 @@ import type { RADIUS_OPTIONS, GAME_TITLES } from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
-import type { gameSchema, shopSchema } from '$lib/schemas/shops';
+import { activitySchema } from '$lib/schemas/users';
+import { commentSchema, commentVoteSchema } from '$lib/schemas/comments';
+import { imageAssetSchema } from '$lib/schemas/images';
+import type {
+  gameSchema,
+  shopDeleteRequestSchema,
+  shopDeleteRequestVoteSchema,
+  shopPhotoSchema,
+  shopSchema
+} from '$lib/schemas/shops';
 
 export interface Location {
   type: 'Point';
@@ -226,37 +235,11 @@ export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verifi
   user: PublicUser | undefined;
 }
 
-export interface ShopDeleteRequest {
-  _id?: string | ObjectId;
-  id: string;
-  shopId: number;
-  shopName: string;
-  reason: string;
-  images?: string[];
-  resolvedImages?: ImageAsset[];
-  requestedBy: string | null;
-  requestedByName?: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: Date;
-  reviewedAt?: Date | null;
-  reviewedBy?: string | null;
-  reviewNote?: string | null;
-  // Optional: if set, this is a photo delete request (not a shop delete request)
-  photoId?: string | null;
-  photoUrl?: string | null;
-}
+export type ShopDeleteRequest = z.infer<typeof shopDeleteRequestSchema>;
 
 export type ShopDeleteRequestVoteType = 'favor' | 'against';
 
-export interface ShopDeleteRequestVote {
-  _id?: string | ObjectId;
-  id: string;
-  shopDeleteRequestId: string;
-  userId: string;
-  voteType: ShopDeleteRequestVoteType;
-  createdAt: Date;
-  updatedAt?: Date;
-}
+export type ShopDeleteRequestVote = z.infer<typeof shopDeleteRequestVoteSchema>;
 
 export interface ShopDeleteRequestVoteSummary {
   favorVotes: number;
@@ -266,28 +249,9 @@ export interface ShopDeleteRequestVoteSummary {
 
 export type ImageStorageProvider = 's3' | 'leancloud';
 
-export interface ImageAsset {
-  _id?: string | ObjectId;
-  id: string;
-  shopId?: number;
-  commentId?: string;
-  postId?: string;
-  deleteRequestId?: string;
-  userId?: string | null;
-  universityId?: string | null;
-  clubId?: string | null;
-  url: string;
-  storageProvider: ImageStorageProvider;
-  storageKey: string;
-  storageObjectId?: string | null;
-  uploadedBy: string | null;
-  uploader?: PublicUser;
-  uploadedAt: Date;
-}
+export type ImageAsset = z.infer<typeof imageAssetSchema>;
 
-export type ShopPhoto = ImageAsset & {
-  shopId: number;
-};
+export type ShopPhoto = z.infer<typeof shopPhotoSchema>;
 
 export type ShopChangelogAction =
   | 'created'
@@ -433,23 +397,7 @@ export interface PostVote {
   updatedAt?: Date;
 }
 
-export interface Comment {
-  _id?: string | ObjectId;
-  id: string;
-  postId?: string;
-  shopId?: number;
-  shopDeleteRequestId?: string;
-  content: string; // Markdown content
-  images?: string[];
-  createdBy: string; // User ID
-  createdAt: Date;
-  updatedAt?: Date;
-  // For nested replies
-  parentCommentId?: string | null;
-  // Engagement
-  upvotes: number;
-  downvotes: number;
-}
+export type Comment = z.infer<typeof commentSchema>;
 
 // Composite type with author data joined
 export interface CommentWithAuthorAndVote extends Comment {
@@ -459,100 +407,10 @@ export interface CommentWithAuthorAndVote extends Comment {
   resolvedImages?: ImageAsset[];
 }
 
-export interface CommentVote {
-  _id?: string | ObjectId;
-  id: string;
-  commentId: string;
-  userId: string;
-  voteType: 'upvote' | 'downvote';
-  createdAt: Date;
-  updatedAt?: Date;
-}
+export type CommentVote = z.infer<typeof commentVoteSchema>;
 
 // Activity types for recent activity feature
-export interface Activity {
-  _id?: string | ObjectId;
-  id: string;
-  type:
-    | 'post'
-    | 'comment'
-    | 'reply'
-    | 'shop_comment'
-    | 'shop_reply'
-    | 'post_vote'
-    | 'comment_vote'
-    | 'shop_comment_vote'
-    | 'shop_delete_request_comment'
-    | 'shop_delete_request_reply'
-    | 'shop_delete_request_comment_vote'
-    | 'shop_delete_request_vote'
-    | 'changelog'
-    | 'university_join'
-    | 'club_join'
-    | 'club_create'
-    | 'shop_attendance';
-  createdAt: Date;
-  userId: string;
-
-  // Post activity
-  postTitle?: string;
-  postId?: string;
-  universityId?: string;
-  clubId?: string;
-  universityName?: string;
-  clubName?: string;
-
-  // Comment activity
-  commentContent?: string;
-  commentId?: string;
-  parentCommentId?: string | null;
-  parentPostTitle?: string;
-
-  // Vote activity
-  voteType?: 'upvote' | 'downvote';
-  targetType?:
-    | 'post'
-    | 'comment'
-    | 'reply'
-    | 'shop_comment'
-    | 'shop_reply'
-    | 'shop_delete_request'
-    | 'shop_delete_request_comment'
-    | 'shop_delete_request_reply';
-  targetTitle?: string;
-  targetAuthorName?: string;
-  targetAuthorDisplayName?: string;
-  targetId?: string;
-
-  // Changelog activity
-  changelogAction?: string;
-  changelogDescription?: string;
-  changelogTargetName?: string;
-  changelogTargetId?: string;
-  changelogEntry?: ChangelogEntry; // Store the full entry for proper formatting
-
-  // Membership activity (university_join, club_join)
-  joinedUniversityId?: string;
-  joinedUniversityName?: string;
-  joinedClubId?: string;
-  joinedClubName?: string;
-
-  // Club creation activity (club_create)
-  createdClubId?: string;
-  createdClubName?: string;
-
-  // Shop attendance activity (shop_attendance)
-  shopId?: number;
-  shopName?: string;
-  leaveAt?: Date;
-  attendanceGames?: string; // Comma-separated game names
-  isLive?: boolean; // Whether the attendance is still ongoing
-
-  // Shop delete request activity
-  shopDeleteRequestId?: string;
-  shopDeleteRequestType?: 'shop' | 'photo';
-  shopDeleteRequestVoteType?: ShopDeleteRequestVoteType;
-}
+export type Activity = z.infer<typeof activitySchema>;
 
 // Notification types for active notification system
 export interface Notification {

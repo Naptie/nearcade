@@ -7,28 +7,8 @@ import {
   type ImageDraftContext,
   type ImageOwnerReference
 } from '$lib/images/index.server';
-
-const getOptionalStringFromRequest = (formData: FormData, url: URL, key: string) => {
-  const formValue = formData.get(key);
-  if (typeof formValue === 'string' && formValue.trim()) {
-    return formValue.trim();
-  }
-
-  const queryValue = url.searchParams.get(key);
-  return queryValue?.trim() || undefined;
-};
-
-const getOptionalShopIdFromRequest = (formData: FormData, url: URL) => {
-  const value = getOptionalStringFromRequest(formData, url, 'shopId');
-  if (!value) return undefined;
-
-  const shopId = Number.parseInt(value, 10);
-  if (Number.isNaN(shopId)) {
-    error(400, 'Invalid shop id');
-  }
-
-  return shopId;
-};
+import { imageUploadEventSchema, imageUploadFormDataSchema } from '$lib/schemas/images';
+import { parseOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = locals.session;
@@ -43,31 +23,40 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(400, 'Invalid form data');
   }
 
-  const file = formData.get('file') as File | null;
-  if (!file) {
-    error(400, 'A file is required');
-  }
-  if (!file.type.startsWith('image/')) {
-    error(400, 'Only image files are allowed');
-  }
-
   const url = new URL(request.url);
+  const {
+    file,
+    shopId,
+    commentId,
+    postId,
+    deleteRequestId,
+    draftKind,
+    organizationType,
+    organizationId
+  } = parseOrError(imageUploadFormDataSchema, {
+    file: formData.get('file'),
+    shopId: formData.get('shopId') ?? url.searchParams.get('shopId'),
+    commentId: formData.get('commentId') ?? url.searchParams.get('commentId'),
+    postId: formData.get('postId') ?? url.searchParams.get('postId'),
+    deleteRequestId: formData.get('deleteRequestId') ?? url.searchParams.get('deleteRequestId'),
+    draftKind: formData.get('draftKind') ?? url.searchParams.get('draftKind'),
+    organizationType:
+      formData.get('organizationType') ?? url.searchParams.get('organizationType'),
+    organizationId: formData.get('organizationId') ?? url.searchParams.get('organizationId')
+  });
   const owner: ImageOwnerReference = {
-    shopId: getOptionalShopIdFromRequest(formData, url),
-    commentId: getOptionalStringFromRequest(formData, url, 'commentId'),
-    postId: getOptionalStringFromRequest(formData, url, 'postId'),
-    deleteRequestId: getOptionalStringFromRequest(formData, url, 'deleteRequestId')
+    shopId,
+    commentId,
+    postId,
+    deleteRequestId
   };
   const draftContext: ImageDraftContext = {
-    kind: getOptionalStringFromRequest(formData, url, 'draftKind') as ImageDraftContext['kind'],
-    organizationType: getOptionalStringFromRequest(formData, url, 'organizationType') as
-      | 'university'
-      | 'club'
-      | undefined,
-    organizationId: getOptionalStringFromRequest(formData, url, 'organizationId'),
-    postId: getOptionalStringFromRequest(formData, url, 'postId'),
-    shopId: getOptionalShopIdFromRequest(formData, url),
-    deleteRequestId: getOptionalStringFromRequest(formData, url, 'deleteRequestId')
+    kind: draftKind as ImageDraftContext['kind'],
+    organizationType,
+    organizationId,
+    postId,
+    shopId,
+    deleteRequestId
   };
 
   const arrayBuffer = await file.arrayBuffer();
@@ -83,6 +72,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   });
 
+  const enqueueEvent = (event: unknown) => {
+    const payload = imageUploadEventSchema.parse(event);
+    streamController.enqueue(encoder.encode(JSON.stringify(payload) + '\n'));
+  };
+
   (async () => {
     try {
       const image = await createUploadedImage({
@@ -94,27 +88,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         owner,
         draftContext,
         onProgress: (progress) => {
-          const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-          streamController.enqueue(encoder.encode(line));
+          enqueueEvent({ phase: 'uploading', progress });
         }
       });
 
-      const line =
-        JSON.stringify({
-          phase: 'done',
-          imageId: image.id,
-          url: image.url,
-          storageProvider: image.storageProvider,
-          storageKey: image.storageKey,
-          storageObjectId: image.storageObjectId ?? null
-        }) + '\n';
-      streamController.enqueue(encoder.encode(line));
+      enqueueEvent({
+        phase: 'done',
+        imageId: image.id,
+        url: image.url,
+        storageProvider: image.storageProvider,
+        storageKey: image.storageKey,
+        storageObjectId: image.storageObjectId ?? null
+      });
       streamController.close();
     } catch (err) {
       console.error('Image upload error:', err);
-      const line = JSON.stringify({ phase: 'error', message: 'Upload failed' }) + '\n';
       try {
-        streamController.enqueue(encoder.encode(line));
+        enqueueEvent({ phase: 'error', message: m.image_upload_failed() });
         streamController.close();
       } catch {
         // controller may already be closed

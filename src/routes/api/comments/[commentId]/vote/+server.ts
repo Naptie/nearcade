@@ -14,6 +14,12 @@ import { nanoid } from 'nanoid';
 import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import {
+  commentIdParamSchema,
+  commentVoteRequestSchema,
+  commentVoteResponseSchema
+} from '$lib/schemas/comments';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -22,17 +28,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const commentId = params.commentId;
-    if (!commentId) {
-      error(400, m.invalid_comment_id());
-    }
-
-    const { voteType } = (await request.json()) as {
-      voteType: 'upvote' | 'downvote';
-    };
-    if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      error(400, m.invalid_vote_type());
-    }
+    const { commentId } = parseParamsOrError(commentIdParamSchema, params);
+    const { voteType } = await parseJsonOrError(request, commentVoteRequestSchema);
 
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
@@ -229,12 +226,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(500, m.failed_to_get_updated_comment());
     }
 
-    return json({
-      success: true,
-      upvotes: updatedComment.upvotes,
-      downvotes: updatedComment.downvotes,
-      userVote: newUserVote
-    });
+    return json(
+      commentVoteResponseSchema.parse({
+        success: true,
+        upvotes: updatedComment.upvotes,
+        downvotes: updatedComment.downvotes,
+        userVote: newUserVote
+      })
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
