@@ -1,20 +1,31 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { nanoid } from 'nanoid';
+import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
 import { notify } from '$lib/notifications/index.server';
-import type { Comment, Notification, ShopDeleteRequest } from '$lib/types';
-import { commentId, toPlainArray } from '$lib/utils';
+import { commentId, toPlainArray, toPlainObject } from '$lib/utils';
 import { getShopDeleteRequestComments } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
-import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import {
+  shopDeleteRequestCommentCreateRequestSchema,
+  shopDeleteRequestCommentCreateResponseSchema,
+  shopDeleteRequestCommentSchema,
+  shopDeleteRequestCommentsResponseSchema,
+  shopDeleteRequestIdParamSchema,
+  shopDeleteRequestSchema
+} from '$lib/schemas/shops';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+type ShopDeleteRequestEntry = z.infer<typeof shopDeleteRequestSchema>;
+type ShopDeleteRequestCommentEntry = z.infer<typeof shopDeleteRequestCommentSchema>;
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
+    const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
     const db = mongo.db();
-    const deleteRequest = await db
-      .collection<ShopDeleteRequest>('shop_delete_requests')
-      .findOne({ id: params.id });
+    const deleteRequest = await db.collection('shop_delete_requests').findOne({ id });
 
     if (!deleteRequest) {
       error(404, m.shop_delete_request_not_found());
@@ -25,8 +36,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       deleteRequest.id,
       locals.session?.user?.id
     );
+    const response = shopDeleteRequestCommentsResponseSchema.parse(toPlainArray(comments));
 
-    return json(toPlainArray(comments));
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -43,24 +55,18 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const { content, parentCommentId, images } = (await request.json()) as {
-      content: string;
-      parentCommentId?: string;
-      images?: unknown;
-    };
-
-    const imageIds = normalizeImageIds(images);
-    const trimmedContent = content?.trim() ?? '';
-
-    if (!trimmedContent && imageIds.length === 0) {
-      error(400, m.comment_content_is_required());
-    }
+    const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
+    const {
+      content,
+      parentCommentId,
+      images: imageIds
+    } = await parseJsonOrError(request, shopDeleteRequestCommentCreateRequestSchema);
 
     const db = mongo.db();
-    const deleteRequestsCollection = db.collection<ShopDeleteRequest>('shop_delete_requests');
-    const commentsCollection = db.collection<Comment>('comments');
+    const deleteRequestsCollection = db.collection<ShopDeleteRequestEntry>('shop_delete_requests');
+    const commentsCollection = db.collection<ShopDeleteRequestCommentEntry>('comments');
 
-    const deleteRequest = await deleteRequestsCollection.findOne({ id: params.id });
+    const deleteRequest = await deleteRequestsCollection.findOne({ id });
     if (!deleteRequest) {
       error(404, m.shop_delete_request_not_found());
     }
@@ -69,7 +75,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(409, 'This delete request is closed');
     }
 
-    let parentComment: Comment | null = null;
+    let parentComment: ShopDeleteRequestCommentEntry | null = null;
     if (parentCommentId) {
       parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment || parentComment.shopDeleteRequestId !== deleteRequest.id) {
@@ -77,19 +83,25 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       }
     }
 
-    const newComment: Comment = {
-      id: commentId(),
-      shopDeleteRequestId: deleteRequest.id,
-      content: trimmedContent,
-      images: imageIds,
-      createdBy: session.user.id,
-      createdAt: new Date(),
-      parentCommentId: parentCommentId || null,
-      upvotes: 0,
-      downvotes: 0
+    const newComment = shopDeleteRequestCommentSchema.parse(
+      toPlainObject({
+        id: commentId(),
+        shopDeleteRequestId: deleteRequest.id,
+        content,
+        images: imageIds,
+        createdBy: session.user.id,
+        createdAt: new Date(),
+        parentCommentId: parentCommentId ?? null,
+        upvotes: 0,
+        downvotes: 0
+      })
+    );
+
+    const commentDocument: Omit<typeof newComment, '_id'> = {
+      ...newComment
     };
 
-    await commentsCollection.insertOne(newComment);
+    await commentsCollection.insertOne(commentDocument);
 
     try {
       if (imageIds.length > 0) {
@@ -101,12 +113,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         );
       }
     } catch (attachmentError) {
-      await commentsCollection.deleteOne({ id: newComment.id });
+      await commentsCollection.deleteOne({ id: commentDocument.id });
       throw attachmentError;
     }
 
     try {
-      const notificationTargets = new Map<string, Notification['type']>();
+      const notificationTargets = new Map<string, 'COMMENTS' | 'REPLIES'>();
 
       if (parentComment?.createdBy && parentComment.createdBy !== session.user.id) {
         notificationTargets.set(parentComment.createdBy, 'REPLIES');
@@ -128,7 +140,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             actorDisplayName: session.user.displayName || undefined,
             actorImage: session.user.image || undefined,
             targetUserId,
-            content: trimmedContent.substring(0, 200),
+            content: content.substring(0, 200),
             commentId: newComment.id,
             shopId: deleteRequest.shopId,
             shopDeleteRequestId: deleteRequest.id,
@@ -141,7 +153,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       console.error('Failed to send delete request comment notification:', notificationError);
     }
 
-    return json({ success: true, commentId: newComment.id, id: nanoid() }, { status: 201 });
+    return json(
+      shopDeleteRequestCommentCreateResponseSchema.parse({
+        success: true,
+        commentId: newComment.id,
+        id: nanoid()
+      }),
+      { status: 201 }
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

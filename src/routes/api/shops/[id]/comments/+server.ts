@@ -1,29 +1,34 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
-import type { Shop, Comment, CommentWithAuthorAndVote } from '$lib/types';
-import { commentId, protect, toPlainArray } from '$lib/utils';
+import { commentId, protect, toPlainArray, toPlainObject } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import { attachImagesToOwner, hydrateEntitiesWithImages } from '$lib/images/index.server';
 import {
-  attachImagesToOwner,
-  hydrateEntitiesWithImages,
-  normalizeImageIds
-} from '$lib/images/index.server';
+  shopCommentCreateRequestSchema,
+  shopCommentCreateResponseSchema,
+  shopCommentEntrySchema,
+  shopCommentsResponseSchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+type ShopCommentEntry = z.infer<typeof shopCommentEntrySchema>;
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
-    const { id } = params;
-    const shopId = parseInt(id);
+    const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
 
     const session = locals.session;
     const db = mongo.db();
-    const commentsCollection = db.collection<Comment>('comments');
+    const commentsCollection = db.collection<ShopCommentEntry>('comments');
 
     const comments = await commentsCollection
-      .aggregate<CommentWithAuthorAndVote>([
+      .aggregate<ShopCommentEntry>([
         {
-          $match: { shopId: shopId }
+          $match: { shopId }
         },
         {
           $lookup: {
@@ -74,8 +79,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
 
     const hydratedComments = await hydrateEntitiesWithImages(db, comments);
+    const response = shopCommentsResponseSchema.parse(toPlainArray(hydratedComments));
 
-    return json(toPlainArray(hydratedComments));
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -92,24 +98,16 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const { id } = params;
-    const shopId = parseInt(id);
-
-    const { content, parentCommentId, images } = (await request.json()) as {
-      content: string;
-      parentCommentId?: string;
-      images?: unknown;
-    };
-    const imageIds = normalizeImageIds(images);
-    const trimmedContent = content?.trim() ?? '';
-
-    if (!trimmedContent && imageIds.length === 0) {
-      error(400, m.comment_content_is_required());
-    }
+    const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
+    const {
+      content,
+      parentCommentId,
+      images: imageIds
+    } = await parseJsonOrError(request, shopCommentCreateRequestSchema);
 
     const db = mongo.db();
-    const shopsCollection = db.collection<Shop>('shops');
-    const commentsCollection = db.collection<Comment>('comments');
+    const shopsCollection = db.collection('shops');
+    const commentsCollection = db.collection<ShopCommentEntry>('comments');
 
     // Check if shop exists
     const shop = await shopsCollection.findOne({
@@ -120,7 +118,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // If replying to a comment, check if parent comment exists and belongs to this shop
-    let parentComment: Comment | null = null;
+    let parentComment: ShopCommentEntry | null = null;
     if (parentCommentId) {
       parentComment = await commentsCollection.findOne({ id: parentCommentId });
       if (!parentComment) {
@@ -132,19 +130,25 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Create new comment
-    const newComment: Comment = {
-      id: commentId(),
-      shopId: shopId,
-      content: trimmedContent,
-      images: imageIds,
-      createdBy: session.user.id,
-      createdAt: new Date(),
-      parentCommentId: parentCommentId || null,
-      upvotes: 0,
-      downvotes: 0
+    const newComment = shopCommentEntrySchema.parse(
+      toPlainObject({
+        id: commentId(),
+        shopId,
+        content,
+        images: imageIds,
+        createdBy: session.user.id,
+        createdAt: new Date(),
+        parentCommentId: parentCommentId ?? null,
+        upvotes: 0,
+        downvotes: 0
+      })
+    );
+
+    const commentDocument: Omit<typeof newComment, '_id'> = {
+      ...newComment
     };
 
-    await commentsCollection.insertOne(newComment);
+    await commentsCollection.insertOne(commentDocument);
 
     try {
       if (imageIds.length > 0) {
@@ -156,7 +160,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         );
       }
     } catch (attachmentError) {
-      await commentsCollection.deleteOne({ id: newComment.id });
+      await commentsCollection.deleteOne({ id: commentDocument.id });
       throw attachmentError;
     }
 
@@ -169,7 +173,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
           actorDisplayName: session.user.displayName || undefined,
           actorImage: session.user.image || undefined,
           targetUserId: parentComment.createdBy,
-          content: trimmedContent.substring(0, 200),
+          content: content.substring(0, 200),
           commentId: newComment.id,
           shopId: shop.id,
           shopName: shop.name
@@ -180,10 +184,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     return json(
-      {
+      shopCommentCreateResponseSchema.parse({
         success: true,
         commentId: newComment.id
-      },
+      }),
       { status: 201 }
     );
   } catch (err) {

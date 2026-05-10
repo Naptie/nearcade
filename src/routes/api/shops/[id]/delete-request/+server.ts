@@ -1,11 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Shop, ShopDeleteRequest, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
-import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import {
+  shopDeleteRequestByShopListResponseSchema,
+  shopDeleteRequestCreateRequestSchema,
+  shopDeleteRequestCreateResponseSchema,
+  shopDeleteRequestSchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { toPlainArray, toPlainObject } from '$lib/utils';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = locals.session;
@@ -13,30 +21,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(401, m.unauthorized());
   }
 
-  const { id } = params;
-
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
-
-  let body: { reason?: string; photoId?: string; images?: unknown };
-  try {
-    body = await request.json();
-  } catch {
-    error(400, 'Invalid request body');
-  }
-
-  const reason = (body.reason || '').trim();
-  if (!reason) {
-    error(400, 'Reason is required');
-  }
-
-  const photoId = body.photoId?.trim() || null;
-  const imageIds = normalizeImageIds(body.images);
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
+  const {
+    reason,
+    photoId,
+    images: imageIds
+  } = await parseJsonOrError(request, shopDeleteRequestCreateRequestSchema);
 
   const db = mongo.db();
-  const shopsCollection = db.collection<Shop>('shops');
+  const shopsCollection = db.collection('shops');
   const shop = await shopsCollection.findOne({ id: shopId });
 
   if (!shop) {
@@ -47,7 +40,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   if (photoId) {
     // Validate the photo belongs to this shop
-    const photo = await db.collection<ShopPhoto>('images').findOne({ id: photoId, shopId });
+    const photo = await db.collection('images').findOne({ id: photoId, shopId });
     if (!photo) {
       error(404, m.shop_photo_not_found());
     }
@@ -55,14 +48,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
     // Enforce one pending request per photo
     const existingPending = await db
-      .collection<ShopDeleteRequest>('shop_delete_requests')
+      .collection('shop_delete_requests')
       .findOne({ shopId, photoId, status: 'pending' });
     if (existingPending) {
       error(409, m.shop_photo_delete_request_already_pending());
     }
   } else {
     // Enforce one pending request per shop (for shop delete requests without a photoId)
-    const existingPending = await db.collection<ShopDeleteRequest>('shop_delete_requests').findOne({
+    const existingPending = await db.collection('shop_delete_requests').findOne({
       shopId,
       $or: [{ photoId: null }, { photoId: { $exists: false } }],
       status: 'pending'
@@ -75,21 +68,27 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const user = session.user;
 
-  const deleteRequest: ShopDeleteRequest = {
-    id: nanoid(),
-    shopId,
-    shopName: shop.name,
-    reason,
-    images: imageIds,
-    requestedBy: user.id,
-    requestedByName: user.name,
-    status: 'pending',
-    createdAt: new Date(),
-    photoId: photoId,
-    photoUrl: photoUrl
+  const deleteRequest = shopDeleteRequestSchema.parse(
+    toPlainObject({
+      id: nanoid(),
+      shopId,
+      shopName: shop.name,
+      reason,
+      images: imageIds,
+      requestedBy: user.id,
+      requestedByName: user.name ?? null,
+      status: 'pending',
+      createdAt: new Date(),
+      photoId: photoId ?? null,
+      photoUrl: photoUrl ?? null
+    })
+  );
+
+  const deleteRequestDocument: Omit<typeof deleteRequest, '_id'> = {
+    ...deleteRequest
   };
 
-  await db.collection<ShopDeleteRequest>('shop_delete_requests').insertOne(deleteRequest);
+  await db.collection('shop_delete_requests').insertOne(deleteRequestDocument);
 
   try {
     if (imageIds.length > 0) {
@@ -101,9 +100,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       );
     }
   } catch (attachmentError) {
-    await db
-      .collection<ShopDeleteRequest>('shop_delete_requests')
-      .deleteOne({ id: deleteRequest.id });
+    await db.collection('shop_delete_requests').deleteOne({ id: deleteRequest.id });
     throw attachmentError;
   }
 
@@ -126,7 +123,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     console.error('Failed to log delete request changelog:', logErr);
   }
 
-  return json({ success: true, id: deleteRequest.id }, { status: 201 });
+  const response = shopDeleteRequestCreateResponseSchema.parse({
+    success: true,
+    id: deleteRequest.id
+  });
+
+  return json(response, { status: 201 });
 };
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -135,12 +137,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     error(403, m.insufficient_permissions());
   }
 
-  const { id } = params;
-
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
 
   const db = mongo.db();
   const requests = await db
@@ -149,5 +146,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     .sort({ createdAt: -1 })
     .toArray();
 
-  return json({ requests });
+  const response = shopDeleteRequestByShopListResponseSchema.parse({
+    requests: toPlainArray(requests)
+  });
+
+  return json(response);
 };

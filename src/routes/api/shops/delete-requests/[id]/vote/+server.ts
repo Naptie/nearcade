@@ -2,9 +2,14 @@ import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
-import type { ShopDeleteRequest, ShopDeleteRequestVote } from '$lib/types';
 import { getShopDeleteRequestVoteSummary } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
+import {
+  shopDeleteRequestIdParamSchema,
+  shopDeleteRequestVoteRequestSchema,
+  shopDeleteRequestVoteResponseSchema
+} from '$lib/schemas/shops';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -13,16 +18,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const { voteType } = (await request.json()) as { voteType: ShopDeleteRequestVote['voteType'] };
-    if (!voteType || !['favor', 'against'].includes(voteType)) {
-      error(400, m.invalid_vote_type());
-    }
+    const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
+    const { voteType } = await parseJsonOrError(request, shopDeleteRequestVoteRequestSchema);
 
     const db = mongo.db();
-    const deleteRequestsCollection = db.collection<ShopDeleteRequest>('shop_delete_requests');
-    const votesCollection = db.collection<ShopDeleteRequestVote>('shop_delete_request_votes');
+    const deleteRequestsCollection = db.collection('shop_delete_requests');
+    const votesCollection = db.collection('shop_delete_request_votes');
 
-    const deleteRequest = await deleteRequestsCollection.findOne({ id: params.id });
+    const deleteRequest = await deleteRequestsCollection.findOne({ id });
     if (!deleteRequest) {
       error(404, m.shop_delete_request_not_found());
     }
@@ -62,7 +65,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     const summary = await getShopDeleteRequestVoteSummary(db, deleteRequest.id, session.user.id);
 
-    return json({ success: true, ...summary });
+    return json(
+      shopDeleteRequestVoteResponseSchema.parse({
+        success: true,
+        ...summary
+      })
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

@@ -1,10 +1,15 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Shop, ShopPhoto } from '$lib/types';
+import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { deleteFile } from '$lib/oss/index';
+import { shopPhotoIdParamSchema, shopPhotoSchema } from '$lib/schemas/shops';
+import { parseParamsOrError } from '$lib/utils/validation.server';
+import { successResponseSchema } from '$lib/schemas/common';
+
+type ShopPhotoEntry = z.infer<typeof shopPhotoSchema>;
 
 /**
  * DELETE /api/shops/:id/photos/:photoId
@@ -17,16 +22,13 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     error(401, m.insufficient_permissions());
   }
 
-  const { id, photoId } = params;
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
+  const { id: shopId, photoId } = parseParamsOrError(shopPhotoIdParamSchema, params);
 
   const db = mongo.db();
+  const photosCollection = db.collection<ShopPhotoEntry>('images');
   const [shop, photo] = await Promise.all([
-    db.collection<Shop>('shops').findOne({ id: shopId }),
-    db.collection<ShopPhoto>('images').findOne({ id: photoId, shopId })
+    db.collection('shops').findOne({ id: shopId }),
+    photosCollection.findOne({ id: photoId, shopId })
   ]);
 
   if (!photo) {
@@ -60,5 +62,5 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     console.error('Failed to log photo deletion changelog:', logErr);
   }
 
-  return json({ success: true });
+  return json(successResponseSchema.parse({ success: true }));
 };

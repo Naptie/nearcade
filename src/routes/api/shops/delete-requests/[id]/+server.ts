@@ -1,12 +1,54 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Shop, ShopDeleteRequest, Notification, ShopPhoto } from '$lib/types';
+import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { notify } from '$lib/notifications/index.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { deleteFile } from '$lib/oss/index';
-import { deleteImagesForOwner } from '$lib/images/index.server';
+import { deleteImagesForOwner, hydrateEntitiesWithImages } from '$lib/images/index.server';
+import {
+  shopDeleteRequestDetailResponseSchema,
+  shopDeleteRequestIdParamSchema,
+  shopDeleteRequestReviewRequestSchema,
+  shopDeleteRequestReviewResponseSchema,
+  shopDeleteRequestSchema,
+  shopPhotoSchema
+} from '$lib/schemas/shops';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { successResponseSchema } from '$lib/schemas/common';
+import { toPlainObject } from '$lib/utils';
+import { getShopDeleteRequestVoteSummary } from '$lib/utils/shops/delete-request.server';
+
+type ShopDeleteRequestEntry = z.infer<typeof shopDeleteRequestSchema>;
+type ShopPhotoEntry = z.infer<typeof shopPhotoSchema>;
+
+export const GET: RequestHandler = async ({ params, locals }) => {
+  const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
+  const db = mongo.db();
+  const deleteRequestsCollection = db.collection<ShopDeleteRequestEntry>('shop_delete_requests');
+
+  const deleteRequest = await deleteRequestsCollection.findOne({ id });
+  if (!deleteRequest) {
+    error(404, m.shop_delete_request_not_found());
+  }
+
+  const [hydratedDeleteRequest] = await hydrateEntitiesWithImages(db, [deleteRequest]);
+  const voteSummary = await getShopDeleteRequestVoteSummary(
+    db,
+    hydratedDeleteRequest.id,
+    locals.session?.user?.id
+  );
+
+  const response = shopDeleteRequestDetailResponseSchema.parse(
+    toPlainObject({
+      deleteRequest: hydratedDeleteRequest,
+      voteSummary
+    })
+  );
+
+  return json(response);
+};
 
 /**
  * DELETE /api/shops/delete-requests/:id
@@ -19,12 +61,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     error(401, m.insufficient_permissions());
   }
 
-  const { id } = params;
+  const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
   const db = mongo.db();
+  const deleteRequestsCollection = db.collection<ShopDeleteRequestEntry>('shop_delete_requests');
 
-  const deleteRequest = await db
-    .collection<ShopDeleteRequest>('shop_delete_requests')
-    .findOne({ id });
+  const deleteRequest = await deleteRequestsCollection.findOne({ id });
 
   if (!deleteRequest) {
     error(404, m.shop_delete_request_not_found());
@@ -54,7 +95,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
   await db.collection('shop_delete_requests').deleteOne({ id });
 
-  return json({ success: true });
+  return json(successResponseSchema.parse({ success: true }));
 };
 
 /**
@@ -68,25 +109,17 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     error(403, m.insufficient_permissions());
   }
 
-  const { id } = params;
-
-  let body: { action?: string; reviewNote?: string };
-  try {
-    body = await request.json();
-  } catch {
-    error(400, 'Invalid request body');
-  }
-
-  const { action, reviewNote } = body;
-  if (action !== 'approve' && action !== 'reject') {
-    error(400, 'action must be "approve" or "reject"');
-  }
+  const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
+  const { action, reviewNote } = await parseJsonOrError(
+    request,
+    shopDeleteRequestReviewRequestSchema
+  );
 
   const db = mongo.db();
+  const deleteRequestsCollection = db.collection<ShopDeleteRequestEntry>('shop_delete_requests');
+  const photosCollection = db.collection<ShopPhotoEntry>('images');
 
-  const deleteRequest = await db
-    .collection<ShopDeleteRequest>('shop_delete_requests')
-    .findOne({ id });
+  const deleteRequest = await deleteRequestsCollection.findOne({ id });
 
   if (!deleteRequest) {
     error(404, m.shop_delete_request_not_found());
@@ -101,9 +134,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   if (action === 'approve') {
     if (deleteRequest.photoId) {
-      const photo = await db
-        .collection<ShopPhoto>('images')
-        .findOne({ id: deleteRequest.photoId, shopId: deleteRequest.shopId });
+      const photo = await photosCollection.findOne({
+        id: deleteRequest.photoId,
+        shopId: deleteRequest.shopId
+      });
       if (photo) {
         deleteRequest.photoUrl = photo.url;
         await deleteFile(photo);
@@ -112,7 +146,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       await db.collection('images').deleteOne({ id: deleteRequest.photoId });
     } else {
       // Delete the shop
-      await db.collection<Shop>('shops').deleteOne({ id: deleteRequest.shopId });
+      await db.collection('shops').deleteOne({ id: deleteRequest.shopId });
     }
   }
 
@@ -132,7 +166,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   // Send notification to the requester
   if (deleteRequest.requestedBy) {
     try {
-      const notification: Omit<Notification, 'id' | 'createdAt'> = {
+      const notification: Parameters<typeof notify>[0] = {
         type: 'SHOP_DELETE_REQUESTS',
         actorUserId: session.user.id,
         actorName: session.user.name ?? '',
@@ -184,5 +218,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     console.error('Failed to log delete request review changelog:', logErr);
   }
 
-  return json({ success: true, status: newStatus });
+  return json(
+    shopDeleteRequestReviewResponseSchema.parse({
+      success: true,
+      status: newStatus
+    })
+  );
 };

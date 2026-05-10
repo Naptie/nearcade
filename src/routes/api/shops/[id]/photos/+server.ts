@@ -1,13 +1,26 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { Shop, ShopPhoto } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
+import { z } from 'zod';
 import { m } from '$lib/paraglide/messages';
 import { uploadFile } from '$lib/oss/index';
-import { toPlainArray } from '$lib/utils';
+import { toPlainArray, toPlainObject } from '$lib/utils';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
+import {
+  shopIdParamSchema,
+  shopPhotoSchema,
+  shopPhotosResponseSchema,
+  shopPhotoUploadEventSchema
+} from '$lib/schemas/shops';
+import { parseOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+const shopPhotoUploadFormDataSchema = z.object({
+  file: z
+    .instanceof(File)
+    .refine((file) => file.type.startsWith('image/'), 'Only image files are allowed')
+});
 
 const photosWithUploaderPipeline = (shopId: number, limit?: number) => {
   const pipeline: object[] = [
@@ -36,19 +49,19 @@ const photosWithUploaderPipeline = (shopId: number, limit?: number) => {
  * Returns all photos for a shop, with uploader data joined via $lookup.
  */
 export const GET: RequestHandler = async ({ params }) => {
-  const { id } = params;
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
 
   const db = mongo.db();
   const photos = await db
-    .collection<ShopPhoto>('images')
-    .aggregate<ShopPhoto>(photosWithUploaderPipeline(shopId))
+    .collection('images')
+    .aggregate(photosWithUploaderPipeline(shopId))
     .toArray();
 
-  return json({ photos: toPlainArray(photos) });
+  const response = shopPhotosResponseSchema.parse({
+    photos: toPlainArray(photos)
+  });
+
+  return json(response);
 };
 
 /**
@@ -65,14 +78,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(401, m.insufficient_permissions());
   }
 
-  const { id } = params;
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
 
   const db = mongo.db();
-  const shop = await db.collection<Shop>('shops').findOne({ id: shopId });
+  const shop = await db.collection('shops').findOne({ id: shopId });
   if (!shop) {
     error(404, m.shop_not_found());
   }
@@ -84,13 +93,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     error(400, 'Invalid form data');
   }
 
-  const file = formData.get('file') as File | null;
-  if (!file) {
-    error(400, 'A file is required');
-  }
-  if (!file.type.startsWith('image/')) {
-    error(400, 'Only image files are allowed');
-  }
+  const { file } = parseOrError(shopPhotoUploadFormDataSchema, {
+    file: formData.get('file')
+  });
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -109,25 +114,34 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
   });
 
+  const enqueueEvent = (event: unknown) => {
+    const payload = shopPhotoUploadEventSchema.parse(event);
+    streamController.enqueue(encoder.encode(JSON.stringify(payload) + '\n'));
+  };
+
   // Run the OSS upload asynchronously so we can return the streaming response immediately
   (async () => {
     try {
       const uploadedFile = await uploadFile(ossName, buffer, (progress) => {
-        const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-        streamController.enqueue(encoder.encode(line));
+        enqueueEvent({ phase: 'uploading', progress });
       });
 
-      const photo: ShopPhoto = {
-        id: photoId,
-        shopId,
-        url: uploadedFile.url,
-        storageProvider: uploadedFile.storageProvider,
-        storageKey: uploadedFile.storageKey,
-        storageObjectId: uploadedFile.storageObjectId ?? null,
-        uploadedBy: session.user.id,
-        uploadedAt: new Date()
+      const photo = shopPhotoSchema.parse(
+        toPlainObject({
+          id: photoId,
+          shopId,
+          url: uploadedFile.url,
+          storageProvider: uploadedFile.storageProvider,
+          storageKey: uploadedFile.storageKey,
+          storageObjectId: uploadedFile.storageObjectId ?? null,
+          uploadedBy: session.user.id,
+          uploadedAt: new Date()
+        })
+      );
+      const photoDocument: Omit<typeof photo, '_id'> = {
+        ...photo
       };
-      await db.collection<ShopPhoto>('images').insertOne(photo);
+      await db.collection('images').insertOne(photoDocument);
 
       // Log to shop changelog (non-fatal)
       try {
@@ -142,22 +156,19 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         console.error('Failed to log photo upload changelog:', logErr);
       }
 
-      const line =
-        JSON.stringify({
-          phase: 'done',
-          photoId,
-          url: uploadedFile.url,
-          storageProvider: uploadedFile.storageProvider,
-          storageKey: uploadedFile.storageKey,
-          storageObjectId: uploadedFile.storageObjectId ?? null
-        }) + '\n';
-      streamController.enqueue(encoder.encode(line));
+      enqueueEvent({
+        phase: 'done',
+        photoId,
+        url: uploadedFile.url,
+        storageProvider: uploadedFile.storageProvider,
+        storageKey: uploadedFile.storageKey,
+        storageObjectId: uploadedFile.storageObjectId ?? null
+      });
       streamController.close();
     } catch (err) {
       console.error('Photo upload error:', err);
-      const line = JSON.stringify({ phase: 'error', message: 'Upload failed' }) + '\n';
       try {
-        streamController.enqueue(encoder.encode(line));
+        enqueueEvent({ phase: 'error', message: 'Upload failed' });
         streamController.close();
       } catch {
         // controller may already be closed

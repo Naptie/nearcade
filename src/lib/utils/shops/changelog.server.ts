@@ -144,9 +144,9 @@ export const logShopChange = async (
     fieldInfo: change.fieldInfo,
     oldValue: change.oldValue,
     newValue: change.newValue,
-    metadata: change.metadata,
     userId: change.user.id,
-    createdAt: new Date()
+    createdAt: new Date(),
+    ...(change.metadata === undefined ? {} : { metadata: change.metadata })
   };
   await db.collection<ShopChangelogEntry>('shop_changelog').insertOne(entry);
 };

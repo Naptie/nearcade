@@ -4,6 +4,7 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { ApiRouteDefinition } from '../src/lib/schemas/openapi';
 import {
   createDocument,
   type ZodOpenApiOperationObject,
@@ -11,7 +12,6 @@ import {
   type ZodOpenApiPathsObject
 } from 'zod-openapi';
 import pkg from '../package.json' with { type: 'json' };
-import type { ApiRouteDefinition } from '../src/lib/openapi/route';
 
 const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace'] as const;
 

@@ -2,22 +2,18 @@ import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getShopChangelogEntries } from '$lib/utils/shops/changelog.server';
 import mongo from '$lib/db/index.server';
-import { PAGINATION } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
+import {
+  shopChangelogListResponseSchema,
+  shopChangelogQuerySchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
+import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
+import { toPlainObject } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
-  const { id } = params;
-  const shopId = parseInt(id);
-  if (isNaN(shopId)) {
-    error(400, m.invalid_shop_id());
-  }
-
-  const page = parseInt(url.searchParams.get('page') || '1', 10);
-  const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
-
-  if (page < 1 || limit < 1 || limit > 100) {
-    error(400, m.invalid_pagination_parameters());
-  }
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
+  const { page, limit } = parseQueryOrError(shopChangelogQuerySchema, url);
 
   try {
     const { entries, total } = await getShopChangelogEntries(mongo, shopId, {
@@ -26,14 +22,18 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       viewer: locals.session?.user ?? null
     });
 
-    return json({
-      entries,
-      total,
-      page,
-      limit,
-      hasMore: page * limit < total,
-      totalPages: Math.ceil(total / limit)
-    });
+    const response = shopChangelogListResponseSchema.parse(
+      toPlainObject({
+        entries,
+        total,
+        page,
+        limit,
+        hasMore: page * limit < total,
+        totalPages: Math.ceil(total / limit)
+      })
+    );
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

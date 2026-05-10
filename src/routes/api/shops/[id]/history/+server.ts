@@ -1,49 +1,37 @@
 import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import type { AttendanceReportRecord, Shop } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
+import {
+  shopHistoryQuerySchema,
+  shopHistoryResponseSchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
+import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
+import { toPlainArray } from '$lib/utils';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
-    const idRaw = params.id;
-    if (!idRaw) {
-      error(400, m.invalid_shop_id());
-    }
-    const id = parseInt(idRaw);
-
-    if (isNaN(id)) {
-      error(400, m.invalid_shop_id());
-    }
-
-    // Parse pagination parameters
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '10');
-
-    if (page < 1 || limit < 1 || limit > 100) {
-      error(400, m.invalid_pagination_parameters());
-    }
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
+    const { page, limit } = parseQueryOrError(shopHistoryQuerySchema, url);
 
     const db = mongo.db();
 
     // Validate shop exists
-    const shopsCollection = db.collection<Shop>('shops');
-    const shop = await shopsCollection.findOne({
-      id
-    });
+    const shop = await db.collection('shops').findOne({ id });
 
     if (!shop) {
       error(404, m.shop_not_found());
     }
 
     // Fetch attendance report history
-    const attendanceReportsCollection = db.collection<AttendanceReportRecord>('attendance_reports');
+    const attendanceReportsCollection = db.collection('attendance_reports');
 
     const skip = (page - 1) * limit;
 
     // Get total count
     const totalCount = await attendanceReportsCollection.countDocuments({
-      'shop.id': id
+      shopId: id
     });
 
     // Get paginated reports with user data
@@ -51,7 +39,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
       .aggregate([
         {
           $match: {
-            'shop.id': id
+            shopId: id
           }
         },
         {
@@ -80,7 +68,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
         {
           $project: {
             _id: 1,
-            shop: 1,
+            shopId: 1,
             games: 1,
             comment: 1,
             reportedBy: 1,
@@ -96,9 +84,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
       ])
       .toArray();
 
-    return json({
+    const response = shopHistoryResponseSchema.parse({
       success: true,
-      data: reports,
+      data: toPlainArray(reports),
       pagination: {
         page,
         limit,
@@ -107,6 +95,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
         hasMore: skip + reports.length < totalCount
       }
     });
+
+    return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

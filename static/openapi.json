@@ -2952,6 +2952,2106 @@
         }
       }
     },
+    "/shops/{id}/changelog": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取店铺更新记录 / Get shop changelog",
+        "description": "分页获取店铺更新记录，包括游戏、照片和删除申请相关的变更。\n\nGet paginated shop changelog entries, including changes related to games, photos, and delete requests.",
+        "operationId": "getShopsByIdChangelog",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [null]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "每页返回的更新记录数量。默认为站点分页大小，最大为 100。\n\nNumber of changelog entries per page. Defaults to the site page size, up to 100.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [null]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "每页返回的更新记录数量。默认为站点分页大小，最大为 100。\n\nNumber of changelog entries per page. Defaults to the site page size, up to 100."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "店铺更新记录 / Shop changelog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "更新记录 ID。\n\nChangelog entry ID."
+                          },
+                          "shopId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "店铺 ID。\n\nShop ID."
+                          },
+                          "shopName": {
+                            "type": "string",
+                            "description": "店铺名称。\n\nShop name."
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "created",
+                              "modified",
+                              "deleted",
+                              "game_added",
+                              "game_modified",
+                              "game_deleted",
+                              "photo_uploaded",
+                              "photo_deleted",
+                              "rollback",
+                              "delete_request_submitted",
+                              "delete_request_approved",
+                              "delete_request_rejected",
+                              "photo_delete_request_submitted",
+                              "photo_delete_request_approved",
+                              "photo_delete_request_rejected"
+                            ],
+                            "description": "店铺变更动作类型。\n\nShop changelog action type."
+                          },
+                          "fieldInfo": {
+                            "type": "object",
+                            "properties": {
+                              "field": {
+                                "type": "string",
+                                "description": "变更字段。\n\nField changed by this entry."
+                              },
+                              "gameId": {
+                                "description": "关联游戏 ID。\n\nAssociated game ID.",
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "gameName": {
+                                "description": "关联游戏名称。\n\nAssociated game name.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "gameVersion": {
+                                "description": "关联游戏版本。\n\nAssociated game version.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "photoId": {
+                                "description": "关联照片 ID。\n\nAssociated photo ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "photoUrl": {
+                                "description": "关联照片 URL。\n\nAssociated photo URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "deleteRequestId": {
+                                "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "required": ["field"],
+                            "additionalProperties": false,
+                            "description": "变更字段信息。\n\nChanged field information."
+                          },
+                          "oldValue": {
+                            "description": "变更前的存储值。\n\nStored value before the change.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "newValue": {
+                            "description": "变更后的存储值。\n\nStored value after the change.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": true,
+                            "description": "附加元数据。\n\nAdditional metadata."
+                          },
+                          "userId": {
+                            "nullable": true,
+                            "description": "变更操作者用户 ID。\n\nUser ID who performed the change.",
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "description": "变更时间。\n\nChange time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "user": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "用户 ID。\n\nUser ID."
+                              },
+                              "name": {
+                                "nullable": true,
+                                "description": "用户名。\n\nUsername.",
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "description": "显示名称。\n\nDisplay name.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "image": {
+                                "nullable": true,
+                                "description": "头像。\n\nAvatar URL.",
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id", "name", "image"],
+                            "additionalProperties": false,
+                            "description": "触发该变更的用户。\n\nUser who caused the change."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "shopId",
+                          "shopName",
+                          "action",
+                          "fieldInfo",
+                          "userId",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false,
+                        "description": "店铺更新记录。\n\nShop changelog entry."
+                      },
+                      "description": "更新记录列表。\n\nChangelog entries."
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "更新记录总数。\n\nTotal changelog entry count."
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991,
+                      "description": "当前页。\n\nCurrent page."
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991,
+                      "description": "每页条目数。\n\nItems per page."
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "是否还有更多条目。\n\nWhether more entries exist."
+                    },
+                    "totalPages": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "总页数。\n\nTotal page count."
+                    }
+                  },
+                  "required": ["entries", "total", "page", "limit", "hasMore", "totalPages"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/{id}/changelog/{entryId}": {
+      "delete": {
+        "tags": ["shops"],
+        "summary": "删除店铺更新记录 / Delete a shop changelog entry",
+        "description": "删除指定的店铺更新记录，仅站点管理员可用。\n\nDelete a specific shop changelog entry. This endpoint is available to site administrators only.",
+        "operationId": "deleteShopsByIdChangelogByEntryId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          },
+          {
+            "in": "path",
+            "name": "entryId",
+            "schema": {
+              "type": "string",
+              "description": "更新记录 ID。\n\nChangelog entry ID."
+            },
+            "required": true,
+            "description": "更新记录 ID。\n\nChangelog entry ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功\n\nSuccess",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    }
+                  },
+                  "required": ["success"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "403": {
+            "description": "禁止访问 / Forbidden"
+          },
+          "404": {
+            "description": "更新记录不存在 / Changelog entry not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/{id}/comments": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取店铺评论 / Get shop comments",
+        "description": "获取店铺评论列表，包含作者信息、当前用户对评论的投票，以及已解析的评论图片。\n\nGet comments for a shop, including comment authors, the current user's vote on each comment, and resolved comment images.",
+        "operationId": "getShopsByIdComments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "店铺评论 / Shop comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "_id": {
+                        "description": "MongoDB ID。\n\nMongoDB ID.",
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string",
+                        "description": "评论 ID。\n\nComment ID."
+                      },
+                      "shopId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "店铺 ID。\n\nShop ID."
+                      },
+                      "content": {
+                        "type": "string",
+                        "description": "评论内容（Markdown）。\n\nComment content in Markdown."
+                      },
+                      "images": {
+                        "description": "评论图片资源 ID 列表。\n\nComment image asset IDs.",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "description": "图片资源 ID。\n\nImage asset ID."
+                        }
+                      },
+                      "resolvedImages": {
+                        "description": "已解析的评论图片资源。\n\nResolved comment image assets.",
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "_id": {
+                              "description": "MongoDB ID。\n\nMongoDB ID.",
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string",
+                              "description": "图片资源 ID。\n\nImage asset ID."
+                            },
+                            "shopId": {
+                              "description": "关联店铺 ID。\n\nAssociated shop ID.",
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "commentId": {
+                              "description": "关联评论 ID。\n\nAssociated comment ID.",
+                              "type": "string"
+                            },
+                            "postId": {
+                              "description": "关联帖子 ID。\n\nAssociated post ID.",
+                              "type": "string"
+                            },
+                            "deleteRequestId": {
+                              "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                              "type": "string"
+                            },
+                            "userId": {
+                              "description": "关联用户 ID。\n\nAssociated user ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "universityId": {
+                              "description": "关联大学 ID。\n\nAssociated university ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "clubId": {
+                              "description": "关联社团 ID。\n\nAssociated club ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "description": "图片 URL。\n\nImage URL."
+                            },
+                            "storageProvider": {
+                              "type": "string",
+                              "enum": ["s3", "leancloud"],
+                              "description": "图片存储提供商。\n\nImage storage provider."
+                            },
+                            "storageKey": {
+                              "type": "string",
+                              "description": "存储键。\n\nStorage key."
+                            },
+                            "storageObjectId": {
+                              "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "uploadedBy": {
+                              "nullable": true,
+                              "description": "上传者用户 ID。\n\nUploader user ID.",
+                              "type": "string"
+                            },
+                            "uploader": {
+                              "description": "上传者信息。\n\nUploader user summary.",
+                              "type": "object",
+                              "properties": {
+                                "_id": {
+                                  "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "用户 ID。\n\nUser ID."
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                                },
+                                "email": {
+                                  "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                  "type": "string"
+                                },
+                                "image": {
+                                  "description": "头像。\n\nAvatar URL.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "avatarImageId": {
+                                  "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "description": "创建时间。\n\nCreation time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "updatedAt": {
+                                  "description": "资料更新时间。\n\nProfile update time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "joinedAt": {
+                                  "description": "加入时间。\n\nJoin time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "lastActiveAt": {
+                                  "description": "最后活跃时间。\n\nLast active time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "userType": {
+                                  "description": "用户类型。\n\nUser type.",
+                                  "type": "string",
+                                  "enum": [
+                                    "site_admin",
+                                    "school_admin",
+                                    "club_admin",
+                                    "school_moderator",
+                                    "club_moderator",
+                                    "student",
+                                    "regular"
+                                  ]
+                                },
+                                "bio": {
+                                  "description": "个人简介。\n\nUser bio.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "socialLinks": {
+                                  "description": "社交链接。\n\nSocial links visible to clients.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "platform": {
+                                        "type": "string",
+                                        "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                        "description": "社交平台。\n\nSocial platform."
+                                      },
+                                      "username": {
+                                        "type": "string",
+                                        "description": "用户名。\n\nUsername."
+                                      }
+                                    },
+                                    "required": ["platform", "username"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "frequentingArcades": {
+                                  "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "starredArcades": {
+                                  "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": ["id", "name", "createdAt", "updatedAt"],
+                              "additionalProperties": false
+                            },
+                            "uploadedAt": {
+                              "description": "上传时间。\n\nUpload time.",
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "url",
+                            "storageProvider",
+                            "storageKey",
+                            "uploadedBy",
+                            "uploadedAt"
+                          ],
+                          "additionalProperties": false,
+                          "description": "图片资源。\n\nImage asset."
+                        }
+                      },
+                      "createdBy": {
+                        "type": "string",
+                        "description": "评论作者用户 ID。\n\nComment author user ID."
+                      },
+                      "createdAt": {
+                        "description": "评论时间。\n\nComment creation time.",
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "updatedAt": {
+                        "description": "评论更新时间。\n\nComment update time.",
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "parentCommentId": {
+                        "description": "父评论 ID。\n\nParent comment ID.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "upvotes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "点赞数。\n\nUpvote count."
+                      },
+                      "downvotes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "点踩数。\n\nDownvote count."
+                      },
+                      "author": {
+                        "description": "评论作者。\n\nComment author.",
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                          },
+                          "email": {
+                            "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                            "type": "string"
+                          },
+                          "image": {
+                            "description": "头像。\n\nAvatar URL.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "avatarImageId": {
+                            "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "description": "创建时间。\n\nCreation time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "资料更新时间。\n\nProfile update time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "joinedAt": {
+                            "description": "加入时间。\n\nJoin time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "lastActiveAt": {
+                            "description": "最后活跃时间。\n\nLast active time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "userType": {
+                            "description": "用户类型。\n\nUser type.",
+                            "type": "string",
+                            "enum": [
+                              "site_admin",
+                              "school_admin",
+                              "club_admin",
+                              "school_moderator",
+                              "club_moderator",
+                              "student",
+                              "regular"
+                            ]
+                          },
+                          "bio": {
+                            "description": "个人简介。\n\nUser bio.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "socialLinks": {
+                            "description": "社交链接。\n\nSocial links visible to clients.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string",
+                                  "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                  "description": "社交平台。\n\nSocial platform."
+                                },
+                                "username": {
+                                  "type": "string",
+                                  "description": "用户名。\n\nUsername."
+                                }
+                              },
+                              "required": ["platform", "username"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "frequentingArcades": {
+                            "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "starredArcades": {
+                            "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": ["id", "name", "createdAt", "updatedAt"],
+                        "additionalProperties": false
+                      },
+                      "vote": {
+                        "description": "当前用户对评论的投票。\n\nCurrent user vote on the comment.",
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "评论投票 ID。\n\nComment vote ID."
+                          },
+                          "commentId": {
+                            "type": "string",
+                            "description": "评论 ID。\n\nComment ID."
+                          },
+                          "userId": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "voteType": {
+                            "type": "string",
+                            "enum": ["upvote", "downvote"],
+                            "description": "评论投票类型。\n\nComment vote type."
+                          },
+                          "createdAt": {
+                            "description": "投票时间。\n\nVote time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "投票更新时间。\n\nVote update time.",
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": ["id", "commentId", "userId", "voteType", "createdAt"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "shopId",
+                      "content",
+                      "createdBy",
+                      "createdAt",
+                      "upvotes",
+                      "downvotes"
+                    ],
+                    "additionalProperties": false,
+                    "description": "店铺评论。\n\nShop comment."
+                  },
+                  "description": "店铺评论列表。\n\nShop comments."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["shops"],
+        "summary": "发表评论到店铺 / Post a shop comment",
+        "description": "向店铺发表评论或回复，可附带图片。\n\nAdd a comment or reply to a shop, optionally with images.",
+        "operationId": "postShopsByIdComments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "default": "",
+                    "description": "评论内容（Markdown）。\n\nComment content in Markdown.",
+                    "type": "string"
+                  },
+                  "parentCommentId": {
+                    "description": "父评论 ID。\n\nParent comment ID.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "images": {
+                    "default": [],
+                    "description": "评论图片资源 ID 列表。\n\nComment image asset IDs.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "图片资源 ID。\n\nImage asset ID."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已创建评论 / Comment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "commentId": {
+                      "type": "string",
+                      "description": "新评论 ID。\n\nNew comment ID."
+                    }
+                  },
+                  "required": ["success", "commentId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "404": {
+            "description": "店铺或父评论不存在 / Shop or parent comment not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/{id}/delete-request": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取店铺删除申请 / Get shop delete requests",
+        "description": "获取指定店铺的删除申请列表，仅站点管理员可用。\n\nGet delete requests for a shop. This endpoint is available to site administrators only.",
+        "operationId": "getShopsByIdDeleteRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除申请列表 / Delete request list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "删除申请 ID。\n\nDelete request ID."
+                          },
+                          "shopId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "店铺 ID。\n\nShop ID."
+                          },
+                          "shopName": {
+                            "type": "string",
+                            "description": "店铺名称。\n\nShop name."
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "删除申请原因。\n\nDelete request reason."
+                          },
+                          "images": {
+                            "description": "关联图片资源 ID 列表。\n\nAttached image asset IDs.",
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "description": "图片资源 ID。\n\nImage asset ID."
+                            }
+                          },
+                          "resolvedImages": {
+                            "description": "已解析的关联图片资源。\n\nResolved attached image assets.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "_id": {
+                                  "description": "MongoDB ID。\n\nMongoDB ID.",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "图片资源 ID。\n\nImage asset ID."
+                                },
+                                "shopId": {
+                                  "description": "关联店铺 ID。\n\nAssociated shop ID.",
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "commentId": {
+                                  "description": "关联评论 ID。\n\nAssociated comment ID.",
+                                  "type": "string"
+                                },
+                                "postId": {
+                                  "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                  "type": "string"
+                                },
+                                "deleteRequestId": {
+                                  "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                                  "type": "string"
+                                },
+                                "userId": {
+                                  "description": "关联用户 ID。\n\nAssociated user ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "universityId": {
+                                  "description": "关联大学 ID。\n\nAssociated university ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "clubId": {
+                                  "description": "关联社团 ID。\n\nAssociated club ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "description": "图片 URL。\n\nImage URL."
+                                },
+                                "storageProvider": {
+                                  "type": "string",
+                                  "enum": ["s3", "leancloud"],
+                                  "description": "图片存储提供商。\n\nImage storage provider."
+                                },
+                                "storageKey": {
+                                  "type": "string",
+                                  "description": "存储键。\n\nStorage key."
+                                },
+                                "storageObjectId": {
+                                  "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "uploadedBy": {
+                                  "nullable": true,
+                                  "description": "上传者用户 ID。\n\nUploader user ID.",
+                                  "type": "string"
+                                },
+                                "uploader": {
+                                  "description": "上传者信息。\n\nUploader user summary.",
+                                  "type": "object",
+                                  "properties": {
+                                    "_id": {
+                                      "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "id": {
+                                      "type": "string",
+                                      "description": "用户 ID。\n\nUser ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                                    },
+                                    "email": {
+                                      "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                      "type": "string"
+                                    },
+                                    "image": {
+                                      "description": "头像。\n\nAvatar URL.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "avatarImageId": {
+                                      "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "createdAt": {
+                                      "description": "创建时间。\n\nCreation time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "updatedAt": {
+                                      "description": "资料更新时间。\n\nProfile update time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "joinedAt": {
+                                      "description": "加入时间。\n\nJoin time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "lastActiveAt": {
+                                      "description": "最后活跃时间。\n\nLast active time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "userType": {
+                                      "description": "用户类型。\n\nUser type.",
+                                      "type": "string",
+                                      "enum": [
+                                        "site_admin",
+                                        "school_admin",
+                                        "club_admin",
+                                        "school_moderator",
+                                        "club_moderator",
+                                        "student",
+                                        "regular"
+                                      ]
+                                    },
+                                    "bio": {
+                                      "description": "个人简介。\n\nUser bio.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "displayName": {
+                                      "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "socialLinks": {
+                                      "description": "社交链接。\n\nSocial links visible to clients.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "platform": {
+                                            "type": "string",
+                                            "enum": [
+                                              "qq",
+                                              "wechat",
+                                              "github",
+                                              "discord",
+                                              "divingfish"
+                                            ],
+                                            "description": "社交平台。\n\nSocial platform."
+                                          },
+                                          "username": {
+                                            "type": "string",
+                                            "description": "用户名。\n\nUsername."
+                                          }
+                                        },
+                                        "required": ["platform", "username"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "frequentingArcades": {
+                                      "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "starredArcades": {
+                                      "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    }
+                                  },
+                                  "required": ["id", "name", "createdAt", "updatedAt"],
+                                  "additionalProperties": false
+                                },
+                                "uploadedAt": {
+                                  "description": "上传时间。\n\nUpload time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "url",
+                                "storageProvider",
+                                "storageKey",
+                                "uploadedBy",
+                                "uploadedAt"
+                              ],
+                              "additionalProperties": false,
+                              "description": "图片资源。\n\nImage asset."
+                            }
+                          },
+                          "requestedBy": {
+                            "nullable": true,
+                            "description": "提交申请的用户 ID。\n\nRequester user ID.",
+                            "type": "string"
+                          },
+                          "requestedByName": {
+                            "description": "提交申请的用户名。\n\nRequester username.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "approved", "rejected"],
+                            "description": "删除申请状态。\n\nDelete request status."
+                          },
+                          "createdAt": {
+                            "description": "提交时间。\n\nSubmission time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "reviewedAt": {
+                            "nullable": true,
+                            "description": "审核时间。\n\nReview time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "reviewedBy": {
+                            "description": "审核者用户 ID。\n\nReviewer user ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "reviewNote": {
+                            "description": "审核备注。\n\nReview note.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "photoId": {
+                            "description": "照片删除申请中的目标照片 ID；为空时表示整店删除申请。\n\nTarget photo ID for photo deletion requests. Null means this is a whole-shop request.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "photoUrl": {
+                            "description": "目标照片 URL。\n\nTarget photo URL.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "shopId",
+                          "shopName",
+                          "reason",
+                          "requestedBy",
+                          "status",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false,
+                        "description": "店铺删除申请。\n\nShop delete request."
+                      },
+                      "description": "店铺删除申请列表。\n\nDelete requests for the shop."
+                    }
+                  },
+                  "required": ["requests"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "403": {
+            "description": "禁止访问 / Forbidden"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["shops"],
+        "summary": "提交店铺删除申请 / Submit a shop delete request",
+        "description": "为整店或店铺照片提交删除申请。若指定 `photoId`，则表示照片删除申请；否则表示整店删除申请。\n\nSubmit a deletion request for an entire shop or for a specific shop photo. When `photoId` is present, this becomes a photo deletion request.",
+        "operationId": "postShopsByIdDeleteRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "删除申请原因。\n\nDelete request reason."
+                  },
+                  "photoId": {
+                    "description": "目标照片 ID。\n\nTarget photo ID.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "images": {
+                    "default": [],
+                    "description": "附带的图片资源 ID 列表。\n\nAttached image asset IDs.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "图片资源 ID。\n\nImage asset ID."
+                    }
+                  }
+                },
+                "required": ["reason"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已提交删除申请 / Delete request submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "删除申请 ID。\n\nDelete request ID."
+                    }
+                  },
+                  "required": ["success", "id"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "404": {
+            "description": "店铺或照片不存在 / Shop or photo not found"
+          },
+          "409": {
+            "description": "已有待处理申请 / Pending request already exists"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/{id}/history": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取在勤历史 / Get attendance history",
+        "description": "分页获取店铺的历史在勤上报记录。\n\nGet paginated historical attendance reports for a shop.",
+        "operationId": "getShopsByIdHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [null]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "每页返回的在勤历史条目数量。默认为 10，最大为 100。\n\nNumber of attendance history entries per page. Defaults to 10, up to 100.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [null]
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "每页返回的在勤历史条目数量。默认为 10，最大为 100。\n\nNumber of attendance history entries per page. Defaults to 10, up to 100."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "在勤历史 / Attendance history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "type": "string",
+                            "description": "MongoDB ID。\n\nMongoDB ID."
+                          },
+                          "shopId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "店铺 ID。\n\nShop ID."
+                          },
+                          "games": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "gameId": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "游戏名。\n\nGame name."
+                                },
+                                "version": {
+                                  "type": "string",
+                                  "description": "游戏版本。\n\nGame version."
+                                },
+                                "currentAttendances": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "在勤人数。\n\nReported current attendance count."
+                                }
+                              },
+                              "required": ["gameId", "name", "version", "currentAttendances"],
+                              "additionalProperties": false
+                            },
+                            "description": "本次上报的游戏在勤数据。\n\nPer-game attendance data in this report."
+                          },
+                          "comment": {
+                            "nullable": true,
+                            "description": "上报说明。\n\nAttendance report note.",
+                            "type": "string"
+                          },
+                          "reportedBy": {
+                            "type": "string",
+                            "description": "上报者 ID。\n\nReporter user ID."
+                          },
+                          "reportedAt": {
+                            "description": "上报时间。\n\nAttendance report time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "reporter": {
+                            "description": "上报者信息。\n\nReporter user summary.",
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "用户 ID。\n\nUser ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                              },
+                              "image": {
+                                "description": "头像。\n\nAvatar URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id", "name"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "_id",
+                          "shopId",
+                          "games",
+                          "comment",
+                          "reportedBy",
+                          "reportedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "在勤历史条目。\n\nAttendance history entries."
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "当前页。\n\nCurrent page."
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "每页条目数。\n\nItems per page."
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "历史条目总数。\n\nTotal history entry count."
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "总页数。\n\nTotal page count."
+                        },
+                        "hasMore": {
+                          "type": "boolean",
+                          "description": "是否还有更多条目。\n\nWhether more entries exist."
+                        }
+                      },
+                      "required": ["page", "limit", "totalCount", "totalPages", "hasMore"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["success", "data", "pagination"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "404": {
+            "description": "店铺不存在 / Shop not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/{id}/photos": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取店铺照片 / Get shop photos",
+        "description": "获取店铺照片列表，并包含上传者信息。\n\nGet the list of shop photos together with uploader information.",
+        "operationId": "getShopsByIdPhotos",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "店铺照片 / Shop photos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "photos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "图片资源 ID。\n\nImage asset ID."
+                          },
+                          "shopId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "店铺 ID。\n\nShop ID."
+                          },
+                          "commentId": {
+                            "description": "关联评论 ID。\n\nAssociated comment ID.",
+                            "type": "string"
+                          },
+                          "postId": {
+                            "description": "关联帖子 ID。\n\nAssociated post ID.",
+                            "type": "string"
+                          },
+                          "deleteRequestId": {
+                            "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                            "type": "string"
+                          },
+                          "userId": {
+                            "description": "关联用户 ID。\n\nAssociated user ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "universityId": {
+                            "description": "关联大学 ID。\n\nAssociated university ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "clubId": {
+                            "description": "关联社团 ID。\n\nAssociated club ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "图片 URL。\n\nImage URL."
+                          },
+                          "storageProvider": {
+                            "type": "string",
+                            "enum": ["s3", "leancloud"],
+                            "description": "图片存储提供商。\n\nImage storage provider."
+                          },
+                          "storageKey": {
+                            "type": "string",
+                            "description": "存储键。\n\nStorage key."
+                          },
+                          "storageObjectId": {
+                            "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "uploadedBy": {
+                            "nullable": true,
+                            "description": "上传者用户 ID。\n\nUploader user ID.",
+                            "type": "string"
+                          },
+                          "uploader": {
+                            "description": "上传者信息。\n\nUploader user summary.",
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "用户 ID。\n\nUser ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                              },
+                              "email": {
+                                "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                "type": "string"
+                              },
+                              "image": {
+                                "description": "头像。\n\nAvatar URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "avatarImageId": {
+                                "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "description": "资料更新时间。\n\nProfile update time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "joinedAt": {
+                                "description": "加入时间。\n\nJoin time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "lastActiveAt": {
+                                "description": "最后活跃时间。\n\nLast active time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "userType": {
+                                "description": "用户类型。\n\nUser type.",
+                                "type": "string",
+                                "enum": [
+                                  "site_admin",
+                                  "school_admin",
+                                  "club_admin",
+                                  "school_moderator",
+                                  "club_moderator",
+                                  "student",
+                                  "regular"
+                                ]
+                              },
+                              "bio": {
+                                "description": "个人简介。\n\nUser bio.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "socialLinks": {
+                                "description": "社交链接。\n\nSocial links visible to clients.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "platform": {
+                                      "type": "string",
+                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "description": "社交平台。\n\nSocial platform."
+                                    },
+                                    "username": {
+                                      "type": "string",
+                                      "description": "用户名。\n\nUsername."
+                                    }
+                                  },
+                                  "required": ["platform", "username"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "frequentingArcades": {
+                                "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "starredArcades": {
+                                "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": ["id", "name", "createdAt", "updatedAt"],
+                            "additionalProperties": false
+                          },
+                          "uploadedAt": {
+                            "description": "上传时间。\n\nUpload time.",
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "shopId",
+                          "url",
+                          "storageProvider",
+                          "storageKey",
+                          "uploadedBy",
+                          "uploadedAt"
+                        ],
+                        "additionalProperties": false,
+                        "description": "店铺照片。\n\nShop photo."
+                      },
+                      "description": "店铺照片列表。\n\nShop photos."
+                    }
+                  },
+                  "required": ["photos"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["shops"],
+        "summary": "上传店铺照片 / Upload a shop photo",
+        "description": "上传一张店铺照片，并以 NDJSON 事件流返回上传进度与结果。\n\nUpload a shop photo and receive progress and completion events as an NDJSON stream.",
+        "operationId": "postShopsByIdPhotos",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "要上传的图片文件。\n\nImage file to upload.",
+                    "format": "binary"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "照片上传事件流 / Photo upload event stream",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "phase": {
+                          "type": "string",
+                          "enum": ["uploading"],
+                          "description": "上传阶段。\n\nUpload phase."
+                        },
+                        "progress": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1,
+                          "description": "服务端上传到对象存储的进度，范围为 0 到 1。\n\nServer-to-object-storage progress from 0 to 1."
+                        }
+                      },
+                      "required": ["phase", "progress"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "phase": {
+                          "type": "string",
+                          "enum": ["done"],
+                          "description": "上传阶段。\n\nUpload phase."
+                        },
+                        "photoId": {
+                          "type": "string",
+                          "description": "新照片 ID。\n\nNew photo ID."
+                        },
+                        "url": {
+                          "type": "string",
+                          "description": "上传后的照片 URL。\n\nUploaded photo URL."
+                        },
+                        "storageProvider": {
+                          "type": "string",
+                          "enum": ["s3", "leancloud"],
+                          "description": "图片存储提供商。\n\nImage storage provider."
+                        },
+                        "storageKey": {
+                          "type": "string",
+                          "description": "存储键。\n\nStorage key."
+                        },
+                        "storageObjectId": {
+                          "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["phase", "photoId", "url", "storageProvider", "storageKey"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "phase": {
+                          "type": "string",
+                          "enum": ["error"],
+                          "description": "上传阶段。\n\nUpload phase."
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "上传失败信息。\n\nUpload failure message."
+                        }
+                      },
+                      "required": ["phase", "message"],
+                      "additionalProperties": false
+                    }
+                  ],
+                  "description": "照片上传事件。响应为 NDJSON，每行一个事件对象。\n\nPhoto upload event. The response is NDJSON with one event object per line."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "404": {
+            "description": "店铺不存在 / Shop not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/{id}/photos/{photoId}": {
+      "delete": {
+        "tags": ["shops"],
+        "summary": "删除店铺照片 / Delete a shop photo",
+        "description": "站点管理员和照片上传者可以直接删除照片；其他用户应使用照片删除申请流程。\n\nSite administrators and the photo uploader can delete a shop photo directly. Other users should use the photo delete-request flow instead.",
+        "operationId": "deleteShopsByIdPhotosByPhotoId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          },
+          {
+            "in": "path",
+            "name": "photoId",
+            "schema": {
+              "type": "string",
+              "description": "店铺照片 ID。\n\nShop photo ID."
+            },
+            "required": true,
+            "description": "店铺照片 ID。\n\nShop photo ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功\n\nSuccess",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    }
+                  },
+                  "required": ["success"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "403": {
+            "description": "禁止访问 / Forbidden"
+          },
+          "404": {
+            "description": "店铺或照片不存在 / Shop or photo not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
     "/shops/{id}/queues": {
       "get": {
         "tags": ["shops"],
@@ -3249,6 +5349,1587 @@
           },
           "404": {
             "description": "店铺或游戏不存在 / Shop or game not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/delete-requests": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取删除申请列表 / List delete requests",
+        "description": "获取店铺删除申请列表，并可按状态筛选。\n\nList shop delete requests and optionally filter them by status.",
+        "operationId": "getShopsDeleteRequests",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "default": "pending",
+              "description": "删除申请状态筛选；`all` 表示不过滤状态。\n\nDelete request status filter. Use `all` to disable status filtering.",
+              "type": "string",
+              "enum": ["all", "pending", "approved", "rejected"]
+            },
+            "description": "删除申请状态筛选；`all` 表示不过滤状态。\n\nDelete request status filter. Use `all` to disable status filtering."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除申请列表 / Delete request list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "删除申请 ID。\n\nDelete request ID."
+                          },
+                          "shopId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "店铺 ID。\n\nShop ID."
+                          },
+                          "shopName": {
+                            "type": "string",
+                            "description": "店铺名称。\n\nShop name."
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "删除申请原因。\n\nDelete request reason."
+                          },
+                          "images": {
+                            "description": "关联图片资源 ID 列表。\n\nAttached image asset IDs.",
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "description": "图片资源 ID。\n\nImage asset ID."
+                            }
+                          },
+                          "resolvedImages": {
+                            "description": "已解析的关联图片资源。\n\nResolved attached image assets.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "_id": {
+                                  "description": "MongoDB ID。\n\nMongoDB ID.",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "图片资源 ID。\n\nImage asset ID."
+                                },
+                                "shopId": {
+                                  "description": "关联店铺 ID。\n\nAssociated shop ID.",
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "commentId": {
+                                  "description": "关联评论 ID。\n\nAssociated comment ID.",
+                                  "type": "string"
+                                },
+                                "postId": {
+                                  "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                  "type": "string"
+                                },
+                                "deleteRequestId": {
+                                  "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                                  "type": "string"
+                                },
+                                "userId": {
+                                  "description": "关联用户 ID。\n\nAssociated user ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "universityId": {
+                                  "description": "关联大学 ID。\n\nAssociated university ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "clubId": {
+                                  "description": "关联社团 ID。\n\nAssociated club ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "description": "图片 URL。\n\nImage URL."
+                                },
+                                "storageProvider": {
+                                  "type": "string",
+                                  "enum": ["s3", "leancloud"],
+                                  "description": "图片存储提供商。\n\nImage storage provider."
+                                },
+                                "storageKey": {
+                                  "type": "string",
+                                  "description": "存储键。\n\nStorage key."
+                                },
+                                "storageObjectId": {
+                                  "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "uploadedBy": {
+                                  "nullable": true,
+                                  "description": "上传者用户 ID。\n\nUploader user ID.",
+                                  "type": "string"
+                                },
+                                "uploader": {
+                                  "description": "上传者信息。\n\nUploader user summary.",
+                                  "type": "object",
+                                  "properties": {
+                                    "_id": {
+                                      "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "id": {
+                                      "type": "string",
+                                      "description": "用户 ID。\n\nUser ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                                    },
+                                    "email": {
+                                      "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                      "type": "string"
+                                    },
+                                    "image": {
+                                      "description": "头像。\n\nAvatar URL.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "avatarImageId": {
+                                      "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "createdAt": {
+                                      "description": "创建时间。\n\nCreation time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "updatedAt": {
+                                      "description": "资料更新时间。\n\nProfile update time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "joinedAt": {
+                                      "description": "加入时间。\n\nJoin time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "lastActiveAt": {
+                                      "description": "最后活跃时间。\n\nLast active time.",
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "userType": {
+                                      "description": "用户类型。\n\nUser type.",
+                                      "type": "string",
+                                      "enum": [
+                                        "site_admin",
+                                        "school_admin",
+                                        "club_admin",
+                                        "school_moderator",
+                                        "club_moderator",
+                                        "student",
+                                        "regular"
+                                      ]
+                                    },
+                                    "bio": {
+                                      "description": "个人简介。\n\nUser bio.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "displayName": {
+                                      "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "socialLinks": {
+                                      "description": "社交链接。\n\nSocial links visible to clients.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "platform": {
+                                            "type": "string",
+                                            "enum": [
+                                              "qq",
+                                              "wechat",
+                                              "github",
+                                              "discord",
+                                              "divingfish"
+                                            ],
+                                            "description": "社交平台。\n\nSocial platform."
+                                          },
+                                          "username": {
+                                            "type": "string",
+                                            "description": "用户名。\n\nUsername."
+                                          }
+                                        },
+                                        "required": ["platform", "username"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "frequentingArcades": {
+                                      "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "starredArcades": {
+                                      "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                      "type": "array",
+                                      "items": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    }
+                                  },
+                                  "required": ["id", "name", "createdAt", "updatedAt"],
+                                  "additionalProperties": false
+                                },
+                                "uploadedAt": {
+                                  "description": "上传时间。\n\nUpload time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "url",
+                                "storageProvider",
+                                "storageKey",
+                                "uploadedBy",
+                                "uploadedAt"
+                              ],
+                              "additionalProperties": false,
+                              "description": "图片资源。\n\nImage asset."
+                            }
+                          },
+                          "requestedBy": {
+                            "nullable": true,
+                            "description": "提交申请的用户 ID。\n\nRequester user ID.",
+                            "type": "string"
+                          },
+                          "requestedByName": {
+                            "description": "提交申请的用户名。\n\nRequester username.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "approved", "rejected"],
+                            "description": "删除申请状态。\n\nDelete request status."
+                          },
+                          "createdAt": {
+                            "description": "提交时间。\n\nSubmission time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "reviewedAt": {
+                            "nullable": true,
+                            "description": "审核时间。\n\nReview time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "reviewedBy": {
+                            "description": "审核者用户 ID。\n\nReviewer user ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "reviewNote": {
+                            "description": "审核备注。\n\nReview note.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "photoId": {
+                            "description": "照片删除申请中的目标照片 ID；为空时表示整店删除申请。\n\nTarget photo ID for photo deletion requests. Null means this is a whole-shop request.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "photoUrl": {
+                            "description": "目标照片 URL。\n\nTarget photo URL.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "shopId",
+                          "shopName",
+                          "reason",
+                          "requestedBy",
+                          "status",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false,
+                        "description": "店铺删除申请。\n\nShop delete request."
+                      },
+                      "description": "删除申请列表。\n\nDelete request list."
+                    },
+                    "currentStatus": {
+                      "default": "pending",
+                      "description": "当前状态筛选。\n\nCurrent status filter.",
+                      "type": "string",
+                      "enum": ["all", "pending", "approved", "rejected"]
+                    }
+                  },
+                  "required": ["requests", "currentStatus"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/delete-requests/{id}": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取删除申请详情 / Get delete request details",
+        "description": "获取单个店铺删除申请详情及其投票汇总。\n\nGet details for a single shop delete request together with its vote summary.",
+        "operationId": "getShopsDeleteRequestsById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "description": "删除申请 ID。\n\nDelete request ID."
+            },
+            "required": true,
+            "description": "删除申请 ID。\n\nDelete request ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除申请详情 / Delete request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleteRequest": {
+                      "type": "object",
+                      "properties": {
+                        "_id": {
+                          "description": "MongoDB ID。\n\nMongoDB ID.",
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string",
+                          "description": "删除申请 ID。\n\nDelete request ID."
+                        },
+                        "shopId": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "店铺 ID。\n\nShop ID."
+                        },
+                        "shopName": {
+                          "type": "string",
+                          "description": "店铺名称。\n\nShop name."
+                        },
+                        "reason": {
+                          "type": "string",
+                          "description": "删除申请原因。\n\nDelete request reason."
+                        },
+                        "images": {
+                          "description": "关联图片资源 ID 列表。\n\nAttached image asset IDs.",
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "description": "图片资源 ID。\n\nImage asset ID."
+                          }
+                        },
+                        "resolvedImages": {
+                          "description": "已解析的关联图片资源。\n\nResolved attached image assets.",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。\n\nMongoDB ID.",
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "图片资源 ID。\n\nImage asset ID."
+                              },
+                              "shopId": {
+                                "description": "关联店铺 ID。\n\nAssociated shop ID.",
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "commentId": {
+                                "description": "关联评论 ID。\n\nAssociated comment ID.",
+                                "type": "string"
+                              },
+                              "postId": {
+                                "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                "type": "string"
+                              },
+                              "deleteRequestId": {
+                                "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                                "type": "string"
+                              },
+                              "userId": {
+                                "description": "关联用户 ID。\n\nAssociated user ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "universityId": {
+                                "description": "关联大学 ID。\n\nAssociated university ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "clubId": {
+                                "description": "关联社团 ID。\n\nAssociated club ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string",
+                                "description": "图片 URL。\n\nImage URL."
+                              },
+                              "storageProvider": {
+                                "type": "string",
+                                "enum": ["s3", "leancloud"],
+                                "description": "图片存储提供商。\n\nImage storage provider."
+                              },
+                              "storageKey": {
+                                "type": "string",
+                                "description": "存储键。\n\nStorage key."
+                              },
+                              "storageObjectId": {
+                                "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "uploadedBy": {
+                                "nullable": true,
+                                "description": "上传者用户 ID。\n\nUploader user ID.",
+                                "type": "string"
+                              },
+                              "uploader": {
+                                "description": "上传者信息。\n\nUploader user summary.",
+                                "type": "object",
+                                "properties": {
+                                  "_id": {
+                                    "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "description": "用户 ID。\n\nUser ID."
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                                  },
+                                  "email": {
+                                    "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                    "type": "string"
+                                  },
+                                  "image": {
+                                    "description": "头像。\n\nAvatar URL.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "avatarImageId": {
+                                    "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "createdAt": {
+                                    "description": "创建时间。\n\nCreation time.",
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "description": "资料更新时间。\n\nProfile update time.",
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "joinedAt": {
+                                    "description": "加入时间。\n\nJoin time.",
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "lastActiveAt": {
+                                    "description": "最后活跃时间。\n\nLast active time.",
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "userType": {
+                                    "description": "用户类型。\n\nUser type.",
+                                    "type": "string",
+                                    "enum": [
+                                      "site_admin",
+                                      "school_admin",
+                                      "club_admin",
+                                      "school_moderator",
+                                      "club_moderator",
+                                      "student",
+                                      "regular"
+                                    ]
+                                  },
+                                  "bio": {
+                                    "description": "个人简介。\n\nUser bio.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "socialLinks": {
+                                    "description": "社交链接。\n\nSocial links visible to clients.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "platform": {
+                                          "type": "string",
+                                          "enum": [
+                                            "qq",
+                                            "wechat",
+                                            "github",
+                                            "discord",
+                                            "divingfish"
+                                          ],
+                                          "description": "社交平台。\n\nSocial platform."
+                                        },
+                                        "username": {
+                                          "type": "string",
+                                          "description": "用户名。\n\nUsername."
+                                        }
+                                      },
+                                      "required": ["platform", "username"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "frequentingArcades": {
+                                    "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "starredArcades": {
+                                    "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  }
+                                },
+                                "required": ["id", "name", "createdAt", "updatedAt"],
+                                "additionalProperties": false
+                              },
+                              "uploadedAt": {
+                                "description": "上传时间。\n\nUpload time.",
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "url",
+                              "storageProvider",
+                              "storageKey",
+                              "uploadedBy",
+                              "uploadedAt"
+                            ],
+                            "additionalProperties": false,
+                            "description": "图片资源。\n\nImage asset."
+                          }
+                        },
+                        "requestedBy": {
+                          "nullable": true,
+                          "description": "提交申请的用户 ID。\n\nRequester user ID.",
+                          "type": "string"
+                        },
+                        "requestedByName": {
+                          "description": "提交申请的用户名。\n\nRequester username.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["pending", "approved", "rejected"],
+                          "description": "删除申请状态。\n\nDelete request status."
+                        },
+                        "createdAt": {
+                          "description": "提交时间。\n\nSubmission time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "reviewedAt": {
+                          "nullable": true,
+                          "description": "审核时间。\n\nReview time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "reviewedBy": {
+                          "description": "审核者用户 ID。\n\nReviewer user ID.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "reviewNote": {
+                          "description": "审核备注。\n\nReview note.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "photoId": {
+                          "description": "照片删除申请中的目标照片 ID；为空时表示整店删除申请。\n\nTarget photo ID for photo deletion requests. Null means this is a whole-shop request.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "photoUrl": {
+                          "description": "目标照片 URL。\n\nTarget photo URL.",
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "shopId",
+                        "shopName",
+                        "reason",
+                        "requestedBy",
+                        "status",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false,
+                      "description": "删除申请详情。\n\nDelete request details."
+                    },
+                    "voteSummary": {
+                      "type": "object",
+                      "properties": {
+                        "favorVotes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "支持删除的票数。\n\nVotes in favor of deletion."
+                        },
+                        "againstVotes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "反对删除的票数。\n\nVotes against deletion."
+                        },
+                        "userVote": {
+                          "description": "当前用户的投票。\n\nCurrent user vote.",
+                          "nullable": true,
+                          "type": "string",
+                          "enum": ["favor", "against"]
+                        }
+                      },
+                      "required": ["favorVotes", "againstVotes"],
+                      "additionalProperties": false,
+                      "description": "删除申请投票汇总。\n\nDelete request vote summary."
+                    }
+                  },
+                  "required": ["deleteRequest", "voteSummary"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "删除申请不存在 / Delete request not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["shops"],
+        "summary": "删除或撤回删除申请 / Delete or retract a delete request",
+        "description": "提交者可撤回自己的待处理申请，站点管理员可删除任意删除申请。\n\nThe requester can retract their own pending request, while site administrators can delete any delete request.",
+        "operationId": "deleteShopsDeleteRequestsById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "description": "删除申请 ID。\n\nDelete request ID."
+            },
+            "required": true,
+            "description": "删除申请 ID。\n\nDelete request ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功\n\nSuccess",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    }
+                  },
+                  "required": ["success"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "403": {
+            "description": "禁止访问 / Forbidden"
+          },
+          "404": {
+            "description": "删除申请不存在 / Delete request not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["shops"],
+        "summary": "审核删除申请 / Review a delete request",
+        "description": "由站点管理员批准或拒绝待处理的店铺删除申请。\n\nApprove or reject a pending shop delete request as a site administrator.",
+        "operationId": "patchShopsDeleteRequestsById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "description": "删除申请 ID。\n\nDelete request ID."
+            },
+            "required": true,
+            "description": "删除申请 ID。\n\nDelete request ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["approve", "reject"],
+                    "description": "审核动作；`approve` 为批准，`reject` 为拒绝。\n\nReview action. `approve` accepts the request and `reject` denies it."
+                  },
+                  "reviewNote": {
+                    "description": "审核备注。\n\nReview note.",
+                    "type": "string"
+                  }
+                },
+                "required": ["action"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已审核删除申请 / Delete request reviewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "approved", "rejected"],
+                      "description": "审核后的删除申请状态。\n\nDelete request status after review."
+                    }
+                  },
+                  "required": ["success", "status"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "403": {
+            "description": "禁止访问 / Forbidden"
+          },
+          "404": {
+            "description": "删除申请不存在 / Delete request not found"
+          },
+          "409": {
+            "description": "申请已被处理 / Request has already been processed"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/delete-requests/{id}/comments": {
+      "get": {
+        "tags": ["shops"],
+        "summary": "获取删除申请评论 / Get delete request comments",
+        "description": "获取删除申请下的评论列表，包含作者信息、当前用户的评论投票，以及评论作者对该删除申请的投票。\n\nGet comments for a delete request, including comment authors, the current user's comment vote, and the delete-request vote cast by each comment author.",
+        "operationId": "getShopsDeleteRequestsByIdComments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "description": "删除申请 ID。\n\nDelete request ID."
+            },
+            "required": true,
+            "description": "删除申请 ID。\n\nDelete request ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除申请评论 / Delete request comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "_id": {
+                        "description": "MongoDB ID。\n\nMongoDB ID.",
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string",
+                        "description": "评论 ID。\n\nComment ID."
+                      },
+                      "shopDeleteRequestId": {
+                        "type": "string",
+                        "description": "删除申请 ID。\n\nDelete request ID."
+                      },
+                      "content": {
+                        "type": "string",
+                        "description": "评论内容（Markdown）。\n\nComment content in Markdown."
+                      },
+                      "images": {
+                        "description": "评论图片资源 ID 列表。\n\nComment image asset IDs.",
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "description": "图片资源 ID。\n\nImage asset ID."
+                        }
+                      },
+                      "resolvedImages": {
+                        "description": "已解析的评论图片资源。\n\nResolved comment image assets.",
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "_id": {
+                              "description": "MongoDB ID。\n\nMongoDB ID.",
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string",
+                              "description": "图片资源 ID。\n\nImage asset ID."
+                            },
+                            "shopId": {
+                              "description": "关联店铺 ID。\n\nAssociated shop ID.",
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "commentId": {
+                              "description": "关联评论 ID。\n\nAssociated comment ID.",
+                              "type": "string"
+                            },
+                            "postId": {
+                              "description": "关联帖子 ID。\n\nAssociated post ID.",
+                              "type": "string"
+                            },
+                            "deleteRequestId": {
+                              "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                              "type": "string"
+                            },
+                            "userId": {
+                              "description": "关联用户 ID。\n\nAssociated user ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "universityId": {
+                              "description": "关联大学 ID。\n\nAssociated university ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "clubId": {
+                              "description": "关联社团 ID。\n\nAssociated club ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string",
+                              "description": "图片 URL。\n\nImage URL."
+                            },
+                            "storageProvider": {
+                              "type": "string",
+                              "enum": ["s3", "leancloud"],
+                              "description": "图片存储提供商。\n\nImage storage provider."
+                            },
+                            "storageKey": {
+                              "type": "string",
+                              "description": "存储键。\n\nStorage key."
+                            },
+                            "storageObjectId": {
+                              "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "uploadedBy": {
+                              "nullable": true,
+                              "description": "上传者用户 ID。\n\nUploader user ID.",
+                              "type": "string"
+                            },
+                            "uploader": {
+                              "description": "上传者信息。\n\nUploader user summary.",
+                              "type": "object",
+                              "properties": {
+                                "_id": {
+                                  "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "用户 ID。\n\nUser ID."
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                                },
+                                "email": {
+                                  "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                  "type": "string"
+                                },
+                                "image": {
+                                  "description": "头像。\n\nAvatar URL.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "avatarImageId": {
+                                  "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "description": "创建时间。\n\nCreation time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "updatedAt": {
+                                  "description": "资料更新时间。\n\nProfile update time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "joinedAt": {
+                                  "description": "加入时间。\n\nJoin time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "lastActiveAt": {
+                                  "description": "最后活跃时间。\n\nLast active time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "userType": {
+                                  "description": "用户类型。\n\nUser type.",
+                                  "type": "string",
+                                  "enum": [
+                                    "site_admin",
+                                    "school_admin",
+                                    "club_admin",
+                                    "school_moderator",
+                                    "club_moderator",
+                                    "student",
+                                    "regular"
+                                  ]
+                                },
+                                "bio": {
+                                  "description": "个人简介。\n\nUser bio.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "socialLinks": {
+                                  "description": "社交链接。\n\nSocial links visible to clients.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "platform": {
+                                        "type": "string",
+                                        "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                        "description": "社交平台。\n\nSocial platform."
+                                      },
+                                      "username": {
+                                        "type": "string",
+                                        "description": "用户名。\n\nUsername."
+                                      }
+                                    },
+                                    "required": ["platform", "username"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "frequentingArcades": {
+                                  "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "starredArcades": {
+                                  "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": ["id", "name", "createdAt", "updatedAt"],
+                              "additionalProperties": false
+                            },
+                            "uploadedAt": {
+                              "description": "上传时间。\n\nUpload time.",
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "url",
+                            "storageProvider",
+                            "storageKey",
+                            "uploadedBy",
+                            "uploadedAt"
+                          ],
+                          "additionalProperties": false,
+                          "description": "图片资源。\n\nImage asset."
+                        }
+                      },
+                      "createdBy": {
+                        "type": "string",
+                        "description": "评论作者用户 ID。\n\nComment author user ID."
+                      },
+                      "createdAt": {
+                        "description": "评论时间。\n\nComment creation time.",
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "updatedAt": {
+                        "description": "评论更新时间。\n\nComment update time.",
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "parentCommentId": {
+                        "description": "父评论 ID。\n\nParent comment ID.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "upvotes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "点赞数。\n\nUpvote count."
+                      },
+                      "downvotes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "点踩数。\n\nDownvote count."
+                      },
+                      "author": {
+                        "description": "评论作者。\n\nComment author.",
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                          },
+                          "email": {
+                            "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                            "type": "string"
+                          },
+                          "image": {
+                            "description": "头像。\n\nAvatar URL.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "avatarImageId": {
+                            "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "description": "创建时间。\n\nCreation time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "资料更新时间。\n\nProfile update time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "joinedAt": {
+                            "description": "加入时间。\n\nJoin time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "lastActiveAt": {
+                            "description": "最后活跃时间。\n\nLast active time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "userType": {
+                            "description": "用户类型。\n\nUser type.",
+                            "type": "string",
+                            "enum": [
+                              "site_admin",
+                              "school_admin",
+                              "club_admin",
+                              "school_moderator",
+                              "club_moderator",
+                              "student",
+                              "regular"
+                            ]
+                          },
+                          "bio": {
+                            "description": "个人简介。\n\nUser bio.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "socialLinks": {
+                            "description": "社交链接。\n\nSocial links visible to clients.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string",
+                                  "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                  "description": "社交平台。\n\nSocial platform."
+                                },
+                                "username": {
+                                  "type": "string",
+                                  "description": "用户名。\n\nUsername."
+                                }
+                              },
+                              "required": ["platform", "username"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "frequentingArcades": {
+                            "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "starredArcades": {
+                            "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": ["id", "name", "createdAt", "updatedAt"],
+                        "additionalProperties": false
+                      },
+                      "vote": {
+                        "description": "当前用户对评论的投票。\n\nCurrent user vote on the comment.",
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "评论投票 ID。\n\nComment vote ID."
+                          },
+                          "commentId": {
+                            "type": "string",
+                            "description": "评论 ID。\n\nComment ID."
+                          },
+                          "userId": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "voteType": {
+                            "type": "string",
+                            "enum": ["upvote", "downvote"],
+                            "description": "评论投票类型。\n\nComment vote type."
+                          },
+                          "createdAt": {
+                            "description": "投票时间。\n\nVote time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "投票更新时间。\n\nVote update time.",
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": ["id", "commentId", "userId", "voteType", "createdAt"],
+                        "additionalProperties": false
+                      },
+                      "authorDeleteRequestVote": {
+                        "description": "评论作者对该删除申请的投票。\n\nDelete request vote cast by the comment author.",
+                        "nullable": true,
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。\n\nMongoDB ID.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "投票 ID。\n\nVote ID."
+                          },
+                          "shopDeleteRequestId": {
+                            "type": "string",
+                            "description": "删除申请 ID。\n\nDelete request ID."
+                          },
+                          "userId": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "voteType": {
+                            "type": "string",
+                            "enum": ["favor", "against"],
+                            "description": "删除申请投票类型；`favor` 为支持删除，`against` 为反对删除。\n\nDelete request vote type. `favor` supports deletion and `against` opposes it."
+                          },
+                          "createdAt": {
+                            "description": "投票时间。\n\nVote time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "投票更新时间。\n\nVote update time.",
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "shopDeleteRequestId",
+                          "userId",
+                          "voteType",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "shopDeleteRequestId",
+                      "content",
+                      "createdBy",
+                      "createdAt",
+                      "upvotes",
+                      "downvotes"
+                    ],
+                    "additionalProperties": false,
+                    "description": "删除申请评论。\n\nDelete request comment."
+                  },
+                  "description": "删除申请评论列表。\n\nDelete request comments."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "删除申请不存在 / Delete request not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["shops"],
+        "summary": "发表评论到删除申请 / Post a comment on a delete request",
+        "description": "向待处理的删除申请添加评论或回复，可附带图片。\n\nAdd a comment or reply to a pending delete request, optionally with images.",
+        "operationId": "postShopsDeleteRequestsByIdComments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "description": "删除申请 ID。\n\nDelete request ID."
+            },
+            "required": true,
+            "description": "删除申请 ID。\n\nDelete request ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "default": "",
+                    "description": "评论内容（Markdown）。\n\nComment content in Markdown.",
+                    "type": "string"
+                  },
+                  "parentCommentId": {
+                    "description": "父评论 ID。\n\nParent comment ID.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "images": {
+                    "default": [],
+                    "description": "评论图片资源 ID 列表。\n\nComment image asset IDs.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "图片资源 ID。\n\nImage asset ID."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已创建评论 / Comment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "commentId": {
+                      "type": "string",
+                      "description": "新评论 ID。\n\nNew comment ID."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "操作 ID。\n\nOperation ID."
+                    }
+                  },
+                  "required": ["success", "commentId", "id"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "404": {
+            "description": "删除申请或父评论不存在 / Delete request or parent comment not found"
+          },
+          "409": {
+            "description": "删除申请已关闭 / Delete request is closed"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/shops/delete-requests/{id}/vote": {
+      "post": {
+        "tags": ["shops"],
+        "summary": "对删除申请投票 / Vote on a delete request",
+        "description": "对待处理的删除申请投支持或反对票。重复提交相同投票会撤销该投票。\n\nCast a supporting or opposing vote on a pending delete request. Sending the same vote twice removes the existing vote.",
+        "operationId": "postShopsDeleteRequestsByIdVote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "description": "删除申请 ID。\n\nDelete request ID."
+            },
+            "required": true,
+            "description": "删除申请 ID。\n\nDelete request ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "voteType": {
+                    "type": "string",
+                    "enum": ["favor", "against"],
+                    "description": "删除申请投票类型；`favor` 为支持删除，`against` 为反对删除。\n\nDelete request vote type. `favor` supports deletion and `against` opposes it."
+                  }
+                },
+                "required": ["voteType"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "投票结果 / Vote result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "favorVotes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "支持删除的票数。\n\nVotes in favor of deletion."
+                    },
+                    "againstVotes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "反对删除的票数。\n\nVotes against deletion."
+                    },
+                    "userVote": {
+                      "description": "当前用户的投票。\n\nCurrent user vote.",
+                      "nullable": true,
+                      "type": "string",
+                      "enum": ["favor", "against"]
+                    }
+                  },
+                  "required": ["success", "favorVotes", "againstVotes"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "404": {
+            "description": "删除申请不存在 / Delete request not found"
+          },
+          "409": {
+            "description": "删除申请已关闭 / Delete request is closed"
           },
           "500": {
             "description": "服务器错误 / Internal Server Error"
