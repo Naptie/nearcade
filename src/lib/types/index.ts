@@ -3,7 +3,7 @@ import type { RADIUS_OPTIONS, GAME_TITLES } from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
-import type { shopSchema } from '$lib/schemas/shops';
+import type { gameSchema, shopSchema } from '$lib/schemas/shops';
 
 export interface Location {
   type: 'Point';
@@ -17,15 +17,7 @@ export interface OpeningHourTime {
 
 export type Shop = z.infer<typeof shopSchema>;
 
-export interface Game {
-  gameId: number;
-  titleId: number;
-  name: string;
-  version: string;
-  comment: string;
-  quantity: number;
-  cost: string;
-}
+export type Game = z.infer<typeof gameSchema>;
 
 export interface Campus {
   id: string;
