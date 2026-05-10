@@ -19,7 +19,10 @@ export default defineOpenApiRoute({
       query: userActivitiesQuerySchema
     },
     responses: {
-      '200': jsonResponse(bilingual('用户活动', 'User activities', true), userActivitiesResponseSchema),
+      '200': jsonResponse(
+        bilingual('用户活动', 'User activities', true),
+        userActivitiesResponseSchema
+      ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '403': { description: bilingual('活动不可见', 'Activities are private', true) },
       '404': { description: bilingual('用户不存在', 'User not found', true) },

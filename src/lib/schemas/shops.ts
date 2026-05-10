@@ -12,15 +12,8 @@ import {
   userIdSchema,
   userPublicSchema
 } from './common';
-import {
-  commentVoteSchema,
-  commentVoteTypeSchema
-} from './comments';
-import {
-  imageAssetIdSchema,
-  imageAssetSchema,
-  imageStorageProviderSchema
-} from './images';
+import { commentVoteSchema } from './comments';
+import { imageAssetIdSchema, imageAssetSchema, imageStorageProviderSchema } from './images';
 
 export const shopNameSchema = z.string().describe(bilingual('店铺名称。', 'Shop name.'));
 export const shopNameInputSchema = z

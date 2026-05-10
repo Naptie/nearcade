@@ -19,11 +19,16 @@ export default defineOpenApiRoute({
     },
     requestBody: jsonRequestBody(commentVoteRequestSchema),
     responses: {
-      '200': jsonResponse(bilingual('评论投票结果', 'Comment vote result', true), commentVoteResponseSchema),
+      '200': jsonResponse(
+        bilingual('评论投票结果', 'Comment vote result', true),
+        commentVoteResponseSchema
+      ),
       '400': { description: bilingual('请求错误', 'Bad Request', true) },
       '401': { description: bilingual('未授权', 'Unauthorized', true) },
       '403': { description: bilingual('无权限', 'Forbidden', true) },
-      '404': { description: bilingual('评论或相关对象不存在', 'Comment or related entity not found', true) },
+      '404': {
+        description: bilingual('评论或相关对象不存在', 'Comment or related entity not found', true)
+      },
       '409': { description: bilingual('目标不可投票', 'Target cannot be voted on', true) },
       '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
     }

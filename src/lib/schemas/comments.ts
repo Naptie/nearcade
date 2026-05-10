@@ -51,7 +51,9 @@ export const commentSchema = z
       .string()
       .optional()
       .describe(bilingual('关联删除申请 ID。', 'Associated delete request ID.')),
-    content: z.string().describe(bilingual('评论内容（Markdown）。', 'Comment content in Markdown.')),
+    content: z
+      .string()
+      .describe(bilingual('评论内容（Markdown）。', 'Comment content in Markdown.')),
     images: z
       .array(imageAssetIdSchema)
       .optional()

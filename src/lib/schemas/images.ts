@@ -9,7 +9,9 @@ import {
   userPublicSchema
 } from './common';
 
-export const imageAssetIdSchema = z.string().describe(bilingual('图片资源 ID。', 'Image asset ID.'));
+export const imageAssetIdSchema = z
+  .string()
+  .describe(bilingual('图片资源 ID。', 'Image asset ID.'));
 
 export const imageIdParamSchema = z.object({
   imageId: imageAssetIdSchema
@@ -118,12 +120,9 @@ export const imageUploadFormDataSchema = z
     )
   })
   .superRefine((value, ctx) => {
-    const ownerCount = [
-      value.shopId,
-      value.commentId,
-      value.postId,
-      value.deleteRequestId
-    ].filter((item) => item !== undefined).length;
+    const ownerCount = [value.shopId, value.commentId, value.postId, value.deleteRequestId].filter(
+      (item) => item !== undefined
+    ).length;
 
     if (ownerCount > 1) {
       ctx.addIssue({
@@ -139,11 +138,7 @@ export const imageUploadRequestSchema = z.object({
     .string()
     .describe(bilingual('要上传的图片文件。', 'Image file to upload.'))
     .meta({ override: { type: 'string', format: 'binary' } }),
-  shopId: z
-    .int()
-    .positive()
-    .optional()
-    .describe(bilingual('关联店铺 ID。', 'Associated shop ID.')),
+  shopId: z.int().positive().optional().describe(bilingual('关联店铺 ID。', 'Associated shop ID.')),
   commentId: z.string().optional().describe(bilingual('关联评论 ID。', 'Associated comment ID.')),
   postId: z.string().optional().describe(bilingual('关联帖子 ID。', 'Associated post ID.')),
   deleteRequestId: z

@@ -4,7 +4,7 @@ import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
-import { deleteImagesByIds, normalizeImageIds, replaceOwnerImages } from '$lib/images/index.server';
+import { deleteImagesByIds, replaceOwnerImages } from '$lib/images/index.server';
 import {
   commentIdParamSchema,
   commentUpdateRequestSchema,

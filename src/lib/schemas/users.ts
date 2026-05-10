@@ -32,10 +32,7 @@ export const userRouteIdSchema = z
   .string()
   .min(1)
   .describe(
-    bilingual(
-      '用户 ID，或以 `@` 开头的用户名。',
-      'User ID, or a username prefixed with `@`.'
-    )
+    bilingual('用户 ID，或以 `@` 开头的用户名。', 'User ID, or a username prefixed with `@`.')
   );
 
 export const userRouteIdParamSchema = z.object({
@@ -108,10 +105,7 @@ export const activitySchema = z
     clubId: z.string().optional().describe(bilingual('社团 ID。', 'Club ID.')),
     universityName: z.string().optional().describe(bilingual('大学名称。', 'University name.')),
     clubName: z.string().optional().describe(bilingual('社团名称。', 'Club name.')),
-    commentContent: z
-      .string()
-      .optional()
-      .describe(bilingual('评论内容。', 'Comment content.')),
+    commentContent: z.string().optional().describe(bilingual('评论内容。', 'Comment content.')),
     commentId: z.string().optional().describe(bilingual('评论 ID。', 'Comment ID.')),
     parentCommentId: z
       .string()
@@ -166,10 +160,7 @@ export const activitySchema = z
       .string()
       .optional()
       .describe(bilingual('加入的社团名称。', 'Joined club name.')),
-    createdClubId: z
-      .string()
-      .optional()
-      .describe(bilingual('创建的社团 ID。', 'Created club ID.')),
+    createdClubId: z.string().optional().describe(bilingual('创建的社团 ID。', 'Created club ID.')),
     createdClubName: z
       .string()
       .optional()
@@ -213,9 +204,7 @@ const userProfileUniversitySchema = z.object({
 export const userUniversityMembershipSummarySchema = z.object({
   verifiedAt: dateTimeSchema(bilingual('认证时间。', 'Verification time.')).optional(),
   joinedAt: dateTimeSchema(bilingual('加入时间。', 'Join time.')),
-  university: userProfileUniversitySchema.describe(
-    bilingual('大学摘要。', 'University summary.')
-  )
+  university: userProfileUniversitySchema.describe(bilingual('大学摘要。', 'University summary.'))
 });
 
 const userProfileUserSchema = userPublicSchema
@@ -244,9 +233,7 @@ const userProfileUserSchema = userPublicSchema
       .describe(bilingual('常去机厅列表。', 'Frequently visited arcades.')),
     starredArcades: z.array(shopSchema).describe(bilingual('收藏机厅列表。', 'Starred arcades.')),
     isActivityPublic: userSchema.shape.isActivityPublic,
-    socialLinks: z
-      .array(socialLinkSchema)
-      .describe(bilingual('社交链接。', 'Public social links.'))
+    socialLinks: z.array(socialLinkSchema).describe(bilingual('社交链接。', 'Public social links.'))
   })
   .describe(bilingual('用户资料摘要。', 'User profile summary.'));
 
@@ -256,16 +243,24 @@ export const userProfileResponseSchema = z.object({
     .int()
     .min(0)
     .describe(bilingual('常去机厅数量。', 'Frequently visited arcade count.')),
-  starredArcadesCount: z.int().min(0).describe(bilingual('收藏机厅数量。', 'Starred arcade count.')),
+  starredArcadesCount: z
+    .int()
+    .min(0)
+    .describe(bilingual('收藏机厅数量。', 'Starred arcade count.')),
   universityMembershipCount: z
     .int()
     .min(0)
     .describe(bilingual('大学成员关系数量。', 'University membership count.')),
-  clubMembershipCount: z.int().min(0).describe(bilingual('社团成员关系数量。', 'Club membership count.')),
+  clubMembershipCount: z
+    .int()
+    .min(0)
+    .describe(bilingual('社团成员关系数量。', 'Club membership count.')),
   universityMembership: userUniversityMembershipSummarySchema
     .nullable()
     .describe(bilingual('最近的大学成员关系。', 'Most recent university membership.')),
-  isOwnProfile: z.boolean().describe(bilingual('是否是当前用户本人。', 'Whether this is the current user.'))
+  isOwnProfile: z
+    .boolean()
+    .describe(bilingual('是否是当前用户本人。', 'Whether this is the current user.'))
 });
 
 export const avatarUploadRequestSchema = imageUploadRequestSchema.pick({ file: true });

@@ -40,8 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     postId: formData.get('postId') ?? url.searchParams.get('postId'),
     deleteRequestId: formData.get('deleteRequestId') ?? url.searchParams.get('deleteRequestId'),
     draftKind: formData.get('draftKind') ?? url.searchParams.get('draftKind'),
-    organizationType:
-      formData.get('organizationType') ?? url.searchParams.get('organizationType'),
+    organizationType: formData.get('organizationType') ?? url.searchParams.get('organizationType'),
     organizationId: formData.get('organizationId') ?? url.searchParams.get('organizationId')
   });
   const owner: ImageOwnerReference = {
