@@ -9,7 +9,6 @@ import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import { auth } from '$lib/auth/index.server';
-import { getUserIdSelector } from '$lib/auth/api-keys.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendanceRequestSchema,
@@ -123,7 +122,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     if (agentShopId?.toString() !== params.id) {
       error(403, m.access_denied());
     }
-    const dbUser = await usersCollection.findOne(getUserIdSelector(agentApiKey.key.referenceId));
+    const dbUser = await usersCollection.findOne({ id: agentApiKey.key.referenceId });
     if (!dbUser) {
       error(401, m.unauthorized());
     }
@@ -137,9 +136,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       if (!targetApiKey.valid || !targetApiKey.key) {
         error(404, m.target_user_not_found());
       }
-      attendingUser = await usersCollection.findOne(
-        getUserIdSelector(targetApiKey.key.referenceId)
-      );
+      attendingUser = await usersCollection.findOne({ id: targetApiKey.key.referenceId });
       if (!attendingUser) {
         error(404, m.target_user_not_found());
       }

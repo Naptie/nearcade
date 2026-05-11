@@ -8,7 +8,7 @@ if (!('MONGODB_URI' in process.env)) {
   dotenv.config();
 }
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) {
   console.error('MONGODB_URI environment variable is required');
