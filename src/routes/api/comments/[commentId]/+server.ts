@@ -4,7 +4,17 @@ import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
-import { deleteImagesByIds, normalizeImageIds, replaceOwnerImages } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import { deleteImagesByIds, replaceOwnerImages } from '$lib/images/index.server';
+import {
+  commentIdParamSchema,
+  commentUpdateRequestSchema,
+  commentUpdateResponseSchema
+} from '$lib/schemas/comments';
+import { successResponseSchema } from '$lib/schemas/common';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+const commentUpdateRequestWithExistingImagesSchema = withExistingImages(commentUpdateRequestSchema);
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -13,21 +23,11 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const commentId = params.commentId;
-    if (!commentId) {
-      error(400, m.invalid_comment_id());
-    }
-
-    const { content, images } = (await request.json()) as {
-      content: string;
-      images?: unknown;
-    };
-    const imageIds = normalizeImageIds(images);
-    const trimmedContent = content?.trim() ?? '';
-
-    if (!trimmedContent && imageIds.length === 0) {
-      error(400, m.comment_content_is_required());
-    }
+    const { commentId } = parseParamsOrError(commentIdParamSchema, params);
+    const { content: trimmedContent, images: imageIds } = await parseJsonOrError(
+      request,
+      commentUpdateRequestWithExistingImagesSchema
+    );
 
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
@@ -42,13 +42,17 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(403, m.you_can_only_edit_your_own_comments());
     }
 
-    await replaceOwnerImages(
-      db,
-      comment.images ?? [],
-      imageIds,
-      { commentId },
-      { userId: session.user.id, userType: session.user.userType }
-    );
+    try {
+      await replaceOwnerImages(
+        db,
+        comment.images ?? [],
+        imageIds,
+        { commentId },
+        { userId: session.user.id, userType: session.user.userType }
+      );
+    } catch (err) {
+      error(400, err instanceof Error ? String(err.message) : m.error_occurred());
+    }
 
     // Update comment
     await commentsCollection.updateOne(
@@ -62,7 +66,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       }
     );
 
-    return json({ success: true });
+    return json(commentUpdateResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -79,10 +83,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       error(401, m.unauthorized());
     }
 
-    const commentId = params.commentId;
-    if (!commentId) {
-      error(400, m.invalid_comment_id());
-    }
+    const { commentId } = parseParamsOrError(commentIdParamSchema, params);
 
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
@@ -169,7 +170,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       );
     }
 
-    return json({ success: true });
+    return json(successResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

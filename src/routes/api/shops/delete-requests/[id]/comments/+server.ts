@@ -8,6 +8,7 @@ import { commentId, toPlainArray, toPlainObject } from '$lib/utils';
 import { getShopDeleteRequestComments } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
 import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
 import {
   shopDeleteRequestCommentCreateRequestSchema,
   shopDeleteRequestCommentCreateResponseSchema,
@@ -20,6 +21,10 @@ import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.serv
 
 type ShopDeleteRequestEntry = z.infer<typeof shopDeleteRequestSchema>;
 type ShopDeleteRequestCommentEntry = z.infer<typeof shopDeleteRequestCommentSchema>;
+
+const shopDeleteRequestCommentCreateRequestWithExistingImagesSchema = withExistingImages(
+  shopDeleteRequestCommentCreateRequestSchema
+);
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -60,7 +65,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       content,
       parentCommentId,
       images: imageIds
-    } = await parseJsonOrError(request, shopDeleteRequestCommentCreateRequestSchema);
+    } = await parseJsonOrError(
+      request,
+      shopDeleteRequestCommentCreateRequestWithExistingImagesSchema
+    );
 
     const db = mongo.db();
     const deleteRequestsCollection = db.collection<ShopDeleteRequestEntry>('shop_delete_requests');

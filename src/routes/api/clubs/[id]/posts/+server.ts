@@ -10,21 +10,33 @@ import {
   getDefaultPostReadability,
   validatePostReadability,
   canReadPost,
-  protect
+  protect,
+  toPlainObject
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
-import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import {
+  organizationPostsQuerySchema,
+  organizationPostsResponseSchema,
+  postCreateRequestSchema,
+  postCreateResponseSchema
+} from '$lib/schemas/posts';
+import { clubIdParamSchema } from '$lib/schemas/organizations';
+import {
+  parseJsonOrError,
+  parseParamsOrError,
+  parseQueryOrError
+} from '$lib/utils/validation.server';
+
+const postCreateRequestWithExistingImagesSchema = withExistingImages(postCreateRequestSchema);
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
     const session = locals.session;
-    const clubId = params.id;
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const { id: clubId } = parseParamsOrError(clubIdParamSchema, params);
+    const { page } = parseQueryOrError(organizationPostsQuerySchema, url);
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
-
-    if (!clubId) {
-      error(400, m.invalid_club_id());
-    }
 
     const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
@@ -90,11 +102,15 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const hasMore = readablePosts.length > skip + PAGINATION.PAGE_SIZE;
     const posts = readablePosts.slice(skip, skip + PAGINATION.PAGE_SIZE);
 
-    return json({
-      posts,
-      hasMore,
-      page
-    });
+    return json(
+      organizationPostsResponseSchema.parse(
+        toPlainObject({
+          posts,
+          hasMore,
+          page
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -111,23 +127,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const clubId = params.id;
-    if (!clubId) {
-      error(400, m.invalid_club_id());
-    }
+    const { id: clubId } = parseParamsOrError(clubIdParamSchema, params);
 
-    const { title, content, readability, images } = (await request.json()) as {
-      title: string;
-      content: string;
-      readability?: PostReadability;
-      images?: unknown;
-    };
-    const imageIds = normalizeImageIds(images);
-    const trimmedTitle = title?.trim() ?? '';
-    const trimmedContent = content?.trim() ?? '';
-    if (!trimmedTitle || (!trimmedContent && imageIds.length === 0)) {
-      error(400, m.title_and_content_are_required());
-    }
+    const {
+      title: trimmedTitle,
+      content: trimmedContent,
+      readability,
+      images: imageIds
+    } = await parseJsonOrError(request, postCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
@@ -208,7 +215,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       throw attachmentError;
     }
 
-    return json({ success: true, postId: newPost.id }, { status: 201 });
+    return json(postCreateResponseSchema.parse({ success: true, postId: newPost.id }), {
+      status: 201
+    });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

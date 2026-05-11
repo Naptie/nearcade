@@ -3,6 +3,9 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
+import { successResponseSchema } from '$lib/schemas/common';
+import { imageIdParamSchema } from '$lib/schemas/images';
+import { parseParamsOrError } from '$lib/utils/validation.server';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
   try {
@@ -11,10 +14,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       error(401, m.unauthorized());
     }
 
-    const { imageId } = params;
-    if (!imageId) {
-      error(400, 'Invalid image id');
-    }
+    const { imageId } = parseParamsOrError(imageIdParamSchema, params);
 
     const db = mongo.db();
     const images = await getImagesByIds(db, [imageId]);
@@ -27,7 +27,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       userType: session.user.userType
     });
 
-    return json({ success: true });
+    return json(successResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

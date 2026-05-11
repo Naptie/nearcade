@@ -1,33 +1,12 @@
 import { defineOpenApiRoute, jsonRequestBody, jsonResponse } from '$lib/schemas/openapi';
 import { bilingual } from '$lib/schemas/common';
 import {
-  shopDeleteRequestByShopListResponseSchema,
   shopDeleteRequestCreateRequestSchema,
   shopDeleteRequestCreateResponseSchema,
   shopIdParamSchema
 } from '$lib/schemas/shops';
 
 export default defineOpenApiRoute({
-  get: {
-    tags: ['shops'],
-    summary: bilingual('获取店铺删除申请', 'Get shop delete requests', true),
-    description: bilingual(
-      '获取指定店铺的删除申请列表，仅站点管理员可用。',
-      'Get delete requests for a shop. This endpoint is available to site administrators only.'
-    ),
-    requestParams: {
-      path: shopIdParamSchema
-    },
-    responses: {
-      '200': jsonResponse(
-        bilingual('删除申请列表', 'Delete request list', true),
-        shopDeleteRequestByShopListResponseSchema
-      ),
-      '400': { description: bilingual('请求错误', 'Bad Request', true) },
-      '403': { description: bilingual('禁止访问', 'Forbidden', true) },
-      '500': { description: bilingual('服务器错误', 'Internal Server Error', true) }
-    }
-  },
   post: {
     tags: ['shops'],
     summary: bilingual('提交店铺删除申请', 'Submit a shop delete request', true),

@@ -5,15 +5,19 @@ import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
 import {
-  shopDeleteRequestByShopListResponseSchema,
   shopDeleteRequestCreateRequestSchema,
   shopDeleteRequestCreateResponseSchema,
   shopDeleteRequestSchema,
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
-import { toPlainArray, toPlainObject } from '$lib/utils';
+import { toPlainObject } from '$lib/utils';
+
+const shopDeleteRequestCreateRequestWithExistingImagesSchema = withExistingImages(
+  shopDeleteRequestCreateRequestSchema
+);
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = locals.session;
@@ -26,7 +30,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     reason,
     photoId,
     images: imageIds
-  } = await parseJsonOrError(request, shopDeleteRequestCreateRequestSchema);
+  } = await parseJsonOrError(request, shopDeleteRequestCreateRequestWithExistingImagesSchema);
 
   const db = mongo.db();
   const shopsCollection = db.collection('shops');
@@ -129,26 +133,4 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   });
 
   return json(response, { status: 201 });
-};
-
-export const GET: RequestHandler = async ({ params, locals }) => {
-  const session = locals.session;
-  if (!session?.user || session.user.userType !== 'site_admin') {
-    error(403, m.insufficient_permissions());
-  }
-
-  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
-
-  const db = mongo.db();
-  const requests = await db
-    .collection('shop_delete_requests')
-    .find({ shopId })
-    .sort({ createdAt: -1 })
-    .toArray();
-
-  const response = shopDeleteRequestByShopListResponseSchema.parse({
-    requests: toPlainArray(requests)
-  });
-
-  return json(response);
 };

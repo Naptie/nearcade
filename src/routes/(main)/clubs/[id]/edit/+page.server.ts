@@ -6,6 +6,7 @@ import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
+import { buildNullishUnsetUpdate, normalizeClubDocument } from '$lib/utils/organizations.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -176,29 +177,49 @@ export const actions: Actions = {
       }
 
       // Update club
-      const updateData: Partial<Club> & { updatedAt: Date } = {
-        name: name.trim(),
-        slug: slug.trim(),
+      const optionalUpdateData = {
         description: description?.trim() || undefined,
         website: website?.trim() || undefined,
         avatarUrl: avatarUrl?.trim() || undefined,
+        backgroundColor:
+          useCustomBackgroundColor && backgroundColor?.trim().length > 0
+            ? backgroundColor.trim()
+            : undefined
+      };
+
+      const updateData: Partial<Club> & { updatedAt: Date } = {
+        name: name.trim(),
+        slug: slug.trim(),
         acceptJoinRequests,
         postReadability,
         postWritability,
         updatedAt: new Date()
       };
 
-      // Only update backgroundColor if user chose to set a custom color
-      if (useCustomBackgroundColor && backgroundColor && backgroundColor.trim().length > 0) {
-        updateData.backgroundColor = backgroundColor.trim();
-      } else {
-        updateData.backgroundColor = undefined;
-      }
+      const optionalFieldUpdate = buildNullishUnsetUpdate(optionalUpdateData);
 
-      await clubsCollection.updateOne({ id }, { $set: updateData });
-      await meili
-        .index<Club>('clubs')
-        .updateDocuments([toPlainObject({ ...club, ...updateData })], { primaryKey: 'id' });
+      await clubsCollection.updateOne(
+        { id },
+        {
+          $set: {
+            ...updateData,
+            ...(optionalFieldUpdate.$set ?? {})
+          },
+          ...(optionalFieldUpdate.$unset ? { $unset: optionalFieldUpdate.$unset } : {})
+        }
+      );
+      await meili.index<Club>('clubs').updateDocuments(
+        [
+          normalizeClubDocument(
+            toPlainObject({
+              ...club,
+              ...updateData,
+              ...optionalUpdateData
+            })
+          )
+        ],
+        { primaryKey: 'id' }
+      );
 
       return {
         success: true,

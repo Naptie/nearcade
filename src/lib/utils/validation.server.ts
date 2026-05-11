@@ -12,6 +12,17 @@ export const parseOrError = <Schema extends z.ZodTypeAny>(schema: Schema, value:
   return result.data as z.infer<Schema>;
 };
 
+export const parseOrErrorAsync = async <Schema extends z.ZodTypeAny>(
+  schema: Schema,
+  value: unknown
+) => {
+  const result = await schema.safeParseAsync(value);
+  if (!result.success) {
+    error(400, formatZodError(result.error));
+  }
+  return result.data as z.infer<Schema>;
+};
+
 export const parseJsonOrError = async <Schema extends z.ZodTypeAny>(
   request: Request,
   schema: Schema,
@@ -23,7 +34,7 @@ export const parseJsonOrError = async <Schema extends z.ZodTypeAny>(
   } catch {
     error(400, invalidJsonMessage);
   }
-  return parseOrError(schema, body);
+  return parseOrErrorAsync(schema, body);
 };
 
 export const parseParamsOrError = <Schema extends z.ZodTypeAny>(schema: Schema, params: unknown) =>

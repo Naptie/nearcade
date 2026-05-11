@@ -3,16 +3,20 @@ import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { toPlainObject } from '$lib/utils';
+import {
+  universityClubListResponseSchema,
+  universityClubsQuerySchema,
+  universityIdParamSchema
+} from '$lib/schemas/organizations';
+import { normalizeClubDocument } from '$lib/utils/organizations.server';
+import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
-    const universityId = params.id;
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const { id: universityId } = parseParamsOrError(universityIdParamSchema, params);
+    const { page } = parseQueryOrError(universityClubsQuerySchema, url);
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
-
-    if (!universityId) {
-      error(400, m.invalid_university_id());
-    }
 
     const db = mongo.db();
     const universitiesCollection = db.collection('universities');
@@ -62,12 +66,18 @@ export const GET: RequestHandler = async ({ params, url }) => {
     });
     const hasMore = page * PAGINATION.PAGE_SIZE < totalClubs;
 
-    return json({
-      clubs: clubsAggregation,
-      hasMore,
-      page,
-      totalClubs
-    });
+    const normalizedClubs = clubsAggregation.map((club) => normalizeClubDocument(club));
+
+    return json(
+      universityClubListResponseSchema.parse(
+        toPlainObject({
+          clubs: normalizedClubs,
+          hasMore,
+          page,
+          totalClubs
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

@@ -6,6 +6,10 @@ import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/ima
 import { checkUniversityPermission } from '$lib/utils';
 import { logChange } from '$lib/utils/universities-clubs/changelog.server';
 import type { University } from '$lib/types';
+import { avatarUploadResponseSchema } from '$lib/schemas/users';
+import { imageUploadFormDataSchema } from '$lib/schemas/images';
+import { universityIdParamSchema } from '$lib/schemas/organizations';
+import { parseOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
   const session = locals.session;
@@ -13,7 +17,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     error(401, m.insufficient_permissions());
   }
 
-  const { id } = params;
+  const { id } = parseParamsOrError(universityIdParamSchema, params);
 
   const permissions = await checkUniversityPermission(session.user, id, mongo);
   if (!permissions.canEdit) {
@@ -27,13 +31,9 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     error(400, 'Invalid form data');
   }
 
-  const file = formData.get('file') as File | null;
-  if (!file) {
-    error(400, 'A file is required');
-  }
-  if (!file.type.startsWith('image/')) {
-    error(400, 'Only image files are allowed');
-  }
+  const { file } = parseOrError(imageUploadFormDataSchema.pick({ file: true }), {
+    file: formData.get('file')
+  });
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -47,6 +47,11 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     }
   });
 
+  const enqueueEvent = (event: unknown) => {
+    const payload = avatarUploadResponseSchema.parse(event);
+    streamController.enqueue(encoder.encode(JSON.stringify(payload) + '\n'));
+  };
+
   (async () => {
     try {
       const db = mongo.db();
@@ -57,8 +62,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       });
 
       if (!university) {
-        const line = JSON.stringify({ phase: 'error', message: m.university_not_found() }) + '\n';
-        streamController.enqueue(encoder.encode(line));
+        enqueueEvent({ phase: 'error', message: m.university_not_found() });
         streamController.close();
         return;
       }
@@ -75,8 +79,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
         uploadedBy: session.user.id,
         owner: { universityId },
         onProgress: (progress) => {
-          const line = JSON.stringify({ phase: 'uploading', progress }) + '\n';
-          streamController.enqueue(encoder.encode(line));
+          enqueueEvent({ phase: 'uploading', progress });
         }
       });
 
@@ -120,22 +123,19 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
         newValue: image.url
       });
 
-      const line =
-        JSON.stringify({
-          phase: 'done',
-          imageId: image.id,
-          url: image.url,
-          storageProvider: image.storageProvider,
-          storageKey: image.storageKey,
-          storageObjectId: image.storageObjectId ?? null
-        }) + '\n';
-      streamController.enqueue(encoder.encode(line));
+      enqueueEvent({
+        phase: 'done',
+        imageId: image.id,
+        url: image.url,
+        storageProvider: image.storageProvider,
+        storageKey: image.storageKey,
+        storageObjectId: image.storageObjectId ?? null
+      });
       streamController.close();
     } catch (err) {
       console.error('University avatar upload error:', err);
-      const line = JSON.stringify({ phase: 'error', message: m.image_upload_failed() }) + '\n';
       try {
-        streamController.enqueue(encoder.encode(line));
+        enqueueEvent({ phase: 'error', message: m.image_upload_failed() });
         streamController.close();
       } catch {
         // controller may already be closed

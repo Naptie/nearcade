@@ -8,6 +8,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { toPlainObject } from '$lib/utils';
+import { normalizeClubDocument, omitUndefinedFields } from '$lib/utils/organizations.server';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = locals.session;
@@ -105,22 +106,26 @@ export const actions: Actions = {
         universityId,
         name: name.trim(),
         slug,
-        description: description?.trim() || undefined,
-        website: website?.trim() || undefined,
-        avatarUrl: avatarUrl?.trim() || undefined,
-        backgroundColor: backgroundColor || undefined,
         acceptJoinRequests,
         postReadability,
         postWritability,
         starredArcades: [],
         createdAt: new Date(),
-        createdBy: user.id
+        ...omitUndefinedFields({
+          description: description?.trim() || undefined,
+          website: website?.trim() || undefined,
+          avatarUrl: avatarUrl?.trim() || undefined,
+          backgroundColor: backgroundColor?.trim() || undefined,
+          createdBy: user.id || undefined
+        })
       };
 
       const result = await clubsCollection.insertOne(club);
       await meili
         .index<Club>('clubs')
-        .addDocuments([toPlainObject({ _id: result.insertedId, ...club })], { primaryKey: 'id' });
+        .addDocuments([normalizeClubDocument(toPlainObject({ _id: result.insertedId, ...club }))], {
+          primaryKey: 'id'
+        });
 
       // Add creator as admin member
       const clubMembersCollection = db.collection('club_members');

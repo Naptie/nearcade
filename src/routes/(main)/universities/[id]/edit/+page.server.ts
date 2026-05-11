@@ -8,6 +8,10 @@ import { resolve } from '$app/paths';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
+import {
+  buildNullishUnsetUpdate,
+  normalizeUniversityDocument
+} from '$lib/utils/organizations.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -195,14 +199,21 @@ export const actions: Actions = {
         }
       }
 
-      const updateData: Partial<University> & { updatedAt: Date } = {
-        name: name.trim(),
-        type: type.trim(),
-        affiliation: affiliation.trim(),
+      const optionalUpdateData = {
         description: description?.trim() || undefined,
         website: website?.trim() || undefined,
         avatarUrl: avatarUrl?.trim() || undefined,
         slug: slug?.trim() || undefined,
+        backgroundColor:
+          useCustomBackgroundColor && backgroundColor?.trim().length > 0
+            ? backgroundColor.trim()
+            : undefined
+      };
+
+      const updateData: Partial<University> & { updatedAt: Date } = {
+        name: name.trim(),
+        type: type.trim(),
+        affiliation: affiliation.trim(),
         majorCategory: majorCategory?.trim() || null,
         natureOfRunning: natureOfRunning?.trim() || null,
         is985,
@@ -213,26 +224,45 @@ export const actions: Actions = {
         updatedAt: new Date()
       };
 
-      // Only update backgroundColor if user chose to set a custom color
-      if (useCustomBackgroundColor && backgroundColor && backgroundColor.trim().length > 0) {
-        updateData.backgroundColor = backgroundColor.trim();
-      } else {
-        updateData.backgroundColor = undefined; // Reset if not using custom color
-      }
+      const optionalFieldUpdate = buildNullishUnsetUpdate(optionalUpdateData);
 
       // Log changes to changelog
-      await logUniversityChanges(mongo, id, currentUniversity, updateData, {
-        id: user.id!,
-        name: user.name,
-        image: user.image
-      });
+      await logUniversityChanges(
+        mongo,
+        id,
+        currentUniversity,
+        { ...updateData, ...optionalUpdateData },
+        {
+          id: user.id!,
+          name: user.name,
+          image: user.image
+        }
+      );
 
-      await universitiesCollection.updateOne({ id }, { $set: updateData });
-      await meili
-        .index<University>('universities')
-        .updateDocuments([toPlainObject({ ...currentUniversity, ...updateData })], {
+      await universitiesCollection.updateOne(
+        { id },
+        {
+          $set: {
+            ...updateData,
+            ...(optionalFieldUpdate.$set ?? {})
+          },
+          ...(optionalFieldUpdate.$unset ? { $unset: optionalFieldUpdate.$unset } : {})
+        }
+      );
+      await meili.index<University>('universities').updateDocuments(
+        [
+          normalizeUniversityDocument(
+            toPlainObject({
+              ...currentUniversity,
+              ...updateData,
+              ...optionalUpdateData
+            })
+          )
+        ],
+        {
           primaryKey: 'id'
-        });
+        }
+      );
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {

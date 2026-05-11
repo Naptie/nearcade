@@ -6,6 +6,7 @@ import { commentId, protect, toPlainArray, toPlainObject } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
 import { attachImagesToOwner, hydrateEntitiesWithImages } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
 import {
   shopCommentCreateRequestSchema,
   shopCommentCreateResponseSchema,
@@ -16,6 +17,10 @@ import {
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 type ShopCommentEntry = z.infer<typeof shopCommentEntrySchema>;
+
+const shopCommentCreateRequestWithExistingImagesSchema = withExistingImages(
+  shopCommentCreateRequestSchema
+);
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -103,7 +108,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       content,
       parentCommentId,
       images: imageIds
-    } = await parseJsonOrError(request, shopCommentCreateRequestSchema);
+    } = await parseJsonOrError(request, shopCommentCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const shopsCollection = db.collection('shops');

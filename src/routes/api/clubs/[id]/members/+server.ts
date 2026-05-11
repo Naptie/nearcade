@@ -5,16 +5,19 @@ import mongo from '$lib/db/index.server';
 import type { Club, ClubMember, UniversityMember } from '$lib/types';
 import { protect } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
+import { toPlainObject } from '$lib/utils';
+import {
+  clubIdParamSchema,
+  clubMembersQuerySchema,
+  clubMembersResponseSchema
+} from '$lib/schemas/organizations';
+import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
-    const clubId = params.id;
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const { id: clubId } = parseParamsOrError(clubIdParamSchema, params);
+    const { page } = parseQueryOrError(clubMembersQuerySchema, url);
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
-
-    if (!clubId) {
-      error(400, m.invalid_club_id());
-    }
 
     const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
@@ -86,12 +89,16 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     });
     const hasMore = page * PAGINATION.PAGE_SIZE < totalMembers;
 
-    return json({
-      members,
-      hasMore,
-      page,
-      totalMembers
-    });
+    return json(
+      clubMembersResponseSchema.parse(
+        toPlainObject({
+          members,
+          hasMore,
+          page,
+          totalMembers
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

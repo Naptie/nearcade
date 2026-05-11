@@ -11,7 +11,18 @@ import {
 } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
-import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import {
+  postCommentCreateRequestSchema,
+  postCommentCreateResponseSchema,
+  postIdParamSchema
+} from '$lib/schemas/posts';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+const postCommentCreateRequestWithExistingImagesSchema = withExistingImages(
+  postCommentCreateRequestSchema
+);
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -20,22 +31,13 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
-    const { content, parentCommentId, images } = (await request.json()) as {
-      content: string;
-      parentCommentId?: string;
-      images?: unknown;
-    };
-    const imageIds = normalizeImageIds(images);
-    const trimmedContent = content?.trim() ?? '';
-
-    if (!trimmedContent && imageIds.length === 0) {
-      error(400, m.comment_content_is_required());
-    }
+    const {
+      content: trimmedContent,
+      parentCommentId,
+      images: imageIds
+    } = await parseJsonOrError(request, postCommentCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -186,10 +188,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     return json(
-      {
+      postCommentCreateResponseSchema.parse({
         success: true,
         commentId: newComment.id
-      },
+      }),
       { status: 201 }
     );
   } catch (err) {

@@ -18,24 +18,31 @@ import {
   validatePostReadability,
   canReadPost,
   getDefaultPostReadability,
-  protect
+  protect,
+  toPlainObject
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 import {
   deleteImagesByIds,
   deleteImagesForOwner,
   hydrateEntitiesWithImages,
-  normalizeImageIds,
   replaceOwnerImages
 } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import {
+  postDeleteResponseSchema,
+  postDetailResponseSchema,
+  postIdParamSchema,
+  postUpdateRequestSchema,
+  postUpdateResponseSchema
+} from '$lib/schemas/posts';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+const postUpdateRequestWithExistingImagesSchema = withExistingImages(postUpdateRequestSchema);
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
-    const postId = params.postId;
-
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -156,11 +163,15 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       userVote = vote ? vote.voteType : null;
     }
 
-    return json({
-      post,
-      comments: hydratedComments,
-      userVote
-    });
+    return json(
+      postDetailResponseSchema.parse(
+        toPlainObject({
+          post,
+          comments: hydratedComments,
+          userVote
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -178,20 +189,16 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
-    const { title, content, readability, isPinned, isLocked, images } = (await request.json()) as {
-      title?: string;
-      content?: string;
-      readability?: PostReadability;
-      isPinned?: boolean;
-      isLocked?: boolean;
-      images?: unknown;
-    };
-    const normalizedImageIds = images === undefined ? undefined : normalizeImageIds(images);
+    const {
+      title,
+      content,
+      readability,
+      isPinned,
+      isLocked,
+      images: imageIds
+    } = await parseJsonOrError(request, postUpdateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -228,8 +235,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Determine what type of update this is
-    const isContentUpdate =
-      title !== undefined || content !== undefined || normalizedImageIds !== undefined;
+    const isContentUpdate = title !== undefined || content !== undefined || imageIds !== undefined;
     const isManagementUpdate = isPinned !== undefined || isLocked !== undefined;
 
     // Check permissions for content updates (owner or canEdit)
@@ -265,7 +271,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     const trimmedContent = content?.trim();
     const nextTitle = trimmedTitle ?? post.title;
     const nextContent = trimmedContent ?? post.content;
-    const nextImageIds = normalizedImageIds ?? post.images ?? [];
+    const nextImageIds = imageIds ?? post.images ?? [];
 
     if (isContentUpdate) {
       if (!nextTitle) {
@@ -286,15 +292,19 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     if (content !== undefined) {
       updateData.content = nextContent;
     }
-    if (normalizedImageIds !== undefined) {
-      await replaceOwnerImages(
-        db,
-        post.images ?? [],
-        normalizedImageIds,
-        { postId },
-        { userId: session.user.id, userType: session.user.userType }
-      );
-      updateData.images = normalizedImageIds;
+    if (imageIds !== undefined) {
+      try {
+        await replaceOwnerImages(
+          db,
+          post.images ?? [],
+          imageIds,
+          { postId },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+        updateData.images = imageIds;
+      } catch (err) {
+        error(400, err instanceof Error ? String(err.message) : m.error_occurred());
+      }
     }
     if (readability !== undefined) {
       updateData.readability = readability;
@@ -314,7 +324,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Update the post
     await postsCollection.updateOne({ id: postId }, { $set: updateData });
 
-    return json({ success: true });
+    return json(postUpdateResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -332,10 +342,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -413,7 +420,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Delete the post
     await postsCollection.deleteOne({ id: postId });
 
-    return json({ success: true });
+    return json(postDeleteResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
