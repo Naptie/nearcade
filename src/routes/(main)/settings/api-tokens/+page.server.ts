@@ -262,7 +262,10 @@ export const actions: Actions = {
               body: { keyId: newApiKey.id }
             })
             .catch((cleanupError) => {
-              console.error('Failed to clean up newly created API token after reset failure:', cleanupError);
+              console.error(
+                'Failed to clean up newly created API token after reset failure:',
+                cleanupError
+              );
             });
         }
 
