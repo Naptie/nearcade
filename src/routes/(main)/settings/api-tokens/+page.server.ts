@@ -17,6 +17,8 @@ type ApiTokenListItem = {
   createdAt: Date;
 };
 
+type CreatedApiKey = Awaited<ReturnType<typeof auth.api.createApiKey>>;
+
 const getUnauthorizedFailure = () => fail(401, { message: 'unauthorized' });
 
 const mapApiKeyToListItem = (
@@ -238,7 +240,7 @@ export const actions: Actions = {
         });
       }
 
-      let newApiKey: Awaited<ReturnType<typeof auth.api.createApiKey>> | null = null;
+      let newApiKey: CreatedApiKey | null = null;
 
       try {
         newApiKey = await auth.api.createApiKey({
@@ -254,7 +256,7 @@ export const actions: Actions = {
           headers: request.headers,
           body: { keyId: tokenId }
         });
-      } catch (error) {
+      } catch (resetError) {
         if (newApiKey) {
           await auth.api
             .deleteApiKey({
@@ -269,7 +271,7 @@ export const actions: Actions = {
             });
         }
 
-        throw error;
+        throw resetError;
       }
 
       return {

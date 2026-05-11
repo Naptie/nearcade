@@ -84,7 +84,7 @@ async function migrateLegacyApiToken(userId: string, token: LegacyApiToken) {
       lastRequest: null,
       expiresAt: token.expiresAt,
       createdAt: token.createdAt,
-      updatedAt: token.createdAt,
+      updatedAt: new Date(),
       metadata: serializeLegacyMetadata(token),
       permissions: null
     });
