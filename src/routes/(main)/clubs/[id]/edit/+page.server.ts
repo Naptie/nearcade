@@ -251,12 +251,9 @@ export const actions: Actions = {
       for (const fieldName of Object.keys(clubUnsetFields)) {
         delete nextClub[fieldName];
       }
-      await meili.index<Club>('clubs').updateDocuments(
-        [
-          normalizeClubDocument(toPlainObject(nextClub))
-        ],
-        { primaryKey: 'id' }
-      );
+      await meili
+        .index<Club>('clubs')
+        .updateDocuments([normalizeClubDocument(toPlainObject(nextClub))], { primaryKey: 'id' });
 
       return {
         success: true,

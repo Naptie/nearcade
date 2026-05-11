@@ -3,7 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { pageTitle } from '$lib/utils';
-  import { buildImageUploadUrl } from '$lib/utils/image-upload';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import { goto, invalidateAll } from '$app/navigation';
   import Comment from '$lib/components/Comment.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';

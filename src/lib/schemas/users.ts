@@ -142,7 +142,8 @@ export const activitySchema = z
       .string()
       .optional()
       .describe(bilingual('变更目标 ID。', 'Changelog target ID.')),
-    changelogEntry: organizationChangelogEntrySchema.optional()
+    changelogEntry: organizationChangelogEntrySchema
+      .optional()
       .describe(bilingual('完整变更记录。', 'Full changelog entry.'))
       .meta({ override: { type: 'object', additionalProperties: true } }),
     joinedUniversityId: z

@@ -274,17 +274,11 @@ export const actions: Actions = {
       } as Partial<University>;
 
       // Log changes to changelog
-      await logUniversityChanges(
-        mongo,
-        id,
-        currentUniversity,
-        nextUniversityUpdate,
-        {
-          id: user.id!,
-          name: user.name,
-          image: user.image
-        }
-      );
+      await logUniversityChanges(mongo, id, currentUniversity, nextUniversityUpdate, {
+        id: user.id!,
+        name: user.name,
+        image: user.image
+      });
 
       await universitiesCollection.updateOne(
         { id },
@@ -302,12 +296,11 @@ export const actions: Actions = {
       for (const fieldName of Object.keys(universityUnsetFields)) {
         delete nextUniversity[fieldName];
       }
-      await meili.index<University>('universities').updateDocuments(
-        [normalizeUniversityDocument(toPlainObject(nextUniversity))],
-        {
+      await meili
+        .index<University>('universities')
+        .updateDocuments([normalizeUniversityDocument(toPlainObject(nextUniversity))], {
           primaryKey: 'id'
-        }
-      );
+        });
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {

@@ -44,7 +44,9 @@ export const buildNullishUnsetUpdate = <T extends Record<string, unknown>>(
   };
 };
 
-export const parsePostReadability = (value: FormDataEntryValue | null): PostReadabilityValue | null => {
+export const parsePostReadability = (
+  value: FormDataEntryValue | null
+): PostReadabilityValue | null => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
 
   if (parsed === 0 || parsed === 1 || parsed === 2) {
@@ -54,7 +56,9 @@ export const parsePostReadability = (value: FormDataEntryValue | null): PostRead
   return null;
 };
 
-export const parsePostWritability = (value: FormDataEntryValue | null): PostWritabilityValue | null => {
+export const parsePostWritability = (
+  value: FormDataEntryValue | null
+): PostWritabilityValue | null => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
 
   if (parsed === 0 || parsed === 1 || parsed === 2 || parsed === 3) {

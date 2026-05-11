@@ -5,7 +5,7 @@
   import { fromPath } from '$lib/utils/scoped';
   import type { ImageAsset } from '$lib/types';
   import type { User } from '$lib/auth/types';
-  import { buildImageUploadUrl } from '$lib/utils/image-upload';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDisplayName } from '$lib/utils';
   import { browser } from '$app/environment';
 

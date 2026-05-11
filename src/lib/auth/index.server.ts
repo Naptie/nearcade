@@ -109,9 +109,10 @@ function osuProvider() {
   };
 }
 
-const allowedOrigins = env.ALLOWED_ORIGINS?.split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean) || [];
+const allowedOrigins =
+  env.ALLOWED_ORIGINS?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean) || [];
 
 const allowedHosts = allowedOrigins
   .map((origin) => {
