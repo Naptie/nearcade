@@ -227,13 +227,15 @@ export const actions: Actions = {
         query: { id: tokenId }
       });
 
-      if (!existingKey.expiresAt || existingKey.expiresAt < new Date()) {
+      if (existingKey.expiresAt && existingKey.expiresAt < new Date()) {
         return fail(400, {
           message: 'cannot_reset_expired_token'
         });
       }
 
-      const expiresIn = Math.ceil((existingKey.expiresAt.getTime() - Date.now()) / 1000);
+      const expiresIn = existingKey.expiresAt
+        ? Math.ceil((existingKey.expiresAt.getTime() - Date.now()) / 1000)
+        : undefined;
 
       let newApiKey: CreatedApiKey | null = null;
 
