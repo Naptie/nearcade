@@ -1,131 +1,163 @@
 import { error, fail } from '@sveltejs/kit';
-import { ObjectId } from 'mongodb';
-import { customAlphabet, nanoid } from 'nanoid';
+import type { ApiKey } from '@better-auth/api-key';
 import type { PageServerLoad, Actions } from './$types';
-import mongo from '$lib/db/index.server';
-import type { User } from '$lib/auth/types';
-import { alphabet } from '$lib/utils';
+import { auth } from '$lib/auth/index.server';
 import { m } from '$lib/paraglide/messages';
 
-export const load: PageServerLoad = async ({ parent }) => {
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const YEAR_IN_MS = 365 * DAY_IN_MS;
+const MAX_TOKEN_NAME_LENGTH = 50;
+
+type ApiTokenListItem = {
+  id: string;
+  name: string;
+  token: string;
+  expiresAt: Date | null;
+  createdAt: Date;
+};
+
+type CreatedApiKey = Awaited<ReturnType<typeof auth.api.createApiKey>>;
+type ExpirationResult =
+  | { ok: true; expiresAt: Date }
+  | { ok: false; response: ReturnType<typeof fail> };
+
+const getUnauthorizedFailure = () => fail(401, { message: 'unauthorized' });
+
+const mapApiKeyToListItem = (
+  apiKey: Pick<ApiKey, 'id' | 'name' | 'expiresAt' | 'createdAt'> & { key?: string }
+): ApiTokenListItem => ({
+  id: apiKey.id,
+  name: apiKey.name ?? '',
+  token: apiKey.key ?? '',
+  expiresAt: apiKey.expiresAt,
+  createdAt: apiKey.createdAt
+});
+
+const getExpirationDate = (expirationOption: string, customDate: string): ExpirationResult => {
+  const now = new Date();
+
+  switch (expirationOption) {
+    case '1day':
+      return { ok: true, expiresAt: new Date(now.getTime() + DAY_IN_MS) };
+    case '1week':
+      return { ok: true, expiresAt: new Date(now.getTime() + 7 * DAY_IN_MS) };
+    case '30days':
+      return { ok: true, expiresAt: new Date(now.getTime() + 30 * DAY_IN_MS) };
+    case '90days':
+      return { ok: true, expiresAt: new Date(now.getTime() + 90 * DAY_IN_MS) };
+    case '1year':
+      return { ok: true, expiresAt: new Date(now.getTime() + YEAR_IN_MS) };
+    case 'custom': {
+      if (!customDate) {
+        return {
+          ok: false,
+          response: fail(400, {
+            message: 'field_required',
+            fieldErrors: { customDate: 'field_required' }
+          })
+        };
+      }
+
+      const expiresAt = new Date(customDate);
+      if (expiresAt <= now) {
+        return {
+          ok: false,
+          response: fail(400, {
+            message: 'expiration_date_must_be_future',
+            fieldErrors: { customDate: 'expiration_date_must_be_future' }
+          })
+        };
+      }
+
+      const oneYearFromNow = new Date(now.getTime() + YEAR_IN_MS);
+      if (expiresAt > oneYearFromNow) {
+        return {
+          ok: false,
+          response: fail(400, {
+            message: 'maximum_expiration_one_year',
+            fieldErrors: { customDate: 'maximum_expiration_one_year' }
+          })
+        };
+      }
+
+      return { ok: true, expiresAt };
+    }
+    default:
+      return {
+        ok: false,
+        response: fail(400, {
+          message: 'invalid_expiration_option',
+          fieldErrors: { expiration: 'invalid_expiration_option' }
+        })
+      };
+  }
+};
+
+export const load: PageServerLoad = async ({ parent, request }) => {
   const { user } = await parent();
 
   if (!user) {
     error(401, m.error_401_title());
   }
 
+  const { apiKeys } = await auth.api.listApiKeys({
+    headers: request.headers,
+    query: {
+      sortBy: 'createdAt',
+      sortDirection: 'desc'
+    }
+  });
+
   return {
-    apiTokens: user.apiTokens || []
+    apiTokens: apiKeys.map(mapApiKeyToListItem)
   };
 };
 
-export const actions: Actions = {
+export const actions = {
   createToken: async ({ request, locals }) => {
     const session = locals.session;
-    if (!session || !session.user) {
-      return fail(401, { message: 'unauthorized' });
+    if (!session?.user) {
+      return getUnauthorizedFailure();
     }
 
     try {
       const formData = await request.formData();
-      const name = formData.get('name') as string;
-      const expirationOption = formData.get('expiration') as string;
-      const customDate = formData.get('customDate') as string;
+      const name = String(formData.get('name') ?? '');
+      const expirationOption = String(formData.get('expiration') ?? '');
+      const customDate = String(formData.get('customDate') ?? '');
 
-      // Validate name
-      if (!name || name.trim() === '') {
+      if (!name.trim()) {
         return fail(400, {
           message: 'api_token_name_required',
           fieldErrors: { name: 'api_token_name_required' }
         });
       }
 
-      if (name.trim().length > 50) {
+      if (name.trim().length > MAX_TOKEN_NAME_LENGTH) {
         return fail(400, {
           message: 'name_too_long',
           fieldErrors: { name: 'name_too_long' }
         });
       }
 
-      // Calculate expiration date
-      let expiresAt: Date;
-      const now = new Date();
-
-      switch (expirationOption) {
-        case '1day':
-          expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          break;
-        case '1week':
-          expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          break;
-        case '30days':
-          expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-          break;
-        case '90days':
-          expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-          break;
-        case '1year':
-          expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-          break;
-        case 'custom': {
-          if (!customDate) {
-            return fail(400, {
-              message: 'field_required',
-              fieldErrors: { customDate: 'field_required' }
-            });
-          }
-          expiresAt = new Date(customDate);
-          if (expiresAt <= now) {
-            return fail(400, {
-              message: 'expiration_date_must_be_future',
-              fieldErrors: { customDate: 'expiration_date_must_be_future' }
-            });
-          }
-          // Check maximum 1 year limit
-          const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-          if (expiresAt > oneYearFromNow) {
-            return fail(400, {
-              message: 'maximum_expiration_one_year',
-              fieldErrors: { customDate: 'maximum_expiration_one_year' }
-            });
-          }
-          break;
-        }
-        default:
-          return fail(400, {
-            message: 'invalid_expiration_option',
-            fieldErrors: { expiration: 'invalid_expiration_option' }
-          });
+      const expirationResult = getExpirationDate(expirationOption, customDate);
+      if (!expirationResult.ok) {
+        return expirationResult.response;
       }
 
-      // Generate token
-      const token = `nk_${customAlphabet(alphabet, 42)()}`;
-      const apiTokenId = nanoid();
-
-      const newToken = {
-        id: apiTokenId,
-        name: name.trim(),
-        token: token,
-        expiresAt: expiresAt,
-        createdAt: new Date()
-      };
-
-      // Update user with new API token
-      const db = mongo.db();
-      const usersCollection = db.collection<User>('users');
-
-      await usersCollection.updateOne(
-        { _id: new ObjectId(session.user.id) },
-        {
-          $push: { apiTokens: newToken },
-          $set: { updatedAt: new Date() }
+      const expiresIn = Math.ceil((expirationResult.expiresAt.getTime() - Date.now()) / 1000);
+      const apiKey = await auth.api.createApiKey({
+        headers: request.headers,
+        body: {
+          name: name.trim(),
+          expiresIn
         }
-      );
+      });
 
       return {
         success: true,
         message: 'api_token_created',
-        token: newToken
+        token: mapApiKeyToListItem(apiKey)
       };
     } catch (err) {
       console.error('Error creating API token:', err);
@@ -137,46 +169,36 @@ export const actions: Actions = {
 
   renameToken: async ({ request, locals }) => {
     const session = locals.session;
-    if (!session || !session.user) {
-      return fail(401, { message: 'unauthorized' });
+    if (!session?.user) {
+      return getUnauthorizedFailure();
     }
 
     try {
       const formData = await request.formData();
-      const tokenId = formData.get('tokenId') as string;
-      const name = formData.get('name') as string;
+      const tokenId = String(formData.get('tokenId') ?? '');
+      const name = String(formData.get('name') ?? '');
 
-      // Validate inputs
-      if (!tokenId || !name || name.trim() === '') {
+      if (!tokenId || !name.trim()) {
         return fail(400, {
           message: 'api_token_name_required',
           fieldErrors: { name: 'api_token_name_required' }
         });
       }
 
-      if (name.trim().length > 50) {
+      if (name.trim().length > MAX_TOKEN_NAME_LENGTH) {
         return fail(400, {
           message: 'name_too_long',
           fieldErrors: { name: 'name_too_long' }
         });
       }
 
-      // Update the token name
-      const db = mongo.db();
-      const usersCollection = db.collection('users');
-
-      await usersCollection.updateOne(
-        {
-          _id: new ObjectId(session.user.id),
-          'apiTokens.id': tokenId
-        },
-        {
-          $set: {
-            'apiTokens.$.name': name.trim(),
-            updatedAt: new Date()
-          }
+      await auth.api.updateApiKey({
+        headers: request.headers,
+        body: {
+          keyId: tokenId,
+          name: name.trim()
         }
-      );
+      });
 
       return {
         success: true,
@@ -192,13 +214,13 @@ export const actions: Actions = {
 
   resetToken: async ({ request, locals }) => {
     const session = locals.session;
-    if (!session || !session.user) {
-      return fail(401, { message: 'unauthorized' });
+    if (!session?.user) {
+      return getUnauthorizedFailure();
     }
 
     try {
       const formData = await request.formData();
-      const tokenId = formData.get('tokenId') as string;
+      const tokenId = String(formData.get('tokenId') ?? '');
 
       if (!tokenId) {
         return fail(400, {
@@ -206,62 +228,60 @@ export const actions: Actions = {
         });
       }
 
-      // Find the existing token to get its name and expiration
-      const db = mongo.db();
-      const usersCollection = db.collection<User>('users');
+      const existingKey = await auth.api.getApiKey({
+        headers: request.headers,
+        query: { id: tokenId }
+      });
 
-      const user = await usersCollection.findOne(
-        { _id: new ObjectId(session.user.id) },
-        { projection: { apiTokens: 1 } }
-      );
-
-      if (!user || !user.apiTokens) {
-        return fail(404, {
-          message: 'user_or_tokens_not_found'
-        });
-      }
-
-      const existingToken = user.apiTokens.find((token) => token.id === tokenId);
-      if (!existingToken) {
-        return fail(404, {
-          message: 'token_not_found'
-        });
-      }
-
-      if (existingToken.expiresAt < new Date()) {
+      if (existingKey.expiresAt && existingKey.expiresAt < new Date()) {
         return fail(400, {
           message: 'cannot_reset_expired_token'
         });
       }
 
-      // Generate new token with same name and expiration
-      const newTokenValue = `nk_${customAlphabet(alphabet, 42)()}`;
+      const expiresIn = existingKey.expiresAt
+        ? Math.ceil((existingKey.expiresAt.getTime() - Date.now()) / 1000)
+        : undefined;
 
-      const updatedToken = {
-        ...existingToken,
-        token: newTokenValue,
-        createdAt: new Date()
-      };
+      let newApiKey: CreatedApiKey | null = null;
 
-      // Update the token in the database
-      await usersCollection.updateOne(
-        {
-          _id: new ObjectId(session.user.id),
-          'apiTokens.id': tokenId
-        },
-        {
-          $set: {
-            'apiTokens.$.token': newTokenValue,
-            'apiTokens.$.createdAt': new Date(),
-            updatedAt: new Date()
+      try {
+        newApiKey = await auth.api.createApiKey({
+          headers: request.headers,
+          body: {
+            name: existingKey.name ?? '',
+            expiresIn,
+            metadata: existingKey.metadata
           }
+        });
+
+        await auth.api.deleteApiKey({
+          headers: request.headers,
+          body: { keyId: tokenId }
+        });
+      } catch (resetError) {
+        if (newApiKey) {
+          const newApiKeyId = newApiKey.id;
+          await auth.api
+            .deleteApiKey({
+              headers: request.headers,
+              body: { keyId: newApiKeyId }
+            })
+            .catch((cleanupError: unknown) => {
+              console.error(
+                `Failed to clean up newly created API token (id: ${newApiKeyId}) after reset failure:`,
+                cleanupError
+              );
+            });
         }
-      );
+
+        throw resetError;
+      }
 
       return {
         success: true,
         message: 'api_token_reset',
-        token: updatedToken
+        token: mapApiKeyToListItem(newApiKey)
       };
     } catch (err) {
       console.error('Error resetting API token:', err);
@@ -273,13 +293,13 @@ export const actions: Actions = {
 
   deleteToken: async ({ request, locals }) => {
     const session = locals.session;
-    if (!session || !session.user) {
-      return fail(401, { message: 'unauthorized' });
+    if (!session?.user) {
+      return getUnauthorizedFailure();
     }
 
     try {
       const formData = await request.formData();
-      const tokenId = formData.get('tokenId') as string;
+      const tokenId = String(formData.get('tokenId') ?? '');
 
       if (!tokenId) {
         return fail(400, {
@@ -287,17 +307,10 @@ export const actions: Actions = {
         });
       }
 
-      // Remove the token from user's apiTokens array
-      const db = mongo.db();
-      const usersCollection = db.collection<User>('users');
-
-      await usersCollection.updateOne(
-        { _id: new ObjectId(session.user.id) },
-        {
-          $pull: { apiTokens: { id: tokenId } },
-          $set: { updatedAt: new Date() }
-        }
-      );
+      await auth.api.deleteApiKey({
+        headers: request.headers,
+        body: { keyId: tokenId }
+      });
 
       return {
         success: true,
@@ -310,4 +323,4 @@ export const actions: Actions = {
       });
     }
   }
-};
+} satisfies Actions;

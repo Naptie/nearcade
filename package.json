@@ -16,6 +16,7 @@
     "fl": "prettier --write . && eslint . --fix",
     "m": "tsx ./scripts/manage-messages.js",
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
+    "migrate-api-tokens": "tsx ./scripts/migrate-api-tokens.ts",
     "ssv-poll": "tsx ./scripts/ssv-email-worker.ts",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
     "maintain-attendance": "tsx ./scripts/attendance-maintainer.ts",
@@ -83,8 +84,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1035.0",
     "@aws-sdk/lib-storage": "^3.1035.0",
+    "@better-auth/api-key": "1.6.10",
     "@photostructure/tz-lookup": "^11.5.0",
-    "better-auth": "^1.6.7",
+    "better-auth": "^1.6.10",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",

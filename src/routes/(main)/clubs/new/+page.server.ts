@@ -8,7 +8,12 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { toPlainObject } from '$lib/utils';
-import { normalizeClubDocument, omitUndefinedFields } from '$lib/utils/organizations.server';
+import {
+  normalizeClubDocument,
+  omitUndefinedFields,
+  parsePostReadability,
+  parsePostWritability
+} from '$lib/utils/organizations.server';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = locals.session;
@@ -69,11 +74,15 @@ export const actions: Actions = {
       const backgroundColor = formData.get('backgroundColor') as string;
       const universityId = formData.get('universityId') as string;
       const acceptJoinRequests = formData.get('acceptJoinRequests') === 'on';
-      const postReadability = parseInt(formData.get('postReadability') as string);
-      const postWritability = parseInt(formData.get('postWritability') as string);
+      const postReadability = parsePostReadability(formData.get('postReadability'));
+      const postWritability = parsePostWritability(formData.get('postWritability'));
 
       if (!name?.trim() || !slug?.trim() || !universityId?.trim()) {
         return fail(400, { message: m.name_slug_and_university_are_required() });
+      }
+
+      if (postReadability === null || postWritability === null) {
+        return fail(400, { message: m.validation_error() });
       }
 
       // Validate slug format

@@ -10,7 +10,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { render } from '$lib/utils/markdown';
   import MarkdownEditor from './MarkdownEditor.svelte';
-  import { buildImageUploadUrl } from '$lib/utils/image-upload';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';

@@ -38,7 +38,7 @@
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
-  import { buildImageUploadUrl } from '$lib/utils/image-upload';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
   import { flip } from 'svelte/animate';
   import { fade } from 'svelte/transition';

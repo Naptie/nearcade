@@ -134,15 +134,6 @@ export const socialLinkSchema = z.object({
   username: z.string().describe(bilingual('用户名。', 'Username.'))
 });
 
-const apiTokenSchema = z.object({
-  id: z.string().describe(bilingual('API 令牌 ID。', 'API token ID.')),
-  name: z.string().describe(bilingual('API 令牌名称。', 'API token name.')),
-  token: z.string().describe(bilingual('API 令牌。', 'API token.')),
-  shopId: z.int().optional().describe(bilingual('店铺 ID。', 'Shop ID.')),
-  expiresAt: dateTimeSchema(bilingual('过期时间。', 'Expiration time.')),
-  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.'))
-});
-
 export const userPublicSchema = z.object({
   _id: z
     .union([z.string(), objectIdSchema])
@@ -258,8 +249,7 @@ export const userSchema = userPublicSchema.extend({
   fcmTokens: z.array(z.string()).optional().describe(bilingual('FCM 令牌。', 'FCM tokens.')),
   fcmTokenUpdatedAt: dateTimeSchema(
     bilingual('FCM 令牌更新时间。', 'FCM token update time.')
-  ).optional(),
-  apiTokens: z.array(apiTokenSchema).optional().describe(bilingual('API 令牌列表。', 'API tokens.'))
+  ).optional()
 });
 
 export const userPrivateFieldNames = Object.keys(userSchema.shape).filter(

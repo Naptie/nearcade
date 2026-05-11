@@ -20,8 +20,8 @@
   import { render } from '$lib/utils/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
-  import { stripPostImageMarkdownByIds } from '$lib/utils/image-markdown';
-  import { buildImageUploadUrl } from '$lib/utils/image-upload';
+  import { stripPostImageMarkdownByIds } from '$lib/utils/image';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDisplayName, getFnsLocale, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getLocale } from '$lib/paraglide/runtime';

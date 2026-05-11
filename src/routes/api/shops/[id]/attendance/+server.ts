@@ -8,6 +8,7 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import { auth } from '$lib/auth/index.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendanceRequestSchema,
@@ -111,23 +112,31 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const userToken = token === agentToken ? null : token.split('/')[1];
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
-    const dbUser = await usersCollection.findOne({
-      apiTokens: { $elemMatch: { token: agentToken, expiresAt: { $gt: new Date() } } }
+    const agentApiKey = await auth.api.verifyApiKey({
+      body: { key: agentToken }
     });
+    if (!agentApiKey.valid || !agentApiKey.key) {
+      error(401, m.unauthorized());
+    }
+    const agentShopId = agentApiKey.key.metadata?.shopId;
+    if (agentShopId?.toString() !== params.id) {
+      error(403, m.access_denied());
+    }
+    const dbUser = await usersCollection.findOne({ id: agentApiKey.key.referenceId });
     if (!dbUser) {
       error(401, m.unauthorized());
     }
-    const matchedToken = dbUser.apiTokens?.find((t) => t.token === agentToken);
-    if (matchedToken?.shopId?.toString() !== params.id) {
-      error(403, m.access_denied());
-    }
     isOpenApiAccess = true;
-    isClaimedShopAccess = matchedToken?.shopId ? true : false;
+    isClaimedShopAccess = agentShopId !== undefined;
     user = dbUser;
     if (userToken) {
-      attendingUser = await usersCollection.findOne({
-        apiTokens: { $elemMatch: { token: userToken, expiresAt: { $gt: new Date() } } }
+      const targetApiKey = await auth.api.verifyApiKey({
+        body: { key: userToken }
       });
+      if (!targetApiKey.valid || !targetApiKey.key) {
+        error(404, m.target_user_not_found());
+      }
+      attendingUser = await usersCollection.findOne({ id: targetApiKey.key.referenceId });
       if (!attendingUser) {
         error(404, m.target_user_not_found());
       }

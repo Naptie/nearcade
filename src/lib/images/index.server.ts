@@ -3,7 +3,7 @@ import { deleteFile, uploadFile } from '$lib/oss/index';
 import type { User } from '$lib/auth/types';
 import type { Club, Comment, ImageAsset, Post, ShopDeleteRequest, University } from '$lib/types';
 import { protect } from '$lib/utils';
-import { stripPostImageMarkdownByIds } from '$lib/utils/image-markdown';
+import { stripPostImageMarkdownByIds } from '$lib/utils/image';
 import { nanoid } from 'nanoid';
 import type { Db, Filter } from 'mongodb';
 

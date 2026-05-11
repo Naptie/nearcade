@@ -1,3 +1,4 @@
+import { fromPath } from '$lib/utils/scoped';
 import { APP_NAME } from '$lib/constants';
 
 const POST_IMAGE_MARKER_PREFIX = `${APP_NAME}-post-image:`;
@@ -28,4 +29,18 @@ export const stripPostImageMarkdownByIds = (content: string, imageIds: string[])
   }
 
   return normalizeMarkdownSpacing(nextContent);
+};
+
+export const buildImageUploadUrl = (
+  params: Record<string, string | number | null | undefined> = {}
+) => {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    searchParams.set(key, String(value));
+  }
+
+  const query = searchParams.toString();
+  return query ? `${fromPath('/api/images')}?${query}` : fromPath('/api/images');
 };

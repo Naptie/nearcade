@@ -4,11 +4,26 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
-  import type { PageData, ActionData } from './$types';
+  import type { PageData, ActionData as RouteActionData } from './$types';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
   import { getFnsLocale } from '$lib/utils';
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+  type TokenFormData = {
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date | null;
+    createdAt: string | Date;
+  };
+
+  type ApiTokenActionData = NonNullable<RouteActionData> & {
+    success?: boolean;
+    message?: string;
+    token?: TokenFormData;
+    fieldErrors?: Record<string, string>;
+  };
+
+  let { data, form }: { data: PageData; form: ApiTokenActionData | null } = $props();
 
   let isSubmitting = $state(false);
   let showSuccess = $state(false);
@@ -16,27 +31,9 @@
   let showRenameModal = $state(false);
   let showDeleteModal = $state(false);
   let showResetModal = $state(false);
-  let currentToken = $state<{
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  } | null>(null);
-  let createdToken = $state<{
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  } | null>(null);
-  let resetToken = $state<{
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  } | null>(null);
+  let currentToken = $state<TokenFormData | null>(null);
+  let createdToken = $state<TokenFormData | null>(null);
+  let resetToken = $state<TokenFormData | null>(null);
 
   // Form states
   let tokenName = $state('');
@@ -152,13 +149,7 @@
     createdToken = null;
   };
 
-  const openRenameModal = (token: {
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  }) => {
+  const openRenameModal = (token: TokenFormData) => {
     currentToken = token;
     renameTokenName = token.name;
     clientErrors = {};
@@ -170,13 +161,7 @@
     currentToken = null;
   };
 
-  const openDeleteModal = (token: {
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  }) => {
+  const openDeleteModal = (token: TokenFormData) => {
     currentToken = token;
     showDeleteModal = true;
   };
@@ -186,13 +171,7 @@
     currentToken = null;
   };
 
-  const openResetModal = (token: {
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  }) => {
+  const openResetModal = (token: TokenFormData) => {
     currentToken = token;
     showResetModal = true;
   };
@@ -242,12 +221,16 @@
   });
 
   // Check if token is expired
-  const isExpired = (expiresAt: string | Date) => {
-    return new Date(expiresAt) < new Date();
+  const isExpired = (expiresAt: string | Date | null) => {
+    return expiresAt ? new Date(expiresAt) < new Date() : false;
   };
 
   // Format expiration date
-  const formatExpiresAt = (expiresAt: string | Date) => {
+  const formatExpiresAt = (expiresAt: string | Date | null) => {
+    if (!expiresAt) {
+      return m.none();
+    }
+
     return formatDistanceToNow(new Date(expiresAt), {
       addSuffix: true,
       locale: dateLocale
@@ -464,13 +447,7 @@
             customDate = '';
             clientErrors = {};
             if (result.type === 'success' && result.data?.success) {
-              createdToken = result.data.token as {
-                id: string;
-                name: string;
-                token: string;
-                expiresAt: string | Date;
-                createdAt: string | Date;
-              };
+              createdToken = result.data.token as TokenFormData;
             }
             await invalidateAll();
           };
@@ -737,13 +714,7 @@
               return async ({ result }) => {
                 isSubmitting = false;
                 if (result.type === 'success' && result.data?.success) {
-                  resetToken = result.data.token as {
-                    id: string;
-                    name: string;
-                    token: string;
-                    expiresAt: string | Date;
-                    createdAt: string | Date;
-                  };
+                  resetToken = result.data.token as TokenFormData;
                 }
                 await invalidateAll();
               };

@@ -4,7 +4,7 @@
   import type { User } from '$lib/auth/types';
   import type { ImageAsset } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
-  import { buildPostImageMarkdown, stripPostImageMarkdownByIds } from '$lib/utils/image-markdown';
+  import { buildPostImageMarkdown, stripPostImageMarkdownByIds } from '$lib/utils/image';
   import { render } from '$lib/utils/markdown';
   import PhotoCarousel from './PhotoCarousel.svelte';
 

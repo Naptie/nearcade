@@ -1,6 +1,7 @@
 import { PAGINATION } from '$lib/constants';
 import { z } from 'zod';
 
+import { organizationChangelogEntrySchema } from './organizations';
 import { shopDeleteRequestVoteTypeSchema, shopSchema } from './shops';
 import {
   bilingual,
@@ -141,9 +142,7 @@ export const activitySchema = z
       .string()
       .optional()
       .describe(bilingual('变更目标 ID。', 'Changelog target ID.')),
-    changelogEntry: z
-      .object({})
-      .catchall(z.unknown())
+    changelogEntry: organizationChangelogEntrySchema
       .optional()
       .describe(bilingual('完整变更记录。', 'Full changelog entry.'))
       .meta({ override: { type: 'object', additionalProperties: true } }),

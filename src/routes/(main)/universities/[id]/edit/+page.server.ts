@@ -8,10 +8,8 @@ import { resolve } from '$app/paths';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
-import {
-  buildNullishUnsetUpdate,
-  normalizeUniversityDocument
-} from '$lib/utils/organizations.server';
+import { postReadabilitySchema, postWritabilitySchema } from '$lib/schemas/posts';
+import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -86,8 +84,14 @@ export const actions: Actions = {
       const is985 = formData.get('is985') === 'on';
       const is211 = formData.get('is211') === 'on';
       const isDoubleFirstClass = formData.get('isDoubleFirstClass') === 'on';
-      const postReadability = parseInt(formData.get('postReadability') as string);
-      const postWritability = parseInt(formData.get('postWritability') as string);
+      const postReadabilityResult = postReadabilitySchema.safeParse(
+        Number.parseInt(String(formData.get('postReadability') ?? ''), 10)
+      );
+      const postWritabilityResult = postWritabilitySchema.safeParse(
+        Number.parseInt(String(formData.get('postWritability') ?? ''), 10)
+      );
+      const postReadability = postReadabilityResult.success ? postReadabilityResult.data : null;
+      const postWritability = postWritabilityResult.success ? postWritabilityResult.data : null;
 
       // Check permissions using new system
       const permissions = await checkUniversityPermission(user, id, mongo);
@@ -172,6 +176,16 @@ export const actions: Actions = {
         });
       }
 
+      if (postReadability === null || postWritability === null) {
+        return fail(400, {
+          message: m.validation_error(),
+          errors: ['Invalid post visibility settings']
+        });
+      }
+
+      const nextPostReadability: PostReadability = postReadability as PostReadability;
+      const nextPostWritability: PostWritability = postWritability as PostWritability;
+
       const db = mongo.db();
       const universitiesCollection = db.collection('universities');
 
@@ -199,18 +213,7 @@ export const actions: Actions = {
         }
       }
 
-      const optionalUpdateData = {
-        description: description?.trim() || undefined,
-        website: website?.trim() || undefined,
-        avatarUrl: avatarUrl?.trim() || undefined,
-        slug: slug?.trim() || undefined,
-        backgroundColor:
-          useCustomBackgroundColor && backgroundColor?.trim().length > 0
-            ? backgroundColor.trim()
-            : undefined
-      };
-
-      const updateData: Partial<University> & { updatedAt: Date } = {
+      const universitySetFields: Record<string, unknown> = {
         name: name.trim(),
         type: type.trim(),
         affiliation: affiliation.trim(),
@@ -219,50 +222,85 @@ export const actions: Actions = {
         is985,
         is211,
         isDoubleFirstClass,
-        postReadability,
-        postWritability,
+        postReadability: nextPostReadability,
+        postWritability: nextPostWritability,
         updatedAt: new Date()
       };
+      const universityUnsetFields: Record<string, ''> = {};
 
-      const optionalFieldUpdate = buildNullishUnsetUpdate(optionalUpdateData);
+      const descriptionValue = description?.trim();
+      if (descriptionValue) {
+        universitySetFields.description = descriptionValue;
+      } else {
+        universityUnsetFields.description = '';
+      }
+
+      const websiteValue = website?.trim();
+      if (websiteValue) {
+        universitySetFields.website = websiteValue;
+      } else {
+        universityUnsetFields.website = '';
+      }
+
+      const avatarUrlValue = avatarUrl?.trim();
+      if (avatarUrlValue) {
+        universitySetFields.avatarUrl = avatarUrlValue;
+      } else {
+        universityUnsetFields.avatarUrl = '';
+      }
+
+      const slugValue = slug?.trim();
+      if (slugValue) {
+        universitySetFields.slug = slugValue;
+      } else {
+        universityUnsetFields.slug = '';
+      }
+
+      const backgroundColorValue =
+        useCustomBackgroundColor && backgroundColor?.trim().length > 0
+          ? backgroundColor.trim()
+          : undefined;
+      if (backgroundColorValue) {
+        universitySetFields.backgroundColor = backgroundColorValue;
+      } else {
+        universityUnsetFields.backgroundColor = '';
+      }
+
+      const nextUniversityUpdate = {
+        ...universitySetFields,
+        ...Object.fromEntries(
+          Object.keys(universityUnsetFields).map((fieldName) => [fieldName, undefined])
+        )
+      } as Partial<University>;
 
       // Log changes to changelog
-      await logUniversityChanges(
-        mongo,
-        id,
-        currentUniversity,
-        { ...updateData, ...optionalUpdateData },
-        {
-          id: user.id!,
-          name: user.name,
-          image: user.image
-        }
-      );
+      await logUniversityChanges(mongo, id, currentUniversity, nextUniversityUpdate, {
+        id: user.id!,
+        name: user.name,
+        image: user.image
+      });
 
       await universitiesCollection.updateOne(
         { id },
         {
-          $set: {
-            ...updateData,
-            ...(optionalFieldUpdate.$set ?? {})
-          },
-          ...(optionalFieldUpdate.$unset ? { $unset: optionalFieldUpdate.$unset } : {})
+          $set: universitySetFields,
+          ...(Object.keys(universityUnsetFields).length > 0
+            ? { $unset: universityUnsetFields }
+            : {})
         }
       );
-      await meili.index<University>('universities').updateDocuments(
-        [
-          normalizeUniversityDocument(
-            toPlainObject({
-              ...currentUniversity,
-              ...updateData,
-              ...optionalUpdateData
-            })
-          )
-        ],
-        {
+      const nextUniversity = {
+        ...currentUniversity,
+        ...universitySetFields
+      } as Record<string, unknown>;
+      for (const fieldName of Object.keys(universityUnsetFields)) {
+        delete nextUniversity[fieldName];
+      }
+      await meili
+        .index<University>('universities')
+        .updateDocuments([normalizeUniversityDocument(toPlainObject(nextUniversity))], {
           primaryKey: 'id'
-        }
-      );
+        });
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {
