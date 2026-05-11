@@ -27,6 +27,8 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { fade, slide } from 'svelte/transition';
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
+  import { env } from '$env/dynamic/public';
+  import { page } from '$app/state';
 
   let { data }: { data: PageData } = $props();
 
@@ -44,6 +46,9 @@
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
   const showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
+  const showIcpLicense =
+    env.PUBLIC_ICP_LICENSE_ENABLED_ORIGINS?.split(',').includes(page.url.origin) &&
+    env.PUBLIC_ICP_LICENSE;
 
   $effect(() => {
     if (browser) {
@@ -886,23 +891,33 @@
     </div>
 
     <div
-      class="pointer-events-auto absolute right-4 bottom-4 flex items-center gap-0.5 md:gap-1 lg:gap-2"
+      class="pointer-events-auto absolute bottom-4 flex w-full flex-row-reverse items-center justify-between gap-0.5 px-3 md:gap-1 lg:gap-2 lg:px-4 xl:px-6"
       transition:fade
     >
-      <FancyButton
-        href={GITHUB_LINK}
-        target="_blank"
-        class="fa-brands fa-github fa-lg"
-        text="GitHub"
-        stayExpandedOnWideScreens
-      />
-      <SocialMediaModal
-        name="QQ"
-        class="fa-brands fa-qq fa-lg"
-        description={m.qq_description()}
-        image="{base}/group-chat-qq.jpg"
-      />
-      <ThemeSwitch />
+      <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
+        <FancyButton
+          href={GITHUB_LINK}
+          target="_blank"
+          class="fa-brands fa-github fa-lg"
+          text="GitHub"
+          stayExpandedOnWideScreens
+        />
+        <SocialMediaModal
+          name="QQ"
+          class="fa-brands fa-qq fa-lg"
+          description={m.qq_description()}
+          image="{base}/group-chat-qq.jpg"
+        />
+        <ThemeSwitch />
+      </div>
+      {#if showIcpLicense}
+        <a
+          href="https://beian.miit.gov.cn/"
+          target="_blank"
+          class="text-base-content/60 hover:text-base-content text-xs transition sm:text-sm md:text-base"
+          >{env.PUBLIC_ICP_LICENSE}</a
+        >
+      {/if}
     </div>
   </div>
 </div>
