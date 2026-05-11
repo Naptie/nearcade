@@ -16,14 +16,14 @@
     createdAt: string | Date;
   };
 
-  type ActionData = NonNullable<RouteActionData> & {
+  type ApiTokenActionData = NonNullable<RouteActionData> & {
     success?: boolean;
     message?: string;
     token?: TokenFormData;
     fieldErrors?: Record<string, string>;
   };
 
-  let { data, form }: { data: PageData; form: ActionData | null } = $props();
+  let { data, form }: { data: PageData; form: ApiTokenActionData | null } = $props();
 
   let isSubmitting = $state(false);
   let showSuccess = $state(false);
