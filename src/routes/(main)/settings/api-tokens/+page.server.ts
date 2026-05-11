@@ -251,11 +251,6 @@ export const actions: Actions = {
       const expiresIn = existingKey.expiresAt
         ? Math.ceil((existingKey.expiresAt.getTime() - Date.now()) / 1000)
         : undefined;
-      if (expiresIn !== undefined && expiresIn <= 0) {
-        return fail(400, {
-          message: 'cannot_reset_expired_token'
-        });
-      }
 
       let newApiKey: CreatedApiKey | null = null;
 
@@ -282,7 +277,7 @@ export const actions: Actions = {
             })
             .catch((cleanupError) => {
               console.error(
-                'Failed to clean up newly created API token after reset failure:',
+                `Failed to clean up newly created API token (id: ${newApiKey.id}) after reset failure:`,
                 cleanupError
               );
             });

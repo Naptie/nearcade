@@ -60,7 +60,7 @@ const getLegacyPrefix = (token: string) => {
   return token.slice(0, underscoreIndex + 1);
 };
 
-async function migrateLegacyApiToken(userId: string, token: LegacyApiToken) {
+async function migrateSingleLegacyApiToken(userId: string, token: LegacyApiToken) {
   const apiKeysCollection = getApiKeysCollection();
 
   try {
@@ -111,7 +111,7 @@ export async function ensureLegacyApiTokensMigrated(userId: string) {
   }
 
   for (const token of user.apiTokens) {
-    await migrateLegacyApiToken(userId, token);
+    await migrateSingleLegacyApiToken(userId, token);
   }
 
   await usersCollection.updateOne(getUserIdSelector(userId), {
