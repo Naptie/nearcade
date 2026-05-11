@@ -234,11 +234,6 @@ export const actions: Actions = {
       }
 
       const expiresIn = Math.ceil((existingKey.expiresAt.getTime() - Date.now()) / 1000);
-      if (expiresIn <= 0) {
-        return fail(400, {
-          message: 'cannot_reset_expired_token'
-        });
-      }
 
       let newApiKey: CreatedApiKey | null = null;
 
@@ -248,7 +243,7 @@ export const actions: Actions = {
           body: {
             name: existingKey.name ?? '',
             expiresIn,
-            metadata: existingKey.metadata ?? undefined
+            metadata: existingKey.metadata
           }
         });
 

@@ -96,7 +96,7 @@ async function migrateLegacyApiToken(userId: string, token: LegacyApiToken) {
       typeof error.code === 'number' &&
       error.code === 11000
     ) {
-      console.warn(`Skipping duplicate legacy API key migration for token ${token.id}.`);
+      console.error(`Skipping duplicate legacy API key migration for token ${token.id}.`);
       return;
     }
 
