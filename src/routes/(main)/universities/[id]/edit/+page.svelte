@@ -34,7 +34,7 @@
   });
 
   // avatarUrl as separate state so it can be updated after upload
-  let avatarUrl = $state(data.university.avatarUrl || '');
+  let avatarUrl = $derived(data.university.avatarUrl || '');
 
   // Track whether user wants to set a custom background color
   let useCustomBackgroundColor = $derived(!!data.university.backgroundColor);

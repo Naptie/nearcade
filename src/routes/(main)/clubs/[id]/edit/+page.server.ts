@@ -1,12 +1,13 @@
 import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { Club } from '$lib/types';
+import { type Club, PostReadability, PostWritability } from '$lib/types';
 import { checkClubPermission, toPlainObject } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
-import { buildNullishUnsetUpdate, normalizeClubDocument } from '$lib/utils/organizations.server';
+import { normalizeClubDocument } from '$lib/utils/organizations.server';
+import { postReadabilitySchema, postWritabilitySchema } from '$lib/schemas/posts';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -67,8 +68,14 @@ export const actions: Actions = {
       const backgroundColor = formData.get('backgroundColor') as string;
       const useCustomBackgroundColor = formData.get('useCustomBackgroundColor') === 'true';
       const acceptJoinRequests = formData.get('acceptJoinRequests') === 'on';
-      const postReadability = parseInt(formData.get('postReadability') as string);
-      const postWritability = parseInt(formData.get('postWritability') as string);
+      const postReadabilityResult = postReadabilitySchema.safeParse(
+        Number.parseInt(String(formData.get('postReadability') ?? ''), 10)
+      );
+      const postWritabilityResult = postWritabilitySchema.safeParse(
+        Number.parseInt(String(formData.get('postWritability') ?? ''), 10)
+      );
+      const postReadability = postReadabilityResult.success ? postReadabilityResult.data : null;
+      const postWritability = postWritabilityResult.success ? postWritabilityResult.data : null;
 
       if (!name?.trim() || !slug?.trim()) {
         return fail(400, {
@@ -147,13 +154,23 @@ export const actions: Actions = {
         });
       }
 
+      if (postReadability === null || postWritability === null) {
+        return fail(400, {
+          message: m.validation_error(),
+          errors: ['Invalid post visibility settings']
+        });
+      }
+
+      const nextPostReadability: PostReadability = postReadability as PostReadability;
+      const nextPostWritability: PostWritability = postWritability as PostWritability;
+
       const db = mongo.db();
-      const clubsCollection = db.collection<Club>('clubs');
+      const clubsCollection = db.collection('clubs');
 
       // Get current club
-      const club = await clubsCollection.findOne({
+      const club = (await clubsCollection.findOne({
         $or: [{ id }, { slug: id }]
-      });
+      })) as Club | null;
 
       if (!club) {
         return fail(404, { message: m.club_not_found() });
@@ -177,46 +194,66 @@ export const actions: Actions = {
       }
 
       // Update club
-      const optionalUpdateData = {
-        description: description?.trim() || undefined,
-        website: website?.trim() || undefined,
-        avatarUrl: avatarUrl?.trim() || undefined,
-        backgroundColor:
-          useCustomBackgroundColor && backgroundColor?.trim().length > 0
-            ? backgroundColor.trim()
-            : undefined
-      };
-
-      const updateData: Partial<Club> & { updatedAt: Date } = {
+      const clubSetFields: Record<string, unknown> = {
         name: name.trim(),
         slug: slug.trim(),
         acceptJoinRequests,
-        postReadability,
-        postWritability,
+        postReadability: nextPostReadability,
+        postWritability: nextPostWritability,
         updatedAt: new Date()
       };
+      const clubUnsetFields: Record<string, ''> = {};
 
-      const optionalFieldUpdate = buildNullishUnsetUpdate(optionalUpdateData);
+      const descriptionValue = description?.trim();
+      if (descriptionValue) {
+        clubSetFields.description = descriptionValue;
+      } else {
+        clubUnsetFields.description = '';
+      }
+
+      const websiteValue = website?.trim();
+      if (websiteValue) {
+        clubSetFields.website = websiteValue;
+      } else {
+        clubUnsetFields.website = '';
+      }
+
+      const avatarUrlValue = avatarUrl?.trim();
+      if (avatarUrlValue) {
+        clubSetFields.avatarUrl = avatarUrlValue;
+      } else {
+        clubUnsetFields.avatarUrl = '';
+      }
+
+      const backgroundColorValue =
+        useCustomBackgroundColor && backgroundColor?.trim().length > 0
+          ? backgroundColor.trim()
+          : undefined;
+      if (backgroundColorValue) {
+        clubSetFields.backgroundColor = backgroundColorValue;
+      } else {
+        clubUnsetFields.backgroundColor = '';
+      }
+
+      const updateOperation = {
+        $set: clubSetFields,
+        ...(Object.keys(clubUnsetFields).length > 0 ? { $unset: clubUnsetFields } : {})
+      };
 
       await clubsCollection.updateOne(
         { id },
-        {
-          $set: {
-            ...updateData,
-            ...(optionalFieldUpdate.$set ?? {})
-          },
-          ...(optionalFieldUpdate.$unset ? { $unset: optionalFieldUpdate.$unset } : {})
-        }
+        updateOperation as Parameters<typeof clubsCollection.updateOne>[1]
       );
+      const nextClub = {
+        ...club,
+        ...clubSetFields
+      } as Record<string, unknown>;
+      for (const fieldName of Object.keys(clubUnsetFields)) {
+        delete nextClub[fieldName];
+      }
       await meili.index<Club>('clubs').updateDocuments(
         [
-          normalizeClubDocument(
-            toPlainObject({
-              ...club,
-              ...updateData,
-              ...optionalUpdateData
-            })
-          )
+          normalizeClubDocument(toPlainObject(nextClub))
         ],
         { primaryKey: 'id' }
       );

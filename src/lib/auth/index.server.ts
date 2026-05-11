@@ -109,11 +109,23 @@ function osuProvider() {
   };
 }
 
-const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim());
+const allowedOrigins = env.ALLOWED_ORIGINS?.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean) || [];
+
+const allowedHosts = allowedOrigins
+  .map((origin) => {
+    try {
+      return new URL(origin).host.trim();
+    } catch {
+      return null;
+    }
+  })
+  .filter((host): host is string => !!host);
 
 export const auth = betterAuth({
   baseURL: {
-    allowedHosts: allowedOrigins.map((origin) => origin.split('//')[1].trim()),
+    allowedHosts,
     fallback: allowedOrigins[0],
     protocol: 'auto'
   },
