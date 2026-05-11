@@ -25,9 +25,13 @@ import {
   deleteImagesByIds,
   deleteImagesForOwner,
   hydrateEntitiesWithImages,
-  normalizeImageIds,
   replaceOwnerImages
 } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import { postUpdateRequestSchema } from '$lib/schemas/posts.server';
+import { parseJsonOrError } from '$lib/utils/validation.server';
+
+const postUpdateRequestWithExistingImagesSchema = withExistingImages(postUpdateRequestSchema);
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
@@ -183,15 +187,14 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_post_id());
     }
 
-    const { title, content, readability, isPinned, isLocked, images } = (await request.json()) as {
-      title?: string;
-      content?: string;
-      readability?: PostReadability;
-      isPinned?: boolean;
-      isLocked?: boolean;
-      images?: unknown;
-    };
-    const normalizedImageIds = images === undefined ? undefined : normalizeImageIds(images);
+    const {
+      title,
+      content,
+      readability,
+      isPinned,
+      isLocked,
+      images: imageIds
+    } = await parseJsonOrError(request, postUpdateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -228,8 +231,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     }
 
     // Determine what type of update this is
-    const isContentUpdate =
-      title !== undefined || content !== undefined || normalizedImageIds !== undefined;
+    const isContentUpdate = title !== undefined || content !== undefined || imageIds !== undefined;
     const isManagementUpdate = isPinned !== undefined || isLocked !== undefined;
 
     // Check permissions for content updates (owner or canEdit)
@@ -265,7 +267,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     const trimmedContent = content?.trim();
     const nextTitle = trimmedTitle ?? post.title;
     const nextContent = trimmedContent ?? post.content;
-    const nextImageIds = normalizedImageIds ?? post.images ?? [];
+    const nextImageIds = imageIds ?? post.images ?? [];
 
     if (isContentUpdate) {
       if (!nextTitle) {
@@ -286,15 +288,19 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     if (content !== undefined) {
       updateData.content = nextContent;
     }
-    if (normalizedImageIds !== undefined) {
-      await replaceOwnerImages(
-        db,
-        post.images ?? [],
-        normalizedImageIds,
-        { postId },
-        { userId: session.user.id, userType: session.user.userType }
-      );
-      updateData.images = normalizedImageIds;
+    if (imageIds !== undefined) {
+      try {
+        await replaceOwnerImages(
+          db,
+          post.images ?? [],
+          imageIds,
+          { postId },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+        updateData.images = imageIds;
+      } catch (err) {
+        error(400, err instanceof Error ? String(err.message) : m.error_occurred());
+      }
     }
     if (readability !== undefined) {
       updateData.readability = readability;

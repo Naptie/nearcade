@@ -13,7 +13,12 @@ import {
   protect
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
-import { attachImagesToOwner, normalizeImageIds } from '$lib/images/index.server';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import { postCreateRequestSchema } from '$lib/schemas/posts.server';
+import { parseJsonOrError } from '$lib/utils/validation.server';
+
+const postCreateRequestWithExistingImagesSchema = withExistingImages(postCreateRequestSchema);
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
@@ -116,18 +121,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(400, m.invalid_club_id());
     }
 
-    const { title, content, readability, images } = (await request.json()) as {
-      title: string;
-      content: string;
-      readability?: PostReadability;
-      images?: unknown;
-    };
-    const imageIds = normalizeImageIds(images);
-    const trimmedTitle = title?.trim() ?? '';
-    const trimmedContent = content?.trim() ?? '';
-    if (!trimmedTitle || (!trimmedContent && imageIds.length === 0)) {
-      error(400, m.title_and_content_are_required());
-    }
+    const {
+      title: trimmedTitle,
+      content: trimmedContent,
+      readability,
+      images: imageIds
+    } = await parseJsonOrError(request, postCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const clubsCollection = db.collection<Club>('clubs');
