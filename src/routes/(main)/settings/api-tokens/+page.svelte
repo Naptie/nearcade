@@ -4,11 +4,10 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
-  import type { PageData, ActionData } from './$types';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
   import { getFnsLocale } from '$lib/utils';
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+  let { data, form } = $props();
 
   let isSubmitting = $state(false);
   let showSuccess = $state(false);
