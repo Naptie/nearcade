@@ -270,14 +270,15 @@ export const actions: Actions = {
         });
       } catch (resetError) {
         if (newApiKey) {
+          const newApiKeyId = newApiKey.id;
           await auth.api
             .deleteApiKey({
               headers: request.headers,
-              body: { keyId: newApiKey.id }
+              body: { keyId: newApiKeyId }
             })
             .catch((cleanupError) => {
               console.error(
-                `Failed to clean up newly created API token (id: ${newApiKey.id}) after reset failure:`,
+                `Failed to clean up newly created API token (id: ${newApiKeyId}) after reset failure:`,
                 cleanupError
               );
             });
