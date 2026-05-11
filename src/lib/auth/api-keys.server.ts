@@ -1,5 +1,5 @@
 import { API_KEY_TABLE_NAME, defaultKeyHasher } from '@better-auth/api-key';
-import { ObjectId } from 'mongodb';
+import { MongoServerError, ObjectId } from 'mongodb';
 import type { ApiKey } from '@better-auth/api-key';
 import mongo from '$lib/db/index.server';
 import { auth } from './index.server';
@@ -25,7 +25,7 @@ type UserWithLegacyApiTokens = {
   apiTokens?: LegacyApiToken[];
 };
 
-const getUserIdSelector = (userId: string) => {
+export const getUserIdSelector = (userId: string) => {
   if (ObjectId.isValid(userId)) {
     return { _id: { $in: [new ObjectId(userId), userId] } };
   }
@@ -89,13 +89,7 @@ async function migrateLegacyApiToken(userId: string, token: LegacyApiToken) {
       permissions: null
     });
   } catch (error) {
-    if (
-      error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      typeof error.code === 'number' &&
-      error.code === 11000
-    ) {
+    if (error instanceof MongoServerError && error.code === 11000) {
       console.error(
         `Skipping duplicate legacy API key migration for token ${token.id} (userId: ${userId}).`
       );

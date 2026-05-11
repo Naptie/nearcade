@@ -13,11 +13,14 @@ type ApiTokenListItem = {
   id: string;
   name: string;
   token: string;
-  expiresAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
 type CreatedApiKey = Awaited<ReturnType<typeof auth.api.createApiKey>>;
+type ExpirationResult =
+  | { ok: true; expiresAt: Date }
+  | { ok: false; response: ReturnType<typeof fail> };
 
 const getUnauthorizedFailure = () => fail(401, { message: 'unauthorized' });
 
@@ -27,55 +30,67 @@ const mapApiKeyToListItem = (
   id: apiKey.id,
   name: apiKey.name ?? '',
   token: apiKey.key ?? '',
-  expiresAt: apiKey.expiresAt ?? new Date(Date.now() + YEAR_IN_MS),
+  expiresAt: apiKey.expiresAt,
   createdAt: apiKey.createdAt
 });
 
-const getExpirationDate = (expirationOption: string, customDate: string) => {
+const getExpirationDate = (expirationOption: string, customDate: string): ExpirationResult => {
   const now = new Date();
 
   switch (expirationOption) {
     case '1day':
-      return new Date(now.getTime() + DAY_IN_MS);
+      return { ok: true, expiresAt: new Date(now.getTime() + DAY_IN_MS) };
     case '1week':
-      return new Date(now.getTime() + 7 * DAY_IN_MS);
+      return { ok: true, expiresAt: new Date(now.getTime() + 7 * DAY_IN_MS) };
     case '30days':
-      return new Date(now.getTime() + 30 * DAY_IN_MS);
+      return { ok: true, expiresAt: new Date(now.getTime() + 30 * DAY_IN_MS) };
     case '90days':
-      return new Date(now.getTime() + 90 * DAY_IN_MS);
+      return { ok: true, expiresAt: new Date(now.getTime() + 90 * DAY_IN_MS) };
     case '1year':
-      return new Date(now.getTime() + YEAR_IN_MS);
+      return { ok: true, expiresAt: new Date(now.getTime() + YEAR_IN_MS) };
     case 'custom': {
       if (!customDate) {
-        return fail(400, {
-          message: 'field_required',
-          fieldErrors: { customDate: 'field_required' }
-        });
+        return {
+          ok: false,
+          response: fail(400, {
+            message: 'field_required',
+            fieldErrors: { customDate: 'field_required' }
+          })
+        };
       }
 
       const expiresAt = new Date(customDate);
       if (expiresAt <= now) {
-        return fail(400, {
-          message: 'expiration_date_must_be_future',
-          fieldErrors: { customDate: 'expiration_date_must_be_future' }
-        });
+        return {
+          ok: false,
+          response: fail(400, {
+            message: 'expiration_date_must_be_future',
+            fieldErrors: { customDate: 'expiration_date_must_be_future' }
+          })
+        };
       }
 
       const oneYearFromNow = new Date(now.getTime() + YEAR_IN_MS);
       if (expiresAt > oneYearFromNow) {
-        return fail(400, {
-          message: 'maximum_expiration_one_year',
-          fieldErrors: { customDate: 'maximum_expiration_one_year' }
-        });
+        return {
+          ok: false,
+          response: fail(400, {
+            message: 'maximum_expiration_one_year',
+            fieldErrors: { customDate: 'maximum_expiration_one_year' }
+          })
+        };
       }
 
-      return expiresAt;
+      return { ok: true, expiresAt };
     }
     default:
-      return fail(400, {
-        message: 'invalid_expiration_option',
-        fieldErrors: { expiration: 'invalid_expiration_option' }
-      });
+      return {
+        ok: false,
+        response: fail(400, {
+          message: 'invalid_expiration_option',
+          fieldErrors: { expiration: 'invalid_expiration_option' }
+        })
+      };
   }
 };
 
@@ -129,13 +144,13 @@ export const actions: Actions = {
       }
 
       const expirationResult = getExpirationDate(expirationOption, customDate);
-      if (!(expirationResult instanceof Date)) {
-        return expirationResult;
+      if (!expirationResult.ok) {
+        return expirationResult.response;
       }
 
       await ensureLegacyApiTokensMigrated(session.user.id);
 
-      const expiresIn = Math.ceil((expirationResult.getTime() - Date.now()) / 1000);
+      const expiresIn = Math.ceil((expirationResult.expiresAt.getTime() - Date.now()) / 1000);
       const apiKey = await auth.api.createApiKey({
         headers: request.headers,
         body: {
@@ -236,6 +251,11 @@ export const actions: Actions = {
       const expiresIn = existingKey.expiresAt
         ? Math.ceil((existingKey.expiresAt.getTime() - Date.now()) / 1000)
         : undefined;
+      if (expiresIn !== undefined && expiresIn <= 0) {
+        return fail(400, {
+          message: 'cannot_reset_expired_token'
+        });
+      }
 
       let newApiKey: CreatedApiKey | null = null;
 

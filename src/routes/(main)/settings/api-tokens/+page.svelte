@@ -20,21 +20,21 @@
     id: string;
     name: string;
     token: string;
-    expiresAt: string | Date;
+    expiresAt: string | Date | null;
     createdAt: string | Date;
   } | null>(null);
   let createdToken = $state<{
     id: string;
     name: string;
     token: string;
-    expiresAt: string | Date;
+    expiresAt: string | Date | null;
     createdAt: string | Date;
   } | null>(null);
   let resetToken = $state<{
     id: string;
     name: string;
     token: string;
-    expiresAt: string | Date;
+    expiresAt: string | Date | null;
     createdAt: string | Date;
   } | null>(null);
 
@@ -156,7 +156,7 @@
     id: string;
     name: string;
     token: string;
-    expiresAt: string | Date;
+    expiresAt: string | Date | null;
     createdAt: string | Date;
   }) => {
     currentToken = token;
@@ -174,7 +174,7 @@
     id: string;
     name: string;
     token: string;
-    expiresAt: string | Date;
+    expiresAt: string | Date | null;
     createdAt: string | Date;
   }) => {
     currentToken = token;
@@ -190,7 +190,7 @@
     id: string;
     name: string;
     token: string;
-    expiresAt: string | Date;
+    expiresAt: string | Date | null;
     createdAt: string | Date;
   }) => {
     currentToken = token;
@@ -242,12 +242,16 @@
   });
 
   // Check if token is expired
-  const isExpired = (expiresAt: string | Date) => {
-    return new Date(expiresAt) < new Date();
+  const isExpired = (expiresAt: string | Date | null) => {
+    return expiresAt ? new Date(expiresAt) < new Date() : false;
   };
 
   // Format expiration date
-  const formatExpiresAt = (expiresAt: string | Date) => {
+  const formatExpiresAt = (expiresAt: string | Date | null) => {
+    if (!expiresAt) {
+      return m.none();
+    }
+
     return formatDistanceToNow(new Date(expiresAt), {
       addSuffix: true,
       locale: dateLocale
@@ -468,7 +472,7 @@
                 id: string;
                 name: string;
                 token: string;
-                expiresAt: string | Date;
+                expiresAt: string | Date | null;
                 createdAt: string | Date;
               };
             }
@@ -741,7 +745,7 @@
                     id: string;
                     name: string;
                     token: string;
-                    expiresAt: string | Date;
+                    expiresAt: string | Date | null;
                     createdAt: string | Date;
                   };
                 }

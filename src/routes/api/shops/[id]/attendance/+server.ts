@@ -1,5 +1,4 @@
 import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
-import { ObjectId } from 'mongodb';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
@@ -9,7 +8,7 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import { verifyApiKeyWithLegacyFallback } from '$lib/auth/api-keys.server';
+import { getUserIdSelector, verifyApiKeyWithLegacyFallback } from '$lib/auth/api-keys.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendanceRequestSchema,
@@ -93,14 +92,6 @@ const leave = async (user: User, shop: Shop) => {
     attendedAt: new Date(attendanceData.attendedAt),
     leftAt: new Date() // Actual leave time
   });
-};
-
-const getUserIdSelector = (userId: string) => {
-  if (ObjectId.isValid(userId)) {
-    return { _id: { $in: [new ObjectId(userId), userId] } };
-  }
-
-  return { _id: userId };
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
