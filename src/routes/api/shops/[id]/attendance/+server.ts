@@ -1,4 +1,5 @@
 import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
+import { ObjectId } from 'mongodb';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
@@ -8,6 +9,7 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import { verifyApiKeyWithLegacyFallback } from '$lib/auth/api-keys.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendanceRequestSchema,
@@ -93,6 +95,14 @@ const leave = async (user: User, shop: Shop) => {
   });
 };
 
+const getUserIdSelector = (userId: string) => {
+  if (ObjectId.isValid(userId)) {
+    return { _id: { $in: [new ObjectId(userId), userId] } };
+  }
+
+  return { _id: userId };
+};
+
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const session = locals.session;
   let user = session?.user;
@@ -111,23 +121,27 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const userToken = token === agentToken ? null : token.split('/')[1];
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
-    const dbUser = await usersCollection.findOne({
-      apiTokens: { $elemMatch: { token: agentToken, expiresAt: { $gt: new Date() } } }
-    });
+    const agentApiKey = await verifyApiKeyWithLegacyFallback(agentToken);
+    if (!agentApiKey.valid || !agentApiKey.key) {
+      error(401, m.unauthorized());
+    }
+    const agentShopId = agentApiKey.key.metadata?.shopId;
+    if (agentShopId?.toString() !== params.id) {
+      error(403, m.access_denied());
+    }
+    const dbUser = await usersCollection.findOne(getUserIdSelector(agentApiKey.key.referenceId));
     if (!dbUser) {
       error(401, m.unauthorized());
     }
-    const matchedToken = dbUser.apiTokens?.find((t) => t.token === agentToken);
-    if (matchedToken?.shopId?.toString() !== params.id) {
-      error(403, m.access_denied());
-    }
     isOpenApiAccess = true;
-    isClaimedShopAccess = matchedToken?.shopId ? true : false;
+    isClaimedShopAccess = agentShopId !== undefined;
     user = dbUser;
     if (userToken) {
-      attendingUser = await usersCollection.findOne({
-        apiTokens: { $elemMatch: { token: userToken, expiresAt: { $gt: new Date() } } }
-      });
+      const targetApiKey = await verifyApiKeyWithLegacyFallback(userToken);
+      if (!targetApiKey.valid || !targetApiKey.key) {
+        error(404, m.target_user_not_found());
+      }
+      attendingUser = await usersCollection.findOne(getUserIdSelector(targetApiKey.key.referenceId));
       if (!attendingUser) {
         error(404, m.target_user_not_found());
       }
