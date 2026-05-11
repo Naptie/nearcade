@@ -8,9 +8,7 @@ type WithImages = {
   images?: string[];
 };
 
-export const withExistingImages = <Schema extends z.ZodType<WithImages>>(
-  schema: Schema
-): Schema =>
+export const withExistingImages = <Schema extends z.ZodType<WithImages>>(schema: Schema): Schema =>
   schema.superRefine(async (value, ctx) => {
     const imageIds = value.images ?? [];
     const uniqueImageIds = [...new Set(imageIds.filter(Boolean))];
