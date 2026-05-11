@@ -116,7 +116,7 @@ export const load: PageServerLoad = async ({ parent, request }) => {
   };
 };
 
-export const actions: Actions = {
+export const actions = {
   createToken: async ({ request, locals }) => {
     const session = locals.session;
     if (!session?.user) {
@@ -334,4 +334,4 @@ export const actions: Actions = {
       });
     }
   }
-};
+} satisfies Actions;
