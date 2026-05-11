@@ -6,6 +6,12 @@ import { nanoid } from 'nanoid';
 import { checkUniversityPermission, checkClubPermission, canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import {
+  postIdParamSchema,
+  postVoteRequestSchema,
+  postVoteResponseSchema
+} from '$lib/schemas/posts';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -14,15 +20,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
-    const { voteType } = (await request.json()) as { voteType: 'upvote' | 'downvote' };
-    if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      error(400, m.invalid_vote_type());
-    }
+    const { voteType } = await parseJsonOrError(request, postVoteRequestSchema);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -169,12 +169,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       userId: session.user.id
     });
 
-    return json({
-      success: true,
-      upvotes: updatedPost?.upvotes || 0,
-      downvotes: updatedPost?.downvotes || 0,
-      userVote: currentUserVote ? currentUserVote.voteType : null
-    });
+    return json(
+      postVoteResponseSchema.parse({
+        success: true,
+        upvotes: updatedPost?.upvotes || 0,
+        downvotes: updatedPost?.downvotes || 0,
+        userVote: currentUserVote ? currentUserVote.voteType : null
+      })
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

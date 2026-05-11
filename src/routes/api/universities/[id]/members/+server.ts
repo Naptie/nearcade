@@ -4,16 +4,19 @@ import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import type { University, UniversityMember } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
+import { toPlainObject } from '$lib/utils';
+import {
+  universityIdParamSchema,
+  universityMembersQuerySchema,
+  universityMembersResponseSchema
+} from '$lib/schemas/organizations';
+import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
-    const universityId = params.id;
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const { id: universityId } = parseParamsOrError(universityIdParamSchema, params);
+    const { page } = parseQueryOrError(universityMembersQuerySchema, url);
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
-
-    if (!universityId) {
-      error(400, m.invalid_university_id());
-    }
 
     const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
@@ -84,12 +87,16 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     });
     const hasMore = page * PAGINATION.PAGE_SIZE < totalMembers;
 
-    return json({
-      members,
-      hasMore,
-      page,
-      totalMembers
-    });
+    return json(
+      universityMembersResponseSchema.parse(
+        toPlainObject({
+          members,
+          hasMore,
+          page,
+          totalMembers
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

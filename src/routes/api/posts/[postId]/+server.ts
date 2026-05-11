@@ -18,7 +18,8 @@ import {
   validatePostReadability,
   canReadPost,
   getDefaultPostReadability,
-  protect
+  protect,
+  toPlainObject
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 import {
@@ -28,18 +29,20 @@ import {
   replaceOwnerImages
 } from '$lib/images/index.server';
 import { withExistingImages } from '$lib/images/validation.server';
-import { postUpdateRequestSchema } from '$lib/schemas/posts.server';
-import { parseJsonOrError } from '$lib/utils/validation.server';
+import {
+  postDeleteResponseSchema,
+  postDetailResponseSchema,
+  postIdParamSchema,
+  postUpdateRequestSchema,
+  postUpdateResponseSchema
+} from '$lib/schemas/posts';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 const postUpdateRequestWithExistingImagesSchema = withExistingImages(postUpdateRequestSchema);
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   try {
-    const postId = params.postId;
-
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -160,11 +163,15 @@ export const GET: RequestHandler = async ({ locals, params }) => {
       userVote = vote ? vote.voteType : null;
     }
 
-    return json({
-      post,
-      comments: hydratedComments,
-      userVote
-    });
+    return json(
+      postDetailResponseSchema.parse(
+        toPlainObject({
+          post,
+          comments: hydratedComments,
+          userVote
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -182,10 +189,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
     const {
       title,
@@ -320,7 +324,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     // Update the post
     await postsCollection.updateOne({ id: postId }, { $set: updateData });
 
-    return json({ success: true });
+    return json(postUpdateResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -338,10 +342,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -419,7 +420,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Delete the post
     await postsCollection.deleteOne({ id: postId });
 
-    return json({ success: true });
+    return json(postDeleteResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

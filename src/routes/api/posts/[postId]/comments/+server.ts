@@ -13,8 +13,12 @@ import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
 import { attachImagesToOwner } from '$lib/images/index.server';
 import { withExistingImages } from '$lib/images/validation.server';
-import { postCommentCreateRequestSchema } from '$lib/schemas/posts.server';
-import { parseJsonOrError } from '$lib/utils/validation.server';
+import {
+  postCommentCreateRequestSchema,
+  postCommentCreateResponseSchema,
+  postIdParamSchema
+} from '$lib/schemas/posts';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 const postCommentCreateRequestWithExistingImagesSchema = withExistingImages(
   postCommentCreateRequestSchema
@@ -27,10 +31,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
     const {
       content: trimmedContent,
@@ -187,10 +188,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     return json(
-      {
+      postCommentCreateResponseSchema.parse({
         success: true,
         commentId: newComment.id
-      },
+      }),
       { status: 201 }
     );
   } catch (err) {

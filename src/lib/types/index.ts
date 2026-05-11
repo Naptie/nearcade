@@ -7,6 +7,15 @@ import { activitySchema } from '$lib/schemas/users';
 import { commentSchema, commentVoteSchema } from '$lib/schemas/comments';
 import { imageAssetSchema } from '$lib/schemas/images';
 import type {
+  campusSchema,
+  clubMemberSchema,
+  clubSchema,
+  organizationChangelogEntrySchema,
+  universityMemberSchema,
+  universitySchema
+} from '$lib/schemas/organizations';
+import type { postSchema, postVoteSchema, postWithAuthorSchema } from '$lib/schemas/posts';
+import type {
   gameSchema,
   shopDeleteRequestSchema,
   shopDeleteRequestVoteSchema,
@@ -28,50 +37,9 @@ export type Shop = z.infer<typeof shopSchema>;
 
 export type Game = z.infer<typeof gameSchema>;
 
-export interface Campus {
-  id: string;
-  name: string | null;
-  province: string;
-  city: string;
-  district: string;
-  address: string;
-  location: Location;
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdBy?: string;
-  updatedBy?: string;
-}
+export type Campus = z.infer<typeof campusSchema>;
 
-export interface University {
-  _id?: string | ObjectId;
-  id: string;
-  name: string;
-  slug?: string; // Customizable URL slug
-  type: string;
-  majorCategory: string | null;
-  natureOfRunning: string | null;
-  affiliation: string;
-  is985: boolean | null;
-  is211: boolean | null;
-  isDoubleFirstClass: boolean | null;
-  campuses: Campus[];
-  // Customization fields
-  backgroundColor?: string; // Hex color code
-  avatarUrl?: string; // University avatar/logo URL
-  avatarImageId?: string | null;
-  description?: string; // University description
-  website?: string; // Official website
-  // Settings
-  postReadability?: PostReadability; // Optional, defaults to PUBLIC
-  postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
-  // Stats (calculated fields)
-  studentsCount?: number;
-  frequentingArcades?: number[]; // List of arcade IDs frequented by at least 2 university members
-  clubsCount?: number;
-  // Timestamps
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+export type University = z.infer<typeof universitySchema>;
 
 export interface UniversityRankingResponse {
   data: UniversityRankingData[];
@@ -158,40 +126,9 @@ export type NotificationType =
   | 'JOIN_REQUESTS'
   | 'SHOP_DELETE_REQUESTS';
 
-export interface Club {
-  _id?: string | ObjectId;
-  id: string;
-  universityId: string;
-  name: string;
-  slug?: string; // Customizable URL slug
-  description?: string;
-  avatarUrl?: string;
-  avatarImageId?: string | null;
-  backgroundColor?: string;
-  website?: string;
-  // Settings
-  acceptJoinRequests: boolean;
-  postReadability: PostReadability;
-  postWritability: PostWritability;
-  // Stats
-  membersCount?: number;
-  // Starred arcades
-  starredArcades: number[];
-  // Timestamps
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdBy?: string; // User ID of creator
-}
+export type Club = z.infer<typeof clubSchema>;
 
-export interface ClubMember {
-  _id?: string | ObjectId;
-  id: string;
-  clubId: string;
-  userId: string;
-  memberType: 'member' | 'moderator' | 'admin';
-  joinedAt: Date;
-  invitedBy?: string | null; // User ID of who invited them
-}
+export type ClubMember = z.infer<typeof clubMemberSchema>;
 
 // Composite type with user data joined
 export interface ClubMemberWithUser extends ClubMember {
@@ -219,16 +156,7 @@ export interface InviteLink {
   updatedAt?: Date;
 }
 
-export interface UniversityMember {
-  _id?: string | ObjectId;
-  id: string;
-  universityId: string;
-  userId: string;
-  memberType: 'student' | 'moderator' | 'admin';
-  verificationEmail?: string;
-  verifiedAt?: Date;
-  joinedAt: Date;
-}
+export type UniversityMember = z.infer<typeof universityMemberSchema>;
 
 // Composite type with user data joined
 export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verificationEmail'> {
@@ -323,29 +251,7 @@ export interface JoinRequestWithUser extends JoinRequest {
   reviewer?: PublicUser;
 }
 
-export interface ChangelogEntry {
-  _id?: string | ObjectId;
-  id: string;
-  type: 'university' | 'club';
-  targetId: string; // University ID or Club ID
-  action: 'created' | 'modified' | 'deleted' | 'campus_added' | 'campus_updated' | 'campus_deleted';
-  // Structured field information for internationalization
-  fieldInfo: {
-    field: string; // Field name in English (e.g., 'name', 'description', 'campus.address')
-    campusId?: string | null; // If this is a campus field change
-    campusName?: string | null; // Campus name for display
-  };
-  oldValue?: string | null;
-  newValue?: string | null;
-  // Additional metadata for complex changes
-  metadata?: {
-    [key: string]: string | number | boolean | null;
-  };
-  userId: string; // Who made the change
-  userName?: string | null;
-  userImage?: string | null;
-  createdAt: Date;
-}
+export type ChangelogEntry = z.infer<typeof organizationChangelogEntrySchema>;
 
 export interface ChangelogEntryWithUser extends ChangelogEntry {
   user: {
@@ -357,45 +263,11 @@ export interface ChangelogEntryWithUser extends ChangelogEntry {
 }
 
 // Posts feature types
-export interface Post {
-  _id?: string | ObjectId;
-  id: string;
-  title: string;
-  content: string; // Markdown content
-  images?: string[];
-  // Organization affiliation - either universityId or clubId will be set
-  universityId?: string;
-  clubId?: string;
-  // Author information
-  createdBy: string; // User ID
-  createdAt: Date;
-  updatedAt?: Date;
-  // Engagement metrics
-  upvotes: number;
-  downvotes: number;
-  commentCount: number;
-  // Moderation
-  isPinned: boolean;
-  isLocked: boolean;
-  // Post visibility setting
-  readability: PostReadability; // Required - determines who can read this specific post
-}
+export type Post = z.infer<typeof postSchema>;
 
-// Composite type with author data joined
-export interface PostWithAuthor extends Post {
-  author: PublicUser | undefined;
-  resolvedImages?: ImageAsset[];
-}
+export type PostWithAuthor = z.infer<typeof postWithAuthorSchema>;
 
-export interface PostVote {
-  _id?: string | ObjectId;
-  id: string;
-  postId: string;
-  userId: string;
-  voteType: 'upvote' | 'downvote';
-  createdAt: Date;
-  updatedAt?: Date;
-}
+export type PostVote = z.infer<typeof postVoteSchema>;
 
 export type Comment = z.infer<typeof commentSchema>;
 

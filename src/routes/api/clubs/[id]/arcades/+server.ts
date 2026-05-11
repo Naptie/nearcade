@@ -2,14 +2,20 @@ import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
-import { toPlainArray } from '$lib/utils';
+import { toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import {
+  clubArcadesQuerySchema,
+  clubArcadesResponseSchema,
+  clubIdParamSchema
+} from '$lib/schemas/organizations';
+import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
-    const { id: clubId } = params;
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const { id: clubId } = parseParamsOrError(clubIdParamSchema, params);
+    const { page } = parseQueryOrError(clubArcadesQuerySchema, url);
     const offset = (page - 1) * PAGINATION.PAGE_SIZE;
 
     const db = mongo.db();
@@ -58,12 +64,16 @@ export const GET: RequestHandler = async ({ params, url }) => {
       );
     }
 
-    return json({
-      arcades,
-      hasMore,
-      page,
-      total: totalArcades
-    });
+    return json(
+      clubArcadesResponseSchema.parse(
+        toPlainObject({
+          arcades,
+          hasMore,
+          page,
+          total: totalArcades
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
