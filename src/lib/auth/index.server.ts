@@ -125,11 +125,15 @@ const allowedHosts = allowedOrigins
   .filter((host): host is string => !!host);
 
 export const auth = betterAuth({
-  baseURL: {
-    allowedHosts,
-    fallback: allowedOrigins[0],
-    protocol: 'auto'
-  },
+  ...(allowedHosts.length > 0
+    ? {
+        baseURL: {
+          allowedHosts,
+          fallback: allowedOrigins[0],
+          protocol: 'auto'
+        }
+      }
+    : {}),
   basePath: '/api/auth',
   trustedOrigins: ['*'],
   advanced: {
