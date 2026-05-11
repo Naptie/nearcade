@@ -8,7 +8,8 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import { getUserIdSelector, verifyApiKeyWithLegacyFallback } from '$lib/auth/api-keys.server';
+import { auth } from '$lib/auth/index.server';
+import { getUserIdSelector } from '$lib/auth/api-keys.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendanceRequestSchema,
@@ -112,7 +113,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const userToken = token === agentToken ? null : token.split('/')[1];
     const db = mongo.db();
     const usersCollection = db.collection<User>('users');
-    const agentApiKey = await verifyApiKeyWithLegacyFallback(agentToken);
+    const agentApiKey = await auth.api.verifyApiKey({
+      body: { key: agentToken }
+    });
     if (!agentApiKey.valid || !agentApiKey.key) {
       error(401, m.unauthorized());
     }
@@ -128,7 +131,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     isClaimedShopAccess = agentShopId !== undefined;
     user = dbUser;
     if (userToken) {
-      const targetApiKey = await verifyApiKeyWithLegacyFallback(userToken);
+      const targetApiKey = await auth.api.verifyApiKey({
+        body: { key: userToken }
+      });
       if (!targetApiKey.valid || !targetApiKey.key) {
         error(404, m.target_user_not_found());
       }

@@ -2,7 +2,6 @@ import { error, fail } from '@sveltejs/kit';
 import type { ApiKey } from '@better-auth/api-key';
 import type { PageServerLoad, Actions } from './$types';
 import { auth } from '$lib/auth/index.server';
-import { ensureLegacyApiTokensMigrated } from '$lib/auth/api-keys.server';
 import { m } from '$lib/paraglide/messages';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -101,8 +100,6 @@ export const load: PageServerLoad = async ({ parent, request }) => {
     error(401, m.error_401_title());
   }
 
-  await ensureLegacyApiTokensMigrated(user.id);
-
   const { apiKeys } = await auth.api.listApiKeys({
     headers: request.headers,
     query: {
@@ -147,8 +144,6 @@ export const actions = {
       if (!expirationResult.ok) {
         return expirationResult.response;
       }
-
-      await ensureLegacyApiTokensMigrated(session.user.id);
 
       const expiresIn = Math.ceil((expirationResult.expiresAt.getTime() - Date.now()) / 1000);
       const apiKey = await auth.api.createApiKey({
@@ -197,8 +192,6 @@ export const actions = {
         });
       }
 
-      await ensureLegacyApiTokensMigrated(session.user.id);
-
       await auth.api.updateApiKey({
         headers: request.headers,
         body: {
@@ -234,8 +227,6 @@ export const actions = {
           message: 'token_id_required'
         });
       }
-
-      await ensureLegacyApiTokensMigrated(session.user.id);
 
       const existingKey = await auth.api.getApiKey({
         headers: request.headers,
@@ -315,8 +306,6 @@ export const actions = {
           message: 'token_id_required'
         });
       }
-
-      await ensureLegacyApiTokensMigrated(session.user.id);
 
       await auth.api.deleteApiKey({
         headers: request.headers,
