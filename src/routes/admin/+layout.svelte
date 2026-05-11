@@ -106,6 +106,13 @@
       icon: 'fa-trash-can',
       href: resolve('/(main)/shops/delete-requests'),
       requiresSiteAdmin: true
+    },
+    {
+      id: 'oauth-clients',
+      label: m.admin_oauth_clients(),
+      icon: 'fa-key',
+      href: resolve('/admin/oauth-clients'),
+      requiresSiteAdmin: true
     }
   ]);
 

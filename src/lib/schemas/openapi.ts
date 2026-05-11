@@ -44,5 +44,13 @@ export const bearerAuth = [{ bearerAuth: [] }] satisfies NonNullable<
   ZodOpenApiOperationObject['security']
 >;
 
+/** OAuth 2.1 security requirement — pass the scopes needed for the operation. */
+export const oauth2Auth = (...scopes: string[]) =>
+  [{ oauth2: scopes }] satisfies NonNullable<ZodOpenApiOperationObject['security']>;
+
+/** Combined security: session cookie OR OAuth 2.1 Bearer token. */
+export const sessionOrOAuth2 = (...scopes: string[]) =>
+  [{}, { oauth2: scopes }] satisfies NonNullable<ZodOpenApiOperationObject['security']>;
+
 export const successJsonResponse = (description = bilingual('成功', 'Success')) =>
   jsonResponse(description, successResponseSchema);

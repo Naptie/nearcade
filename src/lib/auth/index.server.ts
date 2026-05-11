@@ -1,6 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
+import { jwt } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
+import { oauthProvider } from '@better-auth/oauth-provider';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { customSession } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
@@ -18,6 +20,7 @@ import { githubProvider } from './github';
 import { phiraProvider } from './phira';
 import type { User } from './types';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
+import { OAUTH_SCOPES } from './oauth-scopes';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -199,6 +202,15 @@ export const auth = betterAuth({
         osuProvider(),
         discordProvider()
       ]
+    }),
+    jwt(),
+    oauthProvider({
+      loginPage: '/oauth/sign-in',
+      consentPage: '/oauth/consent',
+      scopes: [...OAUTH_SCOPES],
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      allowPublicClientPrelogin: true
     }),
     apiKey({
       defaultPrefix: 'nk_',

@@ -159,6 +159,37 @@ const document = createDocument({
       bearerAuth: {
         type: 'http',
         scheme: 'bearer'
+      },
+      oauth2: {
+        type: 'oauth2',
+        flows: {
+          authorizationCode: {
+            authorizationUrl: '/api/auth/oauth2/authorize',
+            tokenUrl: '/api/auth/oauth2/token',
+            scopes: {
+              openid: 'OpenID Connect — user identifier',
+              profile: 'User profile (name, picture)',
+              email: 'User email address',
+              offline_access: 'Refresh token for long-lived access',
+              'read:shops': 'Read arcade/shop data',
+              'write:shops': 'Create or modify arcade/shop data',
+              'read:universities': 'Read university data',
+              'write:universities': 'Modify university data',
+              'read:clubs': 'Read club data',
+              'write:clubs': 'Modify club data',
+              'read:posts': 'Read posts',
+              'write:posts': 'Create or modify posts',
+              'read:comments': 'Read comments',
+              'write:comments': 'Create or modify comments',
+              'read:users': 'Read user profiles',
+              'write:users': 'Modify user profile',
+              'read:images': 'Read image data',
+              'write:images': 'Upload images',
+              'read:notifications': 'Read notifications',
+              'write:notifications': 'Manage notification settings'
+            }
+          }
+        }
       }
     }
   },
