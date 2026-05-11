@@ -141,7 +141,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       if (!targetApiKey.valid || !targetApiKey.key) {
         error(404, m.target_user_not_found());
       }
-      attendingUser = await usersCollection.findOne(getUserIdSelector(targetApiKey.key.referenceId));
+      attendingUser = await usersCollection.findOne(
+        getUserIdSelector(targetApiKey.key.referenceId)
+      );
       if (!attendingUser) {
         error(404, m.target_user_not_found());
       }
