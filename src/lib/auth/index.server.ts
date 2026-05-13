@@ -210,7 +210,12 @@ export const auth = betterAuth({
       scopes: [...OAUTH_SCOPES],
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
-      allowPublicClientPrelogin: true
+      allowPublicClientPrelogin: true,
+      schema: {
+        oauthClient: { modelName: 'oauth_client' },
+        oauthConsent: { modelName: 'oauth_consent' },
+        oauthAccessToken: { modelName: 'oauth_access_token' }
+      }
     }),
     apiKey({
       defaultPrefix: 'nk_',

@@ -6,6 +6,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import type { PageData, ActionData as RouteActionData } from './$types';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
+  import CopyField from '$lib/components/CopyField.svelte';
   import { getFnsLocale } from '$lib/utils';
 
   type TokenFormData = {
@@ -80,8 +81,6 @@
   let isRenameFormValid = $derived.by(() => {
     return renameTokenName.trim().length > 0 && !clientErrors.renameTokenName;
   });
-
-  let isCopied = $state(false);
 
   // Safe message getter
   const getMessage = (key: string | undefined): string => {
@@ -180,16 +179,6 @@
     showResetModal = false;
     currentToken = null;
     resetToken = null;
-  };
-
-  // Copy token to clipboard
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Show brief success feedback
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-    }
   };
 
   // Handle form results
@@ -380,36 +369,12 @@
           <label class="label" for="token-display-value">
             <span class="label-text font-medium">{m.api_token()}</span>
           </label>
-          <div class="flex gap-2">
-            <input
-              id="token-display-value"
-              type="text"
-              class="input input-bordered w-full font-mono text-sm"
-              value={createdToken.token}
-              readonly
-            />
-            <button
-              type="button"
-              class="btn btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-              class:btn-success={isCopied}
-              class:btn-active={isCopied}
-              onclick={async () => {
-                await copyToClipboard(createdToken!.token);
-                isCopied = true;
-                setTimeout(() => {
-                  isCopied = false;
-                }, 2000);
-              }}
-              title={m.copy_token()}
-              aria-label={m.copy_token()}
-            >
-              {#if isCopied}
-                <i class="fa-solid fa-check fa-lg"></i>
-              {:else}
-                <i class="fa-solid fa-copy fa-lg"></i>
-              {/if}
-            </button>
-          </div>
+          <CopyField
+            id="token-display-value"
+            value={createdToken.token}
+            buttonStyle="circle"
+            ariaLabel={m.copy_token()}
+          />
         </div>
 
         <div>
@@ -637,36 +602,12 @@
             <label class="label" for="reset-token-display-value">
               <span class="label-text font-medium">{m.api_token()}</span>
             </label>
-            <div class="flex gap-2">
-              <input
-                id="reset-token-display-value"
-                type="text"
-                class="input input-bordered w-full font-mono text-sm"
-                value={resetToken.token}
-                readonly
-              />
-              <button
-                type="button"
-                class="btn btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-                class:btn-success={isCopied}
-                class:btn-active={isCopied}
-                onclick={async () => {
-                  await copyToClipboard(resetToken!.token);
-                  isCopied = true;
-                  setTimeout(() => {
-                    isCopied = false;
-                  }, 2000);
-                }}
-                title={m.copy_token()}
-                aria-label={m.copy_token()}
-              >
-                {#if isCopied}
-                  <i class="fa-solid fa-check fa-lg"></i>
-                {:else}
-                  <i class="fa-solid fa-copy fa-lg"></i>
-                {/if}
-              </button>
-            </div>
+            <CopyField
+              id="reset-token-display-value"
+              value={resetToken.token}
+              buttonStyle="circle"
+              ariaLabel={m.copy_token()}
+            />
           </div>
 
           <div>
