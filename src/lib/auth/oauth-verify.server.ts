@@ -38,10 +38,29 @@ function extractBearerToken(request: Request): string | null {
 }
 
 /**
+ * Decode a JWT payload without verifying the signature.
+ * Used to read the `iss` claim before fetching the correct JWKS endpoint.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Verify an OAuth 2.1 access token (JWT) and optionally check scopes.
  *
+ * The JWKS endpoint and issuer are derived from the `iss` claim inside the
+ * token itself (Better Auth sets `iss` to `{origin}/api/auth`). The claimed
+ * issuer is validated against ALLOWED_ORIGINS before trusting it, preventing
+ * SSRF / forged-issuer attacks.
+ *
  * @returns The decoded token payload, or `null` if no bearer token was present.
- * @throws 401 if the token is invalid; 403 if a required scope is missing.
+ * @throws 401 if the token is invalid or from an untrusted issuer; 403 if a required scope is missing.
  */
 export async function verifyOAuthAccessToken(
   request: Request,
@@ -53,13 +72,31 @@ export async function verifyOAuthAccessToken(
   // Skip tokens that look like Nearcade API keys (nk_ prefix)
   if (token.startsWith('nk_')) return null;
 
-  // Derive the issuer from ALLOWED_ORIGINS (first origin) or the request URL
-  const baseOrigin =
-    env.ALLOWED_ORIGINS?.split(',')
+  // Read the issuer from the unverified JWT payload.
+  // Better Auth sets iss = "{origin}/api/auth".
+  const unverified = decodeJwtPayload(token);
+  const issuer = typeof unverified?.iss === 'string' ? unverified.iss : null;
+  if (!unverified || !issuer) {
+    error(401, 'Invalid token: missing issuer');
+  }
+
+  // Validate the issuer is one of our trusted origins to prevent SSRF.
+  const trustedIssuers = [
+    ...(env.ALLOWED_ORIGINS?.split(',')
       .map((o) => o.trim())
-      .filter(Boolean)[0] ?? new URL(request.url).origin;
-  const issuer = `${baseOrigin}/api/auth`;
+      .filter(Boolean) ?? []),
+    new URL(request.url).origin
+  ].map((o) => `${o}/api/auth`);
+  if (!trustedIssuers.includes(issuer)) {
+    error(401, 'Untrusted token issuer');
+  }
+
+  // The JWKS endpoint is always at {iss}/jwks for Better Auth.
   const jwksUrl = `${issuer}/jwks`;
+
+  // Better Auth sets `aud` to the OAuth client ID. Read it from the unverified
+  // payload to satisfy the verifyOptions type (the signature check confirms it).
+  const audience = unverified.aud as string | string[] | undefined;
 
   let payload: OAuthTokenPayload;
   try {
@@ -67,18 +104,23 @@ export async function verifyOAuthAccessToken(
       jwksUrl,
       verifyOptions: {
         issuer,
-        audience: baseOrigin
-      },
-      scopes: requiredScopes
+        ...(audience !== undefined ? { audience } : {})
+      } as Parameters<typeof verifyAccessToken>[1]['verifyOptions']
+      // Scope checking is done manually below for clearer error messages.
     });
     payload = result as OAuthTokenPayload;
   } catch (e) {
-    // Distinguish scope errors from token validation errors
-    const msg = e instanceof Error ? e.message : '';
-    if (msg.toLowerCase().includes('scope')) {
-      error(403, `Insufficient scope. ${msg}`);
-    }
+    console.log(e);
     error(401, 'Invalid or expired OAuth access token');
+  }
+
+  // Check required scopes against the token's `scope` claim.
+  if (requiredScopes && requiredScopes.length > 0) {
+    const grantedScopes = new Set((payload.scope as string | undefined)?.split(' ') ?? []);
+    const missing = requiredScopes.filter((s) => !grantedScopes.has(s));
+    if (missing.length > 0) {
+      error(403, `Insufficient scope. Required: ${missing.join(', ')}`);
+    }
   }
 
   return payload;

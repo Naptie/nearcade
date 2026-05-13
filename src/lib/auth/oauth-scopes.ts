@@ -91,7 +91,14 @@ export function getScopeForEndpoint(tag: string, method: string): OAuthScope | n
  * machines, invites, rankings, discover) are either internal/admin-only
  * and will be BLOCKED for OAuth tokens, or are public read-only.
  */
-const PATH_RESOURCE_RULES: { prefix: string; resource: string }[] = [
+const PATH_RESOURCE_RULES: {
+  prefix: string;
+  resource: string;
+  /** Override the scope required for GET requests instead of auto-deriving `read:{resource}`. */
+  readScope?: OAuthScope;
+  /** Override the scope required for non-GET requests instead of auto-deriving `write:{resource}`. */
+  writeScope?: OAuthScope;
+}[] = [
   // Comments (standalone endpoint before shops/posts sub-routes)
   { prefix: '/api/comments/', resource: 'comments' },
 
@@ -107,6 +114,9 @@ const PATH_RESOURCE_RULES: { prefix: string; resource: string }[] = [
   // Clubs
   { prefix: '/api/clubs/', resource: 'clubs' },
 
+  // Profile — uses OIDC "profile" scope (no read:/write: prefix)
+  { prefix: '/api/me/', resource: 'profile', readScope: 'profile', writeScope: 'write:users' },
+
   // Users
   { prefix: '/api/users/', resource: 'users' },
 
@@ -119,8 +129,8 @@ const PATH_RESOURCE_RULES: { prefix: string; resource: string }[] = [
   // Discover (read-only public data — allow with read:shops)
   { prefix: '/api/discover', resource: 'shops' },
 
-  // Rankings (read-only public data — allow with read:users)
-  { prefix: '/api/rankings', resource: 'users' }
+  // Rankings (read-only public data — allow with read:universities)
+  { prefix: '/api/rankings', resource: 'universities' }
 ];
 
 /** Paths that are completely blocked from OAuth access (admin, internal). */
@@ -150,7 +160,12 @@ export function resolveRequiredScopes(pathname: string, method: string): OAuthSc
   // Find the resource category
   for (const rule of PATH_RESOURCE_RULES) {
     if (pathname.startsWith(rule.prefix) || pathname === rule.prefix.replace(/\/$/, '')) {
-      const action = method.toUpperCase() === 'GET' ? 'read' : 'write';
+      const isRead = method.toUpperCase() === 'GET';
+      const explicitScope = isRead ? rule.readScope : rule.writeScope;
+      if (explicitScope !== undefined) {
+        return [explicitScope];
+      }
+      const action = isRead ? 'read' : 'write';
       const scope = `${action}:${rule.resource}` as OAuthScope;
       return [scope];
     }

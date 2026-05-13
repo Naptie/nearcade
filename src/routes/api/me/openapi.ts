@@ -10,7 +10,7 @@ export default defineOpenApiRoute({
       '获取当前已登录用户的完整资料。',
       'Get the full profile of the currently authenticated user.'
     ),
-    security: sessionOrOAuth2('read:users'),
+    security: sessionOrOAuth2('profile'),
     responses: {
       '200': jsonResponse(
         bilingual('当前用户资料', 'Current user profile', true),
