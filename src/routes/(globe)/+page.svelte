@@ -538,7 +538,7 @@
                 <div class="mt-3 flex w-full justify-center">
                   <button
                     type="button"
-                    class="btn btn-soft btn-primary min-w-56"
+                    class="btn btn-soft btn-primary w-full"
                     onclick={() => {
                       isLocationPickerOpen = true;
                     }}
