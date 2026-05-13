@@ -97,6 +97,7 @@
   let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
 
   let costs: Record<string, Record<string, { preview: string; full: string }>> = $state({});
+  let discoverTableContainer: HTMLDivElement | undefined = $state(undefined);
 
   // Auto-discovery functionality
   let user = $derived(data.session?.user);
@@ -451,14 +452,57 @@
     id: game.id,
     name: getGameName(game.key)
   }));
+  const gameOrder = new Map(allGames.map((game, index) => [game.id, index]));
 
-  const visibleGames = $derived.by(() => {
-    if (screenWidth < 480) return []; // 2xs: no games
-    if (screenWidth < 640) return allGames.slice(0, 1); // xs: 1 game
-    if (screenWidth < 768) return allGames.slice(0, 2); // sm: 2 games
-    if (screenWidth < 1024) return allGames.slice(0, 3); // md: 3 games
-    if (screenWidth < 1280) return allGames.slice(0, 4); // lg: 4 games
-    return allGames; // xl: all 5 games
+  let selectedTitleIds = $state<number[]>([]);
+  let showAbsentGames = $state(false);
+
+  const shopMatchesSelectedTitles = (shop: Shop, titleIds: number[]) => {
+    return (
+      titleIds.length === 0 ||
+      titleIds.every((id) => shop.games.some((game) => game.titleId === id))
+    );
+  };
+
+  let filteredShops = $derived.by(() => {
+    return sortedShops.filter((shop) => shopMatchesSelectedTitles(shop, selectedTitleIds));
+  });
+
+  let visibleGameIds = $derived.by(() => {
+    const ids = [...selectedTitleIds];
+
+    filteredShops.forEach((shop) => {
+      shop.games.forEach((game) => {
+        if (!ids.includes(game.titleId)) {
+          ids.push(game.titleId);
+        }
+      });
+    });
+
+    return ids;
+  });
+
+  let hiddenAbsentGames = $derived.by(() => {
+    return allGames.filter((game) => !visibleGameIds.includes(game.id));
+  });
+
+  let displayedGames = $derived.by(() => {
+    const baseGames = showAbsentGames
+      ? allGames
+      : allGames.filter((game) => visibleGameIds.includes(game.id));
+
+    return [...baseGames].sort((gameA, gameB) => {
+      const selectedIndexA = selectedTitleIds.indexOf(gameA.id);
+      const selectedIndexB = selectedTitleIds.indexOf(gameB.id);
+
+      if (selectedIndexA !== -1 || selectedIndexB !== -1) {
+        if (selectedIndexA === -1) return 1;
+        if (selectedIndexB === -1) return -1;
+        return selectedIndexA - selectedIndexB;
+      }
+
+      return (gameOrder.get(gameA.id) ?? 0) - (gameOrder.get(gameB.id) ?? 0);
+    });
   });
 
   const handleResize = () => {
@@ -553,11 +597,7 @@
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined) return;
 
-    const shops = data.shops.filter(
-      (shop) =>
-        selectedTitleIds.length === 0 ||
-        selectedTitleIds.every((id) => shop.games.some((g) => g.titleId === id))
-    );
+    const shops = filteredShops;
     if (useGoogleMaps && google.maps) {
       // Initialize Google Maps
       untrack(async () => {
@@ -943,8 +983,6 @@
     }
   });
 
-  let selectedTitleIds = $state<number[]>([]);
-
   const handleTitleFilterChange = (titleId: number) => {
     if (selectedTitleIds.includes(titleId)) {
       selectedTitleIds = selectedTitleIds.filter((id) => id !== titleId);
@@ -952,6 +990,22 @@
       selectedTitleIds = [...selectedTitleIds, titleId];
     }
   };
+
+  $effect(() => {
+    const selectedTitleSignature = selectedTitleIds.join(':');
+
+    if (!browser || !discoverTableContainer || !selectedTitleSignature) return;
+
+    const frame = requestAnimationFrame(() => {
+      if ((discoverTableContainer?.scrollLeft ?? 0) > 24) {
+        discoverTableContainer?.scrollTo({ left: 0, behavior: 'smooth' });
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  });
 </script>
 
 <RouteGuidance
@@ -1033,7 +1087,7 @@
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
   <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
     <div class="not-xs:text-center">
-      <div class="mb-2 inline-flex items-center gap-2">
+      <div class="mb-2 flex flex-wrap items-center gap-2">
         <h1 class="text-3xl font-bold">{m.nearby_arcades()}</h1>
         <div class="dropdown not-sm:dropdown-center">
           <button
@@ -1051,7 +1105,7 @@
           <div
             role="menu"
             tabindex="-1"
-            class="card dropdown-content bg-base-200 text-base-content z-10 mt-2 w-fit font-normal shadow-md"
+            class="card dropdown-content bg-base-200 text-base-content z-50 mt-2 w-fit font-normal shadow-md"
           >
             <div class="card-body p-4">
               <h3 class="card-title justify-between text-base text-nowrap">
@@ -1134,32 +1188,56 @@
       : ''}"
     bind:this={mapContainer}
   ></div>
+  {#if hiddenAbsentGames.length > 0}
+    <button
+      type="button"
+      class="btn btn-ghost btn-xs mb-2 not-hover:text-current/60"
+      class:btn-active={showAbsentGames}
+      aria-pressed={showAbsentGames}
+      onclick={() => {
+        showAbsentGames = !showAbsentGames;
+      }}
+    >
+      <i class={`fa-solid ${showAbsentGames ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+      {#if showAbsentGames}
+        {m.hide_absent_game_titles()}
+      {:else}
+        {m.show_hidden_absent_game_titles({ count: hiddenAbsentGames.length })}
+      {/if}
+    </button>
+  {/if}
   {#if data.shops.length > 0}
-    <div class="overflow-x-auto">
-      <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
+    <div class="discover-table-wrap overflow-x-auto rounded-xl" bind:this={discoverTableContainer}>
+      <table class="discover-table bg-base-200/30 dark:bg-base-200/60 table">
         <thead>
           <tr>
-            <th class="text-left">
+            <th class="discover-header discover-sticky discover-sticky-shop text-left">
               {m.shop()}
             </th>
-            <th class="text-center not-sm:hidden">
+            <th
+              class="discover-header discover-sticky discover-sticky-attendance text-center not-xl:hidden"
+            >
               {m.realtime_attendance()}
             </th>
-            <th class="text-center">
+            <th class="discover-header discover-sticky discover-sticky-travel text-center">
               {#if transportMethod}
                 {m.travel_time()}
               {:else}
                 {m.distance()}
               {/if}
             </th>
-            {#each visibleGames as game (game.id)}
-              <th id="game-{game.id}" class="text-center">{game.name}</th>
+            {#each displayedGames as game (game.id)}
+              <th id="game-{game.id}" class="discover-game-column discover-header text-center">
+                {game.name}
+              </th>
             {/each}
-            <th class="text-center">{m.actions()}</th>
+            <th class="discover-header discover-sticky discover-sticky-actions text-center">
+              {m.actions()}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {#each sortedShops.filter((shop) => selectedTitleIds.length === 0 || selectedTitleIds.every( (id) => shop.games.some((g) => g.titleId === id) )) as shop (shop._id)}
+          {#each filteredShops as shop (shop._id)}
             {@const openingHours = getShopOpeningHours(shop)}
             {@const isShopOpen =
               openingHours &&
@@ -1177,23 +1255,23 @@
                     }}
                     class="tooltip-right"
                   >
-                    <div class="text-accent not-sm:hidden {klass}">
+                    <div class="text-accent not-xl:hidden {klass}">
                       {m.in_attendance({ count: currentAttendance })}
                     </div>
-                    <div class="text-accent sm:hidden {klass}">
+                    <div class="text-accent xl:hidden {klass}">
                       <i class="fa-solid fa-user"></i>
                       {currentAttendance}
                     </div>
                   </AttendanceReportBlame>
                 {:else}
                   <div
-                    class="text-base-content/60 not-sm:hidden {klass}"
+                    class="text-base-content/60 not-xl:hidden {klass}"
                     class:text-primary={currentAttendance > 0}
                   >
                     {m.in_attendance({ count: currentAttendance })}
                   </div>
                   <div
-                    class="text-base-content/60 sm:hidden {klass}"
+                    class="text-base-content/60 xl:hidden {klass}"
                     class:text-primary={currentAttendance > 0}
                   >
                     <i class="fa-solid fa-user"></i>
@@ -1227,15 +1305,15 @@
                   mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >
-              <td>
+              <td class="discover-cell discover-sticky discover-sticky-shop">
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
                     <span class="text-sm">
                       <span class="opacity-50">#{shop.id}</span>
-                      <span class="opacity-50 sm:hidden">·</span>
+                      <span class="opacity-50 xl:hidden">·</span>
                       <span
-                        class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 sm:hidden"
+                        class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
                       >
                         {@render attendance('text-xs')}
                       </span>
@@ -1259,10 +1337,12 @@
                   </div>
                 </div>
               </td>
-              <td class="text-center not-sm:hidden">
+              <td
+                class="discover-cell discover-sticky discover-sticky-attendance text-center not-xl:hidden"
+              >
                 {@render attendance()}
               </td>
-              <td class="text-center">
+              <td class="discover-cell discover-sticky discover-sticky-travel text-center">
                 {#if transportMethod}
                   {#if travelData[`${shop.id}`] === undefined}
                     <span class="loading loading-spinner loading-sm"></span>
@@ -1294,9 +1374,9 @@
                   </div>
                 {/if}
               </td>
-              {#each visibleGames as gameInfo (gameInfo.id)}
+              {#each displayedGames as gameInfo (gameInfo.id)}
                 {@const game = findGame(shop.games, gameInfo.id)}
-                <td class="text-center">
+                <td class="discover-cell discover-game-column text-center">
                   {#if game}
                     {@const id = `${shop.id}`}
                     <div class="flex items-center justify-center gap-3">
@@ -1335,7 +1415,7 @@
                   {/if}
                 </td>
               {/each}
-              <td class="text-right">
+              <td class="discover-cell discover-sticky discover-sticky-actions text-center">
                 <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
                     class="btn btn-ghost btn-sm text-nowrap"
@@ -1403,6 +1483,92 @@
 
 <style lang="postcss">
   @reference "tailwindcss";
+
+  .discover-table-wrap {
+    --discover-shop-width: 8rem;
+    --discover-attendance-width: 0rem;
+    --discover-travel-width: 6rem;
+    --discover-title-width: 10rem;
+    --discover-actions-width: 7.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .discover-table-wrap {
+      --discover-shop-width: 12rem;
+      --discover-travel-width: 8rem;
+      --discover-title-width: 11rem;
+      --discover-actions-width: 9rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .discover-table-wrap {
+      --discover-attendance-width: 8rem;
+      --discover-title-width: 12rem;
+      --discover-actions-width: 10rem;
+    }
+  }
+
+  .discover-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .discover-cell {
+    @apply align-middle;
+  }
+
+  .discover-header {
+    background-color: var(--color-base-200);
+  }
+
+  .discover-sticky {
+    position: sticky;
+  }
+
+  .discover-table th.discover-sticky {
+    z-index: 30;
+  }
+
+  .discover-table td.discover-sticky {
+    z-index: 20;
+    background-color: var(--color-base-100);
+  }
+
+  .discover-sticky-shop {
+    left: 0;
+    width: var(--discover-shop-width);
+    min-width: var(--discover-shop-width);
+  }
+
+  .discover-sticky-attendance {
+    left: var(--discover-shop-width);
+    width: var(--discover-attendance-width);
+    min-width: var(--discover-attendance-width);
+  }
+
+  .discover-sticky-travel {
+    left: calc(var(--discover-shop-width) + var(--discover-attendance-width));
+    width: var(--discover-travel-width);
+    min-width: var(--discover-travel-width);
+    box-shadow: 10px 0 16px -16px hsl(var(--bc) / 0.7);
+  }
+
+  .discover-sticky-actions {
+    right: 0;
+    width: var(--discover-actions-width);
+    min-width: var(--discover-actions-width);
+    box-shadow: -10px 0 16px -16px hsl(var(--bc) / 0.7);
+  }
+
+  .discover-game-column {
+    width: var(--discover-title-width);
+    min-width: var(--discover-title-width);
+    white-space: normal;
+  }
 
   :global(.amap-marker-label) {
     @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;
