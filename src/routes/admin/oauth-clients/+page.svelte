@@ -134,7 +134,11 @@
                 >
               </td>
               <td>
-                <span class="badge badge-sm {client.isPublic ? 'badge-info' : 'badge-warning'}">
+                <span
+                  class="badge badge-sm text-nowrap {client.isPublic
+                    ? 'badge-info'
+                    : 'badge-warning'}"
+                >
                   {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
                 </span>
               </td>
@@ -145,7 +149,7 @@
                   {/each}
                   {#if client.redirectUris.length > 2}
                     <div class="text-base-content/50 text-xs">
-                      +{client.redirectUris.length - 2} more
+                      +{client.redirectUris.length - 2}
                     </div>
                   {/if}
                 </div>
@@ -255,7 +259,7 @@
             <textarea
               id="client-redirects"
               name="redirect_uris"
-              class="textarea textarea-bordered w-full"
+              class="textarea textarea-bordered rounded-xl w-full"
               rows="3"
               placeholder="https://example.com/callback"
               required
@@ -428,7 +432,7 @@
             <textarea
               id="edit-client-redirects"
               name="redirect_uris"
-              class="textarea textarea-bordered w-full"
+              class="textarea textarea-bordered rounded-xl w-full"
               rows="3"
               placeholder="https://example.com/callback"
               required
