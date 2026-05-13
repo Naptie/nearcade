@@ -13470,7 +13470,136 @@
                           "changelogEntry": {
                             "description": "完整变更记录。\n\nFull changelog entry.",
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。\n\nMongoDB ID.",
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "变更记录 ID。\n\nChangelog entry ID."
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": ["university", "club"],
+                                "description": "变更目标类型。\n\nChangelog target type."
+                              },
+                              "targetId": {
+                                "type": "string",
+                                "description": "目标 ID。\n\nTarget ID."
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "created",
+                                  "modified",
+                                  "deleted",
+                                  "campus_added",
+                                  "campus_updated",
+                                  "campus_deleted"
+                                ],
+                                "description": "变更动作。\n\nChangelog action."
+                              },
+                              "fieldInfo": {
+                                "type": "object",
+                                "properties": {
+                                  "field": {
+                                    "type": "string",
+                                    "description": "字段名。\n\nField name."
+                                  },
+                                  "campusId": {
+                                    "description": "校区 ID。\n\nCampus ID.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "campusName": {
+                                    "description": "校区名称。\n\nCampus name.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["field"],
+                                "additionalProperties": false
+                              },
+                              "oldValue": {
+                                "description": "旧值。\n\nOld value.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "newValue": {
+                                "description": "新值。\n\nNew value.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "metadata": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": true,
+                                "description": "附加元数据。\n\nAdditional metadata."
+                              },
+                              "userId": {
+                                "type": "string",
+                                "description": "操作用户 ID。\n\nActor user ID."
+                              },
+                              "userName": {
+                                "description": "操作用户名。\n\nActor username.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "userImage": {
+                                "description": "操作用户头像。\n\nActor avatar URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "user": {
+                                "description": "操作用户摘要。\n\nActor summary.",
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "description": "用户 ID。\n\nUser ID.",
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "description": "用户名。\n\nUsername.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "description": "显示名称。\n\nDisplay name.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "image": {
+                                    "description": "头像。\n\nAvatar URL.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type",
+                              "targetId",
+                              "action",
+                              "fieldInfo",
+                              "userId",
+                              "createdAt"
+                            ],
                             "additionalProperties": true
                           },
                           "joinedUniversityId": {
@@ -13702,6 +13831,37 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "/api/auth/oauth2/authorize",
+            "tokenUrl": "/api/auth/oauth2/token",
+            "scopes": {
+              "openid": "OpenID Connect — user identifier",
+              "profile": "User profile (name, picture)",
+              "email": "User email address",
+              "offline_access": "Refresh token for long-lived access",
+              "read:shops": "Read arcade/shop data",
+              "write:shops": "Create or modify arcade/shop data",
+              "read:universities": "Read university data",
+              "write:universities": "Modify university data",
+              "read:clubs": "Read club data",
+              "write:clubs": "Modify club data",
+              "read:posts": "Read posts",
+              "write:posts": "Create or modify posts",
+              "read:comments": "Read comments",
+              "write:comments": "Create or modify comments",
+              "read:users": "Read user profiles",
+              "write:users": "Modify user profile",
+              "read:images": "Read image data",
+              "write:images": "Upload images",
+              "read:notifications": "Read notifications",
+              "write:notifications": "Manage notification settings"
+            }
+          }
+        }
       }
     }
   }
