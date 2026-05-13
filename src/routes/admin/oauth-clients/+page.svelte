@@ -259,7 +259,7 @@
             <textarea
               id="client-redirects"
               name="redirect_uris"
-              class="textarea textarea-bordered rounded-xl w-full"
+              class="textarea textarea-bordered w-full rounded-xl"
               rows="3"
               placeholder="https://example.com/callback"
               required
@@ -321,10 +321,12 @@
   <dialog class="modal modal-open">
     <div class="modal-box">
       <h3 class="mb-2 text-lg font-bold">{m.admin_oauth_client_created()}</h3>
-      <div class="alert alert-warning mb-4">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        <span>{m.admin_oauth_secret_warning()}</span>
-      </div>
+      {#if createdClientSecret}
+        <div class="alert alert-warning mb-4">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>{m.admin_oauth_secret_warning()}</span>
+        </div>
+      {/if}
 
       <div class="space-y-3">
         <div class="form-control">
@@ -432,7 +434,7 @@
             <textarea
               id="edit-client-redirects"
               name="redirect_uris"
-              class="textarea textarea-bordered rounded-xl w-full"
+              class="textarea textarea-bordered w-full rounded-xl"
               rows="3"
               placeholder="https://example.com/callback"
               required

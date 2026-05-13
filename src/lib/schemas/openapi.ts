@@ -50,7 +50,9 @@ export const oauth2Auth = (...scopes: string[]) =>
 
 /** Combined security: session cookie OR OAuth 2.1 Bearer token. */
 export const sessionOrOAuth2 = (...scopes: string[]) =>
-  [{}, { oauth2: scopes }] satisfies NonNullable<ZodOpenApiOperationObject['security']>;
+  [{} as Record<string, string[]>, { oauth2: scopes }] as NonNullable<
+    ZodOpenApiOperationObject['security']
+  >;
 
 export const successJsonResponse = (description = bilingual('成功', 'Success')) =>
   jsonResponse(description, successResponseSchema);

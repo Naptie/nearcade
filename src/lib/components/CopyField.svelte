@@ -47,7 +47,7 @@
     }
   }
 
-  const btnBase = 'btn btn-sm transition-all duration-200';
+  const btnBase = 'btn transition-all duration-200';
   const btnVariant = $derived(
     buttonStyle === 'circle'
       ? `${btnBase} btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black`

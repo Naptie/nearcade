@@ -35,9 +35,9 @@ export const load: PageServerLoad = async (event) => {
     });
 
     const client: OAuthConsentClient = {
-      name: String(raw.name ?? raw.clientId ?? clientId),
-      icon: raw.icon ? String(raw.icon) : null,
-      uri: raw.uri ? String(raw.uri) : null
+      name: String(raw.client_name ?? raw.client_id ?? clientId),
+      icon: raw.logo_uri ? String(raw.logo_uri) : null,
+      uri: raw.client_uri ? String(raw.client_uri) : null
     };
 
     return {
