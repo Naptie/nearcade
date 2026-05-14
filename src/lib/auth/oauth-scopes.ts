@@ -1,5 +1,5 @@
 /**
- * OAuth 2.1 scope definitions for the Nearcade API.
+ * OAuth 2.1 scope definitions for the nearcade API.
  *
  * Scopes follow the pattern `action:resource` where:
  * - action: "read" (GET endpoints) or "write" (POST/PUT/PATCH/DELETE)

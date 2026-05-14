@@ -116,7 +116,7 @@ export async function verifyOAuthAccessToken(
   const token = extractBearerToken(request);
   if (!token) return null;
 
-  // Skip tokens that look like Nearcade API keys (nk_ prefix)
+  // Skip tokens that look like nearcade API keys (nk_ prefix)
   if (token.startsWith('nk_')) return null;
 
   const trustedOrigins = [

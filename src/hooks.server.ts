@@ -173,7 +173,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 /**
  * OAuth 2.1 scope gating for API routes.
  *
- * If a request carries a Bearer token that is NOT a Nearcade API key (nk_),
+ * If a request carries a Bearer token that is NOT a nearcade API key (nk_),
  * it is validated as an OAuth JWT access token. The required scope is derived
  * from the request path + method. Admin/internal endpoints are blocked entirely.
  *
@@ -194,7 +194,7 @@ const handleOAuthScopes: Handle = async ({ event, resolve }) => {
 
   const token = authHeader.slice(7);
 
-  // Skip Nearcade API keys — they use their own auth flow
+  // Skip nearcade API keys — they use their own auth flow
   if (token.startsWith('nk_')) {
     return resolve(event);
   }
