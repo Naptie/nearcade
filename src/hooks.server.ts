@@ -134,6 +134,21 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const sanitizeConnectionUrl = (value?: string) => {
+  if (!value) {
+    return 'connected';
+  }
+
+  try {
+    const url = new URL(value);
+    url.username = '';
+    url.password = '';
+    return url.toString();
+  } catch {
+    return value.replace(/^(\w+:\/\/)(?:[^@/]+@)/, '$1');
+  }
+};
+
 const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
   const { pathname, search } = event.url;
   const escapedBase = escapeRegExp(base);
@@ -256,7 +271,7 @@ export const init: ServerInit = async () => {
       '| Disk DB:',
       mongo.options.hosts.map((h) => `mongodb://${h.toString()}`).join(', ')
     );
-    console.log('| RAM DB:', redis.options?.url || 'connected');
+    console.log('| RAM DB:', sanitizeConnectionUrl(redis.options?.url));
     console.log('| Search:', `Meilisearch @ ${meili.default.config.host}`);
     console.log(
       '| OSS:',
