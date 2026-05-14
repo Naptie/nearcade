@@ -140,7 +140,10 @@ export const auth = betterAuth({
   basePath: '/api/auth',
   trustedOrigins: ['*'],
   advanced: {
-    trustedProxyHeaders: true
+    trustedProxyHeaders: true,
+    database: {
+      generateId: () => new ObjectId().toHexString()
+    }
   },
   database: mongodbAdapter(mongo.db(), {
     usePlural: true
@@ -309,6 +312,7 @@ export const auth = betterAuth({
             { _id: new ObjectId(user.id) },
             {
               $set: {
+                id: user.id,
                 name: username,
                 displayName: user.name,
                 joinedAt: new Date(),
