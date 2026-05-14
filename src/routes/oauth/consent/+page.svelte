@@ -3,6 +3,7 @@
   import { authClient } from '$lib/auth/client';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getScopeLabel, getScopeIcon } from './scope-labels';
+  import { pageTitle } from '$lib/utils';
 
   let { data } = $props();
 
@@ -28,6 +29,14 @@
     }
   }
 </script>
+
+<svelte:head>
+  <title
+    >{data.client?.name
+      ? pageTitle(data.client.name, m.oauth_consent())
+      : pageTitle(m.oauth_consent())}</title
+  >
+</svelte:head>
 
 <div class="flex min-h-svh items-center justify-center p-4">
   <div class="card bg-base-100 w-full max-w-md shadow-xl">
@@ -66,7 +75,7 @@
                 href={clientUri}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="link link-primary mt-1 block text-xs"
+                class="text-base-content/90 mt-1 block text-xs underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white"
               >
                 {clientUri}
               </a>

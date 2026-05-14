@@ -3,12 +3,16 @@
   import { page } from '$app/state';
   import { authClient } from '$lib/auth/client';
   import { base } from '$app/paths';
-  import { getProviders } from '$lib/utils';
+  import { getProviders, pageTitle } from '$lib/utils';
 
   // Preserve the OAuth query string so that after sign-in the plugin
   // can continue the authorization flow automatically.
   const callbackURL = $derived(`/oauth/sign-in${page.url.search}`);
 </script>
+
+<svelte:head>
+  <title>{pageTitle(m.sign_in(), m.profile())}</title>
+</svelte:head>
 
 <div class="flex min-h-screen items-center justify-center p-4">
   <div class="card bg-base-100 w-full max-w-md shadow-xl">

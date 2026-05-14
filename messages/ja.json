@@ -875,6 +875,7 @@
   "notification_user_upvoted_comment": "{userName} が {targetName} のあなたのコメントに賛成票を投じました",
   "notification_user_upvoted_post": "{userName} があなたの投稿 {targetName} に賛成票を投じました",
   "notifications": "通知",
+  "oauth_consent": "認可同意",
   "oauth_consent_accept": "許可",
   "oauth_consent_deny": "拒否",
   "oauth_consent_description": "このアプリケーションは以下の権限を要求しています：",

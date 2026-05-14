@@ -875,6 +875,7 @@
   "notification_user_upvoted_comment": "{userName} 赞了你在 {targetName} 的评论",
   "notification_user_upvoted_post": "{userName} 赞了你的帖子 {targetName}",
   "notifications": "通知",
+  "oauth_consent": "授权许可",
   "oauth_consent_accept": "允许",
   "oauth_consent_deny": "拒绝",
   "oauth_consent_description": "该应用请求以下权限：",

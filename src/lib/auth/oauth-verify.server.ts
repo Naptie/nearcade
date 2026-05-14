@@ -13,31 +13,38 @@
  *     Auth adapter (ctx.adapter.findOne), which respects schema/model mapping.
  *
  *   • JWT: issued when the client includes a `resource` parameter.
- *     Verified via JWKS using the official `oauthProviderResourceClient` plugin
- *     from @better-auth/oauth-provider/resource-client, which derives endpoints
- *     directly from the auth instance. The JWKS URL is passed explicitly because
- *     our baseURL is configured as a dynamic object, not a static string.
+ *     Verified via `verifyJwsAccessToken` from better-auth/oauth2 with an
+ *     in-process `jwksFetch` function — auth.handler() processes the /jwks
+ *     request in-process with no network I/O, so there is no HTTP round-trip
+ *     even on first use. The module-level JWKS cache in @better-auth/core means
+ *     the fetch function is called at most once per process lifetime (and again
+ *     only if a JWT arrives with an unknown `kid` after key rotation).
  *
  * Official docs reference: https://better-auth.com/docs/plugins/oauth-provider
  */
 
-import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client';
+import { verifyJwsAccessToken } from 'better-auth/oauth2';
 import { createHash } from 'node:crypto';
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { auth } from '$lib/auth/index.server';
 import type { OAuthScope } from './oauth-scopes';
 
-// Instantiate the official resource-client plugin backed by the same auth
-// instance. We call getActions() directly to avoid browser-oriented
-// createAuthClient() initialisation (baseURL inference from window.location).
-// Cast to `any`: pnpm may resolve @better-auth/oauth-provider to a different
-// copy of better-auth types, making them nominally incompatible despite being
-// structurally identical.
-const { verifyAccessToken: resourceClientVerify } = oauthProviderResourceClient(
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-  auth as any
-).getActions();
+/**
+ * Fetch the JWKS in-process via auth.handler() instead of a real HTTP request.
+ * auth.handler() routes the synthetic Request through Better Auth's own router
+ * without opening a TCP socket, so there is zero network overhead.
+ *
+ * @better-auth/core caches the result in a module-level variable keyed by
+ * JWT `kid`, so this function is called at most once per server lifetime
+ * (plus one extra call each time a key rotation introduces a new kid).
+ */
+async function inProcessJwksFetch(issuer: string) {
+  const response = await auth.handler(new Request(`${issuer}/jwks`));
+  if (!response.ok) throw new Error(`JWKS endpoint returned ${response.status}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return response.json() as Promise<any>;
+}
 
 export interface OAuthTokenPayload {
   /** Subject (user ID) */
@@ -140,11 +147,9 @@ export async function verifyOAuthAccessToken(
     }
 
     try {
-      // resourceClientVerify wraps verifyAccessToken from better-auth/oauth2.
-      // We pass jwksUrl explicitly because our baseURL is a dynamic object
-      // (not a static string), so the plugin cannot derive it automatically.
-      const result = await resourceClientVerify(token, {
-        jwksUrl: `${issuer}/jwks`,
+      const result = await verifyJwsAccessToken(token, {
+        // In-process fetch: no HTTP round-trip, no TCP socket.
+        jwksFetch: () => inProcessJwksFetch(issuer),
         verifyOptions: {
           issuer,
           // `aud` is the `resource` parameter from the authorization request.

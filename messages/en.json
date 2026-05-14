@@ -883,6 +883,7 @@
   "notification_user_upvoted_comment": "{userName} upvoted your comment on {targetName}",
   "notification_user_upvoted_post": "{userName} upvoted your post {targetName}",
   "notifications": "Notifications",
+  "oauth_consent": "Authorization Consent",
   "oauth_consent_accept": "Allow",
   "oauth_consent_deny": "Deny",
   "oauth_consent_description": "This application would like permission to:",
