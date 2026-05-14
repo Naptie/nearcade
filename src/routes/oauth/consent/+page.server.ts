@@ -24,7 +24,12 @@ export const load: PageServerLoad = async (event) => {
     return {
       error: 'missing_client_id' as const,
       client: null as OAuthConsentClient | null,
-      scopes: [] as string[]
+      scopes: [] as string[],
+      user: {
+        name: session.user.name,
+        displayName: session.user.displayName ?? null,
+        image: session.user.image ?? null
+      }
     };
   }
 
@@ -43,13 +48,23 @@ export const load: PageServerLoad = async (event) => {
     return {
       error: null as string | null,
       client,
-      scopes: scope.split(' ').filter(Boolean)
+      scopes: scope.split(' ').filter(Boolean),
+      user: {
+        name: session.user.name,
+        displayName: session.user.displayName ?? null,
+        image: session.user.image ?? null
+      }
     };
   } catch {
     return {
       error: 'invalid_client' as const,
       client: null as OAuthConsentClient | null,
-      scopes: [] as string[]
+      scopes: [] as string[],
+      user: {
+        name: session.user.name,
+        displayName: session.user.displayName ?? null,
+        image: session.user.image ?? null
+      }
     };
   }
 };

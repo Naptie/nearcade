@@ -881,6 +881,7 @@
   "oauth_consent_error": "エラーが発生しました。もう一度お試しください。",
   "oauth_consent_invalid_client": "不明なアプリケーションです。認可リクエストが無効です。",
   "oauth_consent_missing_client": "クライアント情報がありません。認可リクエストが無効です。",
+  "oauth_consent_signed_in_as": "{name} としてサインイン中",
   "oauth_consent_title": "{app} があなたのアカウントへのアクセスを要求しています",
   "oauth_scope_email": "メールアドレスを表示する",
   "oauth_scope_offline_access": "接続を維持する（リフレッシュトークン）",

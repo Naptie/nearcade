@@ -92,7 +92,7 @@
     </div>
   {:else}
     <div class="overflow-x-auto">
-      <table class="bg-base-100 table table-fixed w-full rounded-xl shadow">
+      <table class="bg-base-100 table w-full table-fixed rounded-xl shadow">
         <thead>
           <tr>
             <th class="w-[22%]">{m.name()}</th>
@@ -118,10 +118,7 @@
                       {client.name}
                     </div>
                     {#if client.uri}
-                      <div
-                        class="text-base-content/50 truncate text-xs"
-                        title={client.uri}
-                      >
+                      <div class="text-base-content/50 truncate text-xs" title={client.uri}>
                         {client.uri}
                       </div>
                     {/if}

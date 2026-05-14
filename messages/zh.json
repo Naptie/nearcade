@@ -881,6 +881,7 @@
   "oauth_consent_error": "出了点问题，请重试。",
   "oauth_consent_invalid_client": "未知应用，授权请求无效。",
   "oauth_consent_missing_client": "缺少客户端信息，授权请求无效。",
+  "oauth_consent_signed_in_as": "当前登录：{name}",
   "oauth_consent_title": "{app} 正在请求访问您的账户",
   "oauth_scope_email": "查看您的邮箱地址",
   "oauth_scope_offline_access": "保持连接（刷新令牌）",

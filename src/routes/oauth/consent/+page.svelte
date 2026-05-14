@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { authClient } from '$lib/auth/client';
+  import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getScopeLabel, getScopeIcon } from './scope-labels';
 
   let { data } = $props();
@@ -28,9 +29,9 @@
   }
 </script>
 
-<div class="flex min-h-screen items-center justify-center p-4">
-  <div class="card bg-base-100 w-full max-w-lg shadow-xl">
-    <div class="card-body">
+<div class="flex min-h-svh items-center justify-center p-4">
+  <div class="card bg-base-100 w-full max-w-md shadow-xl">
+    <div class="card-body gap-4 p-6 sm:p-8">
       {#if data.error === 'missing_client_id'}
         <div class="alert alert-error">
           <i class="fa-solid fa-circle-exclamation"></i>
@@ -45,57 +46,68 @@
         {@const clientName = data.client.name}
         {@const clientIcon = data.client.icon}
         {@const clientUri = data.client.uri}
+
         <!-- Client info header -->
-        <div class="flex flex-col items-center gap-3">
+        <div class="flex flex-col items-center gap-3 text-center">
           {#if clientIcon}
-            <img src={clientIcon} alt={clientName} class="h-16 w-16 rounded-xl" />
+            <img src={clientIcon} alt={clientName} class="h-16 w-16 rounded-xl object-cover" />
           {:else}
             <div class="bg-base-300 flex h-16 w-16 items-center justify-center rounded-xl">
               <i class="fa-solid fa-cube fa-2x text-base-content/40"></i>
             </div>
           {/if}
 
-          <h2 class="text-center text-xl font-bold">
-            {m.oauth_consent_title({ app: clientName })}
-          </h2>
-
-          {#if clientUri}
-            <a
-              href={clientUri}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="link link-primary text-sm"
-            >
-              {clientUri}
-            </a>
-          {/if}
+          <div>
+            <h2 class="text-lg font-bold sm:text-xl">
+              {m.oauth_consent_title({ app: clientName })}
+            </h2>
+            {#if clientUri}
+              <a
+                href={clientUri}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="link link-primary mt-1 block text-xs"
+              >
+                {clientUri}
+              </a>
+            {/if}
+          </div>
         </div>
 
-        <div class="divider"></div>
+        <!-- Signed in as -->
+        <div class="bg-base-200 flex items-center gap-3 rounded-xl px-4 py-3">
+          <UserAvatar user={data.user} size="sm" target={null} />
+          <span class="text-base-content/70 truncate text-sm">
+            {m.oauth_consent_signed_in_as({ name: data.user.displayName ?? data.user.name })}
+          </span>
+        </div>
+
+        <div class="divider my-0"></div>
 
         <!-- Scope list -->
-        <p class="text-base-content/70 mb-2 text-sm">
-          {m.oauth_consent_description()}
-        </p>
-
-        <ul class="space-y-2">
-          {#each data.scopes as scope (scope)}
-            <li class="bg-base-200 flex items-center gap-3 rounded-lg px-4 py-3">
-              <i class="fa-solid {getScopeIcon(scope)} text-primary w-5 text-center"></i>
-              <span class="text-sm">{getScopeLabel(scope)}</span>
-            </li>
-          {/each}
-        </ul>
+        <div>
+          <p class="text-base-content/60 mb-3 text-xs font-medium tracking-wide uppercase">
+            {m.oauth_consent_description()}
+          </p>
+          <ul class="space-y-2">
+            {#each data.scopes as scope (scope)}
+              <li class="bg-base-200 flex items-center gap-3 rounded-lg px-4 py-3">
+                <i class="fa-solid {getScopeIcon(scope)} text-primary w-4 text-center text-sm"></i>
+                <span class="text-sm">{getScopeLabel(scope)}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
 
         {#if errorMessage}
-          <div class="alert alert-error mt-4">
+          <div class="alert alert-error">
             <i class="fa-solid fa-circle-exclamation"></i>
-            <span>{errorMessage}</span>
+            <span class="text-sm">{errorMessage}</span>
           </div>
         {/if}
 
         <!-- Action buttons -->
-        <div class="mt-6 flex gap-3">
+        <div class="flex flex-col gap-2 sm:flex-row sm:gap-3">
           <button
             class="btn btn-outline flex-1"
             disabled={loading}

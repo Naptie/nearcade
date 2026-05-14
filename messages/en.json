@@ -889,6 +889,7 @@
   "oauth_consent_error": "Something went wrong. Please try again.",
   "oauth_consent_invalid_client": "Unknown application. The authorization request is invalid.",
   "oauth_consent_missing_client": "Missing client information. Invalid authorization request.",
+  "oauth_consent_signed_in_as": "Signed in as {name}",
   "oauth_consent_title": "{app} is requesting access to your account",
   "oauth_scope_email": "View your email address",
   "oauth_scope_offline_access": "Stay connected (refresh tokens)",
