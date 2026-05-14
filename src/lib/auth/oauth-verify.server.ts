@@ -5,12 +5,37 @@
  * 1. Session cookies (first-party, existing behaviour — no scope checks)
  * 2. Bearer OAuth access tokens (third-party, scope-gated)
  * 3. Bearer API keys (existing behaviour, unchanged)
+ *
+ * Access token types (Better Auth + @better-auth/oauth-provider):
+ *
+ *   • Opaque (default): issued when the client omits the `resource` parameter.
+ *     Verified by looking up the SHA-256-hashed token via the official Better
+ *     Auth adapter (ctx.adapter.findOne), which respects schema/model mapping.
+ *
+ *   • JWT: issued when the client includes a `resource` parameter.
+ *     Verified via JWKS using the official `oauthProviderResourceClient` plugin
+ *     from @better-auth/oauth-provider/resource-client, which derives endpoints
+ *     directly from the auth instance. The JWKS URL is passed explicitly because
+ *     our baseURL is configured as a dynamic object, not a static string.
+ *
+ * Official docs reference: https://better-auth.com/docs/plugins/oauth-provider
  */
 
-import { verifyAccessToken } from 'better-auth/oauth2';
+import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client';
+import { createHash } from 'node:crypto';
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { auth } from '$lib/auth/index.server';
 import type { OAuthScope } from './oauth-scopes';
+
+// Instantiate the official resource-client plugin backed by the same auth
+// instance. We call getActions() directly to avoid browser-oriented
+// createAuthClient() initialisation (baseURL inference from window.location).
+// Cast to `any`: pnpm may resolve @better-auth/oauth-provider to a different
+// copy of better-auth types, making them nominally incompatible despite being
+// structurally identical.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { verifyAccessToken: resourceClientVerify } = oauthProviderResourceClient(auth as any).getActions();
 
 export interface OAuthTokenPayload {
   /** Subject (user ID) */
@@ -52,12 +77,25 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 /**
- * Verify an OAuth 2.1 access token (JWT) and optionally check scopes.
+ * Returns true if the token looks like a JWT (three base64url parts).
+ * Better Auth issues opaque access tokens (random alphanumeric strings) and
+ * JWT id_tokens — only the latter matches this pattern.
+ */
+function isJwt(token: string): boolean {
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p));
+}
+
+/**
+ * Verify an OAuth 2.1 access token and optionally check scopes.
  *
- * The JWKS endpoint and issuer are derived from the `iss` claim inside the
- * token itself (Better Auth sets `iss` to `{origin}/api/auth`). The claimed
- * issuer is validated against ALLOWED_ORIGINS before trusting it, preventing
- * SSRF / forged-issuer attacks.
+ * Token format detection:
+ *  - JWT (3 base64url parts)  → verified via JWKS using the official
+ *    oauthProviderResourceClient. Issued when the client sends a `resource`
+ *    parameter in the authorization request.
+ *  - Opaque (random string)   → verified via the Better Auth adapter
+ *    (ctx.adapter.findOne), which mirrors the internal validateOpaqueAccessToken
+ *    logic without bypassing the schema/model layer.
  *
  * @returns The decoded token payload, or `null` if no bearer token was present.
  * @throws 401 if the token is invalid or from an untrusted issuer; 403 if a required scope is missing.
@@ -72,49 +110,100 @@ export async function verifyOAuthAccessToken(
   // Skip tokens that look like Nearcade API keys (nk_ prefix)
   if (token.startsWith('nk_')) return null;
 
-  // Read the issuer from the unverified JWT payload.
-  // Better Auth sets iss = "{origin}/api/auth".
-  const unverified = decodeJwtPayload(token);
-  const issuer = typeof unverified?.iss === 'string' ? unverified.iss : null;
-  if (!unverified || !issuer) {
-    error(401, 'Invalid token: missing issuer');
-  }
-
-  // Validate the issuer is one of our trusted origins to prevent SSRF.
-  const trustedIssuers = [
+  const trustedOrigins = [
     ...(env.ALLOWED_ORIGINS?.split(',')
       .map((o) => o.trim())
       .filter(Boolean) ?? []),
     new URL(request.url).origin
-  ].map((o) => `${o}/api/auth`);
-  if (!trustedIssuers.includes(issuer)) {
-    error(401, 'Untrusted token issuer');
-  }
-
-  // The JWKS endpoint is always at {iss}/jwks for Better Auth.
-  const jwksUrl = `${issuer}/jwks`;
-
-  // Better Auth sets `aud` to the OAuth client ID. Read it from the unverified
-  // payload to satisfy the verifyOptions type (the signature check confirms it).
-  const audience = unverified.aud as string | string[] | undefined;
+  ];
 
   let payload: OAuthTokenPayload;
-  try {
-    const result = await verifyAccessToken(token, {
-      jwksUrl,
-      verifyOptions: {
-        issuer,
-        ...(audience !== undefined ? { audience } : {})
-      } as Parameters<typeof verifyAccessToken>[1]['verifyOptions']
-      // Scope checking is done manually below for clearer error messages.
-    });
-    payload = result as OAuthTokenPayload;
-  } catch (e) {
-    console.log(e);
-    error(401, 'Invalid or expired OAuth access token');
+
+  if (isJwt(token)) {
+    // ── JWT access token ─────────────────────────────────────────────────────
+    // Issued when the client provides a `resource` parameter in the auth
+    // request. The `iss` is validated against trusted origins to prevent SSRF
+    // before we fetch the JWKS.
+    const unverified = decodeJwtPayload(token);
+    const issuer = typeof unverified?.iss === 'string' ? unverified.iss : null;
+    if (!unverified || !issuer) {
+      error(401, 'Invalid token: missing issuer');
+    }
+
+    // Better Auth sets iss = jwtPlugin.issuer ?? ctx.context.baseURL
+    // which includes the basePath, e.g. https://example.com/api/auth.
+    const trustedIssuers = trustedOrigins.map((o) => `${o}/api/auth`);
+    if (!trustedIssuers.includes(issuer)) {
+      error(401, 'Untrusted token issuer');
+    }
+
+    try {
+      // resourceClientVerify wraps verifyAccessToken from better-auth/oauth2.
+      // We pass jwksUrl explicitly because our baseURL is a dynamic object
+      // (not a static string), so the plugin cannot derive it automatically.
+      const result = await resourceClientVerify(token, {
+        jwksUrl: `${issuer}/jwks`,
+        verifyOptions: {
+          issuer,
+          // `aud` is the `resource` parameter from the authorization request.
+          // Falls back to the issuer (ctx.context.baseURL) when absent.
+          audience: (unverified.aud as string | string[] | undefined) ?? issuer
+        }
+      });
+      payload = result as OAuthTokenPayload;
+    } catch (e) {
+      console.error('[OAuth] JWT verification failed:', e);
+      error(401, 'Invalid or expired OAuth access token');
+    }
+  } else {
+    // ── Opaque access token ──────────────────────────────────────────────────
+    // Issued by default (when no `resource` parameter is provided).
+    // @better-auth/oauth-provider hashes tokens with SHA-256 (base64url, no
+    // padding) before storage — replicate the same transform for the lookup.
+    // We use auth.$context.adapter.findOne instead of a driver-specific query
+    // so the schema/model-name overrides in betterAuth({ ... }) are respected.
+    const hashedToken = createHash('sha256').update(token).digest('base64url');
+
+    const authCtx = await auth.$context;
+    const record = (await authCtx.adapter.findOne({
+      model: 'oauthAccessToken',
+      where: [{ field: 'token', value: hashedToken }]
+    })) as Record<string, unknown> | null;
+
+    if (!record) {
+      error(401, 'Invalid OAuth access token');
+    }
+    const expiresAt =
+      record.expiresAt instanceof Date
+        ? record.expiresAt
+        : record.expiresAt
+          ? new Date(record.expiresAt as string)
+          : null;
+    const createdAt =
+      record.createdAt instanceof Date
+        ? record.createdAt
+        : record.createdAt
+          ? new Date(record.createdAt as string)
+          : null;
+    if (expiresAt && expiresAt < new Date()) {
+      error(401, 'OAuth access token has expired');
+    }
+    if (!record.userId) {
+      error(401, 'OAuth access token has no associated user');
+    }
+    const scopes = Array.isArray(record.scopes) ? (record.scopes as string[]) : [];
+
+    payload = {
+      sub: String(record.userId),
+      scope: scopes.join(' ') || undefined,
+      iss: trustedOrigins[0] ? `${trustedOrigins[0]}/api/auth` : undefined,
+      aud: record.clientId as string | undefined,
+      exp: expiresAt ? Math.floor(expiresAt.getTime() / 1000) : undefined,
+      iat: createdAt ? Math.floor(createdAt.getTime() / 1000) : undefined
+    };
   }
 
-  // Check required scopes against the token's `scope` claim.
+  // Check required scopes against the token's granted scopes.
   if (requiredScopes && requiredScopes.length > 0) {
     const grantedScopes = new Set((payload.scope as string | undefined)?.split(' ') ?? []);
     const missing = requiredScopes.filter((s) => !grantedScopes.has(s));
