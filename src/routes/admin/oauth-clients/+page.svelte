@@ -92,15 +92,15 @@
     </div>
   {:else}
     <div class="overflow-x-auto">
-      <table class="bg-base-100 table rounded-xl shadow">
+      <table class="bg-base-100 table table-fixed w-full rounded-xl shadow">
         <thead>
           <tr>
-            <th>{m.name()}</th>
-            <th>Client ID</th>
-            <th>{m.admin_oauth_type()}</th>
-            <th>{m.admin_oauth_redirect_uris()}</th>
-            <th>{m.admin_oauth_consent_skip()}</th>
-            <th>{m.actions()}</th>
+            <th class="w-[22%]">{m.name()}</th>
+            <th class="w-[28%]">Client ID</th>
+            <th class="w-[10%]">{m.admin_oauth_type()}</th>
+            <th class="w-[22%]">{m.admin_oauth_redirect_uris()}</th>
+            <th class="w-[10%]">{m.admin_oauth_consent_skip()}</th>
+            <th class="w-[8%]">{m.actions()}</th>
           </tr>
         </thead>
         <tbody>
@@ -114,12 +114,12 @@
                     <i class="fa-solid fa-cube text-base-content/30 shrink-0"></i>
                   {/if}
                   <div class="min-w-0">
-                    <div class="max-w-[10rem] truncate font-medium" title={client.name}>
+                    <div class="truncate font-medium" title={client.name}>
                       {client.name}
                     </div>
                     {#if client.uri}
                       <div
-                        class="text-base-content/50 max-w-[10rem] truncate text-xs"
+                        class="text-base-content/50 truncate text-xs"
                         title={client.uri}
                       >
                         {client.uri}
@@ -129,9 +129,7 @@
                 </div>
               </td>
               <td>
-                <code class="block max-w-[12rem] truncate text-xs" title={client.clientId}
-                  >{client.clientId}</code
-                >
+                <CopyField value={client.clientId} buttonStyle="ghost" size="xs" display="text" />
               </td>
               <td>
                 <span
@@ -143,7 +141,7 @@
                 </span>
               </td>
               <td>
-                <div class="max-w-xs">
+                <div>
                   {#each client.redirectUris.slice(0, 2) as uri, i (i)}
                     <div class="truncate text-xs">{uri}</div>
                   {/each}
