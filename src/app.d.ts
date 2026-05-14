@@ -7,7 +7,7 @@ declare global {
       session: import('$lib/auth/types').AuthSession | null;
       user: import('$lib/auth/types').User | null;
       /** Set when the request is authenticated via an OAuth 2.1 Bearer token. */
-      oauthToken: import('$lib/auth/oauth-verify.server').OAuthTokenPayload | null;
+      oauthToken: import('$lib/auth/oauth/verify.server').OAuthTokenPayload | null;
     }
     // interface PageData {}
     // interface PageState {}

@@ -16,8 +16,8 @@ import { decompressLocationData } from '$lib/utils/url';
 import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
 import { auth } from '$lib/auth/index.server';
-import { verifyOAuthAccessToken } from '$lib/auth/oauth-verify.server';
-import { resolveRequiredScopes } from '$lib/auth/oauth-scopes';
+import { verifyOAuthAccessToken } from '$lib/auth/oauth/verify.server';
+import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {

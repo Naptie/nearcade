@@ -20,7 +20,7 @@ import { githubProvider } from './github';
 import { phiraProvider } from './phira';
 import type { User } from './types';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
-import { OAUTH_SCOPES } from './oauth-scopes';
+import { OAUTH_SCOPES } from './oauth/scopes';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;

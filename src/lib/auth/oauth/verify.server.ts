@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto';
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { auth } from '$lib/auth/index.server';
-import type { OAuthScope } from './oauth-scopes';
+import type { OAuthScope } from './scopes';
 
 /**
  * Fetch the JWKS in-process via auth.handler() instead of a real HTTP request.
