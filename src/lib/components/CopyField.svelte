@@ -40,12 +40,8 @@
   let isCopied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const inputSizeClass = $derived(
-    size === 'xs' ? 'input-xs' : size === 'sm' ? 'input-sm' : ''
-  );
-  const btnSizeClass = $derived(
-    size === 'xs' ? 'btn-xs' : size === 'sm' ? 'btn-sm' : ''
-  );
+  const inputSizeClass = $derived(size === 'xs' ? 'input-xs' : size === 'sm' ? 'input-sm' : '');
+  const btnSizeClass = $derived(size === 'xs' ? 'btn-xs' : size === 'sm' ? 'btn-sm' : '');
   async function copy() {
     try {
       await navigator.clipboard.writeText(copyText ?? value);
@@ -76,7 +72,9 @@
     <input
       {id}
       type="text"
-      class="input input-bordered flex-1 text-sm {mono ? 'font-mono' : ''} {inputSizeClass} {inputClass}"
+      class="input input-bordered flex-1 text-sm {mono
+        ? 'font-mono'
+        : ''} {inputSizeClass} {inputClass}"
       {value}
       readonly
     />

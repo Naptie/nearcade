@@ -34,8 +34,10 @@ import type { OAuthScope } from './oauth-scopes';
 // Cast to `any`: pnpm may resolve @better-auth/oauth-provider to a different
 // copy of better-auth types, making them nominally incompatible despite being
 // structurally identical.
+const { verifyAccessToken: resourceClientVerify } = oauthProviderResourceClient(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { verifyAccessToken: resourceClientVerify } = oauthProviderResourceClient(auth as any).getActions();
+  auth as any
+).getActions();
 
 export interface OAuthTokenPayload {
   /** Subject (user ID) */
