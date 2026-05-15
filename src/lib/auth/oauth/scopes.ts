@@ -114,9 +114,6 @@ const PATH_RESOURCE_RULES: {
   // Clubs
   { prefix: '/api/clubs/', resource: 'clubs' },
 
-  // Profile — uses OIDC "profile" scope (no read:/write: prefix)
-  { prefix: '/api/me/', resource: 'profile', readScope: 'profile', writeScope: 'write:users' },
-
   // Users
   { prefix: '/api/users/', resource: 'users' },
 

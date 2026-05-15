@@ -3173,682 +3173,6 @@
         }
       }
     },
-    "/me": {
-      "get": {
-        "tags": ["users"],
-        "summary": "获取当前用户资料 / Get the current user profile",
-        "description": "获取当前已登录用户的完整资料。\n\nGet the full profile of the currently authenticated user.",
-        "security": [
-          {},
-          {
-            "oauth2": ["profile"]
-          }
-        ],
-        "operationId": "getMe",
-        "responses": {
-          "200": {
-            "description": "当前用户资料 / Current user profile",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "description": "用户 ID。\n\nUser ID."
-                        },
-                        "name": {
-                          "type": "string",
-                          "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
-                        },
-                        "displayName": {
-                          "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "image": {
-                          "description": "头像。\n\nAvatar URL.",
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "bio": {
-                          "description": "个人简介。\n\nUser bio.",
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "userType": {
-                          "description": "用户类型。\n\nUser type.",
-                          "type": "string",
-                          "enum": [
-                            "site_admin",
-                            "developer",
-                            "school_admin",
-                            "club_admin",
-                            "school_moderator",
-                            "club_moderator",
-                            "student",
-                            "regular"
-                          ]
-                        },
-                        "joinedAt": {
-                          "description": "加入时间。\n\nJoin time.",
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "lastActiveAt": {
-                          "description": "最后活跃时间。\n\nLast active time.",
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "email": {
-                          "nullable": true,
-                          "description": "邮箱；当用户未公开邮箱且当前查看者无权限时为 null。\n\nEmail address, or null when it is private to the current viewer.",
-                          "type": "string"
-                        },
-                        "frequentingArcades": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "_id": {
-                                "type": "string",
-                                "description": "MongoDB ID。\n\nMongoDB ID."
-                              },
-                              "id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "description": "店铺 ID。\n\nShop ID."
-                              },
-                              "name": {
-                                "type": "string",
-                                "description": "店铺名称。\n\nShop name."
-                              },
-                              "comment": {
-                                "type": "string",
-                                "description": "店铺说明。\n\nShop note."
-                              },
-                              "address": {
-                                "type": "object",
-                                "properties": {
-                                  "general": {
-                                    "default": [],
-                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "detailed": {
-                                    "default": "",
-                                    "description": "详细地址。\n\nDetailed street address.",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": ["general", "detailed"],
-                                "additionalProperties": false,
-                                "description": "店铺地址。\n\nShop address."
-                              },
-                              "openingHours": {
-                                "minItems": 1,
-                                "type": "array",
-                                "items": {
-                                  "type": "array",
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      }
-                                    ]
-                                  },
-                                  "minItems": 2,
-                                  "maxItems": 2
-                                },
-                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
-                              },
-                              "games": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "gameId": {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991,
-                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
-                                    },
-                                    "titleId": {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991,
-                                      "description": "游戏系列 ID。\n\nGame series ID."
-                                    },
-                                    "name": {
-                                      "type": "string",
-                                      "description": "游戏名。\n\nGame name."
-                                    },
-                                    "version": {
-                                      "type": "string",
-                                      "description": "游戏版本。\n\nGame version."
-                                    },
-                                    "comment": {
-                                      "default": "",
-                                      "description": "游戏说明。\n\nGame note.",
-                                      "type": "string"
-                                    },
-                                    "quantity": {
-                                      "default": 1,
-                                      "description": "机台数量。\n\nNumber of machines.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "cost": {
-                                      "default": "",
-                                      "description": "价格说明。\n\nPrice note.",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "gameId",
-                                    "titleId",
-                                    "name",
-                                    "version",
-                                    "comment",
-                                    "quantity",
-                                    "cost"
-                                  ],
-                                  "additionalProperties": false
-                                },
-                                "description": "机台。\n\nMachines/games available at the shop."
-                              },
-                              "location": {
-                                "type": "object",
-                                "properties": {
-                                  "type": {
-                                    "type": "string",
-                                    "enum": ["Point"],
-                                    "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
-                                  },
-                                  "coordinates": {
-                                    "type": "array",
-                                    "items": {
-                                      "anyOf": [
-                                        {
-                                          "type": "number",
-                                          "minimum": -180,
-                                          "maximum": 180,
-                                          "description": "经度。\n\nLongitude."
-                                        },
-                                        {
-                                          "type": "number",
-                                          "minimum": -90,
-                                          "maximum": 90,
-                                          "description": "纬度。\n\nLatitude."
-                                        }
-                                      ]
-                                    },
-                                    "minItems": 2,
-                                    "maxItems": 2,
-                                    "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
-                                  }
-                                },
-                                "required": ["type", "coordinates"],
-                                "additionalProperties": false,
-                                "description": "店铺坐标。\n\nShop coordinates."
-                              },
-                              "timezone": {
-                                "description": "店铺时区。\n\nComputed shop timezone.",
-                                "type": "object",
-                                "properties": {
-                                  "name": {
-                                    "type": "string",
-                                    "description": "时区名称。\n\nTimezone name."
-                                  },
-                                  "offset": {
-                                    "type": "number",
-                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
-                                  }
-                                },
-                                "required": ["name", "offset"],
-                                "additionalProperties": false
-                              },
-                              "isOpen": {
-                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
-                                "type": "boolean"
-                              },
-                              "isClaimed": {
-                                "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
-                                "type": "boolean"
-                              },
-                              "createdAt": {
-                                "description": "创建时间。\n\nCreation time.",
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "updatedAt": {
-                                "description": "更新时间。\n\nUpdate time.",
-                                "type": "string",
-                                "format": "date-time"
-                              }
-                            },
-                            "required": [
-                              "_id",
-                              "id",
-                              "name",
-                              "comment",
-                              "address",
-                              "openingHours",
-                              "games",
-                              "location",
-                              "updatedAt"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "description": "常去机厅列表。\n\nFrequently visited arcades."
-                        },
-                        "starredArcades": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "_id": {
-                                "type": "string",
-                                "description": "MongoDB ID。\n\nMongoDB ID."
-                              },
-                              "id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "description": "店铺 ID。\n\nShop ID."
-                              },
-                              "name": {
-                                "type": "string",
-                                "description": "店铺名称。\n\nShop name."
-                              },
-                              "comment": {
-                                "type": "string",
-                                "description": "店铺说明。\n\nShop note."
-                              },
-                              "address": {
-                                "type": "object",
-                                "properties": {
-                                  "general": {
-                                    "default": [],
-                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "detailed": {
-                                    "default": "",
-                                    "description": "详细地址。\n\nDetailed street address.",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": ["general", "detailed"],
-                                "additionalProperties": false,
-                                "description": "店铺地址。\n\nShop address."
-                              },
-                              "openingHours": {
-                                "minItems": 1,
-                                "type": "array",
-                                "items": {
-                                  "type": "array",
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      }
-                                    ]
-                                  },
-                                  "minItems": 2,
-                                  "maxItems": 2
-                                },
-                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
-                              },
-                              "games": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "gameId": {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991,
-                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
-                                    },
-                                    "titleId": {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991,
-                                      "description": "游戏系列 ID。\n\nGame series ID."
-                                    },
-                                    "name": {
-                                      "type": "string",
-                                      "description": "游戏名。\n\nGame name."
-                                    },
-                                    "version": {
-                                      "type": "string",
-                                      "description": "游戏版本。\n\nGame version."
-                                    },
-                                    "comment": {
-                                      "default": "",
-                                      "description": "游戏说明。\n\nGame note.",
-                                      "type": "string"
-                                    },
-                                    "quantity": {
-                                      "default": 1,
-                                      "description": "机台数量。\n\nNumber of machines.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "cost": {
-                                      "default": "",
-                                      "description": "价格说明。\n\nPrice note.",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "gameId",
-                                    "titleId",
-                                    "name",
-                                    "version",
-                                    "comment",
-                                    "quantity",
-                                    "cost"
-                                  ],
-                                  "additionalProperties": false
-                                },
-                                "description": "机台。\n\nMachines/games available at the shop."
-                              },
-                              "location": {
-                                "type": "object",
-                                "properties": {
-                                  "type": {
-                                    "type": "string",
-                                    "enum": ["Point"],
-                                    "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
-                                  },
-                                  "coordinates": {
-                                    "type": "array",
-                                    "items": {
-                                      "anyOf": [
-                                        {
-                                          "type": "number",
-                                          "minimum": -180,
-                                          "maximum": 180,
-                                          "description": "经度。\n\nLongitude."
-                                        },
-                                        {
-                                          "type": "number",
-                                          "minimum": -90,
-                                          "maximum": 90,
-                                          "description": "纬度。\n\nLatitude."
-                                        }
-                                      ]
-                                    },
-                                    "minItems": 2,
-                                    "maxItems": 2,
-                                    "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
-                                  }
-                                },
-                                "required": ["type", "coordinates"],
-                                "additionalProperties": false,
-                                "description": "店铺坐标。\n\nShop coordinates."
-                              },
-                              "timezone": {
-                                "description": "店铺时区。\n\nComputed shop timezone.",
-                                "type": "object",
-                                "properties": {
-                                  "name": {
-                                    "type": "string",
-                                    "description": "时区名称。\n\nTimezone name."
-                                  },
-                                  "offset": {
-                                    "type": "number",
-                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
-                                  }
-                                },
-                                "required": ["name", "offset"],
-                                "additionalProperties": false
-                              },
-                              "isOpen": {
-                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
-                                "type": "boolean"
-                              },
-                              "isClaimed": {
-                                "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
-                                "type": "boolean"
-                              },
-                              "createdAt": {
-                                "description": "创建时间。\n\nCreation time.",
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "updatedAt": {
-                                "description": "更新时间。\n\nUpdate time.",
-                                "type": "string",
-                                "format": "date-time"
-                              }
-                            },
-                            "required": [
-                              "_id",
-                              "id",
-                              "name",
-                              "comment",
-                              "address",
-                              "openingHours",
-                              "games",
-                              "location",
-                              "updatedAt"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "description": "收藏机厅列表。\n\nStarred arcades."
-                        },
-                        "isActivityPublic": {
-                          "description": "活动是否公开。\n\nWhether activity is public.",
-                          "type": "boolean"
-                        },
-                        "socialLinks": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "platform": {
-                                "type": "string",
-                                "enum": ["qq", "wechat", "github", "discord", "divingfish"],
-                                "description": "社交平台。\n\nSocial platform."
-                              },
-                              "username": {
-                                "type": "string",
-                                "description": "用户名。\n\nUsername."
-                              }
-                            },
-                            "required": ["platform", "username"],
-                            "additionalProperties": false
-                          },
-                          "description": "社交链接。\n\nPublic social links."
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "email",
-                        "frequentingArcades",
-                        "starredArcades",
-                        "socialLinks"
-                      ],
-                      "additionalProperties": false,
-                      "description": "用户资料摘要。\n\nUser profile summary."
-                    },
-                    "frequentingArcadesCount": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991,
-                      "description": "常去机厅数量。\n\nFrequently visited arcade count."
-                    },
-                    "starredArcadesCount": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991,
-                      "description": "收藏机厅数量。\n\nStarred arcade count."
-                    },
-                    "universityMembershipCount": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991,
-                      "description": "大学成员关系数量。\n\nUniversity membership count."
-                    },
-                    "clubMembershipCount": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991,
-                      "description": "社团成员关系数量。\n\nClub membership count."
-                    },
-                    "universityMembership": {
-                      "nullable": true,
-                      "description": "最近的大学成员关系。\n\nMost recent university membership.",
-                      "type": "object",
-                      "properties": {
-                        "verifiedAt": {
-                          "description": "认证时间。\n\nVerification time.",
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "joinedAt": {
-                          "description": "加入时间。\n\nJoin time.",
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "university": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "description": "大学 ID。\n\nUniversity ID."
-                            },
-                            "slug": {
-                              "description": "大学 slug。\n\nUniversity slug.",
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string",
-                              "description": "大学名称。\n\nUniversity name."
-                            }
-                          },
-                          "required": ["id", "name"],
-                          "additionalProperties": false,
-                          "description": "大学摘要。\n\nUniversity summary."
-                        }
-                      },
-                      "required": ["joinedAt", "university"],
-                      "additionalProperties": false
-                    },
-                    "isOwnProfile": {
-                      "type": "boolean",
-                      "description": "是否是当前用户本人。\n\nWhether this is the current user."
-                    }
-                  },
-                  "required": [
-                    "user",
-                    "frequentingArcadesCount",
-                    "starredArcadesCount",
-                    "universityMembershipCount",
-                    "clubMembershipCount",
-                    "universityMembership",
-                    "isOwnProfile"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "未登录 / Unauthorized"
-          },
-          "500": {
-            "description": "服务器错误 / Internal Server Error"
-          }
-        }
-      }
-    },
     "/posts/{postId}": {
       "get": {
         "tags": ["posts"],
@@ -14511,6 +13835,682 @@
           },
           "401": {
             "description": "未授权 / Unauthorized"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "tags": ["users"],
+        "summary": "获取当前用户资料 / Get the current user profile",
+        "description": "获取当前已登录用户的完整资料。\n\nGet the full profile of the currently authenticated user.",
+        "security": [
+          {},
+          {
+            "oauth2": ["profile"]
+          }
+        ],
+        "operationId": "getUsersMe",
+        "responses": {
+          "200": {
+            "description": "当前用户资料 / Current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "用户 ID。\n\nUser ID."
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                        },
+                        "displayName": {
+                          "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "image": {
+                          "description": "头像。\n\nAvatar URL.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "bio": {
+                          "description": "个人简介。\n\nUser bio.",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "userType": {
+                          "description": "用户类型。\n\nUser type.",
+                          "type": "string",
+                          "enum": [
+                            "site_admin",
+                            "developer",
+                            "school_admin",
+                            "club_admin",
+                            "school_moderator",
+                            "club_moderator",
+                            "student",
+                            "regular"
+                          ]
+                        },
+                        "joinedAt": {
+                          "description": "加入时间。\n\nJoin time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastActiveAt": {
+                          "description": "最后活跃时间。\n\nLast active time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "description": "邮箱；当用户未公开邮箱且当前查看者无权限时为 null。\n\nEmail address, or null when it is private to the current viewer.",
+                          "type": "string"
+                        },
+                        "frequentingArcades": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "type": "string",
+                                "description": "MongoDB ID。\n\nMongoDB ID."
+                              },
+                              "id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "店铺 ID。\n\nShop ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "店铺名称。\n\nShop name."
+                              },
+                              "comment": {
+                                "type": "string",
+                                "description": "店铺说明。\n\nShop note."
+                              },
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "general": {
+                                    "default": [],
+                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "detailed": {
+                                    "default": "",
+                                    "description": "详细地址。\n\nDetailed street address.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["general", "detailed"],
+                                "additionalProperties": false,
+                                "description": "店铺地址。\n\nShop address."
+                              },
+                              "openingHours": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "hour": {
+                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 23
+                                          },
+                                          "minute": {
+                                            "description": "分钟。\n\nMinute.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 59
+                                          }
+                                        },
+                                        "required": ["hour", "minute"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "hour": {
+                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 23
+                                          },
+                                          "minute": {
+                                            "description": "分钟。\n\nMinute.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 59
+                                          }
+                                        },
+                                        "required": ["hour", "minute"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  "minItems": 2,
+                                  "maxItems": 2
+                                },
+                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                              },
+                              "games": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "gameId": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991,
+                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                    },
+                                    "titleId": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991,
+                                      "description": "游戏系列 ID。\n\nGame series ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "游戏名。\n\nGame name."
+                                    },
+                                    "version": {
+                                      "type": "string",
+                                      "description": "游戏版本。\n\nGame version."
+                                    },
+                                    "comment": {
+                                      "default": "",
+                                      "description": "游戏说明。\n\nGame note.",
+                                      "type": "string"
+                                    },
+                                    "quantity": {
+                                      "default": 1,
+                                      "description": "机台数量。\n\nNumber of machines.",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "cost": {
+                                      "default": "",
+                                      "description": "价格说明。\n\nPrice note.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "gameId",
+                                    "titleId",
+                                    "name",
+                                    "version",
+                                    "comment",
+                                    "quantity",
+                                    "cost"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "机台。\n\nMachines/games available at the shop."
+                              },
+                              "location": {
+                                "type": "object",
+                                "properties": {
+                                  "type": {
+                                    "type": "string",
+                                    "enum": ["Point"],
+                                    "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
+                                  },
+                                  "coordinates": {
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number",
+                                          "minimum": -180,
+                                          "maximum": 180,
+                                          "description": "经度。\n\nLongitude."
+                                        },
+                                        {
+                                          "type": "number",
+                                          "minimum": -90,
+                                          "maximum": 90,
+                                          "description": "纬度。\n\nLatitude."
+                                        }
+                                      ]
+                                    },
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
+                                  }
+                                },
+                                "required": ["type", "coordinates"],
+                                "additionalProperties": false,
+                                "description": "店铺坐标。\n\nShop coordinates."
+                              },
+                              "timezone": {
+                                "description": "店铺时区。\n\nComputed shop timezone.",
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "description": "时区名称。\n\nTimezone name."
+                                  },
+                                  "offset": {
+                                    "type": "number",
+                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                  }
+                                },
+                                "required": ["name", "offset"],
+                                "additionalProperties": false
+                              },
+                              "isOpen": {
+                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                                "type": "boolean"
+                              },
+                              "isClaimed": {
+                                "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "description": "更新时间。\n\nUpdate time.",
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "_id",
+                              "id",
+                              "name",
+                              "comment",
+                              "address",
+                              "openingHours",
+                              "games",
+                              "location",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "常去机厅列表。\n\nFrequently visited arcades."
+                        },
+                        "starredArcades": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "type": "string",
+                                "description": "MongoDB ID。\n\nMongoDB ID."
+                              },
+                              "id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "店铺 ID。\n\nShop ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "店铺名称。\n\nShop name."
+                              },
+                              "comment": {
+                                "type": "string",
+                                "description": "店铺说明。\n\nShop note."
+                              },
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "general": {
+                                    "default": [],
+                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "detailed": {
+                                    "default": "",
+                                    "description": "详细地址。\n\nDetailed street address.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["general", "detailed"],
+                                "additionalProperties": false,
+                                "description": "店铺地址。\n\nShop address."
+                              },
+                              "openingHours": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "hour": {
+                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 23
+                                          },
+                                          "minute": {
+                                            "description": "分钟。\n\nMinute.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 59
+                                          }
+                                        },
+                                        "required": ["hour", "minute"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "hour": {
+                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 23
+                                          },
+                                          "minute": {
+                                            "description": "分钟。\n\nMinute.",
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 59
+                                          }
+                                        },
+                                        "required": ["hour", "minute"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  "minItems": 2,
+                                  "maxItems": 2
+                                },
+                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                              },
+                              "games": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "gameId": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991,
+                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                    },
+                                    "titleId": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991,
+                                      "description": "游戏系列 ID。\n\nGame series ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "游戏名。\n\nGame name."
+                                    },
+                                    "version": {
+                                      "type": "string",
+                                      "description": "游戏版本。\n\nGame version."
+                                    },
+                                    "comment": {
+                                      "default": "",
+                                      "description": "游戏说明。\n\nGame note.",
+                                      "type": "string"
+                                    },
+                                    "quantity": {
+                                      "default": 1,
+                                      "description": "机台数量。\n\nNumber of machines.",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "cost": {
+                                      "default": "",
+                                      "description": "价格说明。\n\nPrice note.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "gameId",
+                                    "titleId",
+                                    "name",
+                                    "version",
+                                    "comment",
+                                    "quantity",
+                                    "cost"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "机台。\n\nMachines/games available at the shop."
+                              },
+                              "location": {
+                                "type": "object",
+                                "properties": {
+                                  "type": {
+                                    "type": "string",
+                                    "enum": ["Point"],
+                                    "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
+                                  },
+                                  "coordinates": {
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number",
+                                          "minimum": -180,
+                                          "maximum": 180,
+                                          "description": "经度。\n\nLongitude."
+                                        },
+                                        {
+                                          "type": "number",
+                                          "minimum": -90,
+                                          "maximum": 90,
+                                          "description": "纬度。\n\nLatitude."
+                                        }
+                                      ]
+                                    },
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
+                                  }
+                                },
+                                "required": ["type", "coordinates"],
+                                "additionalProperties": false,
+                                "description": "店铺坐标。\n\nShop coordinates."
+                              },
+                              "timezone": {
+                                "description": "店铺时区。\n\nComputed shop timezone.",
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "description": "时区名称。\n\nTimezone name."
+                                  },
+                                  "offset": {
+                                    "type": "number",
+                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                  }
+                                },
+                                "required": ["name", "offset"],
+                                "additionalProperties": false
+                              },
+                              "isOpen": {
+                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                                "type": "boolean"
+                              },
+                              "isClaimed": {
+                                "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "description": "更新时间。\n\nUpdate time.",
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "_id",
+                              "id",
+                              "name",
+                              "comment",
+                              "address",
+                              "openingHours",
+                              "games",
+                              "location",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "收藏机厅列表。\n\nStarred arcades."
+                        },
+                        "isActivityPublic": {
+                          "description": "活动是否公开。\n\nWhether activity is public.",
+                          "type": "boolean"
+                        },
+                        "socialLinks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                "description": "社交平台。\n\nSocial platform."
+                              },
+                              "username": {
+                                "type": "string",
+                                "description": "用户名。\n\nUsername."
+                              }
+                            },
+                            "required": ["platform", "username"],
+                            "additionalProperties": false
+                          },
+                          "description": "社交链接。\n\nPublic social links."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "email",
+                        "frequentingArcades",
+                        "starredArcades",
+                        "socialLinks"
+                      ],
+                      "additionalProperties": false,
+                      "description": "用户资料摘要。\n\nUser profile summary."
+                    },
+                    "frequentingArcadesCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "常去机厅数量。\n\nFrequently visited arcade count."
+                    },
+                    "starredArcadesCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "收藏机厅数量。\n\nStarred arcade count."
+                    },
+                    "universityMembershipCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "大学成员关系数量。\n\nUniversity membership count."
+                    },
+                    "clubMembershipCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "社团成员关系数量。\n\nClub membership count."
+                    },
+                    "universityMembership": {
+                      "nullable": true,
+                      "description": "最近的大学成员关系。\n\nMost recent university membership.",
+                      "type": "object",
+                      "properties": {
+                        "verifiedAt": {
+                          "description": "认证时间。\n\nVerification time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "joinedAt": {
+                          "description": "加入时间。\n\nJoin time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "university": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "大学 ID。\n\nUniversity ID."
+                            },
+                            "slug": {
+                              "description": "大学 slug。\n\nUniversity slug.",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "大学名称。\n\nUniversity name."
+                            }
+                          },
+                          "required": ["id", "name"],
+                          "additionalProperties": false,
+                          "description": "大学摘要。\n\nUniversity summary."
+                        }
+                      },
+                      "required": ["joinedAt", "university"],
+                      "additionalProperties": false
+                    },
+                    "isOwnProfile": {
+                      "type": "boolean",
+                      "description": "是否是当前用户本人。\n\nWhether this is the current user."
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "frequentingArcadesCount",
+                    "starredArcadesCount",
+                    "universityMembershipCount",
+                    "clubMembershipCount",
+                    "universityMembership",
+                    "isOwnProfile"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录 / Unauthorized"
           },
           "500": {
             "description": "服务器错误 / Internal Server Error"
