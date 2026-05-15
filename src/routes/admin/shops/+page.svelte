@@ -98,8 +98,7 @@
                   <div>
                     <div class="font-medium">
                       <a
-                        href={resolve('/(main)/shops/[source]/[id]', {
-                          source: shop.source,
+                        href={resolve('/(main)/shops/[id]', {
                           id: shop.id.toString()
                         })}
                         target={adaptiveNewTab()}

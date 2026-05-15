@@ -1,85 +1,45 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, ShopSource, GAMES } from '../constants';
+import type { RADIUS_OPTIONS, GAME_TITLES } from '../constants';
 import type { TransportSearchResult } from './amap';
-import type { User } from '$lib/auth/types';
+import type { PublicUser } from '$lib/auth/types';
+import { z } from 'zod';
+import { activitySchema } from '$lib/schemas/users';
+import { commentSchema, commentVoteSchema } from '$lib/schemas/comments';
+import { imageAssetSchema } from '$lib/schemas/images';
+import type {
+  campusSchema,
+  clubMemberSchema,
+  clubSchema,
+  organizationChangelogEntrySchema,
+  universityMemberSchema,
+  universitySchema
+} from '$lib/schemas/organizations';
+import type { postSchema, postVoteSchema, postWithAuthorSchema } from '$lib/schemas/posts';
+import type {
+  gameSchema,
+  shopDeleteRequestSchema,
+  shopDeleteRequestVoteSchema,
+  shopPhotoSchema,
+  shopSchema
+} from '$lib/schemas/shops';
 
 export interface Location {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
 }
 
-export interface Shop {
-  _id: string;
-  id: number;
-  name: string;
-  comment: string;
-  address: {
-    general: string[];
-    detailed: string;
-  };
-  openingHours: [openHour: number, closeHour: number][];
-  location: Location;
-  games: Game[];
-  isClaimed?: boolean;
-  createdAt?: Date;
-  updatedAt: Date;
-  syncedAt: Date;
-  source: ShopSource;
+export interface OpeningHourTime {
+  hour: number;
+  minute: number;
 }
 
-export interface Game {
-  gameId: number;
-  titleId: number;
-  name: string;
-  version: string;
-  comment: string;
-  quantity: number;
-  cost: string;
-}
+export type Shop = z.infer<typeof shopSchema>;
 
-export interface Campus {
-  id: string;
-  name: string | null;
-  province: string;
-  city: string;
-  district: string;
-  address: string;
-  location: Location;
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdBy?: string;
-  updatedBy?: string;
-}
+export type Game = z.infer<typeof gameSchema>;
 
-export interface University {
-  _id?: string | ObjectId;
-  id: string;
-  name: string;
-  slug?: string; // Customizable URL slug
-  type: string;
-  majorCategory: string | null;
-  natureOfRunning: string | null;
-  affiliation: string;
-  is985: boolean | null;
-  is211: boolean | null;
-  isDoubleFirstClass: boolean | null;
-  campuses: Campus[];
-  // Customization fields
-  backgroundColor?: string; // Hex color code
-  avatarUrl?: string; // University avatar/logo URL
-  description?: string; // University description
-  website?: string; // Official website
-  // Settings
-  postReadability?: PostReadability; // Optional, defaults to PUBLIC
-  postWritability?: PostWritability; // Optional, defaults to UNIV_MEMBERS
-  // Stats (calculated fields)
-  studentsCount?: number;
-  frequentingArcades?: { id: number; source: ShopSource }[]; // List of arcade IDs frequented by at least 2 university members
-  clubsCount?: number;
-  // Timestamps
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+export type Campus = z.infer<typeof campusSchema>;
+
+export type University = z.infer<typeof universitySchema>;
 
 export interface UniversityRankingResponse {
   data: UniversityRankingData[];
@@ -129,7 +89,7 @@ export interface UniversityRankingCache {
   data: UniversityRankingData[];
 }
 
-export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAMES)[number]['key'];
+export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAME_TITLES)[number]['key'];
 
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
@@ -151,6 +111,7 @@ export enum PostWritability {
 
 // User types and roles
 export type UserType =
+  | 'developer'
   | 'student'
   | 'school_moderator'
   | 'school_admin'
@@ -163,45 +124,16 @@ export type NotificationType =
   | 'REPLIES'
   | 'POST_VOTES'
   | 'COMMENT_VOTES'
-  | 'JOIN_REQUESTS';
+  | 'JOIN_REQUESTS'
+  | 'SHOP_DELETE_REQUESTS';
 
-export interface Club {
-  _id?: string | ObjectId;
-  id: string;
-  universityId: string;
-  name: string;
-  slug?: string; // Customizable URL slug
-  description?: string;
-  avatarUrl?: string;
-  backgroundColor?: string;
-  website?: string;
-  // Settings
-  acceptJoinRequests: boolean;
-  postReadability: PostReadability;
-  postWritability: PostWritability;
-  // Stats
-  membersCount?: number;
-  // Starred arcades
-  starredArcades: { id: number; source: ShopSource }[];
-  // Timestamps
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdBy?: string; // User ID of creator
-}
+export type Club = z.infer<typeof clubSchema>;
 
-export interface ClubMember {
-  _id?: string | ObjectId;
-  id: string;
-  clubId: string;
-  userId: string;
-  memberType: 'member' | 'moderator' | 'admin';
-  joinedAt: Date;
-  invitedBy?: string | null; // User ID of who invited them
-}
+export type ClubMember = z.infer<typeof clubMemberSchema>;
 
 // Composite type with user data joined
 export interface ClubMemberWithUser extends ClubMember {
-  user: User | undefined;
+  user: PublicUser | undefined;
 }
 
 export interface InviteLink {
@@ -225,20 +157,79 @@ export interface InviteLink {
   updatedAt?: Date;
 }
 
-export interface UniversityMember {
-  _id?: string | ObjectId;
-  id: string;
-  universityId: string;
-  userId: string;
-  memberType: 'student' | 'moderator' | 'admin';
-  verificationEmail?: string;
-  verifiedAt?: Date;
-  joinedAt: Date;
-}
+export type UniversityMember = z.infer<typeof universityMemberSchema>;
 
 // Composite type with user data joined
 export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verificationEmail'> {
-  user: User | undefined;
+  user: PublicUser | undefined;
+}
+
+export type ShopDeleteRequest = z.infer<typeof shopDeleteRequestSchema>;
+
+export type ShopDeleteRequestVoteType = 'favor' | 'against';
+
+export type ShopDeleteRequestVote = z.infer<typeof shopDeleteRequestVoteSchema>;
+
+export interface ShopDeleteRequestVoteSummary {
+  favorVotes: number;
+  againstVotes: number;
+  userVote?: ShopDeleteRequestVoteType | null;
+}
+
+export type ImageStorageProvider = 's3' | 'leancloud';
+
+export type ImageAsset = z.infer<typeof imageAssetSchema>;
+
+export type ShopPhoto = z.infer<typeof shopPhotoSchema>;
+
+export type ShopChangelogAction =
+  | 'created'
+  | 'modified'
+  | 'deleted'
+  | 'game_added'
+  | 'game_modified'
+  | 'game_deleted'
+  | 'photo_uploaded'
+  | 'photo_deleted'
+  | 'rollback'
+  | 'delete_request_submitted'
+  | 'delete_request_approved'
+  | 'delete_request_rejected'
+  | 'photo_delete_request_submitted'
+  | 'photo_delete_request_approved'
+  | 'photo_delete_request_rejected';
+
+export interface ShopChangelogEntry {
+  _id?: string | ObjectId;
+  id: string;
+  shopId: number;
+  shopName: string;
+  action: ShopChangelogAction;
+  fieldInfo: {
+    field: string; // 'name' | 'comment' | 'address' | 'openingHours' | 'location' | 'game' | 'photo' | 'delete_request'
+    gameId?: number | null;
+    gameName?: string | null;
+    gameVersion?: string | null;
+    photoId?: string | null;
+    photoUrl?: string | null;
+    deleteRequestId?: string | null;
+  };
+  oldValue?: string | null;
+  newValue?: string | null;
+  metadata?: {
+    [key: string]: unknown;
+  };
+  userId: string | null;
+  createdAt: Date;
+}
+
+export interface ShopChangelogEntryWithUser extends ShopChangelogEntry {
+  user?: {
+    id: string;
+    name: string | null;
+    displayName?: string | null;
+    image: string | null;
+  };
 }
 
 export interface JoinRequest {
@@ -257,33 +248,11 @@ export interface JoinRequest {
 
 // Composite type with user data joined
 export interface JoinRequestWithUser extends JoinRequest {
-  user: User | undefined;
-  reviewer?: User;
+  user: PublicUser | undefined;
+  reviewer?: PublicUser;
 }
 
-export interface ChangelogEntry {
-  _id?: string | ObjectId;
-  id: string;
-  type: 'university' | 'club';
-  targetId: string; // University ID or Club ID
-  action: 'created' | 'modified' | 'deleted' | 'campus_added' | 'campus_updated' | 'campus_deleted';
-  // Structured field information for internationalization
-  fieldInfo: {
-    field: string; // Field name in English (e.g., 'name', 'description', 'campus.address')
-    campusId?: string | null; // If this is a campus field change
-    campusName?: string | null; // Campus name for display
-  };
-  oldValue?: string | null;
-  newValue?: string | null;
-  // Additional metadata for complex changes
-  metadata?: {
-    [key: string]: string | number | boolean | null;
-  };
-  userId: string; // Who made the change
-  userName?: string | null;
-  userImage?: string | null;
-  createdAt: Date;
-}
+export type ChangelogEntry = z.infer<typeof organizationChangelogEntrySchema>;
 
 export interface ChangelogEntryWithUser extends ChangelogEntry {
   user: {
@@ -295,148 +264,38 @@ export interface ChangelogEntryWithUser extends ChangelogEntry {
 }
 
 // Posts feature types
-export interface Post {
-  _id?: string | ObjectId;
-  id: string;
-  title: string;
-  content: string; // Markdown content
-  // Organization affiliation - either universityId or clubId will be set
-  universityId?: string;
-  clubId?: string;
-  // Author information
-  createdBy: string; // User ID
-  createdAt: Date;
-  updatedAt?: Date;
-  // Engagement metrics
-  upvotes: number;
-  downvotes: number;
-  commentCount: number;
-  // Moderation
-  isPinned: boolean;
-  isLocked: boolean;
-  // Post visibility setting
-  readability: PostReadability; // Required - determines who can read this specific post
-}
+export type Post = z.infer<typeof postSchema>;
 
-// Composite type with author data joined
-export interface PostWithAuthor extends Post {
-  author: User | undefined;
-}
+export type PostWithAuthor = z.infer<typeof postWithAuthorSchema>;
 
-export interface PostVote {
-  _id?: string | ObjectId;
-  id: string;
-  postId: string;
-  userId: string;
-  voteType: 'upvote' | 'downvote';
-  createdAt: Date;
-  updatedAt?: Date;
-}
+export type PostVote = z.infer<typeof postVoteSchema>;
 
-export interface Comment {
-  _id?: string | ObjectId;
-  id: string;
-  postId?: string;
-  shopSource?: ShopSource;
-  shopId?: number;
-  content: string; // Markdown content
-  createdBy: string; // User ID
-  createdAt: Date;
-  updatedAt?: Date;
-  // For nested replies
-  parentCommentId?: string | null;
-  // Engagement
-  upvotes: number;
-  downvotes: number;
-}
+export type Comment = z.infer<typeof commentSchema>;
 
 // Composite type with author data joined
 export interface CommentWithAuthorAndVote extends Comment {
-  author: User | undefined;
+  author: PublicUser | undefined;
   vote?: CommentVote;
+  authorDeleteRequestVote?: ShopDeleteRequestVote | null;
+  resolvedImages?: ImageAsset[];
 }
 
-export interface CommentVote {
-  _id?: string | ObjectId;
-  id: string;
-  commentId: string;
-  userId: string;
-  voteType: 'upvote' | 'downvote';
-  createdAt: Date;
-  updatedAt?: Date;
-}
+export type CommentVote = z.infer<typeof commentVoteSchema>;
 
 // Activity types for recent activity feature
-export interface Activity {
-  _id?: string | ObjectId;
-  id: string;
-  type:
-    | 'post'
-    | 'comment'
-    | 'reply'
-    | 'post_vote'
-    | 'comment_vote'
-    | 'changelog'
-    | 'university_join'
-    | 'club_join'
-    | 'club_create'
-    | 'shop_attendance';
-  createdAt: Date;
-  userId: string;
-
-  // Post activity
-  postTitle?: string;
-  postId?: string;
-  universityId?: string;
-  clubId?: string;
-  universityName?: string;
-  clubName?: string;
-
-  // Comment activity
-  commentContent?: string;
-  commentId?: string;
-  parentCommentId?: string | null;
-  parentPostTitle?: string;
-
-  // Vote activity
-  voteType?: 'upvote' | 'downvote';
-  targetType?: 'post' | 'comment' | 'reply';
-  targetTitle?: string;
-  targetAuthorName?: string;
-  targetAuthorDisplayName?: string;
-  targetId?: string;
-
-  // Changelog activity
-  changelogAction?: string;
-  changelogDescription?: string;
-  changelogTargetName?: string;
-  changelogTargetId?: string;
-  changelogEntry?: ChangelogEntry; // Store the full entry for proper formatting
-
-  // Membership activity (university_join, club_join)
-  joinedUniversityId?: string;
-  joinedUniversityName?: string;
-  joinedClubId?: string;
-  joinedClubName?: string;
-
-  // Club creation activity (club_create)
-  createdClubId?: string;
-  createdClubName?: string;
-
-  // Shop attendance activity (shop_attendance)
-  shopId?: number;
-  shopName?: string;
-  shopSource?: string;
-  leaveAt?: Date;
-  attendanceGames?: string; // Comma-separated game names
-  isLive?: boolean; // Whether the attendance is still ongoing
-}
+export type Activity = z.infer<typeof activitySchema>;
 
 // Notification types for active notification system
 export interface Notification {
   _id?: string | ObjectId;
   id: string;
-  type: 'COMMENTS' | 'REPLIES' | 'POST_VOTES' | 'COMMENT_VOTES' | 'JOIN_REQUESTS';
+  type:
+    | 'COMMENTS'
+    | 'REPLIES'
+    | 'POST_VOTES'
+    | 'COMMENT_VOTES'
+    | 'JOIN_REQUESTS'
+    | 'SHOP_DELETE_REQUESTS';
   actorUserId: string;
   actorName: string;
   actorDisplayName?: string;
@@ -451,11 +310,18 @@ export interface Notification {
   postTitle?: string;
   commentId?: string;
   voteType?: 'upvote' | 'downvote';
+  shopId?: number;
 
   // Join request details
   joinRequestId?: string;
   joinRequestStatus?: 'approved' | 'rejected';
   joinRequestType?: 'university' | 'club';
+
+  // Shop delete request details
+  shopDeleteRequestId?: string;
+  shopDeleteRequestStatus?: 'approved' | 'rejected';
+  shopDeleteRequestType?: 'shop' | 'photo';
+  shopName?: string;
 
   // Navigation
   universityId?: string;
@@ -466,7 +332,7 @@ export interface Notification {
 
 export type AttendanceData = Array<{
   userId?: string;
-  user?: User;
+  user?: PublicUser;
   attendedAt: string;
   plannedLeaveAt: string;
   gameId: number;
@@ -476,7 +342,7 @@ export type AttendanceReport = Array<{
   gameId: number;
   currentAttendances?: number;
   reportedBy: string;
-  reporter?: User;
+  reporter?: PublicUser;
   reportedAt: string;
   comment: string | null;
 }>;
@@ -488,12 +354,12 @@ export interface AttendanceRecord {
   games: { gameId: number; name: string; version: string }[];
   attendedAt: Date;
   leftAt: Date;
-  shop: { id: number; source: ShopSource };
+  shopId: number;
 }
 
 export interface AttendanceReportRecord {
   _id?: string | ObjectId;
-  shop: { id: number; source: ShopSource };
+  shopId: number;
   games: { gameId: number; name: string; version: string; currentAttendances: number }[];
   comment: string | null;
   reportedBy: string; // User ID
@@ -522,7 +388,7 @@ export interface ShopWithAttendance extends Shop {
   totalAttendance?: number;
   currentReportedAttendance?: {
     reportedAt: string;
-    reportedBy: User;
+    reportedBy: PublicUser;
     comment: string | null;
   } | null;
   isInAttendance?: boolean;
@@ -533,7 +399,6 @@ export interface Machine {
   _id?: string | ObjectId;
   id: string;
   name: string;
-  shopSource: ShopSource;
   shopId: number;
   serialNumber: string; // Auto-generated, used for activation
   apiSecret?: string; // Auto-generated upon activation
@@ -563,7 +428,6 @@ export interface QueuePosition {
 // Queue record for a specific game in a shop
 export interface QueueRecord {
   _id?: string | ObjectId;
-  shopSource: ShopSource;
   shopId: number;
   games: { gameId: number; queue: QueuePosition[] }[];
   updatedAt: Date;
@@ -572,7 +436,6 @@ export interface QueueRecord {
 
 // Attendance registration token stored in Redis
 export interface AttendanceRegistration {
-  shopSource: string;
   shopId: string;
   machineId: string;
   slotIndex: string;
@@ -580,18 +443,43 @@ export interface AttendanceRegistration {
   userId?: string;
 }
 
+export interface ParsedShopOpeningHours {
+  open: Date;
+  close: Date;
+  openTolerated: Date;
+  closeTolerated: Date;
+  offsetHours: number;
+  openLocal: string;
+  closeLocal: string;
+}
+
+export interface GlobeShopGameSummary {
+  titleId: number;
+  name: string;
+  quantity: number;
+}
+
+export interface GlobeShop {
+  id: number;
+  name: string;
+  address: {
+    general: string[];
+  };
+  openingHours: Shop['openingHours'];
+  location: Shop['location'];
+  aggregatedGames: GlobeShopGameSummary[];
+  currentAttendance: number;
+  density: number;
+}
+
+export interface GlobeShopWithExtras extends GlobeShop {
+  openingHoursParsed: ParsedShopOpeningHours;
+}
+
 // Shop with computed attendance and opening-hours data, used on the globe views.
 export interface ShopWithExtras extends Shop {
   attendances: { gameId: number; total: number }[];
-  openingHoursParsed: {
-    open: Date;
-    close: Date;
-    openTolerated: Date;
-    closeTolerated: Date;
-    offsetHours: number;
-    openLocal: string;
-    closeLocal: string;
-  };
+  openingHoursParsed: ParsedShopOpeningHours;
   currentAttendance: number;
   density: number;
 }

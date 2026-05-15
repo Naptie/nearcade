@@ -1,11 +1,25 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import { type Club, type Comment, type CommentVote, type Post, type University } from '$lib/types';
+import {
+  type Club,
+  type Comment,
+  type CommentVote,
+  type Post,
+  type Shop,
+  type ShopDeleteRequest,
+  type University
+} from '$lib/types';
 import { nanoid } from 'nanoid';
 import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import {
+  commentIdParamSchema,
+  commentVoteRequestSchema,
+  commentVoteResponseSchema
+} from '$lib/schemas/comments';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -14,17 +28,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const commentId = params.commentId;
-    if (!commentId) {
-      error(400, m.invalid_comment_id());
-    }
-
-    const { voteType } = (await request.json()) as {
-      voteType: 'upvote' | 'downvote';
-    };
-    if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-      error(400, m.invalid_vote_type());
-    }
+    const { commentId } = parseParamsOrError(commentIdParamSchema, params);
+    const { voteType } = await parseJsonOrError(request, commentVoteRequestSchema);
 
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
@@ -36,8 +41,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(404, m.comment_not_found());
     }
 
-    // Get the post to check permissions (only for post comments)
+    // Get the parent entity to check permissions and build notification context.
     let post: Post | null = null;
+    let shop: Shop | null = null;
+    let deleteRequest: ShopDeleteRequest | null = null;
     if (comment.postId) {
       const postsCollection = db.collection<Post>('posts');
       post = await postsCollection.findOne({ id: comment.postId });
@@ -81,6 +88,23 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
         if (!canInteract) {
           error(403, m.post_is_locked());
         }
+      }
+    } else if (comment.shopDeleteRequestId) {
+      deleteRequest = await db
+        .collection<ShopDeleteRequest>('shop_delete_requests')
+        .findOne({ id: comment.shopDeleteRequestId });
+
+      if (!deleteRequest) {
+        error(404, m.shop_delete_request_not_found());
+      }
+
+      if (deleteRequest.status !== 'pending') {
+        error(409, 'This delete request is closed');
+      }
+    } else if (comment.shopId) {
+      shop = await db.collection<Shop>('shops').findOne({ id: comment.shopId });
+      if (!shop) {
+        error(404, m.shop_not_found());
       }
     }
 
@@ -167,6 +191,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             postTitle: post?.title,
             commentId: comment.id,
             voteType: voteType,
+            shopId: comment.shopId ?? deleteRequest?.shopId,
+            shopDeleteRequestId: comment.shopDeleteRequestId,
+            shopDeleteRequestType: deleteRequest?.photoId
+              ? 'photo'
+              : deleteRequest
+                ? 'shop'
+                : undefined,
+            shopName: shop?.name ?? deleteRequest?.shopName,
             universityId: post?.universityId,
             clubId: post?.clubId
           });
@@ -194,12 +226,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(500, m.failed_to_get_updated_comment());
     }
 
-    return json({
-      success: true,
-      upvotes: updatedComment.upvotes,
-      downvotes: updatedComment.downvotes,
-      userVote: newUserVote
-    });
+    return json(
+      commentVoteResponseSchema.parse({
+        success: true,
+        upvotes: updatedComment.upvotes,
+        downvotes: updatedComment.downvotes,
+        userVote: newUserVote
+      })
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

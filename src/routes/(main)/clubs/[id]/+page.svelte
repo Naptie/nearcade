@@ -243,13 +243,12 @@
   };
 
   // Handle arcade management actions
-  const handleArcadeAction = async (action: string, arcadeSource: string, arcadeId: number) => {
-    if (!arcadeSource || !arcadeId || !clubDataResolved) return;
+  const handleArcadeAction = async (action: string, arcadeId: number) => {
+    if (!arcadeId || !clubDataResolved) return;
 
     const formData = new FormData();
     formData.append('clubId', clubDataResolved.club.id);
     formData.append('arcadeId', arcadeId.toString());
-    formData.append('arcadeSource', arcadeSource);
 
     try {
       const response = await fetch(`?/${action}`, {
@@ -652,6 +651,7 @@
               organizationReadability={clubDataResolved.club.postReadability}
               canManage={userPrivileges.canManage}
               currentUserId={data.user?.id}
+              currentUser={data.user ?? undefined}
               canCreatePost={clubDataResolved.canWritePosts}
               initialPosts={[]}
             />
@@ -685,8 +685,7 @@
                     {#each displayedArcades as shop (shop._id)}
                       <div class="flex items-center justify-between p-4">
                         <a
-                          href={resolve('/(main)/shops/[source]/[id]', {
-                            source: shop.source,
+                          href={resolve('/(main)/shops/[id]', {
                             id: shop.id.toString()
                           })}
                           target={adaptiveNewTab()}
@@ -728,8 +727,7 @@
                           {#if userPrivileges.canEdit}
                             <button
                               class="btn btn-soft btn-circle btn-sm btn-error"
-                              onclick={() =>
-                                handleArcadeAction('removeArcade', shop.source, shop.id)}
+                              onclick={() => handleArcadeAction('removeArcade', shop.id)}
                               title={m.remove_arcade()}
                               aria-label={m.remove_arcade()}
                             >
@@ -1025,7 +1023,7 @@
                 <div class="flex-1">
                   <h4 class="font-medium">{shop.name}</h4>
                   <p class="text-base-content/60 text-sm">
-                    {shop.source.toUpperCase()} #{shop.id}
+                    #{shop.id}
                   </p>
                   {#if shop.games && shop.games.length > 0}
                     {@const aggregatedGames = aggregateGames(shop)}
@@ -1043,11 +1041,11 @@
                     </div>
                   {/if}
                 </div>
-                {#if !clubDataResolved.club.starredArcades.some((arcade) => arcade.id === shop.id && arcade.source === shop.source)}
+                {#if !clubDataResolved.club.starredArcades.includes(shop.id)}
                   <button
                     class="btn btn-primary btn-soft btn-sm"
                     onclick={() => {
-                      handleArcadeAction('addArcade', shop.source, shop.id);
+                      handleArcadeAction('addArcade', shop.id);
                       showAddArcadeModal = false;
                       clearSearch();
                     }}

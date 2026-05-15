@@ -9,18 +9,23 @@
   import { m } from '$lib/paraglide/messages';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import { getShopOpeningHours, isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
-  import { GAMES } from '$lib/constants';
-  import type { Shop, ShopWithExtras } from '$lib/types';
+  import { GAME_TITLES } from '$lib/constants';
+  import type { GlobeShop, GlobeShopWithExtras } from '$lib/types';
   import {
     emptyGlobeFeatureCollection,
     filterCitiesByProvince,
     getCountyParentAdcode,
     getFeatureBounds,
-    isChinaWorldFeature,
+    isSupportedCountryWorldFeature,
     type GlobeDataset,
     type GlobeFeature,
     type GlobeFeatureCollection
   } from '$lib/utils/globe/geojson';
+  import {
+    SUPPORTED_COUNTRIES,
+    getSupportedCountryByDataset,
+    type SupportedCountry
+  } from '$lib/countries';
   import { fade, slide } from 'svelte/transition';
   import {
     GlobeVisualsLayer,
@@ -38,13 +43,13 @@
   // ---- Props ----
   type Props = {
     mode: 'landing' | 'fullscreen';
-    shopData: Promise<Shop[]>;
-    attendanceData: Promise<Map<string, { gameId: number; total: number }[]>>;
+    shopData?: Promise<GlobeShop[]> | null;
   };
-  let { mode, shopData, attendanceData }: Props = $props();
+  let { mode, shopData }: Props = $props();
 
   // ---- Globe layer/source IDs ----
-  const GEOJSON_ENDPOINT = `${base}/api/globe/geojson`;
+  const GLOBE_DATA_ENDPOINT = `${base}/api/globe/data`;
+  const GEOJSON_ENDPOINT = `${base}/api/geo/dataset`;
   const COUNTRY_ZOOM_THRESHOLD = 3.5;
   const PROVINCE_ZOOM_THRESHOLD = 4.6;
   const CITY_ZOOM_THRESHOLD = 6.2;
@@ -88,6 +93,10 @@
   const LANDING_ROTATION_SPEED = 0.06; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
+  const VISUAL_TEXTURE_TRANSCODER_PATH = `${base}/globe/basis/`;
+  const VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM = 3.8;
+  const VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM = 4.2;
+  const VISUAL_TEXTURE_HIGH_RES_RELEASE_ZOOM = 3.6;
   const BASEMAP_PROBE_TILE = { z: 1, x: 1, y: 0 };
   const BASEMAP_PROBE_TIMEOUT_MS = 2500;
   const BASEMAP_PROBE_FAILURE_PENALTY_MS = 5000;
@@ -103,9 +112,28 @@
     overseasTileUrls: string[];
   };
 
+  type EnsureMapLayersOptions = {
+    deferVisuals?: boolean;
+  };
+
   type AnticipatedBasemapTarget = {
     zoom: number;
     isChina: boolean;
+  };
+
+  const VISUAL_TEXTURE_URLS = {
+    low: {
+      cloud: `${base}/globe/clouds_4k.ktx2`,
+      nightLights: `${base}/globe/nightlights_4k.ktx2`,
+      specular: `${base}/globe/specular_map_4k.ktx2`,
+      normal: `${base}/globe/normal_map_4k.ktx2`
+    },
+    high: {
+      cloud: `${base}/globe/clouds.ktx2`,
+      nightLights: `${base}/globe/nightlights.ktx2`,
+      specular: `${base}/globe/specular_map.ktx2`,
+      normal: `${base}/globe/normal_map_4k.ktx2`
+    }
   };
 
   const parseTileUrlList = (value: string) =>
@@ -138,7 +166,8 @@
   }> = [];
 
   const isFeatureInChina = (feature: GlobeFeature | null) =>
-    feature?.properties?.dataset?.startsWith('china-') || isChinaWorldFeature(feature);
+    feature?.properties?.dataset?.startsWith('china-') ||
+    isSupportedCountryWorldFeature(feature)?.numericCode === '156';
 
   const getFallbackGlobalTileUrls = () => {
     for (const candidate of [
@@ -151,6 +180,12 @@
       if (candidate.length > 0) return candidate;
     }
     return [] as string[];
+  };
+
+  const getInitialGlobalTileUrls = () => {
+    if (BASEMAP_TILE_URLS_PRIMARY.length > 0) return BASEMAP_TILE_URLS_PRIMARY;
+    if (BASEMAP_TILE_URLS_SECONDARY.length > 0) return BASEMAP_TILE_URLS_SECONDARY;
+    return getFallbackGlobalTileUrls();
   };
 
   const DENSITY_COLOR_EXPR: maplibregl.ExpressionSpecification = [
@@ -321,14 +356,19 @@
   let countyData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let hoveredFeature = $state<GlobeFeature | null>(null);
   let hoveredFeatureId = $state<string | null>(null);
-  let geojsonStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('loading');
+  let geojsonStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   let countyStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   let geojsonError = $state<string | null>(null);
-  let chinaActive = $state(false);
+  let activeSupportedCountry = $state<SupportedCountry | null>(null);
   let activeProvinceAdcode = $state<string | null>(null);
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
+
+  // ---- Shop location pick mode ----
+  let shopLocationPickMode = $state(false);
+  let pendingShopCoords = $state<{ lat: number; lng: number } | null>(null);
+  let shopPickMarker: maplibregl.Marker | null = null;
 
   // ---- Globe feature settings ----
   type GlobeFeatureSettings = {
@@ -424,20 +464,48 @@
 
   // ---- Shop data state ----
   type ShopEntry = {
-    shop: ShopWithExtras;
+    shop: GlobeShopWithExtras;
     location: { latitude: number; longitude: number };
   };
 
-  let shopDataResolved = $state<Shop[]>([]);
-  let attendanceDataResolved = new SvelteMap<string, { gameId: number; total: number }[]>();
+  type GlobeDataResponse = {
+    shops: GlobeShop[];
+  };
+
+  let shopDataResolved = $state<GlobeShop[]>([]);
   let shops = $state<ShopEntry[] | null>(null);
   const shopLookup = new SvelteMap<string, ShopEntry>();
+  let lazyGlobeDataPromise: Promise<GlobeDataResponse> | null = null;
+  let globeDataRequestId = 0;
+  let globeDataRefreshToken = $state(0);
 
-  const getShopKey = (shop: Pick<Shop, 'source' | 'id'>) => `${shop.source}-${shop.id}`;
+  const getShopKey = (shop: Pick<GlobeShop, 'id'>) => `${shop.id}`;
+
+  const applyResolvedGlobeData = (resolvedShops: GlobeShop[]) => {
+    shopDataResolved = resolvedShops;
+  };
+
+  const fetchGlobeData = () => {
+    if (!lazyGlobeDataPromise) {
+      lazyGlobeDataPromise = fetch(GLOBE_DATA_ENDPOINT)
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Failed to load globe data (${response.status})`);
+          }
+          return (await response.json()) as GlobeDataResponse;
+        })
+        .catch((error) => {
+          lazyGlobeDataPromise = null;
+          throw error;
+        });
+    }
+
+    return lazyGlobeDataPromise;
+  };
 
   // ---- Pinned / hover shop state ----
-  let markerHoveredShop = $state<ShopWithExtras | null>(null);
-  let pinnedShop = $state<ShopWithExtras | null>(null);
+  let markerHoveredShop = $state<GlobeShopWithExtras | null>(null);
+  let pinnedShop = $state<GlobeShopWithExtras | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
   const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
@@ -510,10 +578,16 @@
   type RegionFilter =
     | { type: 'world' }
     | { type: 'address'; address: string[] }
-    | { type: 'china' }
-    | { type: 'china-province'; name: string }
-    | { type: 'china-city'; provinceName: string; cityName: string }
-    | { type: 'china-county'; provinceName: string; cityName: string; countyName: string };
+    | { type: 'country'; countryName: string }
+    | { type: 'country-level1'; countryName: string; level1Name: string }
+    | { type: 'country-level2'; countryName: string; level1Name: string; level2Name: string }
+    | {
+        type: 'country-level3';
+        countryName: string;
+        level1Name: string;
+        level2Name: string;
+        level3Name: string;
+      };
 
   let regionFilter = $state<RegionFilter>({ type: 'world' });
 
@@ -523,14 +597,14 @@
         return m.world();
       case 'address':
         return regionFilter.address[regionFilter.address.length - 1];
-      case 'china':
-        return '中国';
-      case 'china-province':
-        return regionFilter.name;
-      case 'china-city':
-        return regionFilter.cityName;
-      case 'china-county':
-        return regionFilter.countyName;
+      case 'country':
+        return regionFilter.countryName;
+      case 'country-level1':
+        return regionFilter.level1Name;
+      case 'country-level2':
+        return regionFilter.level2Name;
+      case 'country-level3':
+        return regionFilter.level3Name;
     }
   });
 
@@ -540,14 +614,14 @@
         return [];
       case 'address':
         return getAddressParts(regionFilter.address).slice(0, -1);
-      case 'china':
+      case 'country':
         return [];
-      case 'china-province':
-        return ['中国'];
-      case 'china-city':
-        return ['中国', regionFilter.provinceName];
-      case 'china-county':
-        return ['中国', regionFilter.provinceName, regionFilter.cityName];
+      case 'country-level1':
+        return [regionFilter.countryName];
+      case 'country-level2':
+        return [regionFilter.countryName, regionFilter.level1Name];
+      case 'country-level3':
+        return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
     }
   });
 
@@ -566,24 +640,25 @@
             (v, i) => general.length <= i || v.toLowerCase() === general[i].toLowerCase()
           );
           break;
-        case 'china':
-          matchesRegion = general[0] === '中国';
+        case 'country':
+          matchesRegion = general[0] === regionFilter.countryName;
           break;
-        case 'china-province':
-          matchesRegion = general[0] === '中国' && general[1] === regionFilter.name;
-          break;
-        case 'china-city':
+        case 'country-level1':
           matchesRegion =
-            general[0] === '中国' &&
-            general[1] === regionFilter.provinceName &&
-            general[2] === regionFilter.cityName;
+            general[0] === regionFilter.countryName && general[1] === regionFilter.level1Name;
           break;
-        case 'china-county':
+        case 'country-level2':
           matchesRegion =
-            general[0] === '中国' &&
-            general[1] === regionFilter.provinceName &&
-            general[2] === regionFilter.cityName &&
-            general[3] === regionFilter.countyName;
+            general[0] === regionFilter.countryName &&
+            general[1] === regionFilter.level1Name &&
+            general[2] === regionFilter.level2Name;
+          break;
+        case 'country-level3':
+          matchesRegion =
+            general[0] === regionFilter.countryName &&
+            general[1] === regionFilter.level1Name &&
+            general[2] === regionFilter.level2Name &&
+            general[3] === regionFilter.level3Name;
           break;
       }
       if (!matchesRegion) return false;
@@ -597,7 +672,7 @@
         }
       }
       if (selectedTitleIds.length > 0) {
-        if (!selectedTitleIds.every((tid) => shop.games.some((g) => g.titleId === tid)))
+        if (!selectedTitleIds.every((tid) => shop.aggregatedGames.some((g) => g.titleId === tid)))
           return false;
       }
       return true;
@@ -619,62 +694,36 @@
   });
 
   $effect(() => {
-    shopData.then((resolved) => {
-      shopDataResolved = resolved;
-    });
-    attendanceData.then((resolved) => {
-      attendanceDataResolved.clear();
-      for (const [k, v] of resolved) attendanceDataResolved.set(k, v);
-    });
-  });
+    const sourceShopData = shopData;
+    const refreshToken = globeDataRefreshToken;
+    const requestId = ++globeDataRequestId;
+    void refreshToken;
 
-  const getShopDensity = (shop: Omit<ShopWithExtras, 'density'>): number => {
-    const oh = shop.openingHoursParsed;
-    if (!oh || now < oh.openTolerated || now > oh.closeTolerated) return 0;
-    const density = shop.games
-      .reduce((acc, game) => {
-        if (acc.has(game.titleId)) {
-          acc.get(game.titleId)!.push(game);
-        } else {
-          acc.set(game.titleId, [game]);
+    void (async () => {
+      try {
+        if (sourceShopData) {
+          const resolvedShops = await sourceShopData;
+          if (requestId !== globeDataRequestId) return;
+          applyResolvedGlobeData(resolvedShops);
+          return;
         }
-        return acc;
-      }, new Map<number, typeof shop.games>())
-      .entries()
-      .map(([, games]) => {
-        const attendances = shop.attendances.reduce((sum, att) => {
-          if (games.find((g) => g.gameId === att.gameId)) return sum + att.total;
-          return sum;
-        }, 0);
-        const positions =
-          games.reduce((sum, g) => sum + g.quantity, 0) *
-          (GAMES.find((game) => game.id === games[0].titleId)?.seats || 1);
-        return attendances / positions;
-      })
-      .reduce((max, curr) => (isNaN(curr) ? max : Math.max(max, curr)), 0);
-    if (!isFinite(density) || isNaN(density)) return 0;
-    switch (true) {
-      case density < 0.1:
-        return 1;
-      case density < 1:
-        return 2;
-      case density < 2:
-        return 3;
-      default:
-        return 4;
-    }
-  };
+
+        const response = await fetchGlobeData();
+        if (requestId !== globeDataRequestId) return;
+        applyResolvedGlobeData(response.shops);
+      } catch (error) {
+        if (requestId !== globeDataRequestId) return;
+        console.error('Failed to load globe shop data:', error);
+      }
+    })();
+  });
 
   $effect(() => {
     if (!shopDataResolved.length) return;
-    const att = attendanceDataResolved;
     const nextShops = shopDataResolved.map((shop) => {
-      const attendances = att.get(getShopKey(shop)) ?? [];
       const openingHoursParsed = getShopOpeningHours(shop);
-      const currentAttendance = attendances.reduce((s, a) => s + a.total, 0);
-      const shopBase = { ...shop, attendances, openingHoursParsed, currentAttendance, density: 0 };
       return {
-        shop: { ...shopBase, density: getShopDensity(shopBase) },
+        shop: { ...shop, openingHoursParsed },
         location: {
           latitude: shop.location.coordinates[1],
           longitude: shop.location.coordinates[0]
@@ -716,7 +765,8 @@
         zoom: Math.max(instance.getZoom(), 10),
         duration: 1200
       },
-      entry.shop.address.general[0] === '中国'
+      SUPPORTED_COUNTRIES.find((c) => c.addressName === entry.shop.address.general[0])
+        ?.numericCode === '156'
     );
   };
 
@@ -733,7 +783,33 @@
     });
   };
 
-  const applyShopRegionFilter = (shop: ShopWithExtras) => {
+  const enterShopLocationPickMode = () => {
+    shopLocationPickMode = true;
+    pendingShopCoords = null;
+    // Reset cursor
+    map?.getCanvas().setAttribute('style', 'cursor: crosshair');
+  };
+
+  const exitShopLocationPickMode = () => {
+    shopLocationPickMode = false;
+    pendingShopCoords = null;
+    shopPickMarker?.remove();
+    shopPickMarker = null;
+    map?.getCanvas().removeAttribute('style');
+  };
+
+  const confirmShopLocation = () => {
+    if (!pendingShopCoords) return;
+    const { lat, lng } = pendingShopCoords;
+    const params = new URLSearchParams({
+      lat: lat.toFixed(6),
+      lng: lng.toFixed(6)
+    });
+    exitShopLocationPickMode();
+    void goto(`${base}/shops/new?${params}`);
+  };
+
+  const applyShopRegionFilter = (shop: GlobeShopWithExtras) => {
     const general = shop.address.general;
     if (!general.length) {
       regionFilter = { type: 'world' };
@@ -742,7 +818,7 @@
     regionFilter = { type: 'address', address: general };
   };
 
-  const isShopInCurrentFilter = (shop: ShopWithExtras): boolean => {
+  const isShopInCurrentFilter = (shop: GlobeShopWithExtras): boolean => {
     const fs = filteredShops;
     if (!fs) return false;
     const key = getShopKey(shop);
@@ -868,6 +944,10 @@
   const countyCache: Record<string, GlobeFeatureCollection> = {};
   const emptyData = emptyGlobeFeatureCollection();
   const sourceDataRevisions = new SvelteMap<string, GlobeFeatureCollection>();
+  const rasterSourceTileRevisions = new SvelteMap<string, string>();
+  let deferredVisualsRafId: number | null = null;
+  let deferredVisualsRafTailId: number | null = null;
+  let deferredVisualsRetryTimeoutId: number | null = null;
   const sunPosition = $derived.by(() => {
     const { azimuthDeg, polarDeg } = getSunPosition(viewTime);
     return { azimuth: azimuthDeg, polar: polarDeg };
@@ -898,13 +978,16 @@
   const currentDetailLevel = $derived.by(() => {
     if (countyData.features.length > 0 && viewZoom >= COUNTY_ZOOM_THRESHOLD) return 'Counties';
     if (visibleCityData.features.length > 0 && viewZoom >= CITY_ZOOM_THRESHOLD) return 'Cities';
-    if (chinaActive) return 'Provinces';
+    if (activeSupportedCountry) {
+      const lvl = activeSupportedCountry.levels[0].levelName;
+      return lvl.charAt(0).toUpperCase() + lvl.slice(1) + 's';
+    }
     return 'World';
   });
 
   const focusPath = $derived.by(() => {
     const parts = ['World'];
-    if (chinaActive) parts.push('China');
+    if (activeSupportedCountry) parts.push(activeSupportedCountry.name);
     if (activeProvinceName) parts.push(activeProvinceName);
     if (activeCityName) parts.push(activeCityName);
     return parts.join(' / ');
@@ -940,8 +1023,8 @@
 
   const buildGeoJsonUrl = (dataset: GlobeDataset, parentAdcode?: string) => {
     const query = parentAdcode
-      ? `dataset=${encodeURIComponent(dataset)}&parentAdcode=${encodeURIComponent(parentAdcode)}`
-      : `dataset=${encodeURIComponent(dataset)}`;
+      ? `name=${encodeURIComponent(dataset)}&parentAdcode=${encodeURIComponent(parentAdcode)}`
+      : `name=${encodeURIComponent(dataset)}`;
     return `${GEOJSON_ENDPOINT}?${query}`;
   };
 
@@ -985,9 +1068,15 @@
     instance: maplibregl.Map,
     sourceId: string,
     layerId: string,
-    tileUrls: string[]
+    tileUrls: string[],
+    defaultVisibility: 'visible' | 'none' = 'none',
+    beforeLayerId?: string
   ) => {
     if (tileUrls.length === 0) return;
+
+    const nextTileRevision = normalizeTileUrlSet(tileUrls).join('|');
+    const prevTileRevision = rasterSourceTileRevisions.get(sourceId);
+
     if (!instance.getSource(sourceId)) {
       instance.addSource(sourceId, {
         type: 'raster',
@@ -996,20 +1085,110 @@
         minzoom: 0,
         maxzoom: 19
       });
-    }
-    if (!instance.getLayer(layerId)) {
-      instance.addLayer({
-        id: layerId,
+      rasterSourceTileRevisions.set(sourceId, nextTileRevision);
+    } else if (prevTileRevision && prevTileRevision !== nextTileRevision) {
+      const currentVisibility = instance.getLayer(layerId)
+        ? ((instance.getLayoutProperty(layerId, 'visibility') as 'visible' | 'none' | undefined) ??
+          defaultVisibility)
+        : defaultVisibility;
+
+      if (instance.getLayer(layerId)) instance.removeLayer(layerId);
+      instance.removeSource(sourceId);
+
+      instance.addSource(sourceId, {
         type: 'raster',
-        source: sourceId,
-        layout: { visibility: 'none' }
+        tiles: tileUrls,
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 19
       });
+      rasterSourceTileRevisions.set(sourceId, nextTileRevision);
+
+      instance.addLayer(
+        {
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+          layout: { visibility: currentVisibility }
+        },
+        beforeLayerId
+      );
+      return;
     }
+
+    if (!instance.getLayer(layerId)) {
+      instance.addLayer(
+        {
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+          layout: { visibility: defaultVisibility }
+        },
+        beforeLayerId
+      );
+    }
+
+    if (!prevTileRevision) rasterSourceTileRevisions.set(sourceId, nextTileRevision);
+  };
+
+  const cancelDeferredVisualsLayer = () => {
+    if (deferredVisualsRafId !== null) window.cancelAnimationFrame(deferredVisualsRafId);
+    if (deferredVisualsRafTailId !== null) window.cancelAnimationFrame(deferredVisualsRafTailId);
+    if (deferredVisualsRetryTimeoutId !== null) window.clearTimeout(deferredVisualsRetryTimeoutId);
+    deferredVisualsRafId = null;
+    deferredVisualsRafTailId = null;
+    deferredVisualsRetryTimeoutId = null;
+  };
+
+  const scheduleDeferredVisualsLayer = (instance: maplibregl.Map) => {
+    if (instance.getLayer('globe-visuals')) {
+      console.debug('[GlobeVisualsDebug] deferred schedule skipped: layer already exists');
+      return;
+    }
+    if (
+      deferredVisualsRafId !== null ||
+      deferredVisualsRafTailId !== null ||
+      deferredVisualsRetryTimeoutId !== null
+    ) {
+      console.debug('[GlobeVisualsDebug] deferred schedule skipped: task already queued');
+      return;
+    }
+
+    console.debug('[GlobeVisualsDebug] queueing deferred visuals attach');
+
+    deferredVisualsRafId = window.requestAnimationFrame(() => {
+      deferredVisualsRafId = null;
+      deferredVisualsRafTailId = window.requestAnimationFrame(() => {
+        deferredVisualsRafTailId = null;
+        if (!map || map.getCanvas() !== instance.getCanvas() || !instance.isStyleLoaded()) {
+          console.debug('[GlobeVisualsDebug] warn: deferred attach skipped', {
+            hasMap: Boolean(map),
+            sameCanvas: Boolean(map && map.getCanvas() === instance.getCanvas()),
+            styleLoaded: instance.isStyleLoaded()
+          });
+
+          // Style can still report not-loaded right after style.load while
+          // MapLibre continues internal setup. Retry shortly instead of giving up.
+          if (map && map.getCanvas() === instance.getCanvas() && !instance.isStyleLoaded()) {
+            deferredVisualsRetryTimeoutId = window.setTimeout(() => {
+              deferredVisualsRetryTimeoutId = null;
+              scheduleDeferredVisualsLayer(instance);
+            }, 180);
+          }
+          return;
+        }
+        if (!instance.getLayer('globe-visuals')) {
+          console.debug('[GlobeVisualsDebug] deferred attach running ensureVisualsLayer');
+          ensureVisualsLayer(instance);
+        }
+      });
+    });
   };
 
   const syncBasemapLayers = (instance: maplibregl.Map) => {
     const effectiveZoom = anticipatedBasemapTarget?.zoom ?? instance.getZoom();
-    const effectiveIsChina = anticipatedBasemapTarget?.isChina ?? chinaActive;
+    const effectiveIsChina =
+      anticipatedBasemapTarget?.isChina ?? activeSupportedCountry?.numericCode === '156';
     const showRegionalBasemap = effectiveZoom >= BASEMAP_SWITCH_ZOOM_THRESHOLD;
     const showChinaBasemap =
       showRegionalBasemap &&
@@ -1055,6 +1234,10 @@
     layer.setCloudShadowOpacity(visualLayers.cloudShadowOpacity);
   };
 
+  const syncVisualTextureDetail = (instance: maplibregl.Map) => {
+    visualsLayer?.setTextureDetail(instance.getZoom(), mode === 'fullscreen');
+  };
+
   const getEnabledVisualLayerNames = (): GlobeLayerName[] => {
     const visualLayers = globeFeatureSettings.visualLayers;
     const layerNames: GlobeLayerName[] = [];
@@ -1068,28 +1251,43 @@
 
   const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
     if (forceRebuild && instance.getLayer('globe-visuals')) {
+      console.debug('[GlobeVisualsDebug] removing existing visuals layer for rebuild');
       instance.removeLayer('globe-visuals');
       visualsLayer = null;
     }
 
     const enabledLayerNames = getEnabledVisualLayerNames();
-    if (enabledLayerNames.length === 0) return;
-
-    if (!instance.getLayer('globe-visuals')) {
-      visualsLayer = new GlobeVisualsLayer(
-        `${base}/globe/clouds.jpg`,
-        `${base}/globe/nightlights.jpg`,
-        `${base}/globe/specular_map.jpg`,
-        `${base}/globe/normal_map.jpg`,
-        { enabledLayers: enabledLayerNames }
-      );
-      applyVisualsDevSettings(visualsLayer);
-      const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
-      instance.addLayer(visualsLayer, beforeId);
+    if (enabledLayerNames.length === 0) {
+      console.debug('[GlobeVisualsDebug] visuals disabled by settings');
       return;
     }
 
-    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
+    if (!instance.getLayer('globe-visuals')) {
+      console.debug('[GlobeVisualsDebug] creating visuals layer', {
+        enabledLayerNames,
+        styleLoaded: instance.isStyleLoaded()
+      });
+      visualsLayer = new GlobeVisualsLayer(VISUAL_TEXTURE_URLS.low, {
+        enabledLayers: enabledLayerNames,
+        highResolutionTextureSet: VISUAL_TEXTURE_URLS.high,
+        highResolutionPrefetchZoom: VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM,
+        highResolutionSwapZoom: VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM,
+        highResolutionReleaseZoom: VISUAL_TEXTURE_HIGH_RES_RELEASE_ZOOM,
+        ktx2TranscoderPath: VISUAL_TEXTURE_TRANSCODER_PATH
+      });
+      applyVisualsDevSettings(visualsLayer);
+      syncVisualTextureDetail(instance);
+      const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
+      instance.addLayer(visualsLayer, beforeId);
+      console.debug('[GlobeVisualsDebug] visuals layer added', { beforeId: beforeId ?? null });
+      return;
+    }
+
+    console.debug('[GlobeVisualsDebug] visuals layer already present, syncing settings');
+    if (visualsLayer) {
+      applyVisualsDevSettings(visualsLayer);
+      syncVisualTextureDetail(instance);
+    }
   };
 
   const applyFeatureVisibility = (instance: maplibregl.Map) => {
@@ -1127,7 +1325,7 @@
     }
   };
 
-  const ensureMapLayers = (instance: maplibregl.Map) => {
+  const ensureMapLayers = (instance: maplibregl.Map, options: EnsureMapLayersOptions = {}) => {
     if (isGeoJsonEnabled()) {
       upsertGeoJsonSource(instance, WORLD_SOURCE_ID, worldData);
       upsertGeoJsonSource(instance, PROVINCE_SOURCE_ID, provinceData);
@@ -1135,6 +1333,15 @@
       upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
       upsertGeoJsonSource(instance, HOVER_SOURCE_ID, emptyGlobeFeatureCollection());
     }
+
+    ensureRasterSourceLayer(
+      instance,
+      BASEMAP_SOURCE_ID,
+      BASEMAP_LAYER_ID,
+      selectedGlobalTileUrls,
+      'visible',
+      BASEMAP_CN_LAYER_ID
+    );
 
     ensureRasterSourceLayer(
       instance,
@@ -1158,7 +1365,11 @@
 
     // Globe visual enhancements (clouds + night lights + specular + atmosphere).
     // Inserted below the boundary fill layers so effects appear under country overlays.
-    ensureVisualsLayer(instance);
+    if (options.deferVisuals) {
+      scheduleDeferredVisualsLayer(instance);
+    } else {
+      ensureVisualsLayer(instance);
+    }
 
     if (isGeoJsonEnabled() && !instance.getLayer(WORLD_FILL_LAYER_ID)) {
       instance.addLayer({
@@ -1464,6 +1675,19 @@
     }
   };
 
+  const getSourceIdForDataset = (dataset: string | undefined): string => {
+    if (!dataset || dataset === 'world') return WORLD_SOURCE_ID;
+    const levelSourceIds = [PROVINCE_SOURCE_ID, CITY_SOURCE_ID, COUNTY_SOURCE_ID];
+    for (const country of SUPPORTED_COUNTRIES) {
+      for (let i = 0; i < country.levels.length; i++) {
+        if (country.levels[i].dataset === dataset && i < levelSourceIds.length) {
+          return levelSourceIds[i];
+        }
+      }
+    }
+    return COUNTY_SOURCE_ID;
+  };
+
   let activeFeatureState: { id: string | number; source: string } | null = null;
 
   const flushHoverToMap = (instance: maplibregl.Map, feature: GlobeFeature | null) => {
@@ -1473,14 +1697,7 @@
     }
     if (feature) {
       const fid = (feature as unknown as { id?: string | number }).id;
-      const sourceId =
-        feature.properties?.dataset === 'world'
-          ? WORLD_SOURCE_ID
-          : feature.properties?.dataset === 'china-provinces'
-            ? PROVINCE_SOURCE_ID
-            : feature.properties?.dataset === 'china-cities'
-              ? CITY_SOURCE_ID
-              : COUNTY_SOURCE_ID;
+      const sourceId = getSourceIdForDataset(feature.properties?.dataset);
       if (fid !== undefined) {
         activeFeatureState = { id: fid, source: sourceId };
         instance.setFeatureState(activeFeatureState, { hovered: true });
@@ -1526,7 +1743,7 @@
     upsertGeoJsonSource(instance, COUNTY_SOURCE_ID, countyData);
     syncBasemapLayers(instance);
 
-    const showProvinceLayers = chinaActive && provinceData.features.length > 0;
+    const showProvinceLayers = !!activeSupportedCountry && provinceData.features.length > 0;
     const showCityLayers =
       showProvinceLayers && visibleCityData.features.length > 0 && Boolean(activeProvinceAdcode);
     const showCountyLayers =
@@ -1542,9 +1759,10 @@
     setLayerVisibility(instance, COUNTY_LINE_LAYER_ID, showCountyLayers);
     setLayerVisibility(instance, COUNTY_LABEL_LAYER_ID, showCountyLayers);
 
-    const worldFilter: maplibregl.FilterSpecification | null = showProvinceLayers
-      ? ['!=', ['get', 'isChina'], true]
-      : null;
+    const worldFilter: maplibregl.FilterSpecification | null =
+      showProvinceLayers && activeSupportedCountry
+        ? ['!=', ['get', 'supportedCountryNumericCode'], activeSupportedCountry.numericCode]
+        : null;
     for (const layerId of [WORLD_FILL_LAYER_ID, WORLD_LINE_LAYER_ID]) {
       if (instance.getLayer(layerId)) instance.setFilter(layerId, worldFilter);
     }
@@ -1616,7 +1834,12 @@
     }
     countyStatus = 'loading';
     try {
-      const data = await fetchGeoJson('china-counties', parentAdcode);
+      const countyDataset = activeSupportedCountry?.levels[2]?.dataset;
+      if (!countyDataset) {
+        countyStatus = 'idle';
+        return;
+      }
+      const data = await fetchGeoJson(countyDataset as GlobeDataset, parentAdcode);
       countyCache[parentAdcode] = data;
       if (activeCityAdcode === parentAdcode) {
         countyData = data;
@@ -1635,7 +1858,7 @@
     anticipatedBasemapTarget = null;
     viewZoom = instance.getZoom();
     if (!isGeoJsonEnabled()) {
-      chinaActive = false;
+      activeSupportedCountry = null;
       activeProvinceAdcode = null;
       activeCityAdcode = null;
       countyData = emptyGlobeFeatureCollection();
@@ -1645,11 +1868,16 @@
     }
     const point = instance.project(instance.getCenter());
     const centeredFeature = getTopFeatureAtPoint(instance, point);
-    const isCenterInChina = isFeatureInChina(centeredFeature);
-    const nextChinaActive = !!(viewZoom >= COUNTRY_ZOOM_THRESHOLD && isCenterInChina);
-    chinaActive = nextChinaActive;
+    const centeredSupportedCountry =
+      isSupportedCountryWorldFeature(centeredFeature) ??
+      (centeredFeature?.properties?.dataset && centeredFeature.properties.dataset !== 'world'
+        ? (getSupportedCountryByDataset(centeredFeature.properties.dataset) ?? null)
+        : null);
+    const nextActiveSupportedCountry =
+      viewZoom >= COUNTRY_ZOOM_THRESHOLD ? centeredSupportedCountry : null;
+    activeSupportedCountry = nextActiveSupportedCountry;
 
-    if (!nextChinaActive) {
+    if (!nextActiveSupportedCountry) {
       activeProvinceAdcode = null;
       activeCityAdcode = null;
       countyData = emptyGlobeFeatureCollection();
@@ -1663,15 +1891,18 @@
 
     if (viewZoom >= PROVINCE_ZOOM_THRESHOLD && centeredFeature) {
       const dataset = centeredFeature.properties?.dataset;
-      if (dataset === 'china-provinces') {
+      const level0Dataset = nextActiveSupportedCountry.levels[0]?.dataset;
+      const level1Dataset = nextActiveSupportedCountry.levels[1]?.dataset;
+      const level2Dataset = nextActiveSupportedCountry.levels[2]?.dataset;
+      if (dataset === level0Dataset) {
         nextProvinceAdcode = centeredFeature.properties?.adcode ?? null;
-      } else if (dataset === 'china-cities' || dataset === 'china-counties') {
+      } else if (dataset === level1Dataset || dataset === level2Dataset) {
         nextProvinceAdcode = centeredFeature.properties?.provinceAdcode ?? null;
         if (viewZoom >= CITY_ZOOM_THRESHOLD) {
-          if (dataset === 'china-cities') {
+          if (dataset === level1Dataset) {
             nextCityAdcode =
               getCountyParentAdcode(centeredFeature as unknown as GlobeFeature) ?? null;
-          } else if (dataset === 'china-counties') {
+          } else if (dataset === level2Dataset) {
             nextCityAdcode = centeredFeature.properties?.parentAdcode ?? null;
           }
         }
@@ -1718,9 +1949,9 @@
       cityData = nextCityData;
       geojsonStatus = 'ready';
       if (map?.isStyleLoaded()) {
-        ensureMapLayers(map);
+        ensureMapLayers(map, { deferVisuals: true });
         applyModeLayers(map, mode);
-        syncDrilldown(map);
+        if (mode === 'fullscreen') syncDrilldown(map);
       }
     } catch (error) {
       console.error('Failed to load globe GeoJSON:', error);
@@ -1730,10 +1961,28 @@
   };
 
   $effect(() => {
+    const currentMode = mode;
+    const geoJsonEnabled = isGeoJsonEnabled();
+    const hasBaseGeoJson =
+      worldData.features.length > 0 &&
+      provinceData.features.length > 0 &&
+      cityData.features.length > 0;
+
+    if (!geoJsonEnabled) {
+      geojsonStatus = 'idle';
+      geojsonError = null;
+      return;
+    }
+
+    if (currentMode !== 'fullscreen' || hasBaseGeoJson || geojsonStatus !== 'idle') return;
+    void loadBaseGeoJson();
+  });
+
+  $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
     syncScene(instance);
-    ensureMapLayers(instance);
+    ensureMapLayers(instance, { deferVisuals: true });
     applyModeLayers(instance, mode);
   });
 
@@ -1760,6 +2009,12 @@
   $effect(() => {
     const cloudShadowOpacity = globeFeatureSettings.visualLayers.cloudShadowOpacity;
     visualsLayer?.setCloudShadowOpacity(cloudShadowOpacity);
+  });
+
+  $effect(() => {
+    const instance = map;
+    if (!instance) return;
+    visualsLayer?.setTextureDetail(instance.getZoom(), mode === 'fullscreen');
   });
 
   // ---- Mode transition effect ----
@@ -1830,28 +2085,43 @@
     const props = feature.properties;
     if (!props) return;
     if (props.dataset === 'world') {
-      regionFilter = props.isChina ? { type: 'china' } : { type: 'address', address: [props.name] };
+      const supported = isSupportedCountryWorldFeature(feature);
+      if (supported) {
+        regionFilter = { type: 'country', countryName: supported.addressName };
+      } else {
+        regionFilter = { type: 'address', address: [props.name] };
+      }
       return;
     }
-    if (props.dataset === 'china-provinces') {
-      regionFilter = { type: 'china-province', name: props.name };
-      return;
-    }
-    if (props.dataset === 'china-cities') {
-      regionFilter = {
-        type: 'china-city',
-        provinceName: getProvinceNameByAdcode(props.provinceAdcode),
-        cityName: props.name
-      };
-      return;
-    }
-    if (props.dataset === 'china-counties') {
-      regionFilter = {
-        type: 'china-county',
-        provinceName: getProvinceNameByAdcode(props.provinceAdcode),
-        cityName: getCityNameByAdcode(props.parentAdcode),
-        countyName: props.name
-      };
+    for (const country of SUPPORTED_COUNTRIES) {
+      const levelIndex = country.levels.findIndex((l) => l.dataset === props.dataset);
+      if (levelIndex === 0) {
+        regionFilter = {
+          type: 'country-level1',
+          countryName: country.addressName,
+          level1Name: props.name
+        };
+        return;
+      }
+      if (levelIndex === 1) {
+        regionFilter = {
+          type: 'country-level2',
+          countryName: country.addressName,
+          level1Name: getProvinceNameByAdcode(props.provinceAdcode),
+          level2Name: props.name
+        };
+        return;
+      }
+      if (levelIndex === 2) {
+        regionFilter = {
+          type: 'country-level3',
+          countryName: country.addressName,
+          level1Name: getProvinceNameByAdcode(props.provinceAdcode),
+          level2Name: getCityNameByAdcode(props.parentAdcode),
+          level3Name: props.name
+        };
+        return;
+      }
     }
   };
 
@@ -1886,20 +2156,22 @@
 
     const initializeMap = async (cameraSnapshot?: CameraSnapshot) => {
       const featureSettingsKey = globeFeatureSettingsKey;
-      if (isGeoJsonEnabled()) {
-        void loadBaseGeoJson();
-      } else {
+      if (!isGeoJsonEnabled()) {
         geojsonStatus = 'idle';
         geojsonError = null;
       }
-      const { globalTileUrls: globalTileUrls, overseasTileUrls } = await resolveBasemapTileUrls();
-      selectedGlobalTileUrls = globalTileUrls;
-      selectedOverseasTileUrls = overseasTileUrls;
+
+      selectedGlobalTileUrls = getInitialGlobalTileUrls();
+      selectedOverseasTileUrls =
+        BASEMAP_TILE_URLS_OVERSEAS.length > 0
+          ? BASEMAP_TILE_URLS_OVERSEAS
+          : BASEMAP_TILE_URLS_OVERSEAS_FALLBACK;
+
       if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
 
       const instance = new maplibregl.Map({
         container: mapContainer,
-        style: buildMapStyle(globalTileUrls),
+        style: buildMapStyle(selectedGlobalTileUrls),
         center:
           cameraSnapshot?.center ??
           (mode === 'landing' ? [LANDING_LONGITUDE, LANDING_LATITUDE] : [155, 45]),
@@ -1914,10 +2186,13 @@
 
       const syncStyle = () => {
         sourceDataRevisions.clear();
+        rasterSourceTileRevisions.clear();
+        visualsLayer = null;
+        console.debug('[GlobeVisualsDebug] style.load sync start');
         syncScene(instance);
-        ensureMapLayers(instance);
+        ensureMapLayers(instance, { deferVisuals: true });
         applyModeLayers(instance, mode);
-        syncDrilldown(instance);
+        if (mode === 'fullscreen') syncDrilldown(instance);
         const shopsData = shops;
         if (shopsData) {
           const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
@@ -1947,19 +2222,53 @@
         if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
           instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
         }
+
+        // If deferred scheduling was skipped or canceled, force one retry.
+        window.setTimeout(() => {
+          if (destroyed || map !== instance) return;
+          if (!instance.getLayer('globe-visuals')) {
+            console.debug('[GlobeVisualsDebug] warn: fallback timeout forcing visuals attach');
+            if (instance.isStyleLoaded()) {
+              ensureVisualsLayer(instance);
+            } else {
+              scheduleDeferredVisualsLayer(instance);
+            }
+          }
+        }, 700);
       };
+
+      void resolveBasemapTileUrls().then(({ globalTileUrls, overseasTileUrls }) => {
+        if (destroyed || map !== instance || featureSettingsKey !== globeFeatureSettingsKey) return;
+
+        selectedGlobalTileUrls = globalTileUrls;
+        selectedOverseasTileUrls = overseasTileUrls;
+
+        if (!instance.isStyleLoaded()) return;
+        ensureMapLayers(instance, { deferVisuals: true });
+        syncBasemapLayers(instance);
+      });
 
       const handleMoveEnd = () => {
         anticipatedBasemapTarget = null;
         if (mode === 'fullscreen') {
           syncDrilldown(instance);
+          syncVisualTextureDetail(instance);
           return;
         }
+        syncVisualTextureDetail(instance);
         syncBasemapLayers(instance);
+      };
+
+      const handleZoom = () => {
+        syncVisualTextureDetail(instance);
       };
 
       const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
         if (mode !== 'fullscreen') return;
+        if (shopLocationPickMode) {
+          instance.getCanvas().style.cursor = 'crosshair';
+          return;
+        }
         const feature = getTopFeatureAtPoint(instance, event.point);
         const newId = feature?.properties?.featureId ?? null;
         if (newId === hoveredFeatureId) return;
@@ -1988,13 +2297,28 @@
           return;
         }
 
+        // In shop location pick mode, clicking sets the pending coordinates.
+        if (shopLocationPickMode) {
+          const { lat, lng } = event.lngLat;
+          pendingShopCoords = { lat, lng };
+          // Place / move the marker
+          if (shopPickMarker) {
+            shopPickMarker.setLngLat([lng, lat]);
+          } else {
+            shopPickMarker = new maplibregl.Marker({ color: '#22c55e' })
+              .setLngLat([lng, lat])
+              .addTo(instance);
+          }
+          return;
+        }
+
         pinnedShop = null;
         markerHoveredShop = null;
 
         const feature = getTopFeatureAtPoint(instance, event.point);
         if (!feature?.properties) {
           regionFilter = { type: 'world' };
-          chinaActive = false;
+          activeSupportedCountry = null;
           activeProvinceAdcode = null;
           activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
@@ -2006,8 +2330,9 @@
         applyRegionFilter(feature);
 
         if (feature.properties.dataset === 'world') {
-          if (feature.properties.isChina) {
-            chinaActive = true;
+          const supported = isSupportedCountryWorldFeature(feature);
+          if (supported) {
+            activeSupportedCountry = supported;
             activeProvinceAdcode = null;
             activeCityAdcode = null;
             countyData = emptyGlobeFeatureCollection();
@@ -2015,7 +2340,7 @@
             syncMapData(instance);
             fitToFeature(instance, feature, 4.4);
           } else {
-            chinaActive = false;
+            activeSupportedCountry = null;
             activeProvinceAdcode = null;
             activeCityAdcode = null;
             countyData = emptyGlobeFeatureCollection();
@@ -2026,8 +2351,16 @@
           return;
         }
 
-        if (feature.properties.dataset === 'china-provinces') {
-          chinaActive = true;
+        const subdivisionLevelIndex = SUPPORTED_COUNTRIES.reduce<number>(
+          (found, c) =>
+            found >= 0
+              ? found
+              : c.levels.findIndex((l) => l.dataset === feature.properties.dataset),
+          -1
+        );
+        if (subdivisionLevelIndex === 0) {
+          activeSupportedCountry =
+            getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.adcode ?? null;
           activeCityAdcode = null;
           countyData = emptyGlobeFeatureCollection();
@@ -2036,11 +2369,11 @@
           fitToFeature(instance, feature, 6.4);
           return;
         }
-
-        if (feature.properties.dataset === 'china-cities') {
+        if (subdivisionLevelIndex === 1) {
           const cityAdcode = getCountyParentAdcode(feature as unknown as GlobeFeature) ?? null;
           const prevCityAdcode = activeCityAdcode;
-          chinaActive = true;
+          activeSupportedCountry =
+            getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = cityAdcode;
           if (cityAdcode !== prevCityAdcode) {
@@ -2052,9 +2385,9 @@
           fitToFeature(instance, feature, feature.properties.hasCountyChildren ? 8.2 : 7.2);
           return;
         }
-
-        if (feature.properties.dataset === 'china-counties') {
-          chinaActive = true;
+        if (subdivisionLevelIndex === 2) {
+          activeSupportedCountry =
+            getSupportedCountryByDataset(feature.properties.dataset) ?? activeSupportedCountry;
           activeProvinceAdcode = feature.properties.provinceAdcode ?? null;
           activeCityAdcode = feature.properties.parentAdcode ?? null;
           syncMapData(instance);
@@ -2129,6 +2462,7 @@
 
       instance.on('style.load', syncStyle);
       instance.on('moveend', handleMoveEnd);
+      instance.on('zoom', handleZoom);
       instance.on('mousemove', handlePointerMove);
       instance.on('mouseout', handleMouseOut);
       instance.on('click', handleClick);
@@ -2171,8 +2505,10 @@
 
       const dispose = () => {
         stopAutoRotation();
+        cancelDeferredVisualsLayer();
         instance.off('style.load', syncStyle);
         instance.off('moveend', handleMoveEnd);
+        instance.off('zoom', handleZoom);
         instance.off('mousemove', handlePointerMove);
         instance.off('mouseout', handleMouseOut);
         instance.off('click', handleClick);
@@ -2218,6 +2554,7 @@
       cleanupMap?.();
       cleanupMap = undefined;
       sourceDataRevisions.clear();
+      rasterSourceTileRevisions.clear();
       visualsLayer = null;
       navigationControl = null;
       anticipatedBasemapTarget = null;
@@ -2233,12 +2570,20 @@
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
       now = new Date();
-      void invalidate('app:globe-shops');
+
+      if (shopData) {
+        void invalidate('app:globe-shops');
+        return;
+      }
+
+      lazyGlobeDataPromise = null;
+      globeDataRefreshToken += 1;
     }, 60_000);
 
     return () => {
       destroyed = true;
       reinitializeGlobe = null;
+      cancelDeferredVisualsLayer();
       cleanupMap?.();
       clearInterval(refreshInterval);
     };
@@ -2353,7 +2698,7 @@
               <div class="card-body p-4">
                 <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
                 <div class="space-y-2">
-                  {#each GAMES as game (game.id)}
+                  {#each GAME_TITLES as game (game.id)}
                     <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                       <input
                         type="checkbox"
@@ -2397,6 +2742,29 @@
               class="input input-bordered w-full pl-7"
             />
           </div>
+          <div class="dropdown dropdown-end">
+            <button
+              type="button"
+              tabindex="0"
+              class="btn btn-circle btn-soft"
+              aria-label={m.more_actions()}
+              title={m.more_actions()}
+            >
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <ul
+              tabindex="0"
+              class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow"
+            >
+              <li>
+                <button onclick={enterShopLocationPickMode}>
+                  <i class="fa-solid fa-plus"></i>
+                  {m.create_shop()}
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -2409,8 +2777,8 @@
         {:else if filteredShops !== null && filteredShops.length === 0}
           <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
         {:else if filteredShops !== null}
-          {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.source}-${shop.id}`)}
-            {@const cardKey = `${shop.source}-${shop.id}`}
+          {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
+            {@const cardKey = `${shop.id}`}
             {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
             <div
               bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
@@ -2504,6 +2872,46 @@
       style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
     >
       <ShopCard shop={markerHoveredShop} />
+    </div>
+  {/if}
+
+  <!-- ================================================================
+       Shop location pick mode overlay
+       ================================================================ -->
+  {#if shopLocationPickMode}
+    <div class="pointer-events-none absolute inset-0 z-30" transition:fade={{ duration: 150 }}>
+      <!-- Instruction banner at the top -->
+      <div
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg backdrop-blur-sm"
+      >
+        <i class="fa-solid fa-crosshairs text-success text-lg"></i>
+        <p class="text-sm font-medium">{m.shop_pick_location_hint()}</p>
+      </div>
+
+      <!-- Confirm / cancel bar at the bottom -->
+      <div
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 bottom-12 mx-auto flex w-fit items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg backdrop-blur-sm"
+      >
+        {#if pendingShopCoords}
+          <span class="font-mono text-xs opacity-60">
+            {pendingShopCoords.lat.toFixed(5)}, {pendingShopCoords.lng.toFixed(5)}
+          </span>
+        {/if}
+        <button
+          class="btn btn-success btn-sm"
+          disabled={!pendingShopCoords}
+          onclick={confirmShopLocation}
+        >
+          <i class="fa-solid fa-check"></i>
+          {m.confirm()}
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick={exitShopLocationPickMode}>
+          <i class="fa-solid fa-xmark"></i>
+          {m.cancel()}
+        </button>
+      </div>
     </div>
   {/if}
 

@@ -11,6 +11,18 @@ import {
 } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import {
+  postCommentCreateRequestSchema,
+  postCommentCreateResponseSchema,
+  postIdParamSchema
+} from '$lib/schemas/posts';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+const postCommentCreateRequestWithExistingImagesSchema = withExistingImages(
+  postCommentCreateRequestSchema
+);
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -19,18 +31,13 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const postId = params.postId;
-    if (!postId) {
-      error(400, m.invalid_post_id());
-    }
+    const { postId } = parseParamsOrError(postIdParamSchema, params);
 
-    const { content, parentCommentId } = (await request.json()) as {
-      content: string;
-      parentCommentId?: string;
-    };
-    if (!content || !content.trim()) {
-      error(400, m.comment_content_is_required());
-    }
+    const {
+      content: trimmedContent,
+      parentCommentId,
+      images: imageIds
+    } = await parseJsonOrError(request, postCommentCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const postsCollection = db.collection<Post>('posts');
@@ -102,7 +109,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     const newComment: Comment = {
       id: commentId(),
       postId: postId,
-      content: content.trim(),
+      content: trimmedContent,
+      images: imageIds,
       createdBy: session.user.id,
       createdAt: new Date(),
       parentCommentId: parentCommentId || null,
@@ -111,6 +119,20 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     };
 
     await commentsCollection.insertOne(newComment);
+
+    try {
+      if (imageIds.length > 0) {
+        await attachImagesToOwner(
+          db,
+          imageIds,
+          { commentId: newComment.id },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+      }
+    } catch (attachmentError) {
+      await commentsCollection.deleteOne({ id: newComment.id });
+      throw attachmentError;
+    }
 
     // Update post comment count
     await postsCollection.updateOne(
@@ -133,7 +155,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             actorDisplayName: session.user.displayName || undefined,
             actorImage: session.user.image || undefined,
             targetUserId: parentComment.createdBy,
-            content: content.substring(0, 200), // Truncate long content
+            content: trimmedContent.substring(0, 200), // Truncate long content
             postId: post.id,
             postTitle: post.title,
             commentId: newComment.id,
@@ -151,7 +173,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
             actorDisplayName: session.user.displayName || undefined,
             actorImage: session.user.image || undefined,
             targetUserId: post.createdBy,
-            content: content.substring(0, 200), // Truncate long content
+            content: trimmedContent.substring(0, 200), // Truncate long content
             postId: post.id,
             postTitle: post.title,
             commentId: newComment.id,
@@ -166,10 +188,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     return json(
-      {
+      postCommentCreateResponseSchema.parse({
         success: true,
         commentId: newComment.id
-      },
+      }),
       { status: 201 }
     );
   } catch (err) {

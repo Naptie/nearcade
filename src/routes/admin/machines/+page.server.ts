@@ -5,7 +5,6 @@ import { serialNumber, toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
-import { ShopSource } from '$lib/constants';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -46,16 +45,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       {
         $lookup: {
           from: 'shops',
-          let: { shopSource: '$shopSource', shopId: '$shopId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [{ $eq: ['$source', '$$shopSource'] }, { $eq: ['$id', '$$shopId'] }]
-                }
-              }
-            }
-          ],
+          localField: 'shopId',
+          foreignField: 'id',
           as: 'shop'
         }
       },
@@ -93,10 +84,9 @@ export const actions = {
 
     const formData = await request.formData();
     const name = formData.get('name')?.toString().trim();
-    const shopSource = formData.get('shopSource')?.toString().trim() as ShopSource;
     const shopIdStr = formData.get('shopId')?.toString().trim();
 
-    if (!name || !shopSource || !shopIdStr) {
+    if (!name || !shopIdStr) {
       return fail(400, { error: m.missing_required_fields() });
     }
 
@@ -105,15 +95,10 @@ export const actions = {
       return fail(400, { error: m.invalid_shop_id() });
     }
 
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(shopSource)) {
-      return fail(400, { error: m.invalid_shop_source() });
-    }
-
     const db = mongo.db();
 
     // Check if shop exists
-    const shop = await db.collection<Shop>('shops').findOne({ source: shopSource, id: shopId });
+    const shop = await db.collection<Shop>('shops').findOne({ id: shopId });
     if (!shop) {
       return fail(404, { error: m.shop_not_found() });
     }
@@ -123,7 +108,6 @@ export const actions = {
     const machine: Machine = {
       id: nanoid(),
       name,
-      shopSource,
       shopId,
       serialNumber: serialNumber(),
       isActivated: false,
@@ -192,7 +176,7 @@ export const actions = {
       await db
         .collection<Shop>('shops')
         .updateOne(
-          { source: machine.shopSource, id: machine.shopId },
+          { id: machine.shopId },
           { $unset: { isClaimed: '' }, $set: { updatedAt: new Date() } }
         );
     }

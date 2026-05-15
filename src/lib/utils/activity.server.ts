@@ -11,13 +11,14 @@ import {
   type UniversityMember,
   type ClubMember,
   type Shop,
+  type ShopDeleteRequest,
+  type ShopDeleteRequestVote,
   PostReadability,
   type AttendanceRecord
 } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import { getDisplayName, protect } from '.';
 import redis, { ensureConnected } from '$lib/db/redis.server';
-import type { ShopSource } from '$lib/constants';
 
 /**
  * User Activity Server Module
@@ -200,6 +201,122 @@ export async function getUserActivities(
     }
   });
 
+  // Fetch shop comments
+  const shopComments = (await db
+    .collection<Comment>('comments')
+    .aggregate([
+      { $match: { createdBy: userId, shopId: { $exists: true, $ne: null } } },
+      {
+        $lookup: {
+          from: 'shops',
+          localField: 'shopId',
+          foreignField: 'id',
+          as: 'shop'
+        }
+      },
+      {
+        $lookup: {
+          from: 'comments',
+          localField: 'parentCommentId',
+          foreignField: 'id',
+          as: 'parentComment'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'parentComment.createdBy',
+          foreignField: 'id',
+          as: 'parentCommentAuthor'
+        }
+      },
+      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit }
+    ])
+    .toArray()) as (Comment & {
+    shop: Shop;
+    parentCommentAuthor?: User[];
+  })[];
+
+  shopComments.forEach((comment) => {
+    const parentCommentAuthor = protect(comment.parentCommentAuthor?.[0]);
+    const isReply = !!comment.parentCommentId;
+
+    activities.push({
+      id: `shop-comment-${comment.id}`,
+      type: isReply ? 'shop_reply' : 'shop_comment',
+      createdAt: comment.createdAt,
+      userId: comment.createdBy,
+      commentContent: comment.content,
+      commentId: comment.id,
+      parentCommentId: comment.parentCommentId,
+      shopId: comment.shop.id,
+      shopName: comment.shop.name,
+      targetAuthorName: parentCommentAuthor?.name || undefined,
+      targetAuthorDisplayName: isReply ? getDisplayName(parentCommentAuthor) : undefined
+    });
+  });
+
+  // Fetch delete request comments
+  const deleteRequestComments = (await db
+    .collection<Comment>('comments')
+    .aggregate([
+      { $match: { createdBy: userId, shopDeleteRequestId: { $exists: true, $ne: null } } },
+      {
+        $lookup: {
+          from: 'shop_delete_requests',
+          localField: 'shopDeleteRequestId',
+          foreignField: 'id',
+          as: 'deleteRequest'
+        }
+      },
+      {
+        $lookup: {
+          from: 'comments',
+          localField: 'parentCommentId',
+          foreignField: 'id',
+          as: 'parentComment'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'parentComment.createdBy',
+          foreignField: 'id',
+          as: 'parentCommentAuthor'
+        }
+      },
+      { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit }
+    ])
+    .toArray()) as (Comment & {
+    deleteRequest: ShopDeleteRequest;
+    parentCommentAuthor?: User[];
+  })[];
+
+  deleteRequestComments.forEach((comment) => {
+    const parentCommentAuthor = protect(comment.parentCommentAuthor?.[0]);
+    const isReply = !!comment.parentCommentId;
+
+    activities.push({
+      id: `shop-delete-request-comment-${comment.id}`,
+      type: isReply ? 'shop_delete_request_reply' : 'shop_delete_request_comment',
+      createdAt: comment.createdAt,
+      userId: comment.createdBy,
+      commentContent: comment.content,
+      commentId: comment.id,
+      parentCommentId: comment.parentCommentId,
+      shopId: comment.deleteRequest.shopId,
+      shopName: comment.deleteRequest.shopName,
+      shopDeleteRequestId: comment.deleteRequest.id,
+      shopDeleteRequestType: comment.deleteRequest.photoId ? 'photo' : 'shop',
+      targetAuthorName: parentCommentAuthor?.name || undefined,
+      targetAuthorDisplayName: isReply ? getDisplayName(parentCommentAuthor) : undefined
+    });
+  });
+
   // Fetch post votes
   const postVotes = (await db
     .collection<PostVote>('post_votes')
@@ -341,6 +458,160 @@ export async function getUserActivities(
         clubName: vote.club?.[0]?.name
       });
     }
+  });
+
+  // Fetch shop comment votes
+  const shopCommentVotes = (await db
+    .collection<CommentVote>('comment_votes')
+    .aggregate([
+      { $match: { userId: userId } },
+      {
+        $lookup: {
+          from: 'comments',
+          localField: 'commentId',
+          foreignField: 'id',
+          as: 'comment'
+        }
+      },
+      { $unwind: { path: '$comment', preserveNullAndEmptyArrays: false } },
+      { $match: { 'comment.shopId': { $exists: true, $ne: null } } },
+      {
+        $lookup: {
+          from: 'shops',
+          localField: 'comment.shopId',
+          foreignField: 'id',
+          as: 'shop'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'comment.createdBy',
+          foreignField: 'id',
+          as: 'commentAuthor'
+        }
+      },
+      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit }
+    ])
+    .toArray()) as (CommentVote & { comment: Comment; shop: Shop; commentAuthor?: User[] })[];
+
+  shopCommentVotes.forEach((vote) => {
+    const commentAuthor = protect(vote.commentAuthor?.[0]);
+    const isReplyVote = !!vote.comment.parentCommentId;
+
+    activities.push({
+      id: `shop-comment-vote-${vote.id}`,
+      type: 'shop_comment_vote',
+      createdAt: vote.createdAt,
+      userId: vote.userId,
+      voteType: vote.voteType,
+      targetType: isReplyVote ? 'shop_reply' : 'shop_comment',
+      targetAuthorName: commentAuthor?.name || undefined,
+      targetAuthorDisplayName: getDisplayName(commentAuthor),
+      commentId: vote.commentId,
+      parentCommentId: vote.comment.parentCommentId,
+      shopId: vote.shop.id,
+      shopName: vote.shop.name
+    });
+  });
+
+  // Fetch delete request comment votes
+  const deleteRequestCommentVotes = (await db
+    .collection<CommentVote>('comment_votes')
+    .aggregate([
+      { $match: { userId: userId } },
+      {
+        $lookup: {
+          from: 'comments',
+          localField: 'commentId',
+          foreignField: 'id',
+          as: 'comment'
+        }
+      },
+      { $unwind: { path: '$comment', preserveNullAndEmptyArrays: false } },
+      { $match: { 'comment.shopDeleteRequestId': { $exists: true, $ne: null } } },
+      {
+        $lookup: {
+          from: 'shop_delete_requests',
+          localField: 'comment.shopDeleteRequestId',
+          foreignField: 'id',
+          as: 'deleteRequest'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'comment.createdBy',
+          foreignField: 'id',
+          as: 'commentAuthor'
+        }
+      },
+      { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit }
+    ])
+    .toArray()) as (CommentVote & {
+    comment: Comment;
+    deleteRequest: ShopDeleteRequest;
+    commentAuthor?: User[];
+  })[];
+
+  deleteRequestCommentVotes.forEach((vote) => {
+    const commentAuthor = protect(vote.commentAuthor?.[0]);
+    const isReplyVote = !!vote.comment.parentCommentId;
+
+    activities.push({
+      id: `shop-delete-request-comment-vote-${vote.id}`,
+      type: 'shop_delete_request_comment_vote',
+      createdAt: vote.createdAt,
+      userId: vote.userId,
+      voteType: vote.voteType,
+      targetType: isReplyVote ? 'shop_delete_request_reply' : 'shop_delete_request_comment',
+      targetAuthorName: commentAuthor?.name || undefined,
+      targetAuthorDisplayName: getDisplayName(commentAuthor),
+      commentId: vote.commentId,
+      parentCommentId: vote.comment.parentCommentId,
+      shopId: vote.deleteRequest.shopId,
+      shopName: vote.deleteRequest.shopName,
+      shopDeleteRequestId: vote.deleteRequest.id,
+      shopDeleteRequestType: vote.deleteRequest.photoId ? 'photo' : 'shop'
+    });
+  });
+
+  // Fetch delete request votes
+  const deleteRequestVotes = (await db
+    .collection<ShopDeleteRequestVote>('shop_delete_request_votes')
+    .aggregate([
+      { $match: { userId } },
+      {
+        $lookup: {
+          from: 'shop_delete_requests',
+          localField: 'shopDeleteRequestId',
+          foreignField: 'id',
+          as: 'deleteRequest'
+        }
+      },
+      { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit }
+    ])
+    .toArray()) as (ShopDeleteRequestVote & { deleteRequest: ShopDeleteRequest })[];
+
+  deleteRequestVotes.forEach((vote) => {
+    activities.push({
+      id: `shop-delete-request-vote-${vote.id}`,
+      type: 'shop_delete_request_vote',
+      createdAt: vote.createdAt,
+      userId: vote.userId,
+      shopId: vote.deleteRequest.shopId,
+      shopName: vote.deleteRequest.shopName,
+      shopDeleteRequestId: vote.shopDeleteRequestId,
+      shopDeleteRequestType: vote.deleteRequest.photoId ? 'photo' : 'shop',
+      shopDeleteRequestVoteType: vote.voteType,
+      targetType: 'shop_delete_request'
+    });
   });
 
   // Fetch university membership activities (if privacy allows)
@@ -504,16 +775,8 @@ export async function getUserActivities(
         {
           $lookup: {
             from: 'shops',
-            let: { shopSource: '$shop.source', shopId: '$shop.id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [{ $eq: ['$source', '$$shopSource'] }, { $eq: ['$id', '$$shopId'] }]
-                  }
-                }
-              }
-            ],
+            localField: 'shopId',
+            foreignField: 'id',
             as: 'shop'
           }
         },
@@ -536,7 +799,6 @@ export async function getUserActivities(
         userId: attendance.userId,
         shopId: attendance.shop.id,
         shopName: attendance.shop.name,
-        shopSource: attendance.shop.source,
         leaveAt: attendance.leftAt,
         attendanceGames: gameNames
       });
@@ -549,10 +811,8 @@ export async function getUserActivities(
     if (keys.length > 0) {
       const dataStr = await redis.get(keys[0]);
       if (dataStr) {
-        const [source, id] = keys[0].split(':')[2].split('-');
-        const shop = await db
-          .collection<Shop>('shops')
-          .findOne({ source: source as ShopSource, id: parseInt(id) });
+        const id = keys[0].split(':')[2];
+        const shop = await db.collection<Shop>('shops').findOne({ id: parseInt(id) });
         if (shop) {
           const data = JSON.parse(dataStr);
           const attendedAt = new Date(data.attendedAt);
@@ -574,7 +834,6 @@ export async function getUserActivities(
             userId: userId,
             shopId: shop.id,
             shopName: shop.name,
-            shopSource: shop.source,
             leaveAt: plannedLeaveAt,
             attendanceGames: gameNames,
             isLive: true

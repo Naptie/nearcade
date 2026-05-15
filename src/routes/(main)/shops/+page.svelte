@@ -5,14 +5,8 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import {
-    aggregateGames,
-    formatShopAddress,
-    getGameName,
-    getShopSourceUrl,
-    pageTitle
-  } from '$lib/utils';
-  import { PAGINATION, GAMES } from '$lib/constants';
+  import { aggregateGames, formatShopAddress, getGameName, pageTitle } from '$lib/utils';
+  import { PAGINATION, GAME_TITLES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
@@ -80,7 +74,7 @@
   };
 
   const getGameInfo = (gameId: number) => {
-    return GAMES.find((g) => g.id === gameId);
+    return GAME_TITLES.find((g) => g.id === gameId);
   };
 </script>
 
@@ -95,7 +89,36 @@
 
 <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
   <!-- Header -->
-  <h1 class="mb-4 text-3xl font-bold">{m.browse_shops()}</h1>
+  <div class="mb-4 flex items-center gap-3">
+    <h1 class="flex-1 text-3xl font-bold">{m.browse_shops()}</h1>
+    <!-- Three-dots dropdown for shop-level actions -->
+    <div class="dropdown dropdown-end">
+      <button
+        type="button"
+        tabindex="0"
+        class="btn btn-circle btn-soft"
+        aria-label={m.more_actions()}
+        title={m.more_actions()}
+      >
+        <i class="fa-solid fa-ellipsis"></i>
+      </button>
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-56 p-2 shadow">
+        <li>
+          <a href={resolve('/(main)/shops/new')}>
+            <i class="fa-solid fa-plus"></i>
+            {m.create_shop()}
+          </a>
+        </li>
+        <li>
+          <a href={resolve('/(main)/shops/delete-requests')}>
+            <i class="fa-solid fa-trash-can-arrow-up"></i>
+            {m.shop_delete_requests()}
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
 
   <!-- Search Bar -->
   <div class="mb-8">
@@ -122,7 +145,7 @@
           <div class="card-body p-4">
             <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
             <div class="space-y-2">
-              {#each GAMES as game (game.id)}
+              {#each GAME_TITLES as game (game.id)}
                 <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                   <input
                     type="checkbox"
@@ -219,7 +242,7 @@
             {:else if data.titleIds.length > 0}
               <div class="inline-flex flex-wrap items-center gap-2">
                 {@html m.showing_shops_with_games({
-                  games: GAMES.filter((g) => data.titleIds.includes(g.id))
+                  games: GAME_TITLES.filter((g) => data.titleIds.includes(g.id))
                     .map(
                       (g) =>
                         `<span class="badge badge-soft badge-sm px-1.75">${getGameName(g.key)}</span>`
@@ -241,8 +264,7 @@
           {#each shopsData.shops as shop (shop._id)}
             {@const aggregatedGames = aggregateGames(shop)}
             <a
-              href={resolve('/(main)/shops/[source]/[id]', {
-                source: shop.source,
+              href={resolve('/(main)/shops/[id]', {
                 id: shop.id.toString()
               })}
               class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
@@ -260,16 +282,6 @@
                         {@html shop.nameHl || shop.name}
                       </h3>
                     </div>
-                    <button
-                      class="btn btn-soft btn-sm btn-circle"
-                      onclick={(e) => {
-                        e.preventDefault();
-                        window.open(getShopSourceUrl(shop), '_blank');
-                      }}
-                      aria-label={m.view_on_source({ source: shop.source.toUpperCase() })}
-                    >
-                      <i class="fa-solid fa-external-link-alt"></i>
-                    </button>
                   </div>
 
                   <div class="text-base-content/80 flex items-start gap-2 text-sm">

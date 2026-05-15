@@ -9,7 +9,7 @@
   import type { Notification } from '$lib/types';
   import { onMount } from 'svelte';
   import { strip } from '$lib/utils/markdown';
-  import { getNotificationLink } from '$lib/notifications/index.client';
+  import { getNotificationLink, getNotificationTargetName } from '$lib/notifications/index.client';
 
   interface Props {
     notification: Notification;
@@ -35,12 +35,7 @@
         displayName: notification.actorDisplayName
       }
     )}</a>`;
-    const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${
-      notification.postTitle ??
-      (notification.joinRequestType === 'university'
-        ? notification.universityName
-        : notification.clubName)
-    }</a>`;
+    const targetName = `<a href="${link}" class="text-accent hover:text-accent/80 font-medium transition-colors">${getNotificationTargetName(notification)}</a>`;
 
     switch (notification.type) {
       case 'COMMENTS':
@@ -59,6 +54,16 @@
         return notification.joinRequestStatus === 'approved'
           ? m.notification_user_approved_join_request({ userName: actorName, targetName })
           : m.notification_user_rejected_join_request({ userName: actorName, targetName });
+      case 'SHOP_DELETE_REQUESTS':
+        return notification.shopDeleteRequestStatus === 'approved'
+          ? m.notification_delete_request_approved({
+              userName: actorName,
+              targetName
+            })
+          : m.notification_delete_request_rejected({
+              userName: actorName,
+              targetName
+            });
       default:
         return '';
     }
@@ -81,6 +86,10 @@
         return notification.joinRequestStatus === 'approved'
           ? 'fa-solid fa-user-check text-success'
           : 'fa-solid fa-user-xmark text-error';
+      case 'SHOP_DELETE_REQUESTS':
+        return notification.shopDeleteRequestStatus === 'approved'
+          ? 'fa-solid fa-trash-can text-success'
+          : 'fa-solid fa-trash-can text-error';
       default:
         return 'fa-solid fa-bell';
     }
@@ -116,8 +125,8 @@
         {@html text}
       </div>
 
-      <!-- Preview for Comments/Replies -->
-      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES') && content}
+      <!-- Preview for Comments/Replies/Shop Delete Requests -->
+      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES' || notification.type === 'SHOP_DELETE_REQUESTS') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
         </div>

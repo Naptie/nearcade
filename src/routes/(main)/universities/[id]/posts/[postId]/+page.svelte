@@ -10,6 +10,7 @@
   comments={data.comments}
   userVote={data.userVote}
   currentUserId={data.user?.id}
+  currentUser={data.user ?? undefined}
   organizationType="university"
   organizationName={data.university.name}
   organizationSlug={data.university.slug}

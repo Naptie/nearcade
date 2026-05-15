@@ -4,12 +4,15 @@
   import {
     type PostWithAuthor,
     type CommentWithAuthorAndVote,
+    type ImageAsset,
     PostWritability,
     PostReadability
   } from '$lib/types';
+  import type { User } from '$lib/auth/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
   import MarkdownEditor from './MarkdownEditor.svelte';
+  import PhotoCarousel from './PhotoCarousel.svelte';
   import BackToTopButton from './BackToTopButton.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import { formatDistanceToNow } from 'date-fns';
@@ -17,6 +20,8 @@
   import { render } from '$lib/utils/markdown';
   import { onMount, onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
+  import { stripPostImageMarkdownByIds } from '$lib/utils/image';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDisplayName, getFnsLocale, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getLocale } from '$lib/paraglide/runtime';
@@ -26,6 +31,7 @@
     comments: CommentWithAuthorAndVote[];
     userVote: 'upvote' | 'downvote' | null;
     currentUserId?: string;
+    currentUser?: User | undefined;
     organizationType: 'university' | 'club';
     organizationName: string;
     organizationSlug?: string;
@@ -43,6 +49,7 @@
     comments,
     userVote,
     currentUserId,
+    currentUser = undefined,
     organizationType,
     organizationName,
     organizationSlug,
@@ -60,26 +67,36 @@
   let content = $state('');
   let isVoting = $state(false);
   let newCommentContent = $state('');
+  let newCommentImageIds = $state<string[]>([]);
+  let newCommentAttachments = $state<ImageAsset[]>([]);
   let isSubmittingComment = $state(false);
   let commentError = $state('');
   let replyingTo = $state<string | null>(null);
   let replyContent = $state('');
+  let replyImageIds = $state<string[]>([]);
+  let replyAttachments = $state<ImageAsset[]>([]);
   let isSubmittingReply = $state(false);
   let componentMounted = $state(true);
   let localPost = $derived(post);
   let showManageMenu = $state(false);
   let isEditingPost = $state(false);
-  let editTitle = $derived(post.title);
-  let editContent = $derived(post.content);
-  let editReadability = $derived(post.readability);
+  let editTitle = $state('');
+  let editContent = $state('');
+  let editImageIds = $state<string[]>([]);
+  let editAttachments = $state<ImageAsset[]>([]);
+  let editReadability = $state(PostReadability.PUBLIC);
   let isSavingPost = $state(false);
   let showDeletePostConfirm = $state(false);
   let isPostRendered = $state(false);
+  let showPostImages = $state(false);
 
   let netVotes = $derived(post.upvotes - post.downvotes);
   let isOwnPost = $derived(currentUserId === post.createdBy);
   let canEditPost = $derived(isOwnPost || canEdit);
   let canManagePost = $derived(canManage);
+  let canManagePostImages = $derived(
+    !!currentUser && (isOwnPost || currentUser.userType === 'site_admin')
+  );
 
   // Determine if user can vote based on post readability permissions
   let canVote = $derived.by(() => {
@@ -117,6 +134,43 @@
       : [])
   ]);
 
+  const resetNewCommentComposer = () => {
+    newCommentContent = '';
+    newCommentImageIds = [];
+    newCommentAttachments = [];
+  };
+
+  const cleanupDraftImages = async (imageIds: string[]) => {
+    await Promise.all(
+      imageIds.map(async (imageId) => {
+        try {
+          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
+        } catch (error) {
+          console.error('Failed to delete draft image:', error);
+        }
+      })
+    );
+  };
+
+  const resetReplyComposer = (cleanupDrafts = false) => {
+    if (cleanupDrafts && replyImageIds.length > 0) {
+      void cleanupDraftImages(replyImageIds);
+    }
+
+    replyingTo = null;
+    replyContent = '';
+    replyImageIds = [];
+    replyAttachments = [];
+  };
+
+  const resetPostEditState = () => {
+    editTitle = localPost.title;
+    editContent = localPost.content;
+    editImageIds = localPost.images ? [...localPost.images] : [];
+    editAttachments = localPost.resolvedImages ? [...localPost.resolvedImages] : [];
+    editReadability = localPost.readability;
+  };
+
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     if (!currentUserId || isVoting) return;
 
@@ -143,7 +197,12 @@
   };
 
   const handleCommentSubmit = async () => {
-    if (!currentUserId || !newCommentContent.trim() || isSubmittingComment) return;
+    if (
+      !currentUserId ||
+      (!newCommentContent.trim() && newCommentImageIds.length === 0) ||
+      isSubmittingComment
+    )
+      return;
 
     isSubmittingComment = true;
     commentError = '';
@@ -155,12 +214,13 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content: newCommentContent.trim()
+          content: newCommentContent.trim(),
+          images: newCommentImageIds
         })
       });
 
       if (response.ok) {
-        newCommentContent = '';
+        resetNewCommentComposer();
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message: string };
@@ -196,12 +256,24 @@
   };
 
   const handleCommentReply = (commentId: string) => {
+    if (replyImageIds.length > 0) {
+      void cleanupDraftImages(replyImageIds);
+    }
+
     replyingTo = commentId;
     replyContent = '';
+    replyImageIds = [];
+    replyAttachments = [];
   };
 
   const submitReply = async () => {
-    if (!currentUserId || !replyContent.trim() || !replyingTo || isSubmittingReply) return;
+    if (
+      !currentUserId ||
+      (!replyContent.trim() && replyImageIds.length === 0) ||
+      !replyingTo ||
+      isSubmittingReply
+    )
+      return;
 
     isSubmittingReply = true;
     commentError = '';
@@ -214,13 +286,13 @@
         },
         body: JSON.stringify({
           content: replyContent.trim(),
+          images: replyImageIds,
           parentCommentId: replyingTo
         })
       });
 
       if (response.ok) {
-        replyingTo = null;
-        replyContent = '';
+        resetReplyComposer();
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message: string };
@@ -233,7 +305,7 @@
     }
   };
 
-  const handleCommentEdit = async (commentId: string, newContent: string) => {
+  const handleCommentEdit = async (commentId: string, newContent: string, imageIds: string[]) => {
     if (!currentUserId) return;
 
     try {
@@ -242,16 +314,11 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content: newContent })
+        body: JSON.stringify({ content: newContent, images: imageIds })
       });
 
       if (response.ok) {
-        // Update the comment in local state
-        comments = comments.map((comment) =>
-          comment.id === commentId
-            ? { ...comment, content: newContent, updatedAt: new Date() }
-            : comment
-        );
+        await invalidateAll();
       } else {
         const errorData = (await response.json()) as { message: string };
         throw new Error(errorData.message || 'Failed to edit comment');
@@ -271,8 +338,7 @@
       });
 
       if (response.ok) {
-        // Remove comment from local state
-        comments = comments.filter((c) => c.id !== commentId && c.parentCommentId !== commentId);
+        await invalidateAll();
       } else {
         const errorData = (await response.json()) as { message: string };
         alert(errorData.message || 'Failed to delete comment');
@@ -336,22 +402,27 @@
 
   const startEditingPost = () => {
     if (!canEditPost) return;
+    resetPostEditState();
     isEditingPost = true;
-    editTitle = localPost.title;
-    editContent = localPost.content;
-    editReadability = localPost.readability;
     showManageMenu = false;
   };
 
   const cancelEditingPost = () => {
+    const addedDraftImageIds = editImageIds.filter(
+      (imageId) => !(localPost.images ?? []).includes(imageId)
+    );
+    if (addedDraftImageIds.length > 0) {
+      void cleanupDraftImages(addedDraftImageIds);
+    }
+
     isEditingPost = false;
-    editTitle = localPost.title;
-    editContent = localPost.content;
-    editReadability = localPost.readability;
+    resetPostEditState();
   };
 
   const savePostEdit = async () => {
-    if (!canEditPost || !editTitle.trim() || !editContent.trim()) return;
+    if (!canEditPost || !editTitle.trim() || (!editContent.trim() && editImageIds.length === 0)) {
+      return;
+    }
 
     isSavingPost = true;
     try {
@@ -363,7 +434,8 @@
         body: JSON.stringify({
           title: editTitle.trim(),
           content: editContent.trim(),
-          readability: editReadability
+          readability: editReadability,
+          images: editImageIds
         })
       });
 
@@ -372,6 +444,8 @@
           ...localPost,
           title: editTitle.trim(),
           content: editContent.trim(),
+          images: [...editImageIds],
+          resolvedImages: [...editAttachments],
           readability: editReadability,
           updatedAt: new Date()
         };
@@ -578,9 +652,17 @@
         <div class="mb-6">
           <MarkdownEditor
             bind:value={editContent}
+            bind:attachments={editAttachments}
+            bind:imageIds={editImageIds}
             placeholder={m.post_content_placeholder()}
             disabled={isSavingPost}
             minHeight="min-h-48"
+            currentUser={canManagePostImages ? currentUser : undefined}
+            imageUploadUrl={canManagePostImages
+              ? buildImageUploadUrl({ postId: localPost.id })
+              : undefined}
+            persistedImageIds={localPost.images ?? []}
+            appendUploadedImagesToMarkdown={true}
           />
           <div class="mt-4 flex justify-end gap-2">
             <button
@@ -595,7 +677,9 @@
               type="button"
               class="btn btn-primary"
               onclick={savePostEdit}
-              disabled={isSavingPost || !editTitle.trim() || !editContent.trim()}
+              disabled={isSavingPost ||
+                !editTitle.trim() ||
+                (!editContent.trim() && editImageIds.length === 0)}
             >
               {#if isSavingPost}
                 <span class="loading loading-spinner loading-sm"></span>
@@ -605,8 +689,60 @@
           </div>
         </div>
       {:else}
-        <div class="prose not-md:prose-sm mb-6 max-w-none overflow-x-auto">
-          {@html content}
+        <div class="mb-6 space-y-4">
+          {#if localPost.content}
+            <div class="prose not-md:prose-sm max-w-none overflow-x-auto">
+              {@html content}
+            </div>
+          {/if}
+
+          {#if (localPost.resolvedImages?.length ?? 0) > 0}
+            <div class="border-base-300 rounded-xl border p-3">
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm flex w-full items-center justify-between"
+                onclick={() => (showPostImages = !showPostImages)}
+              >
+                <span class="flex items-center gap-2">
+                  <i class="fa-solid fa-images"></i>
+                  {m.post_images()} ({localPost.resolvedImages?.length ?? 0})
+                </span>
+                <i class="fa-solid {showPostImages ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
+              </button>
+
+              {#if showPostImages}
+                <div class="mt-3">
+                  <PhotoCarousel
+                    photos={localPost.resolvedImages ?? []}
+                    currentUser={canManagePostImages ? currentUser : undefined}
+                    title=""
+                    allowDeleteRequest={false}
+                    showEmptyState={false}
+                    onPhotoDeleted={(photo) => {
+                      const nextResolvedImages = (localPost.resolvedImages ?? []).filter(
+                        (image) => image.id !== photo.id
+                      );
+                      const nextContent = stripPostImageMarkdownByIds(localPost.content, [
+                        photo.id
+                      ]);
+                      localPost = {
+                        ...localPost,
+                        content: nextContent,
+                        images: (localPost.images ?? []).filter((imageId) => imageId !== photo.id),
+                        resolvedImages: nextResolvedImages
+                      };
+                      void render(nextContent).then((html) => {
+                        content = html;
+                      });
+                      if (nextResolvedImages.length === 0) {
+                        showPostImages = false;
+                      }
+                    }}
+                  />
+                </div>
+              {/if}
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -690,16 +826,24 @@
 
           <MarkdownEditor
             bind:value={newCommentContent}
+            bind:attachments={newCommentAttachments}
+            bind:imageIds={newCommentImageIds}
             placeholder={m.comment_placeholder()}
             disabled={isSubmittingComment}
             minHeight="min-h-[100px]"
+            {currentUser}
+            imageUploadUrl={buildImageUploadUrl({
+              draftKind: 'post-comment',
+              postId: localPost.id
+            })}
           />
 
           <div class="mt-3 flex justify-end">
             <button
               class="btn btn-primary btn-sm"
               onclick={handleCommentSubmit}
-              disabled={isSubmittingComment || !newCommentContent.trim()}
+              disabled={isSubmittingComment ||
+                (!newCommentContent.trim() && newCommentImageIds.length === 0)}
             >
               {#if isSubmittingComment}
                 <span class="loading loading-spinner loading-sm"></span>
@@ -746,6 +890,7 @@
               <Comment
                 {comment}
                 {currentUserId}
+                {currentUser}
                 canReply={canComment}
                 {canEdit}
                 onVote={canVote ? handleCommentVote : undefined}
@@ -768,9 +913,16 @@
 
                   <MarkdownEditor
                     bind:value={replyContent}
+                    bind:attachments={replyAttachments}
+                    bind:imageIds={replyImageIds}
                     placeholder={m.reply_to_comment()}
                     disabled={isSubmittingReply}
                     minHeight="min-h-[100px]"
+                    {currentUser}
+                    imageUploadUrl={buildImageUploadUrl({
+                      draftKind: 'post-comment',
+                      postId: localPost.id
+                    })}
                   />
 
                   <div class="mt-3 flex items-center justify-end">
@@ -778,8 +930,7 @@
                       <button
                         class="btn btn-ghost btn-sm"
                         onclick={() => {
-                          replyingTo = null;
-                          replyContent = '';
+                          resetReplyComposer(true);
                         }}
                         disabled={isSubmittingReply}
                       >
@@ -788,7 +939,8 @@
                       <button
                         class="btn btn-primary btn-sm"
                         onclick={submitReply}
-                        disabled={isSubmittingReply || !replyContent.trim()}
+                        disabled={isSubmittingReply ||
+                          (!replyContent.trim() && replyImageIds.length === 0)}
                       >
                         {#if isSubmittingReply}
                           <span class="loading loading-spinner loading-sm"></span>
@@ -807,6 +959,7 @@
                 <Comment
                   comment={reply}
                   {currentUserId}
+                  {currentUser}
                   canReply={canComment}
                   {canEdit}
                   onVote={canVote ? handleCommentVote : undefined}

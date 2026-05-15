@@ -9,10 +9,11 @@ import {
   updateUserType
 } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
-import { logCampusChanges } from '$lib/utils/changelog.server';
+import { logCampusChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { omitUndefinedFields } from '$lib/utils/organizations.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -87,16 +88,10 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       // Get frequenting arcades for the university
       let frequentingArcades: Shop[] = [];
       if (university.frequentingArcades && university.frequentingArcades.length > 0) {
-        const frequentingArcadeIdentifiers = university.frequentingArcades.slice(
-          0,
-          PAGINATION.PAGE_SIZE
-        );
+        const frequentingArcadeIds = university.frequentingArcades.slice(0, PAGINATION.PAGE_SIZE);
         frequentingArcades = (await shopsCollection
           .find({
-            $or: frequentingArcadeIdentifiers.map((identifier: { id: number; source: string }) => ({
-              id: identifier.id,
-              source: identifier.source
-            }))
+            id: { $in: frequentingArcadeIds }
           })
           .toArray()) as unknown as Shop[];
       }
@@ -162,7 +157,7 @@ export const actions: Actions = {
       const db = mongo.db();
       const universitiesCollection = db.collection('universities');
 
-      const newCampus = {
+      const newCampus = omitUndefinedFields({
         id: id || nanoid(),
         name,
         address,
@@ -174,8 +169,8 @@ export const actions: Actions = {
           coordinates: [longitude, latitude]
         },
         createdAt: new Date(),
-        createdBy: user.id
-      };
+        createdBy: user.id || undefined
+      });
 
       await universitiesCollection.updateOne({ id: universityId }, {
         $addToSet: { campuses: newCampus }
@@ -239,7 +234,7 @@ export const actions: Actions = {
         return fail(404, { message: m.campus_not_found() });
       }
 
-      const updatedCampus: Campus = {
+      const updatedCampus: Campus = omitUndefinedFields({
         ...currentCampus,
         name,
         address,
@@ -251,13 +246,13 @@ export const actions: Actions = {
           coordinates: [longitude, latitude]
         },
         updatedAt: new Date(),
-        updatedBy: user.id
-      };
+        updatedBy: user.id || undefined
+      }) as Campus;
 
       await universitiesCollection.updateOne(
         { id: universityId, 'campuses.id': campusId },
         {
-          $set: {
+          $set: omitUndefinedFields({
             'campuses.$.name': name,
             'campuses.$.address': address,
             'campuses.$.province': province,
@@ -266,8 +261,8 @@ export const actions: Actions = {
             'campuses.$.location.type': 'Point',
             'campuses.$.location.coordinates': [longitude, latitude],
             'campuses.$.updatedAt': new Date(),
-            'campuses.$.updatedBy': user.id
-          }
+            'campuses.$.updatedBy': user.id || undefined
+          })
         }
       );
 

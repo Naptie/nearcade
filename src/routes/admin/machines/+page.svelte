@@ -7,7 +7,6 @@
   import { adaptiveNewTab, pageTitle } from '$lib/utils';
   import { enhance } from '$app/forms';
   import type { Shop, Machine } from '$lib/types';
-  import { ShopSource } from '$lib/constants';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -25,7 +24,6 @@
   // Form states
   let createForm = $state({
     name: '',
-    shopSource: ShopSource.BEMANICN as string,
     shopId: ''
   });
   let editForm = $state({ name: '' });
@@ -166,8 +164,7 @@
                 <td class="not-sm:hidden">
                   {#if machine.shop}
                     <a
-                      href={resolve('/(main)/shops/[source]/[id]', {
-                        source: machine.shopSource,
+                      href={resolve('/(main)/shops/[id]', {
                         id: machine.shopId.toString()
                       })}
                       target={adaptiveNewTab()}
@@ -176,9 +173,7 @@
                       {machine.shop.name}
                     </a>
                   {:else}
-                    <span class="opacity-60"
-                      >{machine.shopSource.toUpperCase()} #{machine.shopId}</span
-                    >
+                    <span class="opacity-60">#{machine.shopId}</span>
                   {/if}
                 </td>
                 <td class="not-sm:hidden">
@@ -278,7 +273,7 @@
           isSubmitting = false;
           if (result.type === 'success') {
             showCreateModal = false;
-            createForm = { name: '', shopSource: ShopSource.BEMANICN as string, shopId: '' };
+            createForm = { name: '', shopId: '' };
             await invalidateAll();
           } else {
             await update();
@@ -300,23 +295,6 @@
             bind:value={createForm.name}
             required
           />
-        </div>
-
-        <div class="form-control">
-          <label class="label" for="create-shop-source">
-            <span class="label-text">{m.shop_source()}</span>
-          </label>
-          <select
-            id="create-shop-source"
-            name="shopSource"
-            class="select select-bordered w-full"
-            bind:value={createForm.shopSource}
-            required
-          >
-            {#each Object.values(ShopSource) as source (source)}
-              <option value={source}>{source.toUpperCase()}</option>
-            {/each}
-          </select>
         </div>
 
         <div class="form-control">
@@ -422,10 +400,7 @@
               </div>
               <div class="flex justify-between py-1">
                 <span class="opacity-60">{m.bound_shop()}</span>
-                <span
-                  >{selectedMachine.shop?.name ||
-                    `${selectedMachine.shopSource.toUpperCase()} #${selectedMachine.shopId}`}</span
-                >
+                <span>{selectedMachine.shop?.name || `#${selectedMachine.shopId}`}</span>
               </div>
               <div class="flex justify-between py-1">
                 <span class="opacity-60">{m.status()}</span>

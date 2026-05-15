@@ -1,6 +1,7 @@
 import { m } from '$lib/paraglide/messages';
 import { Database } from '$lib/db/index.client';
-import { GAMES, ShopSource } from '$lib/constants';
+import { GAME_TITLES } from '$lib/constants';
+import { userPrivateFieldNames } from '$lib/schemas/common';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
@@ -20,7 +21,7 @@ import {
   PostReadability
 } from '$lib/types';
 import { ROUTE_CACHE_STORE } from '$lib/constants';
-import type { User } from '$lib/auth/types';
+import type { PublicUser, User } from '$lib/auth/types';
 import { customAlphabet, nanoid } from 'nanoid';
 import rehypeParse from 'rehype-parse';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
@@ -183,7 +184,7 @@ export const parseRelativeTime = (date: Date, locale: string) => {
 };
 
 export const getGameName = (identifier?: number | string): string | undefined => {
-  const game = GAMES.find((g) =>
+  const game = GAME_TITLES.find((g) =>
     typeof identifier === 'number' ? g.id === identifier : g.key === identifier
   );
   return game ? m[game.key]() : identifier?.toString();
@@ -479,11 +480,16 @@ export const checkClubPermission = async (
   };
 };
 
-export const updateUserType = async (userId: string, client: MongoClient): Promise<void> => {
+export const updateUserType = async (
+  userId: string,
+  client: MongoClient,
+  options: { preserveManualRoles?: boolean } = {}
+): Promise<void> => {
   const db = client.db();
   const universityMembersCollection = db.collection('university_members');
   const clubMembersCollection = db.collection('club_members');
   const usersCollection = db.collection<User>('users');
+  const preserveManualRoles = options.preserveManualRoles ?? true;
 
   // Get all memberships for this user
   const universityMemberships = await universityMembersCollection
@@ -495,12 +501,16 @@ export const updateUserType = async (userId: string, client: MongoClient): Promi
   let newUserType: UserType | undefined = undefined;
 
   // Check for admin roles
-  const isSiteAdmin = (await usersCollection.findOne({ id: userId }))?.userType === 'site_admin';
+  const currentUserType = (await usersCollection.findOne({ id: userId }))?.userType;
+  const isSiteAdmin = currentUserType === 'site_admin';
+  const isDeveloper = currentUserType === 'developer';
   const isUniversityAdmin = universityMemberships.some((m) => m.memberType === 'admin');
   const isClubAdmin = clubMemberships.some((m) => m.memberType === 'admin');
 
-  if (isSiteAdmin) {
+  if (preserveManualRoles && isSiteAdmin) {
     newUserType = 'site_admin';
+  } else if (preserveManualRoles && isDeveloper) {
+    newUserType = 'developer';
   } else if (isUniversityAdmin) {
     newUserType = 'school_admin';
   } else if (isClubAdmin) {
@@ -660,6 +670,7 @@ export const getClubMembersWithUserData = async (
 export const isAdminOrModerator = (user?: { userType?: string }): boolean => {
   return (
     user?.userType === 'site_admin' ||
+    user?.userType === 'developer' ||
     user?.userType === 'school_admin' ||
     user?.userType === 'club_admin' ||
     user?.userType === 'school_moderator' ||
@@ -671,6 +682,8 @@ export const getUserTypeLabel = (role: string | undefined) => {
   switch (role) {
     case 'site_admin':
       return m.site_admin();
+    case 'developer':
+      return m.developer();
     case 'school_admin':
       return m.school_admin();
     case 'school_moderator':
@@ -690,6 +703,8 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
   switch (userType) {
     case 'site_admin':
       return 'badge-soft badge-error';
+    case 'developer':
+      return 'badge-soft badge-secondary';
     case 'school_admin':
       return 'badge-soft badge-warning';
     case 'school_moderator':
@@ -711,19 +726,34 @@ export const getDisplayName = (user?: { displayName?: string | null; name?: stri
     : user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());
 };
 
-export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
-  doc: T
-): T extends null ? null : Omit<T, '_id'> & { _id: string } => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toPlainObject = <T extends Record<string, any> | null>(
+  doc: T,
+  // Allow '_id' in the omit array even if T doesn't naturally contain it.
+  // Changed default to[] so that '_id' actually gets transformed instead of deleted!
+  omit: (keyof NonNullable<T> | '_id')[] = []
+): T extends null
+  ? null
+  : // Conditionally append { _id: string } ONLY if the original object had an '_id'
+    Omit<T, '_id'> & ('_id' extends keyof NonNullable<T> ? { _id: string } : unknown) => {
   if (doc === null) return null as T extends null ? null : Omit<T, '_id'> & { _id: string };
 
   const plainify = (value: unknown): unknown => {
     if (value === null || value === undefined) return value;
     if (Array.isArray(value)) return value.map(plainify);
+    if (value instanceof Date) return value.toISOString();
     if (typeof value === 'object') {
       const result: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {
+        if (omit.includes(key as keyof T)) {
+          continue;
+        }
         result[key] =
-          (key === '_id' && val) || val instanceof Date ? val.toString() : plainify(val);
+          key === '_id' && val
+            ? val.toString()
+            : val instanceof Date
+              ? val.toISOString()
+              : plainify(val);
       }
       return result;
     }
@@ -733,8 +763,12 @@ export const toPlainObject = <T extends { _id?: string | ObjectId } | null>(
   return plainify(doc) as T extends null ? null : Omit<T, '_id'> & { _id: string };
 };
 
-export const toPlainArray = <T extends { _id?: string | ObjectId } | null>(docs: T[]) => {
-  return docs.map(toPlainObject);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toPlainArray = <T extends Record<string, any> | null>(
+  docs: T[],
+  omit: (keyof NonNullable<T>)[] = []
+) => {
+  return docs.map((doc) => toPlainObject(doc, omit));
 };
 
 export const formatDate = (date?: Date | string | null): string => {
@@ -1026,22 +1060,57 @@ export const formatHourLiteral = (hourNum: number) => {
   return `${hh}:${mm}`;
 };
 
+const normalizeOpeningHourTime = (time: unknown) => {
+  if (typeof time === 'number') {
+    const normalized = ((time % 24) + 24) % 24 || 0;
+    let hour = Math.floor(normalized);
+    let minute = Math.round((normalized - hour) * 60);
+    if (minute === 60) {
+      minute = 0;
+      hour = (hour + 1) % 24;
+    }
+    return { hour, minute };
+  }
+
+  const candidate = time as { hour?: unknown; minute?: unknown } | undefined;
+  const hour = Math.max(0, Math.min(23, Math.floor(Number(candidate?.hour) || 0)));
+  const minute = Math.max(0, Math.min(59, Math.floor(Number(candidate?.minute) || 0)));
+  return { hour, minute };
+};
+
+export const formatOpeningHourLiteral = (time: unknown) => {
+  const normalized = normalizeOpeningHourTime(time);
+  const hh = String(normalized.hour).padStart(2, '0');
+  const mm = String(normalized.minute).padStart(2, '0');
+  return `${hh}:${mm}`;
+};
+
+export const isShopChinaBased = (shop: { address: { general: string[] } }) => {
+  return (
+    shop.address.general[0] && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(shop.address.general[0].trim())
+  );
+};
+
 /**
  * Formats a shop's address array into a readable string
  */
 export const formatShopAddress = (
-  shop: Shop & { addressHl?: Shop['address'] },
+  shop: {
+    address: { general: string[]; detailed?: string };
+    addressHl?: { general: string[]; detailed?: string };
+  },
   detailed = false
 ): string => {
   const address = shop.addressHl || shop.address;
   const addressParts = getAddressParts(address.general);
+  const detailedAddress = address.detailed ?? '';
 
-  const reverse = shop.source === ShopSource.ZIV;
+  const reverse = !isShopChinaBased(shop);
 
   return addressParts.length > 0
     ? (reverse
-        ? (detailed ? address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
-        : addressParts.join(' · ') + (detailed ? '\n' + address.detailed : '')
+        ? (detailed ? detailedAddress + '\n' : '') + addressParts.toReversed().join(', ')
+        : addressParts.join(' · ') + (detailed ? '\n' + detailedAddress : '')
       ).trim()
     : '';
 };
@@ -1064,29 +1133,33 @@ export const getAddressParts = (address: string[]) => {
   return addressParts;
 };
 
-export const getShopSourceUrl = (shop: { id: number; source: ShopSource }): string =>
-  `${
-    shop.source === ShopSource.ZIV
-      ? 'https://zenius-i-vanisher.com/v5.2/arcade.php?id='
-      : 'https://map.bemanicn.com/shop/'
-  }${shop.id}`;
-
 /**
  * Determines timezone based on given coordinates
  */
 export const getShopTimezone = (location: Location): string => {
   const [longitude, latitude] = location.coordinates;
+  const cacheKey = `${longitude},${latitude}`;
+  const cachedTimezone = shopTimezoneCache.get(cacheKey);
+  if (cachedTimezone) return cachedTimezone;
+
+  let resolvedTimezone = 'Asia/Shanghai';
 
   try {
     const timezone = tzlookup(latitude, longitude);
-    if (timezone === 'Asia/Urumqi') return 'Asia/Shanghai';
-    if (timezone) return timezone;
+    if (timezone === 'Asia/Urumqi') {
+      resolvedTimezone = 'Asia/Shanghai';
+    } else if (timezone) {
+      resolvedTimezone = timezone;
+    }
   } catch (error) {
     console.error('Failed to lookup timezone:', error);
   }
 
-  return 'Asia/Shanghai';
+  shopTimezoneCache.set(cacheKey, resolvedTimezone);
+  return resolvedTimezone;
 };
+
+const shopTimezoneCache = new Map<string, string>();
 
 export const getCurrentTimeByLocation = (location: Location) => {
   const timezone = getShopTimezone(location);
@@ -1098,43 +1171,68 @@ export const getCurrentTimeByLocation = (location: Location) => {
 
   // Determine the local date components by shifting now by the offset
   const nowShifted = new Date(nowMs + offsetMs);
-  return { nowShifted, offsetHours };
+  return { nowShifted, offsetHours, offsetMs };
 };
 
 const toleranceMsForShopOpen = 30 * 60 * 1000; // 30 minutes tolerance
 const toleranceMsForShopClose = 150 * 60 * 1000; // 2.5 hours tolerance
 
 /**
- * Calculate the next occurrence of the specified hour in the location's local time.
- * If that hour today has already passed, returns tomorrow at that hour.
+ * Calculate the next occurrence of the specified local time in the location.
  */
-export const getNextTimeAtHour = (location: Location, hours: number[], basisHour: number) => {
-  [basisHour, ...hours] = [basisHour, ...hours].map((hour) => Number(hour) || 0);
-  const { nowShifted, offsetHours } = getCurrentTimeByLocation(location);
+export const getNextTimeAtHour = (
+  location: Location,
+  hours: unknown[],
+  basisHour: unknown,
+  currentTimeByLocation = getCurrentTimeByLocation(location)
+) => {
+  const normalizeHourMinute = (time: unknown) => {
+    const normalized = normalizeOpeningHourTime(time);
+    const hour = normalized.hour;
+    const minute = normalized.minute;
+    const totalMinutes = (((hour * 60 + minute) % 1440) + 1440) % 1440;
+    return {
+      hour: Math.floor(totalMinutes / 60),
+      minute: totalMinutes % 60,
+      totalMinutes
+    };
+  };
+
+  const basis = normalizeHourMinute(basisHour);
+  const normalizedHours = hours.map(normalizeHourMinute);
+
+  const { nowShifted, offsetMs } = currentTimeByLocation;
   const now = new Date();
 
   const year = nowShifted.getUTCFullYear();
   const month = nowShifted.getUTCMonth();
   const date = nowShifted.getUTCDate();
-  const hour = basisHour - offsetHours;
-  const minute = basisHour % 1 === 0 ? 0 : Math.round((basisHour % 1) * 60);
 
-  let targetUtcMs = Date.UTC(year, month, date, hour, minute, 0, 0);
+  let targetUtcMs =
+    Date.UTC(year, month, date, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
 
   // If that target time is not in the future, move to next day
   let i = 0;
   while (targetUtcMs + toleranceMsForShopClose <= now.getTime()) {
-    targetUtcMs = Date.UTC(year, month, date + ++i, hour, minute, 0, 0);
+    targetUtcMs =
+      Date.UTC(year, month, date + ++i, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
   }
 
   // Otherwise, if the target time is too far in the future (more than 24 hours), move to previous day
   i = 0;
   while (targetUtcMs - toleranceMsForShopOpen - now.getTime() > 24 * 3600 * 1000) {
-    targetUtcMs = Date.UTC(year, month, date - ++i, hour, minute, 0, 0);
+    targetUtcMs =
+      Date.UTC(year, month, date - ++i, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
   }
 
   return {
-    hours: hours.map((hour) => new Date(targetUtcMs + (hour - basisHour) * 3600 * 1000)),
+    hours: normalizedHours.map((hour) => {
+      let diff = hour.totalMinutes - basis.totalMinutes;
+      // If diff is positive, the time appears "after" the basis in the same day,
+      // meaning it actually belongs to the previous day.
+      if (diff > 0) diff -= 1440;
+      return new Date(targetUtcMs + diff * 60 * 1000);
+    }),
     hour: new Date(targetUtcMs)
   };
 };
@@ -1145,14 +1243,24 @@ export const getNextTimeAtHour = (location: Location, hours: number[], basisHour
  * @returns An object containing the opening and closing times
  */
 export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'>) => {
-  const { nowShifted, offsetHours } = getCurrentTimeByLocation(shop.location);
+  const currentTimeByLocation = getCurrentTimeByLocation(shop.location);
+  const { nowShifted, offsetHours } = currentTimeByLocation;
   const openingHours =
     shop.openingHours.length === 1
       ? shop.openingHours[0]
       : (shop.openingHours[nowShifted.getDay()] ?? shop.openingHours[0]);
+  const normalizedOpeningHours = openingHours ?? [
+    { hour: 10, minute: 0 },
+    { hour: 22, minute: 0 }
+  ];
   const {
     hours: [open, close]
-  } = getNextTimeAtHour(shop.location, openingHours, openingHours[1]);
+  } = getNextTimeAtHour(
+    shop.location,
+    normalizedOpeningHours,
+    normalizedOpeningHours[1],
+    currentTimeByLocation
+  );
   const openTolerated = new Date(open.getTime() - toleranceMsForShopOpen);
   const closeTolerated = new Date(close.getTime() + toleranceMsForShopClose);
 
@@ -1162,8 +1270,8 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
     openTolerated,
     closeTolerated,
     offsetHours: offsetHours,
-    openLocal: formatHourLiteral(openingHours[0] ?? 0),
-    closeLocal: formatHourLiteral(openingHours[1] ?? 0)
+    openLocal: formatOpeningHourLiteral(normalizedOpeningHours[0]),
+    closeLocal: formatOpeningHourLiteral(normalizedOpeningHours[1])
   };
 };
 
@@ -1256,8 +1364,10 @@ export const convertCoordinates = (
   }
 };
 
-export const aggregateGames = (shop: Pick<Shop, 'games'>) => {
-  const gameMap: Record<number, (typeof shop.games)[0]> = {};
+export const aggregateGames = <T extends { titleId: number; quantity: number }>(shop: {
+  games: T[];
+}) => {
+  const gameMap: Record<number, T> = {};
   for (const g of shop.games) {
     const existing = gameMap[g.titleId];
     if (existing) {
@@ -1282,36 +1392,23 @@ export const getFnsLocale = (locale: string) => {
   }
 };
 
-export const protect = <T extends User | undefined>(user: T): T => {
+export const protect = (user: User | PublicUser | undefined): PublicUser | undefined => {
   if (!user) return user;
-  const propertiesToRemove = [
-    'emailVerified',
-    'notificationReadAt',
-    'isActivityPublic',
-    'isEmailPublic',
-    'isFootprintPublic',
-    'isFrequentingArcadePublic',
-    'isStarredArcadePublic',
-    'isUniversityPublic',
-    'notificationTypes',
-    'fcmTokenUpdatedAt',
-    'fcmTokens',
-    'autoDiscovery',
-    'apiTokens'
-  ];
-  if (user.isEmailPublic !== true) {
-    delete user.email;
+  const protectedUser = user as PublicUser & Partial<User>;
+
+  if (protectedUser.isEmailPublic !== true) {
+    delete protectedUser.email;
   }
-  if (user.isFrequentingArcadePublic === false) {
-    delete user.frequentingArcades;
+  if (protectedUser.isFrequentingArcadePublic === false) {
+    delete protectedUser.frequentingArcades;
   }
-  if (user.isStarredArcadePublic === false) {
-    delete user.starredArcades;
+  if (protectedUser.isStarredArcadePublic === false) {
+    delete protectedUser.starredArcades;
   }
-  for (const prop of propertiesToRemove) {
-    if (prop in user) {
-      delete (user as never)[prop];
+  for (const prop of userPrivateFieldNames) {
+    if (prop in protectedUser) {
+      delete (protectedUser as never)[prop];
     }
   }
-  return user;
+  return protectedUser;
 };

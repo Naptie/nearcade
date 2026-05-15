@@ -1,0 +1,393 @@
+import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import mongo from '$lib/db/index.server';
+import redis, { ensureConnected } from '$lib/db/redis.server';
+import type { AttendanceRecord, AttendanceReportRecord, Shop } from '$lib/types';
+import { getShopOpeningHours, toPlainObject } from '$lib/utils';
+import type { User } from '$lib/auth/types';
+import { getCurrentAttendance } from '$lib/utils/index.server';
+import { m } from '$lib/paraglide/messages';
+import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import { auth } from '$lib/auth/index.server';
+import { attendanceResponseSchema } from '$lib/schemas/shops';
+import {
+  attendanceRequestSchema,
+  attendanceQuerySchema,
+  shopIdParamSchema
+} from '$lib/schemas/shops';
+import {
+  parseJsonOrError,
+  parseParamsOrError,
+  parseQueryOrError
+} from '$lib/utils/validation.server';
+import { successResponseSchema } from '$lib/schemas/common';
+
+const attend = async (
+  user: User,
+  shop: Shop,
+  data: {
+    games: {
+      id: number;
+    }[];
+    attendedAt: Date;
+    plannedLeaveAt: Date;
+  }
+) => {
+  const { id } = shop;
+  const { games, attendedAt, plannedLeaveAt } = data;
+  const attendanceKey = `nearcade:attend:${id}:${user.id}:${encodeURIComponent(attendedAt.toISOString())}:${games.map((g) => g.id).join(',')}`;
+  const attendanceData = {
+    games,
+    attendedAt: attendedAt.toISOString(),
+    plannedLeaveAt: plannedLeaveAt.toISOString()
+  };
+
+  // Calculate TTL in seconds
+  const plannedLeave = plannedLeaveAt.getTime();
+  const ttlSeconds = Math.max(Math.floor((plannedLeave - Date.now()) / 1000), 60); // Minimum 60 seconds
+
+  // Store attendance in Redis with expiration
+  await ensureConnected();
+  await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+};
+
+const leave = async (user: User, shop: Shop) => {
+  const { id } = shop;
+  const pattern = `nearcade:attend:${id}:${user.id}:*`;
+  await ensureConnected();
+  const keys = await redis.keys(pattern);
+  if (keys.length === 0) {
+    error(404, m.attendance_not_found());
+  }
+
+  // Only one active attendance per user per shop
+  const attendanceKey = keys[0];
+
+  // Get the attendance data before deleting
+  const attendanceDataStr = await redis.get(attendanceKey);
+  if (!attendanceDataStr) {
+    error(404, m.attendance_not_found());
+  }
+
+  const attendanceData = JSON.parse(attendanceDataStr);
+
+  // Delete from Redis
+  await redis.del(attendanceKey);
+
+  // Add to MongoDB attendances collection
+  const db = mongo.db();
+  const attendancesCollection = db.collection<AttendanceRecord>('attendances');
+
+  await attendancesCollection.insertOne({
+    userId: user.id!,
+    games: attendanceData.games.map((game: { id: number }) => {
+      const shopGame = shop?.games.find((g) => g.gameId === game.id);
+      return {
+        gameId: game.id,
+        name: shopGame ? shopGame.name : 'Unknown Game',
+        version: shopGame ? shopGame.version : ''
+      };
+    }),
+    shopId: id,
+    attendedAt: new Date(attendanceData.attendedAt),
+    leftAt: new Date() // Actual leave time
+  });
+};
+
+export const POST: RequestHandler = async ({ params, request, locals }) => {
+  const session = locals.session;
+  let user = session?.user;
+  let attendingUser = null;
+  let isOpenApiAccess = false;
+  let isClaimedShopAccess = false;
+  let isAttendingOnBehalf = false;
+
+  if (!user) {
+    const header = request.headers.get('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+      error(401, m.unauthorized());
+    }
+    const token = header.slice(7);
+    const agentToken = token.split('/')[0];
+    const userToken = token === agentToken ? null : token.split('/')[1];
+    const db = mongo.db();
+    const usersCollection = db.collection<User>('users');
+    const agentApiKey = await auth.api.verifyApiKey({
+      body: { key: agentToken }
+    });
+    if (!agentApiKey.valid || !agentApiKey.key) {
+      error(401, m.unauthorized());
+    }
+    const agentShopId = agentApiKey.key.metadata?.shopId;
+    if (agentShopId?.toString() !== params.id) {
+      error(403, m.access_denied());
+    }
+    const dbUser = await usersCollection.findOne({ id: agentApiKey.key.referenceId });
+    if (!dbUser) {
+      error(401, m.unauthorized());
+    }
+    isOpenApiAccess = true;
+    isClaimedShopAccess = agentShopId !== undefined;
+    user = dbUser;
+    if (userToken) {
+      const targetApiKey = await auth.api.verifyApiKey({
+        body: { key: userToken }
+      });
+      if (!targetApiKey.valid || !targetApiKey.key) {
+        error(404, m.target_user_not_found());
+      }
+      attendingUser = await usersCollection.findOne({ id: targetApiKey.key.referenceId });
+      if (!attendingUser) {
+        error(404, m.target_user_not_found());
+      }
+      isAttendingOnBehalf = true;
+    }
+  }
+
+  try {
+    const body = await parseJsonOrError(request, attendanceRequestSchema);
+    const { games, plannedLeaveAt, comment } = body;
+
+    // Validate input
+    if (
+      !games ||
+      !Array.isArray(games) ||
+      (games.every((g) => g.currentAttendances === undefined) && !plannedLeaveAt)
+    ) {
+      error(400, m.missing_required_parameters());
+    }
+
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
+
+    // Validate shop exists
+    const db = mongo.db();
+    const shopsCollection = db.collection<Shop>('shops');
+    const shop = await shopsCollection.findOne({
+      id
+    });
+
+    if (!shop) {
+      error(404, m.shop_not_found());
+    }
+    if ((isClaimedShopAccess && !shop.isClaimed) || (!isClaimedShopAccess && shop.isClaimed)) {
+      error(403, m.access_denied());
+    }
+
+    // Validate game exists in shop
+    const shopGames = shop.games.filter((sg) => games.some((g) => g.id === sg.gameId));
+    if (shopGames.length !== games.length) {
+      error(404, m.games_missing_in_shop());
+    }
+
+    if (!redis) {
+      error(500, m.redis_not_available());
+    }
+
+    const now = Date.now();
+    const { openTolerated, closeTolerated } = getShopOpeningHours(shop);
+    if (now < openTolerated.getTime() || now > closeTolerated.getTime()) {
+      error(400, m.shop_is_currently_closed());
+    }
+
+    if (!isOpenApiAccess && plannedLeaveAt) {
+      // Check for existing attendance
+      if (await getCurrentAttendance(user.id!)) {
+        error(409, m.user_already_has_an_active_attendance());
+      }
+
+      const plannedLeaveTime = new Date(plannedLeaveAt);
+
+      if (
+        plannedLeaveTime < new Date(Date.now() + 8 * 60 * 1000) ||
+        plannedLeaveTime < openTolerated ||
+        plannedLeaveTime > closeTolerated
+      ) {
+        error(400, m.invalid_planned_leave_time());
+      }
+
+      await attend(user, shop, {
+        games: shopGames.map((g) => ({
+          id: g.gameId
+        })),
+        attendedAt: new Date(),
+        plannedLeaveAt: plannedLeaveTime
+      });
+
+      if (!user.frequentingArcades?.some((a) => a === shop.id)) {
+        const attendancesCollection = db.collection<AttendanceRecord>('attendances');
+        const count = await attendancesCollection.countDocuments({
+          userId: user.id!,
+          shopId: id
+        });
+        if (count + 1 >= (user.autoDiscovery?.attendanceThreshold ?? 2)) {
+          const usersCollection = db.collection<User>('users');
+          await usersCollection.updateOne(
+            { id: user.id! },
+            {
+              $addToSet: {
+                frequentingArcades: id
+              },
+              $set: { updatedAt: new Date() }
+            }
+          );
+        }
+      }
+    } else if (games.some((g) => g.currentAttendances !== undefined)) {
+      for (const game of games) {
+        if (
+          game.currentAttendances === undefined ||
+          typeof game.currentAttendances !== 'number' ||
+          isNaN(game.currentAttendances) ||
+          game.currentAttendances < 0
+        ) {
+          error(400, m.invalid_current_attendances_for_game({ id: game.id }));
+        }
+        const attendanceKey = `nearcade:attend-report:${id}:${game.id}`;
+        const attendanceData = {
+          currentAttendances: game.currentAttendances,
+          reportedBy: user.id,
+          reportedAt: new Date().toISOString(),
+          comment: comment || null
+        };
+        const ttlSeconds = Math.max(Math.floor((closeTolerated.getTime() - now) / 1000), 60); // Minimum 60 seconds
+
+        // Store attendance in Redis
+        await ensureConnected();
+        await redis.setEx(attendanceKey, ttlSeconds, JSON.stringify(attendanceData));
+
+        if (
+          isAttendingOnBehalf &&
+          attendingUser &&
+          'attend' in game &&
+          typeof game.attend === 'boolean'
+        ) {
+          if (game.attend) {
+            await attend(attendingUser, shop, {
+              games: [{ id: game.id }],
+              attendedAt: new Date(),
+              plannedLeaveAt: closeTolerated
+            });
+          } else {
+            await leave(attendingUser, shop);
+          }
+        }
+      }
+
+      const attendanceReportsCollection =
+        db.collection<AttendanceReportRecord>('attendance_reports');
+      await attendanceReportsCollection.insertOne({
+        shopId: shop.id,
+        games: games.map((game) => {
+          const shopGame = shop.games.find((g) => g.gameId === game.id);
+          return {
+            gameId: game.id,
+            name: shopGame ? shopGame.name : 'Unknown Game',
+            version: shopGame ? shopGame.version : '',
+            currentAttendances: game.currentAttendances || 0
+          };
+        }),
+        comment: comment || null,
+        reportedBy: user.id!,
+        reportedAt: new Date()
+      });
+    }
+
+    return json({ success: true });
+  } catch (err) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
+      throw err;
+    }
+    console.error('Error creating attendance:', err);
+    error(500, m.failed_to_create_attendance());
+  }
+};
+
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+  const session = locals.session;
+
+  if (!session?.user) {
+    error(401, m.unauthorized());
+  }
+
+  try {
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
+
+    if (!redis) {
+      error(500, m.redis_not_available());
+    }
+
+    const db = mongo.db();
+    const shopsCollection = db.collection<Shop>('shops');
+    const shop = await shopsCollection.findOne({
+      id
+    });
+    if (!shop) {
+      error(404, m.shop_not_found());
+    }
+
+    await leave(session.user, shop);
+
+    const response = successResponseSchema.parse({ success: true });
+
+    return json(response);
+  } catch (err) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
+      throw err;
+    }
+    console.error('Error removing attendance:', err);
+    error(500, m.failed_to_remove_attendance());
+  }
+};
+
+export const GET: RequestHandler = async ({ params, url, locals }) => {
+  try {
+    parseQueryOrError(attendanceQuerySchema, url);
+    const fetchRegistered = ['0', 'false'].includes(url.searchParams.get('reported') || 'false');
+    const fetchReported = ['1', 'true'].includes(url.searchParams.get('reported') || 'true');
+
+    const { id } = parseParamsOrError(shopIdParamSchema, params);
+
+    if (!redis) {
+      error(500, m.redis_not_available());
+    }
+
+    const session = locals.session;
+
+    const attendanceData = await getShopsAttendanceData([id], {
+      fetchRegistered,
+      fetchReported,
+      session
+    });
+
+    const result = attendanceData.get(id.toString())!;
+
+    const response = attendanceResponseSchema.parse(
+      toPlainObject({
+        success: true,
+        total: result.total,
+        games: result.games.map((game) => ({
+          ...game,
+          comment: '',
+          cost: ''
+        })),
+        registered: result.registered.map((entry) => ({
+          ...entry,
+          user: entry.user
+        })),
+        reported: result.reported.map((entry) => ({
+          ...entry,
+          currentAttendances: entry.currentAttendances ?? 0,
+          reporter: entry.reporter
+        }))
+      })
+    );
+
+    return json(response);
+  } catch (err) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
+      throw err;
+    }
+    console.error('Error getting attendance:', err);
+    error(500, m.failed_to_get_attendance());
+  }
+};

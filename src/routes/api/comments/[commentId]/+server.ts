@@ -4,6 +4,17 @@ import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
+import { withExistingImages } from '$lib/images/validation.server';
+import { deleteImagesByIds, replaceOwnerImages } from '$lib/images/index.server';
+import {
+  commentIdParamSchema,
+  commentUpdateRequestSchema,
+  commentUpdateResponseSchema
+} from '$lib/schemas/comments';
+import { successResponseSchema } from '$lib/schemas/common';
+import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+
+const commentUpdateRequestWithExistingImagesSchema = withExistingImages(commentUpdateRequestSchema);
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
@@ -12,17 +23,11 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const commentId = params.commentId;
-    if (!commentId) {
-      error(400, m.invalid_comment_id());
-    }
-
-    const { content } = (await request.json()) as {
-      content: string;
-    };
-    if (!content || !content.trim()) {
-      error(400, m.comment_content_is_required());
-    }
+    const { commentId } = parseParamsOrError(commentIdParamSchema, params);
+    const { content: trimmedContent, images: imageIds } = await parseJsonOrError(
+      request,
+      commentUpdateRequestWithExistingImagesSchema
+    );
 
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
@@ -37,18 +42,31 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(403, m.you_can_only_edit_your_own_comments());
     }
 
+    try {
+      await replaceOwnerImages(
+        db,
+        comment.images ?? [],
+        imageIds,
+        { commentId },
+        { userId: session.user.id, userType: session.user.userType }
+      );
+    } catch (err) {
+      error(400, err instanceof Error ? String(err.message) : m.error_occurred());
+    }
+
     // Update comment
     await commentsCollection.updateOne(
       { id: commentId },
       {
         $set: {
-          content: content.trim(),
+          content: trimmedContent,
+          images: imageIds,
           updatedAt: new Date()
         }
       }
     );
 
-    return json({ success: true });
+    return json(commentUpdateResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -65,10 +83,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       error(401, m.unauthorized());
     }
 
-    const commentId = params.commentId;
-    if (!commentId) {
-      error(400, m.invalid_comment_id());
-    }
+    const { commentId } = parseParamsOrError(commentIdParamSchema, params);
 
     const db = mongo.db();
     const commentsCollection = db.collection<Comment>('comments');
@@ -84,7 +99,9 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     let canDelete = false;
     const isOwner = comment.createdBy === session.user.id;
 
-    if (comment.shopSource) {
+    if (comment.shopDeleteRequestId) {
+      canDelete = isOwner || session.user.userType === 'site_admin';
+    } else if (comment.shopId) {
       // Shop comment: only the owner can delete
       canDelete = isOwner;
     } else {
@@ -117,9 +134,20 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     // Find all comment IDs to be deleted (parent + replies)
     const commentsToDelete = await commentsCollection
       .find({ $or: [{ id: commentId }, { parentCommentId: commentId }] })
-      .project({ id: 1 })
+      .project({ id: 1, images: 1 })
       .toArray();
     const commentIdsToDelete = commentsToDelete.map((c) => c.id);
+    const imageIdsToDelete = commentsToDelete.flatMap(
+      (commentToDelete) => commentToDelete.images ?? []
+    );
+
+    if (imageIdsToDelete.length > 0) {
+      await deleteImagesByIds(db, imageIdsToDelete, {
+        userId: session.user.id,
+        userType: session.user.userType,
+        skipPermissionCheck: true
+      });
+    }
 
     // Delete comment and all its replies
     const deleteResult = await commentsCollection.deleteMany({
@@ -142,7 +170,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
       );
     }
 
-    return json({ success: true });
+    return json(successResponseSchema.parse({ success: true }));
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

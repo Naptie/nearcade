@@ -173,6 +173,10 @@
             <i class="fa-solid fa-user mr-2"></i>
             {m.admin_users()}
           </a>
+          <a href={resolve('/admin/images')} class="btn btn-soft">
+            <i class="fa-solid fa-images mr-2"></i>
+            {m.admin_images()}
+          </a>
         {/if}
         <a href={resolve('/admin/universities')} class="btn btn-soft">
           <i class="fa-solid fa-graduation-cap mr-2"></i>

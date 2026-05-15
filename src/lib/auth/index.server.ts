@@ -1,5 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
+import { jwt } from 'better-auth/plugins';
+import { apiKey } from '@better-auth/api-key';
+import { oauthProvider } from '@better-auth/oauth-provider';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { customSession } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
@@ -17,6 +20,7 @@ import { githubProvider } from './github';
 import { phiraProvider } from './phira';
 import type { User } from './types';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
+import { OAUTH_SCOPES } from './oauth/scopes';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -116,14 +120,31 @@ function osuProvider() {
   };
 }
 
-const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim());
+const allowedOrigins =
+  env.ALLOWED_ORIGINS?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean) || [];
+
+const allowedHosts = allowedOrigins
+  .map((origin) => {
+    try {
+      return new URL(origin).host.trim();
+    } catch {
+      return null;
+    }
+  })
+  .filter((host): host is string => !!host);
 
 export const auth = betterAuth({
-  baseURL: {
-    allowedHosts: allowedOrigins.map((origin) => origin.split('//')[1].trim()),
-    fallback: allowedOrigins[0],
-    protocol: 'auto'
-  },
+  ...(allowedHosts.length > 0
+    ? {
+        baseURL: {
+          allowedHosts,
+          fallback: allowedOrigins[0],
+          protocol: 'auto'
+        }
+      }
+    : {}),
   basePath: '/api/auth',
   trustedOrigins: ['*'],
   advanced: {
@@ -158,8 +179,7 @@ export const auth = betterAuth({
       notificationTypes: { type: 'json', required: false, input: false },
       fcmTokens: { type: 'json', required: false, input: false },
       fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
-      socialLinks: { type: 'json', required: false, input: false },
-      apiTokens: { type: 'json', required: false, input: false }
+      socialLinks: { type: 'json', required: false, input: false }
     },
     deleteUser: {
       enabled: true,
@@ -190,6 +210,37 @@ export const auth = betterAuth({
         osuProvider(),
         discordProvider()
       ]
+    }),
+    jwt(),
+    oauthProvider({
+      loginPage: '/oauth/sign-in',
+      consentPage: '/oauth/consent',
+      scopes: [...OAUTH_SCOPES],
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      allowPublicClientPrelogin: true,
+      clientPrivileges: async ({ action, user }) => {
+        if (action === 'read') {
+          return true;
+        }
+
+        return user?.userType === 'site_admin' || user?.userType === 'developer';
+      },
+      schema: {
+        oauthClient: { modelName: 'oauth_client' },
+        oauthConsent: { modelName: 'oauth_consent' },
+        oauthAccessToken: { modelName: 'oauth_access_token' }
+      }
+    }),
+    apiKey({
+      defaultPrefix: 'nk_',
+      defaultKeyLength: 42,
+      enableMetadata: true,
+      maximumNameLength: 50,
+      requireName: true,
+      rateLimit: {
+        enabled: false
+      }
     }),
     customSession(async ({ user, session }) => {
       const userId = user.id;
