@@ -10,7 +10,7 @@
   } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { GAME_TITLES } from '$lib/constants';
-  import type { GlobeShopWithExtras, Shop, ShopWithExtras } from '$lib/types';
+  import type { GlobeShopWithExtras, ShopWithExtras } from '$lib/types';
   import FancyButton from './FancyButton.svelte';
 
   let {
