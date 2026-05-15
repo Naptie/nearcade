@@ -10,7 +10,7 @@
   } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { GAME_TITLES } from '$lib/constants';
-  import type { Shop, ShopWithExtras } from '$lib/types';
+  import type { GlobeShopWithExtras, Shop, ShopWithExtras } from '$lib/types';
   import FancyButton from './FancyButton.svelte';
 
   let {
@@ -18,10 +18,12 @@
     interactive = false,
     onclick
   }: {
-    shop: ShopWithExtras;
+    shop: ShopWithExtras | GlobeShopWithExtras;
     interactive?: boolean;
     onclick?: () => void;
   } = $props();
+
+  type ShopCardShop = ShopWithExtras | GlobeShopWithExtras;
 
   const getDensityTailwindColor = (density: number) => {
     switch (density) {
@@ -40,10 +42,13 @@
 
   const getGameInfo = (titleId: number) => GAME_TITLES.find((g) => g.id === titleId);
 
-  const getTotalMachines = (s: Pick<Shop, 'games'>) =>
-    s.games.reduce((total, game) => total + game.quantity, 0);
+  const getAggregatedGames = (currentShop: ShopCardShop) =>
+    'aggregatedGames' in currentShop ? currentShop.aggregatedGames : aggregateGames(currentShop);
 
-  const aggregatedGames = $derived(aggregateGames(shop));
+  const getTotalMachines = (currentShop: ShopCardShop) =>
+    getAggregatedGames(currentShop).reduce((total, game) => total + game.quantity, 0);
+
+  const aggregatedGames = $derived(getAggregatedGames(shop));
   const openingHours = $derived(shop.openingHoursParsed);
   const offsetLocal = $derived.by(() => {
     if (!openingHours) return '';

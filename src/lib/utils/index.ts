@@ -1085,7 +1085,7 @@ export const formatOpeningHourLiteral = (time: unknown) => {
   return `${hh}:${mm}`;
 };
 
-export const isShopChinaBased = (shop: Pick<Shop, 'address'>) => {
+export const isShopChinaBased = (shop: { address: { general: string[] } }) => {
   return (
     shop.address.general[0] && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(shop.address.general[0].trim())
   );
@@ -1095,18 +1095,22 @@ export const isShopChinaBased = (shop: Pick<Shop, 'address'>) => {
  * Formats a shop's address array into a readable string
  */
 export const formatShopAddress = (
-  shop: Shop & { addressHl?: Shop['address'] },
+  shop: {
+    address: { general: string[]; detailed?: string };
+    addressHl?: { general: string[]; detailed?: string };
+  },
   detailed = false
 ): string => {
   const address = shop.addressHl || shop.address;
   const addressParts = getAddressParts(address.general);
+  const detailedAddress = address.detailed ?? '';
 
   const reverse = !isShopChinaBased(shop);
 
   return addressParts.length > 0
     ? (reverse
-        ? (detailed ? address.detailed + '\n' : '') + addressParts.toReversed().join(', ')
-        : addressParts.join(' · ') + (detailed ? '\n' + address.detailed : '')
+        ? (detailed ? detailedAddress + '\n' : '') + addressParts.toReversed().join(', ')
+        : addressParts.join(' · ') + (detailed ? '\n' + detailedAddress : '')
       ).trim()
     : '';
 };
@@ -1134,17 +1138,28 @@ export const getAddressParts = (address: string[]) => {
  */
 export const getShopTimezone = (location: Location): string => {
   const [longitude, latitude] = location.coordinates;
+  const cacheKey = `${longitude},${latitude}`;
+  const cachedTimezone = shopTimezoneCache.get(cacheKey);
+  if (cachedTimezone) return cachedTimezone;
+
+  let resolvedTimezone = 'Asia/Shanghai';
 
   try {
     const timezone = tzlookup(latitude, longitude);
-    if (timezone === 'Asia/Urumqi') return 'Asia/Shanghai';
-    if (timezone) return timezone;
+    if (timezone === 'Asia/Urumqi') {
+      resolvedTimezone = 'Asia/Shanghai';
+    } else if (timezone) {
+      resolvedTimezone = timezone;
+    }
   } catch (error) {
     console.error('Failed to lookup timezone:', error);
   }
 
-  return 'Asia/Shanghai';
+  shopTimezoneCache.set(cacheKey, resolvedTimezone);
+  return resolvedTimezone;
 };
+
+const shopTimezoneCache = new Map<string, string>();
 
 export const getCurrentTimeByLocation = (location: Location) => {
   const timezone = getShopTimezone(location);
@@ -1165,7 +1180,12 @@ const toleranceMsForShopClose = 150 * 60 * 1000; // 2.5 hours tolerance
 /**
  * Calculate the next occurrence of the specified local time in the location.
  */
-export const getNextTimeAtHour = (location: Location, hours: unknown[], basisHour: unknown) => {
+export const getNextTimeAtHour = (
+  location: Location,
+  hours: unknown[],
+  basisHour: unknown,
+  currentTimeByLocation = getCurrentTimeByLocation(location)
+) => {
   const normalizeHourMinute = (time: unknown) => {
     const normalized = normalizeOpeningHourTime(time);
     const hour = normalized.hour;
@@ -1181,7 +1201,7 @@ export const getNextTimeAtHour = (location: Location, hours: unknown[], basisHou
   const basis = normalizeHourMinute(basisHour);
   const normalizedHours = hours.map(normalizeHourMinute);
 
-  const { nowShifted, offsetMs } = getCurrentTimeByLocation(location);
+  const { nowShifted, offsetMs } = currentTimeByLocation;
   const now = new Date();
 
   const year = nowShifted.getUTCFullYear();
@@ -1223,7 +1243,8 @@ export const getNextTimeAtHour = (location: Location, hours: unknown[], basisHou
  * @returns An object containing the opening and closing times
  */
 export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'>) => {
-  const { nowShifted, offsetHours } = getCurrentTimeByLocation(shop.location);
+  const currentTimeByLocation = getCurrentTimeByLocation(shop.location);
+  const { nowShifted, offsetHours } = currentTimeByLocation;
   const openingHours =
     shop.openingHours.length === 1
       ? shop.openingHours[0]
@@ -1234,7 +1255,12 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
   ];
   const {
     hours: [open, close]
-  } = getNextTimeAtHour(shop.location, normalizedOpeningHours, normalizedOpeningHours[1]);
+  } = getNextTimeAtHour(
+    shop.location,
+    normalizedOpeningHours,
+    normalizedOpeningHours[1],
+    currentTimeByLocation
+  );
   const openTolerated = new Date(open.getTime() - toleranceMsForShopOpen);
   const closeTolerated = new Date(close.getTime() + toleranceMsForShopClose);
 
@@ -1338,8 +1364,10 @@ export const convertCoordinates = (
   }
 };
 
-export const aggregateGames = (shop: Pick<Shop, 'games'>) => {
-  const gameMap: Record<number, (typeof shop.games)[0]> = {};
+export const aggregateGames = <T extends { titleId: number; quantity: number }>(shop: {
+  games: T[];
+}) => {
+  const gameMap: Record<number, T> = {};
   for (const g of shop.games) {
     const existing = gameMap[g.titleId];
     if (existing) {

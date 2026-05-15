@@ -10,7 +10,7 @@
   import ShopCard from '$lib/components/ShopCard.svelte';
   import { getShopOpeningHours, isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
   import { GAME_TITLES } from '$lib/constants';
-  import type { Shop, ShopWithExtras } from '$lib/types';
+  import type { GlobeShop, GlobeShopWithExtras } from '$lib/types';
   import {
     emptyGlobeFeatureCollection,
     filterCitiesByProvince,
@@ -43,12 +43,12 @@
   // ---- Props ----
   type Props = {
     mode: 'landing' | 'fullscreen';
-    shopData: Promise<Shop[]>;
-    attendanceData: Promise<Map<string, { gameId: number; total: number }[]>>;
+    shopData?: Promise<GlobeShop[]> | null;
   };
-  let { mode, shopData, attendanceData }: Props = $props();
+  let { mode, shopData }: Props = $props();
 
   // ---- Globe layer/source IDs ----
+  const GLOBE_DATA_ENDPOINT = `${base}/api/globe/data`;
   const GEOJSON_ENDPOINT = `${base}/api/geo/dataset`;
   const COUNTRY_ZOOM_THRESHOLD = 3.5;
   const PROVINCE_ZOOM_THRESHOLD = 4.6;
@@ -337,7 +337,7 @@
   let countyData = $state<GlobeFeatureCollection>(emptyGlobeFeatureCollection());
   let hoveredFeature = $state<GlobeFeature | null>(null);
   let hoveredFeatureId = $state<string | null>(null);
-  let geojsonStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('loading');
+  let geojsonStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   let countyStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
   let geojsonError = $state<string | null>(null);
   let activeSupportedCountry = $state<SupportedCountry | null>(null);
@@ -445,20 +445,48 @@
 
   // ---- Shop data state ----
   type ShopEntry = {
-    shop: ShopWithExtras;
+    shop: GlobeShopWithExtras;
     location: { latitude: number; longitude: number };
   };
 
-  let shopDataResolved = $state<Shop[]>([]);
-  let attendanceDataResolved = new SvelteMap<string, { gameId: number; total: number }[]>();
+  type GlobeDataResponse = {
+    shops: GlobeShop[];
+  };
+
+  let shopDataResolved = $state<GlobeShop[]>([]);
   let shops = $state<ShopEntry[] | null>(null);
   const shopLookup = new SvelteMap<string, ShopEntry>();
+  let lazyGlobeDataPromise: Promise<GlobeDataResponse> | null = null;
+  let globeDataRequestId = 0;
+  let globeDataRefreshToken = $state(0);
 
-  const getShopKey = (shop: Pick<Shop, 'id'>) => `${shop.id}`;
+  const getShopKey = (shop: Pick<GlobeShop, 'id'>) => `${shop.id}`;
+
+  const applyResolvedGlobeData = (resolvedShops: GlobeShop[]) => {
+    shopDataResolved = resolvedShops;
+  };
+
+  const fetchGlobeData = () => {
+    if (!lazyGlobeDataPromise) {
+      lazyGlobeDataPromise = fetch(GLOBE_DATA_ENDPOINT)
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Failed to load globe data (${response.status})`);
+          }
+          return (await response.json()) as GlobeDataResponse;
+        })
+        .catch((error) => {
+          lazyGlobeDataPromise = null;
+          throw error;
+        });
+    }
+
+    return lazyGlobeDataPromise;
+  };
 
   // ---- Pinned / hover shop state ----
-  let markerHoveredShop = $state<ShopWithExtras | null>(null);
-  let pinnedShop = $state<ShopWithExtras | null>(null);
+  let markerHoveredShop = $state<GlobeShopWithExtras | null>(null);
+  let pinnedShop = $state<GlobeShopWithExtras | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
   const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
@@ -625,7 +653,7 @@
         }
       }
       if (selectedTitleIds.length > 0) {
-        if (!selectedTitleIds.every((tid) => shop.games.some((g) => g.titleId === tid)))
+        if (!selectedTitleIds.every((tid) => shop.aggregatedGames.some((g) => g.titleId === tid)))
           return false;
       }
       return true;
@@ -647,62 +675,36 @@
   });
 
   $effect(() => {
-    shopData.then((resolved) => {
-      shopDataResolved = resolved;
-    });
-    attendanceData.then((resolved) => {
-      attendanceDataResolved.clear();
-      for (const [k, v] of resolved) attendanceDataResolved.set(k, v);
-    });
-  });
+    const sourceShopData = shopData;
+    const refreshToken = globeDataRefreshToken;
+    const requestId = ++globeDataRequestId;
+    void refreshToken;
 
-  const getShopDensity = (shop: Omit<ShopWithExtras, 'density'>): number => {
-    const oh = shop.openingHoursParsed;
-    if (!oh || now < oh.openTolerated || now > oh.closeTolerated) return 0;
-    const density = shop.games
-      .reduce((acc, game) => {
-        if (acc.has(game.titleId)) {
-          acc.get(game.titleId)!.push(game);
-        } else {
-          acc.set(game.titleId, [game]);
+    void (async () => {
+      try {
+        if (sourceShopData) {
+          const resolvedShops = await sourceShopData;
+          if (requestId !== globeDataRequestId) return;
+          applyResolvedGlobeData(resolvedShops);
+          return;
         }
-        return acc;
-      }, new Map<number, typeof shop.games>())
-      .entries()
-      .map(([, games]) => {
-        const attendances = shop.attendances.reduce((sum, att) => {
-          if (games.find((g) => g.gameId === att.gameId)) return sum + att.total;
-          return sum;
-        }, 0);
-        const positions =
-          games.reduce((sum, g) => sum + g.quantity, 0) *
-          (GAME_TITLES.find((game) => game.id === games[0].titleId)?.seats || 1);
-        return attendances / positions;
-      })
-      .reduce((max, curr) => (isNaN(curr) ? max : Math.max(max, curr)), 0);
-    if (!isFinite(density) || isNaN(density)) return 0;
-    switch (true) {
-      case density < 0.1:
-        return 1;
-      case density < 1:
-        return 2;
-      case density < 2:
-        return 3;
-      default:
-        return 4;
-    }
-  };
+
+        const response = await fetchGlobeData();
+        if (requestId !== globeDataRequestId) return;
+        applyResolvedGlobeData(response.shops);
+      } catch (error) {
+        if (requestId !== globeDataRequestId) return;
+        console.error('Failed to load globe shop data:', error);
+      }
+    })();
+  });
 
   $effect(() => {
     if (!shopDataResolved.length) return;
-    const att = attendanceDataResolved;
     const nextShops = shopDataResolved.map((shop) => {
-      const attendances = att.get(getShopKey(shop)) ?? [];
       const openingHoursParsed = getShopOpeningHours(shop);
-      const currentAttendance = attendances.reduce((s, a) => s + a.total, 0);
-      const shopBase = { ...shop, attendances, openingHoursParsed, currentAttendance, density: 0 };
       return {
-        shop: { ...shopBase, density: getShopDensity(shopBase) },
+        shop: { ...shop, openingHoursParsed },
         location: {
           latitude: shop.location.coordinates[1],
           longitude: shop.location.coordinates[0]
@@ -788,7 +790,7 @@
     void goto(`${base}/shops/new?${params}`);
   };
 
-  const applyShopRegionFilter = (shop: ShopWithExtras) => {
+  const applyShopRegionFilter = (shop: GlobeShopWithExtras) => {
     const general = shop.address.general;
     if (!general.length) {
       regionFilter = { type: 'world' };
@@ -797,7 +799,7 @@
     regionFilter = { type: 'address', address: general };
   };
 
-  const isShopInCurrentFilter = (shop: ShopWithExtras): boolean => {
+  const isShopInCurrentFilter = (shop: GlobeShopWithExtras): boolean => {
     const fs = filteredShops;
     if (!fs) return false;
     const key = getShopKey(shop);
@@ -1921,7 +1923,7 @@
       if (map?.isStyleLoaded()) {
         ensureMapLayers(map, { deferVisuals: true });
         applyModeLayers(map, mode);
-        syncDrilldown(map);
+        if (mode === 'fullscreen') syncDrilldown(map);
       }
     } catch (error) {
       console.error('Failed to load globe GeoJSON:', error);
@@ -1929,6 +1931,24 @@
       geojsonError = 'Failed to load map boundaries.';
     }
   };
+
+  $effect(() => {
+    const currentMode = mode;
+    const geoJsonEnabled = isGeoJsonEnabled();
+    const hasBaseGeoJson =
+      worldData.features.length > 0 &&
+      provinceData.features.length > 0 &&
+      cityData.features.length > 0;
+
+    if (!geoJsonEnabled) {
+      geojsonStatus = 'idle';
+      geojsonError = null;
+      return;
+    }
+
+    if (currentMode !== 'fullscreen' || hasBaseGeoJson || geojsonStatus !== 'idle') return;
+    void loadBaseGeoJson();
+  });
 
   $effect(() => {
     const instance = map;
@@ -2102,9 +2122,7 @@
 
     const initializeMap = async (cameraSnapshot?: CameraSnapshot) => {
       const featureSettingsKey = globeFeatureSettingsKey;
-      if (isGeoJsonEnabled()) {
-        void loadBaseGeoJson();
-      } else {
+      if (!isGeoJsonEnabled()) {
         geojsonStatus = 'idle';
         geojsonError = null;
       }
@@ -2140,7 +2158,7 @@
         syncScene(instance);
         ensureMapLayers(instance, { deferVisuals: true });
         applyModeLayers(instance, mode);
-        syncDrilldown(instance);
+        if (mode === 'fullscreen') syncDrilldown(instance);
         const shopsData = shops;
         if (shopsData) {
           const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
@@ -2510,7 +2528,14 @@
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
       now = new Date();
-      void invalidate('app:globe-shops');
+
+      if (shopData) {
+        void invalidate('app:globe-shops');
+        return;
+      }
+
+      lazyGlobeDataPromise = null;
+      globeDataRefreshToken += 1;
     }, 60_000);
 
     return () => {

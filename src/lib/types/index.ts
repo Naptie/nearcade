@@ -443,18 +443,43 @@ export interface AttendanceRegistration {
   userId?: string;
 }
 
+export interface ParsedShopOpeningHours {
+  open: Date;
+  close: Date;
+  openTolerated: Date;
+  closeTolerated: Date;
+  offsetHours: number;
+  openLocal: string;
+  closeLocal: string;
+}
+
+export interface GlobeShopGameSummary {
+  titleId: number;
+  name: string;
+  quantity: number;
+}
+
+export interface GlobeShop {
+  id: number;
+  name: string;
+  address: {
+    general: string[];
+  };
+  openingHours: Shop['openingHours'];
+  location: Shop['location'];
+  aggregatedGames: GlobeShopGameSummary[];
+  currentAttendance: number;
+  density: number;
+}
+
+export interface GlobeShopWithExtras extends GlobeShop {
+  openingHoursParsed: ParsedShopOpeningHours;
+}
+
 // Shop with computed attendance and opening-hours data, used on the globe views.
 export interface ShopWithExtras extends Shop {
   attendances: { gameId: number; total: number }[];
-  openingHoursParsed: {
-    open: Date;
-    close: Date;
-    openTolerated: Date;
-    closeTolerated: Date;
-    offsetHours: number;
-    openLocal: string;
-    closeLocal: string;
-  };
+  openingHoursParsed: ParsedShopOpeningHours;
   currentAttendance: number;
   density: number;
 }

@@ -74,7 +74,7 @@
 <!-- Globe is always mounted while navigating between / and /globe.
      It is positioned fixed behind all page content and controls its own overlay UI. -->
 {#if (isLandingPage && showGlobe) || isGlobePage}
-  <Globe mode={globeMode} shopData={data.globeShopData} attendanceData={data.globeAttendanceData} />
+  <Globe mode={globeMode} shopData={data.globeShopData} />
 {/if}
 
 {@render children()}
