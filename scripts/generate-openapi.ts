@@ -151,7 +151,7 @@ const document = createDocument({
     title: 'nearcade API',
     version: pkg.version,
     description:
-      'OpenAPI documentation generated from endpoint-local Zod definitions. Descriptions include English and Chinese text where handwritten documentation exists.'
+      'OpenAPI documentation for the nearcade API.'
   },
   servers: [{ url: '/api', description: 'API base URL' }],
   components: {
