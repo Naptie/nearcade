@@ -1766,6 +1766,7 @@
                                       "type": "string",
                                       "enum": [
                                         "site_admin",
+                                        "developer",
                                         "school_admin",
                                         "club_admin",
                                         "school_moderator",
@@ -1980,6 +1981,7 @@
                                 "type": "string",
                                 "enum": [
                                   "site_admin",
+                                  "developer",
                                   "school_admin",
                                   "club_admin",
                                   "school_moderator",
@@ -3222,6 +3224,7 @@
                           "type": "string",
                           "enum": [
                             "site_admin",
+                            "developer",
                             "school_admin",
                             "club_admin",
                             "school_moderator",
@@ -4048,6 +4051,7 @@
                                     "type": "string",
                                     "enum": [
                                       "site_admin",
+                                      "developer",
                                       "school_admin",
                                       "club_admin",
                                       "school_moderator",
@@ -4262,6 +4266,7 @@
                               "type": "string",
                               "enum": [
                                 "site_admin",
+                                "developer",
                                 "school_admin",
                                 "club_admin",
                                 "school_moderator",
@@ -4527,6 +4532,7 @@
                                       "type": "string",
                                       "enum": [
                                         "site_admin",
+                                        "developer",
                                         "school_admin",
                                         "club_admin",
                                         "school_moderator",
@@ -4705,6 +4711,7 @@
                                 "type": "string",
                                 "enum": [
                                   "site_admin",
+                                  "developer",
                                   "school_admin",
                                   "club_admin",
                                   "school_moderator",
@@ -7433,6 +7440,7 @@
                               "type": "string",
                               "enum": [
                                 "site_admin",
+                                "developer",
                                 "school_admin",
                                 "club_admin",
                                 "school_moderator",
@@ -8148,6 +8156,7 @@
                                   "type": "string",
                                   "enum": [
                                     "site_admin",
+                                    "developer",
                                     "school_admin",
                                     "club_admin",
                                     "school_moderator",
@@ -8320,6 +8329,7 @@
                             "type": "string",
                             "enum": [
                               "site_admin",
+                              "developer",
                               "school_admin",
                               "club_admin",
                               "school_moderator",
@@ -9055,6 +9065,7 @@
                                 "type": "string",
                                 "enum": [
                                   "site_admin",
+                                  "developer",
                                   "school_admin",
                                   "club_admin",
                                   "school_moderator",
@@ -9864,6 +9875,7 @@
                                       "type": "string",
                                       "enum": [
                                         "site_admin",
+                                        "developer",
                                         "school_admin",
                                         "club_admin",
                                         "school_moderator",
@@ -10231,6 +10243,7 @@
                                     "type": "string",
                                     "enum": [
                                       "site_admin",
+                                      "developer",
                                       "school_admin",
                                       "club_admin",
                                       "school_moderator",
@@ -10739,6 +10752,7 @@
                                   "type": "string",
                                   "enum": [
                                     "site_admin",
+                                    "developer",
                                     "school_admin",
                                     "club_admin",
                                     "school_moderator",
@@ -10911,6 +10925,7 @@
                             "type": "string",
                             "enum": [
                               "site_admin",
+                              "developer",
                               "school_admin",
                               "club_admin",
                               "school_moderator",
@@ -12807,6 +12822,7 @@
                                       "type": "string",
                                       "enum": [
                                         "site_admin",
+                                        "developer",
                                         "school_admin",
                                         "club_admin",
                                         "school_moderator",
@@ -13021,6 +13037,7 @@
                                 "type": "string",
                                 "enum": [
                                   "site_admin",
+                                  "developer",
                                   "school_admin",
                                   "club_admin",
                                   "school_moderator",
@@ -13295,6 +13312,7 @@
                           "type": "string",
                           "enum": [
                             "site_admin",
+                            "developer",
                             "school_admin",
                             "club_admin",
                             "school_moderator",

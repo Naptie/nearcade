@@ -224,23 +224,10 @@ export const auth = betterAuth({
           return true;
         }
 
-        return user.userType === 'site_admin' || user.userType === 'developer';
+        return user?.userType === 'site_admin' || user?.userType === 'developer';
       },
       schema: {
-        oauthClient: {
-          modelName: 'oauth_client',
-          fields: {
-            createdBy: {
-              type: 'string',
-              required: false,
-              references: {
-                model: 'user',
-                field: 'id'
-              },
-              index: true
-            }
-          }
-        },
+        oauthClient: { modelName: 'oauth_client' },
         oauthConsent: { modelName: 'oauth_consent' },
         oauthAccessToken: { modelName: 'oauth_access_token' }
       }

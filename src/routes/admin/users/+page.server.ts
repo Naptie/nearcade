@@ -175,7 +175,9 @@ export const actions: Actions = {
       }
 
       if (grant) {
-        await db.collection<User>('users').updateOne({ id: userId }, { $set: { userType: 'developer' } });
+        await db
+          .collection<User>('users')
+          .updateOne({ id: userId }, { $set: { userType: 'developer' } });
       } else {
         await db.collection<User>('users').updateOne({ id: userId }, { $unset: { userType: '' } });
         await updateUserType(userId, mongo);

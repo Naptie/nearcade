@@ -159,7 +159,9 @@
                       {getDisplayName(client.creator ?? undefined)}
                     </div>
                     {#if client.creator?.name}
-                      <div class="text-base-content/50 truncate text-xs">@{client.creator.name}</div>
+                      <div class="text-base-content/50 truncate text-xs">
+                        @{client.creator.name}
+                      </div>
                     {/if}
                   </div>
                 </td>

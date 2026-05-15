@@ -8,7 +8,7 @@ import { listOAuthClients } from '$lib/auth/oauth/clients.server';
 const canManageOAuthClients = (userType?: string) =>
   userType === 'site_admin' || userType === 'developer';
 
-export const load: PageServerLoad = async ({ locals, request }) => {
+export const load: PageServerLoad = async ({ locals }) => {
   const user = locals.session?.user;
 
   if (!canManageOAuthClients(user?.userType)) {
@@ -68,7 +68,7 @@ export const actions = {
     }
 
     try {
-      const result = await auth.api.createOAuthClient({
+      const result = await auth.api.adminCreateOAuthClient({
         headers: request.headers,
         body: {
           client_name: name,
@@ -79,17 +79,21 @@ export const actions = {
           ...(icon ? { logo_uri: icon } : {})
         }
       });
+      const createdClient = ('response' in result ? result.response : result) as {
+        client_id: string;
+        client_secret?: string;
+      };
 
       await mongo
         .db()
         .collection('oauth_clients')
-        .updateOne({ clientId: result.client_id }, { $set: { createdBy: user.id } });
+        .updateOne({ clientId: createdClient.client_id }, { $set: { createdBy: user.id } });
 
       return {
         success: true,
         created: {
-          clientId: result.client_id,
-          clientSecret: result.client_secret
+          clientId: createdClient.client_id,
+          clientSecret: createdClient.client_secret
         }
       };
     } catch (e) {
@@ -169,25 +173,28 @@ export const actions = {
 
     try {
       if (user.userType === 'site_admin') {
-        const result = await mongo.db().collection('oauth_clients').updateOne(
-          { clientId },
-          {
-            $set: {
-              name,
-              redirectUris,
-              skipConsent,
-              updatedAt: new Date(),
-              ...(uri !== undefined ? { uri } : {}),
-              ...(icon !== undefined ? { icon } : {})
+        const result = await mongo
+          .db()
+          .collection('oauth_clients')
+          .updateOne(
+            { clientId },
+            {
+              $set: {
+                name,
+                redirectUris,
+                skipConsent,
+                updatedAt: new Date(),
+                ...(uri !== undefined ? { uri } : {}),
+                ...(icon !== undefined ? { icon } : {})
+              }
             }
-          }
-        );
+          );
 
         if (result.matchedCount === 0) {
           return fail(404, { error: 'Client not found' });
         }
       } else {
-        await auth.api.updateOAuthClient({
+        await auth.api.adminUpdateOAuthClient({
           headers: request.headers,
           body: {
             client_id: clientId,
