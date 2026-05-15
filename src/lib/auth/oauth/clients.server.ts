@@ -34,7 +34,8 @@ const oauthClientsCollection = 'oauth_clients';
 const baseClientPipeline = [
   {
     $addFields: {
-      // Legacy clients only have `userId`; newer ones also persist `createdBy`.
+      // Existing clients created before this feature only have `userId`; new writes also set `createdBy`
+      // so admin listings and consent screens can attribute ownership without a separate migration.
       creatorId: { $ifNull: ['$createdBy', '$userId'] }
     }
   },

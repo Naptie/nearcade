@@ -13,22 +13,25 @@ type CreatedOAuthClient = {
   client_secret?: string;
 };
 
-const isCreatedOAuthClientResponse = (
+const hasCreatedOAuthClientResponse = (
   value: unknown
 ): value is { response: CreatedOAuthClient } => {
+  const response =
+    value && typeof value === 'object' && 'response' in value ? value.response : undefined;
+
   return (
-    !!value &&
-    typeof value === 'object' &&
-    'response' in value &&
-    !!value.response &&
-    typeof value.response === 'object'
+    !!response &&
+    typeof response === 'object' &&
+    'client_id' in response &&
+    typeof response.client_id === 'string'
   );
 };
 
 const deleteManagedOAuthClient = async (userType: string, request: Request, clientId: string) => {
   if (userType === 'site_admin') {
     // Better Auth only lets owners delete through the API, so site admins use the stored record directly.
-    return mongo.db().collection('oauth_clients').deleteOne({ clientId });
+    const result = await mongo.db().collection('oauth_clients').deleteOne({ clientId });
+    return result.deletedCount > 0;
   }
 
   await auth.api.deleteOAuthClient({
@@ -36,7 +39,7 @@ const deleteManagedOAuthClient = async (userType: string, request: Request, clie
     headers: request.headers
   });
 
-  return null;
+  return true;
 };
 
 const updateManagedOAuthClient = async (
@@ -159,7 +162,7 @@ export const actions = {
         }
       });
       // Better Auth server helpers may return the payload directly or wrapped in `response`.
-      const createdClient = isCreatedOAuthClientResponse(result)
+      const createdClient = hasCreatedOAuthClientResponse(result)
         ? result.response
         : (result as CreatedOAuthClient);
 
@@ -196,12 +199,10 @@ export const actions = {
     }
 
     try {
-      const result = await deleteManagedOAuthClient(user.userType, request, clientId);
+      const deleted = await deleteManagedOAuthClient(user.userType, request, clientId);
 
-      if (result) {
-        if (result.deletedCount === 0) {
-          return fail(404, { error: 'Client not found' });
-        }
+      if (!deleted) {
+        return fail(404, { error: 'Client not found' });
       }
       return { deleted: true };
     } catch (e) {
