@@ -150,8 +150,7 @@ const document = createDocument({
   info: {
     title: 'nearcade API',
     version: pkg.version,
-    description:
-      'OpenAPI documentation for the nearcade API.'
+    description: 'OpenAPI documentation for the nearcade API.'
   },
   servers: [{ url: '/api', description: 'API base URL' }],
   components: {
