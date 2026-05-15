@@ -24,7 +24,6 @@
   import { getContext, onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
-  import { getLocale } from '$lib/paraglide/runtime';
   import { fade, slide } from 'svelte/transition';
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
@@ -251,9 +250,7 @@
         out:slide
       >
         <SiteTitle
-          class="title text-6xl sm:text-8xl xl:text-9xl {getLocale() === 'zh'
-            ? 'xs:px-10 sm:px-14 md:px-18'
-            : ''} {showGlobe ? 'title-base-content' : ''}"
+          class="title text-6xl sm:text-8xl xl:text-9xl {showGlobe ? 'title-base-content' : ''}"
         />
         <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
           {m.greeting()}
