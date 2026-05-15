@@ -219,6 +219,13 @@ export const auth = betterAuth({
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
       allowPublicClientPrelogin: true,
+      clientPrivileges: async ({ action, user }) => {
+        if (action === 'read') {
+          return true;
+        }
+
+        return user?.userType === 'site_admin' || user?.userType === 'developer';
+      },
       schema: {
         oauthClient: { modelName: 'oauth_client' },
         oauthConsent: { modelName: 'oauth_consent' },

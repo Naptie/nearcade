@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle(m.sign_in(), m.profile())}</title>
+  <title>{pageTitle(m.sign_in())}</title>
 </svelte:head>
 
 <div class="flex min-h-screen items-center justify-center p-4">

@@ -1,11 +1,16 @@
-import { auth } from '$lib/auth/index.server';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import mongo from '$lib/db/index.server';
+import { getOAuthClientConsentInfo } from '$lib/auth/oauth/clients.server';
 
 interface OAuthConsentClient {
   name: string;
   icon: string | null;
   uri: string | null;
+  creator: {
+    name: string | null;
+    displayName: string | null;
+  } | null;
 }
 
 export const load: PageServerLoad = async (event) => {
@@ -34,15 +39,22 @@ export const load: PageServerLoad = async (event) => {
   }
 
   try {
-    const raw = await auth.api.getOAuthClientPublic({
-      query: { client_id: clientId },
-      headers: event.request.headers
-    });
+    const raw = await getOAuthClientConsentInfo(mongo.db(), clientId);
+
+    if (!raw) {
+      throw new Error('Invalid client');
+    }
 
     const client: OAuthConsentClient = {
-      name: String(raw.client_name ?? raw.client_id ?? clientId),
-      icon: raw.logo_uri ? String(raw.logo_uri) : null,
-      uri: raw.client_uri ? String(raw.client_uri) : null
+      name: raw.name,
+      icon: raw.icon,
+      uri: raw.uri,
+      creator: raw.creator
+        ? {
+            name: raw.creator.name ?? null,
+            displayName: raw.creator.displayName ?? null
+          }
+        : null
     };
 
     return {

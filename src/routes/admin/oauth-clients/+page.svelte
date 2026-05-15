@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import { pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
   import CopyField from '$lib/components/CopyField.svelte';
   import type { PageData, ActionData } from './$types';
 
@@ -95,12 +95,15 @@
       <table class="bg-base-100 table w-full table-fixed rounded-xl shadow">
         <thead>
           <tr>
-            <th class="w-[22%]">{m.name()}</th>
-            <th class="w-[28%]">Client ID</th>
-            <th class="w-[10%]">{m.admin_oauth_type()}</th>
-            <th class="w-[22%]">{m.admin_oauth_redirect_uris()}</th>
-            <th class="w-[10%]">{m.admin_oauth_consent_skip()}</th>
-            <th class="w-[8%]">{m.actions()}</th>
+            <th class="w-[18%]">{m.name()}</th>
+            <th class="w-[26%]">Client ID</th>
+            <th class="w-[8%] not-lg:hidden">{m.admin_oauth_type()}</th>
+            <th class="w-[22%] not-xl:hidden">{m.admin_oauth_redirect_uris()}</th>
+            {#if data.isSiteAdmin}
+              <th class="w-[16%] not-lg:hidden">{m.admin_oauth_client_creator()}</th>
+              <th class="w-[10%] not-xl:hidden">{m.admin_oauth_consent_skip()}</th>
+            {/if}
+            <th class="w-[10%]">{m.actions()}</th>
           </tr>
         </thead>
         <tbody>
@@ -117,27 +120,36 @@
                     <div class="truncate font-medium" title={client.name}>
                       {client.name}
                     </div>
-                    {#if client.uri}
-                      <div class="text-base-content/50 truncate text-xs" title={client.uri}>
-                        {client.uri}
-                      </div>
-                    {/if}
+                    <div class="items-cnter flex gap-1">
+                      <span
+                        class="badge badge-xs badge-soft text-nowrap lg:hidden {client.isPublic
+                          ? 'badge-info'
+                          : 'badge-warning'}"
+                      >
+                        {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
+                      </span>
+                      {#if client.uri}
+                        <div class="text-base-content/50 truncate text-xs" title={client.uri}>
+                          {client.uri}
+                        </div>
+                      {/if}
+                    </div>
                   </div>
                 </div>
               </td>
               <td>
                 <CopyField value={client.clientId} buttonStyle="ghost" size="xs" display="text" />
               </td>
-              <td>
+              <td class="not-lg:hidden">
                 <span
-                  class="badge badge-sm text-nowrap {client.isPublic
+                  class="badge badge-sm badge-soft text-nowrap {client.isPublic
                     ? 'badge-info'
                     : 'badge-warning'}"
                 >
                   {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
                 </span>
               </td>
-              <td>
+              <td class="not-xl:hidden">
                 <div>
                   {#each client.redirectUris.slice(0, 2) as uri, i (i)}
                     <div class="truncate text-xs">{uri}</div>
@@ -149,13 +161,27 @@
                   {/if}
                 </div>
               </td>
-              <td>
-                {#if client.skipConsent}
-                  <span class="badge badge-sm badge-success">{m.yes()}</span>
-                {:else}
-                  <span class="badge badge-ghost badge-sm">{m.no()}</span>
-                {/if}
-              </td>
+              {#if data.isSiteAdmin}
+                <td class="not-lg:hidden">
+                  <div class="min-w-0 text-sm">
+                    <div class="truncate" title={getDisplayName(client.creator ?? undefined)}>
+                      {getDisplayName(client.creator ?? undefined)}
+                    </div>
+                    {#if client.creator?.name}
+                      <div class="text-base-content/50 truncate text-xs">
+                        @{client.creator.name}
+                      </div>
+                    {/if}
+                  </div>
+                </td>
+                <td class="not-xl:hidden">
+                  {#if client.skipConsent}
+                    <span class="badge badge-sm badge-success">{m.yes()}</span>
+                  {:else}
+                    <span class="badge badge-ghost badge-sm">{m.no()}</span>
+                  {/if}
+                </td>
+              {/if}
               <td>
                 <div class="flex gap-1">
                   <button
@@ -272,24 +298,26 @@
               <input name="is_public" type="checkbox" class="checkbox checkbox-sm" />
               <div>
                 <span class="label-text">{m.admin_oauth_public_client()}</span>
-                <p class="text-base-content/50 text-xs">
+                <p class="text-base-content/50 text-xs text-wrap">
                   {m.admin_oauth_public_client_hint()}
                 </p>
               </div>
             </label>
           </div>
 
-          <div class="form-control">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input name="skip_consent" type="checkbox" class="checkbox checkbox-sm" />
-              <div>
-                <span class="label-text">{m.admin_oauth_skip_consent()}</span>
-                <p class="text-base-content/50 text-xs">
-                  {m.admin_oauth_skip_consent_hint()}
-                </p>
-              </div>
-            </label>
-          </div>
+          {#if data.isSiteAdmin}
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-3">
+                <input name="skip_consent" type="checkbox" class="checkbox checkbox-sm" />
+                <div>
+                  <span class="label-text">{m.admin_oauth_skip_consent()}</span>
+                  <p class="text-base-content/50 text-xs text-wrap">
+                    {m.admin_oauth_skip_consent_hint()}
+                  </p>
+                </div>
+              </label>
+            </div>
+          {/if}
         </div>
 
         <div class="modal-action">
@@ -447,22 +475,24 @@
             </div>
           </div>
 
-          <div class="form-control">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input
-                name="skip_consent"
-                type="checkbox"
-                class="checkbox checkbox-sm"
-                checked={editTarget.skipConsent}
-              />
-              <div>
-                <span class="label-text">{m.admin_oauth_skip_consent()}</span>
-                <p class="text-base-content/50 text-xs">
-                  {m.admin_oauth_skip_consent_hint()}
-                </p>
-              </div>
-            </label>
-          </div>
+          {#if data.isSiteAdmin}
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-3">
+                <input
+                  name="skip_consent"
+                  type="checkbox"
+                  class="checkbox checkbox-sm"
+                  checked={editTarget.skipConsent}
+                />
+                <div>
+                  <span class="label-text">{m.admin_oauth_skip_consent()}</span>
+                  <p class="text-base-content/50 text-xs text-wrap">
+                    {m.admin_oauth_skip_consent_hint()}
+                  </p>
+                </div>
+              </label>
+            </div>
+          {/if}
         </div>
 
         <div class="modal-action">

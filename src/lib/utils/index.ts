@@ -480,11 +480,16 @@ export const checkClubPermission = async (
   };
 };
 
-export const updateUserType = async (userId: string, client: MongoClient): Promise<void> => {
+export const updateUserType = async (
+  userId: string,
+  client: MongoClient,
+  options: { preserveManualRoles?: boolean } = {}
+): Promise<void> => {
   const db = client.db();
   const universityMembersCollection = db.collection('university_members');
   const clubMembersCollection = db.collection('club_members');
   const usersCollection = db.collection<User>('users');
+  const preserveManualRoles = options.preserveManualRoles ?? true;
 
   // Get all memberships for this user
   const universityMemberships = await universityMembersCollection
@@ -496,12 +501,16 @@ export const updateUserType = async (userId: string, client: MongoClient): Promi
   let newUserType: UserType | undefined = undefined;
 
   // Check for admin roles
-  const isSiteAdmin = (await usersCollection.findOne({ id: userId }))?.userType === 'site_admin';
+  const currentUserType = (await usersCollection.findOne({ id: userId }))?.userType;
+  const isSiteAdmin = currentUserType === 'site_admin';
+  const isDeveloper = currentUserType === 'developer';
   const isUniversityAdmin = universityMemberships.some((m) => m.memberType === 'admin');
   const isClubAdmin = clubMemberships.some((m) => m.memberType === 'admin');
 
-  if (isSiteAdmin) {
+  if (preserveManualRoles && isSiteAdmin) {
     newUserType = 'site_admin';
+  } else if (preserveManualRoles && isDeveloper) {
+    newUserType = 'developer';
   } else if (isUniversityAdmin) {
     newUserType = 'school_admin';
   } else if (isClubAdmin) {
@@ -661,6 +670,7 @@ export const getClubMembersWithUserData = async (
 export const isAdminOrModerator = (user?: { userType?: string }): boolean => {
   return (
     user?.userType === 'site_admin' ||
+    user?.userType === 'developer' ||
     user?.userType === 'school_admin' ||
     user?.userType === 'club_admin' ||
     user?.userType === 'school_moderator' ||
@@ -672,6 +682,8 @@ export const getUserTypeLabel = (role: string | undefined) => {
   switch (role) {
     case 'site_admin':
       return m.site_admin();
+    case 'developer':
+      return m.developer();
     case 'school_admin':
       return m.school_admin();
     case 'school_moderator':
@@ -691,6 +703,8 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
   switch (userType) {
     case 'site_admin':
       return 'badge-soft badge-error';
+    case 'developer':
+      return 'badge-soft badge-secondary';
     case 'school_admin':
       return 'badge-soft badge-warning';
     case 'school_moderator':

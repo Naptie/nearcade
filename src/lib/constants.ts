@@ -32,6 +32,7 @@ export const GAME_TITLES = [
 
 export const USER_TYPES = [
   'site_admin',
+  'developer',
   'school_admin',
   'club_admin',
   'school_moderator',
