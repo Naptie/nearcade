@@ -21,6 +21,14 @@ import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
 
+function resolveId(id: string): ObjectId {
+  try {
+    return new ObjectId(id);
+  } catch {
+    return id as unknown as ObjectId;
+  }
+}
+
 function withProfileCache<T extends Record<string, unknown>>(
   providerId: string,
   mapFn: (profile: T) => { email: string; image?: string; [key: string]: unknown }
@@ -119,10 +127,7 @@ export const auth = betterAuth({
   basePath: '/api/auth',
   trustedOrigins: ['*'],
   advanced: {
-    trustedProxyHeaders: true,
-    database: {
-      generateId: () => new ObjectId().toHexString()
-    }
+    trustedProxyHeaders: true
   },
   database: mongodbAdapter(mongo.db(), {
     usePlural: true
@@ -196,7 +201,7 @@ export const auth = betterAuth({
         const db = mongo.db();
         await db
           .collection('users')
-          .updateOne({ _id: new ObjectId(userId) }, { $set: { lastActiveAt: new Date() } });
+          .updateOne({ _id: resolveId(userId) }, { $set: { lastActiveAt: new Date() } });
       }
 
       return {
@@ -220,7 +225,7 @@ export const auth = betterAuth({
           const db = mongo.db();
           const currentUser = await db
             .collection('users')
-            .findOne({ _id: new ObjectId(account.userId) });
+            .findOne({ _id: resolveId(account.userId) });
           if (!currentUser) return;
 
           const updates: Record<string, unknown> = {};
@@ -237,7 +242,7 @@ export const auth = betterAuth({
           if (Object.keys(updates).length > 0) {
             await db
               .collection('users')
-              .updateOne({ _id: new ObjectId(account.userId) }, { $set: updates });
+              .updateOne({ _id: resolveId(account.userId) }, { $set: updates });
           }
         }
       }
@@ -253,7 +258,7 @@ export const auth = betterAuth({
           if (name && /^[A-Za-z0-9_-]+$/.test(name)) {
             const existingUser = await usersCollection.findOne({
               name,
-              _id: { $ne: new ObjectId(user.id) }
+              _id: { $ne: resolveId(user.id) }
             });
             if (!existingUser) {
               username = name;
@@ -265,7 +270,7 @@ export const auth = betterAuth({
           }
 
           await usersCollection.updateOne(
-            { _id: new ObjectId(user.id) },
+            { _id: resolveId(user.id) },
             {
               $set: {
                 id: user.id,
