@@ -34,63 +34,72 @@
       label: m.admin_dashboard(),
       icon: 'fa-chart-line',
       href: resolve('/admin'),
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      developerVisible: false
     },
     {
       id: 'users',
       label: m.admin_users(),
       icon: 'fa-user',
       href: resolve('/admin/users'),
-      requiresSiteAdmin: true
+      requiresSiteAdmin: true,
+      developerVisible: false
     },
     {
       id: 'universities',
       label: m.admin_universities(),
       icon: 'fa-graduation-cap',
       href: resolve('/admin/universities'),
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      developerVisible: false
     },
     {
       id: 'clubs',
       label: m.admin_clubs(),
       icon: 'fa-users',
       href: resolve('/admin/clubs'),
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      developerVisible: false
     },
     {
       id: 'posts',
       label: m.admin_posts(),
       icon: 'fa-file-lines',
       href: resolve('/admin/posts'),
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      developerVisible: false
     },
     {
       id: 'shops',
       label: m.admin_shops(),
       icon: 'fa-gamepad',
       href: resolve('/admin/shops'),
-      requiresSiteAdmin: true
+      requiresSiteAdmin: true,
+      developerVisible: false
     },
     {
       id: 'machines',
       label: m.admin_machines(),
       icon: 'fa-server',
       href: resolve('/admin/machines'),
-      requiresSiteAdmin: true
+      requiresSiteAdmin: true,
+      developerVisible: false
     },
     {
       id: 'images',
       label: m.admin_images(),
       icon: 'fa-images',
       href: resolve('/admin/images'),
-      requiresSiteAdmin: true
+      requiresSiteAdmin: true,
+      developerVisible: false
     },
     {
       id: 'invites',
       label: m.admin_invites(),
       icon: 'fa-link',
       href: resolve('/admin/invites'),
-      requiresSiteAdmin: false
+      requiresSiteAdmin: false,
+      developerVisible: false
     },
     {
       id: 'join-requests',
@@ -98,6 +107,7 @@
       icon: 'fa-user-plus',
       href: resolve('/admin/join-requests'),
       requiresSiteAdmin: false,
+      developerVisible: false,
       count: data.session?.session.pendingJoinRequests
     },
     {
@@ -105,21 +115,25 @@
       label: m.shop_delete_requests(),
       icon: 'fa-trash-can',
       href: resolve('/(main)/shops/delete-requests'),
-      requiresSiteAdmin: true
+      requiresSiteAdmin: true,
+      developerVisible: false
     },
     {
       id: 'oauth-clients',
       label: m.admin_oauth_clients(),
       icon: 'fa-key',
       href: resolve('/admin/oauth-clients'),
-      requiresSiteAdmin: true
+      requiresSiteAdmin: true,
+      developerVisible: true
     }
   ]);
 
   // Filter navigation items based on user permissions
   const visibleItems = $derived(
-    navigationItems.filter(
-      (item) => !item.requiresSiteAdmin || data.user?.userType === 'site_admin'
+    navigationItems.filter((item) =>
+      data.user?.userType === 'developer'
+        ? item.developerVisible
+        : !item.requiresSiteAdmin || data.user?.userType === 'site_admin'
     )
   );
 

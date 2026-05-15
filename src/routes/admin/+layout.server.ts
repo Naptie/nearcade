@@ -12,6 +12,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
   const userType = session.user.userType;
   const hasAccess = [
     'site_admin',
+    'developer',
     'school_admin',
     'school_moderator',
     'club_admin',

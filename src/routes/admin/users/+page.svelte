@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import {
@@ -190,7 +190,7 @@
           bind:value={selectedUserType}
           onchange={handleUserTypeChange}
         >
-          {#each ['all', 'site_admin', 'school_admin', 'school_moderator', 'club_admin', 'club_moderator', 'student', 'regular'] as option (option)}
+          {#each ['all', 'site_admin', 'developer', 'school_admin', 'school_moderator', 'club_admin', 'club_moderator', 'student', 'regular'] as option (option)}
             <option value={option}>
               {option === 'all' ? m.admin_all_types() : getUserTypeLabel(option)}
             </option>
@@ -352,6 +352,43 @@
           </div>
           <div class="text-base-content/80">{editingUser.name}</div>
         </div>
+        {#if userDetails?.user?.userType !== 'site_admin'}
+          <div class="bg-base-200 rounded-lg p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div class="text-sm font-medium">{m.developer()}</div>
+                <p class="text-base-content/60 text-sm">{m.admin_developer_access_description()}</p>
+              </div>
+              <form
+                method="POST"
+                action="?/setDeveloperAccess"
+                use:enhance={() => {
+                  isSubmitting = true;
+                  return async ({ result, update }) => {
+                    isSubmitting = false;
+                    if (result.type === 'success') {
+                      await update();
+                      await invalidateAll();
+                      await fetchUserDetails(editingUser?.id);
+                    }
+                  };
+                }}
+              >
+                <input type="hidden" name="userId" value={editingUser.id} />
+                <input
+                  type="hidden"
+                  name="grant"
+                  value={userDetails?.user?.userType === 'developer' ? 'false' : 'true'}
+                />
+                <button type="submit" class="btn btn-sm btn-secondary" disabled={isSubmitting}>
+                  {userDetails?.user?.userType === 'developer'
+                    ? m.admin_revoke_developer_access()
+                    : m.admin_grant_developer_access()}
+                </button>
+              </form>
+            </div>
+          </div>
+        {/if}
         <div class="space-y-4">
           <form
             method="POST"
@@ -362,6 +399,7 @@
               return async ({ result, update }) => {
                 isSubmitting = false;
                 if (result.type === 'success') {
+                  await invalidateAll();
                   // Refresh user details after successful operation
                   await fetchUserDetails(editingUser?.id);
                   // Reset form
@@ -524,6 +562,7 @@
                           use:enhance={() => {
                             return async ({ result, update }) => {
                               if (result.type === 'success') {
+                                await invalidateAll();
                                 await fetchUserDetails(editingUser?.id);
                               }
                               await update();
@@ -593,6 +632,7 @@
                           use:enhance={() => {
                             return async ({ result, update }) => {
                               if (result.type === 'success') {
+                                await invalidateAll();
                                 await fetchUserDetails(editingUser?.id);
                               }
                               await update();

@@ -2,41 +2,39 @@ import { auth } from '$lib/auth/index.server';
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { m } from '$lib/paraglide/messages';
+import mongo from '$lib/db/index.server';
+import { listOAuthClients } from '$lib/auth/oauth/clients.server';
+
+const canManageOAuthClients = (userType?: string) =>
+  userType === 'site_admin' || userType === 'developer';
 
 export const load: PageServerLoad = async ({ locals, request }) => {
-  if (locals.session?.user?.userType !== 'site_admin') {
+  const user = locals.session?.user;
+
+  if (!canManageOAuthClients(user?.userType)) {
     error(403, m.access_denied());
   }
 
   try {
-    const clients = await auth.api.getOAuthClients({
-      headers: request.headers
+    const clients = await listOAuthClients(mongo.db(), {
+      isSiteAdmin: user.userType === 'site_admin',
+      userId: user.id
     });
 
     return {
-      clients: clients?.map((c) => ({
-        clientId: c.client_id,
-        name: c.client_name ?? c.client_id,
-        icon: c.logo_uri ? c.logo_uri : null,
-        uri: c.client_uri ? c.client_uri : null,
-        redirectUris: c.redirect_uris,
-        isPublic: !!c.public,
-        disabled: !!c.disabled,
-        skipConsent: !!c.skip_consent,
-        createdAt: c.client_id_issued_at
-          ? new Date((c.client_id_issued_at as number) * 1000).toISOString()
-          : null,
-        scopes: typeof c.scope === 'string' && c.scope ? c.scope.split(' ') : []
-      }))
+      clients,
+      isSiteAdmin: user.userType === 'site_admin'
     };
   } catch {
-    return { clients: [] };
+    return { clients: [], isSiteAdmin: user.userType === 'site_admin' };
   }
 };
 
 export const actions = {
   create: async ({ request, locals }) => {
-    if (locals.session?.user?.userType !== 'site_admin') {
+    const user = locals.session?.user;
+
+    if (!canManageOAuthClients(user?.userType)) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -70,7 +68,7 @@ export const actions = {
     }
 
     try {
-      const result = await auth.api.adminCreateOAuthClient({
+      const result = await auth.api.createOAuthClient({
         headers: request.headers,
         body: {
           client_name: name,
@@ -81,6 +79,11 @@ export const actions = {
           ...(icon ? { logo_uri: icon } : {})
         }
       });
+
+      await mongo
+        .db()
+        .collection('oauth_clients')
+        .updateOne({ clientId: result.client_id }, { $set: { createdBy: user.id } });
 
       return {
         success: true,
@@ -97,7 +100,9 @@ export const actions = {
   },
 
   delete: async ({ request, locals }) => {
-    if (locals.session?.user?.userType !== 'site_admin') {
+    const user = locals.session?.user;
+
+    if (!canManageOAuthClients(user?.userType)) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -108,10 +113,17 @@ export const actions = {
     }
 
     try {
-      await auth.api.deleteOAuthClient({
-        body: { client_id: clientId },
-        headers: request.headers
-      });
+      if (user.userType === 'site_admin') {
+        const result = await mongo.db().collection('oauth_clients').deleteOne({ clientId });
+        if (result.deletedCount === 0) {
+          return fail(404, { error: 'Client not found' });
+        }
+      } else {
+        await auth.api.deleteOAuthClient({
+          body: { client_id: clientId },
+          headers: request.headers
+        });
+      }
       return { deleted: true };
     } catch (e) {
       return fail(500, {
@@ -121,7 +133,9 @@ export const actions = {
   },
 
   update: async ({ request, locals }) => {
-    if (locals.session?.user?.userType !== 'site_admin') {
+    const user = locals.session?.user;
+
+    if (!canManageOAuthClients(user?.userType)) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -154,19 +168,39 @@ export const actions = {
     }
 
     try {
-      await auth.api.adminUpdateOAuthClient({
-        headers: request.headers,
-        body: {
-          client_id: clientId,
-          update: {
-            client_name: name,
-            redirect_uris: redirectUris,
-            skip_consent: skipConsent,
-            ...(uri !== undefined ? { client_uri: uri } : {}),
-            ...(icon !== undefined ? { logo_uri: icon } : {})
+      if (user.userType === 'site_admin') {
+        const result = await mongo.db().collection('oauth_clients').updateOne(
+          { clientId },
+          {
+            $set: {
+              name,
+              redirectUris,
+              skipConsent,
+              updatedAt: new Date(),
+              ...(uri !== undefined ? { uri } : {}),
+              ...(icon !== undefined ? { icon } : {})
+            }
           }
+        );
+
+        if (result.matchedCount === 0) {
+          return fail(404, { error: 'Client not found' });
         }
-      });
+      } else {
+        await auth.api.updateOAuthClient({
+          headers: request.headers,
+          body: {
+            client_id: clientId,
+            update: {
+              client_name: name,
+              redirect_uris: redirectUris,
+              skip_consent: skipConsent,
+              ...(uri !== undefined ? { client_uri: uri } : {}),
+              ...(icon !== undefined ? { logo_uri: icon } : {})
+            }
+          }
+        });
+      }
       return { updated: true };
     } catch (e) {
       return fail(500, {

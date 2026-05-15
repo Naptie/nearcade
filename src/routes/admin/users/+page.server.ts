@@ -143,6 +143,57 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
+  setDeveloperAccess: async ({ request, locals }) => {
+    const session = locals.session;
+
+    if (!session?.user) {
+      return fail(401, { error: m.unauthorized() });
+    }
+
+    if (session.user.userType !== 'site_admin') {
+      return fail(403, { error: m.access_denied() });
+    }
+
+    const formData = await request.formData();
+    const userId = formData.get('userId') as string;
+    const grant = formData.get('grant') === 'true';
+
+    if (!userId) {
+      return fail(400, { error: m.user_id_is_required() });
+    }
+
+    try {
+      const db = mongo.db();
+      const user = await db.collection<User>('users').findOne({ id: userId });
+
+      if (!user) {
+        return fail(404, { error: m.user_not_found() });
+      }
+
+      if (user.userType === 'site_admin') {
+        return fail(400, { error: m.access_denied() });
+      }
+
+      if (grant) {
+        await db.collection<User>('users').updateOne({ id: userId }, { $set: { userType: 'developer' } });
+      } else {
+        await db.collection<User>('users').updateOne({ id: userId }, { $unset: { userType: '' } });
+        await updateUserType(userId, mongo);
+      }
+
+      return {
+        success: true,
+        developerAccessUpdated: true,
+        developerAccessGranted: grant
+      };
+    } catch (error) {
+      console.error('Error updating developer access:', error);
+      return fail(500, {
+        error: grant ? m.failed_to_grant_developer_access() : m.failed_to_revoke_developer_access()
+      });
+    }
+  },
+
   updateOrganizationRole: async ({ request, locals }) => {
     const session = locals.session;
 

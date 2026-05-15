@@ -111,6 +111,7 @@ export enum PostWritability {
 
 // User types and roles
 export type UserType =
+  | 'developer'
   | 'student'
   | 'school_moderator'
   | 'school_admin'

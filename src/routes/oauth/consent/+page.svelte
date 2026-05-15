@@ -3,7 +3,7 @@
   import { authClient } from '$lib/auth/client';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { getScopeLabel, getScopeIcon } from './scope-labels';
-  import { pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
 
   let { data } = $props();
 
@@ -55,6 +55,7 @@
         {@const clientName = data.client.name}
         {@const clientIcon = data.client.icon}
         {@const clientUri = data.client.uri}
+        {@const clientCreator = data.client.creator}
 
         <!-- Client info header -->
         <div class="flex flex-col items-center gap-3 text-center">
@@ -79,6 +80,13 @@
               >
                 {clientUri}
               </a>
+            {/if}
+            {#if clientCreator}
+              <p class="text-base-content/60 mt-2 text-xs">
+                {m.oauth_consent_created_by({
+                  name: getDisplayName(clientCreator)
+                })}
+              </p>
             {/if}
           </div>
         </div>

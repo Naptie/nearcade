@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import { pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
   import CopyField from '$lib/components/CopyField.svelte';
   import type { PageData, ActionData } from './$types';
 
@@ -99,6 +99,9 @@
             <th class="w-[28%]">Client ID</th>
             <th class="w-[10%]">{m.admin_oauth_type()}</th>
             <th class="w-[22%]">{m.admin_oauth_redirect_uris()}</th>
+            {#if data.isSiteAdmin}
+              <th class="w-[16%]">{m.admin_oauth_client_creator()}</th>
+            {/if}
             <th class="w-[10%]">{m.admin_oauth_consent_skip()}</th>
             <th class="w-[8%]">{m.actions()}</th>
           </tr>
@@ -149,6 +152,18 @@
                   {/if}
                 </div>
               </td>
+              {#if data.isSiteAdmin}
+                <td>
+                  <div class="min-w-0 text-sm">
+                    <div class="truncate" title={getDisplayName(client.creator ?? undefined)}>
+                      {getDisplayName(client.creator ?? undefined)}
+                    </div>
+                    {#if client.creator?.name}
+                      <div class="text-base-content/50 truncate text-xs">@{client.creator.name}</div>
+                    {/if}
+                  </div>
+                </td>
+              {/if}
               <td>
                 {#if client.skipConsent}
                   <span class="badge badge-sm badge-success">{m.yes()}</span>
