@@ -93,6 +93,10 @@
   const LANDING_ROTATION_SPEED = 0.06; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
+  const VISUAL_TEXTURE_TRANSCODER_PATH = `${base}/globe/basis/`;
+  const VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM = 3.8;
+  const VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM = 4.2;
+  const VISUAL_TEXTURE_HIGH_RES_RELEASE_ZOOM = 3.6;
   const BASEMAP_PROBE_TILE = { z: 1, x: 1, y: 0 };
   const BASEMAP_PROBE_TIMEOUT_MS = 2500;
   const BASEMAP_PROBE_FAILURE_PENALTY_MS = 5000;
@@ -115,6 +119,21 @@
   type AnticipatedBasemapTarget = {
     zoom: number;
     isChina: boolean;
+  };
+
+  const VISUAL_TEXTURE_URLS = {
+    low: {
+      cloud: `${base}/globe/clouds_4k.ktx2`,
+      nightLights: `${base}/globe/nightlights_4k.ktx2`,
+      specular: `${base}/globe/specular_map_4k.ktx2`,
+      normal: `${base}/globe/normal_map_4k.ktx2`
+    },
+    high: {
+      cloud: `${base}/globe/clouds.ktx2`,
+      nightLights: `${base}/globe/nightlights.ktx2`,
+      specular: `${base}/globe/specular_map.ktx2`,
+      normal: `${base}/globe/normal_map_4k.ktx2`
+    }
   };
 
   const parseTileUrlList = (value: string) =>
@@ -1215,6 +1234,10 @@
     layer.setCloudShadowOpacity(visualLayers.cloudShadowOpacity);
   };
 
+  const syncVisualTextureDetail = (instance: maplibregl.Map) => {
+    visualsLayer?.setTextureDetail(instance.getZoom(), mode === 'fullscreen');
+  };
+
   const getEnabledVisualLayerNames = (): GlobeLayerName[] => {
     const visualLayers = globeFeatureSettings.visualLayers;
     const layerNames: GlobeLayerName[] = [];
@@ -1244,14 +1267,16 @@
         enabledLayerNames,
         styleLoaded: instance.isStyleLoaded()
       });
-      visualsLayer = new GlobeVisualsLayer(
-        `${base}/globe/clouds.jpg`,
-        `${base}/globe/nightlights.jpg`,
-        `${base}/globe/specular_map.jpg`,
-        `${base}/globe/normal_map.jpg`,
-        { enabledLayers: enabledLayerNames }
-      );
+      visualsLayer = new GlobeVisualsLayer(VISUAL_TEXTURE_URLS.low, {
+        enabledLayers: enabledLayerNames,
+        highResolutionTextureSet: VISUAL_TEXTURE_URLS.high,
+        highResolutionPrefetchZoom: VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM,
+        highResolutionSwapZoom: VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM,
+        highResolutionReleaseZoom: VISUAL_TEXTURE_HIGH_RES_RELEASE_ZOOM,
+        ktx2TranscoderPath: VISUAL_TEXTURE_TRANSCODER_PATH
+      });
       applyVisualsDevSettings(visualsLayer);
+      syncVisualTextureDetail(instance);
       const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
       instance.addLayer(visualsLayer, beforeId);
       console.debug('[GlobeVisualsDebug] visuals layer added', { beforeId: beforeId ?? null });
@@ -1259,7 +1284,10 @@
     }
 
     console.debug('[GlobeVisualsDebug] visuals layer already present, syncing settings');
-    if (visualsLayer) applyVisualsDevSettings(visualsLayer);
+    if (visualsLayer) {
+      applyVisualsDevSettings(visualsLayer);
+      syncVisualTextureDetail(instance);
+    }
   };
 
   const applyFeatureVisibility = (instance: maplibregl.Map) => {
@@ -1983,6 +2011,12 @@
     visualsLayer?.setCloudShadowOpacity(cloudShadowOpacity);
   });
 
+  $effect(() => {
+    const instance = map;
+    if (!instance) return;
+    visualsLayer?.setTextureDetail(instance.getZoom(), mode === 'fullscreen');
+  });
+
   // ---- Mode transition effect ----
   let prevMode: 'landing' | 'fullscreen' | null = null;
   $effect(() => {
@@ -2218,9 +2252,15 @@
         anticipatedBasemapTarget = null;
         if (mode === 'fullscreen') {
           syncDrilldown(instance);
+          syncVisualTextureDetail(instance);
           return;
         }
+        syncVisualTextureDetail(instance);
         syncBasemapLayers(instance);
+      };
+
+      const handleZoom = () => {
+        syncVisualTextureDetail(instance);
       };
 
       const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
@@ -2422,6 +2462,7 @@
 
       instance.on('style.load', syncStyle);
       instance.on('moveend', handleMoveEnd);
+      instance.on('zoom', handleZoom);
       instance.on('mousemove', handlePointerMove);
       instance.on('mouseout', handleMouseOut);
       instance.on('click', handleClick);
@@ -2467,6 +2508,7 @@
         cancelDeferredVisualsLayer();
         instance.off('style.load', syncStyle);
         instance.off('moveend', handleMoveEnd);
+        instance.off('zoom', handleZoom);
         instance.off('mousemove', handlePointerMove);
         instance.off('mouseout', handleMouseOut);
         instance.off('click', handleClick);

@@ -5,5 +5,5 @@ yarn.lock
 bun.lock
 bun.lockb
 
-# GeoJSON assets – kept minified to reduce file size
+static/**
 src/lib/assets/globe/*.geo.json

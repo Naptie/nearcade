@@ -117,12 +117,9 @@ const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): Gl
 });
 
 const loadRawGlobeShops = () =>
-  mongo
-    .db()
-    .collection<Shop>('shops')
-    .find({})
-    .project(globeShopProjection)
-    .toArray() as Promise<RawGlobeShop[]>;
+  mongo.db().collection<Shop>('shops').find({}).project(globeShopProjection).toArray() as Promise<
+    RawGlobeShop[]
+  >;
 
 export const loadGlobeShops = async (): Promise<GlobeShop[]> => {
   const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendance()]);
