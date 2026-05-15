@@ -480,11 +480,16 @@ export const checkClubPermission = async (
   };
 };
 
-export const updateUserType = async (userId: string, client: MongoClient): Promise<void> => {
+export const updateUserType = async (
+  userId: string,
+  client: MongoClient,
+  options: { preserveManualRoles?: boolean } = {}
+): Promise<void> => {
   const db = client.db();
   const universityMembersCollection = db.collection('university_members');
   const clubMembersCollection = db.collection('club_members');
   const usersCollection = db.collection<User>('users');
+  const preserveManualRoles = options.preserveManualRoles ?? true;
 
   // Get all memberships for this user
   const universityMemberships = await universityMembersCollection
@@ -502,9 +507,9 @@ export const updateUserType = async (userId: string, client: MongoClient): Promi
   const isUniversityAdmin = universityMemberships.some((m) => m.memberType === 'admin');
   const isClubAdmin = clubMemberships.some((m) => m.memberType === 'admin');
 
-  if (isSiteAdmin) {
+  if (preserveManualRoles && isSiteAdmin) {
     newUserType = 'site_admin';
-  } else if (isDeveloper) {
+  } else if (preserveManualRoles && isDeveloper) {
     newUserType = 'developer';
   } else if (isUniversityAdmin) {
     newUserType = 'school_admin';

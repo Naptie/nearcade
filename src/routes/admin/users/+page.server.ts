@@ -179,8 +179,7 @@ export const actions: Actions = {
           .collection<User>('users')
           .updateOne({ id: userId }, { $set: { userType: 'developer' } });
       } else {
-        await db.collection<User>('users').updateOne({ id: userId }, { $unset: { userType: '' } });
-        await updateUserType(userId, mongo);
+        await updateUserType(userId, mongo, { preserveManualRoles: false });
       }
 
       return {

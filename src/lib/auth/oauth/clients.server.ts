@@ -34,6 +34,7 @@ const oauthClientsCollection = 'oauth_clients';
 const baseClientPipeline = [
   {
     $addFields: {
+      // Legacy clients only have `userId`; newer ones also persist `createdBy`.
       creatorId: { $ifNull: ['$createdBy', '$userId'] }
     }
   },

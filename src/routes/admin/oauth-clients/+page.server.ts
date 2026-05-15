@@ -8,6 +8,84 @@ import { listOAuthClients } from '$lib/auth/oauth/clients.server';
 const canManageOAuthClients = (userType?: string) =>
   userType === 'site_admin' || userType === 'developer';
 
+type CreatedOAuthClient = {
+  client_id: string;
+  client_secret?: string;
+};
+
+const isCreatedOAuthClientResponse = (
+  value: unknown
+): value is { response: CreatedOAuthClient } => {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'response' in value &&
+    !!value.response &&
+    typeof value.response === 'object'
+  );
+};
+
+const deleteManagedOAuthClient = async (userType: string, request: Request, clientId: string) => {
+  if (userType === 'site_admin') {
+    return mongo.db().collection('oauth_clients').deleteOne({ clientId });
+  }
+
+  await auth.api.deleteOAuthClient({
+    body: { client_id: clientId },
+    headers: request.headers
+  });
+
+  return null;
+};
+
+const updateManagedOAuthClient = async (
+  userType: string,
+  request: Request,
+  clientId: string,
+  update: {
+    name: string;
+    redirectUris: string[];
+    skipConsent: boolean;
+    uri?: string;
+    icon?: string;
+  }
+) => {
+  if (userType === 'site_admin') {
+    return mongo
+      .db()
+      .collection('oauth_clients')
+      .updateOne(
+        { clientId },
+        {
+          $set: {
+            name: update.name,
+            redirectUris: update.redirectUris,
+            skipConsent: update.skipConsent,
+            updatedAt: new Date(),
+            ...(update.uri !== undefined ? { uri: update.uri } : {}),
+            ...(update.icon !== undefined ? { icon: update.icon } : {})
+          }
+        }
+      );
+  }
+
+  await auth.api.adminUpdateOAuthClient({
+    headers: request.headers,
+    body: {
+      client_id: clientId,
+      update: {
+        client_name: update.name,
+        redirect_uris: update.redirectUris,
+        skip_consent: update.skipConsent,
+        ...(update.uri !== undefined ? { client_uri: update.uri } : {}),
+        ...(update.icon !== undefined ? { logo_uri: update.icon } : {})
+      }
+    }
+  });
+
+  return null;
+};
+
 export const load: PageServerLoad = async ({ locals }) => {
   const user = locals.session?.user;
 
@@ -79,10 +157,9 @@ export const actions = {
           ...(icon ? { logo_uri: icon } : {})
         }
       });
-      const createdClient = ('response' in result ? result.response : result) as {
-        client_id: string;
-        client_secret?: string;
-      };
+      const createdClient = isCreatedOAuthClientResponse(result)
+        ? result.response
+        : (result as CreatedOAuthClient);
 
       await mongo
         .db()
@@ -117,16 +194,12 @@ export const actions = {
     }
 
     try {
-      if (user.userType === 'site_admin') {
-        const result = await mongo.db().collection('oauth_clients').deleteOne({ clientId });
+      const result = await deleteManagedOAuthClient(user.userType, request, clientId);
+
+      if (result) {
         if (result.deletedCount === 0) {
           return fail(404, { error: 'Client not found' });
         }
-      } else {
-        await auth.api.deleteOAuthClient({
-          body: { client_id: clientId },
-          headers: request.headers
-        });
       }
       return { deleted: true };
     } catch (e) {
@@ -172,41 +245,18 @@ export const actions = {
     }
 
     try {
-      if (user.userType === 'site_admin') {
-        const result = await mongo
-          .db()
-          .collection('oauth_clients')
-          .updateOne(
-            { clientId },
-            {
-              $set: {
-                name,
-                redirectUris,
-                skipConsent,
-                updatedAt: new Date(),
-                ...(uri !== undefined ? { uri } : {}),
-                ...(icon !== undefined ? { icon } : {})
-              }
-            }
-          );
+      const result = await updateManagedOAuthClient(user.userType, request, clientId, {
+        name,
+        redirectUris,
+        skipConsent,
+        uri,
+        icon
+      });
 
+      if (result) {
         if (result.matchedCount === 0) {
           return fail(404, { error: 'Client not found' });
         }
-      } else {
-        await auth.api.adminUpdateOAuthClient({
-          headers: request.headers,
-          body: {
-            client_id: clientId,
-            update: {
-              client_name: name,
-              redirect_uris: redirectUris,
-              skip_consent: skipConsent,
-              ...(uri !== undefined ? { client_uri: uri } : {}),
-              ...(icon !== undefined ? { logo_uri: icon } : {})
-            }
-          }
-        });
       }
       return { updated: true };
     } catch (e) {
