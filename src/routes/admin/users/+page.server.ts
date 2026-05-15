@@ -179,6 +179,7 @@ export const actions: Actions = {
           .collection<User>('users')
           .updateOne({ id: userId }, { $set: { userType: 'developer' } });
       } else {
+        // Revoking developer access should fall back to the user's organization-derived role.
         await updateUserType(userId, mongo, { preserveManualRoles: false });
       }
 

@@ -60,8 +60,13 @@ export const listOAuthClients = async (
 ): Promise<OAuthClientListItem[]> => {
   const pipeline = [
     ...baseClientPipeline,
+    {
+      $addFields: {
+        sortCreatedAt: { $ifNull: ['$createdAt', new Date(0)] }
+      }
+    },
     ...(options.isSiteAdmin ? [] : [{ $match: { creatorId: options.userId } }]),
-    { $sort: { createdAt: -1, name: 1 } },
+    { $sort: { sortCreatedAt: -1, name: 1 } },
     {
       $project: {
         _id: 0,
@@ -76,6 +81,7 @@ export const listOAuthClients = async (
         createdAt: 1,
         scopes: 1,
         creatorId: 1,
+        sortCreatedAt: 0,
         creator: {
           id: '$creator.id',
           name: '$creator.name',

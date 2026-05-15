@@ -27,6 +27,7 @@ const isCreatedOAuthClientResponse = (
 
 const deleteManagedOAuthClient = async (userType: string, request: Request, clientId: string) => {
   if (userType === 'site_admin') {
+    // Better Auth only lets owners delete through the API, so site admins use the stored record directly.
     return mongo.db().collection('oauth_clients').deleteOne({ clientId });
   }
 
@@ -157,6 +158,7 @@ export const actions = {
           ...(icon ? { logo_uri: icon } : {})
         }
       });
+      // Better Auth server helpers may return the payload directly or wrapped in `response`.
       const createdClient = isCreatedOAuthClientResponse(result)
         ? result.response
         : (result as CreatedOAuthClient);
