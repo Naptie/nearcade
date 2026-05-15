@@ -3,7 +3,7 @@
   "info": {
     "title": "nearcade API",
     "version": "0.1.0",
-    "description": "OpenAPI documentation generated from endpoint-local Zod definitions. Descriptions include English and Chinese text where handwritten documentation exists."
+    "description": "OpenAPI documentation for the nearcade API."
   },
   "servers": [
     {
