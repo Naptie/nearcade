@@ -76,7 +76,7 @@
   "admin_current_roles_info": "Current organization roles will be displayed here in future updates",
   "admin_dashboard": "Dashboard",
   "admin_dashboard_description": "Overview of platform statistics and recent activity",
-  "admin_developer_access_description": "Allows access to the admin panel OAuth clients page only.",
+  "admin_developer_access_description": "Allows access to the admin panel OAuth clients page.",
   "admin_edit_role": "Edit Role",
   "admin_edit_user": "Edit User",
   "admin_error_loading_data": "There was an error loading the admin dashboard data.",

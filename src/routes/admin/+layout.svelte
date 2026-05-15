@@ -111,20 +111,20 @@
       count: data.session?.session.pendingJoinRequests
     },
     {
-      id: 'shop-delete-requests',
-      label: m.shop_delete_requests(),
-      icon: 'fa-trash-can',
-      href: resolve('/(main)/shops/delete-requests'),
-      requiresSiteAdmin: true,
-      developerVisible: false
-    },
-    {
       id: 'oauth-clients',
       label: m.admin_oauth_clients(),
       icon: 'fa-key',
       href: resolve('/admin/oauth-clients'),
       requiresSiteAdmin: true,
       developerVisible: true
+    },
+    {
+      id: 'shop-delete-requests',
+      label: m.shop_delete_requests(),
+      icon: 'fa-trash-can',
+      href: resolve('/(main)/shops/delete-requests'),
+      requiresSiteAdmin: true,
+      developerVisible: false
     }
   ]);
 

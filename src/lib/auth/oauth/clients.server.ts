@@ -18,7 +18,6 @@ export interface OAuthClientListItem {
   skipConsent: boolean;
   createdAt: string | null;
   scopes: string[];
-  createdBy: string | null;
   creator: OAuthClientCreator | null;
 }
 
@@ -34,9 +33,8 @@ const oauthClientsCollection = 'oauth_clients';
 const baseClientPipeline = [
   {
     $addFields: {
-      // Existing clients created before this feature only have `userId`; new writes also set `createdBy`
-      // so admin listings and consent screens can attribute ownership without a separate migration.
-      creatorId: { $ifNull: ['$createdBy', '$userId'] }
+      // userId is an ObjectId; users.id is its hex string — convert for the lookup.
+      creatorId: { $toString: '$userId' }
     }
   },
   {
@@ -82,7 +80,6 @@ export const listOAuthClients = async (
         createdAt: 1,
         scopes: 1,
         creatorId: 1,
-        sortCreatedAt: 0,
         creator: {
           id: '$creator.id',
           name: '$creator.name',
@@ -108,7 +105,6 @@ export const listOAuthClients = async (
     skipConsent: !!client.skipConsent,
     createdAt: client.createdAt ? new Date(client.createdAt).toISOString() : null,
     scopes: Array.isArray(client.scopes) ? client.scopes.map((scope) => String(scope)) : [],
-    createdBy: client.creatorId ? String(client.creatorId) : null,
     creator: client.creator?.id
       ? {
           id: String(client.creator.id),

@@ -130,7 +130,7 @@ export const actions = {
         .map((s) => s.trim())
         .filter(Boolean) ?? [];
     const isPublic = formData.get('is_public') === 'on';
-    const skipConsent = formData.get('skip_consent') === 'on';
+    const skipConsent = user.userType === 'site_admin' && formData.get('skip_consent') === 'on';
     const uri = formData.get('uri')?.toString().trim() || undefined;
     const icon = formData.get('icon')?.toString().trim() || undefined;
 
@@ -165,11 +165,6 @@ export const actions = {
       const createdClient = hasCreatedOAuthClientResponse(result)
         ? result.response
         : (result as CreatedOAuthClient);
-
-      await mongo
-        .db()
-        .collection('oauth_clients')
-        .updateOne({ clientId: createdClient.client_id }, { $set: { createdBy: user.id } });
 
       return {
         success: true,
@@ -233,7 +228,7 @@ export const actions = {
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean) ?? [];
-    const skipConsent = formData.get('skip_consent') === 'on';
+    const skipConsent = user.userType === 'site_admin' && formData.get('skip_consent') === 'on';
     const uri = formData.get('uri')?.toString().trim() || undefined;
     const icon = formData.get('icon')?.toString().trim() || undefined;
 

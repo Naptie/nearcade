@@ -380,7 +380,13 @@
                   name="grant"
                   value={userDetails?.user?.userType === 'developer' ? 'false' : 'true'}
                 />
-                <button type="submit" class="btn btn-sm btn-secondary" disabled={isSubmitting}>
+                <button
+                  type="submit"
+                  class="btn btn-sm {userDetails?.user?.userType === 'developer'
+                    ? 'btn-error btn-soft'
+                    : 'btn-secondary'}"
+                  disabled={isSubmitting}
+                >
                   {userDetails?.user?.userType === 'developer'
                     ? m.admin_revoke_developer_access()
                     : m.admin_grant_developer_access()}

@@ -75,7 +75,7 @@
   "admin_current_roles_info": "現在の組織の役割は、将来のアップデートで表示されます",
   "admin_dashboard": "ダッシュボード",
   "admin_dashboard_description": "プラットフォームの統計と最近のアクティビティの概要",
-  "admin_developer_access_description": "管理パネルではOAuthクライアントページのみにアクセスできます。",
+  "admin_developer_access_description": "管理パネルのOAuthクライアントページにアクセスできます。",
   "admin_edit_role": "役割を編集",
   "admin_edit_user": "ユーザーを編集",
   "admin_error_loading_data": "管理パネルデータの読み込み中にエラーが発生しました。",
