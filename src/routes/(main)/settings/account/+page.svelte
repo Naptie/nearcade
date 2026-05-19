@@ -3,6 +3,7 @@
   import { invalidateAll } from '$app/navigation';
   import { base, resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { hasBoundEmail } from '$lib/auth/email';
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getProviders, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { authClient } from '$lib/auth/client';
@@ -17,6 +18,7 @@
   let leavingUniversityId = $state('');
   let leavingClubId = $state('');
   let isDeletingAccount = $state(false);
+  let currentEmailIsBound = $derived(hasBoundEmail(data.userProfile?.email));
 
   // Store WeChat bind result in local state to prevent it from disappearing when URL changes
   let wechatBindResult = $derived(data.wechatBindResult);
@@ -251,13 +253,44 @@
     <h2 class="text-xl font-semibold">{m.linked_accounts()}</h2>
     <p class="text-base-content/70 mb-4 text-sm">{m.linked_accounts_description()}</p>
 
-    <!-- Email Update Notice -->
-    {#if data.needsEmailUpdate}
-      <div class="alert alert-warning mb-4">
-        <i class="fa-solid fa-exclamation-triangle"></i>
-        <span>{m.email_update_required_for_binding()}</span>
+    <div
+      class="bg-base-100 mb-4 flex flex-col gap-4 rounded-lg p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="font-medium">{m.email_settings_current()}</h3>
+          {#if !currentEmailIsBound}
+            <span class="badge badge-warning badge-sm badge-outline"
+              >{m.email_settings_status_placeholder()}</span
+            >
+          {:else if data.userProfile?.emailVerified}
+            <span class="badge badge-success badge-sm badge-outline"
+              >{m.email_settings_status_verified()}</span
+            >
+          {:else}
+            <span class="badge badge-warning badge-sm badge-outline"
+              >{m.email_settings_status_pending()}</span
+            >
+          {/if}
+        </div>
+
+        {#if currentEmailIsBound}
+          <p class="text-base-content/70 text-sm break-all">{data.userProfile?.email}</p>
+        {:else}
+          <p class="text-base-content/70 text-sm">{m.email_update_required_for_binding()}</p>
+        {/if}
       </div>
-    {/if}
+
+      <a
+        href={resolve('/(main)/settings/email')}
+        class="btn btn-sm"
+        class:btn-primary={currentEmailIsBound}
+        class:btn-soft={currentEmailIsBound}
+        class:btn-warning={!currentEmailIsBound}
+      >
+        {m.update_email_address()}
+      </a>
+    </div>
 
     <!-- Currently Bound Accounts -->
     {#if data.boundProviders && data.boundProviders.length > 0}

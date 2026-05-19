@@ -62,6 +62,9 @@ importers:
       node-imap:
         specifier: ^0.9.6
         version: 0.9.6
+      nodemailer:
+        specifier: 8.0.5
+        version: 8.0.5
       redis:
         specifier: ^5.12.1
         version: 5.12.1(@opentelemetry/api@1.9.1)
@@ -180,6 +183,9 @@ importers:
       '@types/node-imap':
         specifier: ^0.9.3
         version: 0.9.3
+      '@types/nodemailer':
+        specifier: ^8.0.0
+        version: 8.0.0
       '@types/three':
         specifier: ^0.184.0
         version: 0.184.0
@@ -3068,6 +3074,9 @@ packages:
 
   '@types/node@25.6.0':
     resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
+
+  '@types/nodemailer@8.0.0':
+    resolution: {integrity: sha512-fyf8jWULsCo0d0BuoQ75i6IeoHs47qcqxWc7yUdUcV0pOZGjUTTOvwdG1PRXUDqN/8A64yQdQdnA2pZgcdi+cA==}
 
   '@types/request@2.48.13':
     resolution: {integrity: sha512-FGJ6udDNUCjd19pp0Q3iTiDkwhYup7J8hpMW9c4k53NrccQFFWKRho6hvtPPEhnXWKvukfwAlB6DbDz4yhH5Gg==}
@@ -9394,6 +9403,10 @@ snapshots:
   '@types/node@25.6.0':
     dependencies:
       undici-types: 7.19.2
+
+  '@types/nodemailer@8.0.0':
+    dependencies:
+      '@types/node': 25.6.0
 
   '@types/request@2.48.13':
     dependencies:

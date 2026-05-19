@@ -29,6 +29,11 @@
       icon: 'fa-key'
     },
     {
+      href: resolve('/(main)/settings/email'),
+      label: m.email_settings(),
+      icon: 'fa-envelope'
+    },
+    {
       href: resolve('/(main)/settings/account'),
       label: m.account_settings(),
       icon: 'fa-cog'

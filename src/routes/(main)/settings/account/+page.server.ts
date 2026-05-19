@@ -3,6 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import type { UniversityMember, University, Club, ClubMember } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
+import { hasBoundEmail } from '$lib/auth/email';
 import { m } from '$lib/paraglide/messages';
 import { ObjectId } from 'mongodb';
 import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
@@ -27,6 +28,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
   const userProfile = {
     id: user.id,
     email: user.email,
+    emailVerified: user.emailVerified,
     name: user.name,
     displayName: user.displayName,
     image: user.image,
@@ -37,7 +39,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
   };
 
   // Check if email needs to be replaced (fake emails)
-  const needsEmailUpdate = user.email?.endsWith('.nearcade') ?? false;
+  const needsEmailUpdate = !hasBoundEmail(user.email);
 
   // Handle WeChat token if present in URL
   const wechatToken = url.searchParams.get('wechatToken');

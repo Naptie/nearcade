@@ -2,12 +2,13 @@
   import { m } from '$lib/paraglide/messages';
   import { page } from '$app/state';
   import { authClient } from '$lib/auth/client';
+  import { withPostLoginMarker } from '$lib/auth/email';
   import { base } from '$app/paths';
   import { getProviders, pageTitle } from '$lib/utils';
 
   // Preserve the OAuth query string so that after sign-in the plugin
   // can continue the authorization flow automatically.
-  const callbackURL = $derived(`/oauth/sign-in${page.url.search}`);
+  const callbackURL = $derived(withPostLoginMarker(page.url));
 </script>
 
 <svelte:head>

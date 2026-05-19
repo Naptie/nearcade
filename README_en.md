@@ -62,7 +62,7 @@ Please join the following QQ group for discussions.
 ### Backend & Database
 
 - **MongoDB**: Primary database for all application data.
-- **Auth.js (SvelteKitAuth)**: Handles user authentication and sessions.
+- **Better Auth**: Handles user authentication, sessions, and email verification.
 - **Server-side API**: RESTful endpoints built with SvelteKit.
 
 ### Maps & Location Services
@@ -176,6 +176,17 @@ Please join the following QQ group for discussions.
     IMAP_PORT = "993"
     IMAP_USER = "your_imap_user@example.com"
     IMAP_PASSWORD = "your_imap_password"
+    ```
+
+    **SMTP (For Email Verification Mail):**
+
+    ```env
+    SMTP_HOST = "smtp.example.com"
+    SMTP_PORT = "587"
+    SMTP_USER = "your_smtp_user@example.com"
+    SMTP_PASSWORD = "your_smtp_password"
+    SMTP_SECURE = "false" # usually true for port 465 and false for port 587
+    SMTP_FROM = "nearcade <no-reply@example.com>" # optional, defaults to SMTP_USER
     ```
 
     **Meilisearch:**

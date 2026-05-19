@@ -11,6 +11,7 @@ import { env } from '$env/dynamic/private';
 import { ObjectId } from 'mongodb';
 import { generateValidUsername } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { sendVerificationLinkEmail } from './email.server';
 import {
   countUnreadNotifications,
   countPendingJoinRequests
@@ -93,7 +94,8 @@ function microsoftEntraIdProvider() {
       return {
         name: (profile.name as string) ?? undefined,
         email: profile.email as string,
-        image: (profile.picture as string) ?? undefined
+        image: (profile.picture as string) ?? undefined,
+        emailVerified: !!profile.email
       };
     })
   };
@@ -161,6 +163,10 @@ export const auth = betterAuth({
     }
   },
   user: {
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: true
+    },
     additionalFields: {
       displayName: { type: 'string', required: false },
       userType: { type: 'string', required: false },
@@ -198,6 +204,12 @@ export const auth = betterAuth({
         // Delete join requests
         await joinRequestsCollection.deleteMany({ userId: user.id });
       }
+    }
+  },
+  emailVerification: {
+    expiresIn: 60 * 60 * 24,
+    sendVerificationEmail: async ({ user, url }, request) => {
+      await sendVerificationLinkEmail({ user, url, request });
     }
   },
   plugins: [

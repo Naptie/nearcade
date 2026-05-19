@@ -16,6 +16,12 @@ import { decompressLocationData } from '$lib/utils/url';
 import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
 import { auth } from '$lib/auth/index.server';
+import {
+  EMAIL_SETTINGS_ROUTE,
+  POST_LOGIN_EMAIL_PROMPT_QUERY_PARAM,
+  requiresEmailBinding,
+  stripPostLoginMarker
+} from '$lib/auth/email';
 import { verifyOAuthAccessToken } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 
@@ -182,6 +188,27 @@ const handleAuth: Handle = async ({ event, resolve }) => {
   const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
   event.locals.session = session as App.Locals['session'];
   event.locals.user = (session?.user as App.Locals['user']) ?? null;
+
+  const shouldPromptForEmail =
+    event.request.method === 'GET' &&
+    event.request.headers.get('accept')?.includes('text/html') &&
+    event.url.searchParams.get(POST_LOGIN_EMAIL_PROMPT_QUERY_PARAM) === '1' &&
+    requiresEmailBinding(session?.user);
+
+  if (shouldPromptForEmail) {
+    const emailSettingsPath = `${base}${EMAIL_SETTINGS_ROUTE}`;
+
+    if (event.url.pathname !== emailSettingsPath) {
+      const redirectTarget = stripPostLoginMarker(event.url);
+      const promptUrl = new URL(event.url);
+      promptUrl.pathname = emailSettingsPath;
+      promptUrl.search = '';
+      promptUrl.searchParams.set('prompt', '1');
+      promptUrl.searchParams.set('redirect', redirectTarget);
+      redirect(303, `${promptUrl.pathname}?${promptUrl.searchParams.toString()}`);
+    }
+  }
+
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
