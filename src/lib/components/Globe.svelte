@@ -511,7 +511,6 @@
   const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
   let isCompactViewport = $state(false);
   let isCoarsePointer = $state(false);
-  let now = $state(new Date());
 
   // ---- Sidebar state ----
   let sidebarOpen = $state(false);
@@ -2569,7 +2568,6 @@
 
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
-      now = new Date();
 
       if (shopData) {
         void invalidate('app:globe-shops');
