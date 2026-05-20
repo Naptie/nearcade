@@ -18,7 +18,6 @@
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
     "migrate-api-tokens": "tsx ./scripts/migrate-api-tokens.ts",
     "migrate-email-verification": "tsx ./scripts/migrate-email-verification.ts",
-    "ssv-poll": "tsx ./scripts/ssv-email-worker.ts",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
     "maintain-attendance": "tsx ./scripts/attendance-maintainer.ts",
     "calc-uni-stats": "tsx ./scripts/update-university-stats.ts",

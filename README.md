@@ -168,16 +168,7 @@
     REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
-    **IMAP 配置 (用于在校生资格验证):**
-
-    ```env
-    IMAP_HOST = "imap.example.com"
-    IMAP_PORT = "993"
-    IMAP_USER = "your_imap_user@example.com"
-    IMAP_PASSWORD = "your_imap_password"
-    ```
-
-    **SMTP 配置 (用于邮箱验证邮件):**
+    **SMTP 配置 (用于邮箱地址与在校生资格验证邮件):**
 
     ```env
     SMTP_HOST = "smtp.example.com"
