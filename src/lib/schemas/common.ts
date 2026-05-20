@@ -249,7 +249,15 @@ export const userSchema = userPublicSchema.extend({
   fcmTokens: z.array(z.string()).optional().describe(bilingual('FCM 令牌。', 'FCM tokens.')),
   fcmTokenUpdatedAt: dateTimeSchema(
     bilingual('FCM 令牌更新时间。', 'FCM token update time.')
-  ).optional()
+  ).optional(),
+  phone: z
+    .string()
+    .optional()
+    .describe(bilingual('手机号（不含国家/地区代码）。', 'Phone number without dial code.')),
+  phoneCountryCode: z
+    .string()
+    .optional()
+    .describe(bilingual('手机号国家/地区拨号代码，例如 "86"。', 'Dial code, e.g. "86".'))
 });
 
 export const userPrivateFieldNames = Object.keys(userSchema.shape).filter(

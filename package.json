@@ -87,6 +87,7 @@
     "@aws-sdk/lib-storage": "^3.1035.0",
     "@better-auth/api-key": "1.6.10",
     "@better-auth/oauth-provider": "^1.6.10",
+    "@elysia/eden": "^1.4.10",
     "@photostructure/tz-lookup": "^11.5.0",
     "better-auth": "^1.6.10",
     "crypto-js": "^4.2.0",
@@ -94,6 +95,7 @@
     "date-fns-tz": "^3.2.0",
     "diff": "^9.0.0",
     "diff2html": "^3.4.56",
+    "elysia": "^1.4.28",
     "firebase-admin": "^13.8.0",
     "leancloud-storage": "^4.15.2",
     "mailparser": "^3.9.8",
@@ -117,6 +119,7 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
+    "unified-sms-client": "github:Naptie/unified-sms#client",
     "xml2js": "^0.6.2",
     "zod": "^4.3.6"
   },

@@ -185,7 +185,9 @@ export const auth = betterAuth({
       notificationTypes: { type: 'json', required: false, input: false },
       fcmTokens: { type: 'json', required: false, input: false },
       fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
-      socialLinks: { type: 'json', required: false, input: false }
+      socialLinks: { type: 'json', required: false, input: false },
+      phone: { type: 'string', required: false, input: false },
+      phoneCountryCode: { type: 'string', required: false, input: false }
     },
     deleteUser: {
       enabled: true,

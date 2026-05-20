@@ -34,6 +34,11 @@
       icon: 'fa-envelope'
     },
     {
+      href: resolve('/(main)/settings/phone'),
+      label: m.phone_settings(),
+      icon: 'fa-phone'
+    },
+    {
       href: resolve('/(main)/settings/account'),
       label: m.account_settings(),
       icon: 'fa-cog'
