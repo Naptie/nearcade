@@ -1,11 +1,15 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import redis, { ensureConnected } from '$lib/db/redis.server';
+import mongo from '$lib/db/index.server';
+import type { User } from '$lib/auth/types';
 import { sendPhoneOtp } from '$lib/sms/index.server';
 import { m } from '$lib/paraglide/messages';
+import { env } from '$env/dynamic/private';
 
 const COOLDOWN_SECONDS = 60;
 const DAILY_LIMIT = 5;
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 function dailyKey(qualifier: string): string {
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -14,6 +18,19 @@ function dailyKey(qualifier: string): string {
 
 function cooldownKey(userId: string): string {
   return `nearcade:sms:cooldown:${userId}`;
+}
+
+async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
+  const secret = env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true; // Skip verification if not configured
+  const resp = await fetch(TURNSTILE_VERIFY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret, response: token, remoteip: ip })
+  });
+  if (!resp.ok) return false;
+  const data = (await resp.json()) as { success: boolean };
+  return data.success === true;
 }
 
 export const POST: RequestHandler = async ({ request, locals, getClientAddress }) => {
@@ -25,7 +42,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
   const userId = session.user.id;
   const ip = getClientAddress();
 
-  let body: { phoneNumber?: string; countryCode?: string };
+  let body: { phoneNumber?: string; countryCode?: string; turnstileToken?: string };
   try {
     body = await request.json();
   } catch {
@@ -34,12 +51,37 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 
   const phoneNumber = body.phoneNumber?.trim();
   const countryCode = body.countryCode?.trim();
+  const turnstileToken = body.turnstileToken?.trim();
 
   if (!phoneNumber || !countryCode) {
     error(400, 'phoneNumber and countryCode are required');
   }
 
+  // Turnstile verification
+  if (env.TURNSTILE_SECRET_KEY) {
+    if (!turnstileToken) {
+      error(400, JSON.stringify({ error: 'turnstile_missing' }));
+    }
+    const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+    if (!turnstileOk) {
+      error(400, JSON.stringify({ error: 'turnstile_failed' }));
+    }
+  }
+
   await ensureConnected();
+
+  // Check that the phone number is not already bound to another user
+  const db = mongo.db();
+  const existingUser = await db
+    .collection<User>('users')
+    .findOne({ phone: phoneNumber, phoneCountryCode: countryCode }, { projection: { id: 1 } });
+  if (existingUser) {
+    if (existingUser.id === userId) {
+      error(409, JSON.stringify({ error: 'phone_already_yours' }));
+    } else {
+      error(409, JSON.stringify({ error: 'phone_taken' }));
+    }
+  }
 
   // Cooldown check (per user)
   const cooldown = await redis.get(cooldownKey(userId));
