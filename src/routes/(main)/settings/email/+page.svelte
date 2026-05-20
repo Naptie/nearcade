@@ -104,7 +104,7 @@
 <div class="space-y-6 md:space-y-8 md:p-5">
   <div class="space-y-2">
     <h1 class="text-2xl font-bold md:text-3xl">{m.email_settings()}</h1>
-    <p class="text-base-content/70 max-w-2xl text-sm md:text-base">
+    <p class="text-base-content/70 text-sm md:text-base">
       {m.email_settings_description()}
     </p>
   </div>
