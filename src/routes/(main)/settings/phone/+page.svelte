@@ -389,7 +389,7 @@
       </div>
 
       {#if data.turnstileSiteKey && !codeSent}
-        <div class="mb-4" bind:this={turnstileContainer} transition:slide></div>
+        <div bind:this={turnstileContainer} transition:slide></div>
       {/if}
 
       {#if codeSent}
