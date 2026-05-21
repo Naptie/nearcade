@@ -51,6 +51,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
@@ -973,6 +974,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
         ],
@@ -1432,6 +1434,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
         ],
@@ -1577,6 +1580,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
         ],
@@ -1650,6 +1654,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -2484,6 +2489,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "范围半径，单位 km；默认为 10。\n\nSearch radius in kilometers. Defaults to 10."
           },
           {
@@ -2917,6 +2923,7 @@
                   "shopId": {
                     "description": "关联店铺 ID。\n\nAssociated shop ID.",
                     "type": "integer",
+                    "minimum": 0,
                     "exclusiveMinimum": true,
                     "maximum": 9007199254740991
                   },
@@ -3259,6 +3266,7 @@
                               "shopId": {
                                 "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                 "type": "integer",
+                                "minimum": 0,
                                 "exclusiveMinimum": true,
                                 "maximum": 9007199254740991
                               },
@@ -3696,6 +3704,7 @@
                           "shopId": {
                             "description": "关联店铺 ID。\n\nAssociated shop ID.",
                             "type": "integer",
+                            "minimum": 0,
                             "exclusiveMinimum": true,
                             "maximum": 9007199254740991
                           },
@@ -3740,6 +3749,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -4556,6 +4566,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
@@ -4580,6 +4591,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "每页条目数。默认为站点分页大小。\n\nItems per page. Defaults to the site page size."
           },
           {
@@ -6974,6 +6986,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
@@ -6998,6 +7011,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "每页返回的更新记录数量。默认为站点分页大小，最大为 100。\n\nNumber of changelog entries per page. Defaults to the site page size, up to 100."
           }
         ],
@@ -7364,6 +7378,7 @@
                             "shopId": {
                               "description": "关联店铺 ID。\n\nAssociated shop ID.",
                               "type": "integer",
+                              "minimum": 0,
                               "exclusiveMinimum": true,
                               "maximum": 9007199254740991
                             },
@@ -8024,6 +8039,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
@@ -8048,6 +8064,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "每页返回的在勤历史条目数量。默认为 10，最大为 100。\n\nNumber of attendance history entries per page. Defaults to 10, up to 100."
           }
         ],
@@ -9083,6 +9100,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -9451,6 +9469,7 @@
                               "shopId": {
                                 "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                 "type": "integer",
+                                "minimum": 0,
                                 "exclusiveMinimum": true,
                                 "maximum": 9007199254740991
                               },
@@ -9960,6 +9979,7 @@
                             "shopId": {
                               "description": "关联店铺 ID。\n\nAssociated shop ID.",
                               "type": "integer",
+                              "minimum": 0,
                               "exclusiveMinimum": true,
                               "maximum": 9007199254740991
                             },
@@ -11415,6 +11435,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
@@ -11439,6 +11460,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "每页条目数。默认为站点分页大小，最大为 100。\n\nItems per page. Defaults to the site page size, up to 100."
           }
         ],
@@ -11672,6 +11694,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
         ],
@@ -11812,6 +11835,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
         ],
@@ -11957,6 +11981,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
         ],
@@ -12030,6 +12055,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -13304,6 +13330,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
           {
@@ -13328,6 +13355,7 @@
                 }
               ]
             },
+            "required": true,
             "description": "每页返回的活动条目数量。默认为站点分页大小，最大为 100。\n\nNumber of activities per page. Defaults to the site page size, up to 100."
           }
         ],

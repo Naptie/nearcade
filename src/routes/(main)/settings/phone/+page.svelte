@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
+  import { slide } from 'svelte/transition';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -27,6 +28,79 @@
   let cooldownSeconds = $state(0);
   let cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Turnstile
+  let turnstileToken = $state('');
+  let turnstileWidgetId = $state<string | null>(null);
+  let turnstileContainer = $state<HTMLDivElement | null>(null);
+
+  type TurnstileWindow = typeof window & {
+    turnstile?: {
+      render: (
+        el: HTMLElement,
+        opts: {
+          sitekey: string;
+          callback: (token: string) => void;
+          'expired-callback': () => void;
+          'error-callback': () => void;
+          size: string;
+        }
+      ) => string;
+      reset: (id: string) => void;
+    };
+    onloadTurnstileCallback?: () => void;
+  };
+
+  $effect(() => {
+    if (!data.turnstileSiteKey || !turnstileContainer) return;
+    const w = window as TurnstileWindow;
+    const sitekey = data.turnstileSiteKey;
+    const container = turnstileContainer;
+
+    const doRender = () => {
+      if (turnstileWidgetId !== null || !w.turnstile) return;
+      turnstileWidgetId = w.turnstile.render(container, {
+        sitekey,
+        callback: (token: string) => {
+          turnstileToken = token;
+        },
+        'expired-callback': () => {
+          turnstileToken = '';
+        },
+        'error-callback': () => {
+          turnstileToken = '';
+        },
+        size: 'normal'
+      });
+    };
+
+    if (w.turnstile) {
+      doRender();
+    } else {
+      const prev = w.onloadTurnstileCallback;
+      w.onloadTurnstileCallback = () => {
+        if (prev) prev();
+        doRender();
+      };
+      if (!document.querySelector('script[data-turnstile]')) {
+        const script = document.createElement('script');
+        script.src =
+          'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.dataset.turnstile = '1';
+        document.head.appendChild(script);
+      }
+    }
+  });
+
+  function resetTurnstile() {
+    const w = window as TurnstileWindow;
+    if (w.turnstile && turnstileWidgetId !== null) {
+      w.turnstile.reset(turnstileWidgetId);
+    }
+    turnstileToken = '';
+  }
+
   function startCooldown(seconds: number) {
     cooldownSeconds = seconds;
     if (cooldownInterval) clearInterval(cooldownInterval);
@@ -51,6 +125,17 @@
       return;
     }
 
+    // Client-side uniqueness check: same as current bound number
+    if (data.phone === trimmedPhone && data.phoneCountryCode === trimmedCountry) {
+      errorMessage = m.phone_settings_already_yours();
+      return;
+    }
+
+    if (data.turnstileSiteKey && !turnstileToken) {
+      errorMessage = m.phone_settings_turnstile_failed();
+      return;
+    }
+
     isSending = true;
     errorMessage = '';
     successMessage = '';
@@ -59,8 +144,23 @@
       const res = await fetch('/api/phone/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: trimmedPhone, countryCode: trimmedCountry })
+        body: JSON.stringify({
+          phoneNumber: trimmedPhone,
+          countryCode: trimmedCountry,
+          ...(data.turnstileSiteKey ? { turnstileToken } : {})
+        })
       });
+
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        if (body.error === 'phone_already_yours') {
+          errorMessage = m.phone_settings_already_yours();
+        } else {
+          errorMessage = m.phone_settings_taken();
+        }
+        resetTurnstile();
+        return;
+      }
 
       if (res.status === 429) {
         const body = await res.json().catch(() => ({}));
@@ -70,11 +170,22 @@
         } else {
           errorMessage = m.phone_settings_daily_limit();
         }
+        resetTurnstile();
         return;
+      }
+
+      if (res.status === 400) {
+        const body = await res.json().catch(() => ({}));
+        if (body.error === 'turnstile_failed' || body.error === 'turnstile_missing') {
+          errorMessage = m.phone_settings_turnstile_failed();
+          resetTurnstile();
+          return;
+        }
       }
 
       if (!res.ok) {
         errorMessage = m.phone_settings_error();
+        resetTurnstile();
         return;
       }
 
@@ -83,6 +194,7 @@
       successMessage = '';
     } catch {
       errorMessage = m.phone_settings_error();
+      resetTurnstile();
     } finally {
       isSending = false;
     }
@@ -229,9 +341,9 @@
       </h2>
     </div>
 
-    <div class="space-y-4">
+    <div>
       <!-- Country code + phone number row -->
-      <div class="flex gap-2">
+      <div class="mb-4 flex gap-2">
         <label class="form-control max-w-1/4 shrink-0 gap-2">
           <span class="label-text sr-only">{m.phone_settings_country_code_placeholder()}</span>
           <select
@@ -276,8 +388,12 @@
         </button>
       </div>
 
+      {#if data.turnstileSiteKey && !codeSent}
+        <div bind:this={turnstileContainer} transition:slide></div>
+      {/if}
+
       {#if codeSent}
-        <div class="mt-4 flex gap-2">
+        <div class="flex gap-2" transition:slide>
           <input
             class="input input-bordered w-full"
             type="text"
