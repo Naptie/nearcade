@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { nanoid } from 'nanoid';
 import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { notify } from '$lib/notifications/index.server';
 import { commentId, toPlainArray, toPlainObject } from '$lib/utils';
 import { getShopDeleteRequestComments } from '$lib/utils/shops/delete-request.server';
@@ -59,6 +60,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }
+
+    requireEmailAndPhone(session.user);
 
     const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
     const {

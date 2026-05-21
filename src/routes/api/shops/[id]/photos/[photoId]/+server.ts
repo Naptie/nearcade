@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { deleteFile } from '$lib/oss/index';
 import { shopPhotoIdParamSchema, shopPhotoSchema } from '$lib/schemas/shops';
@@ -21,6 +22,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   if (!session?.user) {
     error(401, m.insufficient_permissions());
   }
+
+  requireEmailAndPhone(session.user);
 
   const { id: shopId, photoId } = parseParamsOrError(shopPhotoIdParamSchema, params);
 

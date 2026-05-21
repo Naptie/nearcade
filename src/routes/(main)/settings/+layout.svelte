@@ -1,12 +1,14 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { requiresEmailBinding } from '$lib/auth/email';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
+  import type { LayoutData } from './$types';
 
-  let { children }: { children: import('svelte').Snippet } = $props();
+  let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
 
-  const navigationItems = [
+  const navigationItems = $derived([
     {
       href: resolve('/(main)/settings'),
       label: m.personal_settings(),
@@ -31,19 +33,21 @@
     {
       href: resolve('/(main)/settings/email'),
       label: m.email_settings(),
-      icon: 'fa-envelope'
+      icon: 'fa-envelope',
+      warn: requiresEmailBinding(data.user)
     },
     {
       href: resolve('/(main)/settings/phone'),
       label: m.phone_settings(),
-      icon: 'fa-phone'
+      icon: 'fa-phone',
+      warn: !data.user.phoneCountryCode || !data.user.phone
     },
     {
       href: resolve('/(main)/settings/account'),
       label: m.account_settings(),
       icon: 'fa-cog'
     }
-  ];
+  ]);
 
   const isActive = (href: string, exact = false) => {
     if (exact) {
@@ -76,6 +80,15 @@
                 >
                   <i class="fa-solid {item.icon} fa-sm"></i>
                   {item.label}
+                  {#if item.warn}
+                    <span
+                      class="badge badge-warning badge-sm ml-auto transition-opacity"
+                      class:opacity-0={isActive(item.href, item.exact)}
+                      title={m.action_required()}
+                    >
+                      <i class="fa-solid fa-triangle-exclamation"></i>
+                    </span>
+                  {/if}
                 </a>
               {/each}
             </nav>

@@ -2,6 +2,7 @@ import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { getShopDeleteRequestVoteSummary } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
 import {
@@ -17,6 +18,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }
+
+    requireEmailAndPhone(session.user);
 
     const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
     const { voteType } = await parseJsonOrError(request, shopDeleteRequestVoteRequestSchema);

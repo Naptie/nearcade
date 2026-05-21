@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { attachImagesToOwner } from '$lib/images/index.server';
 import { withExistingImages } from '$lib/images/validation.server';
@@ -24,6 +25,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!session?.user) {
     error(401, m.unauthorized());
   }
+
+  requireEmailAndPhone(session.user);
 
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
   const {

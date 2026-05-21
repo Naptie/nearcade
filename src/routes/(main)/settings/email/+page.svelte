@@ -136,15 +136,11 @@
     <div class="space-y-3">
       <div class="flex flex-wrap items-center gap-3">
         <h2 class="text-lg font-semibold">{m.email_settings_current()}</h2>
-        {#if !currentEmailIsBound}
-          <span class="badge badge-warning badge-outline"
-            >{m.email_settings_status_placeholder()}</span
-          >
-        {:else if data.user.emailVerified}
+        {#if data.user.emailVerified}
           <span class="badge badge-success badge-outline">{m.email_settings_status_verified()}</span
           >
         {:else}
-          <span class="badge badge-warning badge-outline">{m.email_settings_status_pending()}</span>
+          <span class="badge badge-warning badge-outline">{m.pending_verification()}</span>
         {/if}
       </div>
 

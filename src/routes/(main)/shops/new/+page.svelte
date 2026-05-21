@@ -2,6 +2,8 @@
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import ShopForm from '$lib/components/ShopForm.svelte';
   import type { ShopFormData } from '$lib/schemas/forms';
@@ -10,6 +12,9 @@
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
 
   let { data }: { data: PageData } = $props();
+
+  const verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
+  const canManageShop = $derived(!!data.user && verifiedContactStatus.eligible);
 
   const initialData: Partial<ShopFormData> = $derived.by(() => {
     if (data.initialLat !== null && data.initialLng !== null) {
@@ -28,6 +33,8 @@
   let createdShopPhotos = $state<ShopPhoto[]>([]);
 
   async function handleSubmit(formData: ShopFormData) {
+    if (!canManageShop) return;
+
     const response = await fetch('/api/shops', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,19 +69,28 @@
   {/if}
 
   {#if createdShopId === null}
-    <ShopForm
-      {initialData}
-      onSubmit={handleSubmit}
-      onCancel={() => goto(resolve('/(main)/shops'))}
-      submitLabel={m.create_shop()}
-    />
+    {#if canManageShop}
+      <ShopForm
+        {initialData}
+        onSubmit={handleSubmit}
+        onCancel={() => goto(resolve('/(main)/shops'))}
+        submitLabel={m.create_shop()}
+      />
+    {:else}
+      <VerifiedContactPrompt
+        user={data.user}
+        loginMessage={m.sign_in()}
+        icon="fa-store"
+        class="bg-base-100 border-base-300 border shadow-sm"
+      />
+    {/if}
   {:else}
     <!-- Shop created: let user upload photos before navigating -->
     <div class="bg-base-100 border-base-300 mb-6 rounded-2xl border p-6 shadow-sm">
       <PhotoCarousel
         shopId={createdShopId}
         bind:photos={createdShopPhotos}
-        currentUser={data.user}
+        currentUser={canManageShop ? data.user : undefined}
       />
     </div>
     <div class="flex gap-3">

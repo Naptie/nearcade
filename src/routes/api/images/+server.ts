@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { m } from '$lib/paraglide/messages';
 import {
   createUploadedImage,
@@ -9,6 +10,12 @@ import {
 } from '$lib/images/index.server';
 import { imageUploadEventSchema, imageUploadFormDataSchema } from '$lib/schemas/images';
 import { parseOrError } from '$lib/utils/validation.server';
+
+const SHOP_IMAGE_DRAFT_KINDS = new Set([
+  'shop-comment',
+  'shop-delete-request',
+  'delete-request-comment'
+]);
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const session = locals.session;
@@ -61,6 +68,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const db = mongo.db();
+
+  const isShopRelatedDraft = draftKind ? SHOP_IMAGE_DRAFT_KINDS.has(draftKind) : false;
+  const isShopRelatedOwner = shopId !== undefined || deleteRequestId !== undefined;
+  let isShopRelatedCommentOwner = false;
+
+  if (commentId && !isShopRelatedDraft && !isShopRelatedOwner) {
+    const comment = await db
+      .collection<{ id: string; shopId?: number; shopDeleteRequestId?: string }>('comments')
+      .findOne(
+        { id: commentId },
+        { projection: { _id: 0, id: 1, shopId: 1, shopDeleteRequestId: 1 } }
+      );
+
+    isShopRelatedCommentOwner = !!comment?.shopId || !!comment?.shopDeleteRequestId;
+  }
+
+  if (isShopRelatedDraft || isShopRelatedOwner || isShopRelatedCommentOwner) {
+    requireEmailAndPhone(session.user);
+  }
 
   const encoder = new TextEncoder();
   let streamController!: ReadableStreamDefaultController<Uint8Array>;

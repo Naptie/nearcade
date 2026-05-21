@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
 import { commentId, protect, toPlainArray, toPlainObject } from '$lib/utils';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { notify } from '$lib/notifications/index.server';
 import { m } from '$lib/paraglide/messages';
 import { attachImagesToOwner, hydrateEntitiesWithImages } from '$lib/images/index.server';
@@ -102,6 +103,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     if (!session?.user?.id) {
       error(401, m.unauthorized());
     }
+
+    requireEmailAndPhone(session.user);
 
     const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
     const {

@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { m } from '$lib/paraglide/messages';
 import { shopChangelogEntryIdParamSchema } from '$lib/schemas/shops';
 import { parseParamsOrError } from '$lib/utils/validation.server';
@@ -11,6 +12,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   if (!session?.user || session.user.userType !== 'site_admin') {
     error(403, m.insufficient_permissions());
   }
+
+  requireEmailAndPhone(session.user);
 
   const { id: shopId, entryId } = parseParamsOrError(shopChangelogEntryIdParamSchema, params);
 

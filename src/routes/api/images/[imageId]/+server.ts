@@ -1,6 +1,7 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { m } from '$lib/paraglide/messages';
 import { deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
 import { successResponseSchema } from '$lib/schemas/common';
@@ -20,6 +21,24 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     const images = await getImagesByIds(db, [imageId]);
     if (images.length === 0) {
       error(404, 'Image not found');
+    }
+
+    const image = images[0];
+    let isShopRelatedCommentOwner = false;
+
+    if (!image.shopId && !image.deleteRequestId && image.commentId) {
+      const comment = await db
+        .collection<{ id: string; shopId?: number; shopDeleteRequestId?: string }>('comments')
+        .findOne(
+          { id: image.commentId },
+          { projection: { _id: 0, id: 1, shopId: 1, shopDeleteRequestId: 1 } }
+        );
+
+      isShopRelatedCommentOwner = !!comment?.shopId || !!comment?.shopDeleteRequestId;
+    }
+
+    if (image.shopId || image.deleteRequestId || isShopRelatedCommentOwner) {
+      requireEmailAndPhone(session.user);
     }
 
     await deleteImagesByIds(db, [imageId], {

@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
+  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import { goto, invalidateAll } from '$app/navigation';
@@ -17,7 +19,12 @@
   let req = $derived(data.deleteRequest);
   let comments = $derived(data.comments ?? []);
   let voteSummary = $derived(data.voteSummary);
-  let canParticipate = $derived(!!data.user && req.status === 'pending');
+  let verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
+  let canParticipate = $derived(
+    !!data.user && verifiedContactStatus.eligible && req.status === 'pending'
+  );
+  let canRetractRequest = $derived(canParticipate && data.user?.id === req.requestedBy);
+  let canModerateRequest = $derived(canParticipate && data.user?.userType === 'site_admin');
   let reviewNote = $state('');
   let isProcessing = $state(false);
   let processError = $state('');
@@ -145,6 +152,8 @@
   };
 
   const handleCommentReply = (commentId: string) => {
+    if (!canParticipate) return;
+
     if (replyImageIds.length > 0) {
       void cleanupDraftImages(replyImageIds);
     }
@@ -193,7 +202,7 @@
   };
 
   const handleCommentEdit = async (commentId: string, newContent: string, imageIds: string[]) => {
-    if (!data.user) return;
+    if (!canParticipate) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
@@ -215,7 +224,7 @@
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    if (!data.user) return;
+    if (!canParticipate) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
@@ -235,7 +244,7 @@
   };
 
   const handleProcess = async (action: 'approve' | 'reject') => {
-    if (isProcessing) return;
+    if (!canModerateRequest || isProcessing) return;
     isProcessing = true;
     processError = '';
     try {
@@ -259,7 +268,7 @@
   };
 
   const handleRetract = async () => {
-    if (isProcessing) return;
+    if (!canRetractRequest || isProcessing) return;
     if (!confirm(m.retract_delete_request_confirm())) return;
     isProcessing = true;
     processError = '';
@@ -281,7 +290,7 @@
   };
 
   const handleDelete = async () => {
-    if (isDeleting) return;
+    if (!canModerateRequest || isDeleting) return;
     isDeleting = true;
     processError = '';
     try {
@@ -391,7 +400,7 @@
         </h2>
         <PhotoCarousel
           photos={req.resolvedImages ?? []}
-          currentUser={data.user ?? undefined}
+          currentUser={canParticipate ? data.user : undefined}
           title=""
           allowDeleteRequest={false}
           showEmptyState={false}
@@ -460,6 +469,16 @@
           <span>{voteError}</span>
         </div>
       {/if}
+
+      {#if req.status === 'pending' && !canParticipate}
+        <VerifiedContactPrompt
+          user={data.user}
+          loginMessage={m.login_to_vote_and_comment()}
+          icon="fa-thumbs-up"
+          compact
+          class="mt-3"
+        />
+      {/if}
     </div>
 
     <!-- Metadata -->
@@ -501,7 +520,10 @@
           <button
             class="btn btn-warning btn-soft w-full"
             onclick={handleRetract}
-            disabled={isProcessing}
+            disabled={!canRetractRequest || isProcessing}
+            title={!canRetractRequest && data.user
+              ? m.verified_contact_required_for_contribution()
+              : undefined}
           >
             {#if isProcessing}
               <span class="loading loading-spinner loading-xs"></span>
@@ -520,13 +542,13 @@
               class="input input-bordered w-full"
               placeholder={m.shop_delete_request_review_note()}
               bind:value={reviewNote}
-              disabled={isProcessing}
+              disabled={!canModerateRequest || isProcessing}
             />
             <div class="flex gap-3">
               <button
                 class="btn btn-success flex-1"
                 onclick={() => handleProcess('approve')}
-                disabled={isProcessing}
+                disabled={!canModerateRequest || isProcessing}
               >
                 {#if isProcessing}
                   <span class="loading loading-spinner loading-xs"></span>
@@ -538,7 +560,7 @@
               <button
                 class="btn btn-error flex-1"
                 onclick={() => handleProcess('reject')}
-                disabled={isProcessing}
+                disabled={!canModerateRequest || isProcessing}
               >
                 {#if isProcessing}
                   <span class="loading loading-spinner loading-xs"></span>
@@ -548,7 +570,11 @@
                 {m.admin_reject()}
               </button>
             </div>
-            <button class="btn btn-ghost w-full" onclick={handleDelete} disabled={isDeleting}>
+            <button
+              class="btn btn-ghost w-full"
+              onclick={handleDelete}
+              disabled={!canModerateRequest || isDeleting}
+            >
               {#if isDeleting}
                 <span class="loading loading-spinner loading-xs"></span>
               {:else}
@@ -561,7 +587,11 @@
       </div>
     {:else if data.user?.userType === 'site_admin'}
       <div class="border-base-300 border-t pt-6">
-        <button class="btn btn-ghost" onclick={handleDelete} disabled={isDeleting}>
+        <button
+          class="btn btn-ghost"
+          onclick={handleDelete}
+          disabled={!canModerateRequest || isDeleting}
+        >
           {#if isDeleting}
             <span class="loading loading-spinner loading-xs"></span>
           {:else}
@@ -595,7 +625,7 @@
           placeholder={m.comment_placeholder()}
           disabled={isSubmittingComment}
           minHeight="min-h-[100px]"
-          currentUser={data.user}
+          currentUser={canParticipate ? data.user : undefined}
           imageUploadUrl={buildImageUploadUrl({
             draftKind: 'delete-request-comment',
             deleteRequestId: req.id
@@ -621,23 +651,19 @@
           </button>
         </div>
       </div>
-    {:else if data.user}
+    {:else if req.status !== 'pending'}
       <div class="bg-base-200 text-base-content/60 mb-6 rounded-xl p-4 text-sm">
         <i class="fa-solid fa-lock mr-2"></i>
         {m.delete_request_discussion_closed()}
       </div>
     {:else}
-      <div class="bg-base-200 mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
-        <i class="fa-solid fa-comment text-base-content/40 text-2xl"></i>
-        <button
-          class="text-base-content/60 hover:link-accent cursor-pointer text-sm transition-colors"
-          onclick={() => {
-            window.dispatchEvent(new CustomEvent('nearcade-login'));
-          }}
-        >
-          {m.login_to_comment()}
-        </button>
-      </div>
+      <VerifiedContactPrompt
+        user={data.user}
+        loginMessage={m.login_to_vote_and_comment()}
+        icon="fa-comment"
+        compact
+        class="mb-6"
+      />
     {/if}
 
     {#if comments.length > 0}
@@ -646,10 +672,10 @@
           <div>
             <Comment
               {comment}
-              currentUserId={data.user?.id}
-              currentUser={data.user}
+              currentUserId={canParticipate ? data.user?.id : undefined}
+              currentUser={canParticipate ? data.user : undefined}
               canReply={canParticipate}
-              canEdit={data.user?.userType === 'site_admin'}
+              canEdit={canModerateRequest}
               onVote={canParticipate ? handleCommentVote : undefined}
               onReply={canParticipate ? handleCommentReply : undefined}
               onEdit={handleCommentEdit}
@@ -659,7 +685,7 @@
               deleteRequestVoteType={comment.authorDeleteRequestVote?.voteType ?? null}
             />
 
-            {#if replyingTo === comment.id}
+            {#if replyingTo === comment.id && canParticipate}
               <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
                 {#if commentError}
                   <div class="alert alert-error mb-4">
@@ -675,7 +701,7 @@
                   placeholder={m.reply_to_comment()}
                   disabled={isSubmittingReply}
                   minHeight="min-h-[100px]"
-                  currentUser={data.user}
+                  currentUser={canParticipate ? data.user : undefined}
                   imageUploadUrl={buildImageUploadUrl({
                     draftKind: 'delete-request-comment',
                     deleteRequestId: req.id
@@ -714,10 +740,10 @@
             {#each comments.filter((reply) => reply.parentCommentId === comment.id) as reply (reply.id)}
               <Comment
                 comment={reply}
-                currentUserId={data.user?.id}
-                currentUser={data.user}
+                currentUserId={canParticipate ? data.user?.id : undefined}
+                currentUser={canParticipate ? data.user : undefined}
                 canReply={canParticipate}
-                canEdit={data.user?.userType === 'site_admin'}
+                canEdit={canModerateRequest}
                 onVote={canParticipate ? handleCommentVote : undefined}
                 onReply={canParticipate ? handleCommentReply : undefined}
                 onEdit={handleCommentEdit}
@@ -736,10 +762,10 @@
         <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
         {#if canParticipate}
           <p class="text-base-content/60">{m.be_first_to_comment()}</p>
-        {:else if data.user}
+        {:else if req.status !== 'pending'}
           <p class="text-base-content/60">{m.delete_request_discussion_closed()}</p>
         {:else}
-          <p class="text-base-content/60">{m.login_to_comment()}</p>
+          <p class="text-base-content/60">{m.login_to_vote_and_comment()}</p>
         {/if}
       </div>
     {/if}

@@ -4,6 +4,7 @@ import mongo from '$lib/db/index.server';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { m } from '$lib/paraglide/messages';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { uploadFile } from '$lib/oss/index';
 import { toPlainArray, toPlainObject } from '$lib/utils';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
@@ -77,6 +78,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (!session?.user) {
     error(401, m.insufficient_permissions());
   }
+
+  requireEmailAndPhone(session.user);
 
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
 

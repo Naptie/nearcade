@@ -306,6 +306,9 @@
     <div class="space-y-3">
       <div class="flex flex-wrap items-center gap-3">
         <h2 class="text-lg font-semibold">{m.phone_settings_current()}</h2>
+        {#if !data.phone}
+          <span class="badge badge-warning badge-outline">{m.pending_verification()}</span>
+        {/if}
       </div>
 
       {#if data.phone}

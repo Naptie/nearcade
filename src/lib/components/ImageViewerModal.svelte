@@ -14,6 +14,8 @@
     initialIndex?: number;
     isOpen: boolean;
     currentUser?: User | undefined;
+    canManagePhotos?: boolean;
+    mutationDisabledReason?: string;
     allowDeleteRequest?: boolean;
     deletePhoto?: (photo: ImageAsset) => Promise<boolean> | boolean;
     getDeleteUrl?: (photo: ImageAsset) => string;
@@ -28,6 +30,8 @@
     initialIndex = 0,
     isOpen = $bindable(),
     currentUser = undefined,
+    canManagePhotos = currentUser !== undefined,
+    mutationDisabledReason = '',
     allowDeleteRequest = false,
     deletePhoto,
     getDeleteUrl,
@@ -69,16 +73,20 @@
         : null)
     );
   });
-  let canDeleteDirectly = $derived(
-    !!currentPhoto && (isAdmin || currentPhoto.uploadedBy === currentUser?.id)
+  let isOwnerOrAdmin = $derived(
+    !!currentPhoto && !!currentUser?.id && (isAdmin || currentPhoto.uploadedBy === currentUser?.id)
   );
-  let canRequestDeletion = $derived(
+  let canDeleteDirectly = $derived(!!currentPhoto && canManagePhotos && isOwnerOrAdmin);
+  let showDisabledDeleteAction = $derived(!!currentPhoto && !canManagePhotos && isOwnerOrAdmin);
+  let showDeleteRequestAction = $derived(
     !!currentPhoto &&
       !!currentUser?.id &&
-      !canDeleteDirectly &&
+      !isOwnerOrAdmin &&
       allowDeleteRequest &&
       !!currentDeleteRequestUrl
   );
+  let canRequestDeletion = $derived(showDeleteRequestAction && canManagePhotos);
+  let showDisabledDeleteRequestAction = $derived(showDeleteRequestAction && !canManagePhotos);
 
   const resolveDeleteUrl = (photo: ImageAsset) =>
     getDeleteUrl?.(photo) ??
@@ -311,6 +319,13 @@
                     {/if}
                     {m.delete()}
                   </button>
+                {:else if showDisabledDeleteAction}
+                  <div class="tooltip tooltip-left" data-tip={mutationDisabledReason}>
+                    <button class="btn btn-error btn-soft btn-sm" disabled>
+                      <i class="fa-solid fa-trash-can"></i>
+                      {m.delete()}
+                    </button>
+                  </div>
                 {:else if canRequestDeletion}
                   <button
                     class="btn btn-warning btn-soft btn-sm"
@@ -326,6 +341,13 @@
                     <i class="fa-solid fa-flag"></i>
                     {m.request_delete_shop()}
                   </button>
+                {:else if showDisabledDeleteRequestAction}
+                  <div class="tooltip tooltip-left" data-tip={mutationDisabledReason}>
+                    <button class="btn btn-warning btn-soft btn-sm" disabled>
+                      <i class="fa-solid fa-flag"></i>
+                      {m.request_delete_shop()}
+                    </button>
+                  </div>
                 {/if}
               </div>
             </div>

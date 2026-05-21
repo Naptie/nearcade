@@ -34,6 +34,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { fromZonedTime } from 'date-fns-tz';
   import { getLocale } from '$lib/paraglide/runtime';
+  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
@@ -49,6 +50,7 @@
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
   import ShopChangelogView from '$lib/components/ShopChangelogView.svelte';
   import type { ShopPhoto } from '$lib/types';
+  import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -80,6 +82,23 @@
 
   $effect(() => {
     photos = photosFromServer;
+  });
+  let verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
+  let canProtectedShopAction = $derived(!!data.user && verifiedContactStatus.eligible);
+  let protectedShopActionMessage = $derived.by(() => {
+    if (!data.user) {
+      return '';
+    }
+
+    if (!verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone) {
+      return m.verified_contact_required_for_contribution();
+    }
+
+    if (!verifiedContactStatus.hasVerifiedEmail) {
+      return m.verified_email_required_for_contribution();
+    }
+
+    return m.phone_binding_required_for_contribution();
   });
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);
@@ -433,7 +452,7 @@
   };
 
   const handleAttend = async (games: number[], plannedLeaveAt: Date) => {
-    if (!data.user || !shop) return;
+    if (!canProtectedShopAction || !shop) return;
 
     isLoading = 1;
     try {
@@ -462,7 +481,7 @@
   };
 
   const handleLeave = async () => {
-    if (!data.user || !shop) return;
+    if (!canProtectedShopAction || !shop) return;
 
     isLoading = 1;
     try {
@@ -484,7 +503,7 @@
   };
 
   const handleReportAttendance = async () => {
-    if (!data.user || !selectedGameForReport || !shop) return;
+    if (!canProtectedShopAction || !selectedGameForReport || !shop) return;
 
     isLoading = 2;
     try {
@@ -517,6 +536,8 @@
   };
 
   const openReportModal = (game: { id: number; name: string; version: string }) => {
+    if (!canProtectedShopAction) return;
+
     selectedGameForReport = game;
     reportedAttendance = reportedAttendances.find((g) => g.id === game.id)?.count || 0;
     showReportAttendanceModal = true;
@@ -641,7 +662,7 @@
 
   const handleCommentSubmit = async () => {
     if (
-      !data.user ||
+      !canProtectedShopAction ||
       !shop ||
       (!newCommentContent.trim() && newCommentImageIds.length === 0) ||
       isSubmittingComment
@@ -673,7 +694,7 @@
   };
 
   const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
-    if (!data.user) return;
+    if (!canProtectedShopAction) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
@@ -691,6 +712,8 @@
   };
 
   const handleCommentReply = (commentId: string) => {
+    if (!canProtectedShopAction) return;
+
     if (replyImageIds.length > 0) {
       void cleanupDraftImages(replyImageIds);
     }
@@ -703,7 +726,7 @@
 
   const submitReply = async () => {
     if (
-      !data.user ||
+      !canProtectedShopAction ||
       !shop ||
       (!replyContent.trim() && replyImageIds.length === 0) ||
       !replyingTo ||
@@ -740,7 +763,7 @@
   };
 
   const handleCommentEdit = async (commentId: string, newContent: string, imageIds: string[]) => {
-    if (!data.user) return;
+    if (!canProtectedShopAction) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
@@ -762,7 +785,7 @@
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    if (!data.user) return;
+    if (!canProtectedShopAction) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
@@ -782,7 +805,13 @@
   };
 
   const handleSubmitDeleteRequest = async () => {
-    if (!shop || !deleteRequestReason.trim() || isSubmittingDeleteRequest) return;
+    if (
+      !canProtectedShopAction ||
+      !shop ||
+      !deleteRequestReason.trim() ||
+      isSubmittingDeleteRequest
+    )
+      return;
     isSubmittingDeleteRequest = true;
     deleteRequestError = '';
     try {
@@ -822,7 +851,7 @@
   };
 
   const handleRetractDeleteRequest = async () => {
-    if (!pendingDeleteRequest || isProcessingDeleteRequest) return;
+    if (!canProtectedShopAction || !pendingDeleteRequest || isProcessingDeleteRequest) return;
     if (!confirm(m.retract_delete_request_confirm())) return;
     isProcessingDeleteRequest = true;
     deleteRequestProcessError = '';
@@ -845,7 +874,13 @@
   };
 
   const handleProcessDeleteRequest = async (action: 'approve' | 'reject') => {
-    if (!pendingDeleteRequest || isProcessingDeleteRequest) return;
+    if (
+      !canProtectedShopAction ||
+      data.user?.userType !== 'site_admin' ||
+      !pendingDeleteRequest ||
+      isProcessingDeleteRequest
+    )
+      return;
     isProcessingDeleteRequest = true;
     deleteRequestProcessError = '';
     try {
@@ -945,7 +980,14 @@
   <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
     <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
       {#snippet attend(klass = 'w-full')}
-        {#if userAttendance}
+        {#if !canProtectedShopAction}
+          <div class="tooltip tooltip-error {klass}" data-tip={protectedShopActionMessage}>
+            <button class="btn btn-primary w-full" disabled>
+              <i class="fa-solid fa-play"></i>
+              {m.attend()}
+            </button>
+          </div>
+        {:else if userAttendance}
           <button
             class="btn btn-error btn-soft {klass}"
             onclick={() => handleLeave()}
@@ -1057,7 +1099,14 @@
           {/if}
 
           <section class="mt-6">
-            <PhotoCarousel shopId={shop.id} bind:photos currentUser={data.user} />
+            <PhotoCarousel
+              shopId={shop.id}
+              bind:photos
+              currentUser={data.user}
+              canUpload={canProtectedShopAction}
+              canManagePhotos={canProtectedShopAction}
+              disabledActionReason={protectedShopActionMessage}
+            />
           </section>
 
           <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
@@ -1158,23 +1207,37 @@
                     class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow"
                   >
                     <li>
-                      <a href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}>
-                        <i class="fa-solid fa-pen-to-square"></i>
-                        {m.edit_shop()}
-                      </a>
+                      {#if canProtectedShopAction}
+                        <a href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}>
+                          <i class="fa-solid fa-pen-to-square"></i>
+                          {m.edit_shop()}
+                        </a>
+                      {:else}
+                        <button
+                          disabled
+                          class:opacity-50={!canProtectedShopAction}
+                          class:cursor-not-allowed={!canProtectedShopAction}
+                          title={protectedShopActionMessage}
+                        >
+                          <i class="fa-solid fa-pen-to-square"></i>
+                          {m.edit_shop()}
+                        </button>
+                      {/if}
                     </li>
                     <li>
                       <button
                         onclick={() => {
-                          if (pendingDeleteRequest) return;
+                          if (!canProtectedShopAction || pendingDeleteRequest) return;
                           showDeleteRequestModal = true;
                         }}
-                        disabled={!!pendingDeleteRequest}
-                        class:opacity-50={!!pendingDeleteRequest}
-                        class:cursor-not-allowed={!!pendingDeleteRequest}
+                        disabled={!canProtectedShopAction || !!pendingDeleteRequest}
+                        class:opacity-50={!canProtectedShopAction || !!pendingDeleteRequest}
+                        class:cursor-not-allowed={!canProtectedShopAction || !!pendingDeleteRequest}
                         title={pendingDeleteRequest
                           ? m.shop_delete_request_already_pending()
-                          : undefined}
+                          : !canProtectedShopAction
+                            ? protectedShopActionMessage
+                            : undefined}
                       >
                         <i class="fa-solid fa-trash-can"></i>
                         {m.request_delete_shop()}
@@ -1461,7 +1524,8 @@
                     <button
                       class="btn btn-warning btn-soft btn-sm w-full"
                       onclick={handleRetractDeleteRequest}
-                      disabled={isProcessingDeleteRequest}
+                      disabled={!canProtectedShopAction || isProcessingDeleteRequest}
+                      title={!canProtectedShopAction ? protectedShopActionMessage : undefined}
                     >
                       {#if isProcessingDeleteRequest}
                         <span class="loading loading-spinner loading-xs"></span>
@@ -1479,12 +1543,13 @@
                       class="input input-bordered input-sm w-full"
                       placeholder={m.shop_delete_request_review_note()}
                       bind:value={deleteRequestReviewNote}
+                      disabled={!canProtectedShopAction || isProcessingDeleteRequest}
                     />
                     <div class="flex gap-2">
                       <button
                         class="btn btn-success btn-sm flex-1"
                         onclick={() => handleProcessDeleteRequest('approve')}
-                        disabled={isProcessingDeleteRequest}
+                        disabled={!canProtectedShopAction || isProcessingDeleteRequest}
                       >
                         {#if isProcessingDeleteRequest}
                           <span class="loading loading-spinner loading-xs"></span>
@@ -1496,7 +1561,7 @@
                       <button
                         class="btn btn-error btn-sm flex-1"
                         onclick={() => handleProcessDeleteRequest('reject')}
-                        disabled={isProcessingDeleteRequest}
+                        disabled={!canProtectedShopAction || isProcessingDeleteRequest}
                       >
                         {#if isProcessingDeleteRequest}
                           <span class="loading loading-spinner loading-xs"></span>
@@ -1552,20 +1617,34 @@
                       {game.name}
                     </h3>
                     <div class="flex items-center gap-1">
-                      {#if data.user && isShopOpen && isUserNearShop && !shop.isClaimed}
-                        <FancyButton
-                          callback={() =>
-                            openReportModal({
-                              id: game.gameId,
-                              name: game.name,
-                              version: game.version
-                            })}
-                          class="fa-solid fa-chart-simple"
-                          btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
-                          text={m.report_current_attendance()}
-                          expanded={hovered[game.gameId] || false}
-                          override
-                        />
+                      {#if data.user && !shop.isClaimed}
+                        {#if canProtectedShopAction && isShopOpen && isUserNearShop}
+                          <FancyButton
+                            callback={() =>
+                              openReportModal({
+                                id: game.gameId,
+                                name: game.name,
+                                version: game.version
+                              })}
+                            class="fa-solid fa-chart-simple"
+                            btnCls="hover:btn-neutral btn-soft btn-sm text-sm"
+                            text={m.report_current_attendance()}
+                            expanded={hovered[game.gameId] || false}
+                            override
+                          />
+                        {:else if !canProtectedShopAction}
+                          <div class="tooltip tooltip-left" data-tip={protectedShopActionMessage}>
+                            <button
+                              class="btn btn-soft btn-sm text-sm"
+                              disabled
+                              aria-label={m.report_current_attendance()}
+                              title={m.report_current_attendance()}
+                            >
+                              <i class="fa-solid fa-chart-simple"></i>
+                              <span class="sr-only">{m.report_current_attendance()}</span>
+                            </button>
+                          </div>
+                        {/if}
                       {/if}
                       <div
                         class="btn btn-neutral btn-active btn-soft btn-sm cursor-default text-base"
@@ -1752,7 +1831,7 @@
           </h2>
 
           <!-- Add comment form -->
-          {#if data.user}
+          {#if canProtectedShopAction}
             <div class="bg-base-100 mb-6 rounded-xl p-4">
               {#if commentError}
                 <div class="alert alert-error mb-4">
@@ -1768,7 +1847,7 @@
                 placeholder={m.comment_placeholder()}
                 disabled={isSubmittingComment}
                 minHeight="min-h-[100px]"
-                currentUser={data.user}
+                currentUser={canProtectedShopAction ? data.user : undefined}
                 imageUploadUrl={buildImageUploadUrl({
                   draftKind: 'shop-comment',
                   shopId: shop.id
@@ -1792,17 +1871,13 @@
               </div>
             </div>
           {:else}
-            <div class="bg-base-200 mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
-              <i class="fa-solid fa-comment text-base-content/40 text-2xl"></i>
-              <button
-                class="text-base-content/60 hover:link-accent cursor-pointer text-sm transition-colors"
-                onclick={() => {
-                  window.dispatchEvent(new CustomEvent('nearcade-login'));
-                }}
-              >
-                {m.login_to_comment()}
-              </button>
-            </div>
+            <VerifiedContactPrompt
+              user={data.user}
+              loginMessage={m.login_to_comment()}
+              icon="fa-comment"
+              compact
+              class="mb-6"
+            />
           {/if}
 
           <!-- Comments list -->
@@ -1812,12 +1887,12 @@
                 <div>
                   <Comment
                     {comment}
-                    currentUserId={data.user?.id}
-                    currentUser={data.user}
-                    canReply={!!data.user}
+                    currentUserId={canProtectedShopAction ? data.user?.id : undefined}
+                    currentUser={canProtectedShopAction ? data.user : undefined}
+                    canReply={canProtectedShopAction}
                     canEdit={false}
-                    onVote={data.user ? handleCommentVote : undefined}
-                    onReply={data.user ? handleCommentReply : undefined}
+                    onVote={canProtectedShopAction ? handleCommentVote : undefined}
+                    onReply={canProtectedShopAction ? handleCommentReply : undefined}
                     onEdit={handleCommentEdit}
                     onDelete={handleCommentDelete}
                     isPostRendered={isCommentsRendered}
@@ -1825,7 +1900,7 @@
                   />
 
                   <!-- Reply form -->
-                  {#if replyingTo === comment.id}
+                  {#if replyingTo === comment.id && canProtectedShopAction}
                     <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
                       {#if commentError}
                         <div class="alert alert-error mb-4">
@@ -1841,7 +1916,7 @@
                         placeholder={m.reply_to_comment()}
                         disabled={isSubmittingReply}
                         minHeight="min-h-[100px]"
-                        currentUser={data.user}
+                        currentUser={canProtectedShopAction ? data.user : undefined}
                         imageUploadUrl={buildImageUploadUrl({
                           draftKind: 'shop-comment',
                           shopId: shop.id
@@ -1881,12 +1956,12 @@
                   {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
                     <Comment
                       comment={reply}
-                      currentUserId={data.user?.id}
-                      currentUser={data.user}
-                      canReply={!!data.user}
+                      currentUserId={canProtectedShopAction ? data.user?.id : undefined}
+                      currentUser={canProtectedShopAction ? data.user : undefined}
+                      canReply={canProtectedShopAction}
                       canEdit={false}
-                      onVote={data.user ? handleCommentVote : undefined}
-                      onReply={data.user ? handleCommentReply : undefined}
+                      onVote={canProtectedShopAction ? handleCommentVote : undefined}
+                      onReply={canProtectedShopAction ? handleCommentReply : undefined}
                       onEdit={handleCommentEdit}
                       onDelete={handleCommentDelete}
                       isPostRendered={isCommentsRendered}
@@ -1927,7 +2002,7 @@
               <div class="mt-4">
                 <ShopChangelogView
                   shopId={shop.id}
-                  isSiteAdmin={data.user?.userType === 'site_admin'}
+                  isSiteAdmin={data.user?.userType === 'site_admin' && canProtectedShopAction}
                   onRollbackApplied={invalidateAll}
                 />
               </div>
@@ -2054,7 +2129,7 @@
 
         <PhotoCarousel
           bind:photos={deleteRequestAttachments}
-          currentUser={data.user}
+          currentUser={canProtectedShopAction ? data.user : undefined}
           title={m.evidence_images()}
           titleClass="label-text text-current/60"
           uploadLabel={m.upload_image()}

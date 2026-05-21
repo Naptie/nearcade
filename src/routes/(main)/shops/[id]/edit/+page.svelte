@@ -2,6 +2,8 @@
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import ShopForm from '$lib/components/ShopForm.svelte';
   import type { ShopFormData } from '$lib/schemas/forms';
@@ -11,6 +13,8 @@
   let { data }: { data: PageData } = $props();
 
   const shop = $derived(data.shop);
+  const verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
+  const canManageShop = $derived(!!data.user && verifiedContactStatus.eligible);
 
   const initialData: Partial<ShopFormData> = $derived.by(() => ({
     name: shop.name,
@@ -31,6 +35,8 @@
   let successMessage = $state('');
 
   async function handleSubmit(formData: ShopFormData) {
+    if (!canManageShop) return;
+
     const response = await fetch(`/api/shops/${shop.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -64,15 +70,37 @@
     </div>
   {/if}
 
-  <ShopForm
-    {initialData}
-    onSubmit={handleSubmit}
-    onCancel={() => goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }))}
-    submitLabel={m.save_changes()}
-  />
+  {#if canManageShop}
+    <ShopForm
+      {initialData}
+      onSubmit={handleSubmit}
+      onCancel={() => goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }))}
+      submitLabel={m.save_changes()}
+    />
+  {:else}
+    <VerifiedContactPrompt
+      user={data.user}
+      loginMessage={m.sign_in()}
+      icon="fa-pen-to-square"
+      class="bg-base-100 border-base-300 border shadow-sm"
+    />
+  {/if}
 
   <!-- Photos section -->
   <div class="bg-base-100 border-base-content/20 mt-8 rounded-2xl border p-6 shadow-sm">
-    <PhotoCarousel shopId={shop.id} bind:photos={data.photos} currentUser={data.user} />
+    <PhotoCarousel
+      shopId={shop.id}
+      bind:photos={data.photos}
+      currentUser={data.user}
+      canUpload={canManageShop}
+      canManagePhotos={canManageShop}
+      disabledActionReason={!data.user
+        ? ''
+        : !verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone
+          ? m.verified_contact_required_for_contribution()
+          : !verifiedContactStatus.hasVerifiedEmail
+            ? m.verified_email_required_for_contribution()
+            : m.phone_binding_required_for_contribution()}
+    />
   </div>
 </div>

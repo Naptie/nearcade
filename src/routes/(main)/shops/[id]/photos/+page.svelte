@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
+  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
   import { getDisplayName, pageTitle } from '$lib/utils';
   import type { PageData } from './$types';
   import type { ImageAsset, ShopPhoto } from '$lib/types';
@@ -10,6 +11,24 @@
   import { fromPath } from '$lib/utils/scoped';
 
   let { data }: { data: PageData } = $props();
+
+  const verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
+  const canManagePhotos = $derived(!!data.user && verifiedContactStatus.eligible);
+  const photoActionDisabledReason = $derived.by(() => {
+    if (!data.user) {
+      return '';
+    }
+
+    if (!verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone) {
+      return m.verified_contact_required_for_contribution();
+    }
+
+    if (!verifiedContactStatus.hasVerifiedEmail) {
+      return m.verified_email_required_for_contribution();
+    }
+
+    return m.phone_binding_required_for_contribution();
+  });
 
   let photos = $derived<ShopPhoto[]>(data.photos);
   let viewerOpen = $state(false);
@@ -69,10 +88,19 @@
     </div>
 
     {#if data.user}
-      <button class="btn btn-primary btn-soft gap-2" onclick={() => (uploadOpen = true)}>
-        <i class="fa-solid fa-upload"></i>
-        {m.shop_photos_upload()}
-      </button>
+      {#if canManagePhotos}
+        <button class="btn btn-primary btn-soft gap-2" onclick={() => (uploadOpen = true)}>
+          <i class="fa-solid fa-upload"></i>
+          {m.shop_photos_upload()}
+        </button>
+      {:else}
+        <div class="tooltip tooltip-left" data-tip={photoActionDisabledReason}>
+          <button class="btn btn-primary btn-soft gap-2" disabled>
+            <i class="fa-solid fa-upload"></i>
+            {m.shop_photos_upload()}
+          </button>
+        </div>
+      {/if}
     {/if}
   </div>
 
@@ -80,7 +108,7 @@
     <div class="bg-base-100 border-base-300 rounded-2xl border p-16 text-center shadow-sm">
       <i class="fa-solid fa-camera text-base-content/30 mb-4 text-5xl"></i>
       <p class="text-base-content/60 mb-1">{m.shop_photos_empty()}</p>
-      {#if data.user}
+      {#if canManagePhotos}
         <p class="text-base-content/40 text-sm">{m.shop_photos_empty_hint()}</p>
       {/if}
     </div>
@@ -125,13 +153,18 @@
     {photos}
     initialIndex={viewerIndex}
     currentUser={data.user}
+    {canManagePhotos}
+    mutationDisabledReason={photoActionDisabledReason}
+    allowDeleteRequest
     onDelete={handleDelete}
   />
 {/key}
 
-<UploadModal
-  bind:isOpen={uploadOpen}
-  uploadUrl={fromPath(`/api/shops/${data.shop.id}/photos`)}
-  confirmLabel={m.shop_photos_upload()}
-  onSuccess={handleUploadSuccess}
-/>
+{#if canManagePhotos}
+  <UploadModal
+    bind:isOpen={uploadOpen}
+    uploadUrl={fromPath(`/api/shops/${data.shop.id}/photos`)}
+    confirmLabel={m.shop_photos_upload()}
+    onSuccess={handleUploadSuccess}
+  />
+{/if}

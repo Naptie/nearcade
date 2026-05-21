@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { applyShopRollback, buildShopRollbackPreview } from '$lib/utils/shops/changelog.server';
 import mongo from '$lib/db/index.server';
+import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';
 
@@ -62,6 +63,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   if (!session?.user || session.user.userType !== 'site_admin') {
     error(403, m.insufficient_permissions());
   }
+
+  requireEmailAndPhone(session.user);
 
   const shopId = parseInt(params.id);
   if (isNaN(shopId)) {

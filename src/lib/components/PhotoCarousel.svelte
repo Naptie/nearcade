@@ -15,6 +15,9 @@
     shopId?: number;
     photos: ImageAsset[];
     currentUser?: User | undefined;
+    canUpload?: boolean;
+    canManagePhotos?: boolean;
+    disabledActionReason?: string;
     title?: string;
     titleClass?: string;
     uploadUrl?: string;
@@ -41,6 +44,9 @@
     shopId,
     photos = $bindable(),
     currentUser = undefined,
+    canUpload = currentUser !== undefined,
+    canManagePhotos = currentUser !== undefined,
+    disabledActionReason = '',
     title = m.shop_photos(),
     titleClass = 'text-base font-semibold',
     uploadUrl,
@@ -71,8 +77,10 @@
         : undefined)
   );
   let showHeader = $derived(
-    !!title || (!!currentUser && !!resolvedUploadUrl) || !!resolvedViewAllHref
+    !!title || (!!currentUser && showUploadButton) || !!resolvedViewAllHref
   );
+  let canShowUploadAction = $derived(!!currentUser && !!resolvedUploadUrl && showUploadButton);
+  let canUploadPhotos = $derived(canShowUploadAction && canUpload);
 
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
@@ -125,11 +133,20 @@
         <div></div>
       {/if}
       <div class="flex items-center gap-2">
-        {#if currentUser && resolvedUploadUrl && showUploadButton}
-          <button class="btn btn-ghost btn-sm gap-1" onclick={() => (isUploadOpen = true)}>
-            <i class="fa-solid fa-upload text-xs"></i>
-            {uploadLabel}
-          </button>
+        {#if canShowUploadAction}
+          {#if canUploadPhotos}
+            <button class="btn btn-ghost btn-sm gap-1" onclick={() => (isUploadOpen = true)}>
+              <i class="fa-solid fa-upload text-xs"></i>
+              {uploadLabel}
+            </button>
+          {:else}
+            <div class="tooltip tooltip-left" data-tip={disabledActionReason}>
+              <button class="btn btn-ghost btn-sm gap-1" disabled>
+                <i class="fa-solid fa-upload text-xs"></i>
+                {uploadLabel}
+              </button>
+            </div>
+          {/if}
         {/if}
         {#if photos.length > 0 && resolvedViewAllHref}
           <a href={resolvedViewAllHref} class="btn btn-ghost btn-sm gap-1">
@@ -145,7 +162,7 @@
     <div class="border-base-content/20 rounded-xl border p-6 text-center">
       <i class="fa-solid fa-camera text-base-content/30 mb-2 text-2xl"></i>
       <p class="text-base-content/60 text-sm">{emptyMessage}</p>
-      {#if currentUser}
+      {#if canUploadPhotos}
         <p class="text-base-content/40 mt-1 text-xs">{emptyHint}</p>
       {/if}
     </div>
@@ -186,6 +203,8 @@
     {photos}
     initialIndex={viewerIndex}
     {currentUser}
+    {canManagePhotos}
+    mutationDisabledReason={disabledActionReason}
     {allowDeleteRequest}
     deletePhoto={onDeletePhoto}
     {getDeleteUrl}
@@ -195,7 +214,7 @@
   />
 {/key}
 
-{#if resolvedUploadUrl}
+{#if resolvedUploadUrl && canUploadPhotos}
   <UploadModal
     bind:isOpen={isUploadOpen}
     uploadUrl={resolvedUploadUrl}
