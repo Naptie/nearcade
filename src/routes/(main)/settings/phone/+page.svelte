@@ -387,7 +387,7 @@
         </button>
       </div>
 
-      {#if data.turnstileSiteKey}
+      {#if data.turnstileSiteKey && !codeSent}
         <div bind:this={turnstileContainer}></div>
       {/if}
 
