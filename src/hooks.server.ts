@@ -39,13 +39,33 @@ const reportError: HandleServerError = ({ status, error }) => {
   };
 };
 
+const requestDebugHeaderNames = [
+  'host',
+  'forwarded',
+  'x-real-ip',
+  'x-forwarded-for',
+  'x-forwarded-host',
+  'x-forwarded-proto',
+  'x-forwarded-port',
+  'cf-connecting-ip',
+  'cf-connecting-ipv6',
+  'true-client-ip',
+  'eo-connecting-ip',
+  'eo-client-ip',
+  'ali-cdn-real-ip'
+] as const;
+
+const collectRequestDebugHeaders = (request: Request) =>
+  Object.fromEntries(requestDebugHeaderNames.map((name) => [name, request.headers.get(name)]));
+
 const handleRequestLogging: Handle = async ({ event, resolve }) => {
   let clientIp = 'unavailable';
+  const requestDebugHeaders = collectRequestDebugHeaders(event.request);
 
   try {
     clientIp = event.getClientAddress();
-  } catch {
-    // Intentionally avoid failing the request due to logging.
+  } catch (e) {
+    console.error('Failed to get client IP address:', e);
   }
 
   let status = 'ERR';
@@ -55,7 +75,9 @@ const handleRequestLogging: Handle = async ({ event, resolve }) => {
     status = String(response.status);
     return response;
   } finally {
-    console.log(`[request] ${status} ${event.request.method} ${event.url.pathname} <- ${clientIp}`);
+    console.log(
+      `[request] ${status} ${event.request.method} ${event.url.pathname} <- ${clientIp} headers=${JSON.stringify(requestDebugHeaders)}`
+    );
   }
 };
 
