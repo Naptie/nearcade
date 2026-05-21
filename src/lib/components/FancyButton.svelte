@@ -1,3 +1,230 @@
+<script module lang="ts">
+  interface PointerApproachRegistration {
+    element: HTMLElement;
+    isEnabled: () => boolean;
+    update: (nearby: boolean) => void;
+    rect: DOMRectReadOnly | null;
+    nearby: boolean;
+    dirty: boolean;
+    observer: ResizeObserver | null;
+  }
+
+  const POINTER_APPROACH_RADIUS = 60;
+  const POINTER_APPROACH_MEDIA_QUERY = '(any-hover: hover) and (any-pointer: fine)';
+
+  const pointerApproachRegistrations: PointerApproachRegistration[] = [];
+
+  let pointerApproachFrame = 0;
+  let pointerApproachX = 0;
+  let pointerApproachY = 0;
+  let hasPointerApproachPosition = false;
+  let pointerApproachMediaQuery: MediaQueryList | null = null;
+  let stopPointerApproachTracking: (() => void) | null = null;
+
+  const getPointerApproachMediaQuery = () => {
+    if (!pointerApproachMediaQuery) {
+      pointerApproachMediaQuery = window.matchMedia(POINTER_APPROACH_MEDIA_QUERY);
+    }
+
+    return pointerApproachMediaQuery;
+  };
+
+  const canTrackPointerApproach = () => {
+    return (
+      typeof window !== 'undefined' &&
+      'PointerEvent' in window &&
+      getPointerApproachMediaQuery().matches
+    );
+  };
+
+  const setPointerApproachState = (registration: PointerApproachRegistration, nearby: boolean) => {
+    if (registration.nearby === nearby) return;
+
+    registration.nearby = nearby;
+    registration.update(nearby);
+  };
+
+  const refreshPointerApproachRect = (registration: PointerApproachRegistration) => {
+    registration.rect = registration.element.getBoundingClientRect();
+    registration.dirty = false;
+  };
+
+  const clearPointerApproachState = () => {
+    hasPointerApproachPosition = false;
+
+    for (const registration of pointerApproachRegistrations) {
+      setPointerApproachState(registration, false);
+    }
+  };
+
+  const runPointerApproachFrame = () => {
+    pointerApproachFrame = 0;
+
+    if (!canTrackPointerApproach() || !hasPointerApproachPosition) {
+      clearPointerApproachState();
+      return;
+    }
+
+    const radiusSquared = POINTER_APPROACH_RADIUS * POINTER_APPROACH_RADIUS;
+
+    for (const registration of pointerApproachRegistrations) {
+      if (!registration.isEnabled()) {
+        setPointerApproachState(registration, false);
+        continue;
+      }
+
+      if (registration.dirty || !registration.rect) {
+        refreshPointerApproachRect(registration);
+      }
+
+      const rect = registration.rect;
+      if (!rect) {
+        setPointerApproachState(registration, false);
+        continue;
+      }
+
+      const dx =
+        pointerApproachX < rect.left
+          ? rect.left - pointerApproachX
+          : pointerApproachX > rect.right
+            ? pointerApproachX - rect.right
+            : 0;
+      const dy =
+        pointerApproachY < rect.top
+          ? rect.top - pointerApproachY
+          : pointerApproachY > rect.bottom
+            ? pointerApproachY - rect.bottom
+            : 0;
+
+      setPointerApproachState(registration, dx * dx + dy * dy <= radiusSquared);
+    }
+  };
+
+  const schedulePointerApproachFrame = () => {
+    if (pointerApproachFrame || typeof window === 'undefined') return;
+
+    pointerApproachFrame = window.requestAnimationFrame(runPointerApproachFrame);
+  };
+
+  const markPointerApproachRectsDirty = () => {
+    for (const registration of pointerApproachRegistrations) {
+      registration.dirty = true;
+    }
+
+    schedulePointerApproachFrame();
+  };
+
+  const startPointerApproachTracking = () => {
+    if (stopPointerApproachTracking || typeof window === 'undefined') return;
+
+    const scrollOptions = { capture: true, passive: true } as const;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!canTrackPointerApproach()) return;
+
+      if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') {
+        return;
+      }
+
+      pointerApproachX = event.clientX;
+      pointerApproachY = event.clientY;
+      hasPointerApproachPosition = true;
+      schedulePointerApproachFrame();
+    };
+
+    const handlePointerOut = (event: PointerEvent) => {
+      if (event.relatedTarget === null) {
+        clearPointerApproachState();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        markPointerApproachRectsDirty();
+        return;
+      }
+
+      clearPointerApproachState();
+    };
+
+    const handleSupportChange = () => {
+      markPointerApproachRectsDirty();
+
+      if (!canTrackPointerApproach()) {
+        clearPointerApproachState();
+      }
+    };
+
+    const mediaQuery = getPointerApproachMediaQuery();
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerout', handlePointerOut, { passive: true });
+    window.addEventListener('resize', markPointerApproachRectsDirty, { passive: true });
+    window.addEventListener('scroll', markPointerApproachRectsDirty, scrollOptions);
+    window.addEventListener('blur', clearPointerApproachState);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    mediaQuery.addEventListener('change', handleSupportChange);
+
+    stopPointerApproachTracking = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerout', handlePointerOut);
+      window.removeEventListener('resize', markPointerApproachRectsDirty);
+      window.removeEventListener('scroll', markPointerApproachRectsDirty, true);
+      window.removeEventListener('blur', clearPointerApproachState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      mediaQuery.removeEventListener('change', handleSupportChange);
+
+      if (pointerApproachFrame) {
+        window.cancelAnimationFrame(pointerApproachFrame);
+        pointerApproachFrame = 0;
+      }
+    };
+  };
+
+  const registerPointerApproach = (
+    element: HTMLElement,
+    isEnabled: () => boolean,
+    update: (nearby: boolean) => void
+  ) => {
+    const registration: PointerApproachRegistration = {
+      element,
+      isEnabled,
+      update,
+      rect: null,
+      nearby: false,
+      dirty: true,
+      observer: null
+    };
+
+    if (typeof ResizeObserver !== 'undefined') {
+      registration.observer = new ResizeObserver(() => {
+        registration.dirty = true;
+        schedulePointerApproachFrame();
+      });
+
+      registration.observer.observe(element);
+    }
+
+    pointerApproachRegistrations.push(registration);
+    startPointerApproachTracking();
+    schedulePointerApproachFrame();
+
+    return () => {
+      registration.observer?.disconnect();
+      registration.nearby = false;
+      const registrationIndex = pointerApproachRegistrations.indexOf(registration);
+      if (registrationIndex !== -1) {
+        pointerApproachRegistrations.splice(registrationIndex, 1);
+      }
+
+      if (!pointerApproachRegistrations.length && stopPointerApproachTracking) {
+        stopPointerApproachTracking();
+        stopPointerApproachTracking = null;
+      }
+    };
+  };
+</script>
+
 <script lang="ts">
   import { browser } from '$app/environment';
   import { preloadCode, preloadData } from '$app/navigation';
@@ -44,7 +271,15 @@
   let timeout = $state<ReturnType<typeof setTimeout> | null>(null);
   let windowWidth = $state(browser ? window.innerWidth : 0);
   let isHovered = $state(false);
+  let isNearby = $state(false);
   let stayExpanded = $derived(windowWidth >= 1280 && stayExpandedOnWideScreens);
+
+  const clearCollapseTimeout = () => {
+    if (!timeout) return;
+
+    clearTimeout(timeout);
+    timeout = null;
+  };
 
   const measureButtonDimensions = () => {
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
@@ -102,16 +337,18 @@
       preloadCode(href);
       preloadData(href);
     }
-    if (window.matchMedia('(hover: hover)').matches && !override) {
-      clearTimeout(timeout!);
+    if (window.matchMedia('(any-hover: hover)').matches && !override) {
+      clearCollapseTimeout();
       isHovered = true;
     }
   };
 
   const handleMouseLeave = () => {
     if (!override) {
+      clearCollapseTimeout();
       timeout = setTimeout(() => {
         isHovered = false;
+        timeout = null;
       }, 600);
     }
   };
@@ -120,6 +357,14 @@
     initialWidth = buttonElement.offsetWidth;
     // Set initial width to avoid layout jank
     buttonElement.style.width = 'var(--collapsed-width, 3rem)'; // Provide a fallback
+
+    const cleanupPointerApproach = registerPointerApproach(
+      buttonElement,
+      () => !override && !stayExpanded,
+      (nearby) => {
+        isNearby = nearby;
+      }
+    );
 
     const setupMeasurements = () => {
       // Run the initial measurement
@@ -156,6 +401,8 @@
     return () => {
       // Ensure the observer is disconnected when the component is destroyed
       cleanup.then((cleanupFn) => cleanupFn && cleanupFn());
+      cleanupPointerApproach();
+      clearCollapseTimeout();
       if (stayExpandedOnWideScreens) {
         window.removeEventListener('resize', handleResize);
       }
@@ -179,10 +426,21 @@
   });
 
   $effect(() => {
-    if ((stayExpanded || isHovered) && !override) {
+    if (override || stayExpanded) {
+      isNearby = false;
+      return;
+    }
+
+    if (buttonElement) {
+      markPointerApproachRectsDirty();
+    }
+  });
+
+  $effect(() => {
+    if ((stayExpanded || isHovered || isNearby) && !override) {
       expanded = true;
     }
-    if (!stayExpanded && !isHovered && !override) {
+    if (!stayExpanded && !isHovered && !isNearby && !override) {
       expanded = false;
     }
   });
@@ -258,7 +516,7 @@
     @apply opacity-100;
   }
 
-  @media not (hover: hover) {
+  @media not (any-hover: hover) {
     .icon,
     .content {
       transform: none !important;
