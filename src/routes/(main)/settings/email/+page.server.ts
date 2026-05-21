@@ -8,7 +8,7 @@ import {
 
 export const load: PageServerLoad = async ({ parent, url }) => {
   const { user } = await parent();
-  const redirectTo = sanitizeRedirectTarget(url.searchParams.get('redirect'), url.origin);
+  const redirectTo = sanitizeRedirectTarget(url.searchParams.get('continue'), url.origin);
   const prompt = url.searchParams.get('prompt') === '1';
   const needsEmailBinding = requiresEmailBinding(user);
   const verificationError = url.searchParams.get('error');

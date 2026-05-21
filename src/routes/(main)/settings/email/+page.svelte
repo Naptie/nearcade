@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { authClient } from '$lib/auth/client';
@@ -93,7 +93,7 @@
   };
 
   const handleContinue = async () => {
-    await goto(data.redirectTo ?? resolve('/(main)'));
+    location.href = data.redirectTo ?? resolve('/(main)');
   };
 </script>
 

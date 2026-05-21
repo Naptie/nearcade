@@ -204,7 +204,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
       promptUrl.pathname = emailSettingsPath;
       promptUrl.search = '';
       promptUrl.searchParams.set('prompt', '1');
-      promptUrl.searchParams.set('redirect', redirectTarget);
+      promptUrl.searchParams.set('continue', redirectTarget);
       redirect(303, `${promptUrl.pathname}?${promptUrl.searchParams.toString()}`);
     }
   }

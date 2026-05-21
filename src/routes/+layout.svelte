@@ -114,7 +114,7 @@
     }
 
     let redirect = page.url.searchParams.get('redirect');
-    if (data.session?.user) {
+    if (data.session?.user && !page.url.searchParams.has('continue')) {
       redirect ??= localStorage.getItem('nearcade-redirect');
       if (redirect) {
         localStorage.removeItem('nearcade-redirect');
