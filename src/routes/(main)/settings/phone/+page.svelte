@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
+  import { slide } from 'svelte/transition';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -340,9 +341,9 @@
       </h2>
     </div>
 
-    <div class="space-y-4">
+    <div>
       <!-- Country code + phone number row -->
-      <div class="flex gap-2">
+      <div class="mb-4 flex gap-2">
         <label class="form-control max-w-1/4 shrink-0 gap-2">
           <span class="label-text sr-only">{m.phone_settings_country_code_placeholder()}</span>
           <select
@@ -388,11 +389,11 @@
       </div>
 
       {#if data.turnstileSiteKey && !codeSent}
-        <div bind:this={turnstileContainer}></div>
+        <div class="mb-4" bind:this={turnstileContainer} transition:slide></div>
       {/if}
 
       {#if codeSent}
-        <div class="mt-4 flex gap-2">
+        <div class="flex gap-2" transition:slide>
           <input
             class="input input-bordered w-full"
             type="text"
