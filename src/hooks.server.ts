@@ -39,6 +39,26 @@ const reportError: HandleServerError = ({ status, error }) => {
   };
 };
 
+const handleRequestLogging: Handle = async ({ event, resolve }) => {
+  let clientIp = 'unavailable';
+
+  try {
+    clientIp = event.getClientAddress();
+  } catch {
+    // Intentionally avoid failing the request due to logging.
+  }
+
+  let status = 'ERR';
+
+  try {
+    const response = await resolve(event);
+    status = String(response.status);
+    return response;
+  } finally {
+    console.log(`[request] ${status} ${event.request.method} ${event.url.pathname} <- ${clientIp}`);
+  }
+};
+
 const handleOptions: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
 
@@ -263,6 +283,7 @@ const handleOAuthScopes: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = sequence(
+  handleRequestLogging,
   handleOptions,
   handleParaglide,
   handleAMap,
@@ -295,10 +316,10 @@ export const init: ServerInit = async () => {
     );
     console.log('=============================================\n|');
     console.log(
-      '| Disk DB:',
+      '| Persistent Store:',
       mongo.options.hosts.map((h) => `mongodb://${h.toString()}`).join(', ')
     );
-    console.log('| RAM DB:', sanitizeConnectionUrl(redis.options?.url));
+    console.log('| Cache Store:', sanitizeConnectionUrl(redis.options?.url));
     console.log('| Search:', `Meilisearch @ ${meili.default.config.host}`);
     console.log(
       '| OSS:',
