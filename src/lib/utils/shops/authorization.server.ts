@@ -9,6 +9,8 @@ import type { Shop } from '$lib/types';
  * - If the shop is locked (`isLocked: true`), only site admins are allowed.
  * - If the shop is claimed (`isClaimed: true`), only site admins and the shop owner are allowed.
  * - Otherwise, any user with verified contact can perform write operations (caller's responsibility).
+ *
+ * Note: a missing or undefined `userType` is treated as a non-admin role.
  */
 export const canModifyShop = (
   shop: Pick<Shop, 'isClaimed' | 'isLocked' | 'ownerId'>,

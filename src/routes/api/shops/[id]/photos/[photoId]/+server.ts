@@ -45,12 +45,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const isAdmin = session.user.userType === 'site_admin';
   const isUploader = photo.uploadedBy === session.user.id;
 
-  // Shop-level lock/claimed check (admins bypass); uploaders are also subject to shop restrictions
-  if (!isAdmin && !canModifyShop(shop, session.user)) {
-    error(403, m.insufficient_permissions());
-  }
-
-  if (!isAdmin && !isUploader) {
+  // Admins can always delete; non-admins need to be both the uploader and pass shop-level checks
+  if (!isAdmin && (!isUploader || !canModifyShop(shop, session.user))) {
     error(403, m.insufficient_permissions());
   }
 
