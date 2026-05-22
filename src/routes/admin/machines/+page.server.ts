@@ -85,6 +85,7 @@ export const actions = {
     const formData = await request.formData();
     const name = formData.get('name')?.toString().trim();
     const shopIdStr = formData.get('shopId')?.toString().trim();
+    const ownerId = formData.get('ownerId')?.toString().trim() || undefined;
 
     if (!name || !shopIdStr) {
       return fail(400, { error: m.missing_required_fields() });
@@ -103,12 +104,21 @@ export const actions = {
       return fail(404, { error: m.shop_not_found() });
     }
 
+    // If ownerId provided, verify user exists
+    if (ownerId) {
+      const owner = await db.collection('users').findOne({ id: ownerId });
+      if (!owner) {
+        return fail(404, { error: m.user_not_found() });
+      }
+    }
+
     const machinesCollection = db.collection<Machine>('machines');
 
     const machine: Machine = {
       id: nanoid(),
       name,
       shopId,
+      ...(ownerId ? { ownerId } : {}),
       serialNumber: serialNumber(),
       isActivated: false,
       createdAt: new Date(),

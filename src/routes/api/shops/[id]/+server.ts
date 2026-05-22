@@ -7,6 +7,7 @@ import { m } from '$lib/paraglide/messages';
 import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
 import {
+  adminUpdateShopRequestSchema,
   shopDetailQuerySchema,
   shopIdParamSchema,
   shopResponseSchema,
@@ -17,6 +18,7 @@ import {
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
+import { canModifyShop } from '$lib/utils/shops/authorization.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -361,6 +363,10 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       error(404, m.shop_not_found());
     }
 
+    if (!canModifyShop(existing, session.user)) {
+      error(403, m.insufficient_permissions());
+    }
+
     const updateFields: Partial<Shop> = { updatedAt: new Date() };
     if (name !== undefined) updateFields.name = name;
     if (comment !== undefined) updateFields.comment = comment;
@@ -427,6 +433,45 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       throw err;
     }
     console.error('Error updating shop:', err);
+    error(500, 'Failed to update shop');
+  }
+};
+
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
+  const session = locals.session;
+  if (!session?.user) {
+    error(401, m.unauthorized());
+  }
+
+  if (session.user.userType !== 'site_admin') {
+    error(403, m.access_denied());
+  }
+
+  const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
+  const body = await parseJsonOrError(request, adminUpdateShopRequestSchema);
+
+  try {
+    const db = mongo.db();
+    const shopsCollection = db.collection<Shop>('shops');
+
+    const existing = await shopsCollection.findOne({ id: shopId });
+    if (!existing) {
+      error(404, m.shop_not_found());
+    }
+
+    const updateFields: Partial<Shop> = { updatedAt: new Date() };
+    if (body.isLocked !== undefined) updateFields.isLocked = body.isLocked;
+
+    await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
+
+    const updated = await shopsCollection.findOne({ id: shopId });
+    const response = shopResponseSchema.parse(toPlainObject({ shop: updated! }));
+    return json(response);
+  } catch (err) {
+    if (err && (isHttpError(err) || isRedirect(err))) {
+      throw err;
+    }
+    console.error('Error patching shop:', err);
     error(500, 'Failed to update shop');
   }
 };

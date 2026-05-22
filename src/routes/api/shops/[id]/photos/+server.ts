@@ -16,6 +16,7 @@ import {
   shopPhotoUploadEventSchema
 } from '$lib/schemas/shops';
 import { parseOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { canModifyShop } from '$lib/utils/shops/authorization.server';
 
 const shopPhotoUploadFormDataSchema = z.object({
   file: z
@@ -87,6 +88,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const shop = await db.collection('shops').findOne({ id: shopId });
   if (!shop) {
     error(404, m.shop_not_found());
+  }
+
+  if (!canModifyShop(shop, session.user)) {
+    error(403, m.insufficient_permissions());
   }
 
   let formData: FormData;

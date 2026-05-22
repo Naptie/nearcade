@@ -9,6 +9,7 @@ import { deleteFile } from '$lib/oss/index';
 import { shopPhotoIdParamSchema, shopPhotoSchema } from '$lib/schemas/shops';
 import { parseParamsOrError } from '$lib/utils/validation.server';
 import { successResponseSchema } from '$lib/schemas/common';
+import { canModifyShop } from '$lib/utils/shops/authorization.server';
 
 type ShopPhotoEntry = z.infer<typeof shopPhotoSchema>;
 
@@ -43,6 +44,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
   const isAdmin = session.user.userType === 'site_admin';
   const isUploader = photo.uploadedBy === session.user.id;
+
+  // Shop-level lock/claimed check (admins bypass); uploaders are also subject to shop restrictions
+  if (!isAdmin && !canModifyShop(shop, session.user)) {
+    error(403, m.insufficient_permissions());
+  }
 
   if (!isAdmin && !isUploader) {
     error(403, m.insufficient_permissions());

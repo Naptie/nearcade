@@ -40,12 +40,13 @@ export const POST: RequestHandler = async ({ url }) => {
     }
   );
 
-  // Mark the shop as claimed
+  // Mark the shop as claimed and set ownerId from the machine
   await shopsCollection.updateOne(
     { id: machine.shopId },
     {
       $set: {
         isClaimed: true,
+        ...(machine.ownerId ? { ownerId: machine.ownerId } : {}),
         updatedAt: new Date()
       }
     }

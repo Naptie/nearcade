@@ -7,6 +7,7 @@
   import { adaptiveNewTab, pageTitle } from '$lib/utils';
   import { enhance } from '$app/forms';
   import type { Shop, Machine } from '$lib/types';
+  import { fromPath } from '$lib/utils/scoped';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -19,16 +20,33 @@
   let showCreateModal = $state(false);
   let showEditModal = $state(false);
   let showDeleteModal = $state(false);
+  let showUserSearchModal = $state(false);
   let selectedMachine = $state<(Machine & { shop?: Shop }) | null>(null);
 
   // Form states
   let createForm = $state({
     name: '',
-    shopId: ''
+    shopId: '',
+    ownerId: '',
+    ownerDisplay: ''
   });
   let editForm = $state({ name: '' });
 
   let isSubmitting = $state(false);
+
+  // User search state
+  let userSearchQuery = $state('');
+  let userSearchResults = $state<
+    {
+      id: string;
+      name: string;
+      displayName?: string | null;
+      email?: string;
+      image?: string | null;
+    }[]
+  >([]);
+  let isSearchingUsers = $state(false);
+  let userSearchTimeout: ReturnType<typeof setTimeout>;
 
   const handleSearchInput = () => {
     clearTimeout(searchTimeout);
@@ -67,6 +85,47 @@
         copied = null;
       }
     }, 2000);
+  };
+
+  const handleUserSearchInput = () => {
+    clearTimeout(userSearchTimeout);
+    userSearchTimeout = setTimeout(() => {
+      searchUsers();
+    }, 300);
+  };
+
+  const searchUsers = async () => {
+    if (!userSearchQuery.trim()) {
+      userSearchResults = [];
+      return;
+    }
+    isSearchingUsers = true;
+    try {
+      const response = await fetch(
+        fromPath('/api/admin/users/search') + `?q=${encodeURIComponent(userSearchQuery.trim())}`
+      );
+      if (response.ok) {
+        const data = (await response.json()) as { users: typeof userSearchResults };
+        userSearchResults = data.users;
+      }
+    } catch {
+      userSearchResults = [];
+    } finally {
+      isSearchingUsers = false;
+    }
+  };
+
+  const selectOwner = (user: { id: string; name: string; displayName?: string | null }) => {
+    createForm.ownerId = user.id;
+    createForm.ownerDisplay = user.displayName || user.name || user.id;
+    showUserSearchModal = false;
+    userSearchQuery = '';
+    userSearchResults = [];
+  };
+
+  const clearOwner = () => {
+    createForm.ownerId = '';
+    createForm.ownerDisplay = '';
   };
 </script>
 
@@ -130,6 +189,7 @@
               <th>{m.name()}</th>
               <th>{m.serial_number()}</th>
               <th class="not-sm:hidden">{m.bound_shop()}</th>
+              <th class="not-lg:hidden">{m.machine_owner()}</th>
               <th class="not-sm:hidden">{m.status()}</th>
               <th class="text-right">{m.admin_actions_header()}</th>
             </tr>
@@ -174,6 +234,13 @@
                     </a>
                   {:else}
                     <span class="opacity-60">#{machine.shopId}</span>
+                  {/if}
+                </td>
+                <td class="not-lg:hidden">
+                  {#if machine.ownerId}
+                    <code class="text-xs opacity-80">{machine.ownerId}</code>
+                  {:else}
+                    <span class="opacity-40">—</span>
                   {/if}
                 </td>
                 <td class="not-sm:hidden">
@@ -273,7 +340,7 @@
           isSubmitting = false;
           if (result.type === 'success') {
             showCreateModal = false;
-            createForm = { name: '', shopId: '' };
+            createForm = { name: '', shopId: '', ownerId: '', ownerDisplay: '' };
             await invalidateAll();
           } else {
             await update();
@@ -312,6 +379,41 @@
           />
         </div>
 
+        <div class="form-control">
+          <label class="label" for="create-owner">
+            <span class="label-text">{m.machine_owner()}</span>
+          </label>
+          <input type="hidden" name="ownerId" value={createForm.ownerId} />
+          <div class="flex gap-2">
+            <input
+              id="create-owner"
+              type="text"
+              class="input input-bordered flex-1"
+              placeholder={m.no_owner()}
+              value={createForm.ownerDisplay}
+              readonly
+            />
+            {#if createForm.ownerId}
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm self-center"
+                onclick={clearOwner}
+                title={m.delete()}
+              >
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            {/if}
+            <button
+              type="button"
+              class="btn btn-soft btn-sm self-center"
+              onclick={() => (showUserSearchModal = true)}
+            >
+              <i class="fa-solid fa-user-magnifying-glass"></i>
+              {m.search_user()}
+            </button>
+          </div>
+        </div>
+
         {#if form?.error}
           <div class="alert alert-error">
             <i class="fa-solid fa-exclamation-circle"></i>
@@ -345,6 +447,90 @@
     onclick={() => (showCreateModal = false)}
     onkeydown={(e) => {
       if (e.key === 'Enter' || e.key === ' ') showCreateModal = false;
+    }}
+  ></div>
+</div>
+
+<!-- User Search Modal -->
+<div class="modal" class:modal-open={showUserSearchModal}>
+  <div class="modal-box">
+    <h3 class="mb-4 text-lg font-bold">{m.search_user()}</h3>
+
+    <div class="form-control mb-4">
+      <input
+        type="text"
+        class="input input-bordered w-full"
+        placeholder={m.search_user_placeholder()}
+        bind:value={userSearchQuery}
+        oninput={handleUserSearchInput}
+      />
+    </div>
+
+    <div class="min-h-16 space-y-2">
+      {#if isSearchingUsers}
+        <div class="flex justify-center py-4">
+          <span class="loading loading-spinner loading-sm"></span>
+        </div>
+      {:else if userSearchResults.length > 0}
+        {#each userSearchResults as user (user.id)}
+          <button
+            type="button"
+            class="btn btn-ghost w-full justify-start gap-3 text-left"
+            onclick={() => selectOwner(user)}
+          >
+            <div class="avatar placeholder shrink-0">
+              <div class="bg-neutral text-neutral-content w-8 rounded-full">
+                {#if user.image}
+                  <img src={user.image} alt={user.displayName || user.name} />
+                {:else}
+                  <span class="text-xs"
+                    >{(user.displayName || user.name || '?')[0].toUpperCase()}</span
+                  >
+                {/if}
+              </div>
+            </div>
+            <div class="min-w-0">
+              <div class="truncate font-medium">{user.displayName || user.name}</div>
+              <div class="truncate text-xs opacity-60">@{user.name} · {user.id}</div>
+            </div>
+          </button>
+        {/each}
+      {:else if userSearchQuery.trim()}
+        <p class="text-base-content/60 py-4 text-center text-sm">{m.no_results()}</p>
+      {:else}
+        <p class="text-base-content/60 py-4 text-center text-sm">{m.search_user_placeholder()}</p>
+      {/if}
+    </div>
+
+    <div class="modal-action">
+      <button
+        type="button"
+        class="btn btn-ghost"
+        onclick={() => {
+          showUserSearchModal = false;
+          userSearchQuery = '';
+          userSearchResults = [];
+        }}
+      >
+        {m.cancel()}
+      </button>
+    </div>
+  </div>
+  <div
+    class="modal-backdrop"
+    role="button"
+    tabindex="0"
+    onclick={() => {
+      showUserSearchModal = false;
+      userSearchQuery = '';
+      userSearchResults = [];
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        showUserSearchModal = false;
+        userSearchQuery = '';
+        userSearchResults = [];
+      }
     }}
   ></div>
 </div>
