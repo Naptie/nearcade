@@ -1112,6 +1112,8 @@
   "search_user_placeholder": "按 ID、用户名、昵称、邮箱或手机号搜索",
   "select_game": "选择游戏",
   "select_location_on_map": "在地图上选择位置",
+  "select_shop": "选择店铺",
+  "select_shop_placeholder": "按店铺 ID 或名称搜索",
   "select_university": "选择高校",
   "selected_images": "已选择 {count} 张图片",
   "selected_location": "已选位置",

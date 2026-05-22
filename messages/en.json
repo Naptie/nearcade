@@ -1121,6 +1121,8 @@
   "search_user_placeholder": "Search by ID, username, display name, email or phone",
   "select_game": "Select Game",
   "select_location_on_map": "Select location on map",
+  "select_shop": "Select Shop",
+  "select_shop_placeholder": "Search by shop ID or name",
   "select_university": "Select University",
   "selected_images": "{count} images selected",
   "selected_location": "Selected Location",
