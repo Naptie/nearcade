@@ -15,6 +15,7 @@ import {
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 import { toPlainObject } from '$lib/utils';
+import { canModifyShop } from '$lib/utils/shops/authorization.server';
 
 const shopDeleteRequestCreateRequestWithExistingImagesSchema = withExistingImages(
   shopDeleteRequestCreateRequestSchema
@@ -41,6 +42,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   if (!shop) {
     error(404, m.shop_not_found());
+  }
+
+  if (!canModifyShop(shop, session.user)) {
+    error(403, m.insufficient_permissions());
   }
 
   let photoUrl: string | null = null;

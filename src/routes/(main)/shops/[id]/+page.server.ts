@@ -129,6 +129,25 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         ])
         .toArray();
 
+      // Load shop owner data if claimed
+      let shopOwner: {
+        id: string;
+        name: string;
+        displayName?: string | null;
+        image?: string | null;
+      } | null = null;
+      if (shop.ownerId) {
+        const ownerDoc = await db
+          .collection('users')
+          .findOne(
+            { id: shop.ownerId },
+            { projection: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+          );
+        if (ownerDoc) {
+          shopOwner = ownerDoc as typeof shopOwner;
+        }
+      }
+
       return {
         shop: toPlainObject(shop),
         currentAttendance: userAttendance
@@ -136,7 +155,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
           : null,
         comments: toPlainArray(hydratedComments),
         pendingDeleteRequest: pendingDeleteRequest ? toPlainObject(pendingDeleteRequest) : null,
-        photos: toPlainArray(photos)
+        photos: toPlainArray(photos),
+        shopOwner
       };
     } catch (err) {
       if (err && (isHttpError(err) || isRedirect(err))) {

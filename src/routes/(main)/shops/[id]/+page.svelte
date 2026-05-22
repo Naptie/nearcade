@@ -77,6 +77,7 @@
   let currentAttendanceFromServer = $derived(shopDataResolved?.currentAttendance);
   let pendingDeleteRequest = $derived(shopDataResolved?.pendingDeleteRequest);
   let photosFromServer = $derived(shopDataResolved?.photos ?? []);
+  let shopOwner = $derived(shopDataResolved?.shopOwner ?? null);
   // eslint-disable-next-line svelte/prefer-writable-derived
   let photos = $state<ShopPhoto[]>([]);
 
@@ -84,10 +85,24 @@
     photos = photosFromServer;
   });
   let verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
-  let canProtectedShopAction = $derived(!!data.user && verifiedContactStatus.eligible);
+  let isAdmin = $derived(data.user?.userType === 'site_admin');
+  let isShopOwner = $derived(!!data.user && !!shop?.ownerId && shop.ownerId === data.user.id);
+  let canModifyClaimedShop = $derived(!shop?.isClaimed || isAdmin || isShopOwner);
+  let canModifyLockedShop = $derived(!shop?.isLocked || isAdmin);
+  let canProtectedShopAction = $derived(
+    !!data.user && verifiedContactStatus.eligible && canModifyClaimedShop && canModifyLockedShop
+  );
   let protectedShopActionMessage = $derived.by(() => {
     if (!data.user) {
       return '';
+    }
+
+    if (shop?.isLocked && !isAdmin) {
+      return m.shop_locked_description();
+    }
+
+    if (shop?.isClaimed && !isAdmin && !isShopOwner) {
+      return m.insufficient_permissions();
     }
 
     if (!verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone) {
@@ -627,6 +642,31 @@
   let isProcessingDeleteRequest = $state(false);
   let deleteRequestProcessError = $state('');
 
+  // Lock toggle state
+  let isTogglingLock = $state(false);
+
+  const handleToggleLock = async () => {
+    if (!shop || !isAdmin || isTogglingLock) return;
+    isTogglingLock = true;
+    try {
+      const response = await fetch(fromPath(`/api/shops/${shop.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isLocked: !shop.isLocked })
+      });
+      if (response.ok) {
+        await invalidateAll();
+      } else {
+        const err = (await response.json()) as { message?: string };
+        alert(err.message || m.error_occurred());
+      }
+    } catch {
+      alert(m.network_error_try_again());
+    } finally {
+      isTogglingLock = false;
+    }
+  };
+
   onMount(() => {
     isCommentsRendered = true;
   });
@@ -1068,6 +1108,23 @@
                   {@render badge()}
                 </div>
               {/if}
+              {#if shop.isLocked}
+                {#snippet lockBadge()}
+                  <span class="badge badge-warning badge-soft">
+                    <i class="fa-solid fa-lock"></i>
+                    <span class="text-sm">{m.shop_locked()}</span>
+                  </span>
+                {/snippet}
+                <div
+                  class="tooltip tooltip-right text-base-content/60 font-normal not-md:hidden"
+                  data-tip={m.shop_locked_description()}
+                >
+                  {@render lockBadge()}
+                </div>
+                <div class="md:hidden" title={m.shop_locked_description()}>
+                  {@render lockBadge()}
+                </div>
+              {/if}
             </h1>
             <span class="text-base-content/60 text-right not-md:hidden">
               #{shop.id}
@@ -1243,6 +1300,24 @@
                         {m.request_delete_shop()}
                       </button>
                     </li>
+                    {#if isAdmin}
+                      <li>
+                        <button
+                          onclick={handleToggleLock}
+                          disabled={isTogglingLock}
+                          class:opacity-50={isTogglingLock}
+                        >
+                          {#if isTogglingLock}
+                            <span class="loading loading-spinner loading-xs"></span>
+                          {:else if shop.isLocked}
+                            <i class="fa-solid fa-lock-open"></i>
+                          {:else}
+                            <i class="fa-solid fa-lock"></i>
+                          {/if}
+                          {shop.isLocked ? m.shop_unlock() : m.shop_lock()}
+                        </button>
+                      </li>
+                    {/if}
                   </ul>
                 </div>
               {/if}
@@ -1295,6 +1370,16 @@
               </div>
             </div>
           </div>
+
+          <!-- Shop Owner (only for claimed shops with an owner) -->
+          {#if shop.isClaimed && shopOwner}
+            <div class="card bg-base-200">
+              <div class="card-body p-6">
+                <h3 class="mb-3 text-lg font-semibold">{m.shop_owner()}</h3>
+                <UserAvatar user={shopOwner} showName size="sm" />
+              </div>
+            </div>
+          {/if}
 
           <!-- Opening Hours -->
           {#if openingHours && shop.openingHours.length > 0}

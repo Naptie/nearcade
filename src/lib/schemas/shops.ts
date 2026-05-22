@@ -200,6 +200,24 @@ export const shopSchema = z.object({
     .describe(
       bilingual('店铺是否已被认领。', 'Whether this shop is claimed by a machine/operator.')
     ),
+  ownerId: z
+    .string()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺认领者用户 ID。',
+        'User ID of the shop owner (set when the shop is claimed via machine activation).'
+      )
+    ),
+  isLocked: z
+    .boolean()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺是否已被管理员锁定。锁定后仅管理员可编辑。',
+        'Whether this shop has been locked by an admin. Only admins can edit locked shops.'
+      )
+    ),
   createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')).optional(),
   updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });
@@ -240,6 +258,15 @@ export const updateShopRequestSchema = z
       .array(gameUpdateInputSchema)
       .optional()
       .describe(bilingual('机台。', 'Machines/games available at the shop.'))
+  })
+  .refine((value) => Object.keys(value).length > 0, 'No fields to update');
+
+export const adminUpdateShopRequestSchema = z
+  .object({
+    isLocked: z
+      .boolean()
+      .optional()
+      .describe(bilingual('是否锁定店铺。', 'Whether to lock the shop.'))
   })
   .refine((value) => Object.keys(value).length > 0, 'No fields to update');
 

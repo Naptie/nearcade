@@ -824,6 +824,14 @@
                             "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                             "type": "boolean"
                           },
+                          "ownerId": {
+                            "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                            "type": "string"
+                          },
+                          "isLocked": {
+                            "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                            "type": "boolean"
+                          },
                           "createdAt": {
                             "description": "创建时间。\n\nCreation time.",
                             "type": "string",
@@ -1193,6 +1201,14 @@
                           },
                           "isClaimed": {
                             "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                            "type": "boolean"
+                          },
+                          "ownerId": {
+                            "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                            "type": "string"
+                          },
+                          "isLocked": {
+                            "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
                           },
                           "createdAt": {
@@ -2767,6 +2783,14 @@
                           },
                           "isClaimed": {
                             "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                            "type": "boolean"
+                          },
+                          "ownerId": {
+                            "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                            "type": "string"
+                          },
+                          "isLocked": {
+                            "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
                           },
                           "createdAt": {
@@ -4836,6 +4860,14 @@
                             "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                             "type": "boolean"
                           },
+                          "ownerId": {
+                            "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                            "type": "string"
+                          },
+                          "isLocked": {
+                            "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                            "type": "boolean"
+                          },
                           "createdAt": {
                             "description": "创建时间。\n\nCreation time.",
                             "type": "string",
@@ -5291,6 +5323,14 @@
                           "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                           "type": "boolean"
                         },
+                        "ownerId": {
+                          "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                          "type": "string"
+                        },
+                        "isLocked": {
+                          "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                          "type": "boolean"
+                        },
                         "createdAt": {
                           "description": "创建时间。\n\nCreation time.",
                           "type": "string",
@@ -5596,6 +5636,14 @@
                         },
                         "isClaimed": {
                           "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                          "type": "boolean"
+                        },
+                        "ownerId": {
+                          "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                          "type": "string"
+                        },
+                        "isLocked": {
+                          "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
                         },
                         "createdAt": {
@@ -6053,6 +6101,14 @@
                           "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                           "type": "boolean"
                         },
+                        "ownerId": {
+                          "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                          "type": "string"
+                        },
+                        "isLocked": {
+                          "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                          "type": "boolean"
+                        },
                         "createdAt": {
                           "description": "创建时间。\n\nCreation time.",
                           "type": "string",
@@ -6087,6 +6143,320 @@
           },
           "400": {
             "description": "请求错误 / Bad Request"
+          },
+          "403": {
+            "description": "无权操作 / Forbidden"
+          },
+          "404": {
+            "description": "店铺不存在 / Shop not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["shops"],
+        "summary": "管理员更新店铺 / Admin update shop",
+        "description": "管理员按 ID 更新店铺的管理字段（如锁定状态）。\n\nAdmin-only endpoint to update administrative shop fields (e.g. locked status) by ID.",
+        "operationId": "patchShopsById",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "description": "店铺 ID。\n\nShop ID.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "required": true,
+            "description": "店铺 ID。\n\nShop ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "isLocked": {
+                    "description": "是否锁定店铺。\n\nWhether to lock the shop.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已更新店铺 / Updated shop",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "shop": {
+                      "type": "object",
+                      "properties": {
+                        "_id": {
+                          "type": "string",
+                          "description": "MongoDB ID。\n\nMongoDB ID."
+                        },
+                        "id": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "店铺 ID。\n\nShop ID."
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "店铺名称。\n\nShop name."
+                        },
+                        "comment": {
+                          "type": "string",
+                          "description": "店铺说明。\n\nShop note."
+                        },
+                        "address": {
+                          "type": "object",
+                          "properties": {
+                            "general": {
+                              "default": [],
+                              "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "detailed": {
+                              "default": "",
+                              "description": "详细地址。\n\nDetailed street address.",
+                              "type": "string"
+                            }
+                          },
+                          "required": ["general", "detailed"],
+                          "additionalProperties": false,
+                          "description": "店铺地址。\n\nShop address."
+                        },
+                        "openingHours": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "hour": {
+                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 23
+                                    },
+                                    "minute": {
+                                      "description": "分钟。\n\nMinute.",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 59
+                                    }
+                                  },
+                                  "required": ["hour", "minute"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "hour": {
+                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 23
+                                    },
+                                    "minute": {
+                                      "description": "分钟。\n\nMinute.",
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 59
+                                    }
+                                  },
+                                  "required": ["hour", "minute"],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                          },
+                          "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                        },
+                        "games": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "gameId": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                              },
+                              "titleId": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "游戏系列 ID。\n\nGame series ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "游戏名。\n\nGame name."
+                              },
+                              "version": {
+                                "type": "string",
+                                "description": "游戏版本。\n\nGame version."
+                              },
+                              "comment": {
+                                "default": "",
+                                "description": "游戏说明。\n\nGame note.",
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "default": 1,
+                                "description": "机台数量。\n\nNumber of machines.",
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "cost": {
+                                "default": "",
+                                "description": "价格说明。\n\nPrice note.",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "gameId",
+                              "titleId",
+                              "name",
+                              "version",
+                              "comment",
+                              "quantity",
+                              "cost"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "机台。\n\nMachines/games available at the shop."
+                        },
+                        "location": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": ["Point"],
+                              "description": "GeoJSON 几何类型。\n\nGeoJSON geometry type."
+                            },
+                            "coordinates": {
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": -180,
+                                    "maximum": 180,
+                                    "description": "经度。\n\nLongitude."
+                                  },
+                                  {
+                                    "type": "number",
+                                    "minimum": -90,
+                                    "maximum": 90,
+                                    "description": "纬度。\n\nLatitude."
+                                  }
+                                ]
+                              },
+                              "minItems": 2,
+                              "maxItems": 2,
+                              "description": "GeoJSON 坐标，顺序为 [经度, 纬度]。\n\nGeoJSON coordinates in [longitude, latitude] order."
+                            }
+                          },
+                          "required": ["type", "coordinates"],
+                          "additionalProperties": false,
+                          "description": "店铺坐标。\n\nShop coordinates."
+                        },
+                        "timezone": {
+                          "description": "店铺时区。\n\nComputed shop timezone.",
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "description": "时区名称。\n\nTimezone name."
+                            },
+                            "offset": {
+                              "type": "number",
+                              "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                            }
+                          },
+                          "required": ["name", "offset"],
+                          "additionalProperties": false
+                        },
+                        "isOpen": {
+                          "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                          "type": "boolean"
+                        },
+                        "isClaimed": {
+                          "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                          "type": "boolean"
+                        },
+                        "ownerId": {
+                          "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                          "type": "string"
+                        },
+                        "isLocked": {
+                          "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "description": "创建时间。\n\nCreation time.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "description": "更新时间。\n\nUpdate time.",
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "_id",
+                        "id",
+                        "name",
+                        "comment",
+                        "address",
+                        "openingHours",
+                        "games",
+                        "location",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false,
+                      "description": "店铺详情。\n\nShop details."
+                    }
+                  },
+                  "required": ["shop"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "403": {
+            "description": "无权操作 / Forbidden"
           },
           "404": {
             "description": "店铺不存在 / Shop not found"
@@ -12871,6 +13241,14 @@
                                 "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                                 "type": "boolean"
                               },
+                              "ownerId": {
+                                "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                                "type": "string"
+                              },
+                              "isLocked": {
+                                "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                                "type": "boolean"
+                              },
                               "createdAt": {
                                 "description": "创建时间。\n\nCreation time.",
                                 "type": "string",
@@ -13106,6 +13484,14 @@
                               },
                               "isClaimed": {
                                 "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                                "type": "boolean"
+                              },
+                              "ownerId": {
+                                "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                                "type": "string"
+                              },
+                              "isLocked": {
+                                "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
                               },
                               "createdAt": {
@@ -14128,6 +14514,14 @@
                                 "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
                                 "type": "boolean"
                               },
+                              "ownerId": {
+                                "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                                "type": "string"
+                              },
+                              "isLocked": {
+                                "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
+                                "type": "boolean"
+                              },
                               "createdAt": {
                                 "description": "创建时间。\n\nCreation time.",
                                 "type": "string",
@@ -14363,6 +14757,14 @@
                               },
                               "isClaimed": {
                                 "description": "店铺是否已被认领。\n\nWhether this shop is claimed by a machine/operator.",
+                                "type": "boolean"
+                              },
+                              "ownerId": {
+                                "description": "店铺认领者用户 ID。\n\nUser ID of the shop owner (set when the shop is claimed via machine activation).",
+                                "type": "string"
+                              },
+                              "isLocked": {
+                                "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
                               },
                               "createdAt": {

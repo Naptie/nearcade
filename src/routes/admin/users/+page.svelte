@@ -1,9 +1,9 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
-  import { page } from '$app/state';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { onMount } from 'svelte';
   import type { PageData } from './$types';
   import {
     adaptiveNewTab,
@@ -21,38 +21,69 @@
 
   let { data }: { data: PageData } = $props();
 
-  let searchQuery = $derived(data.search || '');
-  let selectedUserType = $derived(data.userType || 'all');
+  // Client-side search/filter state
+  let searchQuery = $state('');
+  let selectedUserType = $state('all');
+  let currentPage = $state(1);
+  let hasMore = $state(false);
+  let users = $state<
+    Array<
+      User & {
+        universitiesCount: number;
+        clubsCount: number;
+      }
+    >
+  >([]);
+  let isLoadingUsers = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout>;
+
+  // Fetch users from the API
+  const fetchUsers = async () => {
+    isLoadingUsers = true;
+    try {
+      const parts = [`detailed=true`, `limit=20`, `page=${currentPage}`];
+      if (searchQuery.trim()) {
+        parts.push(`q=${encodeURIComponent(searchQuery.trim())}`);
+      }
+      if (selectedUserType && selectedUserType !== 'all') {
+        parts.push(`userType=${encodeURIComponent(selectedUserType)}`);
+      }
+      const response = await fetch(fromPath('/api/admin/users/search') + `?${parts.join('&')}`);
+      if (response.ok) {
+        const result = await response.json();
+        users = result.users;
+        hasMore = result.hasMore;
+        currentPage = result.currentPage;
+      }
+    } catch {
+      users = [];
+      hasMore = false;
+    } finally {
+      isLoadingUsers = false;
+    }
+  };
+
+  // Load users on mount
+  onMount(() => {
+    fetchUsers();
+  });
 
   const handleSearchInput = () => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
-      updateFilters();
+      currentPage = 1;
+      fetchUsers();
     }, 300);
   };
 
   const handleUserTypeChange = () => {
-    updateFilters();
+    currentPage = 1;
+    fetchUsers();
   };
 
-  const updateFilters = () => {
-    const url = new URL(page.url);
-
-    if (searchQuery.trim()) {
-      url.searchParams.set('search', searchQuery.trim());
-    } else {
-      url.searchParams.delete('search');
-    }
-
-    if (selectedUserType && selectedUserType !== 'all') {
-      url.searchParams.set('userType', selectedUserType);
-    } else {
-      url.searchParams.delete('userType');
-    }
-
-    url.searchParams.delete('page'); // Reset to first page
-    goto(url.toString());
+  const goToPage = (page: number) => {
+    currentPage = page;
+    fetchUsers();
   };
 
   // Modal state for user type editing
@@ -202,7 +233,12 @@
 
   <!-- Users List -->
   <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
-    {#if data.users && data.users.length > 0}
+    {#if isLoadingUsers}
+      <div class="py-12 text-center">
+        <span class="loading loading-spinner loading-lg"></span>
+        <p class="text-base-content/60 mt-2">{m.loading()}</p>
+      </div>
+    {:else if users && users.length > 0}
       <div class="overflow-x-auto">
         <table class="table">
           <thead>
@@ -216,7 +252,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each data.users as user (user.id)}
+            {#each users as user (user.id)}
               <tr class="hover">
                 <td class="max-w-[15vw]">
                   <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
@@ -278,7 +314,20 @@
                       <span class="not-lg:hidden">{m.edit()}</span>
                     </button>
 
-                    <form method="POST" action="?/deleteUser" use:enhance class="inline">
+                    <form
+                      method="POST"
+                      action="?/deleteUser"
+                      use:enhance={() => {
+                        return async ({ result, update }) => {
+                          if (result.type === 'success') {
+                            await invalidateAll();
+                            await fetchUsers();
+                          }
+                          await update();
+                        };
+                      }}
+                      class="inline"
+                    >
                       <input type="hidden" name="userId" value={user.id} />
                       <button
                         type="button"
@@ -303,28 +352,18 @@
       <!-- Pagination -->
       <div class="border-base-300 border-t p-4">
         <div class="flex justify-center gap-2">
-          {#if (data.currentPage || 1) > 1}
-            <a
-              href="?page={(data.currentPage || 1) - 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}{data.userType && data.userType !== 'all' ? `&userType=${data.userType}` : ''}"
-              class="btn btn-soft"
-            >
+          {#if currentPage > 1}
+            <button class="btn btn-soft" onclick={() => goToPage(currentPage - 1)}>
               {m.previous_page()}
-            </a>
+            </button>
           {/if}
           <span class="btn btn-disabled btn-soft">
-            {m.page({ page: data.currentPage || 1 })}
+            {m.page({ page: currentPage })}
           </span>
-          {#if data.hasMore}
-            <a
-              href="?page={(data.currentPage || 1) + 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}{data.userType && data.userType !== 'all' ? `&userType=${data.userType}` : ''}"
-              class="btn btn-soft"
-            >
+          {#if hasMore}
+            <button class="btn btn-soft" onclick={() => goToPage(currentPage + 1)}>
               {m.next_page()}
-            </a>
+            </button>
           {/if}
         </div>
       </div>
@@ -333,7 +372,7 @@
         <i class="fa-solid fa-user text-base-content/40 mb-4 text-4xl"></i>
         <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_users_found()}</h3>
         <p class="text-base-content/60">
-          {data.search ? m.admin_no_users_search_results() : m.admin_no_users_available()}
+          {searchQuery.trim() ? m.admin_no_users_search_results() : m.admin_no_users_available()}
         </p>
       </div>
     {/if}
@@ -370,6 +409,7 @@
                       await update();
                       await invalidateAll();
                       await fetchUserDetails(editingUser?.id);
+                      await fetchUsers();
                     }
                   };
                 }}
@@ -408,6 +448,7 @@
                   await invalidateAll();
                   // Refresh user details after successful operation
                   await fetchUserDetails(editingUser?.id);
+                  await fetchUsers();
                   // Reset form
                   selectedOrganization = '';
                   selectedMemberType = '';

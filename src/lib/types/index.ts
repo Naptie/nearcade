@@ -400,6 +400,7 @@ export interface Machine {
   id: string;
   name: string;
   shopId: number;
+  ownerId?: string; // User ID of the owner assigned to this machine
   serialNumber: string; // Auto-generated, used for activation
   apiSecret?: string; // Auto-generated upon activation
   isActivated: boolean;

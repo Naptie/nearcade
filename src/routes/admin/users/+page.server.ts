@@ -7,7 +7,7 @@ import mongo from '$lib/db/index.server';
 import { USER_TYPES } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals }) => {
   const session = locals.session;
 
   if (!session?.user) {
@@ -19,83 +19,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     error(403, m.access_denied());
   }
 
-  const search = url.searchParams.get('search') || '';
-  const userType = url.searchParams.get('userType') || '';
-  const page = parseInt(url.searchParams.get('page') || '1');
-  const limit = 20;
-  const skip = (page - 1) * limit;
-
   const db = mongo.db();
-
-  // Build search query
-  const searchQuery: Record<string, unknown> = {};
-
-  if (search.trim()) {
-    searchQuery.$or = [
-      { name: { $regex: search.trim(), $options: 'i' } },
-      { displayName: { $regex: search.trim(), $options: 'i' } },
-      { email: { $regex: search.trim(), $options: 'i' } }
-    ];
-  }
-
-  if (userType && userType !== 'all') {
-    if (userType === 'regular') {
-      // Match users where userType is missing or undefined
-      const userTypeOr = [{ userType: { $exists: false } }, { userType: undefined }];
-      if (searchQuery.$or) {
-        // Combine both $or conditions using $and
-        searchQuery.$and = [{ $or: searchQuery.$or }, { $or: userTypeOr }];
-        delete searchQuery.$or;
-      } else {
-        searchQuery.$or = userTypeOr;
-      }
-    } else if (userType) {
-      searchQuery.userType = userType;
-    }
-  }
-
-  // Fetch users with their affiliations
-  const users = (await db
-    .collection<User>('users')
-    .aggregate([
-      { $match: searchQuery },
-      {
-        $lookup: {
-          from: 'university_members',
-          localField: 'id',
-          foreignField: 'userId',
-          as: 'universityMemberships'
-        }
-      },
-      {
-        $lookup: {
-          from: 'club_members',
-          localField: 'id',
-          foreignField: 'userId',
-          as: 'clubMemberships'
-        }
-      },
-      {
-        $addFields: {
-          universitiesCount: { $size: '$universityMemberships' },
-          clubsCount: { $size: '$clubMemberships' }
-        }
-      },
-      { $sort: { joinedAt: -1 } },
-      { $skip: skip },
-      { $limit: limit + 1 } // Fetch one extra to check if there are more
-    ])
-    .toArray()) as Array<
-    User & {
-      universitiesCount: number;
-      clubsCount: number;
-    }
-  >;
-
-  const hasMore = users.length > limit;
-  if (hasMore) {
-    users.pop(); // Remove the extra item
-  }
 
   // Get user type statistics
   const userTypeStats = await db
@@ -131,13 +55,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   );
 
   return {
-    users: toPlainArray(users),
     universities: toPlainArray(universities),
     clubs: toPlainArray(clubs),
-    search,
-    userType,
-    currentPage: page,
-    hasMore,
     userTypeStats: Object.fromEntries(USER_TYPES.map((k) => [k, countsMap[k] ?? 0]))
   };
 };
