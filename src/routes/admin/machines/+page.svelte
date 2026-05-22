@@ -405,10 +405,10 @@
             {/if}
             <button
               type="button"
-              class="btn btn-soft btn-sm self-center"
+              class="btn btn-soft self-center"
               onclick={() => (showUserSearchModal = true)}
             >
-              <i class="fa-solid fa-user-magnifying-glass"></i>
+              <i class="fa-solid fa-magnifying-glass"></i>
               {m.search_user()}
             </button>
           </div>
@@ -496,7 +496,7 @@
           </button>
         {/each}
       {:else if userSearchQuery.trim()}
-        <p class="text-base-content/60 py-4 text-center text-sm">{m.no_results()}</p>
+        <p class="text-base-content/60 py-4 text-center text-sm">{m.admin_no_users_search_results()}</p>
       {:else}
         <p class="text-base-content/60 py-4 text-center text-sm">{m.search_user_placeholder()}</p>
       {/if}
