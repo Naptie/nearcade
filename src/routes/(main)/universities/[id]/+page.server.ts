@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       const universitiesCollection = db.collection('universities');
       const membersCollection = db.collection('university_members');
       const clubsCollection = db.collection('clubs');
-      const shopsCollection = db.collection('shops');
+      const shopsCollection = db.collection<Shop>('shops');
 
       // Try to find university by ID first, then by slug
       let university = (await universitiesCollection.findOne({

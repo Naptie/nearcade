@@ -2,6 +2,7 @@ import { Meilisearch } from 'meilisearch';
 import mongo from './index.server';
 import { toPlainArray } from '$lib/utils';
 import { env } from '$env/dynamic/private';
+import type { Shop } from '$lib/types';
 
 let meili: Meilisearch | undefined;
 
@@ -34,7 +35,7 @@ const meiliProxy = new Proxy({} as Meilisearch, {
 export const init = async () => {
   const db = mongo.db();
   const meili = getMeiliClient();
-  const shops = await db.collection('shops').find().toArray();
+  const shops = await db.collection<Shop>('shops').find().toArray();
   const universities = await db.collection('universities').find().toArray();
   const clubs = await db.collection('clubs').find().toArray();
 

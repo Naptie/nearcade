@@ -16,6 +16,7 @@ import {
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import type { Shop } from '$lib/types';
 
 type ShopCommentEntry = z.infer<typeof shopCommentEntrySchema>;
 
@@ -114,7 +115,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     } = await parseJsonOrError(request, shopCommentCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
-    const shopsCollection = db.collection('shops');
+    const shopsCollection = db.collection<Shop>('shops');
     const commentsCollection = db.collection<ShopCommentEntry>('comments');
 
     // Check if shop exists

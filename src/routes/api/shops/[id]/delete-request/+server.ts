@@ -16,6 +16,7 @@ import {
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 import { toPlainObject } from '$lib/utils';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
+import type { Shop } from '$lib/types';
 
 const shopDeleteRequestCreateRequestWithExistingImagesSchema = withExistingImages(
   shopDeleteRequestCreateRequestSchema
@@ -37,7 +38,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   } = await parseJsonOrError(request, shopDeleteRequestCreateRequestWithExistingImagesSchema);
 
   const db = mongo.db();
-  const shopsCollection = db.collection('shops');
+  const shopsCollection = db.collection<Shop>('shops');
   const shop = await shopsCollection.findOne({ id: shopId });
 
   if (!shop) {

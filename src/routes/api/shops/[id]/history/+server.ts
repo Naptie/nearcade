@@ -9,6 +9,7 @@ import {
 } from '$lib/schemas/shops';
 import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
 import { toPlainArray } from '$lib/utils';
+import type { Shop } from '$lib/types';
 
 export const GET: RequestHandler = async ({ params, url }) => {
   try {
@@ -18,7 +19,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     const db = mongo.db();
 
     // Validate shop exists
-    const shop = await db.collection('shops').findOne({ id });
+    const shop = await db.collection<Shop>('shops').findOne({ id });
 
     if (!shop) {
       error(404, m.shop_not_found());

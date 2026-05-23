@@ -17,6 +17,7 @@ import {
 } from '$lib/schemas/shops';
 import { parseOrError, parseParamsOrError } from '$lib/utils/validation.server';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
+import type { Shop } from '$lib/types';
 
 const shopPhotoUploadFormDataSchema = z.object({
   file: z
@@ -85,7 +86,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
 
   const db = mongo.db();
-  const shop = await db.collection('shops').findOne({ id: shopId });
+  const shop = await db.collection<Shop>('shops').findOne({ id: shopId });
   if (!shop) {
     error(404, m.shop_not_found());
   }

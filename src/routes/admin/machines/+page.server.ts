@@ -6,6 +6,18 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
 
+type MachineOwner = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  image?: string | null;
+};
+
+type MachineListItem = Machine & {
+  shop?: Shop;
+  owner?: MachineOwner | null;
+};
+
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
 
@@ -50,7 +62,23 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           as: 'shop'
         }
       },
-      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: true } }
+      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { ownerId: '$ownerId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$id', '$$ownerId'] } } },
+            { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+          ],
+          as: 'owner'
+        }
+      },
+      {
+        $addFields: {
+          owner: { $arrayElemAt: ['$owner', 0] }
+        }
+      }
     ])
     .toArray();
 
@@ -64,7 +92,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const activatedMachines = await machinesCollection.countDocuments({ isActivated: true });
 
   return {
-    machines: toPlainArray(machines as (Machine & { shop?: Shop })[]),
+    machines: toPlainArray(machines as MachineListItem[]),
     search,
     currentPage: page,
     hasMore,
@@ -187,7 +215,7 @@ export const actions = {
         .collection<Shop>('shops')
         .updateOne(
           { id: machine.shopId },
-          { $unset: { isClaimed: '' }, $set: { updatedAt: new Date() } }
+          { $unset: { isClaimed: '', ownerId: '' }, $set: { updatedAt: new Date() } }
         );
     }
 

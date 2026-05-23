@@ -7,7 +7,20 @@
   import { adaptiveNewTab, pageTitle } from '$lib/utils';
   import { enhance } from '$app/forms';
   import type { Shop, Machine } from '$lib/types';
+  import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { fromPath } from '$lib/utils/scoped';
+
+  type MachineOwner = {
+    id: string;
+    name: string;
+    displayName?: string | null;
+    image?: string | null;
+  };
+
+  type MachineRow = Machine & {
+    shop?: Shop;
+    owner?: MachineOwner | null;
+  };
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -22,7 +35,7 @@
   let showDeleteModal = $state(false);
   let showUserSearchModal = $state(false);
   let showShopSearchModal = $state(false);
-  let selectedMachine = $state<(Machine & { shop?: Shop }) | null>(null);
+  let selectedMachine = $state<MachineRow | null>(null);
 
   // Form states - each modal has its own error state to avoid cross-modal persistence
   const defaultCreateForm = {
@@ -92,7 +105,7 @@
     createError = '';
   };
 
-  const openEditModal = (machine: Machine & { shop?: Shop }) => {
+  const openEditModal = (machine: MachineRow) => {
     selectedMachine = machine;
     editForm.name = machine.name;
     editError = '';
@@ -105,7 +118,7 @@
     editError = '';
   };
 
-  const openDeleteModal = (machine: Machine & { shop?: Shop }) => {
+  const openDeleteModal = (machine: MachineRow) => {
     selectedMachine = machine;
     deleteError = '';
     showDeleteModal = true;
@@ -332,7 +345,9 @@
                   {/if}
                 </td>
                 <td class="not-lg:hidden">
-                  {#if machine.ownerId}
+                  {#if machine.owner}
+                    <UserAvatar user={machine.owner} size="sm" showName target={adaptiveNewTab()} />
+                  {:else if machine.ownerId}
                     <code class="text-xs opacity-80">{machine.ownerId}</code>
                   {:else}
                     <span class="opacity-40">—</span>
@@ -490,7 +505,7 @@
               onclick={() => (showShopSearchModal = true)}
             >
               <i class="fa-solid fa-magnifying-glass"></i>
-              {m.select_shop()}
+              {m.search_shop()}
             </button>
           </div>
         </div>
@@ -640,13 +655,13 @@
 <!-- Shop Search Modal -->
 <div class="modal" class:modal-open={showShopSearchModal}>
   <div class="modal-box">
-    <h3 class="mb-4 text-lg font-bold">{m.select_shop()}</h3>
+    <h3 class="mb-4 text-lg font-bold">{m.search_shop()}</h3>
 
     <div class="form-control mb-4">
       <input
         type="text"
         class="input input-bordered w-full"
-        placeholder={m.select_shop_placeholder()}
+        placeholder={m.search_shop_placeholder()}
         bind:value={shopSearchQuery}
         oninput={handleShopSearchInput}
       />
@@ -679,7 +694,7 @@
         </p>
       {:else}
         <p class="text-base-content/60 py-4 text-center text-sm">
-          {m.select_shop_placeholder()}
+          {m.search_shop_placeholder()}
         </p>
       {/if}
     </div>

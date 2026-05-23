@@ -36,7 +36,7 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     const radiusRadians = radiusKm / 6371;
 
     const db = mongo.db();
-    const shopsCollection = db.collection('shops');
+    const shopsCollection = db.collection<Shop>('shops');
     const shops = (await shopsCollection
       .find({
         location: {

@@ -10,6 +10,7 @@ import { shopPhotoIdParamSchema, shopPhotoSchema } from '$lib/schemas/shops';
 import { parseParamsOrError } from '$lib/utils/validation.server';
 import { successResponseSchema } from '$lib/schemas/common';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
+import type { Shop } from '$lib/types';
 
 type ShopPhotoEntry = z.infer<typeof shopPhotoSchema>;
 
@@ -31,7 +32,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const db = mongo.db();
   const photosCollection = db.collection<ShopPhotoEntry>('images');
   const [shop, photo] = await Promise.all([
-    db.collection('shops').findOne({ id: shopId }),
+    db.collection<Shop>('shops').findOne({ id: shopId }),
     photosCollection.findOne({ id: photoId, shopId })
   ]);
 

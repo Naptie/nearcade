@@ -12,6 +12,7 @@ import mongo from '$lib/db/index.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
+import type { User } from '$lib/auth/types';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -138,13 +139,13 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       } | null = null;
       if (shop.ownerId) {
         const ownerDoc = await db
-          .collection('users')
+          .collection<User>('users')
           .findOne(
             { id: shop.ownerId },
             { projection: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
           );
         if (ownerDoc) {
-          shopOwner = ownerDoc as typeof shopOwner;
+          shopOwner = ownerDoc;
         }
       }
 

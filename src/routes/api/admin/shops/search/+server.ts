@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainArray } from '$lib/utils';
+import type { Shop } from '$lib/types';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   const session = locals.session;
@@ -30,7 +31,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     : {};
 
   const shops = await db
-    .collection('shops')
+    .collection<Shop>('shops')
     .find(searchQuery)
     .limit(limit)
     .project({ _id: 0, id: 1, name: 1 })
