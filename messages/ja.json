@@ -1498,7 +1498,6 @@
   "verification_instruction": "{suffix} で終わるメールアドレスを使用して、以下のメールを {email} に送信してください",
   "verified": "認証済み",
   "verified_at": "認証日時",
-  "verified_contact_required_for_contribution": "この操作を行う前に、メールアドレスと電話番号を認証してください。",
   "verified_email_required_for_contribution": "この操作を行う前に、メールアドレスを認証してください。",
   "verify": "認証",
   "verify_and_join": "認証して参加",

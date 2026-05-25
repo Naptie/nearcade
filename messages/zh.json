@@ -1498,7 +1498,6 @@
   "verification_instruction": "使用以 {suffix} 结尾的电子邮件地址将以下邮件发送到 {email}",
   "verified": "已验证",
   "verified_at": "验证时间",
-  "verified_contact_required_for_contribution": "执行此操作前，请先绑定并验证邮箱地址和手机号。",
   "verified_email_required_for_contribution": "执行此操作前，请先绑定并验证邮箱地址。",
   "verify": "验证",
   "verify_and_join": "验证并加入",

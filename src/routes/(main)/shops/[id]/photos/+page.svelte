@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
-  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import { hasBoundPhone } from '$lib/utils';
   import { getDisplayName, pageTitle } from '$lib/utils';
   import type { PageData } from './$types';
   import type { ImageAsset, ShopPhoto } from '$lib/types';
@@ -12,19 +12,11 @@
 
   let { data }: { data: PageData } = $props();
 
-  const verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
-  const canManagePhotos = $derived(!!data.user && verifiedContactStatus.eligible);
+  const hasPhone = $derived(hasBoundPhone(data.user));
+  const canManagePhotos = $derived(!!data.user && hasPhone);
   const photoActionDisabledReason = $derived.by(() => {
     if (!data.user) {
       return '';
-    }
-
-    if (!verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone) {
-      return m.verified_contact_required_for_contribution();
-    }
-
-    if (!verifiedContactStatus.hasVerifiedEmail) {
-      return m.verified_email_required_for_contribution();
     }
 
     return m.phone_binding_required_for_contribution();

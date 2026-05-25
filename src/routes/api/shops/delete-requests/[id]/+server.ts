@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { notify } from '$lib/notifications/index.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { deleteFile } from '$lib/oss/index';
@@ -62,7 +62,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     error(401, m.insufficient_permissions());
   }
 
-  requireEmailAndPhone(session.user);
+  requireBoundPhone(session.user);
 
   const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
   const db = mongo.db();
@@ -112,7 +112,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     error(403, m.insufficient_permissions());
   }
 
-  requireEmailAndPhone(session.user);
+  requireBoundPhone(session.user);
 
   const { id } = parseParamsOrError(shopDeleteRequestIdParamSchema, params);
   const { action, reviewNote } = await parseJsonOrError(

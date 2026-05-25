@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import {
   createUploadedImage,
@@ -85,7 +85,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   if (isShopRelatedDraft || isShopRelatedOwner || isShopRelatedCommentOwner) {
-    requireEmailAndPhone(session.user);
+    requireBoundPhone(session.user);
   }
 
   const encoder = new TextEncoder();

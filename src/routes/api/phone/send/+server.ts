@@ -70,16 +70,22 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 
   await ensureConnected();
 
-  // Check that the phone number is not already bound to another user
+  // Check that the phone number is not shared by too many accounts (max 3)
   const db = mongo.db();
-  const existingUser = await db
+  const usersWithPhone = await db
     .collection<User>('users')
-    .findOne({ phone: phoneNumber, phoneCountryCode: countryCode }, { projection: { id: 1 } });
-  if (existingUser) {
-    if (existingUser.id === userId) {
+    .countDocuments({ phone: phoneNumber, phoneCountryCode: countryCode });
+  if (usersWithPhone >= 3) {
+    error(409, JSON.stringify({ error: 'phone_taken' }));
+  } else {
+    const existingUser = await db
+      .collection<User>('users')
+      .findOne(
+        { phone: phoneNumber, phoneCountryCode: countryCode, id: userId },
+        { projection: { id: 1 } }
+      );
+    if (existingUser) {
       error(409, JSON.stringify({ error: 'phone_already_yours' }));
-    } else {
-      error(409, JSON.stringify({ error: 'phone_taken' }));
     }
   }
 

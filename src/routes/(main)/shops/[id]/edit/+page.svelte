@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import { hasBoundPhone } from '$lib/utils';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import ShopForm from '$lib/components/ShopForm.svelte';
@@ -13,8 +13,8 @@
   let { data }: { data: PageData } = $props();
 
   const shop = $derived(data.shop);
-  const verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
-  const canManageShop = $derived(!!data.user && verifiedContactStatus.eligible);
+  const hasPhone = $derived(hasBoundPhone(data.user));
+  const canManageShop = $derived(!!data.user && hasPhone);
 
   const initialData: Partial<ShopFormData> = $derived.by(() => ({
     name: shop.name,
@@ -96,11 +96,9 @@
       canManagePhotos={canManageShop}
       disabledActionReason={!data.user
         ? ''
-        : !verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone
-          ? m.verified_contact_required_for_contribution()
-          : !verifiedContactStatus.hasVerifiedEmail
-            ? m.verified_email_required_for_contribution()
-            : m.phone_binding_required_for_contribution()}
+        : !hasPhone
+          ? m.phone_binding_required_for_contribution()
+          : ''}
     />
   </div>
 </div>

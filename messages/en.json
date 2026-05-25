@@ -1515,7 +1515,6 @@
   "verification_instruction": "Send an email to {email} using an email address ending with {suffix}",
   "verified": "Verified",
   "verified_at": "Verified At",
-  "verified_contact_required_for_contribution": "You must bind and verify an email address and phone number before performing this action.",
   "verified_email_required_for_contribution": "You must bind and verify an email address before performing this action.",
   "verify": "Verify",
   "verify_and_join": "Verify and Join",

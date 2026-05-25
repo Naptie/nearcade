@@ -34,7 +34,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { fromZonedTime } from 'date-fns-tz';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import { hasBoundPhone } from '$lib/utils';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
@@ -84,13 +84,13 @@
   $effect(() => {
     photos = photosFromServer;
   });
-  let verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
+  let hasPhone = $derived(hasBoundPhone(data.user));
   let isAdmin = $derived(data.user?.userType === 'site_admin');
   let isShopOwner = $derived(!!data.user && !!shop?.ownerId && shop.ownerId === data.user.id);
   let canModifyClaimedShop = $derived(!shop?.isClaimed || isAdmin || isShopOwner);
   let canModifyLockedShop = $derived(!shop?.isLocked || isAdmin);
   let canProtectedShopAction = $derived(
-    !!data.user && verifiedContactStatus.eligible && canModifyClaimedShop && canModifyLockedShop
+    !!data.user && hasPhone && canModifyClaimedShop && canModifyLockedShop
   );
   let protectedShopActionMessage = $derived.by(() => {
     if (!data.user) {
@@ -105,15 +105,9 @@
       return m.insufficient_permissions();
     }
 
-    if (!verifiedContactStatus.hasVerifiedEmail && !verifiedContactStatus.hasPhone) {
-      return m.verified_contact_required_for_contribution();
+    if (!hasPhone) {
+      return m.phone_binding_required_for_contribution();
     }
-
-    if (!verifiedContactStatus.hasVerifiedEmail) {
-      return m.verified_email_required_for_contribution();
-    }
-
-    return m.phone_binding_required_for_contribution();
   });
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);

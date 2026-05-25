@@ -1,6 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import { hasBoundPhone } from '$lib/utils';
   import type { User } from '$lib/auth/types';
   import { m } from '$lib/paraglide/messages';
 
@@ -20,18 +20,10 @@
     class: klass = ''
   }: Props = $props();
 
-  const status = $derived(getVerifiedContactStatus(user));
+  const hasPhone = $derived(hasBoundPhone(user));
   const message = $derived.by(() => {
     if (!user) {
       return loginMessage;
-    }
-
-    if (!status.hasVerifiedEmail && !status.hasPhone) {
-      return m.verified_contact_required_for_contribution();
-    }
-
-    if (!status.hasVerifiedEmail) {
-      return m.verified_email_required_for_contribution();
     }
 
     return m.phone_binding_required_for_contribution();
@@ -66,13 +58,7 @@
   {:else}
     <p class="text-base-content/70 max-w-xl text-sm">{message}</p>
     <div class="flex flex-wrap justify-center gap-2">
-      {#if !status.hasVerifiedEmail}
-        <a href={resolve('/(main)/settings/email')} class="btn btn-primary btn-soft btn-sm">
-          <i class="fa-solid fa-envelope"></i>
-          {m.email_settings()}
-        </a>
-      {/if}
-      {#if !status.hasPhone}
+      {#if !hasPhone}
         <a href={resolve('/(main)/settings/phone')} class="btn btn-primary btn-soft btn-sm">
           <i class="fa-solid fa-mobile-screen"></i>
           {m.phone_settings()}

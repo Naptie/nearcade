@@ -11,7 +11,7 @@ import {
   shopsListQuerySchema,
   shopsListResponseSchema
 } from '$lib/schemas/shops';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.server';
 import { m } from '$lib/paraglide/messages';
 
@@ -254,7 +254,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(401, m.unauthorized());
   }
 
-  requireEmailAndPhone(session.user);
+  requireBoundPhone(session.user);
 
   const body = await parseJsonOrError(request, createShopRequestSchema);
   const { name, location, openingHours, address, comment, games } = body;

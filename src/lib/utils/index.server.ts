@@ -1,8 +1,12 @@
 import { env } from '$env/dynamic/public';
+import type { User } from '$lib/auth/types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
+import { m } from '$lib/paraglide/messages';
 import type { Shop } from '$lib/types';
+import { error } from 'console';
 import { ObjectId } from 'mongodb';
+import { hasBoundPhone } from '.';
 
 export const getOrigin = (request: Request) => {
   // Determine the origin for the bind URL
@@ -67,6 +71,12 @@ export const getCurrentAttendance = async (userId: string) => {
     }
   }
   return null;
+};
+
+export const requireBoundPhone = (user?: User | null): void => {
+  if (!hasBoundPhone(user)) {
+    error(403, m.phone_binding_required_for_contribution());
+  }
 };
 
 export const sendWeChatTemplateMessage = async (

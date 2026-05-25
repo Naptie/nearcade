@@ -9,7 +9,7 @@ import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import { auth } from '$lib/auth/index.server';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
 import {
   attendanceRequestSchema,
@@ -145,9 +145,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
   }
 
-  requireEmailAndPhone(user);
+  requireBoundPhone(user);
   if (attendingUser) {
-    requireEmailAndPhone(attendingUser);
+    requireBoundPhone(attendingUser);
   }
 
   try {
@@ -315,7 +315,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     error(401, m.unauthorized());
   }
 
-  requireEmailAndPhone(session.user);
+  requireBoundPhone(session.user);
 
   try {
     const { id } = parseParamsOrError(shopIdParamSchema, params);

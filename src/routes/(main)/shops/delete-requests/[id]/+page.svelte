@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
-  import { getVerifiedContactStatus } from '$lib/auth/verified-contact';
+  import { hasBoundPhone } from '$lib/utils';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import { buildImageUploadUrl } from '$lib/utils/image';
@@ -19,10 +19,8 @@
   let req = $derived(data.deleteRequest);
   let comments = $derived(data.comments ?? []);
   let voteSummary = $derived(data.voteSummary);
-  let verifiedContactStatus = $derived(getVerifiedContactStatus(data.user));
-  let canParticipate = $derived(
-    !!data.user && verifiedContactStatus.eligible && req.status === 'pending'
-  );
+  let hasPhone = $derived(hasBoundPhone(data.user));
+  let canParticipate = $derived(!!data.user && hasPhone && req.status === 'pending');
   let canRetractRequest = $derived(canParticipate && data.user?.id === req.requestedBy);
   let canModerateRequest = $derived(canParticipate && data.user?.userType === 'site_admin');
   let reviewNote = $state('');
@@ -522,7 +520,7 @@
             onclick={handleRetract}
             disabled={!canRetractRequest || isProcessing}
             title={!canRetractRequest && data.user
-              ? m.verified_contact_required_for_contribution()
+              ? m.phone_binding_required_for_contribution()
               : undefined}
           >
             {#if isProcessing}

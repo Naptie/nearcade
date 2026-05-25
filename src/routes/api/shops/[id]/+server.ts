@@ -4,7 +4,7 @@ import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils'
 import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
 import {
   adminUpdateShopRequestSchema,
@@ -347,7 +347,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     error(401, m.unauthorized());
   }
 
-  requireEmailAndPhone(session.user);
+  requireBoundPhone(session.user);
 
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
   const body = await parseJsonOrError(request, updateShopRequestSchema);

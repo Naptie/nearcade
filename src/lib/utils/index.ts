@@ -919,6 +919,10 @@ export const canReadPost = async (
   return false;
 };
 
+export const hasBoundPhone = (user?: User | null): boolean => {
+  return !!user?.phone?.trim() && !!user?.phoneCountryCode?.trim();
+};
+
 export const isStandalone = () => {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(display-mode: standalone)').matches;

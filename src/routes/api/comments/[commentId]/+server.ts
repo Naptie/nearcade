@@ -2,7 +2,7 @@ import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import type { Club, Comment, CommentVote, Post, University } from '$lib/types';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { checkUniversityPermission, checkClubPermission } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
 import { withExistingImages } from '$lib/images/validation.server';
@@ -40,7 +40,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (comment.shopId || comment.shopDeleteRequestId) {
-      requireEmailAndPhone(session.user);
+      requireBoundPhone(session.user);
     }
 
     if (comment.createdBy !== session.user.id) {
@@ -101,7 +101,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     }
 
     if (comment.shopId || comment.shopDeleteRequestId) {
-      requireEmailAndPhone(session.user);
+      requireBoundPhone(session.user);
     }
 
     // Check permissions (owner or canEdit)

@@ -10,7 +10,7 @@ import {
   type ShopDeleteRequest,
   type University
 } from '$lib/types';
-import { requireEmailAndPhone } from '$lib/auth/verified-contact.server';
+import { requireBoundPhone } from '$lib/utils/index.server';
 import { nanoid } from 'nanoid';
 import { canReadPost } from '$lib/utils';
 import { notify } from '$lib/notifications/index.server';
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     }
 
     if (comment.shopId || comment.shopDeleteRequestId) {
-      requireEmailAndPhone(session.user);
+      requireBoundPhone(session.user);
     }
 
     // Get the parent entity to check permissions and build notification context.
