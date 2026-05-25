@@ -124,16 +124,16 @@
         {/if}
 
         <!-- Action buttons -->
-        <div class="flex flex-col gap-2 sm:flex-row sm:gap-3">
+        <div class="flex flex-row gap-2 sm:gap-3">
           <button
-            class="btn btn-outline flex-1"
+            class="btn btn-outline flex-1 dark:hover:border-white dark:hover:bg-white dark:hover:text-black"
             disabled={loading}
             onclick={() => handleConsent(false)}
           >
             {m.oauth_consent_deny()}
           </button>
           <button
-            class="btn btn-primary flex-1"
+            class="btn btn-primary flex-1 dark:hover:border-white dark:hover:bg-white dark:hover:text-black"
             disabled={loading}
             onclick={() => handleConsent(true)}
           >
