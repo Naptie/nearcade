@@ -14,7 +14,8 @@ import {
   type ShopDeleteRequest,
   type ShopDeleteRequestVote,
   PostReadability,
-  type AttendanceRecord
+  type AttendanceRecord,
+  type ShopChangelogEntry
 } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import { getDisplayName, protect } from '.';
@@ -766,6 +767,24 @@ export async function getUserActivities(
       });
     });
   }
+  // Fetch shop changelog entries
+  const shopChangelogEntries = (await db
+    .collection<ShopChangelogEntry>('shop_changelog')
+    .aggregate([{ $match: { userId: userId } }, { $sort: { createdAt: -1 } }, { $limit: limit }])
+    .toArray()) as ShopChangelogEntry[];
+
+  shopChangelogEntries.forEach((entry) => {
+    activities.push({
+      id: entry.id,
+      type: 'shop_changelog',
+      createdAt: entry.createdAt,
+      userId: entry.userId ?? userId,
+      shopChangelogEntry: entry,
+      shopId: entry.shopId,
+      shopName: entry.shopName
+    });
+  });
+
   if (canViewAll || user.isFootprintPublic) {
     // Fetch shop attendance activities
     const shopAttendances = (await db

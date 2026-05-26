@@ -39,6 +39,7 @@
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
   import { flip } from 'svelte/animate';
@@ -157,6 +158,8 @@
       userAttendance = attendanceData.some((attendee) => attendee.userId === data.user?.id);
     }
   });
+
+  let isChangelogOpen = $derived(page.url.hash === '#changelog');
 
   let radius = $state(10);
 
@@ -2066,7 +2069,7 @@
         <!-- Changelog Section -->
         {#if shop}
           <section class="mt-8">
-            <details class="group">
+            <details class="group" open={isChangelogOpen}>
               <summary
                 class="hover:bg-base-200 flex cursor-pointer list-none items-center gap-2 rounded-xl px-4 py-2 transition-colors"
               >

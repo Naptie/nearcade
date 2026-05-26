@@ -13762,6 +13762,7 @@
                               "shop_delete_request_comment_vote",
                               "shop_delete_request_vote",
                               "changelog",
+                              "shop_changelog",
                               "university_join",
                               "club_join",
                               "club_create",
@@ -13998,6 +13999,158 @@
                               "id",
                               "type",
                               "targetId",
+                              "action",
+                              "fieldInfo",
+                              "userId",
+                              "createdAt"
+                            ],
+                            "additionalProperties": true
+                          },
+                          "shopChangelogEntry": {
+                            "description": "完整店铺变更记录。\n\nFull shop changelog entry.",
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。\n\nMongoDB ID.",
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "更新记录 ID。\n\nChangelog entry ID."
+                              },
+                              "shopId": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "店铺 ID。\n\nShop ID."
+                              },
+                              "shopName": {
+                                "type": "string",
+                                "description": "店铺名称。\n\nShop name."
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "created",
+                                  "modified",
+                                  "deleted",
+                                  "game_added",
+                                  "game_modified",
+                                  "game_deleted",
+                                  "photo_uploaded",
+                                  "photo_deleted",
+                                  "rollback",
+                                  "delete_request_submitted",
+                                  "delete_request_approved",
+                                  "delete_request_rejected",
+                                  "photo_delete_request_submitted",
+                                  "photo_delete_request_approved",
+                                  "photo_delete_request_rejected"
+                                ],
+                                "description": "店铺变更动作类型。\n\nShop changelog action type."
+                              },
+                              "fieldInfo": {
+                                "type": "object",
+                                "properties": {
+                                  "field": {
+                                    "type": "string",
+                                    "description": "变更字段。\n\nField changed by this entry."
+                                  },
+                                  "gameId": {
+                                    "description": "关联游戏 ID。\n\nAssociated game ID.",
+                                    "nullable": true,
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "gameName": {
+                                    "description": "关联游戏名称。\n\nAssociated game name.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "gameVersion": {
+                                    "description": "关联游戏版本。\n\nAssociated game version.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "photoId": {
+                                    "description": "关联照片 ID。\n\nAssociated photo ID.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "photoUrl": {
+                                    "description": "关联照片 URL。\n\nAssociated photo URL.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "deleteRequestId": {
+                                    "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["field"],
+                                "additionalProperties": false,
+                                "description": "变更字段信息。\n\nChanged field information."
+                              },
+                              "oldValue": {
+                                "description": "变更前的存储值。\n\nStored value before the change.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "newValue": {
+                                "description": "变更后的存储值。\n\nStored value after the change.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "metadata": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": true,
+                                "description": "附加元数据。\n\nAdditional metadata."
+                              },
+                              "userId": {
+                                "nullable": true,
+                                "description": "变更操作者用户 ID。\n\nUser ID who performed the change.",
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "description": "变更时间。\n\nChange time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "user": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "用户 ID。\n\nUser ID."
+                                  },
+                                  "name": {
+                                    "nullable": true,
+                                    "description": "用户名。\n\nUsername.",
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "description": "显示名称。\n\nDisplay name.",
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "image": {
+                                    "nullable": true,
+                                    "description": "头像。\n\nAvatar URL.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["id", "name", "image"],
+                                "additionalProperties": false,
+                                "description": "触发该变更的用户。\n\nUser who caused the change."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "shopId",
+                              "shopName",
                               "action",
                               "fieldInfo",
                               "userId",

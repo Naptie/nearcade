@@ -18,6 +18,7 @@
   import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { resolve } from '$app/paths';
+  import { page } from '$app/state';
 
   interface Props {
     shopId: number;
@@ -44,8 +45,13 @@
   let isPreviewingRollback = $state(false);
   let isApplyingRollback = $state(false);
   let rollbackDiffHtml = $state('');
+  let entryElements: Record<string, HTMLElement> = {};
+  let showHighlight = $state(false);
 
   const ITEMS_PER_PAGE = 10;
+
+  // Get the highlighted entry ID from URL params
+  const highlightedEntryId = $derived(page.url.searchParams.get('entry'));
 
   const stringifyJson = (value: unknown) => JSON.stringify(value, null, 2);
 
@@ -177,7 +183,19 @@
   };
 
   onMount(() => {
-    loadEntries();
+    loadEntries().then(() => {
+      // Handle highlighting of specific entry
+      if (highlightedEntryId && entryElements[highlightedEntryId]) {
+        setTimeout(() => {
+          const element = entryElements[highlightedEntryId];
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          showHighlight = true;
+          setTimeout(() => {
+            showHighlight = false;
+          }, 2000);
+        }, 100);
+      }
+    });
   });
 </script>
 
@@ -206,7 +224,14 @@
   {:else}
     <div class="divide-base-200 divide-y">
       {#each entries as entry (entry.id)}
-        <div class="hover:bg-base-50 p-4 transition-colors" id="shop-entry-{entry.id}">
+        <div
+          bind:this={entryElements[entry.id]}
+          class="hover:bg-base-50 p-4 transition-colors {highlightedEntryId === entry.id &&
+          showHighlight
+            ? 'bg-primary/15'
+            : ''}"
+          id="shop-entry-{entry.id}"
+        >
           <div class="flex gap-3">
             <!-- Action icon -->
             <div class="shrink-0">

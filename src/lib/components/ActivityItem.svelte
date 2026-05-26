@@ -5,6 +5,7 @@
   import { formatDistance, formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatChangelogDescription } from '$lib/utils/universities-clubs/changelog';
+  import { formatShopChangelogDescription } from '$lib/utils/shops/changelog';
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
@@ -55,6 +56,8 @@
           : 'fa-solid fa-thumbs-down text-error';
       case 'changelog':
         return 'fa-solid fa-list-ul text-warning';
+      case 'shop_changelog':
+        return 'fa-solid fa-gamepad text-warning';
       case 'university_join':
         return 'fa-solid fa-graduation-cap text-primary';
       case 'club_join':
@@ -118,6 +121,7 @@
           ? m.activity_voted_in_favor_of_delete_request({ targetName })
           : m.activity_voted_against_delete_request({ targetName });
       case 'changelog':
+      case 'shop_changelog':
         return m.activity_contributed_to({ targetName });
       case 'university_join':
         return m.activity_joined_university({ targetName });
@@ -243,6 +247,16 @@
         }
         return '#';
 
+      case 'shop_changelog':
+        if (activity.shopId) {
+          return (
+            resolve('/(main)/shops/[id]', {
+              id: activity.shopId.toString()
+            }) + `?entry=${activity.id}#changelog`
+          );
+        }
+        return '#';
+
       case 'university_join':
         if (activity.joinedUniversityId) {
           return resolve('/(main)/universities/[id]', {
@@ -298,6 +312,11 @@
           return formatChangelogDescription(activity.changelogEntry, m);
         }
         return activity.changelogTargetName || '';
+      case 'shop_changelog':
+        if (activity.shopChangelogEntry) {
+          return formatShopChangelogDescription(activity.shopChangelogEntry, m);
+        }
+        return activity.changelogTargetName || '';
       case 'university_join':
         return activity.joinedUniversityName || '';
       case 'club_join':
@@ -316,6 +335,8 @@
       return activity.universityName;
     } else if (activity.clubName) {
       return activity.clubName;
+    } else if (activity.shopName) {
+      return activity.shopName;
     }
     return null;
   });
@@ -392,18 +413,24 @@
         </div>
       {/if}
 
-      <!-- Context (University/Club) -->
+      <!-- Context (University/Club/Shop) -->
       {#if context}
         <a
           href={activity.universityId
             ? resolve('/(main)/universities/[id]', { id: activity.universityId })
-            : resolve('/(main)/clubs/[id]', { id: activity.clubId || '' })}
+            : activity.clubId
+              ? resolve('/(main)/clubs/[id]', { id: activity.clubId || '' })
+              : activity.shopId
+                ? resolve('/(main)/shops/[id]', { id: activity.shopId.toString() })
+                : '#'}
           class="text-base-content/60 hover:text-accent flex w-fit items-center gap-1 text-xs transition-colors"
         >
           {#if activity.universityId}
             <i class="fa-solid fa-graduation-cap"></i>
-          {:else}
+          {:else if activity.clubId}
             <i class="fa-solid fa-users"></i>
+          {:else}
+            <i class="fa-solid fa-store"></i>
           {/if}
           {context}
         </a>

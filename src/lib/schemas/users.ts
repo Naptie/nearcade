@@ -2,7 +2,7 @@ import { PAGINATION } from '$lib/constants';
 import { z } from 'zod';
 
 import { organizationChangelogEntrySchema } from './organizations';
-import { shopDeleteRequestVoteTypeSchema, shopSchema } from './shops';
+import { shopChangelogEntrySchema, shopDeleteRequestVoteTypeSchema, shopSchema } from './shops';
 import {
   bilingual,
   dateTimeSchema,
@@ -70,6 +70,7 @@ const activityTypeSchema = z
     'shop_delete_request_comment_vote',
     'shop_delete_request_vote',
     'changelog',
+    'shop_changelog',
     'university_join',
     'club_join',
     'club_create',
@@ -145,6 +146,10 @@ export const activitySchema = z
     changelogEntry: organizationChangelogEntrySchema
       .optional()
       .describe(bilingual('完整变更记录。', 'Full changelog entry.'))
+      .meta({ override: { type: 'object', additionalProperties: true } }),
+    shopChangelogEntry: shopChangelogEntrySchema
+      .optional()
+      .describe(bilingual('完整店铺变更记录。', 'Full shop changelog entry.'))
       .meta({ override: { type: 'object', additionalProperties: true } }),
     joinedUniversityId: z
       .string()
