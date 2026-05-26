@@ -44,7 +44,7 @@
   } | null>(null);
 
   const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
-  const showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
+
   const showIcpLicense =
     env.PUBLIC_ICP_LICENSE_ENABLED_ORIGINS?.split(',').includes(page.url.origin) &&
     env.PUBLIC_ICP_LICENSE;
@@ -66,6 +66,7 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
+  let showGlobe = $state(false);
   let now = $state(new Date());
 
   const searchUniversities = async (query: string, requestId: number) => {
@@ -179,6 +180,7 @@
 
   onMount(() => {
     window.addEventListener('amap-loaded', assignAMap);
+    showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
 
     const interval = setInterval(() => {
       now = new Date();
@@ -244,7 +246,7 @@
 
     <div class="hero-content my-10 text-center not-sm:px-0">
       <div
-        class="pointer-events-auto flex max-w-fit flex-col gap-6 px-8 py-6 transition"
+        class="pointer-events-auto flex max-w-fit flex-col gap-6 px-8 py-6 transition-all duration-600"
         class:mt-72={showGlobe}
         in:slide={{ delay: 500 }}
         out:slide

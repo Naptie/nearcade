@@ -4,13 +4,17 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import Globe from '$lib/components/Globe.svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import type { LayoutData } from './$types';
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
 
   let { data, children }: { data: LayoutData; children: import('svelte').Snippet } = $props();
 
-  const showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
+  let showGlobe = $state(false);
+
+  onMount(() => {
+    showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
+  });
 
   const isLandingPage = $derived(page.url.pathname === resolve('/'));
   const isGlobePage = $derived(page.url.pathname === resolve('/globe'));

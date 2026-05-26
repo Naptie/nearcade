@@ -2591,7 +2591,10 @@
 <!-- ================================================================
      Fixed globe container – always behind page content
      ================================================================ -->
-<div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+<div
+  class="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+  transition:fade={{ delay: 300, duration: 300 }}
+>
   <!-- Map canvas fills entire area -->
   <div
     bind:this={mapContainer}
