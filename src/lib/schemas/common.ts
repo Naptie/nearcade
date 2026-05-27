@@ -134,6 +134,29 @@ export const socialLinkSchema = z.object({
   username: z.string().describe(bilingual('用户名。', 'Username.'))
 });
 
+/**
+ * A simplified user schema matching the fields typically projected
+ * in MongoDB aggregation pipelines after a `$lookup` from the users collection.
+ * Used wherever only basic identity fields are available (id, name, displayName, image).
+ */
+export const userSummarySchema = z.object({
+  id: z.string().describe(bilingual('用户 ID。', 'User ID.')),
+  name: z
+    .string()
+    .nullable()
+    .describe(
+      bilingual('用户名。展示时请在前面加 @ 符号。', 'Username. Display with an @ prefix.')
+    ),
+  displayName: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      bilingual('用户示名，展示优先级高于 name。', 'Display name, preferred over `name` when present.')
+    ),
+  image: z.string().nullable().optional().describe(bilingual('头像。', 'Avatar URL.'))
+});
+
 export const userPublicSchema = z.object({
   _id: z
     .union([z.string(), objectIdSchema])

@@ -6,7 +6,7 @@ import {
   objectIdSchema,
   shopIdParamSchema,
   userIdSchema,
-  userPublicSchema
+  userSummarySchema
 } from './common';
 
 export const imageAssetIdSchema = z
@@ -60,9 +60,9 @@ export const imageAssetSchema = z
       .optional()
       .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.')),
     uploadedBy: userIdSchema.nullable().describe(bilingual('上传者用户 ID。', 'Uploader user ID.')),
-    uploader: userPublicSchema
+    uploader: userSummarySchema
       .optional()
-      .describe(bilingual('上传者信息。', 'Uploader user summary.')),
+      .describe(bilingual('上传者信息（摘要）。', 'Uploader summary (projected fields).')),
     uploadedAt: dateTimeSchema(bilingual('上传时间。', 'Upload time.'))
   })
   .describe(bilingual('图片资源。', 'Image asset.'));

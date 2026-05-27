@@ -2,7 +2,13 @@ import { z } from 'zod';
 
 import { postReadabilitySchema, postWritabilitySchema } from './posts';
 import { shopSchema } from './shops';
-import { bilingual, dateTimeSchema, locationSchema, objectIdSchema } from './common';
+import {
+  bilingual,
+  dateTimeSchema,
+  locationSchema,
+  objectIdSchema,
+  userSummarySchema
+} from './common';
 
 const positiveIntegerQueryParamSchema = (
   description: string,
@@ -16,13 +22,6 @@ const positiveIntegerQueryParamSchema = (
     )
     .pipe(z.number().int().min(1).max(maximum))
     .describe(description);
-
-const userListItemSchema = z.object({
-  id: z.string().optional().describe(bilingual('用户 ID。', 'User ID.')),
-  name: z.string().nullable().optional().describe(bilingual('用户名。', 'Username.')),
-  displayName: z.string().nullable().optional().describe(bilingual('显示名称。', 'Display name.')),
-  image: z.string().nullable().optional().describe(bilingual('头像。', 'Avatar URL.'))
-});
 
 export const universityRouteIdSchema = z
   .string()
@@ -194,7 +193,7 @@ export const organizationChangelogEntrySchema = z.object({
     .optional()
     .describe(bilingual('操作用户头像。', 'Actor avatar URL.')),
   createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')),
-  user: userListItemSchema.optional().describe(bilingual('操作用户摘要。', 'Actor summary.'))
+  user: userSummarySchema.optional().describe(bilingual('操作用户摘要。', 'Actor summary.'))
 });
 
 export const universityChangelogQuerySchema = z.object({
@@ -248,7 +247,7 @@ export const universityMemberListEntrySchema = z.object({
     .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   memberType: universityMemberTypeSchema,
   joinedAt: dateTimeSchema(bilingual('加入时间。', 'Join time.')),
-  user: userListItemSchema.describe(bilingual('成员用户摘要。', 'Member user summary.'))
+  user: userSummarySchema.describe(bilingual('成员用户摘要。', 'Member user summary.'))
 });
 
 export const universityMembersQuerySchema = z.object({
@@ -354,7 +353,7 @@ export const clubMemberListEntrySchema = z.object({
     .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   memberType: clubMemberTypeSchema,
   joinedAt: dateTimeSchema(bilingual('加入时间。', 'Join time.')),
-  user: userListItemSchema.describe(bilingual('成员用户摘要。', 'Member user summary.'))
+  user: userSummarySchema.describe(bilingual('成员用户摘要。', 'Member user summary.'))
 });
 
 export const clubsListQuerySchema = z.object({
