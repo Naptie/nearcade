@@ -152,7 +152,10 @@ export const userSummarySchema = z.object({
     .nullable()
     .optional()
     .describe(
-      bilingual('用户示名，展示优先级高于 name。', 'Display name, preferred over `name` when present.')
+      bilingual(
+        '用户示名，展示优先级高于 name。',
+        'Display name, preferred over `name` when present.'
+      )
     ),
   image: z.string().nullable().optional().describe(bilingual('头像。', 'Avatar URL.'))
 });
