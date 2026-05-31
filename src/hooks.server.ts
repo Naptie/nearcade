@@ -2,6 +2,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import {
   redirect,
   error,
+  type RequestEvent,
   type Handle,
   type HandleServerError,
   type ServerInit
@@ -22,7 +23,7 @@ import {
   requiresEmailBinding,
   stripPostLoginMarker
 } from '$lib/auth/email';
-import { verifyOAuthAccessToken } from '$lib/auth/oauth/verify.server';
+import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 
 const reportError: HandleServerError = ({ status, error }) => {
@@ -57,6 +58,27 @@ const requestDebugHeaderNames = [
 
 const collectRequestDebugHeaders = (request: Request) =>
   Object.fromEntries(requestDebugHeaderNames.map((name) => [name, request.headers.get(name)]));
+
+const resolveOAuthScopeRequirement = (event: RequestEvent) => {
+  const { pathname } = event.url;
+  const authHeader = event.request.headers.get('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return undefined;
+  }
+
+  const token = authHeader.slice(7);
+  if (token.startsWith('nk_')) {
+    return undefined;
+  }
+
+  if (!pathname.startsWith(`${base}/api/`) || pathname.startsWith(`${base}/api/auth/`)) {
+    return undefined;
+  }
+
+  const apiPath = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+  return resolveRequiredScopes(apiPath, event.request.method);
+};
 
 const handleRequestLogging: Handle = async ({ event, resolve }) => {
   let clientIp = 'unavailable';
@@ -226,8 +248,17 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
 };
 
 const handleAuth: Handle = async ({ event, resolve }) => {
-  event.locals.oauthToken = null;
-  const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
+  const oauthScopeRequirement = resolveOAuthScopeRequirement(event);
+
+  if (oauthScopeRequirement === null) {
+    error(403, m.access_denied());
+  }
+
+  const session =
+    oauthScopeRequirement !== undefined
+      ? await resolveOAuthAccessTokenSession(event, oauthScopeRequirement)
+      : await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
+
   event.locals.session = session as App.Locals['session'];
   event.locals.user = (session?.user as App.Locals['user']) ?? null;
 
@@ -254,56 +285,6 @@ const handleAuth: Handle = async ({ event, resolve }) => {
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
-/**
- * OAuth 2.1 scope gating for API routes.
- *
- * If a request carries a Bearer token that is NOT a nearcade API key (nk_),
- * it is validated as an OAuth JWT access token. The required scope is derived
- * from the request path + method. Admin/internal endpoints are blocked entirely.
- *
- * Session-cookie requests and API-key requests pass through unchanged.
- */
-const handleOAuthScopes: Handle = async ({ event, resolve }) => {
-  const { pathname } = event.url;
-
-  // Only gate /api/ routes (skip auth routes which are handled by the plugin)
-  if (!pathname.startsWith(`${base}/api/`) || pathname.startsWith(`${base}/api/auth/`)) {
-    return resolve(event);
-  }
-
-  const authHeader = event.request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return resolve(event);
-  }
-
-  const token = authHeader.slice(7);
-
-  // Skip nearcade API keys — they use their own auth flow
-  if (token.startsWith('nk_')) {
-    return resolve(event);
-  }
-
-  // Strip base path prefix to get canonical API path
-  const apiPath = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
-  const method = event.request.method;
-
-  // Resolve required scopes for this path
-  const requiredScopes = resolveRequiredScopes(apiPath, method);
-
-  if (requiredScopes === null) {
-    // Path is blocked for OAuth tokens
-    error(403, 'This endpoint is not available for OAuth access');
-  }
-
-  // Verify the token and check scopes
-  const payload = await verifyOAuthAccessToken(event.request, requiredScopes);
-  if (payload) {
-    event.locals.oauthToken = payload;
-  }
-
-  return resolve(event);
-};
-
 export const handle: Handle = sequence(
   handleRequestLogging,
   handleOptions,
@@ -313,8 +294,7 @@ export const handle: Handle = sequence(
   handleUserShortcut,
   handleLegacyShopPaths,
   handleHeaders,
-  handleAuth,
-  handleOAuthScopes
+  handleAuth
 );
 
 export const handleError: HandleServerError = reportError;

@@ -28,6 +28,13 @@ import { createHash } from 'node:crypto';
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { auth } from '$lib/auth/index.server';
+import mongo from '$lib/db/index.server';
+import { m } from '$lib/paraglide/messages';
+import {
+  countPendingJoinRequests,
+  countUnreadNotifications
+} from '$lib/notifications/index.server';
+import type { AuthSession, User } from '$lib/auth/types';
 import type { OAuthScope } from './scopes';
 
 /**
@@ -93,6 +100,10 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 function isJwt(token: string): boolean {
   const parts = token.split('.');
   return parts.length === 3 && parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p));
+}
+
+function timestampToDate(timestamp: number | undefined): Date | null {
+  return typeof timestamp === 'number' ? new Date(timestamp * 1000) : null;
 }
 
 /**
@@ -215,39 +226,69 @@ export async function verifyOAuthAccessToken(
     const grantedScopes = new Set((payload.scope as string | undefined)?.split(' ') ?? []);
     const missing = requiredScopes.filter((s) => !grantedScopes.has(s));
     if (missing.length > 0) {
-      error(403, `Insufficient scope. Required: ${missing.join(', ')}`);
+      error(403, m.access_denied());
     }
   }
 
   return payload;
 }
 
+export async function resolveOAuthAccessTokenSession(
+  event: RequestEvent,
+  requiredScopes?: OAuthScope[]
+): Promise<AuthSession | null> {
+  const payload = await verifyOAuthAccessToken(event.request, requiredScopes);
+  if (!payload) {
+    return null;
+  }
+
+  const db = mongo.db();
+  const user = await db.collection<User>('users').findOne({ id: payload.sub });
+
+  if (!user) {
+    error(401, 'OAuth access token has no associated user');
+  }
+
+  const issuedAt = timestampToDate(payload.iat) ?? new Date();
+  const expiresAt = timestampToDate(payload.exp) ?? issuedAt;
+  const [unreadNotifications, pendingJoinRequests] = await Promise.all([
+    countUnreadNotifications(mongo, user.id),
+    countPendingJoinRequests(mongo, user)
+  ]);
+
+  return {
+    user,
+    session: {
+      id: `oauth:${user.id}`,
+      expiresAt,
+      token: '',
+      createdAt: issuedAt,
+      updatedAt: issuedAt,
+      ipAddress: null,
+      userAgent: event.request.headers.get('user-agent'),
+      userId: user.id,
+      unreadNotifications,
+      pendingJoinRequests: pendingJoinRequests ?? 0
+    }
+  };
+}
+
 /**
  * Authenticate a request from any supported method.
  *
- * Checks in order:
- * 1. Session cookie (first-party) → returns user from `locals.session`
- * 2. OAuth Bearer token → verifies JWT + checks required scopes
- *
- * API-key auth is intentionally NOT handled here because it uses its own
- * verification flow (via `auth.api.verifyApiKey`).
- *
- * @returns `{ user, session?, oauthToken? }` for the authenticated entity.
+ * Returns a unified authenticated session for either cookie-based auth or an
+ * OAuth Provider Bearer token.
  * @throws 401 if no valid authentication is found.
  */
 export async function requireAuth(event: RequestEvent, options?: { scopes?: OAuthScope[] }) {
-  // 1. Session cookie — first-party, always allowed
-  const session = event.locals.session;
+  const session =
+    event.locals.session ?? (await resolveOAuthAccessTokenSession(event, options?.scopes));
+
   if (session) {
-    return { user: session.user, session, oauthToken: null };
+    event.locals.session = session;
+    event.locals.user = session.user;
+    return { user: session.user, session };
   }
 
-  // 2. OAuth Bearer token
-  const oauthToken = await verifyOAuthAccessToken(event.request, options?.scopes);
-  if (oauthToken) {
-    return { user: null, session: null, oauthToken };
-  }
-
-  // No valid auth found
   error(401, 'Authentication required');
 }

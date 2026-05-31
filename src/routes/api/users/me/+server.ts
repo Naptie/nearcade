@@ -8,7 +8,7 @@ import { m } from '$lib/paraglide/messages';
 import { userProfileResponseSchema } from '$lib/schemas/users';
 
 export const GET: RequestHandler = async ({ locals }) => {
-  const userId = locals.oauthToken?.sub ?? locals.session?.user?.id;
+  const userId = locals.session?.user?.id;
 
   if (!userId) {
     error(401, m.unauthorized());
