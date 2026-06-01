@@ -31,6 +31,11 @@
       icon: 'fa-key'
     },
     {
+      href: resolve('/(main)/settings/sessions'),
+      label: m.sessions(),
+      icon: 'fa-shield-halved'
+    },
+    {
       href: resolve('/(main)/settings/email'),
       label: m.email_settings(),
       icon: 'fa-envelope',

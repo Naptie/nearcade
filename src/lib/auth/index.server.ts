@@ -22,6 +22,7 @@ import { phiraProvider } from './phira';
 import type { User } from './types';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
 import { OAUTH_SCOPES } from './oauth/scopes';
+import { sessionQrPlugin } from './session-qr.server';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -278,6 +279,7 @@ export const auth = betterAuth({
         }
       };
     }),
+    sessionQrPlugin,
     sveltekitCookies(getRequestEvent)
   ],
   databaseHooks: {
