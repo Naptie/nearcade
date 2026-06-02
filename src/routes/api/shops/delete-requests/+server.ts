@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import {
   shopDeleteRequestsListQuerySchema,
   shopDeleteRequestsListResponseSchema
@@ -24,8 +25,10 @@ export const GET: RequestHandler = async ({ url }) => {
     .limit(100)
     .toArray();
 
+  const hydrated = await hydrateEntitiesWithImages(db, requests);
+
   const response = shopDeleteRequestsListResponseSchema.parse({
-    requests: toPlainArray(requests),
+    requests: toPlainArray(hydrated),
     currentStatus: status
   });
 
