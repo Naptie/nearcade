@@ -1,4 +1,5 @@
 import { extractLocaleFromRequest } from '$lib/paraglide/runtime';
+import { m } from '$lib/paraglide/messages';
 
 type SupportedLocale = 'en' | 'zh' | 'ja';
 
@@ -34,32 +35,6 @@ export type ResolvedIpRegion = {
   display: string | null;
 };
 
-const CHINA_RELATED_COUNTRY_NAME_OVERRIDES: Record<
-  string,
-  Partial<Record<SupportedLocale, string>>
-> = {
-  CN: {
-    en: 'China',
-    zh: '中国',
-    ja: '中国'
-  },
-  HK: {
-    en: 'Hong Kong, China',
-    zh: '中国香港',
-    ja: '中国香港'
-  },
-  MO: {
-    en: 'Macao, China',
-    zh: '中国澳门',
-    ja: '中国マカオ'
-  },
-  TW: {
-    en: 'Taiwan, China',
-    zh: '中国台湾',
-    ja: '中国台湾'
-  }
-};
-
 const IP_API_FIELDS = [
   'status',
   'message',
@@ -76,6 +51,8 @@ const IP_API_FIELDS = [
 
 const ipLookupCache = new Map<string, { expiresAt: number; value: ResolvedIpRegion | null }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 12;
+const NEVER_EXPIRES = Number.POSITIVE_INFINITY;
+const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
 
 function getSupportedLocale(request: Request): SupportedLocale {
   const locale = extractLocaleFromRequest(request);
@@ -88,31 +65,43 @@ function normalizeIp(input: string): string | null {
   return value;
 }
 
+const REGION_CODE_OVERRIDES = ['CN', 'HK', 'MO', 'TW'] as const;
+
 function getCountryDisplayName(
   countryCode: string | undefined,
   fallbackCountryName: string | undefined,
   locale: SupportedLocale
 ): string | null {
   if (!countryCode) return fallbackCountryName ?? null;
-  const override = CHINA_RELATED_COUNTRY_NAME_OVERRIDES[countryCode]?.[locale];
-  return override ?? fallbackCountryName ?? countryCode;
+  const regionCode = countryCode as (typeof REGION_CODE_OVERRIDES)[number];
+  if (REGION_CODE_OVERRIDES.includes(regionCode)) {
+    try {
+      return m[`country_label_${regionCode}`]({}, { locale }) as string;
+    } catch {
+      // fall through
+    }
+  }
+  return fallbackCountryName ?? countryCode;
 }
 
-function toDisplayName(data: {
-  countryName: string | null;
-  regionName: string | null;
-  city: string | null;
-  district: string | null;
-  isp: string | null;
-  organization: string | null;
-}): string | null {
-  const locationParts = [data.countryName, data.regionName, data.city, data.district].filter(
+function toDisplayName(
+  data: {
+    countryName: string | null;
+    regionName: string | null;
+    city: string | null;
+    district: string | null;
+    isp: string | null;
+    organization: string | null;
+  },
+  locale: SupportedLocale
+): string | null {
+  const locationParts = [data.countryName, data.regionName].filter(
     (value, index, array): value is string => !!value && array.indexOf(value) === index
   );
 
   const network = data.isp || data.organization;
   if (network && locationParts.length > 0) {
-    return `${locationParts.join(' · ')} · ${network}`;
+    return `${locale === 'zh' || locale === 'ja' ? locationParts.join(' · ') : locationParts.toReversed().join(', ')} | ${network}`;
   }
 
   if (network) {
@@ -131,6 +120,33 @@ export async function lookupIpRegion(
 
   const locale = getSupportedLocale(request);
   const cacheKey = `${locale}:${normalizedIp}`;
+
+  if (LOOPBACK_IPS.has(normalizedIp)) {
+    const cachedLoopback = ipLookupCache.get(cacheKey);
+    if (cachedLoopback?.expiresAt === NEVER_EXPIRES) {
+      return cachedLoopback.value;
+    }
+
+    const loopbackRegion: ResolvedIpRegion = {
+      ip: normalizedIp,
+      countryCode: null,
+      countryName: null,
+      regionName: null,
+      city: null,
+      district: null,
+      isp: null,
+      organization: null,
+      asn: null,
+      display: normalizedIp
+    };
+
+    ipLookupCache.set(cacheKey, {
+      expiresAt: NEVER_EXPIRES,
+      value: loopbackRegion
+    });
+    return loopbackRegion;
+  }
+
   const cached = ipLookupCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -169,7 +185,7 @@ export async function lookupIpRegion(
       display: null
     };
 
-    resolved.display = toDisplayName(resolved);
+    resolved.display = toDisplayName(resolved, locale);
     ipLookupCache.set(cacheKey, {
       expiresAt: Date.now() + CACHE_TTL_MS,
       value: resolved

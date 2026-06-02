@@ -8,6 +8,7 @@ import { storeQrToken, QR_SESSION_TTL } from '$lib/auth/session-qr.server';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import QRCode from 'qrcode';
 import { getOrigin } from '$lib/utils/index.server';
+import { ObjectId, type WithId } from 'mongodb';
 
 /** Friendly label extracted from a User-Agent string */
 function parseUserAgent(ua: string | null | undefined): string {
@@ -47,8 +48,23 @@ export type OAuthTokenItem = {
   clientName: string;
   scopes: string[];
   createdAt: Date;
-  expiresAt: Date | null;
-  accessToken: string; // hashed token (used as revoke handle)
+  updatedAt: Date | null;
+};
+
+type OAuthConsentRecord = WithId<{
+  id?: string;
+  userId: string;
+  clientId: string;
+  referenceId?: string | null;
+  scopes?: string[] | string;
+  consentGiven?: boolean;
+  createdAt: Date | string;
+  updatedAt?: Date | string | null;
+}>;
+
+type OAuthClientRecord = {
+  clientId: string;
+  name?: string | null;
 };
 
 export type SessionItem = {
@@ -104,42 +120,40 @@ export const load: PageServerLoad = async ({ parent, request }) => {
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
-  // --- OAuth access tokens ---
+  // --- OAuth app consents ---
   const db = mongo.db();
-  const tokenDocs = await db
-    .collection('oauth_access_tokens')
-    .find({ userId: user.id })
+  const consentDocs = await db
+    .collection<OAuthConsentRecord>('oauth_consents')
+    .find({ userId: user.id, consentGiven: { $ne: false } })
     .sort({ createdAt: -1 })
     .toArray();
 
-  // Fetch client names for the tokens
-  const clientIds = [...new Set(tokenDocs.map((t) => t.clientId as string).filter(Boolean))];
+  // Fetch client names for the consents
+  const clientIds = [...new Set(consentDocs.map((t) => t.clientId).filter(Boolean))];
   const clientDocs = clientIds.length
     ? await db
-        .collection('oauth_clients')
+        .collection<OAuthClientRecord>('oauth_clients')
         .find({ clientId: { $in: clientIds } })
         .project({ clientId: 1, name: 1, _id: 0 })
         .toArray()
     : [];
   const clientNameMap = new Map<string, string>(
-    clientDocs.map((c) => [c.clientId as string, (c.name ?? c.clientId) as string])
+    clientDocs.map((c) => [c.clientId, c.name ?? c.clientId])
   );
 
-  const now = new Date();
-  const oauthTokens: OAuthTokenItem[] = tokenDocs
-    .filter((t) => {
-      const expiresAt = t.expiresAt ? new Date(t.expiresAt as string) : null;
-      return !expiresAt || expiresAt > now;
-    })
-    .map((t) => ({
-      id: t._id?.toString() ?? (t.id as string),
-      clientId: t.clientId as string,
-      clientName: clientNameMap.get(t.clientId as string) ?? (t.clientId as string),
-      scopes: Array.isArray(t.scopes) ? (t.scopes as string[]) : [],
-      createdAt: new Date(t.createdAt as string),
-      expiresAt: t.expiresAt ? new Date(t.expiresAt as string) : null,
-      accessToken: t.token as string
-    }));
+  const oauthTokens: OAuthTokenItem[] = consentDocs.map((t) => ({
+    id: t.id ?? t._id.toString(),
+    clientId: t.clientId,
+    clientName: clientNameMap.get(t.clientId) ?? t.clientId,
+    scopes:
+      typeof t.scopes === 'string'
+        ? t.scopes.split(/[\s,]+/).filter(Boolean)
+        : Array.isArray(t.scopes)
+          ? t.scopes
+          : [],
+    createdAt: new Date(t.createdAt),
+    updatedAt: t.updatedAt ? new Date(t.updatedAt) : null
+  }));
 
   return {
     sessions,
@@ -204,10 +218,23 @@ export const actions: Actions = {
 
     try {
       const db = mongo.db();
-      // Delete by string id field with userId ownership check
-      await db
-        .collection('oauth_access_tokens')
-        .deleteOne({ id: tokenId, userId: session.user.id });
+      const consentFilter = ObjectId.isValid(tokenId)
+        ? {
+            userId: session.user.id,
+            $or: [{ id: tokenId }, { _id: new ObjectId(tokenId) }]
+          }
+        : {
+            userId: session.user.id,
+            id: tokenId
+          };
+
+      const deleteFromPlural = await db
+        .collection<OAuthConsentRecord>('oauth_consents')
+        .deleteOne(consentFilter);
+
+      if (!deleteFromPlural.deletedCount) {
+        await db.collection<OAuthConsentRecord>('oauth_consent').deleteOne(consentFilter);
+      }
 
       return { success: true, message: 'sessions_oauth_revoked' };
     } catch (err) {

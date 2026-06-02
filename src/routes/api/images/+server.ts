@@ -50,12 +50,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     organizationType: formData.get('organizationType') ?? url.searchParams.get('organizationType'),
     organizationId: formData.get('organizationId') ?? url.searchParams.get('organizationId')
   });
-  const owner: ImageOwnerReference = {
-    shopId,
-    commentId,
-    postId,
-    deleteRequestId
-  };
+  const owner: ImageOwnerReference = draftKind
+    ? {}
+    : {
+        shopId,
+        commentId,
+        postId,
+        deleteRequestId
+      };
   const draftContext: ImageDraftContext = {
     kind: draftKind as ImageDraftContext['kind'],
     organizationType,

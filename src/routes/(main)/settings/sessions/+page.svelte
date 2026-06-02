@@ -214,17 +214,22 @@
                 </div>
                 <div class="text-base-content/55 mt-1 space-y-0.5 text-xs">
                   {#if session.ipAddress}
-                    <p>
-                      <span class="font-medium">{m.sessions_ip_address()}:</span>
-                      {session.ipAddress}
+                    <p class="flex items-start gap-2">
+                      <i class="fa-solid fa-network-wired mt-0.5 w-3.5 text-center"></i>
+                      <span>
+                        {session.ipAddress}
+                      </span>
                     </p>
                   {/if}
                   {#if session.ipRegion}
-                    <p>{session.ipRegion}</p>
+                    <p class="flex items-start gap-2">
+                      <i class="fa-solid fa-location-dot mt-0.5 w-3.5 text-center"></i>
+                      <span>{session.ipRegion}</span>
+                    </p>
                   {/if}
-                  <p title={absoluteDate(session.createdAt)}>
-                    <span class="font-medium">{m.sessions_signed_in()}:</span>
-                    {relativeDate(session.createdAt)}
+                  <p class="flex items-start gap-2" title={absoluteDate(session.createdAt)}>
+                    <i class="fa-solid fa-calendar-day mt-0.5 w-3.5 text-center"></i>
+                    <span>{relativeDate(session.createdAt)}</span>
                   </p>
                 </div>
               </div>
@@ -296,10 +301,10 @@
                     <span class="font-medium">{m.sessions_signed_in()}:</span>
                     {relativeDate(token.createdAt)}
                   </p>
-                  {#if token.expiresAt}
-                    <p title={absoluteDate(token.expiresAt)}>
-                      <span class="font-medium">{m.sessions_expires()}:</span>
-                      {relativeDate(token.expiresAt)}
+                  {#if token.updatedAt}
+                    <p title={absoluteDate(token.updatedAt)}>
+                      <span class="font-medium">{m.sessions_last_active()}:</span>
+                      {relativeDate(token.updatedAt)}
                     </p>
                   {/if}
                 </div>

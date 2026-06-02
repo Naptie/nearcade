@@ -168,7 +168,7 @@
     </div>
   {:else if photos.length > 0}
     <!-- Horizontal scroll carousel -->
-    <div class="scrollbar-thumb-base-300 scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+    <div class="scrollbar-thumb-base-300 scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pt-3">
       {#each photos as photo, i (photo.id)}
         <div
           animate:flip={{ duration: 250 }}
@@ -214,11 +214,11 @@
   />
 {/key}
 
-{#if resolvedUploadUrl && canUploadPhotos}
+{#if resolvedUploadUrl && canUpload}
   <UploadModal
     bind:isOpen={isUploadOpen}
     uploadUrl={resolvedUploadUrl}
-    confirmLabel={uploadLabel}
+    confirmLabel={uploadLabel ?? m.shop_photos_upload()}
     onSuccess={handleUploadSuccess}
   />
 {/if}
