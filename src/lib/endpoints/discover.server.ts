@@ -12,6 +12,7 @@ import {
   type DiscoverResponse
 } from '$lib/schemas/discover';
 import { parseQueryOrError } from '$lib/utils/validation.server';
+import { env } from '$env/dynamic/private';
 
 export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse> => {
   const queryUrl = new URL(url);
@@ -38,6 +39,7 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       );
       convertUrl.searchParams.set('locations', `${longitude},${latitude}`);
       convertUrl.searchParams.set('coordsys', convertFrom);
+      convertUrl.searchParams.set('key', env.AMAP_KEY);
       const response = await fetch(convertUrl.toString());
       const data = (await response.json()) as { status: string; info: string; locations?: string };
       if (data.status === '1' && data.locations) {
