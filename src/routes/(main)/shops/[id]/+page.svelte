@@ -2246,7 +2246,8 @@
             {:else}
               <i class="fa-solid fa-paper-plane"></i>
             {/if}
-            {m.submit_delete_request()}
+            <span class="sm:hidden">{m.submit()}</span>
+            <span class="not-sm:hidden">{m.submit_delete_request()}</span>
           </button>
         </div>
       </div>
