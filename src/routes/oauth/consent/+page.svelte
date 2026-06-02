@@ -2,7 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import { authClient } from '$lib/auth/client';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
-  import { getScopeLabel, getScopeIcon } from './scope-labels';
+  import { getScopeLabel, getScopeIcon } from '$lib/auth/oauth/scope-labels';
   import { getDisplayName, pageTitle } from '$lib/utils';
 
   let { data } = $props();

@@ -46,6 +46,8 @@ export type OAuthTokenItem = {
   id: string;
   clientId: string;
   clientName: string;
+  clientIcon: string | null;
+  clientUri: string | null;
   scopes: string[];
   createdAt: Date;
   updatedAt: Date | null;
@@ -53,7 +55,7 @@ export type OAuthTokenItem = {
 
 type OAuthConsentRecord = WithId<{
   id?: string;
-  userId: string;
+  userId: ObjectId;
   clientId: string;
   referenceId?: string | null;
   scopes?: string[] | string;
@@ -65,6 +67,8 @@ type OAuthConsentRecord = WithId<{
 type OAuthClientRecord = {
   clientId: string;
   name?: string | null;
+  icon?: string | null;
+  uri?: string | null;
 };
 
 export type SessionItem = {
@@ -124,7 +128,7 @@ export const load: PageServerLoad = async ({ parent, request }) => {
   const db = mongo.db();
   const consentDocs = await db
     .collection<OAuthConsentRecord>('oauth_consents')
-    .find({ userId: user.id, consentGiven: { $ne: false } })
+    .find({ userId: new ObjectId(user.id), consentGiven: { $ne: false } })
     .sort({ createdAt: -1 })
     .toArray();
 
@@ -134,17 +138,22 @@ export const load: PageServerLoad = async ({ parent, request }) => {
     ? await db
         .collection<OAuthClientRecord>('oauth_clients')
         .find({ clientId: { $in: clientIds } })
-        .project({ clientId: 1, name: 1, _id: 0 })
+        .project({ clientId: 1, name: 1, icon: 1, uri: 1, _id: 0 })
         .toArray()
     : [];
-  const clientNameMap = new Map<string, string>(
-    clientDocs.map((c) => [c.clientId, c.name ?? c.clientId])
+  const clientMetaMap = new Map<string, { name: string; icon: string | null; uri: string | null }>(
+    clientDocs.map((c) => [
+      c.clientId,
+      { name: c.name ?? c.clientId, icon: c.icon ?? null, uri: c.uri ?? null }
+    ])
   );
 
   const oauthTokens: OAuthTokenItem[] = consentDocs.map((t) => ({
     id: t.id ?? t._id.toString(),
     clientId: t.clientId,
-    clientName: clientNameMap.get(t.clientId) ?? t.clientId,
+    clientName: clientMetaMap.get(t.clientId)?.name ?? t.clientId,
+    clientIcon: clientMetaMap.get(t.clientId)?.icon ?? null,
+    clientUri: clientMetaMap.get(t.clientId)?.uri ?? null,
     scopes:
       typeof t.scopes === 'string'
         ? t.scopes.split(/[\s,]+/).filter(Boolean)
@@ -220,11 +229,11 @@ export const actions: Actions = {
       const db = mongo.db();
       const consentFilter = ObjectId.isValid(tokenId)
         ? {
-            userId: session.user.id,
+            userId: new ObjectId(session.user.id),
             $or: [{ id: tokenId }, { _id: new ObjectId(tokenId) }]
           }
         : {
-            userId: session.user.id,
+            userId: new ObjectId(session.user.id),
             id: tokenId
           };
 

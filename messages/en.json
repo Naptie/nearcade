@@ -932,7 +932,7 @@
   "oauth_consent_signed_in_as": "Signed in as {name}",
   "oauth_consent_title": "{app} is requesting access to your account",
   "oauth_scope_email": "View your email address",
-  "oauth_scope_offline_access": "Stay connected (refresh tokens)",
+  "oauth_scope_offline_access": "Stay connected",
   "oauth_scope_openid": "Verify your identity",
   "oauth_scope_profile": "View your name and profile picture",
   "oauth_scope_read_clubs": "View club information",

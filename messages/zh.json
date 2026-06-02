@@ -924,7 +924,7 @@
   "oauth_consent_signed_in_as": "当前登录：{name}",
   "oauth_consent_title": "{app} 正在请求访问您的账户",
   "oauth_scope_email": "查看您的邮箱地址",
-  "oauth_scope_offline_access": "保持连接（刷新令牌）",
+  "oauth_scope_offline_access": "保持连接",
   "oauth_scope_openid": "验证您的身份",
   "oauth_scope_profile": "查看您的姓名和头像",
   "oauth_scope_read_clubs": "查看社团信息",

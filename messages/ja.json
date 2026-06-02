@@ -924,7 +924,7 @@
   "oauth_consent_signed_in_as": "{name} としてサインイン中",
   "oauth_consent_title": "{app} があなたのアカウントへのアクセスを要求しています",
   "oauth_scope_email": "メールアドレスを表示する",
-  "oauth_scope_offline_access": "接続を維持する（リフレッシュトークン）",
+  "oauth_scope_offline_access": "接続を維持する",
   "oauth_scope_openid": "あなたの身元を確認する",
   "oauth_scope_profile": "名前とプロフィール画像を表示する",
   "oauth_scope_read_clubs": "クラブ情報を閲覧する",

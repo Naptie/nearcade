@@ -8,6 +8,7 @@
   import { getFnsLocale } from '$lib/utils';
   import { pageTitle } from '$lib/utils';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
+  import { getScopeLabel, getScopeIcon } from '$lib/auth/oauth/scope-labels';
   import type { PageData, ActionData } from './$types';
 
   type SessionItem = PageData['sessions'][number];
@@ -285,26 +286,51 @@
         {#each data.oauthTokens as token (token.id)}
           <div class="bg-base-100 flex flex-wrap items-center justify-between gap-4 rounded-lg p-4">
             <div class="flex min-w-0 flex-1 items-start gap-3">
-              <div class="text-base-content/50 mt-0.5 text-xl">
-                <i class="fa-solid fa-plug"></i>
-              </div>
+              {#if token.clientIcon}
+                <img
+                  src={token.clientIcon}
+                  alt={token.clientName}
+                  class="mt-0.5 h-7 w-7 rounded-lg object-cover"
+                />
+              {:else}
+                <div class="bg-base-300 mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg">
+                  <i class="fa-solid fa-cube text-base-content/40 text-xs"></i>
+                </div>
+              {/if}
               <div class="min-w-0">
-                <span class="font-medium">{token.clientName}</span>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium">{token.clientName}</span>
+                  {#if token.clientUri}
+                    <a
+                      href={token.clientUri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={token.clientUri}
+                      class="text-base-content/40 hover:text-base-content/70 transition-colors"
+                    >
+                      <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+                    </a>
+                  {/if}
+                </div>
                 <div class="text-base-content/55 mt-1 space-y-0.5 text-xs">
                   {#if token.scopes.length > 0}
-                    <p>
-                      <span class="font-medium">{m.sessions_scopes()}:</span>
-                      {token.scopes.join(', ')}
-                    </p>
+                    <div class="flex flex-wrap items-center gap-0.5">
+                      {#each token.scopes as scope (scope)}
+                        <div class="badge badge-soft badge-sm flex items-center gap-1.5">
+                          <i class="fa-solid {getScopeIcon(scope)} text-center"></i>
+                          <span>{getScopeLabel(scope)}</span>
+                        </div>
+                      {/each}
+                    </div>
                   {/if}
-                  <p title={absoluteDate(token.createdAt)}>
-                    <span class="font-medium">{m.sessions_signed_in()}:</span>
-                    {relativeDate(token.createdAt)}
+                  <p class="flex items-center gap-2" title={absoluteDate(token.createdAt)}>
+                    <i class="fa-solid fa-calendar-day w-3.5 text-center"></i>
+                    <span>{m.created()}: {relativeDate(token.createdAt)}</span>
                   </p>
                   {#if token.updatedAt}
-                    <p title={absoluteDate(token.updatedAt)}>
-                      <span class="font-medium">{m.sessions_last_active()}:</span>
-                      {relativeDate(token.updatedAt)}
+                    <p class="flex items-center gap-2" title={absoluteDate(token.updatedAt)}>
+                      <i class="fa-solid fa-rotate w-3.5 text-center"></i>
+                      <span>{m.sessions_last_active()}: {relativeDate(token.updatedAt)}</span>
                     </p>
                   {/if}
                 </div>

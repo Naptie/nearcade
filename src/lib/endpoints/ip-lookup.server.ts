@@ -137,7 +137,7 @@ export async function lookupIpRegion(
       isp: null,
       organization: null,
       asn: null,
-      display: normalizedIp
+      display: null
     };
 
     ipLookupCache.set(cacheKey, {
