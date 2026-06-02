@@ -2457,6 +2457,15 @@
               ]
             },
             "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true."
+          },
+          {
+            "in": "query",
+            "name": "convertFrom",
+            "schema": {
+              "description": "原始坐标系。可选值：gps（WGS-84）、mapbar、baidu。\n\nSource coordinate system to convert from. Options: gps (WGS-84), mapbar, baidu.",
+              "type": "string"
+            },
+            "description": "原始坐标系。可选值：gps（WGS-84）、mapbar、baidu。\n\nSource coordinate system to convert from. Options: gps (WGS-84), mapbar, baidu."
           }
         ],
         "responses": {

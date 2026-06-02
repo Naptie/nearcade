@@ -24,6 +24,18 @@ export const discoverGameSchema = shopSchema.shape.games.element.extend({
   totalAttendance: gameAttendanceTotalSchema.optional()
 });
 
+export const convertFromSchema = z
+  .string()
+  .optional()
+  .transform((v) => v || undefined)
+  .pipe(z.enum(['gps', 'mapbar', 'baidu']).optional())
+  .describe(
+    bilingual(
+      '原始坐标系。可选值：gps（WGS-84）、mapbar、baidu。',
+      'Source coordinate system to convert from. Options: gps (WGS-84), mapbar, baidu.'
+    )
+  );
+
 export const discoverQuerySchema = z.object({
   longitude: z
     .union([z.string(), z.number()])
@@ -49,7 +61,8 @@ export const discoverQuerySchema = z.object({
     .describe(
       bilingual('是否获取在勤人数。默认为是。', 'Fetch attendance data. Defaults to true.')
     ),
-  includeTimeInfo: includeTimeInfoSchema
+  includeTimeInfo: includeTimeInfoSchema,
+  convertFrom: convertFromSchema
 });
 
 export const discoverShopSchema = shopSchema.extend({

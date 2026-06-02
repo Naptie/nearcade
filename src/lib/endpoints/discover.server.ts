@@ -3,6 +3,7 @@ import type { Game, Shop } from '$lib/types';
 import { calculateDistance, toPlainObject, getShopOpeningHours, getShopTimezone } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { base } from '$app/paths';
 import { getShopsAttendanceData } from './attendance.server';
 import type { PublicUser } from '$lib/auth/types';
 import {
@@ -24,13 +25,35 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     error(400, m.latitude_and_longitude_parameters_are_required());
   }
 
-  const {
-    latitude,
-    longitude,
-    radius: radiusKm,
-    fetchAttendance,
-    includeTimeInfo
-  } = parseQueryOrError(discoverQuerySchema, queryUrl);
+  const parsedQuery = parseQueryOrError(discoverQuerySchema, queryUrl);
+  let { latitude, longitude } = parsedQuery;
+  const { radius: radiusKm, fetchAttendance, includeTimeInfo, convertFrom } = parsedQuery;
+
+  // Convert coordinates from a non-GCJ-02 system if requested
+  if (convertFrom) {
+    try {
+      const convertUrl = new URL(
+        `${base}/_AMapService/v3/assistant/coordinate/convert`,
+        url.origin
+      );
+      convertUrl.searchParams.set('locations', `${longitude},${latitude}`);
+      convertUrl.searchParams.set('coordsys', convertFrom);
+      const response = await fetch(convertUrl.toString());
+      const data = (await response.json()) as { status: string; info: string; locations?: string };
+      if (data.status === '1' && data.locations) {
+        const [convertedLng, convertedLat] = data.locations.split(';')[0].split(',').map(Number);
+        if (!isNaN(convertedLng) && !isNaN(convertedLat)) {
+          longitude = convertedLng;
+          latitude = convertedLat;
+        }
+      } else {
+        console.error('AMap coordinate conversion failed:', data.info);
+      }
+    } catch (err) {
+      console.error('Failed to convert coordinates via AMap:', err);
+      // Fall through with original coordinates
+    }
+  }
 
   try {
     const radiusRadians = radiusKm / 6371;
