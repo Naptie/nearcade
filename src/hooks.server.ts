@@ -16,6 +16,7 @@ import { getAvailableOSS } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
 import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
+import { auth } from '$lib/auth/index.server';
 import {
   EMAIL_SETTINGS_ROUTE,
   POST_LOGIN_EMAIL_PROMPT_QUERY_PARAM,
@@ -24,8 +25,6 @@ import {
 } from '$lib/auth/email';
 import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
-
-let auth: (typeof import('$lib/auth/index.server'))['auth'];
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -211,10 +210,6 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 
   if (oauthScopeRequirement === null) {
     error(403, m.access_denied());
-  }
-
-  if (!auth) {
-    auth = (await import('$lib/auth/index.server')).auth;
   }
 
   const session =
