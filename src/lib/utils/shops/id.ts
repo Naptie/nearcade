@@ -1,10 +1,10 @@
 import { SHOP_ID_OFFSET_BEMANICN, SHOP_ID_OFFSET_ZIV } from '$lib/constants';
 
-export type LegacyShopSource = 'bemanicn' | 'ziv' | 'nearcade';
+export type LegacyShopSource = 'bemanicn' | 'ziv' | '';
 
 const normalizeLegacyShopSource = (sourceRaw: string): LegacyShopSource | null => {
   const source = sourceRaw.toLowerCase().trim();
-  if (source === 'bemanicn' || source === 'ziv' || source === 'nearcade') {
+  if (source === 'bemanicn' || source === 'ziv' || source === '') {
     return source;
   }
   return null;

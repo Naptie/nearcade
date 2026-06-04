@@ -182,7 +182,7 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
   const escapedBase = escapeRegExp(base);
 
   // Match /shops/:source/:id
-  const shopPathRegex = new RegExp(`^${escapedBase}/shops/([^/]+)/([^/]+)/?$`);
+  const shopPathRegex = new RegExp(`^${escapedBase}/shops/([^/]*)/([^/]+)/?$`);
   const shopMatch = pathname.match(shopPathRegex);
   if (shopMatch) {
     const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
@@ -192,7 +192,7 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
   }
 
   // Match /api/shops/:source/:id/*
-  const apiPathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]+)/([^/]+)(/.*)?$`);
+  const apiPathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]*)/([^/]+)(/.*)?$`);
   const apiMatch = pathname.match(apiPathRegex);
   if (apiMatch) {
     const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
