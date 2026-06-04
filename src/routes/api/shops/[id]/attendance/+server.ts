@@ -120,7 +120,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(401, m.unauthorized());
     }
     const agentShopId = agentApiKey.key.metadata?.shopId;
-    if (agentShopId?.toString() !== params.id) {
+    if (agentShopId && agentShopId.toString() !== params.id) {
       error(403, m.access_denied());
     }
     const dbUser = await usersCollection.findOne({ id: agentApiKey.key.referenceId });
@@ -128,7 +128,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       error(401, m.unauthorized());
     }
     isOpenApiAccess = true;
-    isClaimedShopAccess = agentShopId !== undefined;
+    isClaimedShopAccess = !!agentShopId;
     user = dbUser;
     if (userToken) {
       const targetApiKey = await auth.api.verifyApiKey({
