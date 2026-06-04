@@ -40,25 +40,6 @@ const reportError: HandleServerError = ({ status, error }) => {
   };
 };
 
-const requestDebugHeaderNames = [
-  'host',
-  'forwarded',
-  'x-real-ip',
-  'x-forwarded-for',
-  'x-forwarded-host',
-  'x-forwarded-proto',
-  'x-forwarded-port',
-  'cf-connecting-ip',
-  'cf-connecting-ipv6',
-  'true-client-ip',
-  'eo-connecting-ip',
-  'eo-client-ip',
-  'ali-cdn-real-ip'
-] as const;
-
-const collectRequestDebugHeaders = (request: Request) =>
-  Object.fromEntries(requestDebugHeaderNames.map((name) => [name, request.headers.get(name)]));
-
 const resolveOAuthScopeRequirement = (event: RequestEvent) => {
   const { pathname } = event.url;
   const authHeader = event.request.headers.get('Authorization');
@@ -78,29 +59,6 @@ const resolveOAuthScopeRequirement = (event: RequestEvent) => {
 
   const apiPath = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
   return resolveRequiredScopes(apiPath, event.request.method);
-};
-
-const handleRequestLogging: Handle = async ({ event, resolve }) => {
-  let clientIp = 'unavailable';
-  const requestDebugHeaders = collectRequestDebugHeaders(event.request);
-
-  try {
-    clientIp = event.getClientAddress();
-  } catch (e) {
-    console.error('Failed to get client IP address:', e);
-  }
-
-  let status = 'ERR';
-
-  try {
-    const response = await resolve(event);
-    status = String(response.status);
-    return response;
-  } finally {
-    console.log(
-      `[request] ${status} ${event.request.method} ${event.url.pathname} <- ${clientIp} headers=${JSON.stringify(requestDebugHeaders)}`
-    );
-  }
 };
 
 const handleOptions: Handle = async ({ event, resolve }) => {
@@ -286,7 +244,6 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = sequence(
-  handleRequestLogging,
   handleOptions,
   handleParaglide,
   handleAMap,
