@@ -39,11 +39,9 @@ type UserWithLegacyApiTokens = {
 };
 
 const serializeLegacyMetadata = (token: LegacyApiToken) => {
-  if (token.shopId === undefined) {
-    return null;
-  }
+  const metadata = token.shopId === undefined ? null : { shopId: token.shopId };
 
-  return JSON.stringify({ shopId: token.shopId });
+  return JSON.stringify(metadata);
 };
 
 const getLegacyPrefix = (token: string) => {
@@ -127,8 +125,7 @@ async function migrate() {
               expiresAt: token.expiresAt,
               createdAt: token.createdAt,
               updatedAt: new Date(),
-              metadata: serializeLegacyMetadata(token),
-              permissions: null
+              metadata: serializeLegacyMetadata(token)
             });
           }
 
