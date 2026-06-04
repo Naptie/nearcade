@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 
 import { MongoClient, ServerApiVersion } from 'mongodb';
-import dotenv from 'dotenv';
 
 if (!('MONGODB_URI' in process.env)) {
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

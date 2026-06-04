@@ -2,9 +2,9 @@
 
 import { API_KEY_TABLE_NAME, defaultKeyHasher, type ApiKey } from '@better-auth/api-key';
 import { MongoClient, MongoServerError, ObjectId, ServerApiVersion } from 'mongodb';
-import dotenv from 'dotenv';
 
 if (!('MONGODB_URI' in process.env)) {
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

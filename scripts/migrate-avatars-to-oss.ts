@@ -17,10 +17,10 @@ import { MongoClient } from 'mongodb';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { nanoid } from 'nanoid';
-import dotenv from 'dotenv';
 import AV from 'leancloud-storage';
 
 if (!('MONGODB_URI' in process.env)) {
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

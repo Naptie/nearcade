@@ -1,9 +1,8 @@
 import { MongoClient } from 'mongodb';
-import dotenv from 'dotenv';
 import type { University, UniversityMember, Club } from '../src/lib/types';
 
 if (!('MONGODB_URI' in process.env)) {
-  // Load environment variables for local development
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

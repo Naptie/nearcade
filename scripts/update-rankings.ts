@@ -10,10 +10,8 @@ import type {
 import { calculateDistance, getGameMachineCount, calculateAreaDensity } from '../src/lib/utils';
 import { GAME_TITLES, RADIUS_OPTIONS } from '../src/lib/constants';
 
-import dotenv from 'dotenv';
-
 if (!('MONGODB_URI' in process.env)) {
-  // Load environment variables for local development
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 

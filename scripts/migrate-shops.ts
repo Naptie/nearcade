@@ -20,9 +20,9 @@ import {
   type ObjectId,
   type WithId
 } from 'mongodb';
-import dotenv from 'dotenv';
 
 if (!('MONGODB_URI' in process.env)) {
+  const dotenv = await import('dotenv');
   dotenv.config();
 }
 
