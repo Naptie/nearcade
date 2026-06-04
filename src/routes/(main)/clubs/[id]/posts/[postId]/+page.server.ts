@@ -17,6 +17,7 @@ import {
   toPlainArray,
   toPlainObject
 } from '$lib/utils';
+import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 
 export const load = (async ({ params, locals }) => {
   const { id: clubId, postId } = params;
@@ -101,7 +102,9 @@ export const load = (async ({ params, locals }) => {
     error(404, m.post_not_found());
   }
 
-  const post = { ...postResult[0], author: protect(postResult[0].author) };
+  const [post] = await hydrateEntitiesWithImages(db, [
+    { ...postResult[0], author: protect(postResult[0].author) }
+  ]);
 
   // Get comments with authors
   const comments = await commentsCollection
@@ -155,11 +158,12 @@ export const load = (async ({ params, locals }) => {
     ])
     .toArray()
     .then((results) => results.map((r) => ({ ...r, author: protect(r.author) })));
+  const hydratedComments = await hydrateEntitiesWithImages(db, comments);
 
   return {
     club: toPlainObject(club),
     post: toPlainObject(post),
-    comments: toPlainArray(comments),
+    comments: toPlainArray(hydratedComments),
     userVote,
     canEdit,
     canManage,

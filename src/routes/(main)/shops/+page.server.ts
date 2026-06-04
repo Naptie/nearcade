@@ -5,7 +5,7 @@ import { PAGINATION } from '$lib/constants';
 import { sanitizeHTML, sanitizeRecursive, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import type { User } from '$lib/auth/types';
+import type { PublicUser } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 
@@ -124,14 +124,14 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         currentAttendance: number;
         currentReportedAttendance: {
           reportedAt: string;
-          reportedBy: User;
+          reportedBy: PublicUser;
           comment: string | null;
         } | null;
       })[];
 
       try {
         const attendanceDataMap = await getShopsAttendanceData(
-          shops.map((shop) => ({ source: shop.source, id: shop.id })),
+          shops.map((shop) => shop.id),
           {
             fetchRegistered: true,
             fetchReported: true,
@@ -140,7 +140,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         );
 
         shopsWithAttendance = shops.map((shop) => {
-          const shopIdentifier = `${shop.source}-${shop.id}`;
+          const shopIdentifier = shop.id.toString();
           const attendanceData = attendanceDataMap.get(shopIdentifier);
 
           if (!attendanceData) {
@@ -157,7 +157,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 
           let currentReportedAttendance: {
             reportedAt: string;
-            reportedBy: User;
+            reportedBy: PublicUser;
             comment: string | null;
           } | null = null;
 

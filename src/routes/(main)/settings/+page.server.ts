@@ -5,6 +5,7 @@ import mongo from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import type { SocialPlatform } from '$lib/constants';
+import { profileSettingsFormSchema } from '$lib/schemas/forms';
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { user } = await parent();
@@ -96,26 +97,30 @@ export const actions: Actions = {
       // Filter out empty social links
       const validSocialLinks = socialLinks.filter((link) => link.username.trim() !== '');
 
+      const parsedForm = profileSettingsFormSchema.safeParse({
+        displayName,
+        bio,
+        username,
+        isEmailPublic,
+        isActivityPublic,
+        isFootprintPublic,
+        isUniversityPublic,
+        isFrequentingArcadePublic,
+        isStarredArcadePublic,
+        notificationTypes,
+        socialLinks: validSocialLinks
+      });
+
       // Field-specific validation errors
       const fieldErrors: Record<string, string> = {};
 
-      // Validate username
-      if (!username || username.trim() === '') {
-        fieldErrors.username = 'username_required';
-      } else if (username.trim().length > 30) {
-        fieldErrors.username = 'username_too_long';
-      } else if (!/^[A-Za-z0-9_-]+$/.test(username.trim())) {
-        fieldErrors.username = 'username_invalid';
-      }
-
-      // Validate display name
-      if (displayName && displayName.trim().length > 50) {
-        fieldErrors.displayName = 'display_name_too_long';
-      }
-
-      // Validate bio
-      if (bio && bio.trim().length > 500) {
-        fieldErrors.bio = 'bio_too_long';
+      if (!parsedForm.success) {
+        for (const issue of parsedForm.error.issues) {
+          const field = issue.path[0];
+          if (typeof field === 'string') {
+            fieldErrors[field] = issue.message;
+          }
+        }
       }
 
       // If there are validation errors, return them

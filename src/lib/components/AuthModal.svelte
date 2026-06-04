@@ -3,6 +3,7 @@
   import FancyButton from './FancyButton.svelte';
   import { page } from '$app/state';
   import { authClient } from '$lib/auth/client';
+  import { withPostLoginMarker } from '$lib/auth/email';
   import { resolve, base } from '$app/paths';
   import { getDisplayName, isAdminOrModerator, getProviders } from '$lib/utils';
   import { onMount } from 'svelte';
@@ -90,7 +91,7 @@
               onclick={() => {
                 authClient.signIn.oauth2({
                   providerId: provider.id,
-                  callbackURL: page.url.pathname
+                  callbackURL: withPostLoginMarker(page.url)
                 });
               }}
               class="btn btn-outline not-2xs:btn-circle btn-t w-full items-center gap-2 py-5 sm:px-6 {provider.class}"

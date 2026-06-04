@@ -1,0 +1,7 @@
+allowBuilds:
+  '@firebase/util': true
+  core-js-pure: true
+  esbuild: true
+  protobufjs: true
+  sharp: true
+  workerd: true

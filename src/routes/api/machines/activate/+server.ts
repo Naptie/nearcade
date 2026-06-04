@@ -4,13 +4,11 @@ import mongo from '$lib/db/index.server';
 import type { Machine, Shop } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
+import { activateMachineQuerySchema, activateMachineResponseSchema } from '$lib/schemas/machines';
+import { parseQueryOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ url }) => {
-  const serialNumber = url.searchParams.get('sn');
-
-  if (!serialNumber) {
-    error(400, m.missing_required_parameters());
-  }
+  const { sn: serialNumber } = parseQueryOrError(activateMachineQuerySchema, url);
 
   const db = mongo.db();
   const machinesCollection = db.collection<Machine>('machines');
@@ -42,12 +40,13 @@ export const POST: RequestHandler = async ({ url }) => {
     }
   );
 
-  // Mark the shop as claimed
+  // Mark the shop as claimed and set ownerId from the machine
   await shopsCollection.updateOne(
-    { source: machine.shopSource, id: machine.shopId },
+    { id: machine.shopId },
     {
       $set: {
         isClaimed: true,
+        ...(machine.ownerId ? { ownerId: machine.ownerId } : {}),
         updatedAt: new Date()
       }
     }
@@ -55,19 +54,19 @@ export const POST: RequestHandler = async ({ url }) => {
 
   // Fetch the shop details to return
   const shop = await shopsCollection.findOne({
-    source: machine.shopSource,
     id: machine.shopId
   });
 
-  return json({
+  const response = activateMachineResponseSchema.parse({
     success: true,
     apiSecret,
     shop: shop
       ? {
-          source: shop.source,
           id: shop.id,
           name: shop.name
         }
       : null
   });
+
+  return json(response);
 };

@@ -8,14 +8,16 @@
   import { formatDistanceToNow } from 'date-fns';
   import { onMount, type Snippet } from 'svelte';
 
+  type AttendanceReporter = Pick<User, 'id' | 'name' | 'displayName' | 'image'>;
+
   let {
     reportedAttendance,
     class: klass = '',
     children
   }: {
     reportedAttendance: {
-      reportedBy: User | undefined;
-      reportedAt: string;
+      reportedBy: AttendanceReporter | undefined;
+      reportedAt: Date | string;
       comment: string | null;
     };
     class?: string;

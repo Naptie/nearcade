@@ -24,7 +24,8 @@
     formatShopAddress,
     getGameName,
     adaptiveNewTab,
-    getShopOpeningHours
+    getShopOpeningHours,
+    isShopChinaBased
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -37,8 +38,7 @@
     SHOP_INDEX,
     SELECTED_SHOP_INDEX,
     HOVERED_SHOP_INDEX,
-    GAMES,
-    ShopSource
+    GAME_TITLES
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
@@ -50,9 +50,9 @@
 
   let now = $state(new Date());
 
-  // Determine if all shops are from 'ziv' source to enable Google Maps
+  // Determine if all shops are overseas to enable Google Maps
   const useGoogleMaps = $derived(
-    data.shops.length > 0 && data.shops.every((shop) => shop.source === ShopSource.ZIV)
+    data.shops.length > 0 && data.shops.every((shop) => !isShopChinaBased(shop))
   );
 
   const amapContext = getContext<AMapContext>('amap');
@@ -97,6 +97,7 @@
   let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
 
   let costs: Record<string, Record<string, { preview: string; full: string }>> = $state({});
+  let discoverTableContainer: HTMLDivElement | undefined = $state(undefined);
 
   // Auto-discovery functionality
   let user = $derived(data.session?.user);
@@ -110,9 +111,9 @@
     if (browser) {
       const newCounts: Record<string, number> = {};
       data.shops.forEach((shop) => {
-        const stored = localStorage.getItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
+        const stored = localStorage.getItem(`nearcade-shop-${shop.id}-count`);
         if (stored) {
-          newCounts[`${shop.source}-${shop.id}`] = parseInt(stored, 10) || 0;
+          newCounts[`${shop.id}`] = parseInt(stored, 10) || 0;
         }
       });
       shopClickCounts = newCounts;
@@ -123,24 +124,18 @@
   const handleShopClick = async (shop: Shop) => {
     if (!browser || !user) return;
 
-    const currentCount = shopClickCounts[`${shop.source}-${shop.id}`] || 0;
+    const currentCount = shopClickCounts[`${shop.id}`] || 0;
     const newCount = currentCount + 1;
 
     // Update localStorage and state
-    localStorage.setItem(`nearcade-shop-${shop.source}-${shop.id}-count`, newCount.toString());
-    shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: newCount };
+    localStorage.setItem(`nearcade-shop-${shop.id}-count`, newCount.toString());
+    shopClickCounts = { ...shopClickCounts, [`${shop.id}`]: newCount };
 
     // Check if threshold is reached and user isn't already frequenting this arcade
-    if (
-      newCount >= discoveryInteractionThreshold &&
-      !user.frequentingArcades?.some(
-        (arcade) => arcade.id === shop.id && arcade.source === shop.source
-      )
-    ) {
+    if (newCount >= discoveryInteractionThreshold && !user.frequentingArcades?.includes(shop.id)) {
       try {
         // Submit form to add arcade automatically
         const formData = new FormData();
-        formData.append('arcadeSource', shop.source);
         formData.append('arcadeId', shop.id.toString());
 
         const response = await fetch(
@@ -152,8 +147,8 @@
         );
 
         if (response.ok) {
-          localStorage.removeItem(`nearcade-shop-${shop.source}-${shop.id}-count`);
-          shopClickCounts = { ...shopClickCounts, [`${shop.source}-${shop.id}`]: 0 };
+          localStorage.removeItem(`nearcade-shop-${shop.id}-count`);
+          shopClickCounts = { ...shopClickCounts, [`${shop.id}`]: 0 };
         }
       } catch (error) {
         console.error('Failed to auto-add arcade:', error);
@@ -215,7 +210,7 @@
 
   const getRouteLink = (shop: Shop | undefined) => {
     if (!data || !shop) return '';
-    const useGoogleMaps = shop.source === ShopSource.ZIV;
+    const useGoogleMaps = !isShopChinaBased(shop);
     const origin = data.location;
     const from = useGoogleMaps
       ? `${origin.latitude},${origin.longitude}`
@@ -246,7 +241,7 @@
   };
 
   let routeLink = $derived.by(
-    () => getRouteLink(data.shops.find((s) => `${s.source}-${s.id}` === routeGuidance.shopId)) || ''
+    () => getRouteLink(data.shops.find((s) => `${s.id}` === routeGuidance.shopId)) || ''
   );
 
   const getRouteOptions = (id: string): Partial<AMap.PolylineOptions> => {
@@ -346,24 +341,24 @@
 
           const routeLine = new amap.Polyline({
             path: path,
-            ...getRouteOptions(`${shop.source}-${shop.id}`)
+            ...getRouteOptions(`${shop.id}`)
           });
 
           routeLine.on('mouseover', () => {
-            hoveredShopId = `${shop.source}-${shop.id}`;
+            hoveredShopId = `${shop.id}`;
           });
           routeLine.on('mouseout', () => {
-            if (hoveredShopId === `${shop.source}-${shop.id}`) {
+            if (hoveredShopId === `${shop.id}`) {
               hoveredShopId = null;
             }
           });
           routeLine.on('click', () => {
-            selectedShopId = `${shop.source}-${shop.id}`;
+            selectedShopId = `${shop.id}`;
             showRouteGuidance();
           });
 
           (map as AMap.Map).add(routeLine);
-          travelData[`${shop.source}-${shop.id}`] = {
+          travelData[`${shop.id}`] = {
             time: selectedRoute.time ?? 0,
             distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
             path,
@@ -375,7 +370,7 @@
         const cacheKey = generateRouteCacheKey(
           data.location.latitude,
           data.location.longitude,
-          `${shop.source}-${shop.id}`,
+          `${shop.id}`,
           method
         );
 
@@ -424,16 +419,13 @@
                 }, 1000); // Wait 1 second before retry
               } else {
                 console.error(result);
-                travelData[`${shop.source}-${shop.id}`] = null;
+                travelData[`${shop.id}`] = null;
                 resolve();
               }
             });
           } catch (error) {
-            console.error(
-              `Error calculating travel data for shop ${shop.source}-${shop.id}:`,
-              error
-            );
-            travelData[`${shop.source}-${shop.id}`] = null;
+            console.error(`Error calculating travel data for shop ${shop.id}:`, error);
+            travelData[`${shop.id}`] = null;
             resolve();
           }
         });
@@ -443,8 +435,8 @@
     // Process shops sequentially to avoid rate limiting
     // Process selected shop first if exists, then process remaining shops
     for (const shop of [
-      ...data.shops.filter((shop) => `${shop.source}-${shop.id}` === selectedShopId),
-      ...data.shops.filter((shop) => `${shop.source}-${shop.id}` !== selectedShopId)
+      ...data.shops.filter((shop) => `${shop.id}` === selectedShopId),
+      ...data.shops.filter((shop) => `${shop.id}` !== selectedShopId)
     ]) {
       await processShop(shop);
     }
@@ -456,18 +448,61 @@
     return games?.find((game) => game.titleId === titleId) || null;
   };
 
-  const allGames = GAMES.map((game) => ({
+  const allGames = GAME_TITLES.map((game) => ({
     id: game.id,
     name: getGameName(game.key)
   }));
+  const gameOrder = new Map(allGames.map((game, index) => [game.id, index]));
 
-  const visibleGames = $derived.by(() => {
-    if (screenWidth < 480) return []; // 2xs: no games
-    if (screenWidth < 640) return allGames.slice(0, 1); // xs: 1 game
-    if (screenWidth < 768) return allGames.slice(0, 2); // sm: 2 games
-    if (screenWidth < 1024) return allGames.slice(0, 3); // md: 3 games
-    if (screenWidth < 1280) return allGames.slice(0, 4); // lg: 4 games
-    return allGames; // xl: all 5 games
+  let selectedTitleIds = $state<number[]>([]);
+  let showAbsentGames = $state(false);
+
+  const shopMatchesSelectedTitles = (shop: Shop, titleIds: number[]) => {
+    return (
+      titleIds.length === 0 ||
+      titleIds.every((id) => shop.games.some((game) => game.titleId === id))
+    );
+  };
+
+  let filteredShops = $derived.by(() => {
+    return sortedShops.filter((shop) => shopMatchesSelectedTitles(shop, selectedTitleIds));
+  });
+
+  let visibleGameIds = $derived.by(() => {
+    const ids = [...selectedTitleIds];
+
+    filteredShops.forEach((shop) => {
+      shop.games.forEach((game) => {
+        if (!ids.includes(game.titleId)) {
+          ids.push(game.titleId);
+        }
+      });
+    });
+
+    return ids;
+  });
+
+  let hiddenAbsentGames = $derived.by(() => {
+    return allGames.filter((game) => !visibleGameIds.includes(game.id));
+  });
+
+  let displayedGames = $derived.by(() => {
+    const baseGames = showAbsentGames
+      ? allGames
+      : allGames.filter((game) => visibleGameIds.includes(game.id));
+
+    return [...baseGames].sort((gameA, gameB) => {
+      const selectedIndexA = selectedTitleIds.indexOf(gameA.id);
+      const selectedIndexB = selectedTitleIds.indexOf(gameB.id);
+
+      if (selectedIndexA !== -1 || selectedIndexB !== -1) {
+        if (selectedIndexA === -1) return 1;
+        if (selectedIndexB === -1) return -1;
+        return selectedIndexA - selectedIndexB;
+      }
+
+      return (gameOrder.get(gameA.id) ?? 0) - (gameOrder.get(gameB.id) ?? 0);
+    });
   });
 
   const handleResize = () => {
@@ -500,9 +535,9 @@
 
     Promise.all(
       data.shops.flatMap((shop) => {
-        costs[`${shop.source}-${shop.id}`] = {};
+        costs[`${shop.id}`] = {};
         shop.games.map(async (game) => {
-          costs[`${shop.source}-${shop.id}`][game.titleId] = {
+          costs[`${shop.id}`][game.titleId] = {
             preview: await sanitizeHTML(game.cost.substring(0, 30)),
             full: await sanitizeHTML(game.cost)
           };
@@ -562,11 +597,7 @@
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined) return;
 
-    const shops = data.shops.filter(
-      (shop) =>
-        selectedTitleIds.length === 0 ||
-        selectedTitleIds.every((id) => shop.games.some((g) => g.titleId === id))
-    );
+    const shops = filteredShops;
     if (useGoogleMaps && google.maps) {
       // Initialize Google Maps
       untrack(async () => {
@@ -616,10 +647,7 @@
               position: { lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] },
               map: googleMap,
               title: shop.name,
-              content: createIcon(
-                `shop-marker-${shop.source}-${shop.id}`,
-                'fa-solid fa-location-dot fa-lg'
-              ),
+              content: createIcon(`shop-marker-${shop.id}`, 'fa-solid fa-location-dot fa-lg'),
               zIndex
             });
 
@@ -627,26 +655,26 @@
               content: createShopInfoWindowContent(shop)
             });
             infoWindow.addListener('closeclick', () => {
-              if (selectedShopId === `${shop.source}-${shop.id}`) {
+              if (selectedShopId === `${shop.id}`) {
                 selectedShopId = null;
               }
             });
 
-            markers[`${shop.source}-${shop.id}`] = { marker, infoWindow, zIndex };
+            markers[`${shop.id}`] = { marker, infoWindow, zIndex };
 
             marker.addListener('mouseover', () => {
-              hoveredShopId = `${shop.source}-${shop.id}`;
+              hoveredShopId = `${shop.id}`;
             });
 
             marker.addListener('mouseout', () => {
-              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+              if (hoveredShopId === `${shop.id}`) {
                 hoveredShopId = null;
               }
             });
 
             marker.addListener('click', () => {
-              selectedShopId = `${shop.source}-${shop.id}`;
-              highlightedShopId = `${shop.source}-${shop.id}`;
+              selectedShopId = `${shop.id}`;
+              highlightedShopId = `${shop.id}`;
               Object.values(markers).forEach((markerInfo) => {
                 markerInfo.infoWindow?.close();
               });
@@ -660,7 +688,7 @@
                 highlightedShopId = null;
               }, 3000);
 
-              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              const shopElement = document.getElementById(`shop-${shop.id}`);
               if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
@@ -715,7 +743,7 @@
             const marker = new amap!.Marker({
               position: shop.location.coordinates,
               title: shop.name,
-              content: `<i id="shop-marker-${shop.source}-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
+              content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
               offset: new amap!.Pixel(-7.03, -20),
               label: {
                 content: shop.name,
@@ -725,19 +753,19 @@
               zIndex
             });
 
-            markers[`${shop.source}-${shop.id}`] = { marker, zIndex };
+            markers[`${shop.id}`] = { marker, zIndex };
 
             marker.on('mouseover', () => {
-              hoveredShopId = `${shop.source}-${shop.id}`;
+              hoveredShopId = `${shop.id}`;
             });
             marker.on('mouseout', () => {
-              if (hoveredShopId === `${shop.source}-${shop.id}`) {
+              if (hoveredShopId === `${shop.id}`) {
                 hoveredShopId = null;
               }
             });
             marker.on('click', () => {
-              selectedShopId = `${shop.source}-${shop.id}`;
-              highlightedShopId = `${shop.source}-${shop.id}`;
+              selectedShopId = `${shop.id}`;
+              highlightedShopId = `${shop.id}`;
               if (highlightedShopIdTimeout) {
                 clearTimeout(highlightedShopIdTimeout);
               }
@@ -746,7 +774,7 @@
                   highlightedShopId = null;
                 }, 3000);
               }
-              const shopElement = document.getElementById(`shop-${shop.source}-${shop.id}`);
+              const shopElement = document.getElementById(`shop-${shop.id}`);
               if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
@@ -810,7 +838,7 @@
       untrack(() => {
         if (useGoogleMaps && map && 'setZoom' in map) {
           // For Google Maps, just center on the shop
-          const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+          const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
           if (shop) {
             map.setZoom(15);
             (map as google.maps.Map).panTo({
@@ -825,7 +853,7 @@
             routeGuidance.shopId = selectedShopId;
             openRouteGuidance();
           } else {
-            const shop = data.shops.find((s) => `${s.source}-${s.id}` === selectedShopId);
+            const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
             if (shop && map && 'setZoomAndCenter' in map) {
               map.setZoomAndCenter(15, shop.location.coordinates);
             }
@@ -876,7 +904,7 @@
     const hovered = hoveredShopId;
     untrack(() => {
       data.shops.forEach((shop) => {
-        const markerId = `${shop.source}-${shop.id}`;
+        const markerId = `${shop.id}`;
         const markerData = markers[markerId];
         if (!markerData) return;
 
@@ -909,9 +937,7 @@
             );
         }
 
-        const element = document.querySelector(
-          `#shop-marker-${shop.source}-${shop.id}`
-        ) as HTMLElement | null;
+        const element = document.querySelector(`#shop-marker-${shop.id}`) as HTMLElement | null;
         if (element) {
           element.className = element.className.replace(
             /text-error|text-warning dark:text-info|text-info dark:text-success/g,
@@ -957,8 +983,6 @@
     }
   });
 
-  let selectedTitleIds = $state<number[]>([]);
-
   const handleTitleFilterChange = (titleId: number) => {
     if (selectedTitleIds.includes(titleId)) {
       selectedTitleIds = selectedTitleIds.filter((id) => id !== titleId);
@@ -966,13 +990,27 @@
       selectedTitleIds = [...selectedTitleIds, titleId];
     }
   };
+
+  $effect(() => {
+    const selectedTitleSignature = selectedTitleIds.join(':');
+
+    if (!browser || !discoverTableContainer || !selectedTitleSignature) return;
+
+    const frame = requestAnimationFrame(() => {
+      if ((discoverTableContainer?.scrollLeft ?? 0) > 24) {
+        discoverTableContainer?.scrollTo({ left: 0, behavior: 'smooth' });
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  });
 </script>
 
 <RouteGuidance
   bind:isOpen={routeGuidance.isOpen}
-  shop={routeGuidance.shopId
-    ? data.shops.find((s) => `${s.source}-${s.id}` === routeGuidance.shopId)
-    : null}
+  shop={routeGuidance.shopId ? data.shops.find((s) => `${s.id}` === routeGuidance.shopId) : null}
   selectedRouteIndex={routeGuidance.selectedRouteIndex}
   routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
   isLoading={!!routeGuidance.shopId && !travelData[routeGuidance.shopId]}
@@ -1049,7 +1087,7 @@
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
   <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
     <div class="not-xs:text-center">
-      <div class="mb-2 inline-flex items-center gap-2">
+      <div class="mb-2 flex flex-wrap items-center gap-2">
         <h1 class="text-3xl font-bold">{m.nearby_arcades()}</h1>
         <div class="dropdown not-sm:dropdown-center">
           <button
@@ -1067,7 +1105,7 @@
           <div
             role="menu"
             tabindex="-1"
-            class="card dropdown-content bg-base-200 text-base-content z-10 mt-2 w-fit font-normal shadow-md"
+            class="card dropdown-content bg-base-200 text-base-content z-50 mt-2 w-fit font-normal shadow-md"
           >
             <div class="card-body p-4">
               <h3 class="card-title justify-between text-base text-nowrap">
@@ -1081,7 +1119,7 @@
                 </button>
               </h3>
               <div class="space-y-2">
-                {#each GAMES as game (game.id)}
+                {#each GAME_TITLES as game (game.id)}
                   <label class="flex cursor-pointer items-center gap-2 text-nowrap">
                     <input
                       type="checkbox"
@@ -1150,32 +1188,56 @@
       : ''}"
     bind:this={mapContainer}
   ></div>
+  {#if hiddenAbsentGames.length > 0}
+    <button
+      type="button"
+      class="btn btn-ghost btn-xs mb-2 not-hover:text-current/60"
+      class:btn-active={showAbsentGames}
+      aria-pressed={showAbsentGames}
+      onclick={() => {
+        showAbsentGames = !showAbsentGames;
+      }}
+    >
+      <i class={`fa-solid ${showAbsentGames ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+      {#if showAbsentGames}
+        {m.hide_absent_game_titles()}
+      {:else}
+        {m.show_hidden_absent_game_titles({ count: hiddenAbsentGames.length })}
+      {/if}
+    </button>
+  {/if}
   {#if data.shops.length > 0}
-    <div class="overflow-x-auto">
-      <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
+    <div class="discover-table-wrap overflow-x-auto rounded-xl" bind:this={discoverTableContainer}>
+      <table class="discover-table bg-base-200/30 dark:bg-base-200/60 table">
         <thead>
           <tr>
-            <th class="text-left">
+            <th class="discover-header discover-sticky discover-sticky-shop text-left">
               {m.shop()}
             </th>
-            <th class="text-center not-sm:hidden">
+            <th
+              class="discover-header discover-sticky discover-sticky-attendance text-center not-xl:hidden"
+            >
               {m.realtime_attendance()}
             </th>
-            <th class="text-center">
+            <th class="discover-header discover-sticky discover-sticky-travel text-center">
               {#if transportMethod}
                 {m.travel_time()}
               {:else}
                 {m.distance()}
               {/if}
             </th>
-            {#each visibleGames as game (game.id)}
-              <th id="game-{game.id}" class="text-center">{game.name}</th>
+            {#each displayedGames as game (game.id)}
+              <th id="game-{game.id}" class="discover-game-column discover-header text-center">
+                {game.name}
+              </th>
             {/each}
-            <th class="text-center">{m.actions()}</th>
+            <th class="discover-header discover-sticky discover-sticky-actions text-center">
+              {m.actions()}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {#each sortedShops.filter((shop) => selectedTitleIds.length === 0 || selectedTitleIds.every( (id) => shop.games.some((g) => g.titleId === id) )) as shop (shop._id)}
+          {#each filteredShops as shop (shop._id)}
             {@const openingHours = getShopOpeningHours(shop)}
             {@const isShopOpen =
               openingHours &&
@@ -1193,23 +1255,23 @@
                     }}
                     class="tooltip-right"
                   >
-                    <div class="text-accent not-sm:hidden {klass}">
+                    <div class="text-accent not-xl:hidden {klass}">
                       {m.in_attendance({ count: currentAttendance })}
                     </div>
-                    <div class="text-accent sm:hidden {klass}">
+                    <div class="text-accent xl:hidden {klass}">
                       <i class="fa-solid fa-user"></i>
                       {currentAttendance}
                     </div>
                   </AttendanceReportBlame>
                 {:else}
                   <div
-                    class="text-base-content/60 not-sm:hidden {klass}"
+                    class="text-base-content/60 not-xl:hidden {klass}"
                     class:text-primary={currentAttendance > 0}
                   >
                     {m.in_attendance({ count: currentAttendance })}
                   </div>
                   <div
-                    class="text-base-content/60 sm:hidden {klass}"
+                    class="text-base-content/60 xl:hidden {klass}"
                     class:text-primary={currentAttendance > 0}
                   >
                     <i class="fa-solid fa-user"></i>
@@ -1223,43 +1285,41 @@
             <tr
               id="shop-{shop.id}"
               class="group cursor-pointer transition-all select-none {highlightedShopId ===
-              `${shop.source}-${shop.id}`
+              `${shop.id}`
                 ? 'bg-accent/8'
-                : hoveredShopId === `${shop.source}-${shop.id}`
+                : hoveredShopId === `${shop.id}`
                   ? 'bg-base-300/30'
                   : ''}"
               onmouseenter={() => {
-                hoveredShopId = `${shop.source}-${shop.id}`;
+                hoveredShopId = `${shop.id}`;
               }}
               onmouseleave={() => {
-                if (hoveredShopId === `${shop.source}-${shop.id}`) {
+                if (hoveredShopId === `${shop.id}`) {
                   hoveredShopId = null;
                 }
               }}
               onclick={(event) => {
                 if ((event.target as Element)?.closest('button, a')) return;
-                selectedShopId = `${shop.source}-${shop.id}`;
+                selectedShopId = `${shop.id}`;
                 if (!(isMobileView && routeGuidance.isOpen))
                   mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >
-              <td>
+              <td class="discover-cell discover-sticky discover-sticky-shop">
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
                     <span class="text-sm">
-                      <span class="opacity-50">{shop.source.toUpperCase()} #{shop.id}</span>
-                      <span class="opacity-50 sm:hidden">·</span>
+                      <span class="opacity-50">#{shop.id}</span>
+                      <span class="opacity-50 xl:hidden">·</span>
                       <span
-                        class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 sm:hidden"
+                        class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
                       >
                         {@render attendance('text-xs')}
                       </span>
                       {#if transportMethod}
-                        {@const hasTravelData =
-                          travelData[`${shop.source}-${shop.id}`] !== undefined}
-                        {@const distance =
-                          travelData[`${shop.source}-${shop.id}`]?.distance ?? shop.distance}
+                        {@const hasTravelData = travelData[`${shop.id}`] !== undefined}
+                        {@const distance = travelData[`${shop.id}`]?.distance ?? shop.distance}
                         <span class="opacity-50">·</span>
                         <span
                           class="whitespace-nowrap transition-opacity not-hover:opacity-50 {!hasTravelData
@@ -1277,12 +1337,14 @@
                   </div>
                 </div>
               </td>
-              <td class="text-center not-sm:hidden">
+              <td
+                class="discover-cell discover-sticky discover-sticky-attendance text-center not-xl:hidden"
+              >
                 {@render attendance()}
               </td>
-              <td class="text-center">
+              <td class="discover-cell discover-sticky discover-sticky-travel text-center">
                 {#if transportMethod}
-                  {#if travelData[`${shop.source}-${shop.id}`] === undefined}
+                  {#if travelData[`${shop.id}`] === undefined}
                     <span class="loading loading-spinner loading-sm"></span>
                   {:else}
                     <div
@@ -1290,15 +1352,13 @@
                         shop.id
                       ] === null
                         ? 'badge-neutral'
-                        : travelData[`${shop.source}-${shop.id}`]!.time <
-                            Math.max(avgTravelTime / 1.5, 1200)
+                        : travelData[`${shop.id}`]!.time < Math.max(avgTravelTime / 1.5, 1200)
                           ? 'badge-success'
-                          : travelData[`${shop.source}-${shop.id}`]!.time <
-                              Math.max(avgTravelTime * 1.5, 2400)
+                          : travelData[`${shop.id}`]!.time < Math.max(avgTravelTime * 1.5, 2400)
                             ? 'badge-warning'
                             : 'badge-error'}"
                     >
-                      {formatDuration(travelData[`${shop.source}-${shop.id}`]?.time)}
+                      {formatDuration(travelData[`${shop.id}`]?.time)}
                     </div>
                   {/if}
                 {:else}
@@ -1314,11 +1374,11 @@
                   </div>
                 {/if}
               </td>
-              {#each visibleGames as gameInfo (gameInfo.id)}
+              {#each displayedGames as gameInfo (gameInfo.id)}
                 {@const game = findGame(shop.games, gameInfo.id)}
-                <td class="text-center">
+                <td class="discover-cell discover-game-column text-center">
                   {#if game}
-                    {@const id = `${shop.source}-${shop.id}`}
+                    {@const id = `${shop.id}`}
                     <div class="flex items-center justify-center gap-3">
                       <div
                         class="group-hover:text-accent flex items-center gap-1 text-sm transition-colors"
@@ -1355,12 +1415,11 @@
                   {/if}
                 </td>
               {/each}
-              <td class="text-right">
+              <td class="discover-cell discover-sticky discover-sticky-actions text-center">
                 <div class="flex flex-col justify-center gap-2 xl:flex-row">
                   <a
                     class="btn btn-ghost btn-sm text-nowrap"
-                    href={resolve('/(main)/shops/[source]/[id]', {
-                      source: shop.source,
+                    href={resolve('/(main)/shops/[id]', {
                       id: shop.id.toString()
                     })}
                     target={adaptiveNewTab()}
@@ -1424,6 +1483,92 @@
 
 <style lang="postcss">
   @reference "tailwindcss";
+
+  .discover-table-wrap {
+    --discover-shop-width: 8rem;
+    --discover-attendance-width: 0rem;
+    --discover-travel-width: 6rem;
+    --discover-title-width: 10rem;
+    --discover-actions-width: 7.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .discover-table-wrap {
+      --discover-shop-width: 12rem;
+      --discover-travel-width: 8rem;
+      --discover-title-width: 11rem;
+      --discover-actions-width: 9rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .discover-table-wrap {
+      --discover-attendance-width: 8rem;
+      --discover-title-width: 12rem;
+      --discover-actions-width: 10rem;
+    }
+  }
+
+  .discover-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .discover-cell {
+    @apply align-middle;
+  }
+
+  .discover-header {
+    background-color: var(--color-base-200);
+  }
+
+  .discover-sticky {
+    position: sticky;
+  }
+
+  .discover-table th.discover-sticky {
+    z-index: 30;
+  }
+
+  .discover-table td.discover-sticky {
+    z-index: 20;
+    background-color: var(--color-base-100);
+  }
+
+  .discover-sticky-shop {
+    left: 0;
+    width: var(--discover-shop-width);
+    min-width: var(--discover-shop-width);
+  }
+
+  .discover-sticky-attendance {
+    left: var(--discover-shop-width);
+    width: var(--discover-attendance-width);
+    min-width: var(--discover-attendance-width);
+  }
+
+  .discover-sticky-travel {
+    left: calc(var(--discover-shop-width) + var(--discover-attendance-width));
+    width: var(--discover-travel-width);
+    min-width: var(--discover-travel-width);
+    box-shadow: 10px 0 16px -16px hsl(var(--bc) / 0.7);
+  }
+
+  .discover-sticky-actions {
+    right: 0;
+    width: var(--discover-actions-width);
+    min-width: var(--discover-actions-width);
+    box-shadow: -10px 0 16px -16px hsl(var(--bc) / 0.7);
+  }
+
+  .discover-game-column {
+    width: var(--discover-title-width);
+    min-width: var(--discover-title-width);
+    white-space: normal;
+  }
 
   :global(.amap-marker-label) {
     @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;

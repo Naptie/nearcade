@@ -3,7 +3,6 @@ import type { PageServerLoad, Actions } from './$types';
 import type { Shop } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import mongo from '$lib/db/index.server';
-import type { ShopSource } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -20,17 +19,14 @@ export const load: PageServerLoad = async ({ parent }) => {
 
     // Get user profile with frequenting arcades
     const userProfile = await usersCollection.findOne({ id: user.id });
-    const frequentingArcadeIdentifiers = userProfile?.frequentingArcades || [];
+    const frequentingArcadeIds = userProfile?.frequentingArcades || [];
 
     // Get arcade details if there are any
     let frequentingArcades: Shop[] = [];
-    if (frequentingArcadeIdentifiers.length > 0) {
+    if (frequentingArcadeIds.length > 0) {
       frequentingArcades = await shopsCollection
         .find({
-          $and: [
-            { id: { $in: frequentingArcadeIdentifiers.map((id) => id.id) } },
-            { source: { $in: frequentingArcadeIdentifiers.map((id) => id.source) } }
-          ]
+          id: { $in: frequentingArcadeIds }
         })
         .toArray();
     }
@@ -41,8 +37,7 @@ export const load: PageServerLoad = async ({ parent }) => {
         id: arcade.id,
         name: arcade.name,
         location: arcade.location,
-        games: arcade.games || [],
-        source: arcade.source
+        games: arcade.games || []
       })),
       autoDiscovery: userProfile?.autoDiscovery ?? {
         discoveryInteractionThreshold: 5,
@@ -68,13 +63,8 @@ export const actions: Actions = {
 
     try {
       const formData = await request.formData();
-      const arcadeSource = formData.get('arcadeSource') as ShopSource;
       const arcadeIdRaw = formData.get('arcadeId');
       const arcadeId = parseInt(arcadeIdRaw as string, 10);
-
-      if (!arcadeSource) {
-        return fail(400, { message: m.arcade_source_is_required() });
-      }
 
       if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
         return fail(400, { message: m.arcade_id_is_required_and_must_be_a_valid_integer() });
@@ -85,7 +75,7 @@ export const actions: Actions = {
       const shopsCollection = db.collection<Shop>('shops');
 
       // Check if arcade exists
-      const arcade = await shopsCollection.findOne({ id: arcadeId, source: arcadeSource });
+      const arcade = await shopsCollection.findOne({ id: arcadeId });
       if (!arcade) {
         return fail(404, { message: m.arcade_not_found() });
       }
@@ -94,7 +84,7 @@ export const actions: Actions = {
       await usersCollection.updateOne(
         { id: user.id },
         {
-          $addToSet: { frequentingArcades: { id: arcadeId, source: arcadeSource } },
+          $addToSet: { frequentingArcades: arcadeId },
           $set: { updatedAt: new Date() }
         }
       );
@@ -118,11 +108,6 @@ export const actions: Actions = {
       const formData = await request.formData();
       const arcadeIdRaw = formData.get('arcadeId');
       const arcadeId = parseInt(arcadeIdRaw as string, 10);
-      const arcadeSource = formData.get('arcadeSource') as ShopSource;
-
-      if (!arcadeSource) {
-        return fail(400, { message: m.arcade_source_is_required() });
-      }
 
       if (!Number.isInteger(arcadeId) || isNaN(arcadeId)) {
         return fail(400, { message: m.arcade_id_is_required_and_must_be_a_valid_integer() });
@@ -135,7 +120,7 @@ export const actions: Actions = {
       await usersCollection.updateOne(
         { id: user.id },
         {
-          $pull: { frequentingArcades: { id: arcadeId, source: arcadeSource } },
+          $pull: { frequentingArcades: arcadeId },
           $set: { updatedAt: new Date() }
         }
       );

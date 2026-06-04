@@ -7,17 +7,46 @@ const getDisplayName = (user?: { displayName?: string | null; name?: string | nu
     : user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());
 };
 
+export const getShopDeleteRequestTargetName = (
+  shopName?: string,
+  shopDeleteRequestType?: Notification['shopDeleteRequestType']
+) => {
+  if (shopDeleteRequestType === 'photo') {
+    return m.shop_photo_delete_request_target({ shopName: shopName ?? '' });
+  }
+
+  return m.shop_delete_request_target({ shopName: shopName ?? '' });
+};
+
+export const getNotificationTargetName = (notification: Notification) => {
+  if (notification.shopDeleteRequestId) {
+    return getShopDeleteRequestTargetName(
+      notification.shopName,
+      notification.shopDeleteRequestType
+    );
+  }
+
+  if (notification.shopId) {
+    return notification.shopName ?? '';
+  }
+
+  if (notification.postTitle) {
+    return notification.postTitle;
+  }
+
+  if (notification.joinRequestType === 'university') {
+    return notification.universityName ?? '';
+  }
+
+  return notification.clubName ?? '';
+};
+
 export const getNotificationTitle = (notification: Notification) => {
   const actorName = getDisplayName({
     name: notification.actorName,
     displayName: notification.actorDisplayName
   });
-  const targetName =
-    notification.postTitle ??
-    ((notification.joinRequestType === 'university'
-      ? notification.universityName
-      : notification.clubName) ||
-      '');
+  const targetName = getNotificationTargetName(notification);
 
   switch (notification.type) {
     case 'COMMENTS':
@@ -36,6 +65,16 @@ export const getNotificationTitle = (notification: Notification) => {
       return notification.joinRequestStatus === 'approved'
         ? m.notification_user_approved_join_request({ userName: actorName, targetName })
         : m.notification_user_rejected_join_request({ userName: actorName, targetName });
+    case 'SHOP_DELETE_REQUESTS':
+      return notification.shopDeleteRequestStatus === 'approved'
+        ? m.notification_delete_request_approved({
+            userName: actorName,
+            targetName
+          })
+        : m.notification_delete_request_rejected({
+            userName: actorName,
+            targetName
+          });
     default:
       return '';
   }
@@ -46,7 +85,11 @@ export const getNotificationLink = (notification: Notification, base = '', fallb
     case 'COMMENTS':
     case 'REPLIES':
     case 'COMMENT_VOTES':
-      if (notification.universityId) {
+      if (notification.shopDeleteRequestId) {
+        return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}?comment=${notification.commentId}`;
+      } else if (notification.shopId) {
+        return `${base}/shops/${notification.shopId}?comment=${notification.commentId}`;
+      } else if (notification.universityId) {
         return `${base}/universities/${notification.universityId}/posts/${notification.postId}?comment=${notification.commentId}`;
       } else if (notification.clubId) {
         return `${base}/clubs/${notification.clubId}/posts/${notification.postId}?comment=${notification.commentId}`;
@@ -58,6 +101,12 @@ export const getNotificationLink = (notification: Notification, base = '', fallb
         return `${base}/universities/${notification.universityId}/posts/${notification.postId}`;
       } else if (notification.clubId) {
         return `${base}/clubs/${notification.clubId}/posts/${notification.postId}`;
+      }
+      return fallback;
+
+    case 'SHOP_DELETE_REQUESTS':
+      if (notification.shopDeleteRequestId) {
+        return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}`;
       }
       return fallback;
 

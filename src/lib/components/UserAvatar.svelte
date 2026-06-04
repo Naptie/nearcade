@@ -91,7 +91,7 @@
             : 'bg-neutral text-neutral-content'}"
         >
           {#if user?.image}
-            <img src={user.image} alt="{getDisplayName(user)} {m.avatar()}" />
+            <img src={user.image} alt={getDisplayName(user)} />
           {:else}
             <span
               class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform {textSizeClasses[

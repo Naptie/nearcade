@@ -1,27 +1,12 @@
-import mongo from '$lib/db/index.server';
-import { getAllShopsAttendanceData } from '$lib/endpoints/attendance.server';
-import type { Shop } from '$lib/types';
+import { base } from '$app/paths';
+import { loadGlobeShops } from '$lib/endpoints/globe.server';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ depends }) => {
+export const load: LayoutServerLoad = async ({ depends, url }) => {
   depends('app:globe-shops');
-  const db = mongo.db();
+  const isGlobePage = url.pathname === `${base}/globe`;
 
   return {
-    globeShopData: db
-      .collection<Shop>('shops')
-      .find({})
-      .project({
-        _id: 0,
-        name: 1,
-        address: 1,
-        location: 1,
-        openingHours: 1,
-        games: 1,
-        source: 1,
-        id: 1
-      })
-      .toArray() as Promise<Shop[]>,
-    globeAttendanceData: getAllShopsAttendanceData()
+    globeShopData: isGlobePage ? loadGlobeShops() : null
   };
 };

@@ -1,9 +1,33 @@
-import { isLeanCloudInitialized, uploadToLeanCloud } from './leancloud.js';
-import { isS3Initialized, uploadToS3 } from './s3.js';
+import type { ImageStorageProvider } from '$lib/types';
+import {
+  deleteFromLeanCloud,
+  getLeanCloudConfig,
+  isLeanCloudInitialized,
+  uploadToLeanCloud
+} from './leancloud.js';
+import { deleteFromS3, getS3Config, isS3Initialized, uploadToS3 } from './s3.js';
 
-export const isOSSAvailable = () => isS3Initialized || isLeanCloudInitialized;
+export interface UploadedFileDescriptor {
+  url: string;
+  storageProvider: ImageStorageProvider;
+  storageKey: string;
+  storageObjectId?: string | null;
+}
 
-export const upload = async (
+export interface StoredFileReference {
+  storageProvider: ImageStorageProvider;
+  storageKey: string;
+  storageObjectId?: string | null;
+}
+
+export const getAvailableOSS = () =>
+  isS3Initialized
+    ? { name: 'S3', url: getS3Config()?.endpoint }
+    : isLeanCloudInitialized
+      ? { name: 'LeanCloud', url: getLeanCloudConfig()?.serverURL }
+      : null;
+
+export const uploadFile = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
   onProgress: (progress: number) => void
@@ -13,3 +37,22 @@ export const upload = async (
   (() => {
     throw new Error('No OSS provider available');
   })();
+
+export const upload = async (
+  name: string,
+  buffer: Buffer<ArrayBufferLike>,
+  onProgress: (progress: number) => void
+) => (await uploadFile(name, buffer, onProgress)).url;
+
+export const deleteFile = async (file: StoredFileReference) => {
+  if (file.storageProvider === 's3') {
+    await deleteFromS3(file.storageKey);
+    return;
+  }
+
+  if (!file.storageObjectId) {
+    throw new Error('LeanCloud file deletion requires a storage object id');
+  }
+
+  await deleteFromLeanCloud(file.storageObjectId);
+};

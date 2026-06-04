@@ -4,9 +4,16 @@ import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { toPlainObject } from '$lib/utils';
+import {
+  universityDetailResponseSchema,
+  universityIdParamSchema
+} from '$lib/schemas/organizations';
+import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
+import { parseParamsOrError } from '$lib/utils/validation.server';
 
 export const GET: RequestHandler = async ({ params }) => {
-  const { id } = params;
+  const { id } = parseParamsOrError(universityIdParamSchema, params);
 
   try {
     const db = mongo.db();
@@ -27,7 +34,15 @@ export const GET: RequestHandler = async ({ params }) => {
       error(404, m.university_not_found());
     }
 
-    return json({ university });
+    const normalizedUniversity = normalizeUniversityDocument(university);
+
+    return json(
+      universityDetailResponseSchema.parse(
+        toPlainObject({
+          university: normalizedUniversity
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

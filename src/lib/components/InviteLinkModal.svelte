@@ -2,6 +2,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { InviteLink } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
+  import CopyField from './CopyField.svelte';
 
   let { isOpen = $bindable(false), type = 'university', targetId = '', targetName = '' } = $props();
 
@@ -11,7 +12,6 @@
   let maxUses = $state<number | null>(null);
   let requireApproval = $state(false);
   let isGenerating = $state(false);
-  let isCopied = $state(false);
   let generatedLink = $state<InviteLink | null>(null);
 
   const handleGenerate = async () => {
@@ -56,22 +56,6 @@
     maxUses = null;
     requireApproval = false;
     generatedLink = null;
-  };
-
-  const copyLink = async () => {
-    if (generatedLink) {
-      const fullLink = `${window.location.origin}/invite/${generatedLink.code}`;
-      const text = `[${m.app_name()}] ${title || m.invite_title_placeholder({ target: targetName })}\n${fullLink}`;
-      try {
-        await navigator.clipboard.writeText(text);
-        isCopied = true;
-        setTimeout(() => {
-          isCopied = false;
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to copy link:', error);
-      }
-    }
   };
 </script>
 
@@ -178,27 +162,13 @@
           <label class="label">
             <span class="label-text">{m.invite_link()}</span>
           </label>
-          <div class="join w-full">
-            <input
-              type="text"
-              class="input input-bordered join-item flex-1"
-              value="{window.location.origin}/invite/{generatedLink.code}"
-              readonly
-            />
-            <button
-              class="btn btn-primary btn-soft join-item"
-              class:btn-disabled={isCopied}
-              onclick={copyLink}
-            >
-              {#if isCopied}
-                <i class="fa-solid fa-check"></i>
-                {m.copied()}
-              {:else}
-                <i class="fa-solid fa-copy"></i>
-                {m.copy_link()}
-              {/if}
-            </button>
-          </div>
+          <CopyField
+            value="{window.location.origin}/invite/{generatedLink.code}"
+            copyText="[{m.app_name()}] {title ||
+              m.invite_title_placeholder({ target: targetName })}\n{window.location
+              .origin}/invite/{generatedLink.code}"
+            ariaLabel={m.copy_link()}
+          />
         </div>
 
         <!-- Link Details -->

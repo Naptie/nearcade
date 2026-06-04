@@ -4,11 +4,20 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDistance, formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { formatChangelogDescription } from '$lib/utils/changelog';
+  import { formatChangelogDescription } from '$lib/utils/universities-clubs/changelog';
+  import { formatShopChangelogDescription } from '$lib/utils/shops/changelog';
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
   import { formatTime, getDisplayName, getFnsLocale } from '$lib/utils';
+
+  const getShopDeleteRequestTargetName = (activity: Activity) => {
+    if (activity.shopDeleteRequestType === 'photo') {
+      return m.shop_photo_delete_request_target({ shopName: activity.shopName || '' });
+    }
+
+    return m.shop_delete_request_target({ shopName: activity.shopName || '' });
+  };
 
   interface Props {
     activity: Activity;
@@ -26,13 +35,29 @@
         return 'fa-solid fa-comment text-info';
       case 'reply':
         return 'fa-solid fa-reply text-info';
+      case 'shop_comment':
+        return 'fa-solid fa-store text-info';
+      case 'shop_reply':
+        return 'fa-solid fa-reply text-info';
       case 'post_vote':
       case 'comment_vote':
+      case 'shop_comment_vote':
+      case 'shop_delete_request_comment_vote':
         return activity.voteType === 'upvote'
+          ? 'fa-solid fa-thumbs-up text-success'
+          : 'fa-solid fa-thumbs-down text-error';
+      case 'shop_delete_request_comment':
+        return 'fa-solid fa-comment text-warning';
+      case 'shop_delete_request_reply':
+        return 'fa-solid fa-reply text-warning';
+      case 'shop_delete_request_vote':
+        return activity.shopDeleteRequestVoteType === 'favor'
           ? 'fa-solid fa-thumbs-up text-success'
           : 'fa-solid fa-thumbs-down text-error';
       case 'changelog':
         return 'fa-solid fa-list-ul text-warning';
+      case 'shop_changelog':
+        return 'fa-solid fa-gamepad text-warning';
       case 'university_join':
         return 'fa-solid fa-graduation-cap text-primary';
       case 'club_join':
@@ -67,11 +92,17 @@
           authorName,
           targetName
         });
+      case 'shop_comment':
+        return m.activity_commented_on({ targetName });
+      case 'shop_reply':
+        return m.activity_replied_to({ authorName, targetName });
       case 'post_vote':
         return activity.voteType === 'upvote'
           ? m.activity_upvoted_post({ targetName })
           : m.activity_downvoted_post({ targetName });
       case 'comment_vote':
+      case 'shop_comment_vote':
+      case 'shop_delete_request_comment_vote':
         return activity.voteType === 'upvote'
           ? m.activity_upvoted_comment({
               authorName,
@@ -81,7 +112,16 @@
               authorName,
               targetName
             });
+      case 'shop_delete_request_comment':
+        return m.activity_commented_on({ targetName });
+      case 'shop_delete_request_reply':
+        return m.activity_replied_to({ authorName, targetName });
+      case 'shop_delete_request_vote':
+        return activity.shopDeleteRequestVoteType === 'favor'
+          ? m.activity_voted_in_favor_of_delete_request({ targetName })
+          : m.activity_voted_against_delete_request({ targetName });
       case 'changelog':
+      case 'shop_changelog':
         return m.activity_contributed_to({ targetName });
       case 'university_join':
         return m.activity_joined_university({ targetName });
@@ -133,6 +173,38 @@
         }
         return '#';
 
+      case 'shop_comment':
+      case 'shop_reply':
+      case 'shop_comment_vote':
+        if (activity.shopId) {
+          return (
+            resolve('/(main)/shops/[id]', {
+              id: activity.shopId.toString()
+            }) + `?comment=${activity.commentId}`
+          );
+        }
+        return '#';
+
+      case 'shop_delete_request_comment':
+      case 'shop_delete_request_reply':
+      case 'shop_delete_request_comment_vote':
+        if (activity.shopDeleteRequestId) {
+          return (
+            resolve('/(main)/shops/delete-requests/[id]', {
+              id: activity.shopDeleteRequestId
+            }) + `?comment=${activity.commentId}`
+          );
+        }
+        return '#';
+
+      case 'shop_delete_request_vote':
+        if (activity.shopDeleteRequestId) {
+          return resolve('/(main)/shops/delete-requests/[id]', {
+            id: activity.shopDeleteRequestId
+          });
+        }
+        return '#';
+
       case 'post_vote':
         if (activity.universityId) {
           return resolve('/(main)/universities/[id]/posts/[postId]', {
@@ -175,6 +247,16 @@
         }
         return '#';
 
+      case 'shop_changelog':
+        if (activity.shopId) {
+          return (
+            resolve('/(main)/shops/[id]', {
+              id: activity.shopId.toString()
+            }) + `?entry=${activity.id}#changelog`
+          );
+        }
+        return '#';
+
       case 'university_join':
         if (activity.joinedUniversityId) {
           return resolve('/(main)/universities/[id]', {
@@ -194,9 +276,8 @@
         return '#';
 
       case 'shop_attendance':
-        if (activity.shopSource && activity.shopId) {
-          return resolve('/(main)/shops/[source]/[id]', {
-            source: activity.shopSource,
+        if (activity.shopId) {
+          return resolve('/(main)/shops/[id]', {
             id: activity.shopId.toString()
           });
         }
@@ -214,12 +295,26 @@
       case 'comment':
       case 'reply':
         return activity.parentPostTitle || '';
+      case 'shop_comment':
+      case 'shop_reply':
+      case 'shop_comment_vote':
+        return activity.shopName || '';
       case 'post_vote':
       case 'comment_vote':
         return activity.targetTitle || '';
+      case 'shop_delete_request_comment':
+      case 'shop_delete_request_reply':
+      case 'shop_delete_request_comment_vote':
+      case 'shop_delete_request_vote':
+        return getShopDeleteRequestTargetName(activity);
       case 'changelog':
         if (activity.changelogEntry) {
           return formatChangelogDescription(activity.changelogEntry, m);
+        }
+        return activity.changelogTargetName || '';
+      case 'shop_changelog':
+        if (activity.shopChangelogEntry) {
+          return formatShopChangelogDescription(activity.shopChangelogEntry, m);
         }
         return activity.changelogTargetName || '';
       case 'university_join':
@@ -240,12 +335,22 @@
       return activity.universityName;
     } else if (activity.clubName) {
       return activity.clubName;
+    } else if (activity.shopName) {
+      return activity.shopName;
     }
     return null;
   });
 
   onMount(async () => {
-    if ((activity.type === 'comment' || activity.type === 'reply') && content) {
+    if (
+      (activity.type === 'comment' ||
+        activity.type === 'reply' ||
+        activity.type === 'shop_comment' ||
+        activity.type === 'shop_reply' ||
+        activity.type === 'shop_delete_request_comment' ||
+        activity.type === 'shop_delete_request_reply') &&
+      content
+    ) {
       content = await strip(content);
     }
   });
@@ -273,7 +378,7 @@
       </div>
 
       <!-- Activity Preview for Comments and Replies -->
-      {#if (activity.type === 'comment' || activity.type === 'reply') && content}
+      {#if (activity.type === 'comment' || activity.type === 'reply' || activity.type === 'shop_comment' || activity.type === 'shop_reply' || activity.type === 'shop_delete_request_comment' || activity.type === 'shop_delete_request_reply') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
         </div>
@@ -308,18 +413,24 @@
         </div>
       {/if}
 
-      <!-- Context (University/Club) -->
+      <!-- Context (University/Club/Shop) -->
       {#if context}
         <a
           href={activity.universityId
             ? resolve('/(main)/universities/[id]', { id: activity.universityId })
-            : resolve('/(main)/clubs/[id]', { id: activity.clubId || '' })}
+            : activity.clubId
+              ? resolve('/(main)/clubs/[id]', { id: activity.clubId || '' })
+              : activity.shopId
+                ? resolve('/(main)/shops/[id]', { id: activity.shopId.toString() })
+                : '#'}
           class="text-base-content/60 hover:text-accent flex w-fit items-center gap-1 text-xs transition-colors"
         >
           {#if activity.universityId}
             <i class="fa-solid fa-graduation-cap"></i>
-          {:else}
+          {:else if activity.clubId}
             <i class="fa-solid fa-users"></i>
+          {:else}
+            <i class="fa-solid fa-store"></i>
           {/if}
           {context}
         </a>

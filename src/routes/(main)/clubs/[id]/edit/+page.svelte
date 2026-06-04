@@ -1,22 +1,25 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
   import type { PageData, ActionData } from './$types';
+  import UploadModal from '$lib/components/UploadModal.svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let isSubmitting = $state(false);
   let errors = $state<string[]>([]);
+  let isAvatarUploadOpen = $state(false);
 
   // Form data initialized from existing club data
   let name = $derived(data.club.name);
   let slug = $derived(data.club.slug || '');
   let description = $derived(data.club.description || '');
   let website = $derived(data.club.website || '');
+  // avatarUrl as separate state so it can be updated after upload
   let avatarUrl = $derived(data.club.avatarUrl || '');
   let backgroundColor = $derived(data.club.backgroundColor || '#3b82f6');
   let acceptJoinRequests = $derived(data.club.acceptJoinRequests);
@@ -233,20 +236,38 @@
           />
         </div>
 
-        <!-- Avatar URL -->
+        <!-- Avatar -->
         <div class="form-control">
-          <label class="label" for="avatarUrl">
+          <div class="label">
             <span class="label-text">{m.club_avatar()}</span>
-          </label>
-          <input
-            id="avatarUrl"
-            name="avatarUrl"
-            type="url"
-            bind:value={avatarUrl}
-            placeholder={m.placeholder_avatar_url()}
-            class="input input-bordered w-full"
-            maxlength="500"
-          />
+          </div>
+          <div class="flex items-center gap-4">
+            {#if avatarUrl}
+              <div class="avatar">
+                <div class="h-16 w-16 rounded-full">
+                  <img src={avatarUrl} alt={m.club_avatar()} />
+                </div>
+              </div>
+            {:else}
+              <div class="avatar placeholder">
+                <div
+                  class="bg-neutral text-neutral-content flex h-16 w-16 items-center justify-center rounded-full"
+                >
+                  <span class="text-xl">{data.club.name.charAt(0)}</span>
+                </div>
+              </div>
+            {/if}
+            <button
+              type="button"
+              class="btn btn-soft btn-primary btn-sm"
+              onclick={() => (isAvatarUploadOpen = true)}
+            >
+              <i class="fa-solid fa-camera"></i>
+              {m.change_avatar()}
+            </button>
+          </div>
+          <!-- Hidden input preserves avatarUrl in the main form submission -->
+          <input type="hidden" name="avatarUrl" value={avatarUrl} />
         </div>
       </div>
     </div>
@@ -330,3 +351,14 @@
     </div>
   </form>
 </div>
+
+<UploadModal
+  bind:isOpen={isAvatarUploadOpen}
+  uploadUrl="/api/clubs/{data.club.id}/avatar"
+  title={m.upload_avatar()}
+  confirmLabel={m.upload_avatar()}
+  onSuccess={(result) => {
+    avatarUrl = result.url;
+    invalidateAll();
+  }}
+/>

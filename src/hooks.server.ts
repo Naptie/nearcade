@@ -1,13 +1,30 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle, type HandleServerError, type ServerInit } from '@sveltejs/kit';
+import {
+  redirect,
+  error,
+  type RequestEvent,
+  type Handle,
+  type HandleServerError,
+  type ServerInit
+} from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
-import { isOSSAvailable } from '$lib/oss';
+import { getAvailableOSS } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
+import { parseLegacyShopParams } from '$lib/utils/shops/id';
 import { building } from '$app/environment';
+import { auth } from '$lib/auth/index.server';
+import {
+  EMAIL_SETTINGS_ROUTE,
+  POST_LOGIN_EMAIL_PROMPT_QUERY_PARAM,
+  requiresEmailBinding,
+  stripPostLoginMarker
+} from '$lib/auth/email';
+import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
+import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -21,6 +38,27 @@ const reportError: HandleServerError = ({ status, error }) => {
     message: m.unexpected_error(),
     code: 'INTERNAL_ERROR'
   };
+};
+
+const resolveOAuthScopeRequirement = (event: RequestEvent) => {
+  const { pathname } = event.url;
+  const authHeader = event.request.headers.get('Authorization');
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return undefined;
+  }
+
+  const token = authHeader.slice(7);
+  if (token.startsWith('nk_')) {
+    return undefined;
+  }
+
+  if (!pathname.startsWith(`${base}/api/`) || pathname.startsWith(`${base}/api/auth/`)) {
+    return undefined;
+  }
+
+  const apiPath = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+  return resolveRequiredScopes(apiPath, event.request.method);
 };
 
 const handleOptions: Handle = async ({ event, resolve }) => {
@@ -122,11 +160,86 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const sanitizeConnectionUrl = (value?: string) => {
+  if (!value) {
+    return 'connected';
+  }
+
+  try {
+    const url = new URL(value);
+    url.username = '';
+    url.password = '';
+    return url.toString();
+  } catch {
+    return value.replace(/^(\w+:\/\/)(?:[^@/]+@)/, '$1');
+  }
+};
+
+const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
+  const { pathname, search } = event.url;
+  const escapedBase = escapeRegExp(base);
+
+  // Match /shops/:source/:id
+  const shopPathRegex = new RegExp(`^${escapedBase}/shops/([^/]+)/([^/]+)/?$`);
+  const shopMatch = pathname.match(shopPathRegex);
+  if (shopMatch) {
+    const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
+    if (parsed) {
+      redirect(308, `${base}/shops/${parsed.unifiedId}${search}`);
+    }
+  }
+
+  // Match /api/shops/:source/:id/*
+  const apiPathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]+)/([^/]+)(/.*)?$`);
+  const apiMatch = pathname.match(apiPathRegex);
+  if (apiMatch) {
+    const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
+    if (parsed) {
+      const suffix = apiMatch[3] || '';
+      redirect(308, `${base}/api/shops/${parsed.unifiedId}${suffix}${search}`);
+    }
+  }
+
+  return resolve(event);
+};
+
 const handleAuth: Handle = async ({ event, resolve }) => {
-  const { auth } = await import('$lib/auth/index.server');
-  const session = await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
+  const oauthScopeRequirement = resolveOAuthScopeRequirement(event);
+
+  if (oauthScopeRequirement === null) {
+    error(403, m.access_denied());
+  }
+
+  const session =
+    oauthScopeRequirement !== undefined
+      ? await resolveOAuthAccessTokenSession(event, oauthScopeRequirement)
+      : await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
+
   event.locals.session = session as App.Locals['session'];
   event.locals.user = (session?.user as App.Locals['user']) ?? null;
+
+  const shouldPromptForEmail =
+    event.request.method === 'GET' &&
+    event.request.headers.get('accept')?.includes('text/html') &&
+    event.url.searchParams.get(POST_LOGIN_EMAIL_PROMPT_QUERY_PARAM) === '1' &&
+    requiresEmailBinding(session?.user);
+
+  if (shouldPromptForEmail) {
+    const emailSettingsPath = `${base}${EMAIL_SETTINGS_ROUTE}`;
+
+    if (event.url.pathname !== emailSettingsPath) {
+      const redirectTarget = stripPostLoginMarker(event.url);
+      const promptUrl = new URL(event.url);
+      promptUrl.pathname = emailSettingsPath;
+      promptUrl.search = '';
+      promptUrl.searchParams.set('prompt', '1');
+      promptUrl.searchParams.set('continue', redirectTarget);
+      redirect(303, `${promptUrl.pathname}?${promptUrl.searchParams.toString()}`);
+    }
+  }
+
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
@@ -136,6 +249,7 @@ export const handle: Handle = sequence(
   handleAMap,
   handleDiscoverShortcut,
   handleUserShortcut,
+  handleLegacyShopPaths,
   handleHeaders,
   handleAuth
 );
@@ -144,7 +258,32 @@ export const handleError: HandleServerError = reportError;
 
 export const init: ServerInit = async () => {
   if (!building) {
-    await (await import('$lib/db/meili.server')).init();
-    console.log(isOSSAvailable() ? 'OSS is available' : 'OSS is not available');
+    const meili = await import('$lib/db/meili.server');
+    await meili.init();
+    const mongo = (await import('$lib/db/index.server')).default;
+    const redis = (await import('$lib/db/redis.server')).default;
+    const oss = getAvailableOSS();
+    console.log(
+      [
+        '                                     _       ',
+        '  _ __   ___  __ _ _ __ ___ __ _  __| | ___  ',
+        " | '_ \\ / _ \\/ _` | '__/ __/ _` |/ _` |/ _ \\ ",
+        ' | | | |  __/ (_| | | | (_| (_| | (_| |  __/ ',
+        ' |_| |_|\\___|\\__,_|_|  \\___\\__,_|\\__,_|\\___| ',
+        '                                             '
+      ].join('\n')
+    );
+    console.log('=============================================\n|');
+    console.log(
+      '| Persistent Store:',
+      mongo.options.hosts.map((h) => `mongodb://${h.toString()}`).join(', ')
+    );
+    console.log('| Cache Store:', sanitizeConnectionUrl(redis.options?.url));
+    console.log('| Search:', `Meilisearch @ ${meili.default.config.host}`);
+    console.log(
+      '| OSS:',
+      oss ? `${oss.name || 'unknown'} @ ${oss.url || 'unknown'}` : 'Not connected'
+    );
+    console.log('|\n=============================================');
   }
 };

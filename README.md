@@ -62,7 +62,7 @@
 ### 后端与数据库
 
 - **MongoDB**: 应用主数据库。
-- **Auth.js (SvelteKitAuth)**: 处理用户认证和会话。
+- **Better Auth**: 处理用户认证、会话以及邮箱验证。
 - **服务端 API**: 基于 SvelteKit 构建的 RESTful 端点。
 
 ### 地图与定位服务
@@ -168,13 +168,15 @@
     REDIS_URI = "redis://username:password@127.0.0.1:6379"
     ```
 
-    **IMAP 配置 (用于在校生资格验证):**
+    **SMTP 配置 (用于邮箱地址与在校生资格验证邮件):**
 
     ```env
-    IMAP_HOST = "imap.example.com"
-    IMAP_PORT = "993"
-    IMAP_USER = "your_imap_user@example.com"
-    IMAP_PASSWORD = "your_imap_password"
+    SMTP_HOST = "smtp.example.com"
+    SMTP_PORT = "587"
+    SMTP_USER = "your_smtp_user@example.com"
+    SMTP_PASSWORD = "your_smtp_password"
+    SMTP_SECURE = "false" # 465 端口通常为 true，587 端口通常为 false
+    SMTP_FROM = "nearcade <no-reply@example.com>" # 可选，默认使用 SMTP_USER
     ```
 
     **Meilisearch 配置:**

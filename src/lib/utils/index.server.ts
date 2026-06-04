@@ -1,9 +1,12 @@
 import { env } from '$env/dynamic/public';
-import type { ShopSource } from '$lib/constants';
+import type { User } from '$lib/auth/types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
+import { m } from '$lib/paraglide/messages';
 import type { Shop } from '$lib/types';
+import { error } from 'console';
 import { ObjectId } from 'mongodb';
+import { hasBoundPhone } from '.';
 
 export const getOrigin = (request: Request) => {
   // Determine the origin for the bind URL
@@ -58,10 +61,9 @@ export const getCurrentAttendance = async (userId: string) => {
 
   if (keys.length > 0) {
     const keyParts = keys[0].split(':');
-    const [source, id] = keyParts[2].split('-');
+    const id = keyParts[2];
     const attendedAt = new Date(decodeURIComponent(keyParts[4]));
     const visitingShop = await shopsCollection.findOne({
-      source: source as ShopSource,
       id: parseInt(id)
     });
     if (visitingShop) {
@@ -69,6 +71,12 @@ export const getCurrentAttendance = async (userId: string) => {
     }
   }
   return null;
+};
+
+export const requireBoundPhone = (user?: User | null): void => {
+  if (!hasBoundPhone(user)) {
+    error(403, m.phone_binding_required_for_contribution());
+  }
 };
 
 export const sendWeChatTemplateMessage = async (

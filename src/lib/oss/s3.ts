@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private';
-import { S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
+import type { UploadedFileDescriptor } from './index.js';
 
 interface S3Config {
   endpoint: string;
@@ -34,11 +35,13 @@ if (s3Config) {
   isS3Initialized = true;
 }
 
+export const getS3Config = () => s3Config;
+
 export const uploadToS3 = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
   onProgress: (progress: number) => void
-) => {
+): Promise<UploadedFileDescriptor | undefined> => {
   if (!s3Config || !s3) return;
 
   const upload = new Upload({
@@ -64,5 +67,23 @@ export const uploadToS3 = async (
   const baseUrl = s3Config.bucketEndpoint
     ? s3Config.bucket
     : `${s3Config.endpoint}/${s3Config.bucket}`;
-  return `${baseUrl}/${encodeURIComponent(name)}`;
+  return {
+    url: `${baseUrl}/${encodeURIComponent(name)}`,
+    storageProvider: 's3',
+    storageKey: name,
+    storageObjectId: null
+  };
+};
+
+export const deleteFromS3 = async (name: string) => {
+  if (!s3Config || !s3) {
+    throw new Error('S3 is not configured');
+  }
+
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: s3Config.bucket,
+      Key: name
+    })
+  );
 };

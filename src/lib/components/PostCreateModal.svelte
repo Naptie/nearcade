@@ -1,9 +1,11 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import MarkdownEditor from './MarkdownEditor.svelte';
+  import type { User } from '$lib/auth/types';
+  import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDefaultPostReadability } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
-  import { PostReadability } from '$lib/types';
+  import { PostReadability, type ImageAsset } from '$lib/types';
 
   interface Props {
     isOpen: boolean;
@@ -12,6 +14,7 @@
     organizationName: string;
     organizationReadability: PostReadability;
     canManage: boolean;
+    currentUser?: User | undefined;
     onClose: () => void;
     onSuccess?: (postId: string) => void;
   }
@@ -23,12 +26,15 @@
     organizationName,
     organizationReadability,
     canManage,
+    currentUser = undefined,
     onClose,
     onSuccess
   }: Props = $props();
 
   let title = $state('');
   let content = $state('');
+  let imageIds = $state<string[]>([]);
+  let attachments = $state<ImageAsset[]>([]);
   let readability = $derived<PostReadability>(getDefaultPostReadability(organizationReadability));
   let isSubmitting = $state(false);
   let error = $state('');
@@ -44,18 +50,25 @@
   const reset = () => {
     title = '';
     content = '';
+    imageIds = [];
+    attachments = [];
     readability = getDefaultPostReadability(organizationReadability);
     error = '';
     isSubmitting = false;
   };
 
   const handleClose = () => {
+    if (imageIds.length > 0) {
+      void Promise.all(
+        imageIds.map((imageId) => fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' }))
+      );
+    }
     reset();
     onClose();
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || !content.trim()) {
+    if (!title.trim() || (!content.trim() && imageIds.length === 0)) {
       error = 'Title and content are required';
       return;
     }
@@ -75,7 +88,8 @@
         body: JSON.stringify({
           title: title.trim(),
           content: content.trim(),
-          readability
+          readability,
+          images: imageIds
         })
       });
 
@@ -178,9 +192,18 @@
       <!-- Content area -->
       <MarkdownEditor
         bind:value={content}
+        bind:attachments
+        bind:imageIds
         placeholder={m.post_content_placeholder()}
         disabled={isSubmitting}
         minHeight="min-h-32"
+        {currentUser}
+        imageUploadUrl={buildImageUploadUrl({
+          draftKind: 'post',
+          organizationType,
+          organizationId
+        })}
+        appendUploadedImagesToMarkdown={true}
       />
     </div>
 
@@ -192,7 +215,7 @@
       <button
         class="btn btn-primary"
         onclick={handleSubmit}
-        disabled={isSubmitting || !title.trim() || !content.trim()}
+        disabled={isSubmitting || !title.trim() || (!content.trim() && imageIds.length === 0)}
       >
         {#if isSubmitting}
           <span class="loading loading-spinner loading-sm"></span>

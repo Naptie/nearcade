@@ -4,12 +4,19 @@ import type { RequestHandler } from './$types';
 import type { University } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { toPlainObject } from '$lib/utils';
+import {
+  universitiesSearchQuerySchema,
+  universitiesSearchResponseSchema
+} from '$lib/schemas/organizations';
+import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
+import { parseQueryOrError } from '$lib/utils/validation.server';
 
 export const GET: RequestHandler = async ({ url }) => {
-  const query = url.searchParams.get('q');
+  const { q: query } = parseQueryOrError(universitiesSearchQuerySchema, url);
 
   if (!query || query.trim().length === 0) {
-    return json({ universities: [] });
+    return json(universitiesSearchResponseSchema.parse({ universities: [] }));
   }
 
   try {
@@ -61,7 +68,17 @@ export const GET: RequestHandler = async ({ url }) => {
         .toArray()) as unknown as University[];
     }
 
-    return json({ universities });
+    const normalizedUniversities = universities.map((university) =>
+      normalizeUniversityDocument(university)
+    );
+
+    return json(
+      universitiesSearchResponseSchema.parse(
+        toPlainObject({
+          universities: normalizedUniversities
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

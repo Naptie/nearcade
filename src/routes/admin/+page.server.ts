@@ -1,4 +1,5 @@
 import mongo from '$lib/db/index.server';
+import { redirect } from '@sveltejs/kit';
 import type { UniversityMember, ClubMember } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -8,6 +9,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   if (!user) {
     return { stats: null };
+  }
+
+  if (user.userType === 'developer') {
+    redirect(302, '/admin/oauth-clients');
   }
 
   try {

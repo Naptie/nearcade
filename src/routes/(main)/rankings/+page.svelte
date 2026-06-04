@@ -17,7 +17,7 @@
     RadiusFilter,
     UniversityRankingResponse
   } from '$lib/types';
-  import { GAMES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
+  import { GAME_TITLES, RADIUS_OPTIONS, PAGINATION, SORT_CRITERIA } from '$lib/constants';
   import { getLocale } from '$lib/paraglide/runtime';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -389,7 +389,7 @@
                             </div>
                             {#if metrics.gameSpecificMachines.some((game) => game.quantity > 0)}
                               <div class="divider my-0.5"></div>
-                              {#each GAMES as game (game.id)}
+                              {#each GAME_TITLES as game (game.id)}
                                 {@const gameMetrics = metrics.gameSpecificMachines.find(
                                   (e) => e.name == game.key
                                 )}

@@ -5,7 +5,18 @@ import { serialNumber, toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
-import { ShopSource } from '$lib/constants';
+
+type MachineOwner = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  image?: string | null;
+};
+
+type MachineListItem = Machine & {
+  shop?: Shop;
+  owner?: MachineOwner | null;
+};
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -46,20 +57,28 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       {
         $lookup: {
           from: 'shops',
-          let: { shopSource: '$shopSource', shopId: '$shopId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [{ $eq: ['$source', '$$shopSource'] }, { $eq: ['$id', '$$shopId'] }]
-                }
-              }
-            }
-          ],
+          localField: 'shopId',
+          foreignField: 'id',
           as: 'shop'
         }
       },
-      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: true } }
+      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { ownerId: '$ownerId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$id', '$$ownerId'] } } },
+            { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+          ],
+          as: 'owner'
+        }
+      },
+      {
+        $addFields: {
+          owner: { $arrayElemAt: ['$owner', 0] }
+        }
+      }
     ])
     .toArray();
 
@@ -73,7 +92,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const activatedMachines = await machinesCollection.countDocuments({ isActivated: true });
 
   return {
-    machines: toPlainArray(machines as (Machine & { shop?: Shop })[]),
+    machines: toPlainArray(machines as MachineListItem[]),
     search,
     currentPage: page,
     hasMore,
@@ -93,10 +112,10 @@ export const actions = {
 
     const formData = await request.formData();
     const name = formData.get('name')?.toString().trim();
-    const shopSource = formData.get('shopSource')?.toString().trim() as ShopSource;
     const shopIdStr = formData.get('shopId')?.toString().trim();
+    const ownerId = formData.get('ownerId')?.toString().trim() || undefined;
 
-    if (!name || !shopSource || !shopIdStr) {
+    if (!name || !shopIdStr) {
       return fail(400, { error: m.missing_required_fields() });
     }
 
@@ -105,17 +124,20 @@ export const actions = {
       return fail(400, { error: m.invalid_shop_id() });
     }
 
-    // Validate shop source
-    if (!Object.values(ShopSource).includes(shopSource)) {
-      return fail(400, { error: m.invalid_shop_source() });
-    }
-
     const db = mongo.db();
 
     // Check if shop exists
-    const shop = await db.collection<Shop>('shops').findOne({ source: shopSource, id: shopId });
+    const shop = await db.collection<Shop>('shops').findOne({ id: shopId });
     if (!shop) {
       return fail(404, { error: m.shop_not_found() });
+    }
+
+    // If ownerId provided, verify user exists
+    if (ownerId) {
+      const owner = await db.collection('users').findOne({ id: ownerId });
+      if (!owner) {
+        return fail(404, { error: m.user_not_found() });
+      }
     }
 
     const machinesCollection = db.collection<Machine>('machines');
@@ -123,8 +145,8 @@ export const actions = {
     const machine: Machine = {
       id: nanoid(),
       name,
-      shopSource,
       shopId,
+      ...(ownerId ? { ownerId } : {}),
       serialNumber: serialNumber(),
       isActivated: false,
       createdAt: new Date(),
@@ -192,8 +214,8 @@ export const actions = {
       await db
         .collection<Shop>('shops')
         .updateOne(
-          { source: machine.shopSource, id: machine.shopId },
-          { $unset: { isClaimed: '' }, $set: { updatedAt: new Date() } }
+          { id: machine.shopId },
+          { $unset: { isClaimed: '', ownerId: '' }, $set: { updatedAt: new Date() } }
         );
     }
 

@@ -204,7 +204,7 @@
                   {/if}
                   {#if request.reviewedAt}
                     <div class="text-base-content/60 mt-1 text-xs">
-                      {m.reviewed_at({ time: formatDateTime(request.reviewedAt) })}
+                      {m.reviewed_at_time({ time: formatDateTime(request.reviewedAt) })}
                     </div>
                   {/if}
                 </td>

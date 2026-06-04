@@ -4,11 +4,27 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDistanceToNow } from 'date-fns';
   import { getLocale } from '$lib/paraglide/runtime';
-  import type { PageData, ActionData } from './$types';
+  import type { PageData, ActionData as RouteActionData } from './$types';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
+  import CopyField from '$lib/components/CopyField.svelte';
   import { getFnsLocale } from '$lib/utils';
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+  type TokenFormData = {
+    id: string;
+    name: string;
+    token: string;
+    expiresAt: string | Date | null;
+    createdAt: string | Date;
+  };
+
+  type ApiTokenActionData = NonNullable<RouteActionData> & {
+    success?: boolean;
+    message?: string;
+    token?: TokenFormData;
+    fieldErrors?: Record<string, string>;
+  };
+
+  let { data, form }: { data: PageData; form: ApiTokenActionData | null } = $props();
 
   let isSubmitting = $state(false);
   let showSuccess = $state(false);
@@ -16,27 +32,9 @@
   let showRenameModal = $state(false);
   let showDeleteModal = $state(false);
   let showResetModal = $state(false);
-  let currentToken = $state<{
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  } | null>(null);
-  let createdToken = $state<{
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  } | null>(null);
-  let resetToken = $state<{
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  } | null>(null);
+  let currentToken = $state<TokenFormData | null>(null);
+  let createdToken = $state<TokenFormData | null>(null);
+  let resetToken = $state<TokenFormData | null>(null);
 
   // Form states
   let tokenName = $state('');
@@ -83,8 +81,6 @@
   let isRenameFormValid = $derived.by(() => {
     return renameTokenName.trim().length > 0 && !clientErrors.renameTokenName;
   });
-
-  let isCopied = $state(false);
 
   // Safe message getter
   const getMessage = (key: string | undefined): string => {
@@ -152,13 +148,7 @@
     createdToken = null;
   };
 
-  const openRenameModal = (token: {
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  }) => {
+  const openRenameModal = (token: TokenFormData) => {
     currentToken = token;
     renameTokenName = token.name;
     clientErrors = {};
@@ -170,13 +160,7 @@
     currentToken = null;
   };
 
-  const openDeleteModal = (token: {
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  }) => {
+  const openDeleteModal = (token: TokenFormData) => {
     currentToken = token;
     showDeleteModal = true;
   };
@@ -186,13 +170,7 @@
     currentToken = null;
   };
 
-  const openResetModal = (token: {
-    id: string;
-    name: string;
-    token: string;
-    expiresAt: string | Date;
-    createdAt: string | Date;
-  }) => {
+  const openResetModal = (token: TokenFormData) => {
     currentToken = token;
     showResetModal = true;
   };
@@ -201,16 +179,6 @@
     showResetModal = false;
     currentToken = null;
     resetToken = null;
-  };
-
-  // Copy token to clipboard
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Show brief success feedback
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-    }
   };
 
   // Handle form results
@@ -242,12 +210,16 @@
   });
 
   // Check if token is expired
-  const isExpired = (expiresAt: string | Date) => {
-    return new Date(expiresAt) < new Date();
+  const isExpired = (expiresAt: string | Date | null) => {
+    return expiresAt ? new Date(expiresAt) < new Date() : false;
   };
 
   // Format expiration date
-  const formatExpiresAt = (expiresAt: string | Date) => {
+  const formatExpiresAt = (expiresAt: string | Date | null) => {
+    if (!expiresAt) {
+      return m.none();
+    }
+
     return formatDistanceToNow(new Date(expiresAt), {
       addSuffix: true,
       locale: dateLocale
@@ -397,36 +369,12 @@
           <label class="label" for="token-display-value">
             <span class="label-text font-medium">{m.api_token()}</span>
           </label>
-          <div class="flex gap-2">
-            <input
-              id="token-display-value"
-              type="text"
-              class="input input-bordered w-full font-mono text-sm"
-              value={createdToken.token}
-              readonly
-            />
-            <button
-              type="button"
-              class="btn btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-              class:btn-success={isCopied}
-              class:btn-active={isCopied}
-              onclick={async () => {
-                await copyToClipboard(createdToken!.token);
-                isCopied = true;
-                setTimeout(() => {
-                  isCopied = false;
-                }, 2000);
-              }}
-              title={m.copy_token()}
-              aria-label={m.copy_token()}
-            >
-              {#if isCopied}
-                <i class="fa-solid fa-check fa-lg"></i>
-              {:else}
-                <i class="fa-solid fa-copy fa-lg"></i>
-              {/if}
-            </button>
-          </div>
+          <CopyField
+            id="token-display-value"
+            value={createdToken.token}
+            buttonStyle="circle"
+            ariaLabel={m.copy_token()}
+          />
         </div>
 
         <div>
@@ -464,13 +412,7 @@
             customDate = '';
             clientErrors = {};
             if (result.type === 'success' && result.data?.success) {
-              createdToken = result.data.token as {
-                id: string;
-                name: string;
-                token: string;
-                expiresAt: string | Date;
-                createdAt: string | Date;
-              };
+              createdToken = result.data.token as TokenFormData;
             }
             await invalidateAll();
           };
@@ -660,36 +602,12 @@
             <label class="label" for="reset-token-display-value">
               <span class="label-text font-medium">{m.api_token()}</span>
             </label>
-            <div class="flex gap-2">
-              <input
-                id="reset-token-display-value"
-                type="text"
-                class="input input-bordered w-full font-mono text-sm"
-                value={resetToken.token}
-                readonly
-              />
-              <button
-                type="button"
-                class="btn btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-                class:btn-success={isCopied}
-                class:btn-active={isCopied}
-                onclick={async () => {
-                  await copyToClipboard(resetToken!.token);
-                  isCopied = true;
-                  setTimeout(() => {
-                    isCopied = false;
-                  }, 2000);
-                }}
-                title={m.copy_token()}
-                aria-label={m.copy_token()}
-              >
-                {#if isCopied}
-                  <i class="fa-solid fa-check fa-lg"></i>
-                {:else}
-                  <i class="fa-solid fa-copy fa-lg"></i>
-                {/if}
-              </button>
-            </div>
+            <CopyField
+              id="reset-token-display-value"
+              value={resetToken.token}
+              buttonStyle="circle"
+              ariaLabel={m.copy_token()}
+            />
           </div>
 
           <div>
@@ -737,13 +655,7 @@
               return async ({ result }) => {
                 isSubmitting = false;
                 if (result.type === 'success' && result.data?.success) {
-                  resetToken = result.data.token as {
-                    id: string;
-                    name: string;
-                    token: string;
-                    expiresAt: string | Date;
-                    createdAt: string | Date;
-                  };
+                  resetToken = result.data.token as TokenFormData;
                 }
                 await invalidateAll();
               };

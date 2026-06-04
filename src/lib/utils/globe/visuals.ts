@@ -35,6 +35,7 @@
  */
 
 import * as THREE from 'three';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import type { CustomRenderMethodInput } from 'maplibre-gl';
 import type maplibregl from 'maplibre-gl';
 
@@ -122,8 +123,29 @@ const DEFAULT_SUNLIGHT_INTENSITY = 1;
 /** Names of the individual Three.js mesh layers that can be toggled. */
 export type GlobeLayerName = 'clouds' | 'cloudShadow' | 'nightLights' | 'specular' | 'atmosphere';
 
+export type GlobeVisualTextureSet = {
+  cloud: string;
+  nightLights: string;
+  specular: string;
+  normal: string;
+};
+
+type GlobeVisualTextureTier = 'low' | 'high';
+
+type GlobeLoadedTextureSet = {
+  cloud: THREE.Texture | null;
+  nightLights: THREE.Texture | null;
+  specular: THREE.Texture | null;
+  normal: THREE.Texture | null;
+};
+
 export type GlobeVisualsLayerOptions = {
   enabledLayers?: Iterable<GlobeLayerName>;
+  highResolutionTextureSet?: GlobeVisualTextureSet | null;
+  highResolutionPrefetchZoom?: number;
+  highResolutionSwapZoom?: number;
+  highResolutionReleaseZoom?: number;
+  ktx2TranscoderPath?: string;
 };
 
 const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
@@ -133,6 +155,13 @@ const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
   'specular',
   'atmosphere'
 ];
+
+const GLOBE_MESH_WIDTH_SEGMENTS = 48;
+const GLOBE_MESH_HEIGHT_SEGMENTS = 24;
+const MESH_REVEAL_STAGGER_MS = 120;
+const DEFAULT_HIGH_RES_PREFETCH_ZOOM = 3.8;
+const DEFAULT_HIGH_RES_SWAP_ZOOM = 4.2;
+const DEFAULT_HIGH_RES_RELEASE_ZOOM = 3.6;
 
 // ─── Specular shader ──────────────────────────────────────────────────────────
 
@@ -169,6 +198,8 @@ const specularFragmentShader = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
+    vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
+
     // ── Tangent frame for normal-map perturbation ─────────────────────────────
     vec3 N  = normalize(vNormal);
     // Cross with world-up to obtain a tangent along the longitude direction.
@@ -178,11 +209,14 @@ const specularFragmentShader = /* glsl */ `
     if (length(T) < 0.001) T = vec3(1.0, 0.0, 0.0);
     vec3 B  = normalize(cross(N, T));
 
-    vec3 mapNormal = normalize(texture2D(uNormalMap, vUv).xyz * 2.0 - 1.0);
+    vec4 packedNormal = texture2D(uNormalMap, sampleUv);
+    vec2 mapNormalXY = packedNormal.ga * 2.0 - 1.0;
+    float mapNormalZ = sqrt(max(0.0, 1.0 - dot(mapNormalXY, mapNormalXY)));
+    vec3 mapNormal = vec3(mapNormalXY, mapNormalZ);
     vec3 bN = normalize(T * mapNormal.x + B * mapNormal.y + N * mapNormal.z);
 
     // ── Camera-aware ocean specular ───────────────────────────────────────────
-    float specStr   = texture2D(uSpecularMap, vUv).r;
+    float specStr   = texture2D(uSpecularMap, sampleUv).r;
 
     // Use the actual camera-to-fragment vector so the specular lobe lands where
     // the reflected sun ray is visible from the current view, not just near the limb.
@@ -227,6 +261,7 @@ const nightLightsFragmentShader = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
+    vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
     vec3 N = normalize(vNormal);
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     float nDotL = dot(N, uSunDir);
@@ -238,7 +273,7 @@ const nightLightsFragmentShader = /* glsl */ `
     float limbFade = smoothstep(0.0, uLimbSoftness, nDotV);
     float nightMask = nightSide * limbFade;
 
-    vec3 nightColor = texture2D(uNightMap, vUv).rgb;
+    vec3 nightColor = texture2D(uNightMap, sampleUv).rgb;
     float alpha = max(max(nightColor.r, nightColor.g), nightColor.b) * nightMask * uOpacity;
 
     if (uDominantBlend > 0.5) {
@@ -304,11 +339,12 @@ const cloudFragmentShader = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
+    vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
     vec3 N = normalize(vNormal);
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     float nDotL = dot(N, uSunDir);
     float nDotV = max(dot(N, viewDir), 0.0);
-    float cloudDensity = texture2D(uCloudMap, vUv).r;
+    float cloudDensity = texture2D(uCloudMap, sampleUv).r;
 
     // Fade out near poles to hide equirectangular texture stretching.
     // vNormal.y = sin(lat): 0 at equator, ±1 at poles.
@@ -377,7 +413,7 @@ const cloudShadowFragmentShader = /* glsl */ `
     float u = lng / (2.0 * PI) + 0.5;
     float v = lat / PI + 0.5;
 
-    float cloudDensity = texture2D(uCloudMap, vec2(u, v)).r;
+    float cloudDensity = texture2D(uCloudMap, vec2(u, 1.0 - v)).r;
     float absLatSin = abs(Q.y);
     float polarFade = 1.0 - smoothstep(uPolarFadeStart, uPolarFadeEnd, absLatSin);
     float shadowAlpha = cloudDensity * uOpacity * dayFactor * polarFade;
@@ -402,6 +438,8 @@ export class GlobeVisualsLayer {
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene | null = null;
   private camera: THREE.Camera | null = null;
+  private textureLoader: THREE.TextureLoader | null = null;
+  private ktx2Loader: KTX2Loader | null = null;
 
   private cloudMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private cloudShadowMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
@@ -412,6 +450,17 @@ export class GlobeVisualsLayer {
   private map: maplibregl.Map | null = null;
   private loaded = false;
   private aborted = false;
+  private didLogFirstRender = false;
+  private revealTimeoutIds: number[] = [];
+  private activeTextureTier: GlobeVisualTextureTier | null = null;
+  private pendingTextureTier: GlobeVisualTextureTier | null = null;
+  private currentZoom = 0;
+  private allowHighResolutionTextures = false;
+  private readonly loadedTextureSets = new Map<GlobeVisualTextureTier, GlobeLoadedTextureSet>();
+  private readonly textureLoadPromises = new Map<
+    GlobeVisualTextureTier,
+    Promise<GlobeLoadedTextureSet>
+  >();
 
   // Re-used every frame to avoid GC pressure
   private readonly _projection = new THREE.Matrix4();
@@ -434,14 +483,24 @@ export class GlobeVisualsLayer {
     atmosphere: true
   };
 
+  private readonly highResolutionTextureSet: GlobeVisualTextureSet | null;
+  private readonly highResolutionPrefetchZoom: number;
+  private readonly highResolutionSwapZoom: number;
+  private readonly highResolutionReleaseZoom: number;
+  private readonly ktx2TranscoderPath: string | null;
+
   constructor(
-    private readonly cloudUrl: string,
-    private readonly nightLightsUrl: string,
-    private readonly specularUrl: string,
-    private readonly normalUrl: string,
+    private readonly lowResolutionTextureSet: GlobeVisualTextureSet,
     options: GlobeVisualsLayerOptions = {}
   ) {
     this.enabledLayers = new Set(options.enabledLayers ?? ALL_GLOBE_LAYER_NAMES);
+    this.highResolutionTextureSet = options.highResolutionTextureSet ?? null;
+    this.highResolutionPrefetchZoom =
+      options.highResolutionPrefetchZoom ?? DEFAULT_HIGH_RES_PREFETCH_ZOOM;
+    this.highResolutionSwapZoom = options.highResolutionSwapZoom ?? DEFAULT_HIGH_RES_SWAP_ZOOM;
+    this.highResolutionReleaseZoom =
+      options.highResolutionReleaseZoom ?? DEFAULT_HIGH_RES_RELEASE_ZOOM;
+    this.ktx2TranscoderPath = options.ktx2TranscoderPath ?? null;
   }
 
   private readonly enabledLayers: ReadonlySet<GlobeLayerName>;
@@ -481,6 +540,13 @@ export class GlobeVisualsLayer {
     }
   }
 
+  setTextureDetail(zoom: number, allowHighResolutionTextures: boolean): void {
+    this.currentZoom = zoom;
+    this.allowHighResolutionTextures = allowHighResolutionTextures;
+    if (!this.renderer) return;
+    this.syncDesiredTextureTier();
+  }
+
   private _getMeshByName(name: GlobeLayerName): THREE.Mesh | null {
     switch (name) {
       case 'clouds':
@@ -496,12 +562,236 @@ export class GlobeVisualsLayer {
     }
   }
 
+  private isKtx2TextureUrl(url: string): boolean {
+    return url.toLowerCase().endsWith('.ktx2');
+  }
+
+  private getTextureSetForTier(tier: GlobeVisualTextureTier): GlobeVisualTextureSet | null {
+    if (tier === 'high') return this.highResolutionTextureSet;
+    return this.lowResolutionTextureSet;
+  }
+
+  private loadTexture(url: string, colorSpace: THREE.ColorSpace): Promise<THREE.Texture> {
+    const loader = this.isKtx2TextureUrl(url)
+      ? this.ktx2Loader
+      : (this.textureLoader ??= new THREE.TextureLoader());
+
+    if (!loader) {
+      return Promise.reject(
+        new Error(`No texture loader available for ${url}. Check KTX2 transcoder setup.`)
+      );
+    }
+
+    return loader.loadAsync(url).then((texture) => {
+      texture.colorSpace = colorSpace;
+      return texture;
+    });
+  }
+
+  private disposeTextureSet(textures: GlobeLoadedTextureSet): void {
+    const disposedTextures = new Set<THREE.Texture>();
+    for (const texture of [
+      textures.cloud,
+      textures.nightLights,
+      textures.specular,
+      textures.normal
+    ]) {
+      if (!texture || disposedTextures.has(texture)) continue;
+      disposedTextures.add(texture);
+      texture.dispose();
+    }
+  }
+
+  private releaseTextureTier(tier: GlobeVisualTextureTier): void {
+    if (this.activeTextureTier === tier) return;
+    const textures = this.loadedTextureSets.get(tier);
+    if (!textures) return;
+    this.loadedTextureSets.delete(tier);
+    this.disposeTextureSet(textures);
+  }
+
+  private applyTextureSet(textures: GlobeLoadedTextureSet, tier: GlobeVisualTextureTier): void {
+    if (this.cloudMesh) this.cloudMesh.material.uniforms.uCloudMap.value = textures.cloud;
+    if (this.cloudShadowMesh)
+      this.cloudShadowMesh.material.uniforms.uCloudMap.value = textures.cloud;
+    if (this.nightLightsMesh) {
+      this.nightLightsMesh.material.uniforms.uNightMap.value = textures.nightLights;
+    }
+    if (this.specMesh) {
+      this.specMesh.material.uniforms.uSpecularMap.value = textures.specular;
+      this.specMesh.material.uniforms.uNormalMap.value = textures.normal;
+    }
+
+    console.debug('[GlobeVisualsDebug] applied texture tier', {
+      tier,
+      cloud: Boolean(textures.cloud),
+      nightLights: Boolean(textures.nightLights),
+      specular: Boolean(textures.specular),
+      normal: Boolean(textures.normal)
+    });
+  }
+
+  private revealMeshes(): void {
+    const revealOrder: GlobeLayerName[] = [
+      'atmosphere',
+      'specular',
+      'nightLights',
+      'cloudShadow',
+      'clouds'
+    ];
+
+    this.revealTimeoutIds.forEach((id) => window.clearTimeout(id));
+    this.revealTimeoutIds = [];
+
+    revealOrder.forEach((name, index) => {
+      const timeoutId = window.setTimeout(() => {
+        if (this.aborted) return;
+        const mesh = this._getMeshByName(name);
+        if (!mesh) return;
+        mesh.visible = this._meshVisibility[name] && this.isLayerEnabled(name);
+        this.map?.triggerRepaint();
+      }, index * MESH_REVEAL_STAGGER_MS);
+      this.revealTimeoutIds.push(timeoutId);
+    });
+  }
+
+  private async ensureTextureTierLoaded(
+    tier: GlobeVisualTextureTier
+  ): Promise<GlobeLoadedTextureSet> {
+    const alreadyLoaded = this.loadedTextureSets.get(tier);
+    if (alreadyLoaded) return alreadyLoaded;
+
+    const existingLoadPromise = this.textureLoadPromises.get(tier);
+    if (existingLoadPromise) return existingLoadPromise;
+
+    const textureSet = this.getTextureSetForTier(tier);
+    if (!textureSet) {
+      throw new Error(`Texture tier ${tier} is not configured.`);
+    }
+
+    const loadPromise = Promise.all([
+      this.isLayerEnabled('clouds') || this.isLayerEnabled('cloudShadow')
+        ? this.loadTexture(textureSet.cloud, THREE.SRGBColorSpace)
+        : Promise.resolve(null),
+      this.isLayerEnabled('nightLights')
+        ? this.loadTexture(textureSet.nightLights, THREE.SRGBColorSpace)
+        : Promise.resolve(null),
+      this.isLayerEnabled('specular')
+        ? this.loadTexture(textureSet.specular, THREE.NoColorSpace)
+        : Promise.resolve(null),
+      this.isLayerEnabled('specular')
+        ? this.loadTexture(textureSet.normal, THREE.NoColorSpace)
+        : Promise.resolve(null)
+    ])
+      .then(([cloud, nightLights, specular, normal]) => {
+        const textures = { cloud, nightLights, specular, normal };
+
+        if (this.aborted) {
+          this.disposeTextureSet(textures);
+          throw new Error(`Texture tier ${tier} was aborted before activation.`);
+        }
+
+        this.loadedTextureSets.set(tier, textures);
+        console.debug('[GlobeVisualsDebug] textures ready', {
+          tier,
+          cloud: Boolean(cloud),
+          nightLights: Boolean(nightLights),
+          specular: Boolean(specular),
+          normal: Boolean(normal)
+        });
+        return textures;
+      })
+      .finally(() => {
+        this.textureLoadPromises.delete(tier);
+      });
+
+    this.textureLoadPromises.set(tier, loadPromise);
+    return loadPromise;
+  }
+
+  private getDesiredTextureTier(): GlobeVisualTextureTier {
+    if (!this.highResolutionTextureSet || !this.allowHighResolutionTextures) return 'low';
+
+    if (this.activeTextureTier === 'high') {
+      return this.currentZoom <= this.highResolutionReleaseZoom ? 'low' : 'high';
+    }
+
+    return this.currentZoom >= this.highResolutionSwapZoom ? 'high' : 'low';
+  }
+
+  private syncDesiredTextureTier(): void {
+    if (
+      this.highResolutionTextureSet &&
+      this.allowHighResolutionTextures &&
+      this.currentZoom >= this.highResolutionPrefetchZoom
+    ) {
+      void this.ensureTextureTierLoaded('high').catch((error: unknown) => {
+        console.debug('[GlobeVisualsDebug] warn: high-resolution prefetch failed', error);
+      });
+    }
+
+    if (
+      (!this.allowHighResolutionTextures || this.currentZoom < this.highResolutionReleaseZoom) &&
+      this.activeTextureTier !== 'high'
+    ) {
+      this.releaseTextureTier('high');
+    }
+
+    const desiredTier = this.getDesiredTextureTier();
+    if (desiredTier === this.activeTextureTier || desiredTier === this.pendingTextureTier) return;
+
+    void this.activateTextureTier(desiredTier);
+  }
+
+  private async activateTextureTier(tier: GlobeVisualTextureTier): Promise<void> {
+    this.pendingTextureTier = tier;
+
+    try {
+      const textures = await this.ensureTextureTierLoaded(tier);
+      if (this.aborted) return;
+
+      const desiredTier = this.getDesiredTextureTier();
+      if (desiredTier !== tier) {
+        if (this.pendingTextureTier === tier) this.pendingTextureTier = null;
+        if (tier !== this.activeTextureTier && desiredTier !== 'high') {
+          this.releaseTextureTier(tier);
+        }
+        return;
+      }
+
+      const previousTier = this.activeTextureTier;
+      this.applyTextureSet(textures, tier);
+      this.activeTextureTier = tier;
+      this.pendingTextureTier = null;
+
+      if (!this.loaded) {
+        this.loaded = true;
+        this.revealMeshes();
+      }
+
+      if (previousTier && previousTier !== tier) {
+        this.releaseTextureTier(previousTier);
+      }
+
+      this.map?.triggerRepaint();
+    } catch (error: unknown) {
+      if (this.pendingTextureTier === tier) this.pendingTextureTier = null;
+      console.debug('[GlobeVisualsDebug] warn: texture tier activation failed', { tier, error });
+    }
+  }
+
   // ── CustomLayerInterface callbacks ─────────────────────────────────────────
 
   onAdd(map: maplibregl.Map, gl: WebGLRenderingContext | WebGL2RenderingContext): void {
     this.map = map;
     this.aborted = false;
     this.loaded = false;
+    this.didLogFirstRender = false;
+
+    console.debug('[GlobeVisualsDebug] onAdd', {
+      enabledLayers: Array.from(this.enabledLayers),
+      canvas: { width: map.getCanvas().width, height: map.getCanvas().height }
+    });
 
     // Share MapLibre's canvas & WebGL context — no extra canvas needed.
     // Three.js types only declare WebGLRenderingContext for the context option but
@@ -512,6 +802,12 @@ export class GlobeVisualsLayer {
       antialias: true
     });
     this.renderer.autoClear = false;
+    this.textureLoader = new THREE.TextureLoader();
+    this.ktx2Loader = new KTX2Loader();
+    if (this.ktx2TranscoderPath) {
+      this.ktx2Loader.setTranscoderPath(this.ktx2TranscoderPath);
+      this.ktx2Loader.detectSupport(this.renderer);
+    }
 
     this.camera = new THREE.Camera();
     // Prevent Three.js from overwriting the camera matrix from position/rotation.
@@ -519,11 +815,14 @@ export class GlobeVisualsLayer {
 
     this.scene = new THREE.Scene();
 
-    let cloudMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('clouds')) {
       // ── Cloud sphere ────────────────────────────────────────────────────────
-      const cloudGeom = new THREE.SphereGeometry(1, 64, 32);
-      cloudMat = new THREE.ShaderMaterial({
+      const cloudGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
+      const cloudMat = new THREE.ShaderMaterial({
         uniforms: {
           uCloudMap: { value: null },
           uDayColor: { value: CLOUD_DAY_COLOR.clone().multiply(CLOUD_TINT_COLOR) },
@@ -552,14 +851,17 @@ export class GlobeVisualsLayer {
       // Shift the default SphereGeometry seam from 90°W to the date line.
       this.cloudMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
       this.cloudMesh.renderOrder = 40;
-      this.cloudMesh.visible = this._meshVisibility.clouds;
+      this.cloudMesh.visible = false;
     }
 
-    let cloudShadowMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('cloudShadow')) {
       // ── Cloud shadow sphere ─────────────────────────────────────────────────
-      const cloudShadowGeom = new THREE.SphereGeometry(1, 64, 32);
-      cloudShadowMat = new THREE.ShaderMaterial({
+      const cloudShadowGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
+      const cloudShadowMat = new THREE.ShaderMaterial({
         uniforms: {
           uCloudMap: { value: null },
           uSunDir: { value: new THREE.Vector3(0, 0, 1) },
@@ -581,14 +883,17 @@ export class GlobeVisualsLayer {
       // than as depth-tested geometry, so it does not fight the earth surface.
       this.cloudShadowMesh.scale.setScalar(CLOUD_SHADOW_ALTITUDE_SCALE);
       this.cloudShadowMesh.renderOrder = 10;
-      this.cloudShadowMesh.visible = this._meshVisibility.cloudShadow;
+      this.cloudShadowMesh.visible = false;
     }
 
-    let nightLightsMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('nightLights')) {
       // ── Night lights ────────────────────────────────────────────────────────
-      const nightLightsGeom = new THREE.SphereGeometry(1, 64, 32);
-      nightLightsMat = new THREE.ShaderMaterial({
+      const nightLightsGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
+      const nightLightsMat = new THREE.ShaderMaterial({
         uniforms: {
           uNightMap: { value: null },
           uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
@@ -620,14 +925,17 @@ export class GlobeVisualsLayer {
       nightLightsMat.uniforms.uDominantBlend.value = 1;
       nightLightsMat.needsUpdate = true;
       this.nightLightsMesh.renderOrder = 20;
-      this.nightLightsMesh.visible = this._meshVisibility.nightLights;
+      this.nightLightsMesh.visible = false;
     }
 
-    let specMat: THREE.ShaderMaterial | null = null;
     if (this.isLayerEnabled('specular')) {
       // ── Specular + normal sphere ────────────────────────────────────────────
-      const specGeom = new THREE.SphereGeometry(1, 64, 32);
-      specMat = new THREE.ShaderMaterial({
+      const specGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
+      const specMat = new THREE.ShaderMaterial({
         uniforms: {
           uSpecularMap: { value: null },
           uNormalMap: { value: null },
@@ -651,12 +959,16 @@ export class GlobeVisualsLayer {
       this.specMesh = new THREE.Mesh(specGeom, specMat);
       this.specMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
       this.specMesh.renderOrder = 30;
-      this.specMesh.visible = this._meshVisibility.specular;
+      this.specMesh.visible = false;
     }
 
     if (this.isLayerEnabled('atmosphere')) {
       // ── Atmosphere shell ────────────────────────────────────────────────────
-      const atmosphereGeom = new THREE.SphereGeometry(1, 64, 32);
+      const atmosphereGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
       const atmosphereMat = new THREE.ShaderMaterial({
         uniforms: {
           uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
@@ -682,7 +994,7 @@ export class GlobeVisualsLayer {
       this.atmosphereMesh = new THREE.Mesh(atmosphereGeom, atmosphereMat);
       this.atmosphereMesh.scale.setScalar(ATMOSPHERE_ALTITUDE_SCALE);
       this.atmosphereMesh.renderOrder = 50;
-      this.atmosphereMesh.visible = this._meshVisibility.atmosphere;
+      this.atmosphereMesh.visible = false;
     }
 
     // Render order: shadow → night lights → specular → clouds → atmosphere
@@ -692,58 +1004,7 @@ export class GlobeVisualsLayer {
     if (this.cloudMesh) this.scene.add(this.cloudMesh);
     if (this.atmosphereMesh) this.scene.add(this.atmosphereMesh);
 
-    // ── Load textures asynchronously ─────────────────────────────────────────
-    const loader = new THREE.TextureLoader();
-    const cloudTexturePromise =
-      this.isLayerEnabled('clouds') || this.isLayerEnabled('cloudShadow')
-        ? loader.loadAsync(this.cloudUrl)
-        : Promise.resolve(null);
-    const nightLightsTexturePromise = this.isLayerEnabled('nightLights')
-      ? loader.loadAsync(this.nightLightsUrl)
-      : Promise.resolve(null);
-    const specularTexturePromise = this.isLayerEnabled('specular')
-      ? loader.loadAsync(this.specularUrl)
-      : Promise.resolve(null);
-    const normalTexturePromise = this.isLayerEnabled('specular')
-      ? loader.loadAsync(this.normalUrl)
-      : Promise.resolve(null);
-    Promise.all([
-      cloudTexturePromise,
-      nightLightsTexturePromise,
-      specularTexturePromise,
-      normalTexturePromise
-    ])
-      .then(([cloudTex, nightLightsTex, specTex, normalTex]) => {
-        if (this.aborted) {
-          // Style was reloaded while textures were in flight — discard them.
-          cloudTex?.dispose();
-          nightLightsTex?.dispose();
-          specTex?.dispose();
-          normalTex?.dispose();
-          return;
-        }
-        if (cloudTex) {
-          cloudTex.colorSpace = THREE.SRGBColorSpace;
-          if (cloudMat) cloudMat.uniforms.uCloudMap.value = cloudTex;
-          // Cloud shadow samples the same texture.
-          if (cloudShadowMat) cloudShadowMat.uniforms.uCloudMap.value = cloudTex;
-        }
-
-        if (nightLightsTex && nightLightsMat) {
-          nightLightsTex.colorSpace = THREE.SRGBColorSpace;
-          nightLightsMat.uniforms.uNightMap.value = nightLightsTex;
-        }
-        if (normalTex) normalTex.colorSpace = THREE.NoColorSpace;
-        if (specMat) {
-          specMat.uniforms.uSpecularMap.value = specTex;
-          specMat.uniforms.uNormalMap.value = normalTex;
-        }
-
-        this.loaded = true;
-      })
-      .catch((err: unknown) => {
-        console.warn('[GlobeVisuals] texture load failed:', err);
-      });
+    this.syncDesiredTextureTier();
   }
 
   render(
@@ -751,6 +1012,11 @@ export class GlobeVisualsLayer {
     options: CustomRenderMethodInput
   ): void {
     if (!this.loaded || !this.renderer || !this.scene || !this.camera || !this.map) return;
+
+    if (!this.didLogFirstRender) {
+      this.didLogFirstRender = true;
+      console.debug('[GlobeVisualsDebug] first render frame');
+    }
 
     const zoom = this.map.getZoom();
     // Opacity ramps from 0→1 between FADE_IN_ZOOM and FADE_OUT_ZOOM.
@@ -826,13 +1092,23 @@ export class GlobeVisualsLayer {
   }
 
   onRemove(): void {
+    console.debug('[GlobeVisualsDebug] onRemove');
     this.aborted = true;
     this.loaded = false;
+    this.activeTextureTier = null;
+    this.pendingTextureTier = null;
+    this.revealTimeoutIds.forEach((id) => window.clearTimeout(id));
+    this.revealTimeoutIds = [];
+
+    for (const textures of this.loadedTextureSets.values()) {
+      this.disposeTextureSet(textures);
+    }
+    this.loadedTextureSets.clear();
+    this.textureLoadPromises.clear();
 
     if (this.cloudMesh) {
       this.cloudMesh.geometry.dispose();
-      // Dispose the cloud texture here (shared with cloud shadow — dispose only once).
-      (this.cloudMesh.material.uniforms.uCloudMap.value as THREE.Texture | null)?.dispose();
+      this.cloudMesh.material.uniforms.uCloudMap.value = null;
       this.cloudMesh.material.dispose();
       this.cloudMesh = null;
     }
@@ -845,15 +1121,15 @@ export class GlobeVisualsLayer {
     }
     if (this.nightLightsMesh) {
       this.nightLightsMesh.geometry.dispose();
-      (this.nightLightsMesh.material.uniforms.uNightMap.value as THREE.Texture | null)?.dispose();
+      this.nightLightsMesh.material.uniforms.uNightMap.value = null;
       this.nightLightsMesh.material.dispose();
       this.nightLightsMesh = null;
     }
     if (this.specMesh) {
       this.specMesh.geometry.dispose();
       const u = this.specMesh.material.uniforms;
-      (u.uSpecularMap.value as THREE.Texture | null)?.dispose();
-      (u.uNormalMap.value as THREE.Texture | null)?.dispose();
+      u.uSpecularMap.value = null;
+      u.uNormalMap.value = null;
       this.specMesh.material.dispose();
       this.specMesh = null;
     }
@@ -864,6 +1140,9 @@ export class GlobeVisualsLayer {
     }
 
     // Do NOT call renderer.dispose() — it would destroy the shared WebGL context.
+    this.ktx2Loader?.dispose();
+    this.ktx2Loader = null;
+    this.textureLoader = null;
     this.renderer = null;
     this.scene = null;
     this.camera = null;

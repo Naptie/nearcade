@@ -5,11 +5,12 @@
     formatHourLiteral,
     formatShopAddress,
     getGameName,
-    adaptiveNewTab
+    adaptiveNewTab,
+    isShopChinaBased
   } from '$lib/utils';
   import { resolve } from '$app/paths';
-  import { GAMES } from '$lib/constants';
-  import type { Shop, ShopWithExtras } from '$lib/types';
+  import { GAME_TITLES } from '$lib/constants';
+  import type { GlobeShopWithExtras, ShopWithExtras } from '$lib/types';
   import FancyButton from './FancyButton.svelte';
 
   let {
@@ -17,10 +18,12 @@
     interactive = false,
     onclick
   }: {
-    shop: ShopWithExtras;
+    shop: ShopWithExtras | GlobeShopWithExtras;
     interactive?: boolean;
     onclick?: () => void;
   } = $props();
+
+  type ShopCardShop = ShopWithExtras | GlobeShopWithExtras;
 
   const getDensityTailwindColor = (density: number) => {
     switch (density) {
@@ -37,12 +40,15 @@
     }
   };
 
-  const getGameInfo = (titleId: number) => GAMES.find((g) => g.id === titleId);
+  const getGameInfo = (titleId: number) => GAME_TITLES.find((g) => g.id === titleId);
 
-  const getTotalMachines = (s: Pick<Shop, 'games'>) =>
-    s.games.reduce((total, game) => total + game.quantity, 0);
+  const getAggregatedGames = (currentShop: ShopCardShop) =>
+    'aggregatedGames' in currentShop ? currentShop.aggregatedGames : aggregateGames(currentShop);
 
-  const aggregatedGames = $derived(aggregateGames(shop));
+  const getTotalMachines = (currentShop: ShopCardShop) =>
+    getAggregatedGames(currentShop).reduce((total, game) => total + game.quantity, 0);
+
+  const aggregatedGames = $derived(getAggregatedGames(shop));
   const openingHours = $derived(shop.openingHoursParsed);
   const offsetLocal = $derived.by(() => {
     if (!openingHours) return '';
@@ -52,8 +58,7 @@
   });
 
   const shopPageUrl = $derived(
-    resolve('/(main)/shops/[source]/[id]', {
-      source: shop.source,
+    resolve('/(main)/shops/[id]', {
       id: shop.id.toString()
     })
   );
@@ -62,14 +67,15 @@
       shop.location.coordinates[0]
     )}&latitude=${encodeURIComponent(shop.location.coordinates[1])}&name=${encodeURIComponent(shop.name)}&radius=10`
   );
+  const isChinaBased = $derived(isShopChinaBased(shop));
   const mapUrl = $derived(
-    shop.source === 'ziv'
+    !isChinaBased
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
           `${shop.name} ${formatShopAddress(shop)}`
         )}`
       : `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${shop.location.coordinates[1]}&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`
   );
-  const mapLinkLabel = $derived(shop.source === 'ziv' ? m.view_in_google_maps() : m.view_in_amap());
+  const mapLinkLabel = $derived(!isChinaBased ? m.view_in_google_maps() : m.view_in_amap());
 </script>
 
 {#snippet cardContent()}

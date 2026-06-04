@@ -10,20 +10,33 @@ import {
   getDefaultPostReadability,
   validatePostReadability,
   canReadPost,
-  protect
+  protect,
+  toPlainObject
 } from '$lib/utils';
 import { m } from '$lib/paraglide/messages';
+import { attachImagesToOwner } from '$lib/images/index.server';
+import { withExistingImages } from '$lib/images/validation.server';
+import {
+  organizationPostsQuerySchema,
+  organizationPostsResponseSchema,
+  postCreateRequestSchema,
+  postCreateResponseSchema
+} from '$lib/schemas/posts';
+import { universityIdParamSchema } from '$lib/schemas/organizations';
+import {
+  parseJsonOrError,
+  parseParamsOrError,
+  parseQueryOrError
+} from '$lib/utils/validation.server';
+
+const postCreateRequestWithExistingImagesSchema = withExistingImages(postCreateRequestSchema);
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
     const session = locals.session;
-    const universityId = params.id;
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const { id: universityId } = parseParamsOrError(universityIdParamSchema, params);
+    const { page } = parseQueryOrError(organizationPostsQuerySchema, url);
     const skip = (page - 1) * PAGINATION.PAGE_SIZE;
-
-    if (!universityId) {
-      error(400, m.invalid_university_id());
-    }
 
     const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
@@ -89,11 +102,15 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     const hasMore = readablePosts.length > skip + PAGINATION.PAGE_SIZE;
     const posts = readablePosts.slice(skip, skip + PAGINATION.PAGE_SIZE);
 
-    return json({
-      posts,
-      hasMore,
-      page
-    });
+    return json(
+      organizationPostsResponseSchema.parse(
+        toPlainObject({
+          posts,
+          hasMore,
+          page
+        })
+      )
+    );
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
@@ -110,19 +127,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       error(401, m.unauthorized());
     }
 
-    const universityId = params.id;
-    if (!universityId) {
-      error(400, m.invalid_university_id());
-    }
+    const { id: universityId } = parseParamsOrError(universityIdParamSchema, params);
 
-    const { title, content, readability } = (await request.json()) as {
-      title: string;
-      content: string;
-      readability?: PostReadability;
-    };
-    if (!title || !content) {
-      error(400, m.title_and_content_are_required());
-    }
+    const {
+      title: trimmedTitle,
+      content: trimmedContent,
+      readability,
+      images: imageIds
+    } = await parseJsonOrError(request, postCreateRequestWithExistingImagesSchema);
 
     const db = mongo.db();
     const universitiesCollection = db.collection<University>('universities');
@@ -163,8 +175,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     // Create new post
     const newPost: Post = {
       id: postId(),
-      title: title.trim(),
-      content: content.trim(),
+      title: trimmedTitle,
+      content: trimmedContent,
+      images: imageIds,
       universityId: university.id,
       createdBy: session.user.id,
       createdAt: new Date(),
@@ -178,7 +191,23 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
     await postsCollection.insertOne(newPost);
 
-    return json({ success: true, postId: newPost.id }, { status: 201 });
+    try {
+      if (imageIds.length > 0) {
+        await attachImagesToOwner(
+          db,
+          imageIds,
+          { postId: newPost.id },
+          { userId: session.user.id, userType: session.user.userType }
+        );
+      }
+    } catch (attachmentError) {
+      await postsCollection.deleteOne({ id: newPost.id });
+      throw attachmentError;
+    }
+
+    return json(postCreateResponseSchema.parse({ success: true, postId: newPost.id }), {
+      status: 201
+    });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;

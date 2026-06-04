@@ -111,7 +111,7 @@ export function githubProvider(): GenericOAuthConfig {
         name: profile.name ?? profile.login,
         email: profile.email,
         image: profile.avatar_url,
-        emailVerified: false
+        emailVerified: !!profile.email
       };
       if (result.email) {
         await cacheOAuthProfile('github', result.id, { email: result.email, image: result.image });

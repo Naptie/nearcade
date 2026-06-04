@@ -8,7 +8,7 @@ import type {
   Location
 } from '../src/lib/types';
 import { calculateDistance, getGameMachineCount, calculateAreaDensity } from '../src/lib/utils';
-import { GAMES, RADIUS_OPTIONS } from '../src/lib/constants';
+import { GAME_TITLES, RADIUS_OPTIONS } from '../src/lib/constants';
 
 import dotenv from 'dotenv';
 
@@ -58,7 +58,12 @@ const getShopsWithinRadius = async (
 
 const calculateMetricsForRadius = (shops: Shop[], radiusKm: number): RankingMetrics => {
   const totalMachines = shops.reduce(
-    (total, shop) => total + shop.games.reduce((gameTotal, game) => gameTotal + game.quantity, 0),
+    (total, shop) =>
+      total +
+      shop.games.reduce(
+        (gameTotal: number, game: { quantity: number }) => gameTotal + game.quantity,
+        0
+      ),
     0
   );
 
@@ -67,7 +72,7 @@ const calculateMetricsForRadius = (shops: Shop[], radiusKm: number): RankingMetr
     shopCount: shops.length,
     totalMachines,
     areaDensity: calculateAreaDensity(totalMachines, radiusKm),
-    gameSpecificMachines: GAMES.map((game) => {
+    gameSpecificMachines: GAME_TITLES.map((game) => {
       const gameCount = getGameMachineCount(shops, game.id);
       return {
         name: game.key,
@@ -172,7 +177,7 @@ const calculateAndCacheUniversityRankings = async (client: MongoClient): Promise
       'shops',
       'machines',
       'density',
-      ...GAMES.map((g) => g.key)
+      ...GAME_TITLES.map((g) => g.key)
     ];
 
     const cachedRankings: CachedRanking[] = rankings.map((ranking) => ({

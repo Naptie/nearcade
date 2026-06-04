@@ -1,53 +1,82 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
+  import { enhance } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
-  import type { PageData } from './$types';
+  import type { ActionData, PageData } from './$types';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import { formatDateTime, pageTitle } from '$lib/utils';
-  import { onMount } from 'svelte';
-  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
 
-  let { data }: { data: PageData } = $props();
+  const STUDENT_EMAIL_VERIFICATION_SUCCESS_QUERY_PARAM = 'studentEmailVerified';
+  const STUDENT_EMAIL_VERIFICATION_ERROR_QUERY_PARAM = 'studentEmailError';
 
-  let copied: string | null = $state(null);
-  let lastCopied: Date | null = $state(null);
+  let { data, form }: { data: PageData; form: ActionData | null } = $props();
+  let isSubmitting = $state(false);
 
-  let domain = $derived.by(() => {
-    const hostname = new URL(data.university.website || '').hostname;
-    const parts = hostname.split('.');
-    return parts.length > 2 ? parts.slice(1).join('.') : hostname;
+  const inputEmail = $derived.by(() => {
+    if (form && 'email' in form && typeof form.email === 'string') {
+      return form.email;
+    }
+
+    return data.pendingVerification?.email ?? '';
   });
 
-  let title = $derived(`[nearcade] SSV ${m.verification_email_title()}`);
-  let body = $derived(`UNIV: ${data.university.id}\nUSER: ${data.user.id}\nHMAC: ${data.hmac}`);
+  const pendingEmail = $derived.by(() => {
+    if (
+      form &&
+      'success' in form &&
+      form.success &&
+      'email' in form &&
+      typeof form.email === 'string'
+    ) {
+      return form.email;
+    }
 
-  const sendTo = 'verify@nearcade.phi.zone';
+    return data.pendingVerification?.email ?? null;
+  });
 
-  const copy = (content: string) => {
-    if (copied === content) return; // Avoid redundant copy actions
-    navigator.clipboard.writeText(content);
-    copied = content;
-    const date = new Date();
-    lastCopied = date;
-    setTimeout(() => {
-      if (lastCopied === date) {
-        copied = null; // Reset copied state after 2 seconds
-        lastCopied = null;
-      }
-    }, 2000);
+  const pendingExpiresAt = $derived.by(() =>
+    data.pendingVerification?.expiresAt ? new Date(data.pendingVerification.expiresAt) : null
+  );
+
+  const formMessage = $derived.by(() => {
+    if (form && 'message' in form && typeof form.message === 'string') {
+      return form.message;
+    }
+
+    return null;
+  });
+
+  const formSucceeded = $derived.by(() => Boolean(form && 'success' in form && form.success));
+
+  const getVerificationErrorMessage = (errorCode: PageData['verificationError']) => {
+    switch (errorCode) {
+      case 'already_verified':
+        return m.already_verified_description();
+      case 'domain_mismatch':
+        return m.domain_mismatch_description();
+      case 'underconfigured_university':
+        return m.underconfigured_university_description();
+      case 'invalid_or_expired':
+      default:
+        return m.student_email_verification_error_invalid_or_expired();
+    }
   };
 
-  onMount(() => {
-    if (data.status !== 'success') {
-      const interval = setInterval(() => {
-        if (data.status === 'success') {
-          clearInterval(interval);
-        } else {
-          invalidateAll();
-        }
-      }, 10000);
+  const stripVerificationStatus = (url: URL) => {
+    const nextUrl = new URL(url);
+    nextUrl.searchParams.delete('token');
+    nextUrl.searchParams.delete(STUDENT_EMAIL_VERIFICATION_SUCCESS_QUERY_PARAM);
+    nextUrl.searchParams.delete(STUDENT_EMAIL_VERIFICATION_ERROR_QUERY_PARAM);
+    return nextUrl;
+  };
+
+  $effect(() => {
+    if (data.verificationSucceeded || data.verificationError) {
+      history.replaceState(history.state, '', stripVerificationStatus(new URL(page.url)));
     }
   });
 </script>
@@ -72,142 +101,126 @@
         university: `<a href="${resolve('/(main)/universities/[id]', { id: data.university.slug || data.university.id })}" class="hover:text-accent transition-colors">${data.university.name}</a>`
       })}
     </h1>
-    {#if !data.verificationEmail}
-      <p class="text-base-content/80">
-        {@html m.verification_instruction({
-          suffix: `<span class="text-success font-semibold">${domain}</span>`,
-          email: `<a href="mailto:${sendTo}" class="link-accent transition-colors">${sendTo}</a>`
+    {#if data.expectedEmailDomain}
+      <p class="text-base-content/80 max-w-2xl">
+        {@html m.student_email_verification_description({
+          suffix: `<span class="text-success font-semibold">${data.expectedEmailDomain}</span>`
         })}
       </p>
+    {:else}
+      <p class="text-base-content/80 max-w-2xl">{m.underconfigured_university_description()}</p>
     {/if}
   </div>
-  <div class="flex flex-col items-center gap-2">
-    <div
-      class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 border-base-300 flex flex-col gap-2 rounded-xl border p-4 shadow-none backdrop-blur-2xl transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
-    >
-      {#if data.verificationEmail}
-        <div class="flex flex-col items-center text-center">
+  <div class="flex w-full max-w-2xl flex-col gap-4">
+    {#if data.verificationSucceeded}
+      <div class="alert alert-success">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>{m.student_email_verification_success()}</span>
+      </div>
+    {/if}
+
+    {#if data.verificationError}
+      <div class="alert alert-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{getVerificationErrorMessage(data.verificationError)}</span>
+      </div>
+    {/if}
+
+    {#if formMessage}
+      <div class={formSucceeded ? 'alert alert-success' : 'alert alert-error'}>
+        <i class={formSucceeded ? 'fa-solid fa-paper-plane' : 'fa-solid fa-triangle-exclamation'}
+        ></i>
+        <span>{formMessage}</span>
+      </div>
+    {/if}
+
+    {#if data.verificationEmail}
+      <section class="bg-base-100 rounded-2xl border border-current/10 p-5 md:p-6">
+        <div class="flex flex-col items-center gap-2 text-center">
+          <span class="text-base-content/60 text-xs font-semibold tracking-[0.18em] uppercase">
+            {m.verified()}
+          </span>
           <span>{m.student_status_verified()}</span>
           <span class="text-success text-2xl font-semibold break-all">{data.verificationEmail}</span
           >
-        </div>
-      {:else}
-        <div class="flex flex-col">
-          <div class="flex items-center justify-between gap-1">
-            <span class="label">{m.send_to()}</span>
-            <button
-              class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-              disabled={copied === sendTo}
-              onclick={() => copy(sendTo)}
+          {#if data.verifiedAt}
+            <span class="text-base-content/70 text-sm"
+              >{m.verified_at()}: {formatDateTime(data.verifiedAt)}</span
             >
-              {#if copied === sendTo}
-                <i class="fa-solid fa-check"></i>
-                <span class="not-lg:hidden">{m.copied()}</span>
-              {:else}
-                <i class="fa-solid fa-copy"></i>
-                <span class="not-lg:hidden">{m.copy()}</span>
-              {/if}
-            </button>
-          </div>
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <code
-            class="cursor-copy font-semibold break-all transition-colors"
-            class:hover:text-accent={copied !== sendTo}
-            class:text-success={copied === sendTo}
-            onmousedown={() => copy(sendTo)}
-            onmouseup={() => copy(sendTo)}
-          >
-            {sendTo}
-          </code>
+          {/if}
         </div>
-        <div class="flex flex-col">
-          <div class="flex items-center justify-between gap-1">
-            <span class="label">{m.title()}</span>
-            <button
-              class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-              disabled={copied === title}
-              onclick={() => copy(title)}
+      </section>
+    {:else}
+      {#if pendingEmail && pendingExpiresAt}
+        <section class="bg-base-100 rounded-2xl border border-current/10 p-5 md:p-6">
+          <div class="flex items-start gap-3">
+            <div
+              class="bg-success/12 text-success flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
             >
-              {#if copied === title}
-                <i class="fa-solid fa-check"></i>
-                <span class="not-lg:hidden">{m.copied()}</span>
-              {:else}
-                <i class="fa-solid fa-copy"></i>
-                <span class="not-lg:hidden">{m.copy()}</span>
-              {/if}
-            </button>
+              <i class="fa-solid fa-envelope-circle-check"></i>
+            </div>
+            <div class="space-y-1">
+              <h2 class="text-lg font-semibold">{m.student_email_verification_pending()}</h2>
+              <p class="text-base-content/70 text-sm md:text-base">
+                {m.student_email_verification_pending_description({
+                  email: pendingEmail,
+                  expires: formatDateTime(pendingExpiresAt)
+                })}
+              </p>
+            </div>
           </div>
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <code
-            class="cursor-copy font-bold break-all transition-colors"
-            class:hover:text-accent={copied !== title}
-            class:text-success={copied === title}
-            onmousedown={() => copy(title)}
-            onmouseup={() => copy(title)}
-          >
-            {title}
-          </code>
-        </div>
-        <div class="flex flex-col">
-          <div class="flex items-center justify-between gap-1">
-            <span class="label">{m.body()}</span>
-            <button
-              class="btn btn-xs not-lg:btn-circle btn-soft btn-primary"
-              disabled={copied === body}
-              onclick={() => copy(body)}
-            >
-              {#if copied === body}
-                <i class="fa-solid fa-check"></i>
-                <span class="not-lg:hidden">{m.copied()}</span>
-              {:else}
-                <i class="fa-solid fa-copy"></i>
-                <span class="not-lg:hidden">{m.copy()}</span>
-              {/if}
-            </button>
-          </div>
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <code
-            class="cursor-copy break-all whitespace-pre-line transition-colors"
-            class:hover:text-accent={copied !== body}
-            class:text-success={copied === body}
-            onmousedown={() => copy(body)}
-            onmouseup={() => copy(body)}
-          >
-            {body}
-          </code>
-        </div>
+        </section>
       {/if}
-    </div>
-    <div class="flex items-center text-sm">
-      {#if data.verificationEmail}
-        <span class="label">{m.verified_at()}: {formatDateTime(data.verifiedAt)}</span>
-      {:else}
-        <span class="label">{m.expires()}: {formatDateTime(data.expires)}</span>
-        <div class="divider divider-horizontal"></div>
-        <div
-          class={data.status && data.status !== 'success' && data.status !== 'processing'
-            ? 'tooltip tooltip-bottom tooltip-error'
-            : ''}
-          data-tip={data.status && data.status !== 'success' && data.status !== 'processing'
-            ? m[`${data.status}_description`]()
-            : ''}
-        >
-          <span class="label">{m.status()}: </span>
-          <span
-            class={data.status && data.status !== 'processing'
-              ? data.status === 'success'
-                ? 'text-success'
-                : 'text-error'
-              : 'text-info inline-flex items-center gap-1'}
+
+      <section class="bg-base-100 rounded-2xl border border-current/10 p-5 md:p-6">
+        {#if data.expectedEmailDomain}
+          <form
+            method="POST"
+            action="?/sendVerificationEmail"
+            use:enhance={() => {
+              isSubmitting = true;
+
+              return async ({ update }) => {
+                isSubmitting = false;
+                await update();
+                await invalidateAll();
+              };
+            }}
           >
-            {m[data.status || 'waiting_for_email']()}
-            {#if !data.status || data.status === 'processing'}
-              <span class="loading loading-spinner loading-xs"></span>
-            {/if}
-          </span>
-        </div>
-      {/if}
-    </div>
+            <label class="form-control w-full gap-2">
+              <span class="label-text">{m.student_email_verification_email_label()}</span>
+              <input
+                class="input input-bordered w-full"
+                type="email"
+                name="email"
+                placeholder={m.student_email_verification_email_placeholder({
+                  suffix: data.expectedEmailDomain
+                })}
+                value={inputEmail}
+                autocomplete="email"
+                disabled={isSubmitting}
+              />
+            </label>
+
+            <div class="mt-4 flex flex-col flex-wrap items-center justify-center gap-3">
+              <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
+                {#if isSubmitting}
+                  <span class="loading loading-spinner loading-xs"></span>
+                {/if}
+                {pendingEmail
+                  ? m.student_email_verification_resend_submit()
+                  : m.student_email_verification_send_submit()}
+              </button>
+            </div>
+          </form>
+        {:else}
+          <div class="alert alert-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{m.underconfigured_university_description()}</span>
+          </div>
+        {/if}
+      </section>
+    {/if}
   </div>
   <Footer />
 </div>

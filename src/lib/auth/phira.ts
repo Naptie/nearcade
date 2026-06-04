@@ -51,7 +51,8 @@ export function phiraProvider(): GenericOAuthConfig {
       const mapped = {
         name: p.name,
         email: p.email,
-        image: p.avatar ?? undefined
+        image: p.avatar ?? undefined,
+        emailVerified: !!p.email
       };
       await cacheOAuthProfile('phira', String(p.id), { email: mapped.email, image: mapped.image });
       return mapped;
