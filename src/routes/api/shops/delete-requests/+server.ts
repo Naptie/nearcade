@@ -8,6 +8,7 @@ import {
 } from '$lib/schemas/shops';
 import { parseQueryOrError } from '$lib/utils/validation.server';
 import { toPlainArray } from '$lib/utils';
+import type { ShopDeleteRequest } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url }) => {
   const { status } = parseQueryOrError(shopDeleteRequestsListQuerySchema, url);
@@ -19,7 +20,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   const requests = await db
-    .collection('shop_delete_requests')
+    .collection<ShopDeleteRequest>('shop_delete_requests')
     .find(query)
     .sort({ createdAt: -1 })
     .limit(100)
