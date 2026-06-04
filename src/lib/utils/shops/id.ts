@@ -1,14 +1,6 @@
 import { SHOP_ID_OFFSET_BEMANICN, SHOP_ID_OFFSET_ZIV } from '$lib/constants';
 
-export type LegacyShopSource = 'bemanicn' | 'ziv' | '';
-
-const normalizeLegacyShopSource = (sourceRaw: string): LegacyShopSource | null => {
-  const source = sourceRaw.toLowerCase().trim();
-  if (source === 'bemanicn' || source === 'ziv' || source === '') {
-    return source;
-  }
-  return null;
-};
+export type LegacyShopSource = 'bemanicn' | 'ziv' | string;
 
 const toUnifiedShopId = (source: LegacyShopSource, id: number): number => {
   if (source === 'bemanicn') {
@@ -24,7 +16,7 @@ export const parseLegacyShopParams = (
   sourceRaw: string,
   idRaw: string
 ): { source: LegacyShopSource; id: number; unifiedId: number } | null => {
-  const source = normalizeLegacyShopSource(sourceRaw);
+  const source = sourceRaw.toLowerCase().trim();
   if (source === null) {
     return null;
   }
