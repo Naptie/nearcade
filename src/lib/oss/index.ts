@@ -20,6 +20,10 @@ export interface StoredFileReference {
   storageObjectId?: string | null;
 }
 
+export interface UploadFileOptions {
+  contentType?: string;
+}
+
 export const getAvailableOSS = () =>
   isS3Initialized
     ? { name: 'S3', url: getS3Config()?.endpoint }
@@ -30,10 +34,11 @@ export const getAvailableOSS = () =>
 export const uploadFile = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
-  onProgress: (progress: number) => void
+  onProgress: (progress: number) => void,
+  options?: UploadFileOptions
 ) =>
-  (await uploadToS3(name, buffer, onProgress)) ||
-  (await uploadToLeanCloud(name, buffer, onProgress)) ||
+  (await uploadToS3(name, buffer, onProgress, options)) ||
+  (await uploadToLeanCloud(name, buffer, onProgress, options)) ||
   (() => {
     throw new Error('No OSS provider available');
   })();
@@ -41,8 +46,9 @@ export const uploadFile = async (
 export const upload = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
-  onProgress: (progress: number) => void
-) => (await uploadFile(name, buffer, onProgress)).url;
+  onProgress: (progress: number) => void,
+  options?: UploadFileOptions
+) => (await uploadFile(name, buffer, onProgress, options)).url;
 
 export const deleteFile = async (file: StoredFileReference) => {
   if (file.storageProvider === 's3') {

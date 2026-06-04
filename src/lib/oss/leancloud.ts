@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import AV from 'leancloud-storage';
-import type { UploadedFileDescriptor } from './index.js';
+import type { UploadFileOptions, UploadedFileDescriptor } from './index.js';
 
 export let isLeanCloudInitialized = false;
 
@@ -26,7 +26,9 @@ export const getLeanCloudConfig = (): typeof options | undefined => options;
 export const uploadToLeanCloud = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
-  onProgress: (progress: number) => void
+  onProgress: (progress: number) => void,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _options?: UploadFileOptions
 ): Promise<UploadedFileDescriptor | undefined> => {
   if (!env.OSS_LEANCLOUD_APP_ID || !env.OSS_LEANCLOUD_APP_KEY) return;
 

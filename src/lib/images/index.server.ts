@@ -264,7 +264,9 @@ export const createUploadedImage = async ({
     normalizedOwner,
     draftContext
   );
-  const uploadedFile = await uploadFile(storageKey, buffer, onProgress);
+  const uploadedFile = await uploadFile(storageKey, buffer, onProgress, {
+    contentType: mimeType
+  });
 
   const image: ImageAsset = {
     id: imageId,

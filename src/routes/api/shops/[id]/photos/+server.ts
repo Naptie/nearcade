@@ -131,9 +131,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Run the OSS upload asynchronously so we can return the streaming response immediately
   (async () => {
     try {
-      const uploadedFile = await uploadFile(ossName, buffer, (progress) => {
-        enqueueEvent({ phase: 'uploading', progress });
-      });
+      const uploadedFile = await uploadFile(
+        ossName,
+        buffer,
+        (progress) => {
+          enqueueEvent({ phase: 'uploading', progress });
+        },
+        {
+          contentType: file.type
+        }
+      );
 
       const photo = shopPhotoSchema.parse(
         toPlainObject({

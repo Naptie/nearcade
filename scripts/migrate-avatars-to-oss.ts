@@ -18,6 +18,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { nanoid } from 'nanoid';
 import AV from 'leancloud-storage';
+import { downloadRemoteImage } from '../src/lib/images/remote-image.server';
 
 if (!('MONGODB_URI' in process.env)) {
   const dotenv = await import('dotenv');
@@ -187,36 +188,19 @@ const getImageAssetStorageFields = (uploadedFile: UploadedFileDescriptor) => ({
   storageObjectId: uploadedFile.storageObjectId
 });
 
-const getExtensionFromUrl = (url: string, contentType: string): string => {
-  const urlPath = url.split('?')[0];
-  const fromPath = urlPath.split('.').pop()?.toLowerCase();
-  if (fromPath && /^[a-z]{2,5}$/.test(fromPath)) return fromPath;
-  const fromMime = contentType.split('/')[1]?.split(';')[0]?.toLowerCase();
-  if (fromMime) return fromMime === 'jpeg' ? 'jpg' : fromMime;
-  return 'jpg';
-};
-
 const downloadImage = async (
   url: string
-): Promise<{ buffer: Buffer; contentType: string } | null> => {
+): Promise<{ buffer: Buffer; contentType: string; extension: string } | null> => {
   try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'nearcade-avatar-migrator/1.0' }
+    const downloaded = await downloadRemoteImage(url, {
+      userAgent: 'nearcade-avatar-migrator/1.0'
     });
 
-    if (!response.ok) {
-      console.warn(`  Failed to download ${url}: HTTP ${response.status}`);
-      return null;
-    }
-
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    if (!contentType.startsWith('image/')) {
-      console.warn(`  Skipping ${url}: not an image (${contentType})`);
-      return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    return { buffer: Buffer.from(arrayBuffer), contentType };
+    return {
+      buffer: downloaded.buffer,
+      contentType: downloaded.contentType,
+      extension: downloaded.extension
+    };
   } catch (err) {
     console.warn(`  Error downloading ${url}:`, err);
     return null;
@@ -265,7 +249,7 @@ const migrateUserAvatars = async (db: ReturnType<MongoClient['db']>) => {
     }
 
     const imageId = nanoid();
-    const extension = getExtensionFromUrl(imageUrl, downloaded.contentType);
+    const extension = downloaded.extension;
     const storageKey = `${IMAGE_STORAGE_PREFIX}/images/avatars/users/${user.id}/${imageId}.${extension}`;
 
     try {
@@ -338,7 +322,7 @@ const migrateUniversityAvatars = async (db: ReturnType<MongoClient['db']>) => {
     }
 
     const imageId = nanoid();
-    const extension = getExtensionFromUrl(avatarUrl, downloaded.contentType);
+    const extension = downloaded.extension;
     const storageKey = `${IMAGE_STORAGE_PREFIX}/images/avatars/universities/${university.id}/${imageId}.${extension}`;
 
     try {
@@ -411,7 +395,7 @@ const migrateClubAvatars = async (db: ReturnType<MongoClient['db']>) => {
     }
 
     const imageId = nanoid();
-    const extension = getExtensionFromUrl(avatarUrl, downloaded.contentType);
+    const extension = downloaded.extension;
     const storageKey = `${IMAGE_STORAGE_PREFIX}/images/avatars/clubs/${club.id}/${imageId}.${extension}`;
 
     try {

@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { createAuthMiddleware } from 'better-auth/api';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { jwt } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
@@ -20,12 +21,39 @@ import { qqProvider } from './qq';
 import { githubProvider } from './github';
 import { phiraProvider } from './phira';
 import type { User } from './types';
+import { syncUserAvatarToOSSIfNeeded } from '$lib/images/avatar-sync.server';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
 import { OAUTH_SCOPES } from './oauth/scopes';
 import { sessionQrPlugin } from './session-qr.server';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
+
+const runBackgroundTask = (promise: Promise<unknown>) => {
+  const guardedPromise = promise.catch((error) => {
+    console.error('Better Auth background task failed:', error);
+  });
+
+  try {
+    const event = getRequestEvent();
+    const platform = event.platform as
+      | {
+          context?: { waitUntil?: (task: Promise<unknown>) => void };
+          ctx?: { waitUntil?: (task: Promise<unknown>) => void };
+        }
+      | undefined;
+    const waitUntil = platform?.context?.waitUntil ?? platform?.ctx?.waitUntil;
+
+    if (waitUntil) {
+      waitUntil(guardedPromise);
+      return;
+    }
+  } catch {
+    // No active SvelteKit request context; fall back to fire-and-forget.
+  }
+
+  void guardedPromise;
+};
 
 function resolveId(id: string): ObjectId {
   try {
@@ -152,7 +180,10 @@ function createAuth() {
     basePath: '/api/auth',
     trustedOrigins: ['*'],
     advanced: {
-      trustedProxyHeaders: true
+      trustedProxyHeaders: true,
+      backgroundTasks: {
+        handler: runBackgroundTask
+      }
     },
     database: mongodbAdapter(mongo.db(), {
       usePlural: true
@@ -215,6 +246,16 @@ function createAuth() {
       sendVerificationEmail: async ({ user, url }, request) => {
         await sendVerificationLinkEmail({ user, url, request });
       }
+    },
+    hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        const userId = ctx.context.newSession?.user.id;
+        if (!userId) {
+          return;
+        }
+
+        ctx.context.runInBackground(syncUserAvatarToOSSIfNeeded(mongo.db(), userId));
+      })
     },
     plugins: [
       genericOAuth({

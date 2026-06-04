@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import type { UploadedFileDescriptor } from './index.js';
+import type { UploadFileOptions, UploadedFileDescriptor } from './index.js';
 
 interface S3Config {
   endpoint: string;
@@ -40,7 +40,8 @@ export const getS3Config = () => s3Config;
 export const uploadToS3 = async (
   name: string,
   buffer: Buffer<ArrayBufferLike>,
-  onProgress: (progress: number) => void
+  onProgress: (progress: number) => void,
+  options?: UploadFileOptions
 ): Promise<UploadedFileDescriptor | undefined> => {
   if (!s3Config || !s3) return;
 
@@ -50,7 +51,7 @@ export const uploadToS3 = async (
       Bucket: s3Config.bucket,
       Key: name,
       Body: buffer,
-      ContentType: 'application/octet-stream'
+      ContentType: options?.contentType || 'application/octet-stream'
     }
   });
 
