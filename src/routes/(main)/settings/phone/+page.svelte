@@ -8,7 +8,7 @@
   let { data }: { data: PageData } = $props();
 
   // Send OTP form state
-  let countryCode = $derived(data.countries.length > 0 ? data.countries[0].isoCode : '');
+  let countryCode = $derived(data.countries.length > 0 ? data.countries[0].dialCode : '');
   let phoneNumber = $state('');
   let isSending = $state(false);
 
