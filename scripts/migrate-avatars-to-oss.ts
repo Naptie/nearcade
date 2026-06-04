@@ -31,6 +31,7 @@ const OSS_LEANCLOUD_APP_ID = process.env.OSS_LEANCLOUD_APP_ID;
 const OSS_LEANCLOUD_APP_KEY = process.env.OSS_LEANCLOUD_APP_KEY;
 const OSS_LEANCLOUD_SERVER_URL = process.env.OSS_LEANCLOUD_SERVER_URL;
 const OSS_LEANCLOUD_MASTER_KEY = process.env.OSS_LEANCLOUD_MASTER_KEY;
+const REVERSE_PROXY = process.env.REVERSE_PROXY;
 const IMAGE_STORAGE_PREFIX = 'nearcade';
 const IMAGES_COLLECTION = 'images';
 
@@ -193,7 +194,8 @@ const downloadImage = async (
 ): Promise<{ buffer: Buffer; contentType: string; extension: string } | null> => {
   try {
     const downloaded = await downloadRemoteImage(url, {
-      userAgent: 'nearcade-avatar-migrator/1.0'
+      userAgent: 'nearcade-avatar-migrator/1.0',
+      reverseProxy: REVERSE_PROXY
     });
 
     return {

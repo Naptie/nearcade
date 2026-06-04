@@ -1,5 +1,3 @@
-import { env } from '$env/dynamic/private';
-
 export interface ResolvedImageFormat {
   contentType: string;
   extension: string;
@@ -209,10 +207,13 @@ export const downloadRemoteImage = async (
   url: string,
   options: {
     userAgent?: string;
+    reverseProxy?: string;
     fetchImpl?: typeof fetch;
   } = {}
 ): Promise<DownloadedRemoteImage> => {
-  const targetUrl = env.REVERSE_PROXY ? `${env.REVERSE_PROXY}${encodeURIComponent(url)}` : url;
+  const targetUrl = options.reverseProxy
+    ? `${options.reverseProxy}${encodeURIComponent(url)}`
+    : url;
   const response = await (options.fetchImpl ?? fetch)(targetUrl, {
     headers: {
       'User-Agent': options.userAgent ?? DEFAULT_REMOTE_IMAGE_USER_AGENT

@@ -4,6 +4,7 @@ import type { Db } from 'mongodb';
 import { deleteFile } from '$lib/oss/index';
 import { createUploadedImage, getImagesCollection } from './index.server';
 import { downloadRemoteImage } from './remote-image.server';
+import { env } from '$env/dynamic/private';
 
 const REMOTE_AVATAR_SYNC_USER_AGENT = 'nearcade-auth-avatar-sync/1.0';
 const noopProgress = () => {};
@@ -54,7 +55,8 @@ export const syncUserAvatarToOSSIfNeeded = async (db: Db, userId: string) => {
 
   try {
     const downloaded = await downloadRemoteImage(originalImageUrl, {
-      userAgent: REMOTE_AVATAR_SYNC_USER_AGENT
+      userAgent: REMOTE_AVATAR_SYNC_USER_AGENT,
+      reverseProxy: env.REVERSE_PROXY
     });
 
     const image = await createUploadedImage({
