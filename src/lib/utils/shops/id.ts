@@ -25,7 +25,7 @@ export const parseLegacyShopParams = (
   idRaw: string
 ): { source: LegacyShopSource; id: number; unifiedId: number } | null => {
   const source = normalizeLegacyShopSource(sourceRaw);
-  if (!source) {
+  if (source === null) {
     return null;
   }
 
