@@ -178,7 +178,7 @@ const sanitizeConnectionUrl = (value?: string) => {
 };
 
 const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
-  const { pathname, search } = event.url;
+  const { pathname, search, searchParams } = event.url;
   const escapedBase = escapeRegExp(base);
 
   // Match /shops/:source/:id
@@ -187,7 +187,10 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
   if (shopMatch) {
     const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
     if (parsed) {
-      redirect(308, `${base}/shops/${parsed.unifiedId}${search}`);
+      redirect(
+        308,
+        `${base}/shops/${parsed.unifiedId}${search ? `${search}&legacy=1` : '?legacy=1'}`
+      );
     }
   }
 
@@ -198,7 +201,32 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
     const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
     if (parsed) {
       const suffix = apiMatch[3] || '';
-      redirect(308, `${base}/api/shops/${parsed.unifiedId}${suffix}${search}`);
+      redirect(
+        308,
+        `${base}/api/shops/${parsed.unifiedId}${suffix}${search ? `${search}&legacy=1` : '?legacy=1'}`
+      );
+    }
+  }
+
+  if (searchParams.get('legacy') === '1') {
+    const attendancePathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]+)/attendance(/.*)?$`);
+    const attendanceMatch = pathname.match(attendancePathRegex);
+    const shopId = attendanceMatch ? attendanceMatch[1] : null;
+    if (shopId) {
+      try {
+        const body = await event.request.json();
+        if (body && typeof body === 'object' && body.games && Array.isArray(body.games)) {
+          body.games = body.games.map((game: unknown) => {
+            if (game && typeof game === 'object' && 'id' in game) {
+              return { ...game, id: parseInt(shopId) * 1000 };
+            }
+            return game;
+          });
+          event.request = new Request(event.request, { body: JSON.stringify(body) });
+        }
+      } catch {
+        // proceed without modification if parsing fails
+      }
     }
   }
 
