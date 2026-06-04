@@ -595,7 +595,6 @@
   "expiration_date_must_be_future": "过期日期必须是未来时间",
   "expired": "已过期",
   "expires": "过期时间",
-  "expires_at": "过期时间",
   "expires_in_1_day": "1天",
   "expires_in_1_week": "1周",
   "expires_in_1_year": "1年",

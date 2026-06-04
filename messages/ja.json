@@ -595,7 +595,6 @@
   "expiration_date_must_be_future": "有効期限は将来の日付である必要があります",
   "expired": "期限切れ",
   "expires": "有効期限",
-  "expires_at": "有効期限",
   "expires_in_1_day": "1日",
   "expires_in_1_week": "1週間",
   "expires_in_1_year": "1年",

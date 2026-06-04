@@ -601,7 +601,6 @@
   "expiration_date_must_be_future": "Expiration date must be in the future",
   "expired": "Expired",
   "expires": "Expires",
-  "expires_at": "Expires At",
   "expires_in_1_day": "1 day",
   "expires_in_1_week": "1 week",
   "expires_in_1_year": "1 year",

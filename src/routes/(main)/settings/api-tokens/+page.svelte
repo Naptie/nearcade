@@ -285,7 +285,7 @@
               {/if}
             </div>
             <div class="text-base-content/60 mt-1 text-sm">
-              <p>{m.expires_at()}: {formatExpiresAt(token.expiresAt)}</p>
+              <p>{m.expires()}: {formatExpiresAt(token.expiresAt)}</p>
               <p>
                 {m.created()}: {formatDistanceToNow(new Date(token.createdAt), {
                   addSuffix: true,
@@ -379,7 +379,7 @@
 
         <div>
           <label class="label" for="token-display-expires">
-            <span class="label-text font-medium">{m.expires_at()}</span>
+            <span class="label-text font-medium">{m.expires()}</span>
           </label>
           <input
             id="token-display-expires"
@@ -612,7 +612,7 @@
 
           <div>
             <label class="label" for="reset-token-display-expires">
-              <span class="label-text font-medium">{m.expires_at()}</span>
+              <span class="label-text font-medium">{m.expires()}</span>
             </label>
             <input
               id="reset-token-display-expires"
@@ -638,7 +638,7 @@
           <div class="flex-1">
             <div class="font-medium">{currentToken.name}</div>
             <div class="text-base-content/60 text-sm">
-              {m.expires_at()}: {formatExpiresAt(currentToken.expiresAt)}
+              {m.expires()}: {formatExpiresAt(currentToken.expiresAt)}
             </div>
           </div>
         </div>
