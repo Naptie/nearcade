@@ -123,239 +123,263 @@ function osuProvider() {
   };
 }
 
-const allowedOrigins =
-  env.ALLOWED_ORIGINS?.split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean) || [];
+function createAuth() {
+  const allowedOrigins =
+    env.ALLOWED_ORIGINS?.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean) || [];
 
-const allowedHosts = allowedOrigins
-  .map((origin) => {
-    try {
-      return new URL(origin).host.trim();
-    } catch {
-      return null;
-    }
-  })
-  .filter((host): host is string => !!host);
-
-export const auth = betterAuth({
-  ...(allowedHosts.length > 0
-    ? {
-        baseURL: {
-          allowedHosts,
-          fallback: allowedOrigins[0],
-          protocol: 'auto'
-        }
+  const allowedHosts = allowedOrigins
+    .map((origin) => {
+      try {
+        return new URL(origin).host.trim();
+      } catch {
+        return null;
       }
-    : {}),
-  basePath: '/api/auth',
-  trustedOrigins: ['*'],
-  advanced: {
-    trustedProxyHeaders: true
-  },
-  database: mongodbAdapter(mongo.db(), {
-    usePlural: true
-  }),
-  account: {
-    accountLinking: {
-      enabled: true,
-      allowDifferentEmails: true,
-      trustedProviders: ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord']
-    }
-  },
-  user: {
-    changeEmail: {
-      enabled: true,
-      updateEmailWithoutVerification: true
+    })
+    .filter((host): host is string => !!host);
+
+  return betterAuth({
+    ...(allowedHosts.length > 0
+      ? {
+          baseURL: {
+            allowedHosts,
+            fallback: allowedOrigins[0],
+            protocol: 'auto'
+          }
+        }
+      : {}),
+    basePath: '/api/auth',
+    trustedOrigins: ['*'],
+    advanced: {
+      trustedProxyHeaders: true
     },
-    additionalFields: {
-      displayName: { type: 'string', required: false },
-      userType: { type: 'string', required: false },
-      bio: { type: 'string', required: false },
-      joinedAt: { type: 'date', required: false, input: false },
-      lastActiveAt: { type: 'date', required: false, input: false },
-      frequentingArcades: { type: 'json', required: false, input: false },
-      starredArcades: { type: 'json', required: false, input: false },
-      autoDiscovery: { type: 'json', required: false, input: false },
-      isEmailPublic: { type: 'boolean', required: false },
-      isActivityPublic: { type: 'boolean', required: false },
-      isFootprintPublic: { type: 'boolean', required: false },
-      isUniversityPublic: { type: 'boolean', required: false },
-      isFrequentingArcadePublic: { type: 'boolean', required: false },
-      isStarredArcadePublic: { type: 'boolean', required: false },
-      notificationTypes: { type: 'json', required: false, input: false },
-      fcmTokens: { type: 'json', required: false, input: false },
-      fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
-      socialLinks: { type: 'json', required: false, input: false },
-      phone: { type: 'string', required: false, input: false },
-      phoneCountryCode: { type: 'string', required: false, input: false }
-    },
-    deleteUser: {
-      enabled: true,
-      beforeDelete: async (user) => {
-        const db = mongo.db();
-        const universityMembersCollection = db.collection('university_members');
-        const clubMembersCollection = db.collection('club_members');
-        const joinRequestsCollection = db.collection('join_requests');
-
-        // Delete university memberships
-        await universityMembersCollection.deleteMany({ userId: user.id });
-
-        // Delete club memberships
-        await clubMembersCollection.deleteMany({ userId: user.id });
-
-        // Delete join requests
-        await joinRequestsCollection.deleteMany({ userId: user.id });
-      }
-    }
-  },
-  emailVerification: {
-    expiresIn: 60 * 60 * 24,
-    sendVerificationEmail: async ({ user, url }, request) => {
-      await sendVerificationLinkEmail({ user, url, request });
-    }
-  },
-  plugins: [
-    genericOAuth({
-      config: [
-        qqProvider(),
-        githubProvider(),
-        microsoftEntraIdProvider(),
-        phiraProvider(),
-        osuProvider(),
-        discordProvider()
-      ]
+    database: mongodbAdapter(mongo.db(), {
+      usePlural: true
     }),
-    jwt(),
-    oauthProvider({
-      loginPage: '/oauth/sign-in',
-      consentPage: '/oauth/consent',
-      scopes: [...OAUTH_SCOPES],
-      allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: true,
-      allowPublicClientPrelogin: true,
-      clientPrivileges: async ({ action, user }) => {
-        if (action === 'read') {
-          return true;
-        }
-
-        return user?.userType === 'site_admin' || user?.userType === 'developer';
-      },
-      schema: {
-        oauthClient: { modelName: 'oauth_client' },
-        oauthConsent: { modelName: 'oauth_consent' },
-        oauthAccessToken: { modelName: 'oauth_access_token' }
-      }
-    }),
-    apiKey({
-      defaultPrefix: 'nk_',
-      defaultKeyLength: 42,
-      enableMetadata: true,
-      maximumNameLength: 50,
-      requireName: true,
-      rateLimit: {
-        enabled: false
-      }
-    }),
-    customSession(async ({ user, session }) => {
-      const userId = user.id;
-
-      const now = Date.now();
-      const lastUpdate = lastActiveUpdates.get(userId) ?? 0;
-      if (now - lastUpdate > LAST_ACTIVE_DEBOUNCE_MS) {
-        lastActiveUpdates.set(userId, now);
-        const db = mongo.db();
-        await db
-          .collection('users')
-          .updateOne({ _id: resolveId(userId) }, { $set: { lastActiveAt: new Date() } });
-      }
-
-      return {
-        user,
-        session: {
-          ...session,
-          unreadNotifications: await countUnreadNotifications(mongo, userId),
-          pendingJoinRequests: await countPendingJoinRequests(mongo, userId)
-        }
-      };
-    }),
-    sessionQrPlugin,
-    sveltekitCookies(getRequestEvent)
-  ],
-  databaseHooks: {
     account: {
-      create: {
-        after: async (account) => {
-          const profile = await getCachedOAuthProfile(account.providerId, account.accountId);
-          if (!profile) return;
-
-          const db = mongo.db();
-          const currentUser = await db
-            .collection('users')
-            .findOne({ _id: resolveId(account.userId) });
-          if (!currentUser) return;
-
-          const updates: Record<string, unknown> = {};
-          const hasPlaceholderEmail = !currentUser.email || currentUser.email.endsWith('.nearcade');
-          const hasRealNewEmail = profile.email && !profile.email.endsWith('.nearcade');
-          if (hasPlaceholderEmail && hasRealNewEmail) {
-            updates.email = profile.email;
-            updates.emailVerified = true;
-          }
-          if (!currentUser.image && profile.image) {
-            updates.image = profile.image;
-          }
-
-          if (Object.keys(updates).length > 0) {
-            await db
-              .collection('users')
-              .updateOne({ _id: resolveId(account.userId) }, { $set: updates });
-          }
-        }
+      accountLinking: {
+        enabled: true,
+        allowDifferentEmails: true,
+        trustedProviders: ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord']
       }
     },
     user: {
-      create: {
-        after: async (user) => {
+      changeEmail: {
+        enabled: true,
+        updateEmailWithoutVerification: true
+      },
+      additionalFields: {
+        displayName: { type: 'string', required: false },
+        userType: { type: 'string', required: false },
+        bio: { type: 'string', required: false },
+        joinedAt: { type: 'date', required: false, input: false },
+        lastActiveAt: { type: 'date', required: false, input: false },
+        frequentingArcades: { type: 'json', required: false, input: false },
+        starredArcades: { type: 'json', required: false, input: false },
+        autoDiscovery: { type: 'json', required: false, input: false },
+        isEmailPublic: { type: 'boolean', required: false },
+        isActivityPublic: { type: 'boolean', required: false },
+        isFootprintPublic: { type: 'boolean', required: false },
+        isUniversityPublic: { type: 'boolean', required: false },
+        isFrequentingArcadePublic: { type: 'boolean', required: false },
+        isStarredArcadePublic: { type: 'boolean', required: false },
+        notificationTypes: { type: 'json', required: false, input: false },
+        fcmTokens: { type: 'json', required: false, input: false },
+        fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
+        socialLinks: { type: 'json', required: false, input: false },
+        phone: { type: 'string', required: false, input: false },
+        phoneCountryCode: { type: 'string', required: false, input: false }
+      },
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (user) => {
           const db = mongo.db();
-          const usersCollection = db.collection<User>('users');
+          const universityMembersCollection = db.collection('university_members');
+          const clubMembersCollection = db.collection('club_members');
+          const joinRequestsCollection = db.collection('join_requests');
 
-          const name = user.name ?? null;
-          let username: string;
-          if (name && /^[A-Za-z0-9_-]+$/.test(name)) {
-            const existingUser = await usersCollection.findOne({
-              name,
-              _id: { $ne: resolveId(user.id) }
-            });
-            if (!existingUser) {
-              username = name;
+          // Delete university memberships
+          await universityMembersCollection.deleteMany({ userId: user.id });
+
+          // Delete club memberships
+          await clubMembersCollection.deleteMany({ userId: user.id });
+
+          // Delete join requests
+          await joinRequestsCollection.deleteMany({ userId: user.id });
+        }
+      }
+    },
+    emailVerification: {
+      expiresIn: 60 * 60 * 24,
+      sendVerificationEmail: async ({ user, url }, request) => {
+        await sendVerificationLinkEmail({ user, url, request });
+      }
+    },
+    plugins: [
+      genericOAuth({
+        config: [
+          qqProvider(),
+          githubProvider(),
+          microsoftEntraIdProvider(),
+          phiraProvider(),
+          osuProvider(),
+          discordProvider()
+        ]
+      }),
+      jwt(),
+      oauthProvider({
+        loginPage: '/oauth/sign-in',
+        consentPage: '/oauth/consent',
+        scopes: [...OAUTH_SCOPES],
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        allowPublicClientPrelogin: true,
+        clientPrivileges: async ({ action, user }) => {
+          if (action === 'read') {
+            return true;
+          }
+
+          return user?.userType === 'site_admin' || user?.userType === 'developer';
+        },
+        schema: {
+          oauthClient: { modelName: 'oauth_client' },
+          oauthConsent: { modelName: 'oauth_consent' },
+          oauthAccessToken: { modelName: 'oauth_access_token' }
+        }
+      }),
+      apiKey({
+        defaultPrefix: 'nk_',
+        defaultKeyLength: 42,
+        enableMetadata: true,
+        maximumNameLength: 50,
+        requireName: true,
+        rateLimit: {
+          enabled: false
+        }
+      }),
+      customSession(async ({ user, session }) => {
+        const userId = user.id;
+
+        const now = Date.now();
+        const lastUpdate = lastActiveUpdates.get(userId) ?? 0;
+        if (now - lastUpdate > LAST_ACTIVE_DEBOUNCE_MS) {
+          lastActiveUpdates.set(userId, now);
+          const db = mongo.db();
+          await db
+            .collection('users')
+            .updateOne({ _id: resolveId(userId) }, { $set: { lastActiveAt: new Date() } });
+        }
+
+        return {
+          user,
+          session: {
+            ...session,
+            unreadNotifications: await countUnreadNotifications(mongo, userId),
+            pendingJoinRequests: await countPendingJoinRequests(mongo, userId)
+          }
+        };
+      }),
+      sessionQrPlugin,
+      sveltekitCookies(getRequestEvent)
+    ],
+    databaseHooks: {
+      account: {
+        create: {
+          after: async (account) => {
+            const profile = await getCachedOAuthProfile(account.providerId, account.accountId);
+            if (!profile) return;
+
+            const db = mongo.db();
+            const currentUser = await db
+              .collection('users')
+              .findOne({ _id: resolveId(account.userId) });
+            if (!currentUser) return;
+
+            const updates: Record<string, unknown> = {};
+            const hasPlaceholderEmail =
+              !currentUser.email || currentUser.email.endsWith('.nearcade');
+            const hasRealNewEmail = profile.email && !profile.email.endsWith('.nearcade');
+            if (hasPlaceholderEmail && hasRealNewEmail) {
+              updates.email = profile.email;
+              updates.emailVerified = true;
+            }
+            if (!currentUser.image && profile.image) {
+              updates.image = profile.image;
+            }
+
+            if (Object.keys(updates).length > 0) {
+              await db
+                .collection('users')
+                .updateOne({ _id: resolveId(account.userId) }, { $set: updates });
+            }
+          }
+        }
+      },
+      user: {
+        create: {
+          after: async (user) => {
+            const db = mongo.db();
+            const usersCollection = db.collection<User>('users');
+
+            const name = user.name ?? null;
+            let username: string;
+            if (name && /^[A-Za-z0-9_-]+$/.test(name)) {
+              const existingUser = await usersCollection.findOne({
+                name,
+                _id: { $ne: resolveId(user.id) }
+              });
+              if (!existingUser) {
+                username = name;
+              } else {
+                username = await generateValidUsername(name, user.id, usersCollection);
+              }
             } else {
               username = await generateValidUsername(name, user.id, usersCollection);
             }
-          } else {
-            username = await generateValidUsername(name, user.id, usersCollection);
-          }
 
-          await usersCollection.updateOne(
-            { _id: resolveId(user.id) },
-            {
-              $set: {
-                id: user.id,
-                name: username,
-                displayName: user.name,
-                joinedAt: new Date(),
-                lastActiveAt: new Date(),
-                isEmailPublic: false,
-                isActivityPublic: true,
-                isFootprintPublic: false,
-                isUniversityPublic: true,
-                isFrequentingArcadePublic: true,
-                isStarredArcadePublic: true
+            await usersCollection.updateOne(
+              { _id: resolveId(user.id) },
+              {
+                $set: {
+                  id: user.id,
+                  name: username,
+                  displayName: user.name,
+                  joinedAt: new Date(),
+                  lastActiveAt: new Date(),
+                  isEmailPublic: false,
+                  isActivityPublic: true,
+                  isFootprintPublic: false,
+                  isUniversityPublic: true,
+                  isFrequentingArcadePublic: true,
+                  isStarredArcadePublic: true
+                }
               }
-            }
-          );
+            );
+          }
         }
       }
     }
+  });
+}
+
+type Auth = ReturnType<typeof createAuth>;
+
+let _auth: Auth | undefined;
+
+function getAuth(): Auth {
+  if (!_auth) {
+    _auth = createAuth();
+  }
+
+  return _auth;
+}
+
+export const auth = new Proxy({} as Auth, {
+  get(_target, property) {
+    const instance = getAuth();
+    const value = Reflect.get(instance, property, instance);
+
+    return typeof value === 'function' ? value.bind(instance) : value;
   }
 });
