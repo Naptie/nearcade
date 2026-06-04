@@ -66,7 +66,7 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
-  let showGlobe = $state(false);
+  let showGlobe = $state(browser && !IS_ANDROID_OR_IOS && !IS_LOW_DATA);
   let now = $state(new Date());
 
   const searchUniversities = async (query: string, requestId: number) => {
@@ -180,8 +180,6 @@
 
   onMount(() => {
     window.addEventListener('amap-loaded', assignAMap);
-    showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
-
     const interval = setInterval(() => {
       now = new Date();
     }, 1000);
