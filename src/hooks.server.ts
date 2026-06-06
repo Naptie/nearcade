@@ -182,8 +182,21 @@ const stripBase = (pathname: string) => {
 };
 
 const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
-  const { pathname } = event.url;
+  const { pathname, search } = event.url;
   const pathWithoutBase = stripBase(pathname);
+
+  const legacyShopMatch = pathWithoutBase.match(/^\/shops\/([^/]*)\/([^/]+)\/?$/);
+  if (legacyShopMatch) {
+    const parsed = parseLegacyShopParams(legacyShopMatch[1], legacyShopMatch[2]);
+
+    if (parsed) {
+      redirect(
+        308,
+        `${base}/shops/${parsed.unifiedId}${search ? `${search}&legacy=1` : '?legacy=1'}`
+      );
+    }
+  }
+
   const legacyAttendanceMatch = pathWithoutBase.match(
     /^\/api\/shops\/([^/]*)\/([^/]+)(\/attendance(?:\/.*)?)$/
   );

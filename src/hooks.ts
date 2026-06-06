@@ -12,14 +12,6 @@ const stripBase = (pathname: string) => {
 const rewriteLegacyShopPath = (pathname: string) => {
   const pathWithoutBase = stripBase(pathname);
 
-  const shopMatch = pathWithoutBase.match(/^\/shops\/([^/]*)\/([^/]+)\/?$/);
-  if (shopMatch) {
-    const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
-    if (parsed) {
-      return `${base}/shops/${parsed.unifiedId}`;
-    }
-  }
-
   const apiMatch = pathWithoutBase.match(/^\/api\/shops\/([^/]*)\/([^/]+)(\/.*)?$/);
   if (apiMatch) {
     const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
