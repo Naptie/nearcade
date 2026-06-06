@@ -178,47 +178,48 @@ const sanitizeConnectionUrl = (value?: string) => {
 };
 
 const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
-  const { pathname, search, searchParams } = event.url;
+  const { pathname } = event.url;
   const escapedBase = escapeRegExp(base);
 
-  // Match /shops/:source/:id
+  // Match /shops/:source/:id — rewrite to unified shop path
   const shopPathRegex = new RegExp(`^${escapedBase}/shops/([^/]*)/([^/]+)/?$`);
   const shopMatch = pathname.match(shopPathRegex);
   if (shopMatch) {
     const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
     if (parsed) {
-      redirect(
-        308,
-        `${base}/shops/${parsed.unifiedId}${search ? `${search}&legacy=1` : '?legacy=1'}`
-      );
+      event.url.pathname = `${base}/shops/${parsed.unifiedId}`;
+      event.url.searchParams.set('legacy', '1');
     }
   }
 
-  // Match /api/shops/:source/:id/*
+  // Match /api/shops/:source/:id/* — rewrite to unified API path
   const apiPathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]*)/([^/]+)(/.*)?$`);
   const apiMatch = pathname.match(apiPathRegex);
   if (apiMatch) {
     const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
     if (parsed) {
       const suffix = apiMatch[3] || '';
-      redirect(
-        308,
-        `${base}/api/shops/${parsed.unifiedId}${suffix}${search ? `${search}&legacy=1` : '?legacy=1'}`
-      );
+      event.url.pathname = `${base}/api/shops/${parsed.unifiedId}${suffix}`;
+      event.url.searchParams.set('legacy', '1');
     }
   }
 
-  if (searchParams.get('legacy') === '1') {
+  // When handling a request with the legacy marker, adjust attendance payload
+  if (event.url.searchParams.get('legacy') === '1') {
     const attendancePathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]+)/attendance(/.*)?$`);
-    const attendanceMatch = pathname.match(attendancePathRegex);
+    const attendanceMatch = event.url.pathname.match(attendancePathRegex);
     const shopId = attendanceMatch ? attendanceMatch[1] : null;
     if (shopId) {
       try {
         const body = await event.request.json();
         if (body && typeof body === 'object' && body.games && Array.isArray(body.games)) {
           body.games = body.games.map((game: unknown) => {
-            if (game && typeof game === 'object' && 'id' in game) {
-              return { ...game, id: parseInt(shopId) * 1000 };
+            if (game && typeof game === 'object' && 'id' in game && typeof game.id === 'number') {
+              const shopIdNum = parseInt(shopId);
+              return {
+                ...game,
+                id: Math.floor(game.id / 1000) === shopIdNum ? game.id : shopIdNum * 1000
+              };
             }
             return game;
           });
