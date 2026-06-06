@@ -26,4 +26,3 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"university_stats"}'
-          echo "University stats update triggered"

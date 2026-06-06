@@ -27,4 +27,3 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"rankings"}'
-          echo "Rankings update triggered"
