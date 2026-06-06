@@ -16,12 +16,8 @@
     "fl": "prettier --write . && eslint . --fix",
     "m": "tsx ./scripts/manage-messages.js",
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
-    "migrate-api-tokens": "tsx ./scripts/migrate-api-tokens.ts",
-    "migrate-email-verification": "tsx ./scripts/migrate-email-verification.ts",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
     "maintain-attendance": "tsx ./scripts/attendance-maintainer.ts",
-    "calc-uni-stats": "tsx ./scripts/update-university-stats.ts",
-    "migrate-notifications": "tsx ./scripts/migrate-notifications.ts",
     "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },
