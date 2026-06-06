@@ -14,7 +14,7 @@ on:
 jobs:
   update-rankings:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
