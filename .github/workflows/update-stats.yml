@@ -11,10 +11,8 @@ on:
 jobs:
   trigger-university-stats-update:
     uses: ./.github/workflows/update-university-stats.yml
-    secrets:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+    secrets: inherit
 
   trigger-rankings-update:
     uses: ./.github/workflows/update-rankings.yml
-    secrets:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+    secrets: inherit

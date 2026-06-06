@@ -18,6 +18,6 @@ jobs:
     steps:
       - name: Refresh Meilisearch indexes
         run: |
-          curl -X POST "https://nearcade.phizone.cn/api/meilisearch/refresh" \
+          curl -X POST "https://nearca.de/api/meilisearch/refresh" \
           -H "Authorization: Bearer ${{ secrets.SSC_SECRET }}"
           echo "Meilisearch indexes refresh triggered"

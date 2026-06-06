@@ -125,6 +125,14 @@
       href: resolve('/(main)/shops/delete-requests'),
       requiresSiteAdmin: true,
       developerVisible: false
+    },
+    {
+      id: 'data-updates',
+      label: m.admin_data_updates(),
+      icon: 'fa-arrows-rotate',
+      href: resolve('/admin/data-updates'),
+      requiresSiteAdmin: true,
+      developerVisible: false
     }
   ]);
 
