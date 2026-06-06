@@ -185,7 +185,7 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
   const pathWithoutBase = stripBase(pathname);
   const legacyAttendanceMatch = pathWithoutBase.match(
-    /^\/api\/shops\/([^/]+)\/([^/]+)(\/attendance(?:\/.*)?)$/
+    /^\/api\/shops\/([^/]*)\/([^/]+)(\/attendance(?:\/.*)?)$/
   );
 
   if (legacyAttendanceMatch) {
