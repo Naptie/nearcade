@@ -25,6 +25,7 @@ import {
 } from '$lib/auth/email';
 import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
+import { SSC_SECRET } from '$env/static/private';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -49,7 +50,7 @@ const resolveOAuthScopeRequirement = (event: RequestEvent) => {
   }
 
   const token = authHeader.slice(7);
-  if (token.startsWith('nk_')) {
+  if (token.startsWith('nk_') || token === SSC_SECRET) {
     return undefined;
   }
 
