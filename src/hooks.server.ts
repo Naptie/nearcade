@@ -160,8 +160,6 @@ const handleUserShortcut: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 const sanitizeConnectionUrl = (value?: string) => {
   if (!value) {
     return 'connected';
@@ -177,52 +175,38 @@ const sanitizeConnectionUrl = (value?: string) => {
   }
 };
 
+const stripBase = (pathname: string) => {
+  if (!base) return pathname;
+  if (pathname === base) return '/';
+  return pathname.startsWith(`${base}/`) ? pathname.slice(base.length) : pathname;
+};
+
 const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
-  const escapedBase = escapeRegExp(base);
+  const pathWithoutBase = stripBase(pathname);
+  const legacyAttendanceMatch = pathWithoutBase.match(
+    /^\/api\/shops\/([^/]+)\/([^/]+)(\/attendance(?:\/.*)?)$/
+  );
 
-  // Match /shops/:source/:id — rewrite to unified shop path
-  const shopPathRegex = new RegExp(`^${escapedBase}/shops/([^/]*)/([^/]+)/?$`);
-  const shopMatch = pathname.match(shopPathRegex);
-  if (shopMatch) {
-    const parsed = parseLegacyShopParams(shopMatch[1], shopMatch[2]);
-    if (parsed) {
-      event.url.pathname = `${base}/shops/${parsed.unifiedId}`;
-      event.url.searchParams.set('legacy', '1');
-    }
-  }
+  if (legacyAttendanceMatch) {
+    const parsed = parseLegacyShopParams(legacyAttendanceMatch[1], legacyAttendanceMatch[2]);
+    const shopIdNum = parsed?.unifiedId;
 
-  // Match /api/shops/:source/:id/* — rewrite to unified API path
-  const apiPathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]*)/([^/]+)(/.*)?$`);
-  const apiMatch = pathname.match(apiPathRegex);
-  if (apiMatch) {
-    const parsed = parseLegacyShopParams(apiMatch[1], apiMatch[2]);
-    if (parsed) {
-      const suffix = apiMatch[3] || '';
-      event.url.pathname = `${base}/api/shops/${parsed.unifiedId}${suffix}`;
-      event.url.searchParams.set('legacy', '1');
-    }
-  }
-
-  // When handling a request with the legacy marker, adjust attendance payload
-  if (event.url.searchParams.get('legacy') === '1') {
-    const attendancePathRegex = new RegExp(`^${escapedBase}/api/shops/([^/]+)/attendance(/.*)?$`);
-    const attendanceMatch = event.url.pathname.match(attendancePathRegex);
-    const shopId = attendanceMatch ? attendanceMatch[1] : null;
-    if (shopId) {
+    if (shopIdNum !== undefined) {
       try {
         const body = await event.request.json();
         if (body && typeof body === 'object' && body.games && Array.isArray(body.games)) {
           body.games = body.games.map((game: unknown) => {
             if (game && typeof game === 'object' && 'id' in game && typeof game.id === 'number') {
-              const shopIdNum = parseInt(shopId);
               return {
                 ...game,
                 id: Math.floor(game.id / 1000) === shopIdNum ? game.id : shopIdNum * 1000
               };
             }
+
             return game;
           });
+
           event.request = new Request(event.request, { body: JSON.stringify(body) });
         }
       } catch {
