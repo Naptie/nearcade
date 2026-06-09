@@ -8,6 +8,11 @@ import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { PublicUser } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
+import {
+  buildSearchPattern,
+  expandHighlightedBrackets,
+  expandHighlightedBracketsRecursive
+} from '$lib/utils/search';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -60,6 +65,8 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           .limit(limit)
           .toArray();
       } else {
+        const fallbackPattern = buildSearchPattern(query);
+
         try {
           let filter: string | undefined;
           if (titleIds.length > 0) {
@@ -85,8 +92,14 @@ export const load: PageServerLoad = async ({ url, parent }) => {
                   ...hit,
                   ...(hit._formatted
                     ? {
-                        nameHl: await sanitizeHTML(hit._formatted.name),
-                        addressHl: await sanitizeRecursive(hit._formatted.address)
+                        nameHl: expandHighlightedBrackets(
+                          await sanitizeHTML(hit._formatted.name),
+                          query
+                        ),
+                        addressHl: expandHighlightedBracketsRecursive(
+                          await sanitizeRecursive(hit._formatted.address),
+                          query
+                        )
                       }
                     : {})
                 }) as (typeof shops)[number]
@@ -99,9 +112,13 @@ export const load: PageServerLoad = async ({ url, parent }) => {
             $and: [
               {
                 $or: [
-                  { name: { $regex: query, $options: 'i' } },
-                  { 'address.general': { $elemMatch: { $regex: query, $options: 'i' } } },
-                  { 'address.detailed': { $regex: query, $options: 'i' } }
+                  { name: { $regex: fallbackPattern, $options: 'is' } },
+                  {
+                    'address.general': {
+                      $elemMatch: { $regex: fallbackPattern, $options: 'is' }
+                    }
+                  },
+                  { 'address.detailed': { $regex: fallbackPattern, $options: 'is' } }
                 ]
               },
               ...(titleIds.length > 0 ? [titleIdsFilter] : [])

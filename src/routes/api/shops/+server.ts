@@ -14,6 +14,7 @@ import {
 import { requireBoundPhone } from '$lib/utils/index.server';
 import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.server';
 import { m } from '$lib/paraglide/messages';
+import { buildSearchPattern } from '$lib/utils/search';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -145,6 +146,7 @@ export const GET: RequestHandler = async ({ url }) => {
     } else {
       // Search shops
       let searchResults: Shop[];
+      const pattern = buildSearchPattern(query);
 
       try {
         // Try Atlas Search first
@@ -187,9 +189,9 @@ export const GET: RequestHandler = async ({ url }) => {
         // Fallback to regex search
         const searchQuery = {
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { 'address.general': { $elemMatch: { $regex: query, $options: 'i' } } },
-            { 'address.detailed': { $regex: query, $options: 'i' } }
+            { name: { $regex: pattern, $options: 'is' } },
+            { 'address.general': { $elemMatch: { $regex: pattern, $options: 'is' } } },
+            { 'address.detailed': { $regex: pattern, $options: 'is' } }
           ]
         };
 

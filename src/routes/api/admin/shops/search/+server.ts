@@ -4,6 +4,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainArray } from '$lib/utils';
 import type { Shop } from '$lib/types';
+import { buildSearchPattern } from '$lib/utils/search';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   const session = locals.session;
@@ -18,6 +19,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
   const q = url.searchParams.get('q')?.trim() ?? '';
   const limit = 10;
+  const pattern = buildSearchPattern(q);
 
   const db = mongo.db();
 
@@ -25,7 +27,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     ? {
         $or: [
           ...(isNaN(Number(q)) ? [] : [{ id: Number(q) }]),
-          { name: { $regex: q, $options: 'i' } }
+          { name: { $regex: pattern, $options: 'is' } }
         ]
       }
     : {};

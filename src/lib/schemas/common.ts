@@ -33,6 +33,7 @@ export const optionalBooleanString = z
 export const paginationQuerySchema = z.object({
   page: z
     .union([z.string(), z.number(), z.null(), z.undefined()])
+    .optional()
     .transform((value) => {
       const parsed = value === null || value === undefined || value === '' ? 1 : Number(value);
       return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
@@ -40,6 +41,7 @@ export const paginationQuerySchema = z.object({
     .describe(bilingual('页数。默认为 1。', 'Page number. Defaults to 1.')),
   limit: z
     .union([z.string(), z.number(), z.null(), z.undefined()])
+    .optional()
     .transform((value) => {
       const parsed = value === null || value === undefined || value === '' ? 0 : Number(value);
       return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
