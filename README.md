@@ -34,11 +34,34 @@
 
 ### 🎮 支持的游戏
 
-- 舞萌DX
+- 舞萌 DX
+- 舞萌
 - 中二节奏
-- 太鼓之达人
 - 音律炫动
+- beatmania IIDX
+- jubeat (国际版)
+- Nostalgia
+- GuitarFreaks
+- DrumMania
+- DANCERUSH STARDOM
+- Dance Dance Revolution
+- pop'n music
+- DanceEvolution
+- REFLEC BEAT
+- 太鼓之达人 (旧代)
+- 音炫轨道
 - 华卡音舞
+- 泵动巅峰
+- 星光
+- DJMAX Technika
+- 鼓王
+- 舞力特区
+- 初音未来 歌姬计划 Arcade
+- 音击
+- DANCE aROUND
+- 太鼓之达人
+- 舞立方EVO
+- jubeat音乐魔方
 
 ### 🗃️ 数据采集
 

@@ -35,10 +35,33 @@ Please join the following QQ group for discussions.
 ### 🎮 Supported Games
 
 - maimai DX
+- maimai
 - CHUNITHM
-- Taiko no Tatsujin
 - SOUND VOLTEX
+- beatmania IIDX
+- jubeat
+- NOSTALGIA
+- GuitarFreaks
+- DrumMania
+- DANCERUSH STARDOM
+- DanceDanceRevolution
+- pop'n music
+- DanceEvolution
+- REFLEC BEAT
+- Taiko no Tatsujin (Old Ver.)
+- GROOVE COASTER
 - WACCA
+- PUMP IT UP
+- TOP STAR
+- DJMAX Technika
+- Percussion Master
+- Danz Base
+- Hatsune Miku: Project DIVA Arcade
+- O.N.G.E.K.I.
+- DANCE aROUND
+- Taiko no Tatsujin
+- DANCE³ EVO
+- jubeat (China)
 
 ### 🗃️ Data Collection
 
