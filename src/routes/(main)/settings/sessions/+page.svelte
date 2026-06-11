@@ -30,6 +30,7 @@
   // ── QR state ─────────────────────────────────────────────────────────────
   let showQrModal = $state(false);
   let qrSvg = $state<string | null>(null);
+  let qrCode = $state<string | null>(null);
   let qrExpiresAt = $state<Date | null>(null);
   let qrSecondsLeft = $state(0);
   let qrExpired = $state(false);
@@ -99,6 +100,7 @@
   function closeQrModal() {
     showQrModal = false;
     qrSvg = null;
+    qrCode = null;
     qrExpiresAt = null;
     qrExpired = false;
     if (qrTimerInterval) {
@@ -439,8 +441,9 @@
     return async ({ result }) => {
       isGeneratingQr = false;
       if (result.type === 'success' && result.data?.qr) {
-        const qr = result.data.qr as { svg: string; expiresAt: string };
+        const qr = result.data.qr as { svg: string; code: string; expiresAt: string };
         qrSvg = qr.svg;
+        qrCode = qr.code;
         qrExpiresAt = new Date(qr.expiresAt);
         qrExpired = false;
         startQrTimer(qrExpiresAt);
@@ -485,6 +488,28 @@
       >
         {@html qrSvg}
       </div>
+
+      {#if qrCode}
+        <div class="rounded-box bg-base-200 mt-4 space-y-3 p-4 text-left">
+          <p class="text-sm font-medium">{m.sessions_code_label()}</p>
+          <div class="flex items-center gap-2">
+            <input class="input input-bordered flex-1 font-mono text-sm" readonly value={qrCode} />
+            <button
+              type="button"
+              class="btn btn-soft"
+              onclick={async () => {
+                if (qrCode) {
+                  await navigator.clipboard.writeText(qrCode);
+                }
+              }}
+            >
+              <i class="fa-solid fa-copy"></i>
+              {m.copy()}
+            </button>
+          </div>
+          <p class="text-base-content/65 text-sm">{m.sessions_code_description()}</p>
+        </div>
+      {/if}
 
       <!-- Countdown bar -->
       {#if !qrExpired && qrExpiresAt}

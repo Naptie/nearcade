@@ -1,5 +1,9 @@
 import { createAuthClient } from 'better-auth/svelte';
-import { genericOAuthClient, inferAdditionalFields } from 'better-auth/client/plugins';
+import {
+  genericOAuthClient,
+  inferAdditionalFields,
+  oneTimeTokenClient
+} from 'better-auth/client/plugins';
 import { apiKeyClient } from '@better-auth/api-key/client';
 import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import type { auth } from './index.server';
@@ -10,6 +14,7 @@ export const authClient = createAuthClient({
     apiKeyClient(),
     genericOAuthClient(),
     oauthProviderClient(),
+    oneTimeTokenClient(),
     inferAdditionalFields<typeof auth>()
   ]
 });

@@ -5,6 +5,7 @@ import { jwt } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { oauthProvider } from '@better-auth/oauth-provider';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
+import { oneTimeToken } from 'better-auth/plugins';
 import { customSession } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
@@ -24,7 +25,6 @@ import type { User } from './types';
 import { syncUserAvatarToOSSIfNeeded } from '$lib/images/avatar-sync.server';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
 import { OAUTH_SCOPES } from './oauth/scopes';
-import { sessionQrPlugin } from './session-qr.server';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -189,6 +189,8 @@ function createAuth() {
       usePlural: true
     }),
     account: {
+      storeStateStrategy: 'database',
+      skipStateCookieCheck: true,
       accountLinking: {
         enabled: true,
         allowDifferentEmails: true,
@@ -268,6 +270,10 @@ function createAuth() {
           discordProvider()
         ]
       }),
+      oneTimeToken({
+        expiresIn: 2,
+        storeToken: 'hashed'
+      }),
       jwt(),
       oauthProvider({
         loginPage: '/oauth/sign-in',
@@ -321,7 +327,6 @@ function createAuth() {
           }
         };
       }),
-      sessionQrPlugin,
       sveltekitCookies(getRequestEvent)
     ],
     databaseHooks: {

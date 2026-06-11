@@ -3,12 +3,28 @@
   import { page } from '$app/state';
   import { authClient } from '$lib/auth/client';
   import { withPostLoginMarker } from '$lib/auth/email';
-  import { base } from '$app/paths';
+  import { base, resolve } from '$app/paths';
   import { getProviders, pageTitle } from '$lib/utils';
 
   // Preserve the OAuth query string so that after sign-in the plugin
   // can continue the authorization flow automatically.
   const callbackURL = $derived(withPostLoginMarker(page.url));
+
+  const handleProviderSignIn = (providerId: string) => {
+    if (providerId === 'qq') {
+      const marker = crypto.randomUUID();
+      sessionStorage.setItem('nearcade-browser-marker', marker);
+      authClient.signIn.oauth2({
+        providerId: 'qq',
+        callbackURL: `${resolve('/auth/handoff')}?marker=${marker}`
+      });
+    } else {
+      authClient.signIn.oauth2({
+        providerId,
+        callbackURL
+      });
+    }
+  };
 </script>
 
 <svelte:head>
@@ -27,12 +43,7 @@
         {#each getProviders() as provider (provider.id)}
           <button
             type="button"
-            onclick={() => {
-              authClient.signIn.oauth2({
-                providerId: provider.id,
-                callbackURL
-              });
-            }}
+            onclick={() => handleProviderSignIn(provider.id)}
             class="btn btn-outline btn-t w-full items-center gap-2 py-5 {provider.class}"
           >
             {#if provider.icon.startsWith('fa-')}

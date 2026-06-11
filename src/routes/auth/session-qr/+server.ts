@@ -6,13 +6,13 @@ import { parseSetCookieHeader } from 'better-auth/cookies';
 /**
  * QR session callback — GET /auth/session-qr?t=<token>
  *
- * The token is a 64-char hex string stored in Redis for 2 minutes.
+ * The token is a Better Auth one-time token valid for 2 minutes.
  * We POST it to the Better Auth verify endpoint and explicitly forward
  * any Set-Cookie headers onto the current event via `cookies.set()`,
  * guaranteeing the session cookie is included in the redirect response.
  *
- * Using a query param keeps the token out of server-side access logs and
- * prevents it from appearing in URL-based search-engine indexing.
+ * Using a query param keeps the token out of the path and allows the same
+ * handoff primitive to be rendered either as a QR code or as a copy/paste code.
  */
 export const GET: RequestHandler = async ({ url, request, cookies, locals }) => {
   // Already logged in — just send home.
@@ -22,12 +22,12 @@ export const GET: RequestHandler = async ({ url, request, cookies, locals }) => 
 
   const token = url.searchParams.get('t');
 
-  if (!token || !/^[0-9a-f]{64}$/.test(token)) {
+  if (!token) {
     error(400, 'Invalid QR token');
   }
 
-  // Call the custom Better Auth verify endpoint.
-  const verifyUrl = new URL('/api/auth/session-qr/verify', request.url);
+  // Call the Better Auth one-time-token verify endpoint.
+  const verifyUrl = new URL('/api/auth/one-time-token/verify', request.url);
   let authResponse: Response;
   try {
     authResponse = await auth.handler(
@@ -38,7 +38,7 @@ export const GET: RequestHandler = async ({ url, request, cookies, locals }) => 
       })
     );
   } catch (err) {
-    console.error('[session-qr callback] auth.handler error:', err);
+    console.error('[session-handoff callback] auth.handler error:', err);
     error(500, 'Session creation failed');
   }
 
@@ -72,7 +72,7 @@ export const GET: RequestHandler = async ({ url, request, cookies, locals }) => 
           partitioned: attrs.partitioned
         });
       } catch (e) {
-        console.warn('[session-qr callback] failed to set cookie', name, e);
+        console.warn('[session-handoff callback] failed to set cookie', name, e);
       }
     }
   }

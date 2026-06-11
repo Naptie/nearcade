@@ -20,6 +20,9 @@
   let session = $derived(page.data.session as AuthSession | null);
   let open = $state(false);
   let dialogElement: HTMLDialogElement | undefined = $state(undefined);
+  let handoffCode = $state('');
+  let redeemError = $state<string | null>(null);
+  let isRedeemingCode = $state(false);
 
   // Close modal when clicking backdrop
   const handleDialogClick = (event: MouseEvent) => {
@@ -37,6 +40,45 @@
 
   const login = () => {
     dialogElement?.showModal();
+  };
+
+  const handleProviderSignIn = (providerId: string) => {
+    if (providerId === 'qq') {
+      const marker = crypto.randomUUID();
+      sessionStorage.setItem('nearcade-browser-marker', marker);
+      authClient.signIn.oauth2({
+        providerId: 'qq',
+        callbackURL: `${resolve('/auth/handoff')}?marker=${marker}`
+      });
+    } else {
+      authClient.signIn.oauth2({
+        providerId,
+        callbackURL: withPostLoginMarker(page.url)
+      });
+    }
+  };
+
+  const redeemOneTimeCode = async () => {
+    const token = handoffCode.trim();
+    if (!token) {
+      redeemError = m.sessions_code_required();
+      return;
+    }
+
+    isRedeemingCode = true;
+    redeemError = null;
+
+    try {
+      await authClient.oneTimeToken.verify({ token });
+      dialogElement?.close();
+      handoffCode = '';
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to redeem one-time code:', err);
+      redeemError = m.sessions_code_invalid();
+    } finally {
+      isRedeemingCode = false;
+    }
   };
 
   onMount(() => {
@@ -88,12 +130,7 @@
           {#each getProviders() as provider (provider.id)}
             <button
               type="button"
-              onclick={() => {
-                authClient.signIn.oauth2({
-                  providerId: provider.id,
-                  callbackURL: withPostLoginMarker(page.url)
-                });
-              }}
+              onclick={() => handleProviderSignIn(provider.id)}
               class="btn btn-outline not-2xs:btn-circle btn-t w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
             >
               {#if provider.icon.startsWith('fa-')}
@@ -109,6 +146,44 @@
               <p class="not-2xs:hidden sm:hidden">{provider.name}</p>
             </button>
           {/each}
+        </div>
+
+        <div class="divider my-6">OR</div>
+
+        <div class="space-y-3 px-4 text-left">
+          <div>
+            <div class="flex items-center gap-2">
+              <input
+                id="handoff-code-input"
+                class="input input-bordered w-full font-mono"
+                bind:value={handoffCode}
+                placeholder={m.sessions_code_label()}
+                autocomplete="one-time-code"
+                spellcheck="false"
+                onkeydown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    redeemOneTimeCode();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                class="btn btn-primary btn-soft btn-circle"
+                onclick={redeemOneTimeCode}
+                disabled={isRedeemingCode}
+                title={m.sessions_code_submit()}
+              >
+                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+              </button>
+            </div>
+          </div>
+          {#if redeemError}
+            <div class="alert alert-error py-2 text-sm">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>{redeemError}</span>
+            </div>
+          {/if}
         </div>
       </div>
     </div>

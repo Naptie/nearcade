@@ -1,10 +1,9 @@
 import { error, fail } from '@sveltejs/kit';
-import { randomBytes } from 'node:crypto';
 import type { PageServerLoad, Actions } from './$types';
 import { auth } from '$lib/auth/index.server';
 import { m } from '$lib/paraglide/messages';
 import mongo from '$lib/db/index.server';
-import { storeQrToken, QR_SESSION_TTL } from '$lib/auth/session-qr.server';
+import { QR_SESSION_TTL } from '$lib/constants';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import QRCode from 'qrcode';
 import { getOrigin } from '$lib/utils/index.server';
@@ -258,8 +257,9 @@ export const actions: Actions = {
       return fail(401, { message: 'unauthorized' });
     }
 
-    const token = randomBytes(32).toString('hex');
-    await storeQrToken(token, session.user.id);
+    const headers = new Headers({ cookie: request.headers.get('cookie') ?? '' });
+    const generated = await auth.api.generateOneTimeToken({ headers });
+    const token = generated.token;
 
     const origin = getOrigin(request);
     const callbackUrl = `${origin}/auth/session-qr?t=${token}`;
@@ -279,6 +279,7 @@ export const actions: Actions = {
       success: true,
       qr: {
         svg: svgString,
+        code: token,
         url: callbackUrl,
         expiresAt: new Date(Date.now() + QR_SESSION_TTL * 1000).toISOString()
       }
