@@ -298,7 +298,7 @@
   "attendance_threshold_must_be_between_1_and_100": "出勤阈值必须在 1 到 100 之间",
   "attending_other_shop": "您于 {attendedAt} 已登记在 {shopName} 出勤。请先离开该店铺，随后再在此处出勤。",
   "auth_handoff_error": "认证失败或会话已过期。请重新登录。",
-  "auth_handoff_instructions": "复制此代码，返回原来的浏览器/标签页，点击「登录」，然后将代码粘贴到一次性登录代码栏中以完成登录。",
+  "auth_handoff_instructions": "复制此代码，返回原来的浏览器或设备，点击「登录」，然后将代码粘贴到一次性登录代码栏中以完成登录。",
   "auth_handoff_success": "认证成功",
   "auth_handoff_success_description": "您的账户已完成认证。请使用下方的一次性代码将登录状态转移到原来的浏览器或设备。",
   "auth_handoff_title": "完成登录",

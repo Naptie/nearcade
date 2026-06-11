@@ -300,7 +300,7 @@
   "attendance_threshold_must_be_between_1_and_100": "Attendance threshold must be between 1 and 100",
   "attending_other_shop": "You've been attending {shopName} since {attendedAt}. Please leave that shop before attending this one.",
   "auth_handoff_error": "Authentication failed or session expired. Please try signing in again.",
-  "auth_handoff_instructions": "Copy this code, go back to your original browser/tab, click Sign in, and paste the code into the one-time login code field to complete sign-in.",
+  "auth_handoff_instructions": "Copy this code, go back to your original browser or device, click Sign in, and paste the code into the one-time login code field to complete sign-in.",
   "auth_handoff_success": "Authentication successful",
   "auth_handoff_success_description": "Your account has been authenticated. Use the one-time code below to transfer your login to your original browser or device.",
   "auth_handoff_title": "Complete Your Sign-In",

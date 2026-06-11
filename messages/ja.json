@@ -298,7 +298,7 @@
   "attendance_threshold_must_be_between_1_and_100": "チェックイン回数のしきい値は 1 から 100 の間である必要があります",
   "attending_other_shop": "{attendedAt} に {shopName} でチェックイン済みです。まずその店舗から退出してから、ここでチェックインしてください。",
   "auth_handoff_error": "認証に失敗したか、セッションの有効期限が切れています。もう一度サインインしてください。",
-  "auth_handoff_instructions": "このコードをコピーし、元のブラウザ/タブに戻って「サインイン」をクリックし、ワンタイムログインコード欄に貼り付けてサインインを完了してください。",
+  "auth_handoff_instructions": "このコードをコピーし、元のブラウザまたはデバイスに戻って「サインイン」をクリックし、ワンタイムログインコード欄に貼り付けてサインインを完了してください。",
   "auth_handoff_success": "認証に成功しました",
   "auth_handoff_success_description": "アカウントの認証が完了しました。以下のワンタイムコードを使用して、元のブラウザまたはデバイスにログインを転送してください。",
   "auth_handoff_title": "サインインを完了",
