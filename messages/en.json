@@ -1206,6 +1206,7 @@
   "shop_address_detailed": "Detailed Address",
   "shop_address_general": "General Address",
   "shop_address_province": "Province/State",
+  "shop_changelog_action_created": "Created shop",
   "shop_changelog_action_delete_request_approved": "Delete Request Approved",
   "shop_changelog_action_delete_request_rejected": "Delete Request Rejected",
   "shop_changelog_action_delete_request_submitted": "Delete Request Submitted",

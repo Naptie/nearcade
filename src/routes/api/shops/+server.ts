@@ -15,6 +15,7 @@ import { requireBoundPhone } from '$lib/utils/index.server';
 import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.server';
 import { m } from '$lib/paraglide/messages';
 import { buildSearchPattern } from '$lib/utils/search';
+import { logShopChange } from '$lib/utils/shops/changelog.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -299,6 +300,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     };
 
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);
+
+    try {
+      await logShopChange(mongo, {
+        shopId: newShop.id,
+        shopName: newShop.name,
+        action: 'created',
+        user: {
+          id: session.user.id,
+          name: session.user.name,
+          image: session.user.image ?? null
+        },
+        fieldInfo: { field: 'shop' },
+        createdAt: now
+      });
+    } catch (logErr) {
+      console.error('Failed to log shop creation changelog:', logErr);
+    }
+
     const response = shopResponseSchema.parse(toPlainObject({ shop: newShop }));
 
     return json(response, { status: 201 });

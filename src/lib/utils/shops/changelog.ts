@@ -7,7 +7,7 @@ export const getShopChangelogActionName = (
   m: typeof mFunc
 ): string => {
   const actionMap: Record<string, string> = {
-    created: m.changelog_action_created(),
+    created: m.shop_changelog_action_created(),
     modified: m.changelog_action_modified(),
     deleted: m.changelog_action_deleted(),
     game_added: m.shop_changelog_action_game_added(),
@@ -128,7 +128,7 @@ export const formatShopChangelogDescription = (
       return m.changelog_modified({ field: fieldName });
     }
     case 'created':
-      return m.changelog_action_created();
+      return m.shop_changelog_action_created();
     case 'deleted':
       return m.changelog_action_deleted();
     default:

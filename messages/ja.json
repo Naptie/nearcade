@@ -1197,6 +1197,7 @@
   "shop_address_detailed": "詳細住所",
   "shop_address_general": "一般住所",
   "shop_address_province": "都道府県/州",
+  "shop_changelog_action_created": "店舗を作成",
   "shop_changelog_action_delete_request_approved": "削除申請を承認",
   "shop_changelog_action_delete_request_rejected": "削除申請を却下",
   "shop_changelog_action_delete_request_submitted": "削除申請を提出",

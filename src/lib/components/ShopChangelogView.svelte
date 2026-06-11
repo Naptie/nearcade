@@ -115,6 +115,8 @@
     await loadEntries(currentPage + 1, true);
   };
 
+  const canRollbackEntry = (entry: ShopChangelogEntryWithUser) => entry.action !== 'created';
+
   const deleteEntry = async (entry: ShopChangelogEntryWithUser) => {
     if (!confirm(m.shop_changelog_rollback_delete_confirm())) return;
 
@@ -275,14 +277,16 @@
 
                   {#if isSiteAdmin}
                     <div class="mt-2 flex flex-wrap gap-2">
-                      <button
-                        class="btn btn-primary btn-xs btn-soft"
-                        onclick={() => previewRollback(entry)}
-                        disabled={isPreviewingRollback}
-                      >
-                        <i class="fa-solid fa-rotate-left"></i>
-                        {m.shop_changelog_rollback_action()}
-                      </button>
+                      {#if canRollbackEntry(entry)}
+                        <button
+                          class="btn btn-primary btn-xs btn-soft"
+                          onclick={() => previewRollback(entry)}
+                          disabled={isPreviewingRollback}
+                        >
+                          <i class="fa-solid fa-rotate-left"></i>
+                          {m.shop_changelog_rollback_action()}
+                        </button>
+                      {/if}
                       <button
                         class="btn btn-error btn-xs btn-soft"
                         onclick={() => deleteEntry(entry)}

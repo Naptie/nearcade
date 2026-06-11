@@ -853,6 +853,7 @@
                           "openingHours",
                           "games",
                           "location",
+                          "createdAt",
                           "updatedAt"
                         ],
                         "additionalProperties": false
@@ -1232,6 +1233,7 @@
                           "openingHours",
                           "games",
                           "location",
+                          "createdAt",
                           "updatedAt"
                         ],
                         "additionalProperties": false
@@ -2780,6 +2782,7 @@
                           "openingHours",
                           "games",
                           "location",
+                          "createdAt",
                           "updatedAt",
                           "distance"
                         ],
@@ -4590,6 +4593,7 @@
                           "openingHours",
                           "games",
                           "location",
+                          "createdAt",
                           "updatedAt"
                         ],
                         "additionalProperties": false
@@ -5053,6 +5057,7 @@
                         "openingHours",
                         "games",
                         "location",
+                        "createdAt",
                         "updatedAt"
                       ],
                       "additionalProperties": false,
@@ -5368,6 +5373,7 @@
                         "openingHours",
                         "games",
                         "location",
+                        "createdAt",
                         "updatedAt"
                       ],
                       "additionalProperties": false,
@@ -5831,6 +5837,7 @@
                         "openingHours",
                         "games",
                         "location",
+                        "createdAt",
                         "updatedAt"
                       ],
                       "additionalProperties": false,
@@ -6142,6 +6149,7 @@
                         "openingHours",
                         "games",
                         "location",
+                        "createdAt",
                         "updatedAt"
                       ],
                       "additionalProperties": false,
@@ -12373,6 +12381,7 @@
                               "openingHours",
                               "games",
                               "location",
+                              "createdAt",
                               "updatedAt"
                             ],
                             "additionalProperties": false
@@ -12618,6 +12627,7 @@
                               "openingHours",
                               "games",
                               "location",
+                              "createdAt",
                               "updatedAt"
                             ],
                             "additionalProperties": false
@@ -13800,6 +13810,7 @@
                               "openingHours",
                               "games",
                               "location",
+                              "createdAt",
                               "updatedAt"
                             ],
                             "additionalProperties": false
@@ -14045,6 +14056,7 @@
                               "openingHours",
                               "games",
                               "location",
+                              "createdAt",
                               "updatedAt"
                             ],
                             "additionalProperties": false

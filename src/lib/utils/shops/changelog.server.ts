@@ -133,6 +133,7 @@ export const logShopChange = async (
     oldValue?: string | null;
     newValue?: string | null;
     metadata?: ShopChangelogEntry['metadata'];
+    createdAt?: Date;
   }
 ): Promise<void> => {
   const db = client.db();
@@ -145,7 +146,7 @@ export const logShopChange = async (
     oldValue: change.oldValue,
     newValue: change.newValue,
     userId: change.user.id,
-    createdAt: new Date(),
+    createdAt: change.createdAt ?? new Date(),
     ...(change.metadata === undefined ? {} : { metadata: change.metadata })
   };
   await db.collection<ShopChangelogEntry>('shop_changelog').insertOne(entry);
@@ -340,6 +341,8 @@ const getRollbackEntries = async (
 
 const applyInverseEntry = (shop: Shop, entry: ShopChangelogEntry): boolean => {
   switch (entry.action) {
+    case 'created':
+      return false;
     case 'modified': {
       const field = entry.fieldInfo.field;
       if (!isMutableShopField(field)) return false;

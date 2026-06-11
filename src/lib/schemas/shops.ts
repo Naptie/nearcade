@@ -218,7 +218,7 @@ export const shopSchema = z.object({
         'Whether this shop has been locked by an admin. Only admins can edit locked shops.'
       )
     ),
-  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')).optional(),
+  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')),
   updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });
 

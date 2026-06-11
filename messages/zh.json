@@ -1197,6 +1197,7 @@
   "shop_address_detailed": "详细地址",
   "shop_address_general": "通用地址",
   "shop_address_province": "省/州",
+  "shop_changelog_action_created": "创建店铺",
   "shop_changelog_action_delete_request_approved": "批准删除申请",
   "shop_changelog_action_delete_request_rejected": "拒绝删除申请",
   "shop_changelog_action_delete_request_submitted": "提交删除申请",
