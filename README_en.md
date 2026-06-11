@@ -42,6 +42,8 @@ Please join the following QQ group for discussions.
 
 ### 🗃️ Data Collection
 
+The arcade data is maintained by the community in principle. However, since the website did not have a maintenance system in its early versions, it mainly collected arcade data from third parties. For the purpose of informing the public, we are hereby disclosing the main data sources relied upon by the website in its early versions.
+
 - Arcade shops in China (mainland, HK, MO, and TW) are collected from [BEMANICN's map](https://map.bemanicn.com/). Overseas aracde shops are collected from [Zenius -I- vanisher.com](https://zenius-i-vanisher.com/v5.2/arcades.php).
 - A list of Chinese mainland universities is obtained from [MOE](http://www.moe.gov.cn/jyb_xxgk/s5743/s5744/A03/202506/t20250627_1195683.html), with additional campus geolocation data collected by [Naptie/cn-university-geocoder](https://github.com/Naptie/cn-university-geocoder) from [Tencent Maps](https://lbs.qq.com/).
 

@@ -42,6 +42,8 @@
 
 ### 🗃️ 数据采集
 
+机厅数据原则上由社区维护，而由于网站在早期版本中未实现信息维护系统，因此主要从第三方采集机厅数据。出于向公众告知的考量，在此公示早期版本网站主要依赖的数据源。
+
 - 国内机厅数据（内地、港澳台）采集自 [BEMANICN 全国音游地图](https://map.bemanicn.com/)。海外机厅数据采集自 [Zenius -I- vanisher.com](https://zenius-i-vanisher.com/v5.2/arcades.php)。
 - 内地高校列表来自[教育部](http://www.moe.gov.cn/jyb_xxgk/s5743/s5744/A03/202506/t20250627_1195683.html)；校区地理信息使用 [Naptie/cn-university-geocoder](https://github.com/Naptie/cn-university-geocoder) 采集自[腾讯地图](https://lbs.qq.com/)。
 
