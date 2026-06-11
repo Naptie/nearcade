@@ -7,7 +7,7 @@ import { checkUniversityPermission } from '$lib/utils';
 import { logChange } from '$lib/utils/universities-clubs/changelog.server';
 import type { University } from '$lib/types';
 import { avatarUploadResponseSchema } from '$lib/schemas/users';
-import { imageUploadFormDataSchema } from '$lib/schemas/images';
+import { avatarUploadFormDataSchema } from '$lib/schemas/images';
 import { universityIdParamSchema } from '$lib/schemas/organizations';
 import { parseOrError, parseParamsOrError } from '$lib/utils/validation.server';
 
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     error(400, 'Invalid form data');
   }
 
-  const { file } = parseOrError(imageUploadFormDataSchema.pick({ file: true }), {
+  const { file } = parseOrError(avatarUploadFormDataSchema, {
     file: formData.get('file')
   });
 

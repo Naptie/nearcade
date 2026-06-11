@@ -153,6 +153,12 @@ export const imageUploadRequestSchema = z.object({
     .describe(bilingual('草稿所属组织 ID。', 'Organization ID for a draft image.'))
 });
 
+export const avatarUploadFormDataSchema = z.object({
+  file: z
+    .instanceof(File)
+    .refine((file) => file.type.startsWith('image/'), 'Only image files are allowed')
+});
+
 export const imageUploadProgressEventSchema = z.object({
   phase: z.literal('uploading').describe(bilingual('上传阶段。', 'Upload phase.')),
   progress: z

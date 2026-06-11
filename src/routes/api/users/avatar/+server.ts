@@ -4,7 +4,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
 import { avatarUploadResponseSchema } from '$lib/schemas/users';
-import { imageUploadFormDataSchema } from '$lib/schemas/images';
+import { avatarUploadFormDataSchema } from '$lib/schemas/images';
 import { parseOrError } from '$lib/utils/validation.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(400, 'Invalid form data');
   }
 
-  const { file } = parseOrError(imageUploadFormDataSchema.pick({ file: true }), {
+  const { file } = parseOrError(avatarUploadFormDataSchema, {
     file: formData.get('file')
   });
 
