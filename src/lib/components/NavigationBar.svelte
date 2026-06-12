@@ -99,15 +99,6 @@
       : ''}"
   >
     <LocaleSwitch class="text-shadow-lg" btnCls="text-shadow-lg" />
-    <FancyButton
-      callback={() => {
-        window.dispatchEvent(new CustomEvent('nearcade-donate'));
-      }}
-      class="fa-solid fa-heart fa-lg text-shadow-lg"
-      btnCls="btn-ghost btn-sm lg:btn-md not-ss:hidden text-shadow-lg"
-      text={m.donate()}
-      stayExpandedOnWideScreens
-    />
     {#if page.url.pathname !== resolve('/globe')}
       <FancyButton
         href={resolve('/globe')}

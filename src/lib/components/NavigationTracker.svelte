@@ -3,6 +3,8 @@
   import { onMount } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import DonationModal from './DonationModal.svelte';
+  import { page } from '$app/state';
+  import { resolve } from '$app/paths';
 
   // Configuration constants
   const STORAGE_KEY = 'nearcade-navigation-count';
@@ -42,7 +44,11 @@
       return false;
     }
 
-    if ((count === 1 && Math.random() < 0.4) || count === INITIAL_THRESHOLD) return true;
+    if (
+      (count === 1 && Math.random() < 0.3 && page.url.pathname === resolve('/')) ||
+      count === INITIAL_THRESHOLD
+    )
+      return true;
     if (count > INITIAL_THRESHOLD && count % RECURRING_INTERVAL === 0) return true;
 
     return false;
