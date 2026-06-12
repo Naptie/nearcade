@@ -29,19 +29,15 @@ const optionalShopCommentSchema = z
 
 export const shopIdSchema = z.int().describe(bilingual('店铺 ID。', 'Shop ID.'));
 
-export const gameIdSchema = z
-  .int()
-  .describe(
-    bilingual(
-      '游戏（版本）ID；BEMANICN 数据源等同于机台 ID。',
-      'Game/version ID. For BEMANICN this equals the machine ID.'
-    )
-  );
+export const gameIdSchema = z.int().describe(bilingual('机台 ID。', 'Machine ID.'));
 const existingGameIdSchema = z
   .int()
   .optional()
   .describe(
-    bilingual('已有游戏 ID，用于更新已知机台。', 'Existing game ID, when updating a known game.')
+    bilingual(
+      '已有机台 ID，用于更新已知机台。',
+      'Existing machine ID, when updating a known machine.'
+    )
   );
 const gameTitleIdSchema = z.int().describe(bilingual('游戏系列 ID。', 'Game series ID.'));
 const gameNameSchema = z.string().describe(bilingual('游戏名。', 'Game name.'));
@@ -462,7 +458,7 @@ const shopChangelogFieldInfoSchema = z.object({
     .int()
     .nullable()
     .optional()
-    .describe(bilingual('关联游戏 ID。', 'Associated game ID.')),
+    .describe(bilingual('关联机台 ID。', 'Associated machine ID.')),
   gameName: z
     .string()
     .nullable()

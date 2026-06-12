@@ -719,7 +719,7 @@
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991,
-                                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                  "description": "机台 ID。\n\nMachine ID."
                                 },
                                 "titleId": {
                                   "type": "integer",
@@ -1099,7 +1099,7 @@
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991,
-                                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                  "description": "机台 ID。\n\nMachine ID."
                                 },
                                 "titleId": {
                                   "type": "integer",
@@ -2583,7 +2583,7 @@
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991,
-                                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                  "description": "机台 ID。\n\nMachine ID."
                                 },
                                 "titleId": {
                                   "type": "integer",
@@ -4459,7 +4459,7 @@
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991,
-                                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                  "description": "机台 ID。\n\nMachine ID."
                                 },
                                 "titleId": {
                                   "type": "integer",
@@ -4923,7 +4923,7 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                "description": "机台 ID。\n\nMachine ID."
                               },
                               "titleId": {
                                 "type": "integer",
@@ -5239,7 +5239,7 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                "description": "机台 ID。\n\nMachine ID."
                               },
                               "titleId": {
                                 "type": "integer",
@@ -5578,7 +5578,7 @@
                           "type": "string"
                         },
                         "gameId": {
-                          "description": "已有游戏 ID，用于更新已知机台。\n\nExisting game ID, when updating a known game.",
+                          "description": "已有机台 ID，用于更新已知机台。\n\nExisting machine ID, when updating a known machine.",
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
@@ -5703,7 +5703,7 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                "description": "机台 ID。\n\nMachine ID."
                               },
                               "titleId": {
                                 "type": "integer",
@@ -6015,7 +6015,7 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                "description": "机台 ID。\n\nMachine ID."
                               },
                               "titleId": {
                                 "type": "integer",
@@ -6238,7 +6238,7 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                            "description": "机台 ID。\n\nMachine ID."
                           },
                           "titleId": {
                             "type": "integer",
@@ -6305,7 +6305,7 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                            "description": "机台 ID。\n\nMachine ID."
                           },
                           "attendedAt": {
                             "description": "登记在勤时间。\n\nAttendance registration time.",
@@ -6358,7 +6358,7 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                            "description": "机台 ID。\n\nMachine ID."
                           },
                           "currentAttendances": {
                             "default": 0,
@@ -6475,7 +6475,7 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991,
-                          "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                          "description": "机台 ID。\n\nMachine ID."
                         },
                         "currentAttendances": {
                           "description": "在勤人数。\n\nReported current attendance count.",
@@ -7141,7 +7141,7 @@
                                 "description": "变更字段。\n\nField changed by this entry."
                               },
                               "gameId": {
-                                "description": "关联游戏 ID。\n\nAssociated game ID.",
+                                "description": "关联机台 ID。\n\nAssociated machine ID.",
                                 "nullable": true,
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -8070,7 +8070,7 @@
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991,
-                                  "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                  "description": "机台 ID。\n\nMachine ID."
                                 },
                                 "name": {
                                   "type": "string",
@@ -8624,7 +8624,7 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                            "description": "机台 ID。\n\nMachine ID."
                           },
                           "queue": {
                             "type": "array",
@@ -8777,7 +8777,7 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991,
-                          "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                          "description": "机台 ID。\n\nMachine ID."
                         },
                         "queue": {
                           "type": "array",
@@ -12247,7 +12247,7 @@
                                       "type": "integer",
                                       "minimum": -9007199254740991,
                                       "maximum": 9007199254740991,
-                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                      "description": "机台 ID。\n\nMachine ID."
                                     },
                                     "titleId": {
                                       "type": "integer",
@@ -12493,7 +12493,7 @@
                                       "type": "integer",
                                       "minimum": -9007199254740991,
                                       "maximum": 9007199254740991,
-                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                      "description": "机台 ID。\n\nMachine ID."
                                     },
                                     "titleId": {
                                       "type": "integer",
@@ -13172,7 +13172,7 @@
                                     "description": "变更字段。\n\nField changed by this entry."
                                   },
                                   "gameId": {
-                                    "description": "关联游戏 ID。\n\nAssociated game ID.",
+                                    "description": "关联机台 ID。\n\nAssociated machine ID.",
                                     "nullable": true,
                                     "type": "integer",
                                     "minimum": -9007199254740991,
@@ -13676,7 +13676,7 @@
                                       "type": "integer",
                                       "minimum": -9007199254740991,
                                       "maximum": 9007199254740991,
-                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                      "description": "机台 ID。\n\nMachine ID."
                                     },
                                     "titleId": {
                                       "type": "integer",
@@ -13922,7 +13922,7 @@
                                       "type": "integer",
                                       "minimum": -9007199254740991,
                                       "maximum": 9007199254740991,
-                                      "description": "游戏（版本）ID；BEMANICN 数据源等同于机台 ID。\n\nGame/version ID. For BEMANICN this equals the machine ID."
+                                      "description": "机台 ID。\n\nMachine ID."
                                     },
                                     "titleId": {
                                       "type": "integer",
