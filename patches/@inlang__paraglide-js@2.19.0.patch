@@ -1,0 +1,14 @@
+diff --git a/dist/compiler/runtime/get-locale.js b/dist/compiler/runtime/get-locale.js
+index da82dcafd9efb8cbcdb01327244cf02a4eb2b38e..1287256c399e9bbc113758fd36a009ed49697129 100644
+--- a/dist/compiler/runtime/get-locale.js
++++ b/dist/compiler/runtime/get-locale.js
+@@ -112,7 +112,8 @@ function resolveLocaleWithStrategies(strategyToUse, urlForUrlStrategy) {
+         }
+         else if (TREE_SHAKE_LOCAL_STORAGE_STRATEGY_USED &&
+             strat === "localStorage" &&
+-            !isServer) {
++            !isServer &&
++            typeof localStorage !== "undefined") {
+             locale = localStorage.getItem(localStorageKey) ?? undefined;
+         }
+         else if (isCustomStrategy(strat) && customClientStrategies.has(strat)) {

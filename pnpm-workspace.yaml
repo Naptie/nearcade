@@ -6,6 +6,6 @@ allowBuilds:
   sharp: true
   workerd: true
 patchedDependencies:
-  '@inlang/paraglide-js@2.16.0': patches/@inlang__paraglide-js@2.16.0.patch
+  '@inlang/paraglide-js@2.19.0': patches/@inlang__paraglide-js@2.19.0.patch
   better-auth@1.6.18: patches/better-auth@1.6.18.patch
-  firebase@12.12.1: patches/firebase@12.12.1.patch
+  firebase@12.14.0: patches/firebase@12.14.0.patch
