@@ -337,7 +337,7 @@ export const areValidCoordinates = (
 };
 
 export const formatRegionLabel = (
-  location?: { province: string; city: string; district?: string } | null,
+  location?: { province: string; city: string; district?: string | null } | null,
   withDistrict = true,
   divider = ' · '
 ): string => {

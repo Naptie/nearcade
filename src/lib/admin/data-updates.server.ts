@@ -92,7 +92,7 @@ interface RankingsCampus {
   name: string | null;
   province: string;
   city: string;
-  district: string;
+  district: string | null;
   address: string;
   location: Location;
 }

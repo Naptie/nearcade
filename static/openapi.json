@@ -10307,8 +10307,9 @@
                                   "description": "城市。\n\nCity."
                                 },
                                 "district": {
-                                  "type": "string",
-                                  "description": "区县。\n\nDistrict."
+                                  "nullable": true,
+                                  "description": "区县。\n\nDistrict.",
+                                  "type": "string"
                                 },
                                 "address": {
                                   "type": "string",
@@ -10619,8 +10620,9 @@
                                 "description": "城市。\n\nCity."
                               },
                               "district": {
-                                "type": "string",
-                                "description": "区县。\n\nDistrict."
+                                "nullable": true,
+                                "description": "区县。\n\nDistrict.",
+                                "type": "string"
                               },
                               "address": {
                                 "type": "string",

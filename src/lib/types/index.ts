@@ -67,7 +67,7 @@ export interface UniversityRankingData {
   isDoubleFirstClass: boolean | null;
   province: string;
   city: string;
-  district: string;
+  district: string | null;
   address: string;
   location: Location;
   rankings: RankingMetrics[];

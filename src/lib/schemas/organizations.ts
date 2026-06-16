@@ -71,7 +71,7 @@ export const campusSchema = z.object({
   name: z.string().nullable().describe(bilingual('校区名称。', 'Campus name.')),
   province: z.string().describe(bilingual('省份。', 'Province.')),
   city: z.string().describe(bilingual('城市。', 'City.')),
-  district: z.string().describe(bilingual('区县。', 'District.')),
+  district: z.string().nullable().describe(bilingual('区县。', 'District.')),
   address: z.string().describe(bilingual('详细地址。', 'Detailed address.')),
   location: locationSchema.describe(bilingual('校区坐标。', 'Campus coordinates.')),
   createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')).optional(),
