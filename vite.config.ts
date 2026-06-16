@@ -91,6 +91,9 @@ export default defineConfig({
       }
     })
   ],
+  resolve: {
+    dedupe: ['@better-auth/core', 'better-auth']
+  },
   build: {
     minify: 'terser',
     terserOptions: {
