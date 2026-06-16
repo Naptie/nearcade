@@ -531,7 +531,7 @@
           authClient.deleteUser().then(() => {
             isDeletingAccount = false;
             authClient.signOut().then(() => {
-              location.href = resolve('/(main)');
+              location.href = resolve('/');
             });
           });
         }}

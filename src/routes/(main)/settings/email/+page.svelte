@@ -93,7 +93,7 @@
   };
 
   const handleContinue = async () => {
-    location.href = data.redirectTo ?? resolve('/(main)');
+    location.href = data.redirectTo ?? resolve('/');
   };
 </script>
 
