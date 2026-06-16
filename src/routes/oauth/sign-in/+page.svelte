@@ -10,6 +10,10 @@
   // can continue the authorization flow automatically.
   const callbackURL = $derived(withPostLoginMarker(page.url));
 
+  let handoffCode = $state('');
+  let redeemError = $state<string | null>(null);
+  let isRedeemingCode = $state(false);
+
   const handleProviderSignIn = (providerId: string) => {
     if (providerId === 'qq') {
       const marker = crypto.randomUUID();
@@ -23,6 +27,28 @@
         providerId,
         callbackURL
       });
+    }
+  };
+
+  const redeemOneTimeCode = async () => {
+    const token = handoffCode.trim();
+    if (!token) {
+      redeemError = m.sessions_code_required();
+      return;
+    }
+
+    isRedeemingCode = true;
+    redeemError = null;
+
+    try {
+      await authClient.oneTimeToken.verify({ token });
+      handoffCode = '';
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to redeem one-time code:', err);
+      redeemError = m.sessions_code_invalid();
+    } finally {
+      isRedeemingCode = false;
     }
   };
 </script>
@@ -58,6 +84,42 @@
             <span>{m.sign_in_with({ provider: provider.name })}</span>
           </button>
         {/each}
+      </div>
+
+      <div class="divider my-2">OR</div>
+
+      <div class="space-y-3 text-left">
+        <div class="flex items-center gap-2">
+          <input
+            id="handoff-code-input"
+            class="input input-bordered w-full font-mono"
+            bind:value={handoffCode}
+            placeholder={m.sessions_code_label()}
+            autocomplete="one-time-code"
+            spellcheck="false"
+            onkeydown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                redeemOneTimeCode();
+              }
+            }}
+          />
+          <button
+            type="button"
+            class="btn btn-primary btn-soft btn-circle"
+            onclick={redeemOneTimeCode}
+            disabled={isRedeemingCode}
+            title={m.sessions_code_submit()}
+          >
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          </button>
+        </div>
+        {#if redeemError}
+          <div class="alert alert-error py-2 text-sm">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{redeemError}</span>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
