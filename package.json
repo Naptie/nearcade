@@ -82,11 +82,11 @@
     "@aws-sdk/client-s3": "^3.1035.0",
     "@aws-sdk/lib-storage": "^3.1035.0",
     "@better-auth/api-key": "1.6.10",
-    "@better-auth/oauth-provider": "^1.6.10",
+    "@better-auth/oauth-provider": "^1.6.18",
     "@elysia/eden": "^1.4.10",
     "@photostructure/tz-lookup": "^11.5.0",
     "@types/qrcode": "^1.5.6",
-    "better-auth": "^1.6.10",
+    "better-auth": "^1.6.18",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
@@ -120,21 +120,6 @@
     "unified-sms-client": "github:Naptie/unified-sms#client",
     "xml2js": "^0.6.2",
     "zod": "^4.3.6"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@firebase/util",
-      "@tailwindcss/oxide",
-      "core-js-pure",
-      "esbuild",
-      "protobufjs",
-      "sharp",
-      "workerd"
-    ],
-    "patchedDependencies": {
-      "@inlang/paraglide-js": "patches/@inlang__paraglide-js.patch",
-      "firebase": "patches/firebase.patch"
-    }
   },
   "overrides": {
     "vite-plugin-devtools-json": {

@@ -1,0 +1,30 @@
+diff --git a/dist/plugins/generic-oauth/index.mjs b/dist/plugins/generic-oauth/index.mjs
+index 728af81d0ed60141092b208765fc39a7486cec49..64ad4f8237a154908cc043c8b0606696f4d659a2 100644
+--- a/dist/plugins/generic-oauth/index.mjs
++++ b/dist/plugins/generic-oauth/index.mjs
+@@ -62,7 +62,24 @@ const genericOAuth = (options) => {
+ 							state: data.state,
+ 							codeVerifier: c.pkce ? data.codeVerifier : void 0,
+ 							scopes: c.scopes || [],
+-							redirectURI: `${ctx.baseURL}/oauth2/callback/${c.providerId}`
++							redirectURI: (() => {
++							// ctx.baseURL is captured at plugin init time and is "" when
++							// using a dynamic allowedHosts baseURL config. In that case,
++							// extract the base from data.redirectURI (which carries the
++							// per-request resolved origin) and keep the /oauth2/callback/ path.
++							if (ctx.baseURL) return `${ctx.baseURL}/oauth2/callback/${c.providerId}`;
++							if (data.redirectURI) {
++								try {
++									const u = new URL(data.redirectURI);
++									const callbackSuffix = `/callback/${c.providerId}`;
++									const base = u.pathname.endsWith(callbackSuffix)
++										? u.origin + u.pathname.slice(0, -callbackSuffix.length)
++										: u.origin;
++									return `${base}/oauth2/callback/${c.providerId}`;
++								} catch {}
++							}
++							return `/oauth2/callback/${c.providerId}`;
++						})()
+ 						});
+ 					},
+ 					async validateAuthorizationCode(data) {
