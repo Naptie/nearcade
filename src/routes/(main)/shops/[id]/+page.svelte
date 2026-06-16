@@ -1245,7 +1245,7 @@
             <div class="flex flex-wrap items-center gap-2">
               {#if data.user}
                 <!-- Three-dots dropdown for shop actions -->
-                <div class="dropdown dropdown-end">
+                <div class="dropdown lg:dropdown-end">
                   <button
                     type="button"
                     tabindex="0"
