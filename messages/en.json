@@ -1007,6 +1007,7 @@
   "phone_settings": "Phone Number",
   "phone_settings_already_yours": "This phone number is already bound to your account.",
   "phone_settings_bind": "Bind phone number",
+  "phone_settings_captcha_switch": "Switch verification method",
   "phone_settings_change": "Update phone number",
   "phone_settings_code_placeholder": "6-digit code",
   "phone_settings_cooldown": "Please wait {seconds} seconds before requesting another code.",

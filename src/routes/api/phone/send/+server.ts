@@ -10,6 +10,9 @@ import { env } from '$env/dynamic/private';
 const COOLDOWN_SECONDS = 60;
 const DAILY_LIMIT = 5;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const HCAPTCHA_VERIFY_URL = 'https://api.hcaptcha.com/siteverify';
+
+type CaptchaProvider = 'turnstile' | 'hcaptcha';
 
 function dailyKey(qualifier: string): string {
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -33,6 +36,42 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   return data.success === true;
 }
 
+async function verifyHcaptcha(token: string, ip: string): Promise<boolean> {
+  const secret = env.HCAPTCHA_SECRET_KEY;
+  if (!secret) return true;
+
+  const body = new URLSearchParams({
+    secret,
+    response: token,
+    remoteip: ip,
+    ...(env.HCAPTCHA_SITE_KEY ? { sitekey: env.HCAPTCHA_SITE_KEY } : {})
+  });
+
+  const resp = await fetch(HCAPTCHA_VERIFY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+
+  if (!resp.ok) return false;
+  const data = (await resp.json()) as { success: boolean };
+  return data.success === true;
+}
+
+function getConfiguredCaptchaProviders(): CaptchaProvider[] {
+  const providers: CaptchaProvider[] = [];
+
+  if (env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY) {
+    providers.push('turnstile');
+  }
+
+  if (env.HCAPTCHA_SITE_KEY && env.HCAPTCHA_SECRET_KEY) {
+    providers.push('hcaptcha');
+  }
+
+  return providers;
+}
+
 export const POST: RequestHandler = async ({ request, locals, getClientAddress }) => {
   const session = locals.session;
   if (!session) {
@@ -42,7 +81,14 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
   const userId = session.user.id;
   const ip = getClientAddress();
 
-  let body: { phoneNumber?: string; countryCode?: string; turnstileToken?: string };
+  let body: {
+    phoneNumber?: string;
+    countryCode?: string;
+    captchaProvider?: string;
+    captchaToken?: string;
+    turnstileToken?: string;
+    hcaptchaToken?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -51,20 +97,42 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 
   const phoneNumber = body.phoneNumber?.trim();
   const countryCode = body.countryCode?.trim();
-  const turnstileToken = body.turnstileToken?.trim();
+  const configuredCaptchaProviders = getConfiguredCaptchaProviders();
+
+  let captchaProvider = body.captchaProvider?.trim() as CaptchaProvider | undefined;
+  const captchaToken =
+    body.captchaToken?.trim() ?? body.turnstileToken?.trim() ?? body.hcaptchaToken?.trim();
+
+  if (!captchaProvider) {
+    if (body.turnstileToken) {
+      captchaProvider = 'turnstile';
+    } else if (body.hcaptchaToken) {
+      captchaProvider = 'hcaptcha';
+    } else if (configuredCaptchaProviders.length === 1) {
+      captchaProvider = configuredCaptchaProviders[0];
+    }
+  }
 
   if (!phoneNumber || !countryCode) {
     error(400, 'phoneNumber and countryCode are required');
   }
 
-  // Turnstile verification
-  if (env.TURNSTILE_SECRET_KEY) {
-    if (!turnstileToken) {
-      error(400, JSON.stringify({ error: 'turnstile_missing' }));
+  if (configuredCaptchaProviders.length > 0) {
+    if (!captchaProvider || !configuredCaptchaProviders.includes(captchaProvider)) {
+      error(400, JSON.stringify({ error: 'captcha_provider_invalid' }));
     }
-    const turnstileOk = await verifyTurnstile(turnstileToken, ip);
-    if (!turnstileOk) {
-      error(400, JSON.stringify({ error: 'turnstile_failed' }));
+
+    if (!captchaToken) {
+      error(400, JSON.stringify({ error: 'captcha_missing' }));
+    }
+
+    const captchaOk =
+      captchaProvider === 'turnstile'
+        ? await verifyTurnstile(captchaToken, ip)
+        : await verifyHcaptcha(captchaToken, ip);
+
+    if (!captchaOk) {
+      error(400, JSON.stringify({ error: 'captcha_failed' }));
     }
   }
 

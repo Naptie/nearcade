@@ -5,7 +5,11 @@
   import { slide } from 'svelte/transition';
   import type { PageData } from './$types';
 
-  let { data }: { data: PageData } = $props();
+  type PhonePageData = PageData & {
+    hcaptchaSiteKey: string | null;
+  };
+
+  let { data }: { data: PhonePageData } = $props();
 
   // Send OTP form state
   let countryCode = $derived(data.countries.length > 0 ? data.countries[0].dialCode : '');
@@ -28,10 +32,54 @@
   let cooldownSeconds = $state(0);
   let cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
+  type CaptchaProvider = 'turnstile' | 'hcaptcha';
+
   // Turnstile
   let turnstileToken = $state('');
-  let turnstileWidgetId = $state<string | null>(null);
+  let turnstileWidgetId: string | null = null;
   let turnstileContainer = $state<HTMLDivElement | null>(null);
+
+  // hCaptcha
+  let hcaptchaToken = $state('');
+  let hcaptchaWidgetId: string | null = null;
+  let hcaptchaContainer = $state<HTMLDivElement | null>(null);
+
+  const defaultCaptchaProvider = $derived<CaptchaProvider | null>(
+    data.turnstileSiteKey ? 'turnstile' : data.hcaptchaSiteKey ? 'hcaptcha' : null
+  );
+
+  let activeCaptchaProvider = $state<CaptchaProvider | null>(null);
+  let showCaptchaSwitch = $state(false);
+
+  const hasCaptchaFallback = $derived(Boolean(data.turnstileSiteKey && data.hcaptchaSiteKey));
+  const activeCaptchaToken = $derived.by(() => {
+    if (activeCaptchaProvider === 'turnstile') return turnstileToken;
+    if (activeCaptchaProvider === 'hcaptcha') return hcaptchaToken;
+    return '';
+  });
+
+  $effect(() => {
+    const preferredProvider = defaultCaptchaProvider;
+
+    if (!preferredProvider) {
+      activeCaptchaProvider = null;
+      return;
+    }
+
+    if (activeCaptchaProvider === null) {
+      activeCaptchaProvider = preferredProvider;
+      return;
+    }
+
+    if (activeCaptchaProvider === 'turnstile' && !data.turnstileSiteKey) {
+      activeCaptchaProvider = preferredProvider;
+      return;
+    }
+
+    if (activeCaptchaProvider === 'hcaptcha' && !data.hcaptchaSiteKey) {
+      activeCaptchaProvider = preferredProvider;
+    }
+  });
 
   type TurnstileWindow = typeof window & {
     turnstile?: {
@@ -50,23 +98,48 @@
     onloadTurnstileCallback?: () => void;
   };
 
+  type HCaptchaWindow = typeof window & {
+    hcaptcha?: {
+      render: (
+        el: HTMLElement,
+        opts: {
+          sitekey: string;
+          callback: (token: string) => void;
+          'expired-callback': () => void;
+          'error-callback': () => void;
+          size: string;
+        }
+      ) => string;
+      reset: (id?: string) => void;
+      getResponse: (id?: string) => string;
+    };
+    onloadHCaptchaCallback?: () => void;
+  };
+
   $effect(() => {
-    if (!data.turnstileSiteKey || !turnstileContainer) return;
+    if (activeCaptchaProvider !== 'turnstile' || !data.turnstileSiteKey || !turnstileContainer) {
+      return;
+    }
+
     const w = window as TurnstileWindow;
     const sitekey = data.turnstileSiteKey;
     const container = turnstileContainer;
+    let disposed = false;
 
     const doRender = () => {
-      if (turnstileWidgetId !== null || !w.turnstile) return;
+      if (disposed || turnstileWidgetId !== null || !w.turnstile) return;
       turnstileWidgetId = w.turnstile.render(container, {
         sitekey,
         callback: (token: string) => {
+          if (disposed) return;
           turnstileToken = token;
         },
         'expired-callback': () => {
+          if (disposed) return;
           turnstileToken = '';
         },
         'error-callback': () => {
+          if (disposed) return;
           turnstileToken = '';
         },
         size: 'normal'
@@ -91,6 +164,96 @@
         document.head.appendChild(script);
       }
     }
+
+    return () => {
+      disposed = true;
+      turnstileToken = '';
+      turnstileWidgetId = null;
+      container.innerHTML = '';
+    };
+  });
+
+  $effect(() => {
+    if (activeCaptchaProvider !== 'hcaptcha' || !data.hcaptchaSiteKey || !hcaptchaContainer) {
+      return;
+    }
+
+    const w = window as HCaptchaWindow;
+    const sitekey = data.hcaptchaSiteKey;
+    const container = hcaptchaContainer;
+    let disposed = false;
+
+    const doRender = () => {
+      if (disposed || hcaptchaWidgetId !== null || !w.hcaptcha) return;
+      hcaptchaWidgetId = w.hcaptcha.render(container, {
+        sitekey,
+        callback: (token: string) => {
+          if (disposed) return;
+          hcaptchaToken = token;
+        },
+        'expired-callback': () => {
+          if (disposed) return;
+          hcaptchaToken = '';
+        },
+        'error-callback': () => {
+          if (disposed) return;
+          hcaptchaToken = '';
+        },
+        size: 'normal'
+      });
+    };
+
+    if (w.hcaptcha) {
+      doRender();
+    } else {
+      const prev = w.onloadHCaptchaCallback;
+      w.onloadHCaptchaCallback = () => {
+        if (prev) prev();
+        doRender();
+      };
+
+      if (!document.querySelector('script[data-hcaptcha]')) {
+        const script = document.createElement('script');
+        script.src =
+          'https://js.hcaptcha.com/1/api.js?onload=onloadHCaptchaCallback&render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.dataset.hcaptcha = '1';
+        document.head.appendChild(script);
+      }
+    }
+
+    return () => {
+      disposed = true;
+      hcaptchaToken = '';
+      hcaptchaWidgetId = null;
+      container.innerHTML = '';
+    };
+  });
+
+  $effect(() => {
+    if (!hasCaptchaFallback || codeSent || !activeCaptchaProvider || activeCaptchaToken) {
+      showCaptchaSwitch = false;
+      return;
+    }
+
+    showCaptchaSwitch = false;
+    const timeout = setTimeout(() => {
+      showCaptchaSwitch = true;
+    }, 8000);
+
+    return () => {
+      clearTimeout(timeout);
+      showCaptchaSwitch = false;
+    };
+  });
+
+  $effect(() => {
+    return () => {
+      if (cooldownInterval) {
+        clearInterval(cooldownInterval);
+      }
+    };
   });
 
   function resetTurnstile() {
@@ -99,6 +262,37 @@
       w.turnstile.reset(turnstileWidgetId);
     }
     turnstileToken = '';
+  }
+
+  function resetHcaptcha() {
+    const w = window as HCaptchaWindow;
+    if (w.hcaptcha && hcaptchaWidgetId !== null) {
+      w.hcaptcha.reset(hcaptchaWidgetId);
+    }
+    hcaptchaToken = '';
+  }
+
+  function resetActiveCaptcha() {
+    if (activeCaptchaProvider === 'turnstile') {
+      resetTurnstile();
+    } else if (activeCaptchaProvider === 'hcaptcha') {
+      resetHcaptcha();
+    }
+  }
+
+  function switchCaptchaProvider() {
+    if (!hasCaptchaFallback || !activeCaptchaProvider) return;
+
+    if (activeCaptchaProvider === 'turnstile') {
+      resetTurnstile();
+      turnstileWidgetId = null;
+      activeCaptchaProvider = 'hcaptcha';
+      return;
+    }
+
+    resetHcaptcha();
+    hcaptchaWidgetId = null;
+    activeCaptchaProvider = 'turnstile';
   }
 
   function startCooldown(seconds: number) {
@@ -131,7 +325,7 @@
       return;
     }
 
-    if (data.turnstileSiteKey && !turnstileToken) {
+    if (activeCaptchaProvider && !activeCaptchaToken) {
       errorMessage = m.phone_settings_turnstile_failed();
       return;
     }
@@ -147,7 +341,12 @@
         body: JSON.stringify({
           phoneNumber: trimmedPhone,
           countryCode: trimmedCountry,
-          ...(data.turnstileSiteKey ? { turnstileToken } : {})
+          ...(activeCaptchaProvider
+            ? {
+                captchaProvider: activeCaptchaProvider,
+                captchaToken: activeCaptchaToken
+              }
+            : {})
         })
       });
 
@@ -158,7 +357,7 @@
         } else {
           errorMessage = m.phone_settings_taken();
         }
-        resetTurnstile();
+        resetActiveCaptcha();
         return;
       }
 
@@ -170,22 +369,28 @@
         } else {
           errorMessage = m.phone_settings_daily_limit();
         }
-        resetTurnstile();
+        resetActiveCaptcha();
         return;
       }
 
       if (res.status === 400) {
         const body = await res.json().catch(() => ({}));
-        if (body.error === 'turnstile_failed' || body.error === 'turnstile_missing') {
+        if (
+          body.error === 'turnstile_failed' ||
+          body.error === 'turnstile_missing' ||
+          body.error === 'captcha_failed' ||
+          body.error === 'captcha_missing' ||
+          body.error === 'captcha_provider_invalid'
+        ) {
           errorMessage = m.phone_settings_turnstile_failed();
-          resetTurnstile();
+          resetActiveCaptcha();
           return;
         }
       }
 
       if (!res.ok) {
         errorMessage = m.phone_settings_error();
-        resetTurnstile();
+        resetActiveCaptcha();
         return;
       }
 
@@ -194,7 +399,7 @@
       successMessage = '';
     } catch {
       errorMessage = m.phone_settings_error();
-      resetTurnstile();
+      resetActiveCaptcha();
     } finally {
       isSending = false;
     }
@@ -391,8 +596,31 @@
         </button>
       </div>
 
-      {#if data.turnstileSiteKey && !codeSent}
-        <div bind:this={turnstileContainer} transition:slide></div>
+      {#if activeCaptchaProvider && !codeSent}
+        <div class="flex items-start gap-2">
+          <div class="min-w-0 flex-1">
+            {#key activeCaptchaProvider}
+              {#if activeCaptchaProvider === 'turnstile' && data.turnstileSiteKey}
+                <div bind:this={turnstileContainer} transition:slide></div>
+              {:else if activeCaptchaProvider === 'hcaptcha' && data.hcaptchaSiteKey}
+                <div bind:this={hcaptchaContainer} transition:slide></div>
+              {/if}
+            {/key}
+          </div>
+
+          {#if showCaptchaSwitch}
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-square shrink-0"
+              onclick={switchCaptchaProvider}
+              aria-label={m.phone_settings_captcha_switch()}
+              title={m.phone_settings_captcha_switch()}
+              transition:slide
+            >
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          {/if}
+        </div>
       {/if}
 
       {#if codeSent}

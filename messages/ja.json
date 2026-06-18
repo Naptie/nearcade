@@ -999,6 +999,7 @@
   "phone_settings": "電話番号",
   "phone_settings_already_yours": "この電話番号はすでにあなたのアカウントに登録されています。",
   "phone_settings_bind": "電話番号を登録",
+  "phone_settings_captcha_switch": "認証方法を切り替える",
   "phone_settings_change": "電話番号を変更",
   "phone_settings_code_placeholder": "6桁のコード",
   "phone_settings_cooldown": "次のコードをリクエストするまで {seconds} 秒お待ちください。",
