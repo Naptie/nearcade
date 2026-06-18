@@ -23,6 +23,7 @@ const positiveIntegerQueryParamSchema = (
 ) =>
   z
     .union([z.string(), z.number(), z.null(), z.undefined()])
+    .optional()
     .transform((value) =>
       value === null || value === undefined || value === '' ? defaultValue : Number(value)
     )

@@ -49,6 +49,7 @@ export const discoverQuerySchema = z.object({
     .describe(bilingual('原点纬度。', 'Origin latitude.')),
   radius: z
     .union([z.string(), z.number(), z.undefined()])
+    .optional()
     .transform((value) => (value === undefined || value === '' ? 10 : Number(value)))
     .pipe(z.number())
     .transform((value) => Math.max(1, Math.min(30, Math.floor(value))))

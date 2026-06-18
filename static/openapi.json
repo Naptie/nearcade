@@ -1670,6 +1670,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -2852,6 +2853,7 @@
                   "shopId": {
                     "description": "关联店铺 ID。\n\nAssociated shop ID.",
                     "type": "integer",
+                    "minimum": 0,
                     "exclusiveMinimum": true,
                     "maximum": 9007199254740991
                   },
@@ -3194,6 +3196,7 @@
                               "shopId": {
                                 "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                 "type": "integer",
+                                "minimum": 0,
                                 "exclusiveMinimum": true,
                                 "maximum": 9007199254740991
                               },
@@ -3528,6 +3531,7 @@
                           "shopId": {
                             "description": "关联店铺 ID。\n\nAssociated shop ID.",
                             "type": "integer",
+                            "minimum": 0,
                             "exclusiveMinimum": true,
                             "maximum": 9007199254740991
                           },
@@ -3572,6 +3576,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -7444,6 +7449,7 @@
                             "shopId": {
                               "description": "关联店铺 ID。\n\nAssociated shop ID.",
                               "type": "integer",
+                              "minimum": 0,
                               "exclusiveMinimum": true,
                               "maximum": 9007199254740991
                             },
@@ -8969,6 +8975,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
@@ -9234,6 +9241,7 @@
                               "shopId": {
                                 "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                 "type": "integer",
+                                "minimum": 0,
                                 "exclusiveMinimum": true,
                                 "maximum": 9007199254740991
                               },
@@ -9640,6 +9648,7 @@
                             "shopId": {
                               "description": "关联店铺 ID。\n\nAssociated shop ID.",
                               "type": "integer",
+                              "minimum": 0,
                               "exclusiveMinimum": true,
                               "maximum": 9007199254740991
                             },
@@ -11617,6 +11626,7 @@
                                 "shopId": {
                                   "description": "关联店铺 ID。\n\nAssociated shop ID.",
                                   "type": "integer",
+                                  "minimum": 0,
                                   "exclusiveMinimum": true,
                                   "maximum": 9007199254740991
                                 },
