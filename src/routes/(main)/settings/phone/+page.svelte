@@ -597,8 +597,8 @@
       </div>
 
       {#if activeCaptchaProvider && !codeSent}
-        <div class="flex items-start gap-2">
-          <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <div class="min-w-0">
             {#key activeCaptchaProvider}
               {#if activeCaptchaProvider === 'turnstile' && data.turnstileSiteKey}
                 <div bind:this={turnstileContainer} transition:slide></div>
@@ -611,7 +611,7 @@
           {#if showCaptchaSwitch}
             <button
               type="button"
-              class="btn btn-ghost btn-sm btn-square shrink-0"
+              class="btn btn-ghost btn-square shrink-0"
               onclick={switchCaptchaProvider}
               aria-label={m.phone_settings_captcha_switch()}
               title={m.phone_settings_captcha_switch()}
