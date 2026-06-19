@@ -130,5 +130,5 @@
       "vite": "$vite"
     }
   },
-  "packageManager": "pnpm@11.5.3"
+  "packageManager": "pnpm@11.8.0"
 }
