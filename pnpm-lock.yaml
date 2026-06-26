@@ -80,8 +80,8 @@ importers:
         specifier: ^0.9.6
         version: 0.9.6
       nodemailer:
-        specifier: 8.0.5
-        version: 8.0.5
+        specifier: ^9.0.1
+        version: 9.0.1
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -2934,9 +2934,6 @@ packages:
   '@types/node-imap@0.9.3':
     resolution: {integrity: sha512-PIATiaiyk6815QgCm1Obq7M37e23usWvZUKpHBMYVhYfUFPU+R7SXlhirrDHtIKIRRLU2RX0EY/jPYzFsS9r5g==}
 
-  '@types/node@25.6.0':
-    resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
-
   '@types/node@25.9.3':
     resolution: {integrity: sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg==}
 
@@ -5060,8 +5057,8 @@ packages:
     resolution: {integrity: sha512-BLFuSth7QtHOkBzyqTehWWyub0NTRDuK2Q2SQfnGLsrJnzyU+Yeh4WpV1eZGuARFj1xQJHIdnTuJZLP+b9R1GQ==}
     engines: {node: '>=6.0.0'}
 
-  nodemailer@8.0.5:
-    resolution: {integrity: sha512-0PF8Yb1yZuQfQbq+5/pZJrtF6WQcjTd5/S4JOHs9PGFxuTqoB/icwuB44pOdURHJbRKX1PPoJZtY7R4VUoCC8w==}
+  nodemailer@9.0.1:
+    resolution: {integrity: sha512-Gwv8SQewT616ZM/URn0H54b8PWo/Wum7md3EW2aWy1lO27+WZCX+Xyak3J+NlmHUjDh5ME+uesJUDRbR3Ye8Bw==}
     engines: {node: '>=6.0.0'}
 
   nopt@1.0.10:
@@ -5547,6 +5544,9 @@ packages:
   set-cookie-parser@3.1.0:
     resolution: {integrity: sha512-kjnC1DXBHcxaOaOXBHBeRtltsDG2nUiUni+jP92M9gYdW12rsmx92UsfpH7o5tDRs7I1ZZPSQJQGv3UaRfCiuw==}
 
+  set-cookie-parser@3.1.1:
+    resolution: {integrity: sha512-vM9SUhjsUYs6UeJUmygc5Ofm5eQGe85riob5ju6XCgFGJI5PLV4nrDAQpQjd+LkFBpAkADn5BQQpZ9EUNkyLuA==}
+
   set-function-length@1.2.2:
     resolution: {integrity: sha512-pgRc4hJ4/sNjWCSS9AmnS40x3bNMDTknHgL5UaMBTMyJnU90EgWh1Rz+MC9eFu4BuN/UwZjKQuY/1v3rM7HMfg==}
     engines: {node: '>= 0.4'}
@@ -5772,11 +5772,6 @@ packages:
     resolution: {integrity: sha512-G13vtMYPT/J8A4X2SjdtBTphZlrp1gKv6hZiOjw14RCWg6GbHuQBGtjlx75xLbYV/wEc0D7G5K4rxKP/cXk8Bw==}
     engines: {node: '>=10'}
 
-  terser@5.46.1:
-    resolution: {integrity: sha512-vzCjQO/rgUuK9sf8VJZvjqiqiHFaZLnOiimmUuOKODxWL8mm/xua7viT7aqX7dgPY60otQjUotzFMmCB4VdmqQ==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   terser@5.48.0:
     resolution: {integrity: sha512-J/9An6vs9Us6wKRriSFXBWdRZapREHqFzdNUKk0pmu804EMR6dr6winwo7e5JDxN4xahxQsuysyYFwlwj4XN/Q==}
     engines: {node: '>=10'}
@@ -5887,9 +5882,6 @@ packages:
 
   underscore@1.13.8:
     resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
-
-  undici-types@7.19.2:
-    resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
 
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
@@ -6337,9 +6329,6 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       zod: ^3.25.74 || ^4.0.0
-
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
@@ -7268,7 +7257,7 @@ snapshots:
       '@better-auth/utils': 0.4.1
       better-auth: 1.6.18(patch_hash=558324048c529e60ed570b7a9686606a0cbfcc80240c134745d9664a0b727a5f)(@cloudflare/workers-types@4.20260423.1)(@opentelemetry/api@1.9.1)(@sveltejs/kit@2.65.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3(@typescript-eslint/types@8.61.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)))(svelte@5.56.3(@typescript-eslint/types@8.61.0))(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)))(mongodb@7.3.0)(svelte@5.56.3(@typescript-eslint/types@8.61.0))
       better-call: 1.3.6(zod@4.4.3)
-      zod: 4.3.6
+      zod: 4.4.3
 
   '@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(@cloudflare/workers-types@4.20260423.1)(@opentelemetry/api@1.9.1)(better-call@1.3.6(zod@4.4.3))(jose@6.2.2)(kysely@0.29.2)(nanostores@1.3.0)':
     dependencies:
@@ -7280,7 +7269,7 @@ snapshots:
       jose: 6.2.2
       kysely: 0.29.2
       nanostores: 1.3.0
-      zod: 4.3.6
+      zod: 4.4.3
     optionalDependencies:
       '@cloudflare/workers-types': 4.20260423.1
       '@opentelemetry/api': 1.9.1
@@ -7317,7 +7306,7 @@ snapshots:
       better-auth: 1.6.18(patch_hash=558324048c529e60ed570b7a9686606a0cbfcc80240c134745d9664a0b727a5f)(@cloudflare/workers-types@4.20260423.1)(@opentelemetry/api@1.9.1)(@sveltejs/kit@2.65.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3(@typescript-eslint/types@8.61.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)))(svelte@5.56.3(@typescript-eslint/types@8.61.0))(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)))(mongodb@7.3.0)(svelte@5.56.3(@typescript-eslint/types@8.61.0))
       better-call: 1.3.6(zod@4.4.3)
       jose: 6.2.2
-      zod: 4.3.6
+      zod: 4.4.3
 
   '@better-auth/prisma-adapter@1.6.18(@better-auth/core@1.6.18(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.3.0)(@cloudflare/workers-types@4.20260423.1)(@opentelemetry/api@1.9.1)(better-call@1.3.6(zod@4.4.3))(jose@6.2.2)(kysely@0.29.2)(nanostores@1.3.0))(@better-auth/utils@0.4.1)':
     dependencies:
@@ -8102,7 +8091,7 @@ snapshots:
   '@grpc/grpc-js@1.9.16':
     dependencies:
       '@grpc/proto-loader': 0.7.15
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@grpc/proto-loader@0.7.15':
     dependencies:
@@ -8619,7 +8608,7 @@ snapshots:
     dependencies:
       serialize-javascript: 7.0.5
       smob: 1.6.1
-      terser: 5.46.1
+      terser: 5.48.0
     optionalDependencies:
       rollup: 4.60.2
 
@@ -8972,7 +8961,7 @@ snapshots:
   '@types/jsonwebtoken@9.0.10':
     dependencies:
       '@types/ms': 2.1.0
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@types/katex@0.16.8': {}
 
@@ -8981,7 +8970,7 @@ snapshots:
 
   '@types/mailparser@3.4.6':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
       iconv-lite: 0.6.3
 
   '@types/mdast@4.0.4':
@@ -8992,11 +8981,7 @@ snapshots:
 
   '@types/node-imap@0.9.3':
     dependencies:
-      '@types/node': 25.6.0
-
-  '@types/node@25.6.0':
-    dependencies:
-      undici-types: 7.19.2
+      '@types/node': 25.9.3
 
   '@types/node@25.9.3':
     dependencies:
@@ -9004,16 +8989,16 @@ snapshots:
 
   '@types/nodemailer@8.0.1':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@types/qrcode@1.5.6':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@types/request@2.48.13':
     dependencies:
       '@types/caseless': 0.12.5
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
       '@types/tough-cookie': 4.0.5
       form-data: 2.5.5
     optional: true
@@ -9025,7 +9010,7 @@ snapshots:
   '@types/superagent@4.1.24':
     dependencies:
       '@types/cookiejar': 2.1.5
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@types/supercluster@7.1.3':
     dependencies:
@@ -9057,11 +9042,11 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@types/xml2js@0.4.14':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
 
   '@typescript-eslint/eslint-plugin@8.61.0(@typescript-eslint/parser@8.61.0(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3)':
     dependencies:
@@ -9355,12 +9340,12 @@ snapshots:
       '@better-fetch/fetch': 1.3.0
       '@noble/ciphers': 2.2.0
       '@noble/hashes': 2.2.0
-      better-call: 1.3.6(zod@4.3.6)
+      better-call: 1.3.6(zod@4.4.3)
       defu: 6.1.7
       jose: 6.2.2
       kysely: 0.29.2
       nanostores: 1.3.0
-      zod: 4.3.6
+      zod: 4.4.3
     optionalDependencies:
       '@sveltejs/kit': 2.65.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3(@typescript-eslint/types@8.61.0))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)))(svelte@5.56.3(@typescript-eslint/types@8.61.0))(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
       mongodb: 7.3.0
@@ -9369,21 +9354,12 @@ snapshots:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
 
-  better-call@1.3.6(zod@4.3.6):
-    dependencies:
-      '@better-auth/utils': 0.4.1
-      '@better-fetch/fetch': 1.3.0
-      rou3: 0.7.12
-      set-cookie-parser: 3.1.0
-    optionalDependencies:
-      zod: 4.3.6
-
   better-call@1.3.6(zod@4.4.3):
     dependencies:
       '@better-auth/utils': 0.4.1
       '@better-fetch/fetch': 1.3.0
       rou3: 0.7.12
-      set-cookie-parser: 3.1.0
+      set-cookie-parser: 3.1.1
     optionalDependencies:
       zod: 4.4.3
 
@@ -11634,7 +11610,7 @@ snapshots:
 
   nodemailer@8.0.10: {}
 
-  nodemailer@8.0.5: {}
+  nodemailer@9.0.1: {}
 
   nopt@1.0.10:
     dependencies:
@@ -11844,7 +11820,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 25.6.0
+      '@types/node': 25.9.3
       long: 5.3.2
 
   protocol-buffers-schema@3.6.1: {}
@@ -12163,6 +12139,8 @@ snapshots:
   set-blocking@2.0.0: {}
 
   set-cookie-parser@3.1.0: {}
+
+  set-cookie-parser@3.1.1: {}
 
   set-function-length@1.2.2:
     dependencies:
@@ -12522,13 +12500,6 @@ snapshots:
       type-fest: 0.16.0
       unique-string: 2.0.0
 
-  terser@5.46.1:
-    dependencies:
-      '@jridgewell/source-map': 0.3.11
-      acorn: 8.16.0
-      commander: 2.20.3
-      source-map-support: 0.5.21
-
   terser@5.48.0:
     dependencies:
       '@jridgewell/source-map': 0.3.11
@@ -12650,8 +12621,6 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   underscore@1.13.8: {}
-
-  undici-types@7.19.2: {}
 
   undici-types@7.24.6: {}
 
@@ -13161,8 +13130,6 @@ snapshots:
   zod-openapi@5.4.6(zod@4.4.3):
     dependencies:
       zod: 4.4.3
-
-  zod@4.3.6: {}
 
   zod@4.4.3: {}
 

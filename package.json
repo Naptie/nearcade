@@ -101,7 +101,7 @@
     "mongodb": "^7.3.0",
     "nanoid": "^5.1.11",
     "node-imap": "^0.9.6",
-    "nodemailer": "8.0.5",
+    "nodemailer": "^9.0.1",
     "qrcode": "^1.5.4",
     "redis": "^5.12.1",
     "rehype-format": "^5.0.1",
