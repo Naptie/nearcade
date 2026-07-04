@@ -42,8 +42,8 @@
     }
 
     // For other providers, use OAuth sign-in flow (Better Auth will auto-link when logged in)
-    await authClient.linkSocial({
-      provider: provider,
+    await authClient.oauth2.link({
+      providerId: provider,
       callbackURL: page.url.pathname
     });
   };
