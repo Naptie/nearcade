@@ -514,6 +514,8 @@
 
   // ---- Sidebar state ----
   let sidebarOpen = $state(false);
+  let sidebarCollapsed = $state(false);
+  let sidebarExpandedWidth = $state<number | undefined>(undefined);
   // ---- Floating sidebar position/size (desktop) ----
   let sidebarPos = $state({ x: 16, y: 64 });
   let sidebarSize = $state<{ w: number | undefined; h: number | undefined }>({
@@ -534,6 +536,7 @@
     if (isCompactViewport) {
       isDraggingSidebar = false;
       isResizingSidebar = false;
+      sidebarCollapsed = false;
     }
   };
 
@@ -547,7 +550,7 @@
       .filter(Boolean)
       .join('; ');
 
-  const PAGE_SIZE = 40;
+  const PAGE_SIZE = 4;
   let visibleCount = $state(PAGE_SIZE);
   let listSentinelEl = $state<HTMLDivElement | undefined>();
 
@@ -826,12 +829,12 @@
 
   // ---- Floating sidebar drag / resize (desktop) ----
   const clampSidebarPos = (x: number, y: number) => ({
-    x: Math.max(0, Math.min(window.innerWidth - sidebarSize.w!, x)),
+    x: Math.max(0, Math.min(window.innerWidth - (sidebarCollapsed ? 52 : sidebarSize.w!), x)),
     y: Math.max(0, Math.min(window.innerHeight - 60, y))
   });
 
   const startSidebarDrag = (e: PointerEvent) => {
-    if (isCompactViewport) return;
+    if (isCompactViewport || sidebarCollapsed) return;
     if ((e.target as HTMLElement).closest('button')) return;
     isDraggingSidebar = true;
     sidebarDragStart = { mx: e.clientX, my: e.clientY, sx: sidebarPos.x, sy: sidebarPos.y };
@@ -870,6 +873,20 @@
 
   const stopSidebarResize = () => {
     isResizingSidebar = false;
+  };
+
+  const collapseSidebar = () => {
+    if (isCompactViewport) return;
+    sidebarExpandedWidth = sidebarSize.w;
+    sidebarCollapsed = true;
+  };
+
+  const expandSidebar = () => {
+    if (isCompactViewport) return;
+    if (sidebarExpandedWidth !== undefined) {
+      sidebarSize.w = sidebarExpandedWidth;
+    }
+    sidebarCollapsed = false;
   };
 
   // ---- Sun position ----
@@ -2048,6 +2065,7 @@
         markerHoveredShop = null;
         regionFilter = { type: 'world' };
         sidebarOpen = false;
+        sidebarCollapsed = false;
       }
       flyToWithAnticipatedBasemap(
         instance,
@@ -2484,7 +2502,7 @@
       const handleViewportResize = () => {
         syncResponsiveFlags();
         sidebarPos = clampSidebarPos(sidebarPos.x, sidebarPos.y);
-        if (sidebarSize.w !== undefined) {
+        if (!sidebarCollapsed && sidebarSize.w !== undefined) {
           sidebarSize.w = Math.min(sidebarSize.w, window.innerWidth - sidebarPos.x);
         }
         if (sidebarSize.h !== undefined) {
@@ -2636,9 +2654,9 @@
       class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
              not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
-             md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl {sidebarOpen
-        ? 'not-md:translate-y-0'
-        : 'not-md:translate-y-full'}"
+             md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
+             {sidebarCollapsed ? 'md:h-[52px] md:w-[52px]' : ''}
+             {sidebarOpen ? 'not-md:translate-y-0' : 'not-md:translate-y-full'}"
       style={getSidebarCssVars()}
     >
       <!-- Mobile drag handle -->
@@ -2647,23 +2665,17 @@
       <!-- Region header – acts as drag handle on desktop -->
       <div
         role="none"
-        class="border-base-300 border-b p-4 md:select-none"
-        class:md:cursor-grabbing={isDraggingSidebar}
-        class:md:cursor-grab={!isDraggingSidebar}
+        class="border-base-300 shrink-0 border-b not-md:p-4 md:select-none {sidebarCollapsed
+          ? 'md:border-b-0 md:p-2.5'
+          : 'md:p-4'}"
+        class:md:cursor-grabbing={isDraggingSidebar && !sidebarCollapsed}
+        class:md:cursor-grab={!isDraggingSidebar && !sidebarCollapsed}
         onpointerdown={startSidebarDrag}
         onpointermove={moveSidebarDrag}
         onpointerup={stopSidebarDrag}
         style="touch-action: none;"
       >
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
-            {#if regionHierarchy.length > 0}
-              <p class="text-base-content/60 mt-0.5 truncate text-sm">
-                {regionHierarchy.join(' › ')}
-              </p>
-            {/if}
-          </div>
+        <div class="flex flex-row-reverse items-start justify-between gap-2">
           <button
             type="button"
             class="btn btn-circle btn-ghost btn-sm shrink-0 md:hidden"
@@ -2672,152 +2684,172 @@
           >
             <i class="fa-solid fa-xmark"></i>
           </button>
+          <button
+            type="button"
+            class="btn btn-circle btn-ghost btn-sm hidden shrink-0 md:inline-flex"
+            aria-label={sidebarCollapsed ? m.expand_sidebar() : m.collapse_sidebar()}
+            onclick={sidebarCollapsed ? expandSidebar : collapseSidebar}
+          >
+            <i class="fa-solid {sidebarCollapsed ? 'fa-angles-right' : 'fa-angles-left'}"></i>
+          </button>
+          <div class="min-w-0" class:md:hidden={sidebarCollapsed}>
+            <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
+            {#if regionHierarchy.length > 0}
+              <p class="text-base-content/60 mt-0.5 truncate text-sm">
+                {regionHierarchy.join(' › ')}
+              </p>
+            {/if}
+          </div>
         </div>
       </div>
 
-      <!-- Search + game filters -->
-      <div class="border-base-300 border-b p-3">
-        <div class="flex gap-2">
-          <div class="dropdown">
-            <button
-              type="button"
-              tabindex="0"
-              class="btn btn-soft hover:btn-accent"
-              class:btn-primary={selectedTitleIds.length > 0}
-              aria-label={m.filter_by_game_titles()}
-            >
-              <i class="fa-solid fa-filter"></i>
-              {#if selectedTitleIds.length > 0}
-                <span class="badge badge-xs">{selectedTitleIds.length}</span>
-              {/if}
-            </button>
-            <div
-              role="menu"
-              tabindex="-1"
-              class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
-            >
-              <div class="card-body p-4">
-                <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
-                <div class="space-y-2">
-                  {#each GAME_TITLES as game (game.id)}
-                    <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                      <input
-                        type="checkbox"
-                        class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                        checked={selectedTitleIds.includes(game.id)}
-                        onchange={() => {
-                          selectedTitleIds = selectedTitleIds.includes(game.id)
-                            ? selectedTitleIds.filter((id) => id !== game.id)
-                            : [...selectedTitleIds, game.id];
-                        }}
-                      />
-                      <span class="text-sm">{getGameName(game.key)}</span>
-                    </label>
-                  {/each}
-                </div>
-                <div class="card-actions mt-2 justify-end">
-                  <button
-                    type="button"
-                    class="btn btn-soft hover:btn-error btn-xs"
-                    onclick={() => {
-                      selectedTitleIds = [];
-                    }}
-                    disabled={selectedTitleIds.length === 0}
-                  >
-                    <i class="fa-solid fa-trash"></i>
-                    {m.clear_filters()}
-                  </button>
+      <!-- Content (hidden when collapsed on desktop) -->
+      <div class="flex flex-1 flex-col overflow-hidden" class:md:hidden={sidebarCollapsed}>
+        <!-- Search + game filters -->
+        <div class="border-base-300 border-b p-3">
+          <div class="flex gap-2">
+            <div class="dropdown">
+              <button
+                type="button"
+                tabindex="0"
+                class="btn btn-soft hover:btn-accent"
+                class:btn-primary={selectedTitleIds.length > 0}
+                aria-label={m.filter_by_game_titles()}
+              >
+                <i class="fa-solid fa-filter"></i>
+                {#if selectedTitleIds.length > 0}
+                  <span class="badge badge-xs">{selectedTitleIds.length}</span>
+                {/if}
+              </button>
+              <div
+                role="menu"
+                tabindex="-1"
+                class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
+              >
+                <div class="card-body p-4">
+                  <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
+                  <div class="space-y-2">
+                    {#each GAME_TITLES as game (game.id)}
+                      <label class="flex cursor-pointer items-center gap-2 text-nowrap">
+                        <input
+                          type="checkbox"
+                          class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                          checked={selectedTitleIds.includes(game.id)}
+                          onchange={() => {
+                            selectedTitleIds = selectedTitleIds.includes(game.id)
+                              ? selectedTitleIds.filter((id) => id !== game.id)
+                              : [...selectedTitleIds, game.id];
+                          }}
+                        />
+                        <span class="text-sm">{getGameName(game.key)}</span>
+                      </label>
+                    {/each}
+                  </div>
+                  <div class="card-actions mt-2 justify-end">
+                    <button
+                      type="button"
+                      class="btn btn-soft hover:btn-error btn-xs"
+                      onclick={() => {
+                        selectedTitleIds = [];
+                      }}
+                      disabled={selectedTitleIds.length === 0}
+                    >
+                      <i class="fa-solid fa-trash"></i>
+                      {m.clear_filters()}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="relative flex-1">
-            <i
-              class="fa-solid fa-search text-base-content/40 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
-            ></i>
-            <input
-              type="text"
-              bind:value={searchQuery}
-              placeholder={m.search_arcades_placeholder()}
-              class="input input-bordered w-full pl-7"
-            />
-          </div>
-          <div class="dropdown dropdown-end">
-            <button
-              type="button"
-              tabindex="0"
-              class="btn btn-circle btn-soft"
-              aria-label={m.more_actions()}
-              title={m.more_actions()}
-            >
-              <i class="fa-solid fa-ellipsis"></i>
-            </button>
-            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-            <ul
-              tabindex="0"
-              class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow"
-            >
-              <li>
-                <button onclick={enterShopLocationPickMode}>
-                  <i class="fa-solid fa-plus"></i>
-                  {m.create_shop()}
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <!-- Shop list -->
-      <div class="flex-1 space-y-2 overflow-y-auto p-3">
-        {#if !shops}
-          <div class="flex justify-center py-8">
-            <span class="loading loading-spinner loading-md"></span>
-          </div>
-        {:else if filteredShops !== null && filteredShops.length === 0}
-          <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
-        {:else if filteredShops !== null}
-          {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
-            {@const cardKey = `${shop.id}`}
-            {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
-            <div
-              bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
-              class="rounded-xl transition-all {isPinned
-                ? '[&>*:first-child]:not-hover:border-accent/60'
-                : ''}"
-            >
-              <ShopCard
-                {shop}
-                interactive
-                onclick={() => {
-                  const entry = shopLookup.get(getShopKey(shop));
-                  if (entry) pinShop(entry);
-                }}
+            <div class="relative flex-1">
+              <i
+                class="fa-solid fa-search text-base-content/40 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs"
+              ></i>
+              <input
+                type="text"
+                bind:value={searchQuery}
+                placeholder={m.search_arcades_placeholder()}
+                class="input input-bordered w-full pl-7"
               />
             </div>
-          {/each}
-          {#if filteredShops.length > visibleCount}
-            <div bind:this={listSentinelEl} class="flex justify-center py-4">
-              <span class="loading loading-spinner loading-sm"></span>
+            <div class="dropdown dropdown-end">
+              <button
+                type="button"
+                tabindex="0"
+                class="btn btn-circle btn-soft"
+                aria-label={m.more_actions()}
+                title={m.more_actions()}
+              >
+                <i class="fa-solid fa-ellipsis"></i>
+              </button>
+              <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+              <ul
+                tabindex="0"
+                class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow"
+              >
+                <li>
+                  <button onclick={enterShopLocationPickMode}>
+                    <i class="fa-solid fa-plus"></i>
+                    {m.create_shop()}
+                  </button>
+                </li>
+              </ul>
             </div>
-          {/if}
-        {/if}
-      </div>
+          </div>
+        </div>
 
-      <!-- Resize handle (desktop only) -->
-      <div
-        role="separator"
-        aria-label="Resize sidebar"
-        class="pointer-events-auto absolute right-0 bottom-0 z-30 hidden h-5 w-5 cursor-se-resize opacity-20 transition-opacity hover:opacity-60 md:block"
-        style="touch-action: none;"
-        onpointerdown={startSidebarResize}
-        onpointermove={moveSidebarResize}
-        onpointerup={stopSidebarResize}
-      >
-        <svg viewBox="0 0 10 10" fill="currentColor" class="h-full w-full">
-          <path d="M10 0L0 10h10V0z" />
-        </svg>
+        <!-- Shop list -->
+        <div class="flex-1 space-y-2 overflow-y-auto p-3">
+          {#if !shops}
+            <div class="flex justify-center py-8">
+              <span class="loading loading-spinner loading-md"></span>
+            </div>
+          {:else if filteredShops !== null && filteredShops.length === 0}
+            <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
+          {:else if filteredShops !== null}
+            {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
+              {@const cardKey = `${shop.id}`}
+              {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
+              <div
+                bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
+                class="rounded-xl transition-all {isPinned
+                  ? '[&>*:first-child]:not-hover:border-accent/60'
+                  : ''}"
+              >
+                <ShopCard
+                  {shop}
+                  interactive
+                  mobileButtons
+                  onclick={() => {
+                    const entry = shopLookup.get(getShopKey(shop));
+                    if (entry) pinShop(entry);
+                  }}
+                />
+              </div>
+            {/each}
+            {#if filteredShops.length > visibleCount}
+              <div bind:this={listSentinelEl} class="flex justify-center py-4">
+                <span class="loading loading-spinner loading-sm"></span>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        <!-- Resize handle (desktop only) -->
+        <div
+          role="separator"
+          aria-label="Resize sidebar"
+          class="pointer-events-auto absolute right-0 bottom-0 z-30 hidden h-5 w-5 cursor-se-resize opacity-20 transition-opacity hover:opacity-60 md:block"
+          style="touch-action: none;"
+          onpointerdown={startSidebarResize}
+          onpointermove={moveSidebarResize}
+          onpointerup={stopSidebarResize}
+        >
+          <svg viewBox="0 0 10 10" fill="currentColor" class="h-full w-full">
+            <path d="M10 0L0 10h10V0z" />
+          </svg>
+        </div>
       </div>
     </aside>
 

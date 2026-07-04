@@ -445,6 +445,7 @@
     }
   ],
   "collapse_details": "Collapse Details",
+  "collapse_sidebar": "Collapse sidebar",
   "comment_content_is_required": "Comment content is required",
   "comment_not_found": "Comment not found",
   "comment_placeholder": "Write your comment...",
@@ -629,6 +630,7 @@
   "evidence_images": "Evidence Images",
   "exit": "Exit",
   "expand_details": "Expand Details",
+  "expand_sidebar": "Expand sidebar",
   "expiration_date": "Expiration Date",
   "expiration_date_must_be_future": "Expiration date must be in the future",
   "expired": "Expired",

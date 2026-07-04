@@ -16,11 +16,13 @@
   let {
     shop,
     interactive = false,
-    onclick
+    onclick,
+    mobileButtons = false
   }: {
     shop: ShopWithExtras | GlobeShopWithExtras;
     interactive?: boolean;
     onclick?: () => void;
+    mobileButtons?: boolean;
   } = $props();
 
   type ShopCardShop = ShopWithExtras | GlobeShopWithExtras;
@@ -152,7 +154,9 @@
   {#if interactive}
     <!-- Action buttons -->
     <div
-      class="border-base-content/10 mt-3 flex justify-end gap-2 overflow-clip border-t pt-3"
+      class="border-base-content/10 mt-3 flex justify-end gap-2 overflow-clip border-t pt-3 {mobileButtons
+        ? 'md:hidden'
+        : ''}"
       role="none"
       onclick={(e) => e.stopPropagation()}
     >

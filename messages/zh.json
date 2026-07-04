@@ -440,6 +440,7 @@
     }
   ],
   "collapse_details": "收起详情",
+  "collapse_sidebar": "收起侧边栏",
   "comment_content_is_required": "评论内容为必填项",
   "comment_not_found": "未找到评论",
   "comment_placeholder": "写下您的评论...",
@@ -623,6 +624,7 @@
   "evidence_images": "证据图片",
   "exit": "出口",
   "expand_details": "展开详情",
+  "expand_sidebar": "展开侧边栏",
   "expiration_date": "过期日期",
   "expiration_date_must_be_future": "过期日期必须是未来时间",
   "expired": "已过期",

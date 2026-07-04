@@ -440,6 +440,7 @@
     }
   ],
   "collapse_details": "詳細を折りたたむ",
+  "collapse_sidebar": "サイドバーを折りたたむ",
   "comment_content_is_required": "コメント内容は必須です",
   "comment_not_found": "コメントが見つかりません",
   "comment_placeholder": "コメントを入力してください...",
@@ -623,6 +624,7 @@
   "evidence_images": "証拠画像",
   "exit": "出口",
   "expand_details": "詳細を展開",
+  "expand_sidebar": "サイドバーを展開",
   "expiration_date": "有効期限",
   "expiration_date_must_be_future": "有効期限は将来の日付である必要があります",
   "expired": "期限切れ",
