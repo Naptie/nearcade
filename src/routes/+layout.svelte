@@ -5,7 +5,15 @@
   import {
     PUBLIC_AMAP_KEY,
     PUBLIC_FIREBASE_VAPID_KEY,
-    PUBLIC_GOOGLE_MAPS_API_KEY
+    PUBLIC_GOOGLE_MAPS_API_KEY,
+    PUBLIC_CLARITY_PROJECT_ID,
+    PUBLIC_FIREBASE_API_KEY,
+    PUBLIC_FIREBASE_APP_ID,
+    PUBLIC_FIREBASE_AUTH_DOMAIN,
+    PUBLIC_FIREBASE_MEASUREMENT_ID,
+    PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    PUBLIC_FIREBASE_PROJECT_ID,
+    PUBLIC_FIREBASE_STORAGE_BUCKET
   } from '$env/static/public';
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
@@ -16,16 +24,8 @@
   import { resolve, base } from '$app/paths';
   import { browser } from '$app/environment';
   import { initializeApp } from 'firebase/app';
-  import {
-    PUBLIC_FIREBASE_API_KEY,
-    PUBLIC_FIREBASE_APP_ID,
-    PUBLIC_FIREBASE_AUTH_DOMAIN,
-    PUBLIC_FIREBASE_MEASUREMENT_ID,
-    PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    PUBLIC_FIREBASE_PROJECT_ID,
-    PUBLIC_FIREBASE_STORAGE_BUCKET
-  } from '$env/static/public';
   import { getMessaging, getToken } from 'firebase/messaging';
+  import Clarity from '@microsoft/clarity';
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -73,13 +73,15 @@
   };
 
   onMount(() => {
+    Clarity.init(PUBLIC_CLARITY_PROJECT_ID);
+
     setHighlightTheme();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', handleThemeChange);
     window.addEventListener('nearcade-theme-change', handleThemeChange);
 
     // Initialize push notifications for logged-in users
-    if (browser && data.session?.user) {
+    if (data.session?.user) {
       const onFirstInteraction = () => {
         initializePushNotifications().catch((error) => {
           console.error('Failed to initialize push notifications:', error);
