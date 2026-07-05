@@ -4,7 +4,6 @@
   import { resolve, base } from '$app/paths';
   import { GITHUB_LINK } from '$lib';
   import AuthModal from '$lib/components/AuthModal.svelte';
-  import FancyButton from '$lib/components/FancyButton.svelte';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
@@ -24,7 +23,8 @@
   import { getContext, onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
-  import { fade, slide } from 'svelte/transition';
+  import { fade } from 'svelte/transition';
+
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
@@ -34,6 +34,7 @@
   let isLeavingShop = $state(false);
 
   let showCollapse = $state(false);
+  let starredReady = $state(false);
   let mode = $state(0);
   let radius = $state(10);
   let location = $state<{
@@ -192,9 +193,21 @@
       }
     }
 
+    // Defer the heavy starred-shops list until after the initial mount so
+    // the globe -> landing transition isn't blocked by it.
+    const starredTimer = setTimeout(() => {
+      starredReady = true;
+    }, 100);
+
+    // Clean up any leftover exit-transition class from a previous navigation
+    document.documentElement.classList.remove('globe-exiting-landing');
+    document.documentElement.classList.remove('globe-exiting-to-landing');
+    document.getElementById('globe-root')?.classList.remove('globe-exiting-landing');
+
     return () => {
       window.removeEventListener('amap-loaded', assignAMap);
       clearInterval(interval);
+      clearTimeout(starredTimer);
     };
   });
 </script>
@@ -214,40 +227,43 @@
 <div class="relative" class:pointer-events-none={!showCollapse}>
   <div class="hero min-h-screen">
     <div
-      class="bg-base-100/50 pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 rounded-full backdrop-blur-lg md:gap-1 lg:gap-2"
-      in:fade={{ delay: 500 }}
-      out:fade
+      class="hero-top-bar bg-base-100/80 pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 rounded-full md:gap-1 lg:gap-2"
+      in:fade={{ delay: 300, duration: 400 }}
+      out:fade={{ duration: 300 }}
     >
       <LocaleSwitch />
-      <FancyButton
-        callback={() => {
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+        onclick={() => {
           window.dispatchEvent(new CustomEvent('nearcade-donate'));
         }}
-        class="fa-solid fa-heart fa-lg"
-        text={m.donate()}
-        stayExpandedOnWideScreens
-      />
-      <FancyButton
-        href={resolve('/globe')}
-        class="fa-solid fa-globe fa-lg"
-        text={m.globe()}
-        stayExpandedOnWideScreens
-      />
-      <FancyButton
+      >
+        <i class="fa-solid fa-heart fa-lg"></i>
+        <span class="hidden lg:inline">{m.donate()}</span>
+      </button>
+      <a href={resolve('/globe')} class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2">
+        <i class="fa-solid fa-globe fa-lg"></i>
+        <span class="hidden lg:inline">{m.globe()}</span>
+      </a>
+      <a
         href={resolve('/(main)/rankings')}
-        class="fa-solid fa-trophy fa-lg"
-        text={m.campus_rankings()}
-        stayExpandedOnWideScreens
-      />
+        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+      >
+        <i class="fa-solid fa-trophy fa-lg"></i>
+        <span class="hidden lg:inline">{m.campus_rankings()}</span>
+      </a>
       <AuthModal size="lg" />
     </div>
 
-    <div class="hero-content my-10 text-center not-sm:px-0">
+    <div
+      class="hero-content my-10 text-center not-sm:px-0"
+      in:fade={{ delay: 400, duration: 400 }}
+      out:fade={{ duration: 300 }}
+    >
       <div
         class="pointer-events-auto flex max-w-fit flex-col gap-6 px-8 py-6 transition-all duration-600"
         class:mt-72={showGlobe}
-        in:slide={{ delay: 500 }}
-        out:slide
       >
         <SiteTitle
           class="title text-6xl sm:text-8xl xl:text-9xl {showGlobe ? 'title-base-content' : ''}"
@@ -270,34 +286,31 @@
             </span>
           </button>
           <div class="join not-sm:w-full">
-            <FancyButton
+            <a
               href={resolve('/(main)/shops')}
-              class="fa-solid fa-gamepad fa-lg"
-              btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-              text={m.find_arcades()}
-              square={false}
-              padding={8}
-            />
-            <FancyButton
+              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            >
+              <i class="fa-solid fa-gamepad fa-lg"></i>
+              <span>{m.find_arcades()}</span>
+            </a>
+            <a
               href={resolve('/(main)/universities')}
-              class="fa-solid fa-graduation-cap fa-lg"
-              btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-              text={m.find_universities()}
-              square={false}
-              padding={8}
-            />
-            <FancyButton
+              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            >
+              <i class="fa-solid fa-graduation-cap fa-lg"></i>
+              <span>{m.find_universities()}</span>
+            </a>
+            <a
               href={resolve('/(main)/clubs')}
-              class="fa-solid fa-users fa-lg"
-              btnCls="not-sm:flex-1 not-sm:hover:flex-2 btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-              text={m.find_clubs()}
-              square={false}
-              padding={8}
-            />
+              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+            >
+              <i class="fa-solid fa-users fa-lg"></i>
+              <span>{m.find_clubs()}</span>
+            </a>
           </div>
         </div>
         <div
-          class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+          class="bg-base-200/80 dark:bg-base-200/95 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
           class:collapse-open={showCollapse}
           class:min-h-fit={showCollapse}
           class:h-full={showCollapse}
@@ -305,283 +318,288 @@
           class:opacity-0={!showCollapse}
         >
           <div class="collapse-content flex flex-col items-center gap-4" class:pt-4={showCollapse}>
-            <fieldset class="fieldset rounded-box w-full p-4 pt-2" class:not-sm:px-0={mode === 2}>
-              <div class="flex flex-col gap-1 sm:hidden">
-                <span class="label w-full">{m.discover_from()}</span>
-                <select class="select w-full" bind:value={mode}>
-                  <option value={0}>{m.my_location()}</option>
-                  <option value={1}>{m.a_university()}</option>
-                  <option value={2}>{m.a_place_on_map()}</option>
-                </select>
-              </div>
-              <div class="hidden sm:block">
-                <span class="label w-full">{m.discover_from()}</span>
-                <div class="tabs tabs-border mb-1 w-full">
-                  <button
-                    class="tab flex-1 flex-nowrap whitespace-nowrap transition"
-                    class:tab-active={mode === 0}
-                    onclick={() => (mode = 0)}
-                  >
-                    <i class="fa-solid fa-location-dot mr-2"></i>
-                    {m.my_location()}
-                  </button>
-                  <button
-                    class="tab flex-1 flex-nowrap whitespace-nowrap transition"
-                    class:tab-active={mode === 1}
-                    onclick={() => (mode = 1)}
-                  >
-                    <i class="fa-solid fa-graduation-cap mr-2"></i>
-                    {m.a_university()}
-                  </button>
-                  <button
-                    class="tab flex-1 flex-nowrap whitespace-nowrap transition"
-                    class:tab-active={mode === 2}
-                    onclick={() => (mode = 2)}
-                  >
-                    <i class="fa-solid fa-map-location-dot mr-2"></i>
-                    {m.a_place_on_map()}
-                  </button>
+            {#if showCollapse}
+              <fieldset class="fieldset rounded-box w-full p-4 pt-2" class:not-sm:px-0={mode === 2}>
+                <div class="flex flex-col gap-1 sm:hidden">
+                  <span class="label w-full">{m.discover_from()}</span>
+                  <select class="select w-full" bind:value={mode}>
+                    <option value={0}>{m.my_location()}</option>
+                    <option value={1}>{m.a_university()}</option>
+                    <option value={2}>{m.a_place_on_map()}</option>
+                  </select>
                 </div>
-              </div>
-
-              <div class="flex flex-col gap-1 sm:hidden">
-                <span class="label mt-1 w-full">{m.search_radius()}</span>
-                <select class="select w-full" bind:value={radius}>
-                  {#each RADIUS_OPTIONS as r (r)}
-                    <option value={r}>{r} km</option>
-                  {/each}
-                </select>
-              </div>
-              <div class="hidden sm:block">
-                <span class="label my-1 flex w-full items-center justify-between">
-                  <span>{m.search_radius()}</span>
-                  <span class="text-sm font-medium">{radius} km</span>
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={RADIUS_OPTIONS.length - 1}
-                  step="1"
-                  class="range range-sm range-nuetral w-full"
-                  value={RADIUS_OPTIONS.indexOf(radius)}
-                  oninput={(e) => {
-                    const target = e.target as HTMLInputElement;
-                    if (target) {
-                      radius = RADIUS_OPTIONS[parseInt(target.value)];
-                    }
-                  }}
-                />
-                <div
-                  class="mt-1 flex w-full justify-between text-xs leading-tight font-light opacity-50 md:leading-snug lg:leading-normal"
-                >
-                  {#each RADIUS_OPTIONS as r, i (r)}
-                    <span
-                      class:opacity-100={i === 0 ||
-                        i === RADIUS_OPTIONS.length - 1 ||
-                        i === Math.floor(RADIUS_OPTIONS.length / 2)}>{r} km</span
+                <div class="hidden sm:block">
+                  <span class="label w-full">{m.discover_from()}</span>
+                  <div class="tabs tabs-border mb-1 w-full">
+                    <button
+                      class="tab flex-1 flex-nowrap whitespace-nowrap transition"
+                      class:tab-active={mode === 0}
+                      onclick={() => (mode = 0)}
                     >
-                  {/each}
-                </div>
-              </div>
-
-              {#if mode === 0}
-                {#if locationError}
-                  <div class="alert alert-error mt-2 text-sm">
-                    <i class="fa-solid fa-exclamation-triangle"></i>
-                    {locationError}
+                      <i class="fa-solid fa-location-dot mr-2"></i>
+                      {m.my_location()}
+                    </button>
+                    <button
+                      class="tab flex-1 flex-nowrap whitespace-nowrap transition"
+                      class:tab-active={mode === 1}
+                      onclick={() => (mode = 1)}
+                    >
+                      <i class="fa-solid fa-graduation-cap mr-2"></i>
+                      {m.a_university()}
+                    </button>
+                    <button
+                      class="tab flex-1 flex-nowrap whitespace-nowrap transition"
+                      class:tab-active={mode === 2}
+                      onclick={() => (mode = 2)}
+                    >
+                      <i class="fa-solid fa-map-location-dot mr-2"></i>
+                      {m.a_place_on_map()}
+                    </button>
                   </div>
-                {/if}
-                <button
-                  class="btn btn-primary mt-3"
-                  onclick={async () => {
-                    isLoadingLocation = true;
-                    locationError = '';
-                    try {
-                      const loc = await getMyLocation();
-                      location = {
-                        name: m.my_location(),
-                        latitude: loc.latitude,
-                        longitude: loc.longitude,
-                        confirmed: false
-                      };
-                      go();
-                    } catch (error) {
-                      console.error('Error getting location:', error);
-                      locationError =
-                        typeof error === 'string' ? error : m.location_unknown_error();
-                    } finally {
-                      isLoadingLocation = false;
-                    }
-                  }}
-                  disabled={isLoadingLocation || isLoading}
-                >
-                  {#if isLoading}
-                    <span class="loading loading-spinner loading-sm"></span>
-                    {m.loading()}
-                  {:else if isLoadingLocation}
-                    <span class="loading loading-spinner loading-sm"></span>
-                    {m.getting_location()}
-                  {:else}
-                    <i class="fa-solid fa-location-dot"></i>
-                    {m.get_my_location()}
-                  {/if}
-                </button>
-              {:else if mode === 1}
-                <div class="flex flex-col gap-1">
-                  <span class="label mt-1 w-full">{m.university()}</span>
-                  <input
-                    type="text"
-                    placeholder={m.search_university()}
-                    class="input w-full pr-10"
-                    bind:value={universityQuery}
-                    oninput={handleUniversityQueryChange}
-                  />
                 </div>
-                <div
-                  class="mt-3 w-[65vw] max-w-md min-w-full space-y-3 sm:w-[60vw] md:w-[55vw] lg:w-[50vw]"
-                >
-                  {#if isSearchingUniversities}
-                    <span class="loading loading-spinner loading-sm"></span>
-                  {/if}
-                  {#if universities.length > 0}
-                    <div
-                      class="bg-base-100 border-base-300 max-h-[40vh] w-full overflow-y-auto rounded-lg border shadow-none transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
-                    >
-                      {#each universities as university (university.name)}
-                        <div id={university.name} class="border-base-200 border-b last:border-b-0">
-                          {#if university.campuses.length === 1}
-                            {@const campus = university.campuses[0]}
-                            <button
-                              class="hover:bg-base-200 flex w-full items-center justify-between p-3 text-left transition-colors"
-                              onclick={(e) => {
-                                // Prevent button action if <a> was clicked
-                                if ((e.target as Element).closest('a')) return;
-                                selectUniversity(university, university.campuses[0]);
-                              }}
-                            >
-                              <div>
-                                <a
-                                  href={resolve('/(main)/universities/[id]', {
-                                    id: university.slug || university.id
-                                  })}
-                                  target={adaptiveNewTab()}
-                                  class="hover:text-accent text-base font-medium transition-colors"
-                                >
-                                  {university.name}
-                                </a>
-                                <div class="text-base-content/60 text-sm">
-                                  {university.type} · {university.majorCategory} ·
-                                  <span class="not-sm:hidden">
-                                    {formatRegionLabel(campus, true, '')}
-                                  </span>
-                                  <span class="sm:hidden">
-                                    {formatRegionLabel(campus, false, '')}
-                                  </span>
-                                </div>
-                              </div>
-                              <i class="fa-solid fa-chevron-right fa-sm opacity-50"></i>
-                            </button>
-                          {:else}
-                            <div class="p-3">
-                              <div>
-                                <a
-                                  href={resolve('/(main)/universities/[id]', {
-                                    id: university.slug || university.id
-                                  })}
-                                  target={adaptiveNewTab()}
-                                  class="hover:text-accent text-base font-medium transition-colors"
-                                  >{university.name}</a
-                                >
-                                <div class="text-base-content/60 text-sm">
-                                  {university.type} · {university.majorCategory} ·
-                                  {m.campus_count({
-                                    count: university.campuses.length
-                                  })}
-                                </div>
-                              </div>
-                              <div class="mt-2 space-y-1">
-                                {#each university.campuses as campus (campus.id)}
-                                  <button
-                                    id="{university.name}-{campus.name}"
-                                    class="hover:bg-base-200 flex w-full items-center justify-between rounded-lg px-4 py-2 text-left transition-colors"
-                                    onclick={() => selectUniversity(university, campus)}
-                                  >
-                                    <div class="flex items-center gap-2 text-sm">
-                                      <i class="fa-solid fa-building fa-sm opacity-50"></i>
-                                      <span>{campus.name || m.main_campus()}</span>
-                                      <span class="text-base-content/60 text-xs not-sm:hidden"
-                                        >{formatRegionLabel(campus, true)}</span
-                                      >
-                                      <span class="text-base-content/60 text-xs sm:hidden"
-                                        >{formatRegionLabel(campus, false)}</span
-                                      >
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right fa-xs opacity-50"></i>
-                                  </button>
-                                {/each}
-                              </div>
-                            </div>
-                          {/if}
-                        </div>
-                      {/each}
+
+                <div class="flex flex-col gap-1 sm:hidden">
+                  <span class="label mt-1 w-full">{m.search_radius()}</span>
+                  <select class="select w-full" bind:value={radius}>
+                    {#each RADIUS_OPTIONS as r (r)}
+                      <option value={r}>{r} km</option>
+                    {/each}
+                  </select>
+                </div>
+                <div class="hidden sm:block">
+                  <span class="label my-1 flex w-full items-center justify-between">
+                    <span>{m.search_radius()}</span>
+                    <span class="text-sm font-medium">{radius} km</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={RADIUS_OPTIONS.length - 1}
+                    step="1"
+                    class="range range-sm range-nuetral w-full"
+                    value={RADIUS_OPTIONS.indexOf(radius)}
+                    oninput={(e) => {
+                      const target = e.target as HTMLInputElement;
+                      if (target) {
+                        radius = RADIUS_OPTIONS[parseInt(target.value)];
+                      }
+                    }}
+                  />
+                  <div
+                    class="mt-1 flex w-full justify-between text-xs leading-tight font-light opacity-50 md:leading-snug lg:leading-normal"
+                  >
+                    {#each RADIUS_OPTIONS as r, i (r)}
+                      <span
+                        class:opacity-100={i === 0 ||
+                          i === RADIUS_OPTIONS.length - 1 ||
+                          i === Math.floor(RADIUS_OPTIONS.length / 2)}>{r} km</span
+                      >
+                    {/each}
+                  </div>
+                </div>
+
+                {#if mode === 0}
+                  {#if locationError}
+                    <div class="alert alert-error mt-2 text-sm">
+                      <i class="fa-solid fa-exclamation-triangle"></i>
+                      {locationError}
                     </div>
                   {/if}
-                  <div role="alert" class="alert alert-warning">
-                    <i class="fa-solid fa-triangle-exclamation fa-lg"></i>
-                    <span>{m.university_warning()}</span>
-                  </div>
-                </div>
-              {:else if mode === 2}
-                <div class="mt-3 flex w-full justify-center">
                   <button
-                    type="button"
-                    class="btn btn-soft btn-primary w-full"
-                    onclick={() => {
-                      isLocationPickerOpen = true;
+                    class="btn btn-primary mt-3"
+                    onclick={async () => {
+                      isLoadingLocation = true;
+                      locationError = '';
+                      try {
+                        const loc = await getMyLocation();
+                        location = {
+                          name: m.my_location(),
+                          latitude: loc.latitude,
+                          longitude: loc.longitude,
+                          confirmed: false
+                        };
+                        go();
+                      } catch (error) {
+                        console.error('Error getting location:', error);
+                        locationError =
+                          typeof error === 'string' ? error : m.location_unknown_error();
+                      } finally {
+                        isLoadingLocation = false;
+                      }
                     }}
+                    disabled={isLoadingLocation || isLoading}
                   >
-                    <i class="fa-solid fa-map-location-dot"></i>
-                    {location ? m.selected_location() : m.select_location_on_map()}
+                    {#if isLoading}
+                      <span class="loading loading-spinner loading-sm"></span>
+                      {m.loading()}
+                    {:else if isLoadingLocation}
+                      <span class="loading loading-spinner loading-sm"></span>
+                      {m.getting_location()}
+                    {:else}
+                      <i class="fa-solid fa-location-dot"></i>
+                      {m.get_my_location()}
+                    {/if}
                   </button>
-                </div>
-              {/if}
-              {#if mode !== 0}
-                {#if location}
+                {:else if mode === 1}
+                  <div class="flex flex-col gap-1">
+                    <span class="label mt-1 w-full">{m.university()}</span>
+                    <input
+                      type="text"
+                      placeholder={m.search_university()}
+                      class="input w-full pr-10"
+                      bind:value={universityQuery}
+                      oninput={handleUniversityQueryChange}
+                    />
+                  </div>
                   <div
-                    class="alert alert-soft mt-3 text-sm transition-colors {location.confirmed
-                      ? 'alert-success'
-                      : 'alert-warning'}"
+                    class="mt-3 w-[65vw] max-w-md min-w-full space-y-3 sm:w-[60vw] md:w-[55vw] lg:w-[50vw]"
                   >
-                    <i class="fa-solid fa-location-dot fa-lg"></i>
-                    <div>
-                      <h3 class="font-bold">{location.name || m.selected_location()}</h3>
-                      <div class="text-sm">
-                        ({location.longitude.toFixed(6)}, {location.latitude.toFixed(6)})
+                    {#if isSearchingUniversities}
+                      <span class="loading loading-spinner loading-sm"></span>
+                    {/if}
+                    {#if universities.length > 0}
+                      <div
+                        class="bg-base-100 border-base-300 max-h-[40vh] w-full overflow-y-auto rounded-lg border shadow-none transition hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+                      >
+                        {#each universities as university (university.name)}
+                          <div
+                            id={university.name}
+                            class="border-base-200 border-b last:border-b-0"
+                          >
+                            {#if university.campuses.length === 1}
+                              {@const campus = university.campuses[0]}
+                              <button
+                                class="hover:bg-base-200 flex w-full items-center justify-between p-3 text-left transition-colors"
+                                onclick={(e) => {
+                                  // Prevent button action if <a> was clicked
+                                  if ((e.target as Element).closest('a')) return;
+                                  selectUniversity(university, university.campuses[0]);
+                                }}
+                              >
+                                <div>
+                                  <a
+                                    href={resolve('/(main)/universities/[id]', {
+                                      id: university.slug || university.id
+                                    })}
+                                    target={adaptiveNewTab()}
+                                    class="hover:text-accent text-base font-medium transition-colors"
+                                  >
+                                    {university.name}
+                                  </a>
+                                  <div class="text-base-content/60 text-sm">
+                                    {university.type} · {university.majorCategory} ·
+                                    <span class="not-sm:hidden">
+                                      {formatRegionLabel(campus, true, '')}
+                                    </span>
+                                    <span class="sm:hidden">
+                                      {formatRegionLabel(campus, false, '')}
+                                    </span>
+                                  </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right fa-sm opacity-50"></i>
+                              </button>
+                            {:else}
+                              <div class="p-3">
+                                <div>
+                                  <a
+                                    href={resolve('/(main)/universities/[id]', {
+                                      id: university.slug || university.id
+                                    })}
+                                    target={adaptiveNewTab()}
+                                    class="hover:text-accent text-base font-medium transition-colors"
+                                    >{university.name}</a
+                                  >
+                                  <div class="text-base-content/60 text-sm">
+                                    {university.type} · {university.majorCategory} ·
+                                    {m.campus_count({
+                                      count: university.campuses.length
+                                    })}
+                                  </div>
+                                </div>
+                                <div class="mt-2 space-y-1">
+                                  {#each university.campuses as campus (campus.id)}
+                                    <button
+                                      id="{university.name}-{campus.name}"
+                                      class="hover:bg-base-200 flex w-full items-center justify-between rounded-lg px-4 py-2 text-left transition-colors"
+                                      onclick={() => selectUniversity(university, campus)}
+                                    >
+                                      <div class="flex items-center gap-2 text-sm">
+                                        <i class="fa-solid fa-building fa-sm opacity-50"></i>
+                                        <span>{campus.name || m.main_campus()}</span>
+                                        <span class="text-base-content/60 text-xs not-sm:hidden"
+                                          >{formatRegionLabel(campus, true)}</span
+                                        >
+                                        <span class="text-base-content/60 text-xs sm:hidden"
+                                          >{formatRegionLabel(campus, false)}</span
+                                        >
+                                      </div>
+                                      <i class="fa-solid fa-chevron-right fa-xs opacity-50"></i>
+                                    </button>
+                                  {/each}
+                                </div>
+                              </div>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                    <div role="alert" class="alert alert-warning">
+                      <i class="fa-solid fa-triangle-exclamation fa-lg"></i>
+                      <span>{m.university_warning()}</span>
+                    </div>
+                  </div>
+                {:else if mode === 2}
+                  <div class="mt-3 flex w-full justify-center">
+                    <button
+                      type="button"
+                      class="btn btn-soft btn-primary w-full"
+                      onclick={() => {
+                        isLocationPickerOpen = true;
+                      }}
+                    >
+                      <i class="fa-solid fa-map-location-dot"></i>
+                      {location ? m.selected_location() : m.select_location_on_map()}
+                    </button>
+                  </div>
+                {/if}
+                {#if mode !== 0}
+                  {#if location}
+                    <div
+                      class="alert alert-soft mt-3 text-sm transition-colors {location.confirmed
+                        ? 'alert-success'
+                        : 'alert-warning'}"
+                    >
+                      <i class="fa-solid fa-location-dot fa-lg"></i>
+                      <div>
+                        <h3 class="font-bold">{location.name || m.selected_location()}</h3>
+                        <div class="text-sm">
+                          ({location.longitude.toFixed(6)}, {location.latitude.toFixed(6)})
+                        </div>
                       </div>
                     </div>
-                  </div>
-                {/if}
-                <button
-                  class="btn btn-primary mt-3"
-                  disabled={!location || isLoading}
-                  onclick={handleGo}
-                >
-                  {#if isLoading}
-                    <span class="loading loading-spinner loading-sm"></span>
-                    {m.loading()}
-                  {:else}
-                    {m.go()}
                   {/if}
-                </button>
-              {/if}
-            </fieldset>
+                  <button
+                    class="btn btn-primary mt-3"
+                    disabled={!location || isLoading}
+                    onclick={handleGo}
+                  >
+                    {#if isLoading}
+                      <span class="loading loading-spinner loading-sm"></span>
+                      {m.loading()}
+                    {:else}
+                      {m.go()}
+                    {/if}
+                  </button>
+                {/if}
+              </fieldset>
+            {/if}
           </div>
         </div>
 
         <!-- Starred Shops Real-time Attendance -->
         {#if data.starredShops.length > 0}
           <div
-            class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+            class="bg-base-200/80 dark:bg-base-200/95 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
             class:collapse-open={!showCollapse}
             class:min-h-fit={!showCollapse}
             class:h-full={!showCollapse}
@@ -592,87 +610,89 @@
               class="collapse-content flex max-w-full min-w-full flex-col items-center gap-2 sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw]"
               class:pt-4={!showCollapse}
             >
-              {#each data.starredShops as shop (shop._id)}
-                {@const openingHours = getShopOpeningHours(shop)}
-                {@const isShopOpen =
-                  openingHours &&
-                  now >= openingHours.openTolerated &&
-                  now <= openingHours.closeTolerated}
-                {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
-                <div
-                  class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
-                    ? 'border-warning hover:border-warning/50 bg-linear-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
-                    : ''}"
-                >
-                  <a
-                    href={resolve('/(main)/shops/[id]', {
-                      id: shop.id.toString()
-                    })}
-                    class="flex items-center justify-between gap-4"
+              {#if starredReady}
+                {#each data.starredShops as shop (shop._id)}
+                  {@const openingHours = getShopOpeningHours(shop)}
+                  {@const isShopOpen =
+                    openingHours &&
+                    now >= openingHours.openTolerated &&
+                    now <= openingHours.closeTolerated}
+                  {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
+                  <div
+                    class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
+                      ? 'border-warning hover:border-warning/50 bg-linear-to-br from-orange-600/30 via-amber-600/30 to-yellow-500/30 hover:from-orange-600/10 hover:via-amber-600/10 hover:to-yellow-500/10'
+                      : ''}"
                   >
-                    <div class="min-w-0 flex-1">
-                      <h3
-                        class="truncate text-base font-semibold"
-                        class:text-warning={isInAttendance}
-                      >
-                        {shop.name}
-                      </h3>
-                      <p class="text-base-content/70 truncate text-xs">
-                        {formatShopAddress(shop)}
-                      </p>
-                    </div>
-                    {#if isInAttendance}
-                      <button
-                        class="btn btn-error btn-soft btn-sm"
-                        disabled={isLeavingShop}
-                        onclick={(e) => {
-                          e.preventDefault();
-                          handleLeave(shop);
-                        }}
-                      >
-                        {#if isLeavingShop}
-                          <span class="loading loading-spinner loading-xs"></span>
-                        {:else}
-                          <i class="fa-solid fa-stop"></i>
-                        {/if}
-                        {m.leave()}
-                      </button>
-                    {:else if isShopOpen}
-                      {@const currentAttendance = shop.totalAttendance || 0}
-                      {@const reportedAttendance = shop.currentReportedAttendance}
-                      <div class="text-right">
-                        {#if reportedAttendance}
-                          <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
-                            <div class="text-accent text-sm not-sm:hidden">
+                    <a
+                      href={resolve('/(main)/shops/[id]', {
+                        id: shop.id.toString()
+                      })}
+                      class="flex items-center justify-between gap-4"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <h3
+                          class="truncate text-base font-semibold"
+                          class:text-warning={isInAttendance}
+                        >
+                          {shop.name}
+                        </h3>
+                        <p class="text-base-content/70 truncate text-xs">
+                          {formatShopAddress(shop)}
+                        </p>
+                      </div>
+                      {#if isInAttendance}
+                        <button
+                          class="btn btn-error btn-soft btn-sm"
+                          disabled={isLeavingShop}
+                          onclick={(e) => {
+                            e.preventDefault();
+                            handleLeave(shop);
+                          }}
+                        >
+                          {#if isLeavingShop}
+                            <span class="loading loading-spinner loading-xs"></span>
+                          {:else}
+                            <i class="fa-solid fa-stop"></i>
+                          {/if}
+                          {m.leave()}
+                        </button>
+                      {:else if isShopOpen}
+                        {@const currentAttendance = shop.totalAttendance || 0}
+                        {@const reportedAttendance = shop.currentReportedAttendance}
+                        <div class="text-right">
+                          {#if reportedAttendance}
+                            <AttendanceReportBlame {reportedAttendance} class="tooltip-left">
+                              <div class="text-accent text-sm not-sm:hidden">
+                                {m.in_attendance({ count: currentAttendance })}
+                              </div>
+                              <div class="text-accent text-sm sm:hidden">
+                                <i class="fa-solid fa-user"></i>
+                                {currentAttendance}
+                              </div>
+                            </AttendanceReportBlame>
+                          {:else}
+                            <div
+                              class="text-base-content/60 text-sm not-sm:hidden"
+                              class:text-primary={currentAttendance > 0}
+                            >
                               {m.in_attendance({ count: currentAttendance })}
                             </div>
-                            <div class="text-accent text-sm sm:hidden">
+                            <div
+                              class="text-base-content/60 text-sm sm:hidden"
+                              class:text-primary={currentAttendance > 0}
+                            >
                               <i class="fa-solid fa-user"></i>
                               {currentAttendance}
                             </div>
-                          </AttendanceReportBlame>
-                        {:else}
-                          <div
-                            class="text-base-content/60 text-sm not-sm:hidden"
-                            class:text-primary={currentAttendance > 0}
-                          >
-                            {m.in_attendance({ count: currentAttendance })}
-                          </div>
-                          <div
-                            class="text-base-content/60 text-sm sm:hidden"
-                            class:text-primary={currentAttendance > 0}
-                          >
-                            <i class="fa-solid fa-user"></i>
-                            {currentAttendance}
-                          </div>
-                        {/if}
-                      </div>
-                    {:else}
-                      <div class="text-error text-sm">{m.closed()}</div>
-                    {/if}
-                  </a>
-                </div>
-              {/each}
+                          {/if}
+                        </div>
+                      {:else}
+                        <div class="text-error text-sm">{m.closed()}</div>
+                      {/if}
+                    </a>
+                  </div>
+                {/each}
+              {/if}
             </div>
           </div>
         {/if}
@@ -680,17 +700,19 @@
     </div>
 
     <div
-      class="pointer-events-auto absolute bottom-4 flex w-full flex-row-reverse items-center justify-between gap-0.5 px-3 md:gap-1 lg:gap-2 lg:px-4 xl:px-6"
-      transition:fade
+      class="hero-bottom-bar pointer-events-auto absolute bottom-4 flex w-full flex-row-reverse items-center justify-between gap-0.5 px-3 md:gap-1 lg:gap-2 lg:px-4 xl:px-6"
+      in:fade={{ delay: 500, duration: 400 }}
+      out:fade={{ duration: 300 }}
     >
       <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
-        <FancyButton
+        <a
           href={GITHUB_LINK}
           target="_blank"
-          class="fa-brands fa-github fa-lg"
-          text="GitHub"
-          stayExpandedOnWideScreens
-        />
+          class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+        >
+          <i class="fa-brands fa-github fa-lg"></i>
+          <span class="hidden lg:inline">GitHub</span>
+        </a>
         <SocialMediaModal
           name="QQ"
           class="fa-brands fa-qq fa-lg"

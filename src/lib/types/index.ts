@@ -431,13 +431,13 @@ export interface GlobeShop {
 }
 
 export interface GlobeShopWithExtras extends GlobeShop {
-  openingHoursParsed: ParsedShopOpeningHours;
+  openingHoursParsed?: ParsedShopOpeningHours;
 }
 
 // Shop with computed attendance and opening-hours data, used on the globe views.
 export interface ShopWithExtras extends Shop {
   attendances: { gameId: number; total: number }[];
-  openingHoursParsed: ParsedShopOpeningHours;
+  openingHoursParsed?: ParsedShopOpeningHours;
   currentAttendance: number;
   density: number;
 }

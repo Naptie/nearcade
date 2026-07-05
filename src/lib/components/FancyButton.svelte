@@ -269,6 +269,7 @@
   let initialWidth = $state(NaN);
   let lastMeasured = $state(0);
   let timeout = $state<ReturnType<typeof setTimeout> | null>(null);
+  let pendingMeasureRaf: number | null = null;
   let windowWidth = $state(browser ? window.innerWidth : 0);
   let isHovered = $state(false);
   let isNearby = $state(false);
@@ -285,6 +286,7 @@
     if (!browser || !buttonElement || !iconElement || !contentElement) return;
     if (Date.now() - lastMeasured < 1000) return;
     lastMeasured = Date.now();
+    pendingMeasureRaf = null;
 
     const buttonHeight = buttonElement.offsetHeight;
     const collapsedWidth = `${square ? buttonHeight : initialWidth}px`;
@@ -332,6 +334,13 @@
     buttonElement.style.setProperty('--content-translate-x', contentTranslateX);
   };
 
+  const scheduleMeasureButtonDimensions = () => {
+    if (pendingMeasureRaf) return;
+    pendingMeasureRaf = requestAnimationFrame(() => {
+      measureButtonDimensions();
+    });
+  };
+
   const handleMouseEnter = () => {
     if (href && !href.startsWith('http')) {
       preloadCode(href);
@@ -358,50 +367,53 @@
     // Set initial width to avoid layout jank
     buttonElement.style.width = 'var(--collapsed-width, 3rem)'; // Provide a fallback
 
-    const cleanupPointerApproach = registerPointerApproach(
-      buttonElement,
-      () => !override && !stayExpanded,
-      (nearby) => {
-        isNearby = nearby;
-      }
-    );
+    // Skip pointer approach tracking entirely when button is always expanded —
+    // it adds a global mousemove listener that iterates all registrations.
+    let cleanupPointerApproach: (() => void) | undefined;
+    if (!stayExpandedOnWideScreens) {
+      cleanupPointerApproach = registerPointerApproach(
+        buttonElement,
+        () => !override && !stayExpanded,
+        (nearby) => {
+          isNearby = nearby;
+        }
+      );
+    }
 
-    const setupMeasurements = () => {
-      // Run the initial measurement
-      measureButtonDimensions();
-
-      // Create a ResizeObserver to automatically remeasure if the button size changes
-      const observer = new ResizeObserver(() => {
-        measureButtonDimensions();
-      });
-
-      // Observe the button and its content for any size changes
-      observer.observe(buttonElement);
-      if (contentElement) {
-        observer.observe(contentElement);
-      }
-
-      return () => {
-        observer.disconnect();
+    let cleanupResizeObserver: (() => void) | undefined;
+    if (!stayExpanded) {
+      const setupMeasurements = () => {
+        if (!buttonElement) return () => {};
+        scheduleMeasureButtonDimensions();
+        const observer = new ResizeObserver(() => {
+          scheduleMeasureButtonDimensions();
+        });
+        observer.observe(buttonElement);
+        if (contentElement) observer.observe(contentElement);
+        return () => {
+          observer.disconnect();
+        };
       };
-    };
+      const cleanup = document.fonts.ready.then(setupMeasurements);
+      cleanupResizeObserver = () => {
+        cleanup.then((fn) => fn && fn());
+      };
+    }
 
-    // Wait for fonts to be ready, then run our setup
-    const cleanup = document.fonts.ready.then(setupMeasurements);
-
-    // Window resize observer for tracking window width in real-time
     const handleResize = () => {
       windowWidth = window.innerWidth;
     };
-
     if (stayExpandedOnWideScreens) {
       window.addEventListener('resize', handleResize);
     }
 
     return () => {
-      // Ensure the observer is disconnected when the component is destroyed
-      cleanup.then((cleanupFn) => cleanupFn && cleanupFn());
-      cleanupPointerApproach();
+      if (pendingMeasureRaf) {
+        cancelAnimationFrame(pendingMeasureRaf);
+        pendingMeasureRaf = null;
+      }
+      cleanupResizeObserver?.();
+      cleanupPointerApproach?.();
       clearCollapseTimeout();
       if (stayExpandedOnWideScreens) {
         window.removeEventListener('resize', handleResize);
@@ -411,7 +423,7 @@
 
   $effect(() => {
     if (text || content) {
-      measureButtonDimensions();
+      scheduleMeasureButtonDimensions();
     }
   });
 

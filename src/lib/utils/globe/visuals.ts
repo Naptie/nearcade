@@ -483,6 +483,13 @@ export class GlobeVisualsLayer {
     atmosphere: true
   };
 
+  private hasAnyVisibleMesh(): boolean {
+    for (const name of ALL_GLOBE_LAYER_NAMES) {
+      if (this._meshVisibility[name] && this.isLayerEnabled(name)) return true;
+    }
+    return false;
+  }
+
   private readonly highResolutionTextureSet: GlobeVisualTextureSet | null;
   private readonly highResolutionPrefetchZoom: number;
   private readonly highResolutionSwapZoom: number;
@@ -513,6 +520,9 @@ export class GlobeVisualsLayer {
   setSun(azimuthDeg: number, polarDeg: number): void {
     this.sunAzimuthDeg = azimuthDeg;
     this.sunPolarDeg = polarDeg;
+    // The sun only changes every minute, so request a single repaint instead of
+    // keeping the render loop running continuously.
+    this.map?.triggerRepaint();
   }
 
   setSunlightIntensity(intensity: number): void {
@@ -1012,6 +1022,7 @@ export class GlobeVisualsLayer {
     options: CustomRenderMethodInput
   ): void {
     if (!this.loaded || !this.renderer || !this.scene || !this.camera || !this.map) return;
+    if (!this.hasAnyVisibleMesh()) return;
 
     if (!this.didLogFirstRender) {
       this.didLogFirstRender = true;
@@ -1086,9 +1097,9 @@ export class GlobeVisualsLayer {
     // rendered before us) without actually issuing any WebGL calls.
     this.renderer.resetState();
     this.renderer.render(this.scene, this.camera);
-    // Ask MapLibre to schedule another frame so the effects remain visible
-    // even when the map is not being actively panned or zoomed.
-    this.map.triggerRepaint();
+    // NOTE: we intentionally do NOT call this.map.triggerRepaint() here.
+    // The visual layer is static between sun/camera/visibility changes, so
+    // letting MapLibre decide when to repaint keeps the GPU idle on still frames.
   }
 
   onRemove(): void {

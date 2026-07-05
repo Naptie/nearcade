@@ -5,6 +5,7 @@
     formatHourLiteral,
     formatShopAddress,
     getGameName,
+    getShopOpeningHours,
     adaptiveNewTab,
     isShopChinaBased
   } from '$lib/utils';
@@ -51,7 +52,7 @@
     getAggregatedGames(currentShop).reduce((total, game) => total + game.quantity, 0);
 
   const aggregatedGames = $derived(getAggregatedGames(shop));
-  const openingHours = $derived(shop.openingHoursParsed);
+  const openingHours = $derived(shop.openingHoursParsed ?? getShopOpeningHours(shop));
   const offsetLocal = $derived.by(() => {
     if (!openingHours) return '';
     const hours = openingHours.offsetHours;

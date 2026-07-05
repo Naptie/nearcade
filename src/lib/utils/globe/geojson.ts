@@ -89,17 +89,31 @@ export const getCountyParentAdcode = (feature: GlobeFeature | null | undefined) 
 
 // Keep filterCitiesByProvince / filterCountiesByParentAdcode as named exports for
 // any code that still imports them directly from geojson.ts.
+let lastCityFilterData: GlobeFeatureCollection | undefined;
+let lastCityFilterAdcode: string | undefined;
+let lastCityFilterResult: GlobeFeatureCollection | undefined;
+
 export const filterCitiesByProvince = (
   data: GlobeFeatureCollection,
   provinceAdcode: string
 ): GlobeFeatureCollection => {
   if (!provinceAdcode) return emptyGlobeFeatureCollection();
-  return {
+  if (
+    data === lastCityFilterData &&
+    provinceAdcode === lastCityFilterAdcode &&
+    lastCityFilterResult
+  ) {
+    return lastCityFilterResult;
+  }
+  lastCityFilterData = data;
+  lastCityFilterAdcode = provinceAdcode;
+  lastCityFilterResult = {
     type: 'FeatureCollection',
     features: data.features.filter(
       (f: GlobeFeature) => f.properties?.parentAdcode === provinceAdcode
     )
   };
+  return lastCityFilterResult;
 };
 
 export const filterCountiesByParentAdcode = (

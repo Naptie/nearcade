@@ -72,7 +72,7 @@
 }
 
 .maplibregl-ctrl.maplibregl-ctrl-attrib {
-  @apply bg-base-300/85 text-base-content rounded-box border-base-content/10 shadow-base-content/15 border px-2 py-0.5 text-xs leading-5 shadow-lg backdrop-blur-md;
+  @apply bg-base-300/95 text-base-content rounded-box border-base-content/10 shadow-base-content/15 border px-2 py-0.5 text-xs leading-5 shadow-lg;
   background-color: color-mix(in oklab, var(--color-base-300) 85%, transparent) !important;
   color: var(--color-base-content) !important;
 }
@@ -89,7 +89,7 @@
 }
 
 .maplibregl-ctrl-attrib.maplibregl-compact-show {
-  @apply bg-base-300/85 border-base-content/10 shadow-base-content/15 border shadow-lg backdrop-blur-md;
+  @apply bg-base-300/95 border-base-content/10 shadow-base-content/15 border shadow-lg;
   @apply py-0;
   background-color: color-mix(in oklab, var(--color-base-300) 85%, transparent) !important;
   padding-right: 2rem;

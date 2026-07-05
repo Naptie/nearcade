@@ -124,10 +124,13 @@ export const normalizePolygonGeometry = (
   return undefined;
 };
 
-export const emptyGlobeFeatureCollection = (): GlobeFeatureCollection => ({
+const EMPTY_GLOBE_FEATURE_COLLECTION: GlobeFeatureCollection = {
   type: 'FeatureCollection',
   features: []
-});
+};
+
+export const emptyGlobeFeatureCollection = (): GlobeFeatureCollection =>
+  EMPTY_GLOBE_FEATURE_COLLECTION;
 
 // ---------------------------------------------------------------------------
 // Bounds helper

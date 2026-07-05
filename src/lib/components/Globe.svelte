@@ -2,15 +2,16 @@
   import { base, resolve } from '$app/paths';
   import { goto, invalidate } from '$app/navigation';
   import { onMount, untrack } from 'svelte';
+  import { slide } from 'svelte/transition';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '$lib/styles/maplibre.css';
   import { SvelteMap } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import { getShopOpeningHours, isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
+  import { isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
   import { GAME_TITLES } from '$lib/constants';
-  import type { GlobeShop, GlobeShopWithExtras } from '$lib/types';
+  import type { GlobeShop } from '$lib/types';
   import {
     emptyGlobeFeatureCollection,
     filterCitiesByProvince,
@@ -26,12 +27,12 @@
     getSupportedCountryByDataset,
     type SupportedCountry
   } from '$lib/countries';
-  import { fade, slide } from 'svelte/transition';
   import {
     GlobeVisualsLayer,
     DEFAULT_CLOUD_SHADOW_OPACITY,
     type GlobeLayerName
   } from '$lib/utils/globe/visuals';
+  import { FpsMonitor, runGlobeBenchmark, type BenchmarkResult } from '$lib/utils/globe/benchmark';
   import {
     PUBLIC_BASEMAP_TILE_URLS_CN,
     PUBLIC_BASEMAP_TILE_URLS_OVERSEAS,
@@ -46,6 +47,12 @@
     shopData?: Promise<GlobeShop[]> | null;
   };
   let { mode, shopData }: Props = $props();
+
+  // ---- Imperative visual mode ----
+  // Use direct DOM manipulation instead of reactive state to avoid Svelte's
+  // expensive flush cycle (~400ms) when the visual mode changes.
+  // The sidebar, bottom gradient, etc. are shown/hidden via getElementById.
+  let visualModeTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ---- Globe layer/source IDs ----
   const GLOBE_DATA_ENDPOINT = `${base}/api/globe/data`;
@@ -90,7 +97,7 @@
   const LANDING_ZOOM = 3.2;
   const LANDING_PITCH = 15;
   const LANDING_BEARING = 10 + Math.random() * 10;
-  const LANDING_ROTATION_SPEED = 0.06; // degrees per second
+  const LANDING_ROTATION_SPEED = 0.03; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
   const VISUAL_TEXTURE_TRANSCODER_PATH = `${base}/globe/basis/`;
@@ -100,6 +107,13 @@
   const BASEMAP_PROBE_TILE = { z: 1, x: 1, y: 0 };
   const BASEMAP_PROBE_TIMEOUT_MS = 2500;
   const BASEMAP_PROBE_FAILURE_PENALTY_MS = 5000;
+  /**
+   * Cap the rendering resolution on high-DPR devices. Modern phones report 2.5x–3x
+   * DPR, which makes the full-screen globe render several times more pixels than
+   * necessary and is a major source of heat and battery drain.
+   */
+  const GLOBE_MAX_PIXEL_RATIO = 2;
+  const getGlobePixelRatio = () => Math.min(window.devicePixelRatio || 1, GLOBE_MAX_PIXEL_RATIO);
 
   type BasemapProbeResult = {
     averageLatencyMs: number;
@@ -364,6 +378,19 @@
   let activeCityAdcode = $state<string | null>(null);
   let viewZoom = $state(1.5);
   let viewTime = $state(new Date());
+  let labelLayersEnabled = $state(false);
+
+  // ---- Dev-only performance monitoring ----
+  let sidebarEnabled = $state(true);
+  let fpsMonitor: FpsMonitor | null = $state(null);
+  let currentFps = $state(0);
+  let avgFps = $state(0);
+  let benchmarkRunning = $state(false);
+  let benchmarkProgress = $state(0);
+  let benchmarkResult: BenchmarkResult | null = $state(null);
+  let benchmarkAbortController: AbortController | null = null;
+  let startBenchmark: (() => void) | null = null;
+  let stopBenchmark: (() => void) | null = null;
 
   // ---- Shop location pick mode ----
   let shopLocationPickMode = $state(false);
@@ -409,31 +436,46 @@
 
   const globeFeatureSettingsKey = $derived(
     JSON.stringify({
+      shopMarkers: globeFeatureSettings.mapOverlays.shopMarkers,
+      geoJsonBoundaries: globeFeatureSettings.mapOverlays.geoJsonBoundaries
+    })
+  );
+
+  const globeVisualSettingsKey = $derived(
+    JSON.stringify({
       specular: globeFeatureSettings.visualLayers.specular,
       nightLights: globeFeatureSettings.visualLayers.nightLights,
       atmosphere: globeFeatureSettings.visualLayers.atmosphere,
       clouds: globeFeatureSettings.visualLayers.clouds,
       cloudShadows: globeFeatureSettings.visualLayers.cloudShadows,
-      shopMarkers: globeFeatureSettings.mapOverlays.shopMarkers,
-      geoJsonBoundaries: globeFeatureSettings.mapOverlays.geoJsonBoundaries
+      cloudShadowOpacity: globeFeatureSettings.visualLayers.cloudShadowOpacity
     })
   );
 
   // ---- Auto-rotation ----
   let animationFrameId: number | null = null;
   let lastFrameTime = 0;
+  const ROTATION_FPS_CAP = 30;
+  const ROTATION_FRAME_MS = 1000 / ROTATION_FPS_CAP;
+  let lastRotationTime = 0;
 
   const startAutoRotation = () => {
     if (animationFrameId !== null) return;
     lastFrameTime = performance.now();
+    lastRotationTime = 0;
     const rotate = (timestamp: number) => {
       const instance = map;
       if (!instance || mode !== 'landing') {
         animationFrameId = null;
         return;
       }
+      if (timestamp - lastRotationTime < ROTATION_FRAME_MS) {
+        animationFrameId = requestAnimationFrame(rotate);
+        return;
+      }
       const dt = (timestamp - lastFrameTime) / 1000;
       lastFrameTime = timestamp;
+      lastRotationTime = timestamp;
       const center = instance.getCenter();
       center.lng = (center.lng + LANDING_ROTATION_SPEED * dt * 60) % 360;
       instance.setCenter(center);
@@ -449,22 +491,9 @@
     }
   };
 
-  // ---- Gradient blur layers (same pattern as NavigationBar, reversed direction) ----
-  const maxBlurRadius = 64;
-  const blurIterations = 16;
-  const bottomBlurLayers = Array.from({ length: blurIterations }, (_, i) => ({
-    blur: maxBlurRadius / (4 * maxBlurRadius) ** (i / (blurIterations - 1)),
-    maskStops: [
-      Math.max(0, ((i - 2) * 100) / blurIterations),
-      Math.max(0, ((i - 1) * 100) / blurIterations),
-      (i * 100) / blurIterations,
-      ((i + 1) * 100) / blurIterations
-    ]
-  }));
-
   // ---- Shop data state ----
   type ShopEntry = {
-    shop: GlobeShopWithExtras;
+    shop: GlobeShop;
     location: { latitude: number; longitude: number };
   };
 
@@ -504,8 +533,8 @@
   };
 
   // ---- Pinned / hover shop state ----
-  let markerHoveredShop = $state<GlobeShopWithExtras | null>(null);
-  let pinnedShop = $state<GlobeShopWithExtras | null>(null);
+  let markerHoveredShop = $state<GlobeShop | null>(null);
+  let pinnedShop = $state<GlobeShop | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
   const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
@@ -528,6 +557,7 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
+  let filterDropdownOpen = $state(false);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -550,14 +580,29 @@
       .filter(Boolean)
       .join('; ');
 
-  const PAGE_SIZE = 4;
-  let visibleCount = $state(PAGE_SIZE);
+  const PAGE_SIZE = 6;
+  const INITIAL_RENDER_COUNT = 4;
+  let visibleCount = $state(0);
   let listSentinelEl = $state<HTMLDivElement | undefined>();
+  let sidebarReady = $state(false);
 
   $effect(() => {
     const _len = filteredShops?.length ?? 0;
     void _len;
-    visibleCount = PAGE_SIZE;
+    visibleCount = 0;
+    let loaded = 0;
+    let raf: number | null = null;
+    const step = () => {
+      loaded = Math.min(loaded + INITIAL_RENDER_COUNT, PAGE_SIZE);
+      visibleCount = loaded;
+      if (loaded < PAGE_SIZE && loaded < (_len || 0)) {
+        raf = requestAnimationFrame(step);
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      if (raf !== null) cancelAnimationFrame(raf);
+    };
   });
 
   $effect(() => {
@@ -696,23 +741,22 @@
   });
 
   $effect(() => {
-    const sourceShopData = shopData;
     const refreshToken = globeDataRefreshToken;
     const requestId = ++globeDataRequestId;
     void refreshToken;
 
     void (async () => {
       try {
+        const sourceShopData = untrack(() => shopData);
         if (sourceShopData) {
           const resolvedShops = await sourceShopData;
           if (requestId !== globeDataRequestId) return;
           applyResolvedGlobeData(resolvedShops);
-          return;
+        } else {
+          const response = await fetchGlobeData();
+          if (requestId !== globeDataRequestId) return;
+          applyResolvedGlobeData(response.shops);
         }
-
-        const response = await fetchGlobeData();
-        if (requestId !== globeDataRequestId) return;
-        applyResolvedGlobeData(response.shops);
       } catch (error) {
         if (requestId !== globeDataRequestId) return;
         console.error('Failed to load globe shop data:', error);
@@ -722,16 +766,13 @@
 
   $effect(() => {
     if (!shopDataResolved.length) return;
-    const nextShops = shopDataResolved.map((shop) => {
-      const openingHoursParsed = getShopOpeningHours(shop);
-      return {
-        shop: { ...shop, openingHoursParsed },
-        location: {
-          latitude: shop.location.coordinates[1],
-          longitude: shop.location.coordinates[0]
-        }
-      };
-    });
+    const nextShops = shopDataResolved.map((shop) => ({
+      shop,
+      location: {
+        latitude: shop.location.coordinates[1],
+        longitude: shop.location.coordinates[0]
+      }
+    }));
     shops = nextShops;
     shopLookup.clear();
     for (const entry of nextShops) shopLookup.set(getShopKey(entry.shop), entry);
@@ -811,7 +852,7 @@
     void goto(`${base}/shops/new?${params}`);
   };
 
-  const applyShopRegionFilter = (shop: GlobeShopWithExtras) => {
+  const applyShopRegionFilter = (shop: GlobeShop) => {
     const general = shop.address.general;
     if (!general.length) {
       regionFilter = { type: 'world' };
@@ -820,7 +861,7 @@
     regionFilter = { type: 'address', address: general };
   };
 
-  const isShopInCurrentFilter = (shop: GlobeShopWithExtras): boolean => {
+  const isShopInCurrentFilter = (shop: GlobeShop): boolean => {
     const fs = filteredShops;
     if (!fs) return false;
     const key = getShopKey(shop);
@@ -1076,7 +1117,12 @@
 
   const setLayerVisibility = (instance: maplibregl.Map, layerId: string, visible: boolean) => {
     if (instance.getLayer(layerId)) {
-      instance.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+      const desired = visible ? 'visible' : 'none';
+      // Skip the API call if the layer is already in the desired state —
+      // each setLayoutProperty call can trigger style recalculation.
+      if (instance.getLayoutProperty(layerId, 'visibility') !== desired) {
+        instance.setLayoutProperty(layerId, 'visibility', desired);
+      }
     }
   };
 
@@ -1157,32 +1203,20 @@
   };
 
   const scheduleDeferredVisualsLayer = (instance: maplibregl.Map) => {
-    if (instance.getLayer('globe-visuals')) {
-      console.debug('[GlobeVisualsDebug] deferred schedule skipped: layer already exists');
-      return;
-    }
+    if (instance.getLayer('globe-visuals')) return;
     if (
       deferredVisualsRafId !== null ||
       deferredVisualsRafTailId !== null ||
       deferredVisualsRetryTimeoutId !== null
     ) {
-      console.debug('[GlobeVisualsDebug] deferred schedule skipped: task already queued');
       return;
     }
-
-    console.debug('[GlobeVisualsDebug] queueing deferred visuals attach');
 
     deferredVisualsRafId = window.requestAnimationFrame(() => {
       deferredVisualsRafId = null;
       deferredVisualsRafTailId = window.requestAnimationFrame(() => {
         deferredVisualsRafTailId = null;
         if (!map || map.getCanvas() !== instance.getCanvas() || !instance.isStyleLoaded()) {
-          console.debug('[GlobeVisualsDebug] warn: deferred attach skipped', {
-            hasMap: Boolean(map),
-            sameCanvas: Boolean(map && map.getCanvas() === instance.getCanvas()),
-            styleLoaded: instance.isStyleLoaded()
-          });
-
           // Style can still report not-loaded right after style.load while
           // MapLibre continues internal setup. Retry shortly instead of giving up.
           if (map && map.getCanvas() === instance.getCanvas() && !instance.isStyleLoaded()) {
@@ -1193,8 +1227,13 @@
           }
           return;
         }
+        // If the camera is still flying/zooming, postpone the heavy visuals-layer
+        // attach (shader compile + texture upload) until the transition settles.
+        if (instance.isMoving() || instance.isZooming()) {
+          scheduleDeferredVisualsLayer(instance);
+          return;
+        }
         if (!instance.getLayer('globe-visuals')) {
-          console.debug('[GlobeVisualsDebug] deferred attach running ensureVisualsLayer');
           ensureVisualsLayer(instance);
         }
       });
@@ -1267,22 +1306,14 @@
 
   const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
     if (forceRebuild && instance.getLayer('globe-visuals')) {
-      console.debug('[GlobeVisualsDebug] removing existing visuals layer for rebuild');
       instance.removeLayer('globe-visuals');
       visualsLayer = null;
     }
 
     const enabledLayerNames = getEnabledVisualLayerNames();
-    if (enabledLayerNames.length === 0) {
-      console.debug('[GlobeVisualsDebug] visuals disabled by settings');
-      return;
-    }
+    if (enabledLayerNames.length === 0) return;
 
     if (!instance.getLayer('globe-visuals')) {
-      console.debug('[GlobeVisualsDebug] creating visuals layer', {
-        enabledLayerNames,
-        styleLoaded: instance.isStyleLoaded()
-      });
       visualsLayer = new GlobeVisualsLayer(VISUAL_TEXTURE_URLS.low, {
         enabledLayers: enabledLayerNames,
         highResolutionTextureSet: VISUAL_TEXTURE_URLS.high,
@@ -1295,11 +1326,9 @@
       syncVisualTextureDetail(instance);
       const beforeId = instance.getLayer(WORLD_FILL_LAYER_ID) ? WORLD_FILL_LAYER_ID : undefined;
       instance.addLayer(visualsLayer, beforeId);
-      console.debug('[GlobeVisualsDebug] visuals layer added', { beforeId: beforeId ?? null });
       return;
     }
 
-    console.debug('[GlobeVisualsDebug] visuals layer already present, syncing settings');
     if (visualsLayer) {
       applyVisualsDevSettings(visualsLayer);
       syncVisualTextureDetail(instance);
@@ -1311,7 +1340,11 @@
       for (const id of [SHOPS_LAYER_ID, SHOPS_ACTIVE_LAYER_ID, SHOPS_PINNED_LAYER_ID]) {
         setLayerVisibility(instance, id, true);
       }
-      setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, mode === 'fullscreen');
+      setLayerVisibility(
+        instance,
+        SHOPS_NAME_LAYER_ID,
+        mode === 'fullscreen' && labelLayersEnabled
+      );
     }
   };
 
@@ -1767,13 +1800,13 @@
 
     setLayerVisibility(instance, PROVINCE_FILL_LAYER_ID, showProvinceLayers);
     setLayerVisibility(instance, PROVINCE_LINE_LAYER_ID, showProvinceLayers);
-    setLayerVisibility(instance, PROVINCE_LABEL_LAYER_ID, showProvinceLayers);
+    setLayerVisibility(instance, PROVINCE_LABEL_LAYER_ID, showProvinceLayers && labelLayersEnabled);
     setLayerVisibility(instance, CITY_FILL_LAYER_ID, showCityLayers);
     setLayerVisibility(instance, CITY_LINE_LAYER_ID, showCityLayers);
-    setLayerVisibility(instance, CITY_LABEL_LAYER_ID, showCityLayers);
+    setLayerVisibility(instance, CITY_LABEL_LAYER_ID, showCityLayers && labelLayersEnabled);
     setLayerVisibility(instance, COUNTY_FILL_LAYER_ID, showCountyLayers);
     setLayerVisibility(instance, COUNTY_LINE_LAYER_ID, showCountyLayers);
-    setLayerVisibility(instance, COUNTY_LABEL_LAYER_ID, showCountyLayers);
+    setLayerVisibility(instance, COUNTY_LABEL_LAYER_ID, showCountyLayers && labelLayersEnabled);
 
     const worldFilter: maplibregl.FilterSpecification | null =
       showProvinceLayers && activeSupportedCountry
@@ -1784,7 +1817,7 @@
     }
     if (instance.getLayer(WORLD_LABEL_LAYER_ID)) {
       instance.setFilter(WORLD_LABEL_LAYER_ID, worldFilter);
-      setLayerVisibility(instance, WORLD_LABEL_LAYER_ID, true);
+      setLayerVisibility(instance, WORLD_LABEL_LAYER_ID, labelLayersEnabled);
     }
     setLayerVisibility(instance, WORLD_FILL_LAYER_ID, true);
     setLayerVisibility(instance, WORLD_LINE_LAYER_ID, true);
@@ -1807,7 +1840,6 @@
       if (instance.getLayer(layerId)) instance.setFilter(layerId, cityFilter);
     }
 
-    setLayerVisibility(instance, SHOPS_NAME_LAYER_ID, true);
     applyFeatureVisibility(instance);
   };
 
@@ -1946,6 +1978,25 @@
     }
   };
 
+  let pendingDrilldownTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleSyncDrilldown = (instance: maplibregl.Map, immediate = false) => {
+    if (pendingDrilldownTimer) {
+      clearTimeout(pendingDrilldownTimer);
+      pendingDrilldownTimer = null;
+    }
+    const run = () => {
+      pendingDrilldownTimer = null;
+      if (!instance.isStyleLoaded()) return;
+      syncDrilldown(instance);
+    };
+    if (immediate) {
+      run();
+      return;
+    }
+    // Debounce: skip rapid moveend bursts during flyTo and let the camera settle.
+    pendingDrilldownTimer = setTimeout(run, 100);
+  };
+
   const loadBaseGeoJson = async () => {
     if (!isGeoJsonEnabled()) {
       geojsonStatus = 'idle';
@@ -1964,11 +2015,7 @@
       provinceData = nextProvinceData;
       cityData = nextCityData;
       geojsonStatus = 'ready';
-      if (map?.isStyleLoaded()) {
-        ensureMapLayers(map, { deferVisuals: true });
-        applyModeLayers(map, mode);
-        if (mode === 'fullscreen') syncDrilldown(map);
-      }
+      if (mode === 'fullscreen' && map?.isStyleLoaded()) scheduleSyncDrilldown(map, true);
     } catch (error) {
       console.error('Failed to load globe GeoJSON:', error);
       geojsonStatus = 'error';
@@ -1976,30 +2023,30 @@
     }
   };
 
-  $effect(() => {
-    const currentMode = mode;
-    const geoJsonEnabled = isGeoJsonEnabled();
-    const hasBaseGeoJson =
-      worldData.features.length > 0 &&
-      provinceData.features.length > 0 &&
-      cityData.features.length > 0;
+  // loadBaseGeoJson is triggered from the mode transition effect
+  // to avoid an extra reactive dependency on `mode`.
 
-    if (!geoJsonEnabled) {
-      geojsonStatus = 'idle';
-      geojsonError = null;
-      return;
-    }
-
-    if (currentMode !== 'fullscreen' || hasBaseGeoJson || geojsonStatus !== 'idle') return;
-    void loadBaseGeoJson();
-  });
+  let prevMapForSetup: maplibregl.Map | null = null;
+  let deferredModeLayersRaf: number | null = null;
 
   $effect(() => {
     const instance = map;
     if (!instance?.isStyleLoaded()) return;
-    syncScene(instance);
-    ensureMapLayers(instance, { deferVisuals: true });
-    applyModeLayers(instance, mode);
+    if (instance !== prevMapForSetup) {
+      prevMapForSetup = instance;
+      syncScene(instance);
+      ensureMapLayers(instance, { deferVisuals: true });
+      untrack(() => applyModeLayers(instance, mode));
+      return;
+    }
+    const currentMode = untrack(() => mode);
+    if (deferredModeLayersRaf !== null) cancelAnimationFrame(deferredModeLayersRaf);
+    deferredModeLayersRaf = requestAnimationFrame(() => {
+      deferredModeLayersRaf = null;
+      if (map && map.isStyleLoaded()) {
+        applyModeLayers(map, currentMode);
+      }
+    });
   });
 
   $effect(() => {
@@ -2030,59 +2077,148 @@
   $effect(() => {
     const instance = map;
     if (!instance) return;
-    visualsLayer?.setTextureDetail(instance.getZoom(), mode === 'fullscreen');
+    // untrack mode so this effect doesn't re-run on mode changes;
+    // setTextureDetail is also called on map move/zoom via syncVisualTextureDetail.
+    untrack(() => visualsLayer?.setTextureDetail(instance.getZoom(), mode === 'fullscreen'));
   });
 
-  // ---- Mode transition effect ----
+  // ---- Mode transition ----
+  // Poll for mode changes via setTimeout instead of $effect to avoid
+  // triggering Svelte's expensive synchronous flush cycle when `mode` changes.
+  // The poll reads `mode` with `untrack()` so it creates zero reactive deps.
   let prevMode: 'landing' | 'fullscreen' | null = null;
-  $effect(() => {
-    const currentMode = mode;
-    const instance = map;
-    if (!instance) return;
-    if (prevMode === currentMode) return;
-    const wasLanding = prevMode === 'landing';
-    const wasFullscreen = prevMode === 'fullscreen';
-    prevMode = currentMode;
+  let modeTransitionRaf: number | null = null;
+  let modePollTimer: ReturnType<typeof setTimeout> | null = null;
 
-    if (currentMode === 'fullscreen') {
-      stopAutoRotation();
-      flyToWithAnticipatedBasemap(
-        instance,
-        {
-          center: [155, 45],
-          zoom: 2,
-          pitch: 0,
-          bearing: 0,
-          duration: 2000,
-          essential: true
-        },
-        false
-      );
-      if (instance.isStyleLoaded()) applyModeLayers(instance, 'fullscreen');
-    } else if (currentMode === 'landing') {
-      if (wasFullscreen) {
-        pinnedShop = null;
-        markerHoveredShop = null;
-        regionFilter = { type: 'world' };
-        sidebarOpen = false;
-        sidebarCollapsed = false;
+  const pollMode = () => {
+    const currentMode = untrack(() => mode);
+    if (prevMode !== null && prevMode !== currentMode) {
+      const wasFullscreen = prevMode === 'fullscreen';
+      prevMode = currentMode;
+      const instance = untrack(() => map);
+
+      if (instance) {
+        // All MapLibre work deferred to RAF — zero blocking during Svelte flush
+        if (modeTransitionRaf !== null) cancelAnimationFrame(modeTransitionRaf);
+        modeTransitionRaf = requestAnimationFrame(() => {
+          modeTransitionRaf = null;
+
+          if (currentMode === 'fullscreen') {
+            if (visualModeTimer) clearTimeout(visualModeTimer);
+            const root = document.getElementById('globe-root');
+            const mapEl = document.getElementById('globe-map-container');
+
+            // ── Phase 1: Immediate ──
+            // Fade out gradient blur and landing hero content right away.
+            root?.classList.add('globe-exiting-landing');
+            document.documentElement.classList.add('globe-exiting-landing');
+
+            // ── Phase 2: After delay ──
+            // Show sidebar and switch to fullscreen visual mode.
+            const SIDEBAR_SHOW_DELAY_MS = 1000;
+            visualModeTimer = setTimeout(() => {
+              root?.classList.remove('globe-exiting-landing');
+              root?.classList.replace('globe-visual-landing', 'globe-visual-fullscreen');
+              mapEl?.classList.remove('cursor-pointer', 'landing-mode');
+              document.documentElement.classList.remove('globe-exiting-landing');
+            }, SIDEBAR_SHOW_DELAY_MS);
+
+            sidebarReady = false;
+            setTimeout(() => {
+              sidebarReady = true;
+            }, SIDEBAR_SHOW_DELAY_MS);
+            labelLayersEnabled = false;
+            if (isGeoJsonEnabled() && geojsonStatus === 'idle') {
+              const hasBaseGeoJson =
+                worldData.features.length > 0 &&
+                provinceData.features.length > 0 &&
+                cityData.features.length > 0;
+              if (!hasBaseGeoJson) void loadBaseGeoJson();
+            }
+            stopAutoRotation();
+            flyToWithAnticipatedBasemap(
+              instance,
+              // FLYTO DURATION (ms) — should match or slightly exceed SIDEBAR_SHOW_DELAY_MS
+              { center: [155, 45], zoom: 2, pitch: 0, bearing: 0, duration: 2000, essential: true },
+              false
+            );
+          } else if (currentMode === 'landing') {
+            if (visualModeTimer) clearTimeout(visualModeTimer);
+            const root = document.getElementById('globe-root');
+            const mapEl = document.getElementById('globe-map-container');
+            sidebarReady = false;
+
+            // ── Phase 1: Immediate ──
+            // Start fading out sidebar immediately.
+            root?.classList.add('globe-exiting-fullscreen');
+
+            // ── Phase 2: After delay ──
+            // Switch to landing visual mode (sidebar hidden, gradient visible).
+            // Synced with hero content in:fade (top bar at 300ms, hero at 400ms).
+            // Gradient has 0.4s CSS transition → finishes ~600ms, just as hero appears.
+            const LANDING_TRANSITION_DELAY_MS = wasFullscreen ? 200 : 0;
+            visualModeTimer = setTimeout(() => {
+              root?.classList.remove('globe-exiting-fullscreen');
+              root?.classList.replace('globe-visual-fullscreen', 'globe-visual-landing');
+              mapEl?.classList.add('cursor-pointer', 'landing-mode');
+              if (pinnedShop !== null) pinnedShop = null;
+              if (markerHoveredShop !== null) markerHoveredShop = null;
+              if (regionFilter.type !== 'world') regionFilter = { type: 'world' };
+              if (sidebarOpen) sidebarOpen = false;
+              sidebarCollapsed = false;
+            }, LANDING_TRANSITION_DELAY_MS);
+            labelLayersEnabled = false;
+            flyToWithAnticipatedBasemap(
+              instance,
+              // FLYTO DURATION (ms) for fullscreen→landing
+              {
+                center: [LANDING_LONGITUDE, LANDING_LATITUDE],
+                zoom: LANDING_ZOOM,
+                pitch: LANDING_PITCH,
+                bearing: LANDING_BEARING,
+                duration: wasFullscreen ? 1800 : 0,
+                essential: true
+              },
+              false
+            );
+            setTimeout(() => startAutoRotation(), wasFullscreen ? 1900 : 100);
+          }
+        });
       }
-      flyToWithAnticipatedBasemap(
-        instance,
-        {
-          center: [LANDING_LONGITUDE, LANDING_LATITUDE],
-          zoom: LANDING_ZOOM,
-          pitch: LANDING_PITCH,
-          bearing: LANDING_BEARING,
-          duration: wasFullscreen ? 1800 : 0,
-          essential: true
-        },
-        false
-      );
-      if (instance.isStyleLoaded()) applyModeLayers(instance, 'landing');
-      setTimeout(() => startAutoRotation(), wasFullscreen ? 1800 : 100);
     }
-    void wasLanding;
+    prevMode = untrack(() => mode);
+    modePollTimer = setTimeout(pollMode, 100);
+  };
+
+  // Start polling in onMount (no reactive deps on mode)
+  onMount(() => {
+    prevMode = mode;
+    // Don't set prevShopData here — let the poll detect the initial value
+    // and trigger the first data load.
+    // Apply correct visual mode immediately on mount
+    const root = document.getElementById('globe-root');
+    const mapEl = document.getElementById('globe-map-container');
+    if (mode === 'fullscreen') {
+      root?.classList.replace('globe-visual-landing', 'globe-visual-fullscreen');
+      mapEl?.classList.remove('cursor-pointer', 'landing-mode');
+      sidebarReady = true;
+      labelLayersEnabled = true;
+    }
+    modePollTimer = setTimeout(pollMode, 100);
+    return () => {
+      if (modePollTimer !== null) {
+        clearTimeout(modePollTimer);
+        modePollTimer = null;
+      }
+      if (modeTransitionRaf !== null) {
+        cancelAnimationFrame(modeTransitionRaf);
+        modeTransitionRaf = null;
+      }
+      if (visualModeTimer !== null) {
+        clearTimeout(visualModeTimer);
+        visualModeTimer = null;
+      }
+    };
   });
 
   // ---- Region filter helpers ----
@@ -2149,6 +2285,15 @@
     untrack(() => reinitializeGlobe?.());
   });
 
+  $effect(() => {
+    void globeVisualSettingsKey;
+    untrack(() => {
+      if (visualsLayer) {
+        applyVisualsDevSettings(visualsLayer);
+      }
+    });
+  });
+
   onMount(() => {
     if (!mapContainer) return;
 
@@ -2163,6 +2308,19 @@
     }
     let cleanupMap: (() => void) | undefined;
     let destroyed = false;
+
+    // Dev-only FPS monitor and benchmark controls.
+    let fpsInterval: number | undefined;
+    if (import.meta.env.DEV) {
+      const monitor = new FpsMonitor();
+      fpsMonitor = monitor;
+      monitor.start();
+      fpsInterval = window.setInterval(() => {
+        if (destroyed) return;
+        currentFps = monitor.getCurrentFps();
+        avgFps = monitor.getAverageFps();
+      }, 500);
+    }
 
     type CameraSnapshot = {
       center: maplibregl.LngLat;
@@ -2194,7 +2352,8 @@
           (mode === 'landing' ? [LANDING_LONGITUDE, LANDING_LATITUDE] : [155, 45]),
         zoom: cameraSnapshot?.zoom ?? (mode === 'landing' ? LANDING_ZOOM : 2),
         pitch: cameraSnapshot?.pitch ?? (mode === 'landing' ? LANDING_PITCH : 0),
-        bearing: cameraSnapshot?.bearing ?? (mode === 'landing' ? LANDING_BEARING : 0)
+        bearing: cameraSnapshot?.bearing ?? (mode === 'landing' ? LANDING_BEARING : 0),
+        pixelRatio: getGlobePixelRatio()
       });
       map = instance;
 
@@ -2205,7 +2364,6 @@
         sourceDataRevisions.clear();
         rasterSourceTileRevisions.clear();
         visualsLayer = null;
-        console.debug('[GlobeVisualsDebug] style.load sync start');
         syncScene(instance);
         ensureMapLayers(instance, { deferVisuals: true });
         applyModeLayers(instance, mode);
@@ -2241,17 +2399,18 @@
         }
 
         // If deferred scheduling was skipped or canceled, force one retry.
+        // Wait until the route transition is very likely over before paying the
+        // shader-compile / texture-upload cost of the visuals layer.
         window.setTimeout(() => {
           if (destroyed || map !== instance) return;
           if (!instance.getLayer('globe-visuals')) {
-            console.debug('[GlobeVisualsDebug] warn: fallback timeout forcing visuals attach');
             if (instance.isStyleLoaded()) {
               ensureVisualsLayer(instance);
             } else {
               scheduleDeferredVisualsLayer(instance);
             }
           }
-        }, 700);
+        }, 2500);
       };
 
       void resolveBasemapTileUrls().then(({ globalTileUrls, overseasTileUrls }) => {
@@ -2268,7 +2427,10 @@
       const handleMoveEnd = () => {
         anticipatedBasemapTarget = null;
         if (mode === 'fullscreen') {
-          syncDrilldown(instance);
+          // Reveal labels only once the camera has settled so glyph loading
+          // does not contend with the transition animation.
+          labelLayersEnabled = true;
+          scheduleSyncDrilldown(instance);
           syncVisualTextureDetail(instance);
           return;
         }
@@ -2280,13 +2442,16 @@
         syncVisualTextureDetail(instance);
       };
 
-      const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
-        if (mode !== 'fullscreen') return;
-        if (shopLocationPickMode) {
-          instance.getCanvas().style.cursor = 'crosshair';
-          return;
-        }
-        const feature = getTopFeatureAtPoint(instance, event.point);
+      // Throttle hover lookups to one per animation frame so rapid mouse/touch
+      // movements do not flood MapLibre with queryRenderedFeatures calls.
+      let pendingHoverRaf: number | null = null;
+      let lastHoverPoint: maplibregl.PointLike | null = null;
+
+      const flushHover = () => {
+        pendingHoverRaf = null;
+        const point = lastHoverPoint;
+        if (!point) return;
+        const feature = getTopFeatureAtPoint(instance, point);
         const newId = feature?.properties?.featureId ?? null;
         if (newId === hoveredFeatureId) return;
         hoveredFeatureId = newId;
@@ -2295,8 +2460,25 @@
         instance.getCanvas().style.cursor = feature ? 'pointer' : '';
       };
 
+      const handlePointerMove = (event: maplibregl.MapMouseEvent) => {
+        if (mode !== 'fullscreen') return;
+        if (shopLocationPickMode) {
+          instance.getCanvas().style.cursor = 'crosshair';
+          return;
+        }
+        lastHoverPoint = event.point;
+        if (pendingHoverRaf === null) {
+          pendingHoverRaf = requestAnimationFrame(flushHover);
+        }
+      };
+
       const handleMouseOut = () => {
         if (mode !== 'fullscreen') return;
+        if (pendingHoverRaf !== null) {
+          cancelAnimationFrame(pendingHoverRaf);
+          pendingHoverRaf = null;
+        }
+        lastHoverPoint = null;
         if (!hoveredFeatureId) return;
         hoveredFeatureId = null;
         hoveredFeature = null;
@@ -2523,6 +2705,10 @@
       const dispose = () => {
         stopAutoRotation();
         cancelDeferredVisualsLayer();
+        if (pendingDrilldownTimer) {
+          clearTimeout(pendingDrilldownTimer);
+          pendingDrilldownTimer = null;
+        }
         instance.off('style.load', syncStyle);
         instance.off('moveend', handleMoveEnd);
         instance.off('zoom', handleZoom);
@@ -2582,6 +2768,45 @@
       void initializeMap(cameraSnapshot);
     };
 
+    startBenchmark = () => {
+      const instance = map;
+      const monitor = fpsMonitor;
+      if (!instance || !monitor || benchmarkRunning) return;
+
+      benchmarkRunning = true;
+      benchmarkProgress = 0;
+      benchmarkResult = null;
+      benchmarkAbortController = new AbortController();
+      stopAutoRotation();
+
+      void runGlobeBenchmark(instance, {
+        fpsMonitor: monitor,
+        onProgress: (progress) => {
+          benchmarkProgress = progress;
+        },
+        signal: benchmarkAbortController.signal
+      })
+        .then((result) => {
+          benchmarkResult = result;
+        })
+        .catch((error: unknown) => {
+          console.error('[GlobeBenchmark] failed', error);
+        })
+        .finally(() => {
+          benchmarkRunning = false;
+          benchmarkAbortController = null;
+          if (!destroyed && fpsMonitor) {
+            currentFps = fpsMonitor.getCurrentFps();
+            avgFps = fpsMonitor.getAverageFps();
+          }
+        });
+    };
+
+    stopBenchmark = () => {
+      benchmarkAbortController?.abort();
+      benchmarkAbortController = null;
+    };
+
     reinitializeGlobe();
 
     const refreshInterval = setInterval(() => {
@@ -2599,6 +2824,16 @@
     return () => {
       destroyed = true;
       reinitializeGlobe = null;
+      startBenchmark = null;
+      stopBenchmark?.();
+      stopBenchmark = null;
+      fpsMonitor?.stop();
+      fpsMonitor = null;
+      clearInterval(fpsInterval);
+      if (deferredModeLayersRaf !== null) {
+        cancelAnimationFrame(deferredModeLayersRaf);
+        deferredModeLayersRaf = null;
+      }
       cancelDeferredVisualsLayer();
       cleanupMap?.();
       clearInterval(refreshInterval);
@@ -2610,54 +2845,45 @@
      Fixed globe container – always behind page content
      ================================================================ -->
 <div
-  class="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-  transition:fade={{ delay: 300, duration: 300 }}
+  id="globe-root"
+  class="globe-visual-landing pointer-events-none fixed inset-0 z-0 overflow-hidden"
 >
   <!-- Map canvas fills entire area -->
   <div
+    id="globe-map-container"
     bind:this={mapContainer}
-    class="pointer-events-auto h-full w-full"
-    class:cursor-pointer={mode === 'landing'}
-    class:landing-mode={mode === 'landing'}
+    class="landing-mode pointer-events-auto h-full w-full cursor-pointer"
   ></div>
 
-  <!-- ---- Bottom gradient blur (landing mode only) ---- -->
-  {#if mode === 'landing'}
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]" transition:fade>
-      {#each bottomBlurLayers as layer, index (index)}
-        <div
-          class="absolute inset-0"
-          style="backdrop-filter: blur({layer.blur}px);
-                 mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
-            .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
-            .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);
-                 -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
-            .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
-            .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
-        ></div>
-      {/each}
-      <!-- Solid bg-base-100 floor occupying the bottom 30 vh -->
-      <div class="bg-base-100 absolute inset-x-0 bottom-0 h-[30vh]"></div>
-      <!-- Gradient fade from bg-base-100 (bottom) to transparent (top) for the next 40 vh -->
-      <div
-        class="from-base-100 absolute inset-x-0 bottom-[30vh] h-[40vh] bg-linear-to-t to-transparent"
-      ></div>
-    </div>
-  {/if}
+  <!-- ---- Bottom gradient (landing mode only) ---- -->
+  <div
+    id="globe-bottom-gradient"
+    class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]"
+  >
+    <!-- Solid bg-base-100 floor occupying the bottom 30 vh -->
+    <div class="bg-base-100 absolute inset-x-0 bottom-0 h-[30vh]"></div>
+    <!-- Gradient fade from bg-base-100 (bottom) to transparent (top) for the next 40 vh -->
+    <div
+      class="from-base-100 absolute inset-x-0 bottom-[30vh] h-[40vh] bg-linear-to-t to-transparent"
+    ></div>
+  </div>
 
   <!-- ================================================================
        Sidebar (fullscreen mode only)
+       Always rendered to avoid DOM teardown/recreation during transitions.
+       Hidden via CSS when not in fullscreen mode.
        ================================================================ -->
-  {#if mode === 'fullscreen'}
+  {#if mode === 'fullscreen' && sidebarEnabled && sidebarReady}
     <aside
+      id="globe-sidebar"
       transition:slide
-      class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
+      class="bg-base-200/90 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
              not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
              md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
              {sidebarCollapsed ? 'md:h-[52px] md:w-[52px]' : ''}
              {sidebarOpen ? 'not-md:translate-y-0' : 'not-md:translate-y-full'}"
-      style={getSidebarCssVars()}
+      style="{getSidebarCssVars()}; contain: strict"
     >
       <!-- Mobile drag handle -->
       <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
@@ -2715,51 +2941,65 @@
                 class="btn btn-soft hover:btn-accent"
                 class:btn-primary={selectedTitleIds.length > 0}
                 aria-label={m.filter_by_game_titles()}
+                onmouseenter={() => {
+                  filterDropdownOpen = true;
+                }}
+                onmouseleave={() => {
+                  filterDropdownOpen = false;
+                }}
               >
                 <i class="fa-solid fa-filter"></i>
                 {#if selectedTitleIds.length > 0}
                   <span class="badge badge-xs">{selectedTitleIds.length}</span>
                 {/if}
               </button>
-              <div
-                role="menu"
-                tabindex="-1"
-                class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
-              >
-                <div class="card-body p-4">
-                  <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
-                  <div class="space-y-2">
-                    {#each GAME_TITLES as game (game.id)}
-                      <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                        <input
-                          type="checkbox"
-                          class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                          checked={selectedTitleIds.includes(game.id)}
-                          onchange={() => {
-                            selectedTitleIds = selectedTitleIds.includes(game.id)
-                              ? selectedTitleIds.filter((id) => id !== game.id)
-                              : [...selectedTitleIds, game.id];
-                          }}
-                        />
-                        <span class="text-sm">{getGameName(game.key)}</span>
-                      </label>
-                    {/each}
-                  </div>
-                  <div class="card-actions mt-2 justify-end">
-                    <button
-                      type="button"
-                      class="btn btn-soft hover:btn-error btn-xs"
-                      onclick={() => {
-                        selectedTitleIds = [];
-                      }}
-                      disabled={selectedTitleIds.length === 0}
-                    >
-                      <i class="fa-solid fa-trash"></i>
-                      {m.clear_filters()}
-                    </button>
+              {#if filterDropdownOpen}
+                <div
+                  role="menu"
+                  tabindex="-1"
+                  class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
+                  onmouseenter={() => {
+                    filterDropdownOpen = true;
+                  }}
+                  onmouseleave={() => {
+                    filterDropdownOpen = false;
+                  }}
+                >
+                  <div class="card-body p-4">
+                    <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
+                    <div class="space-y-2">
+                      {#each GAME_TITLES as game (game.id)}
+                        <label class="flex cursor-pointer items-center gap-2 text-nowrap">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                            checked={selectedTitleIds.includes(game.id)}
+                            onchange={() => {
+                              selectedTitleIds = selectedTitleIds.includes(game.id)
+                                ? selectedTitleIds.filter((id) => id !== game.id)
+                                : [...selectedTitleIds, game.id];
+                            }}
+                          />
+                          <span class="text-sm">{getGameName(game.key)}</span>
+                        </label>
+                      {/each}
+                    </div>
+                    <div class="card-actions mt-2 justify-end">
+                      <button
+                        type="button"
+                        class="btn btn-soft hover:btn-error btn-xs"
+                        onclick={() => {
+                          selectedTitleIds = [];
+                        }}
+                        disabled={selectedTitleIds.length === 0}
+                      >
+                        <i class="fa-solid fa-trash"></i>
+                        {m.clear_filters()}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              {/if}
             </div>
 
             <div class="relative flex-1">
@@ -2808,29 +3048,35 @@
           {:else if filteredShops !== null && filteredShops.length === 0}
             <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
           {:else if filteredShops !== null}
-            {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
-              {@const cardKey = `${shop.id}`}
-              {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
-              <div
-                bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
-                class="rounded-xl transition-all {isPinned
-                  ? '[&>*:first-child]:not-hover:border-accent/60'
-                  : ''}"
-              >
-                <ShopCard
-                  {shop}
-                  interactive
-                  mobileButtons
-                  onclick={() => {
-                    const entry = shopLookup.get(getShopKey(shop));
-                    if (entry) pinShop(entry);
-                  }}
-                />
-              </div>
-            {/each}
-            {#if filteredShops.length > visibleCount}
-              <div bind:this={listSentinelEl} class="flex justify-center py-4">
-                <span class="loading loading-spinner loading-sm"></span>
+            {#if sidebarReady}
+              {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
+                {@const cardKey = `${shop.id}`}
+                {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
+                <div
+                  bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
+                  class="rounded-xl transition-all {isPinned
+                    ? '[&>*:first-child]:not-hover:border-accent/60'
+                    : ''}"
+                >
+                  <ShopCard
+                    {shop}
+                    interactive
+                    mobileButtons
+                    onclick={() => {
+                      const entry = shopLookup.get(getShopKey(shop));
+                      if (entry) pinShop(entry);
+                    }}
+                  />
+                </div>
+              {/each}
+              {#if filteredShops.length > visibleCount}
+                <div bind:this={listSentinelEl} class="flex justify-center py-4">
+                  <span class="loading loading-spinner loading-sm"></span>
+                </div>
+              {/if}
+            {:else}
+              <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-md"></span>
               </div>
             {/if}
           {/if}
@@ -2855,9 +3101,9 @@
 
     <!-- Mobile sidebar toggle -->
     <button
-      transition:fade
+      id="globe-mobile-toggle"
       type="button"
-      class="bg-base-200/80 border-base-300 hover:border-success pointer-events-auto absolute bottom-4 left-4 z-10 flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm transition md:hidden"
+      class="bg-base-200/90 border-base-300 hover:border-success pointer-events-auto absolute bottom-4 left-4 z-10 flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 shadow-lg transition md:hidden"
       aria-label={regionTitle}
       onclick={() => (sidebarOpen = !sidebarOpen)}
     >
@@ -2871,7 +3117,7 @@
     <!-- Mobile sidebar backdrop -->
     {#if sidebarOpen}
       <div
-        transition:fade
+        id="globe-mobile-backdrop"
         role="presentation"
         class="pointer-events-auto absolute inset-0 z-15 bg-black/40 md:hidden"
         onclick={() => (sidebarOpen = false)}
@@ -2880,7 +3126,10 @@
 
     <!-- Desktop: pinned shop interactive card at bottom-right -->
     {#if pinnedShop && !isCompactViewport}
-      <div class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl">
+      <div
+        id="globe-pinned-card"
+        class="pointer-events-auto absolute right-4 bottom-4 z-10 max-w-110 shadow-xl"
+      >
         <div class="relative">
           <button
             type="button"
@@ -2899,7 +3148,7 @@
     {/if}
   {/if}
 
-  {#if markerHoveredShop && !isCoarsePointer && (mode === 'landing' || !pinnedShop)}
+  {#if markerHoveredShop && !isCoarsePointer}
     <div
       class="pointer-events-none fixed z-50 w-80"
       style="left: {cursorPos.x + 15}px; top: {cursorPos.y + 15}px;"
@@ -2912,11 +3161,11 @@
        Shop location pick mode overlay
        ================================================================ -->
   {#if shopLocationPickMode}
-    <div class="pointer-events-none absolute inset-0 z-30" transition:fade={{ duration: 150 }}>
+    <div class="pointer-events-none absolute inset-0 z-30">
       <!-- Instruction banner at the top -->
       <div
-        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
-               px-3 py-2 shadow-lg backdrop-blur-sm"
+        class="bg-base-100 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg"
       >
         <i class="fa-solid fa-crosshairs text-success text-lg"></i>
         <p class="text-sm font-medium">{m.shop_pick_location_hint()}</p>
@@ -2924,8 +3173,8 @@
 
       <!-- Confirm / cancel bar at the bottom -->
       <div
-        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 bottom-12 mx-auto flex w-fit items-center gap-3 rounded-xl border
-               px-3 py-2 shadow-lg backdrop-blur-sm"
+        class="bg-base-100 border-base-300 pointer-events-auto absolute inset-x-0 bottom-12 mx-auto flex w-fit items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg"
       >
         {#if pendingShopCoords}
           <span class="font-mono text-xs opacity-60">
@@ -2953,8 +3202,8 @@
        ================================================================ -->
   {#if import.meta.env.DEV}
     <div
-      class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded-md p-3 text-sm shadow-lg backdrop-blur-sm
-             {mode === 'fullscreen' ? 'top-16 right-12' : 'left-3'}"
+      id="globe-dev-panel"
+      class="bg-base-200/90 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded-md p-3 text-sm shadow-lg"
     >
       <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
       <div class="flex flex-col gap-1 px-2">
@@ -3115,6 +3364,73 @@
             }}
           />
         </label>
+        <label class="flex cursor-pointer items-center justify-between gap-3 text-xs">
+          <span class="flex flex-col gap-0">
+            <span class="font-medium">Sidebar</span>
+            <span class="opacity-50">Shop list panel (disable to test transition perf)</span>
+          </span>
+          <input
+            type="checkbox"
+            class="checkbox checkbox-xs checked:checkbox-primary hover:checkbox-accent border-2 transition-colors"
+            checked={sidebarEnabled}
+            onchange={(e) => {
+              sidebarEnabled = (e.target as HTMLInputElement).checked;
+            }}
+          />
+        </label>
+      </div>
+
+      <!-- Performance section -->
+      <div class="border-base-content/15 flex flex-col gap-2 border-t px-2 pt-2 text-xs">
+        <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Performance</p>
+        <div class="grid grid-cols-2 gap-1 font-mono">
+          <div class="opacity-70">FPS</div>
+          <div class="text-right">{currentFps.toFixed(1)}</div>
+          <div class="opacity-70">Avg FPS</div>
+          <div class="text-right">{avgFps.toFixed(1)}</div>
+        </div>
+
+        <button
+          class="btn btn-xs {benchmarkRunning ? 'btn-error' : 'btn-primary'}"
+          disabled={!fpsMonitor}
+          onclick={() => (benchmarkRunning ? stopBenchmark?.() : startBenchmark?.())}
+        >
+          {#if benchmarkRunning}
+            <i class="fa-solid fa-stop"></i> Stop benchmark
+          {:else}
+            <i class="fa-solid fa-play"></i> Run benchmark
+          {/if}
+        </button>
+
+        {#if benchmarkRunning}
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between opacity-70">
+              <span>Running…</span>
+              <span>{(benchmarkProgress * 100).toFixed(0)}%</span>
+            </div>
+            <progress class="progress progress-primary w-full" value={benchmarkProgress} max="1"
+            ></progress>
+          </div>
+        {/if}
+
+        {#if benchmarkResult}
+          <div class="bg-base-100/50 grid grid-cols-2 gap-1 rounded p-2 font-mono">
+            <div class="opacity-70">Duration</div>
+            <div class="text-right">{(benchmarkResult.durationMs / 1000).toFixed(1)}s</div>
+            <div class="opacity-70">Frames</div>
+            <div class="text-right">{benchmarkResult.frameCount}</div>
+            <div class="opacity-70">Avg FPS</div>
+            <div class="text-right">{benchmarkResult.avgFps.toFixed(1)}</div>
+            <div class="opacity-70">Min FPS</div>
+            <div class="text-right">{benchmarkResult.minFps.toFixed(1)}</div>
+            <div class="opacity-70">1% low</div>
+            <div class="text-right">{benchmarkResult.p1LowFps.toFixed(1)}</div>
+            <div class="opacity-70">Dropped</div>
+            <div class="text-right">{benchmarkResult.droppedFrames}</div>
+            <div class="opacity-70">Stutters</div>
+            <div class="text-right">{benchmarkResult.stutters}</div>
+          </div>
+        {/if}
       </div>
 
       <div class="border-base-content/15 flex flex-col gap-1 border-t pt-2 text-xs">
@@ -3147,5 +3463,68 @@
   :global(.landing-mode .maplibregl-ctrl-top-right) {
     opacity: 0;
     pointer-events: none;
+  }
+
+  /* ── Transition phases ──
+     Phase 1 (globe-exiting-landing): Fade out gradient + hero content immediately.
+     Phase 2 (globe-visual-fullscreen): Show sidebar after delay.
+     Phase 1 (globe-exiting-fullscreen): Fade out sidebar immediately.
+     Phase 2 (globe-visual-landing): Show gradient + hero after delay. */
+
+  /* Sidebar + pinned card + mobile toggle */
+  /* Sidebar uses Svelte's transition:slide — no CSS transition needed. */
+  :global(#globe-mobile-toggle),
+  :global(#globe-mobile-backdrop),
+  :global(#globe-pinned-card) {
+    transition: opacity 0.3s ease;
+  }
+  :global(.globe-visual-landing #globe-mobile-toggle),
+  :global(.globe-visual-landing #globe-mobile-backdrop),
+  :global(.globe-visual-landing #globe-pinned-card) {
+    opacity: 0;
+    pointer-events: none;
+  }
+  :global(.globe-exiting-fullscreen #globe-mobile-toggle),
+  :global(.globe-exiting-fullscreen #globe-mobile-backdrop),
+  :global(.globe-exiting-fullscreen #globe-pinned-card) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Bottom gradient — fades out when exiting landing */
+  :global(#globe-bottom-gradient) {
+    transition: opacity 0.4s ease;
+  }
+  :global(.globe-visual-landing #globe-bottom-gradient) {
+    opacity: 1;
+  }
+  :global(.globe-visual-fullscreen #globe-bottom-gradient) {
+    opacity: 0;
+  }
+  :global(.globe-exiting-landing #globe-bottom-gradient) {
+    opacity: 0;
+  }
+
+  /* Dev panel position */
+  :global(.globe-visual-landing #globe-dev-panel) {
+    left: 0.75rem;
+  }
+  :global(.globe-visual-fullscreen #globe-dev-panel) {
+    top: 4rem;
+    right: 3rem;
+    left: auto;
+  }
+  :global(.globe-visual-fullscreen #globe-map-container) {
+    cursor: default;
+  }
+
+  /* Navbar + footer fade out when navigating globe → landing */
+  :global(.globe-navbar-wrap),
+  :global(.globe-footer-wrap) {
+    transition: opacity 0.3s ease;
+  }
+  :global(html.globe-exiting-to-landing .globe-navbar-wrap),
+  :global(html.globe-exiting-to-landing .globe-footer-wrap) {
+    opacity: 0;
   }
 </style>

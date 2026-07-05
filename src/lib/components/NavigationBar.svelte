@@ -1,7 +1,6 @@
 <script lang="ts">
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
-  import FancyButton from '$lib/components/FancyButton.svelte';
   import { m } from '$lib/paraglide/messages';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
@@ -9,23 +8,6 @@
   import AuthModal from '$lib/components/AuthModal.svelte';
   import { beforeNavigate } from '$app/navigation';
   import { page } from '$app/state';
-
-  // Gradient blur configuration with exponential blur values
-  // Each layer uses CSS mask to create smooth transitions and avoid edge artifacts
-  const maxRadius = 64;
-  const iterations = 16;
-  const blurLayers = Array.from({ length: iterations }, (_, i) => ({
-    blur: maxRadius / (4 * maxRadius) ** (i / (iterations - 1)),
-    maskStops: [
-      Math.max(0, ((i - 2) * 100) / iterations),
-      Math.max(0, ((i - 1) * 100) / iterations),
-      (i * 100) / iterations,
-      ((i + 1) * 100) / iterations
-    ]
-    // ... or reverse for the liquid glass effect
-    // .toReversed()
-    // .map((stop) => 100 - stop)
-  }));
 
   let { showCapsularBackground = false } = $props();
 
@@ -70,24 +52,14 @@
     ? 'px-3'
     : 'px-6'} {isAtTop ? 'to-transparent' : 'to-base-100/50'}"
 >
-  <div class="pointer-events-none absolute inset-0 z-0">
-    {#each blurLayers as layer, index (index)}
-      <div
-        class="absolute inset-0"
-        style="backdrop-filter: blur({layer.blur}px); mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
-          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
-          .maskStops[2]}%, rgba(0,0,0,0) {layer
-          .maskStops[3]}%); -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
-          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
-          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
-      ></div>
-    {/each}
-  </div>
+  <div
+    class="from-base-100/60 pointer-events-none absolute inset-0 z-0 bg-linear-to-b to-transparent"
+  ></div>
 
   <div class="relative z-10 flex-1">
     <div
       class="absolute top-1/2 left-0 z-0 -translate-y-1/2 {showCapsularBackground
-        ? 'bg-base-100/50 rounded-full px-3 backdrop-blur-lg'
+        ? 'bg-base-100/70 rounded-full px-3'
         : ''}"
     >
       <SiteTitle class="xs:text-2xl ss:text-3xl text-lg md:text-4xl" />
@@ -95,44 +67,44 @@
   </div>
   <div
     class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2 {showCapsularBackground
-      ? 'bg-base-100/50 rounded-full px-3 backdrop-blur-lg'
+      ? 'bg-base-100/70 rounded-full px-3'
       : ''}"
   >
     <LocaleSwitch class="text-shadow-lg" btnCls="text-shadow-lg" />
     {#if page.url.pathname !== resolve('/globe')}
-      <FancyButton
+      <a
         href={resolve('/globe')}
-        class="fa-solid fa-globe fa-lg text-shadow-lg"
-        btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
-        text={m.globe()}
-        stayExpandedOnWideScreens
-      />
+        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2 text-shadow-lg"
+      >
+        <i class="fa-solid fa-globe fa-lg"></i>
+        <span class="hidden lg:inline">{m.globe()}</span>
+      </a>
     {/if}
     {#if page.url.pathname !== resolve('/(main)/rankings')}
-      <FancyButton
+      <a
         href={resolve('/(main)/rankings')}
-        class="fa-solid fa-trophy fa-lg text-shadow-lg"
-        btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
-        text={m.campus_rankings()}
-        stayExpandedOnWideScreens
-      />
+        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2 text-shadow-lg"
+      >
+        <i class="fa-solid fa-trophy fa-lg"></i>
+        <span class="hidden lg:inline">{m.campus_rankings()}</span>
+      </a>
     {/if}
     {#if page.url.pathname !== resolve('/(main)/shops')}
-      <FancyButton
+      <a
         href={resolve('/(main)/shops')}
-        class="fa-solid fa-gamepad fa-lg text-shadow-lg"
-        btnCls="btn-ghost btn-sm lg:btn-md text-shadow-lg"
-        text={m.browse_shops()}
-        stayExpandedOnWideScreens
-      />
+        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2 text-shadow-lg"
+      >
+        <i class="fa-solid fa-gamepad fa-lg"></i>
+        <span class="hidden lg:inline">{m.browse_shops()}</span>
+      </a>
     {/if}
-    <FancyButton
+    <a
       href={resolve('/')}
-      class="fa-solid fa-home fa-lg text-shadow-lg"
-      btnCls="btn-ghost btn-sm lg:btn-md not-sm:hidden text-shadow-lg"
-      text={m.home()}
-      stayExpandedOnWideScreens
-    />
+      class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2 text-shadow-lg not-sm:hidden"
+    >
+      <i class="fa-solid fa-home fa-lg"></i>
+      <span class="hidden lg:inline">{m.home()}</span>
+    </a>
     <AuthModal
       size="lg"
       class="text-shadow-lg"

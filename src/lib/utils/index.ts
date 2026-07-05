@@ -1164,10 +1164,15 @@ export const getShopTimezone = (location: Location): string => {
 };
 
 const shopTimezoneCache = new Map<string, string>();
+const timezoneOffsetCache = new Map<string, number>();
 
 export const getCurrentTimeByLocation = (location: Location) => {
   const timezone = getShopTimezone(location);
-  const offsetMs = getTimezoneOffset(timezone);
+  let offsetMs = timezoneOffsetCache.get(timezone);
+  if (offsetMs === undefined) {
+    offsetMs = getTimezoneOffset(timezone);
+    timezoneOffsetCache.set(timezone, offsetMs);
+  }
   const offsetHours = offsetMs / (1000 * 60 * 60);
 
   const now = new Date();
@@ -1241,14 +1246,36 @@ export const getNextTimeAtHour = (
   };
 };
 
+export interface ShopOpeningHours {
+  open: Date;
+  close: Date;
+  openTolerated: Date;
+  closeTolerated: Date;
+  offsetHours: number;
+  openLocal: string;
+  closeLocal: string;
+}
+
+const shopOpeningHoursCache = new Map<string, ShopOpeningHours>();
+const MAX_SHOP_OPENING_HOURS_CACHE = 5000;
+
 /**
  * Get the opening hours for a shop
  * @param shop The shop to get opening hours for
  * @returns An object containing the opening and closing times
  */
-export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'>) => {
+export const getShopOpeningHours = (
+  shop: Pick<Shop, 'location' | 'openingHours'>
+): ShopOpeningHours => {
   const currentTimeByLocation = getCurrentTimeByLocation(shop.location);
   const { nowShifted, offsetHours } = currentTimeByLocation;
+
+  // Cache key: location + local year-month-hour + opening-hours shape.
+  // The result only changes when the local hour (or the opening hours) changes.
+  const cacheKey = `${shop.location.coordinates.join(',')}:${nowShifted.toISOString().slice(0, 13)}:${offsetHours}:${JSON.stringify(shop.openingHours)}`;
+  const cached = shopOpeningHoursCache.get(cacheKey);
+  if (cached) return cached;
+
   const openingHours =
     shop.openingHours.length === 1
       ? shop.openingHours[0]
@@ -1268,7 +1295,7 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
   const openTolerated = new Date(open.getTime() - toleranceMsForShopOpen);
   const closeTolerated = new Date(close.getTime() + toleranceMsForShopClose);
 
-  return {
+  const result = {
     open,
     close,
     openTolerated,
@@ -1277,6 +1304,13 @@ export const getShopOpeningHours = (shop: Pick<Shop, 'location' | 'openingHours'
     openLocal: formatOpeningHourLiteral(normalizedOpeningHours[0]),
     closeLocal: formatOpeningHourLiteral(normalizedOpeningHours[1])
   };
+
+  if (shopOpeningHoursCache.size >= MAX_SHOP_OPENING_HOURS_CACHE) {
+    shopOpeningHoursCache.clear();
+  }
+  shopOpeningHoursCache.set(cacheKey, result);
+
+  return result;
 };
 
 export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> =>
