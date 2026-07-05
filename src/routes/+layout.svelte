@@ -19,8 +19,9 @@
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import { fromPath, isDarkMode } from '$lib/utils/scoped';
+  import { getDisplayName } from '$lib/utils';
   import { page } from '$app/state';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll, afterNavigate } from '$app/navigation';
   import { resolve, base } from '$app/paths';
   import { browser } from '$app/environment';
   import { initializeApp } from 'firebase/app';
@@ -71,6 +72,17 @@
       invalidateAll();
     }
   };
+
+  afterNavigate(() => {
+    if (data.session?.user) {
+      Clarity.identify(
+        data.session.user.id,
+        undefined,
+        undefined,
+        getDisplayName(data.session.user)
+      );
+    }
+  });
 
   onMount(() => {
     Clarity.init(PUBLIC_CLARITY_PROJECT_ID);
