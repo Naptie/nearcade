@@ -4,6 +4,7 @@
   import { resolve, base } from '$app/paths';
   import { GITHUB_LINK } from '$lib';
   import AuthModal from '$lib/components/AuthModal.svelte';
+  import FancyButton from '$lib/components/FancyButton.svelte';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
@@ -20,10 +21,11 @@
     getShopOpeningHours
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
+  import { viewport } from '$lib/utils/viewport.svelte';
   import { getContext, onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
-  import { fade } from 'svelte/transition';
+  import { fade, slide } from 'svelte/transition';
 
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
@@ -262,7 +264,7 @@
       out:fade={{ duration: 300 }}
     >
       <div
-        class="pointer-events-auto flex max-w-fit flex-col gap-6 px-8 py-6 transition-all duration-600"
+        class="pointer-events-auto flex w-full flex-col gap-6 px-8 py-6 transition-all duration-600"
         class:mt-72={showGlobe}
       >
         <SiteTitle
@@ -275,7 +277,7 @@
         <div class="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            class="btn btn-primary grow py-5 shadow-none hover:shadow-lg dark:shadow-neutral-700/70"
+            class="btn btn-primary flex-2 grow basis-0 py-5 shadow-none hover:shadow-lg dark:shadow-neutral-700/70"
             onclick={() => {
               showCollapse = !showCollapse;
             }}
@@ -285,28 +287,66 @@
               <i class="fa-solid fa-angle-down fa-sm"></i>
             </span>
           </button>
-          <div class="join not-sm:w-full">
-            <a
-              href={resolve('/(main)/shops')}
-              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-            >
-              <i class="fa-solid fa-gamepad fa-lg"></i>
-              <span>{m.find_arcades()}</span>
-            </a>
-            <a
-              href={resolve('/(main)/universities')}
-              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-            >
-              <i class="fa-solid fa-graduation-cap fa-lg"></i>
-              <span>{m.find_universities()}</span>
-            </a>
-            <a
-              href={resolve('/(main)/clubs')}
-              class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-            >
-              <i class="fa-solid fa-users fa-lg"></i>
-              <span>{m.find_clubs()}</span>
-            </a>
+          <div class="flex flex-row gap-2">
+            <div class="join not-sm:w-full">
+              <a
+                href={resolve('/(main)/shops')}
+                class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+              >
+                <i class="fa-solid fa-gamepad fa-lg"></i>
+                <span>{m.find_arcades()}</span>
+              </a>
+              <!-- Desktop: FancyButtons with hover expansion -->
+              {#if viewport.sm}
+                <FancyButton
+                  href={resolve('/(main)/universities')}
+                  class="fa-solid fa-graduation-cap fa-lg"
+                  btnCls="btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+                  text={m.find_universities()}
+                  square={false}
+                />
+                <FancyButton
+                  href={resolve('/(main)/clubs')}
+                  class="fa-solid fa-users fa-lg"
+                  btnCls="btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+                  text={m.find_clubs()}
+                  square={false}
+                />
+              {:else}
+                <!-- Mobile: three-dots dropdown for universities + clubs -->
+                <div class="join-item relative">
+                  <div class="dropdown dropdown-end">
+                    <div
+                      tabindex="0"
+                      role="button"
+                      class="join-item btn btn-soft hover:bg-primary hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+                      aria-label={m.more_actions()}
+                    >
+                      <i class="fa-solid fa-ellipsis fa-lg"></i>
+                    </div>
+                    <ul
+                      tabindex="-1"
+                      class="dropdown-content menu bg-base-100 border-base-300 join join-vertical rounded-3xl hover:shadow-lg"
+                    >
+                      <a
+                        href={resolve('/(main)/universities')}
+                        class="btn btn-ghost hover:bg-primary join-item hover:text-primary-content flex w-full items-center gap-2 rounded-full px-3 py-2 text-sm text-nowrap dark:hover:bg-white dark:hover:text-black"
+                      >
+                        <i class="fa-solid fa-graduation-cap"></i>
+                        {m.find_universities()}
+                      </a>
+                      <a
+                        href={resolve('/(main)/clubs')}
+                        class="btn btn-ghost hover:bg-primary join-item hover:text-primary-content flex w-full items-center gap-2 rounded-full px-3 py-2 text-sm text-nowrap dark:hover:bg-white dark:hover:text-black"
+                      >
+                        <i class="fa-solid fa-users"></i>
+                        {m.find_clubs()}
+                      </a>
+                    </ul>
+                  </div>
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
         <div
@@ -319,7 +359,11 @@
         >
           <div class="collapse-content flex flex-col items-center gap-4" class:pt-4={showCollapse}>
             {#if showCollapse}
-              <fieldset class="fieldset rounded-box w-full p-4 pt-2" class:not-sm:px-0={mode === 2}>
+              <fieldset
+                class="fieldset rounded-box w-full p-4 pt-2"
+                class:not-sm:px-0={mode === 2}
+                transition:slide
+              >
                 <div class="flex flex-col gap-1 sm:hidden">
                   <span class="label w-full">{m.discover_from()}</span>
                   <select class="select w-full" bind:value={mode}>

@@ -229,6 +229,7 @@
   import { browser } from '$app/environment';
   import { preloadCode, preloadData } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
+  import { viewport } from '$lib/utils/viewport.svelte';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -270,10 +271,9 @@
   let lastMeasured = $state(0);
   let timeout = $state<ReturnType<typeof setTimeout> | null>(null);
   let pendingMeasureRaf: number | null = null;
-  let windowWidth = $state(browser ? window.innerWidth : 0);
   let isHovered = $state(false);
   let isNearby = $state(false);
-  let stayExpanded = $derived(windowWidth >= 1280 && stayExpandedOnWideScreens);
+  let stayExpanded = $derived(viewport.xl && stayExpandedOnWideScreens);
 
   const clearCollapseTimeout = () => {
     if (!timeout) return;
@@ -400,13 +400,6 @@
       };
     }
 
-    const handleResize = () => {
-      windowWidth = window.innerWidth;
-    };
-    if (stayExpandedOnWideScreens) {
-      window.addEventListener('resize', handleResize);
-    }
-
     return () => {
       if (pendingMeasureRaf) {
         cancelAnimationFrame(pendingMeasureRaf);
@@ -415,9 +408,6 @@
       cleanupResizeObserver?.();
       cleanupPointerApproach?.();
       clearCollapseTimeout();
-      if (stayExpandedOnWideScreens) {
-        window.removeEventListener('resize', handleResize);
-      }
     };
   });
 
