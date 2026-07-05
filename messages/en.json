@@ -560,7 +560,7 @@
       "selectors": ["count"],
       "match": {
         "count=1": "Welcome to {appName}! If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality.",
-        "count=*": "You've navigated through this site for {count} times. If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality."
+        "count=*": "You've navigated around {appName} {count} times. If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality."
       }
     }
   ],
