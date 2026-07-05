@@ -491,6 +491,19 @@
     }
   };
 
+  // ---- Gradient blur layers (same pattern as NavigationBar, reversed direction) ----
+  const maxBlurRadius = 64;
+  const blurIterations = 16;
+  const bottomBlurLayers = Array.from({ length: blurIterations }, (_, i) => ({
+    blur: maxBlurRadius / (4 * maxBlurRadius) ** (i / (blurIterations - 1)),
+    maskStops: [
+      Math.max(0, ((i - 2) * 100) / blurIterations),
+      Math.max(0, ((i - 1) * 100) / blurIterations),
+      (i * 100) / blurIterations,
+      ((i + 1) * 100) / blurIterations
+    ]
+  }));
+
   // ---- Shop data state ----
   type ShopEntry = {
     shop: GlobeShop;
@@ -2855,11 +2868,23 @@
     class="landing-mode pointer-events-auto h-full w-full cursor-pointer"
   ></div>
 
-  <!-- ---- Bottom gradient (landing mode only) ---- -->
+  <!-- ---- Bottom gradient blur (landing mode only) ---- -->
   <div
     id="globe-bottom-gradient"
     class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]"
   >
+    {#each bottomBlurLayers as layer, index (index)}
+      <div
+        class="absolute inset-0"
+        style="backdrop-filter: blur({layer.blur}px);
+               mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
+          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);
+               -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
+          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
+      ></div>
+    {/each}
     <!-- Solid bg-base-100 floor occupying the bottom 30 vh -->
     <div class="bg-base-100 absolute inset-x-0 bottom-0 h-[30vh]"></div>
     <!-- Gradient fade from bg-base-100 (bottom) to transparent (top) for the next 40 vh -->
@@ -2877,7 +2902,7 @@
     <aside
       id="globe-sidebar"
       transition:slide
-      class="bg-base-200/90 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg
+      class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
              not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
              not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
              md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
@@ -3103,7 +3128,7 @@
     <button
       id="globe-mobile-toggle"
       type="button"
-      class="bg-base-200/90 border-base-300 hover:border-success pointer-events-auto absolute bottom-4 left-4 z-10 flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 shadow-lg transition md:hidden"
+      class="bg-base-200/80 border-base-300 hover:border-success pointer-events-auto absolute bottom-4 left-4 z-10 flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 shadow-lg backdrop-blur-sm transition md:hidden"
       aria-label={regionTitle}
       onclick={() => (sidebarOpen = !sidebarOpen)}
     >
@@ -3164,8 +3189,8 @@
     <div class="pointer-events-none absolute inset-0 z-30">
       <!-- Instruction banner at the top -->
       <div
-        class="bg-base-100 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
-               px-3 py-2 shadow-lg"
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 top-16 mx-auto flex w-fit max-w-sm items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg backdrop-blur-sm"
       >
         <i class="fa-solid fa-crosshairs text-success text-lg"></i>
         <p class="text-sm font-medium">{m.shop_pick_location_hint()}</p>
@@ -3173,8 +3198,8 @@
 
       <!-- Confirm / cancel bar at the bottom -->
       <div
-        class="bg-base-100 border-base-300 pointer-events-auto absolute inset-x-0 bottom-12 mx-auto flex w-fit items-center gap-3 rounded-xl border
-               px-3 py-2 shadow-lg"
+        class="bg-base-100/90 border-base-300 pointer-events-auto absolute inset-x-0 bottom-12 mx-auto flex w-fit items-center gap-3 rounded-xl border
+               px-3 py-2 shadow-lg backdrop-blur-sm"
       >
         {#if pendingShopCoords}
           <span class="font-mono text-xs opacity-60">
@@ -3203,7 +3228,7 @@
   {#if import.meta.env.DEV}
     <div
       id="globe-dev-panel"
-      class="bg-base-200/90 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded-md p-3 text-sm shadow-lg"
+      class="bg-base-200/70 pointer-events-auto absolute top-3 z-10 flex max-w-xs min-w-64 flex-col gap-3 rounded-md p-3 text-sm shadow-lg backdrop-blur-sm"
     >
       <p class="text-xs font-semibold tracking-wide uppercase opacity-60">Globe / Time</p>
       <div class="flex flex-col gap-1 px-2">

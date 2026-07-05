@@ -9,6 +9,23 @@
   import { beforeNavigate } from '$app/navigation';
   import { page } from '$app/state';
 
+  // Gradient blur configuration with exponential blur values
+  // Each layer uses CSS mask to create smooth transitions and avoid edge artifacts
+  const maxRadius = 64;
+  const iterations = 16;
+  const blurLayers = Array.from({ length: iterations }, (_, i) => ({
+    blur: maxRadius / (4 * maxRadius) ** (i / (iterations - 1)),
+    maskStops: [
+      Math.max(0, ((i - 2) * 100) / iterations),
+      Math.max(0, ((i - 1) * 100) / iterations),
+      (i * 100) / iterations,
+      ((i + 1) * 100) / iterations
+    ]
+    // ... or reverse for the liquid glass effect
+    // .toReversed()
+    // .map((stop) => 100 - stop)
+  }));
+
   let { showCapsularBackground = false } = $props();
 
   let scrollY = $state(0);
@@ -52,14 +69,26 @@
     ? 'px-3'
     : 'px-6'} {isAtTop ? 'to-transparent' : 'to-base-100/50'}"
 >
-  <div
-    class="from-base-100/60 pointer-events-none absolute inset-0 z-0 bg-linear-to-b to-transparent"
-  ></div>
+  {#if !showCapsularBackground}
+    <div class="pointer-events-none absolute inset-0 z-0">
+      {#each blurLayers as layer, index (index)}
+        <div
+          class="absolute inset-0"
+          style="backdrop-filter: blur({layer.blur}px); mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
+            .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+            .maskStops[2]}%, rgba(0,0,0,0) {layer
+            .maskStops[3]}%); -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) {layer
+            .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
+            .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
+        ></div>
+      {/each}
+    </div>
+  {/if}
 
   <div class="relative z-10 flex-1">
     <div
       class="absolute top-1/2 left-0 z-0 -translate-y-1/2 {showCapsularBackground
-        ? 'bg-base-100/70 rounded-full px-3'
+        ? 'bg-base-100/50 rounded-full px-3 backdrop-blur-lg'
         : ''}"
     >
       <SiteTitle class="xs:text-2xl ss:text-3xl text-lg md:text-4xl" />
@@ -67,7 +96,7 @@
   </div>
   <div
     class="relative z-10 flex items-center gap-0.5 md:gap-1 lg:gap-2 {showCapsularBackground
-      ? 'bg-base-100/70 rounded-full px-3'
+      ? 'bg-base-100/50 rounded-full px-3 backdrop-blur-lg'
       : ''}"
   >
     <LocaleSwitch class="text-shadow-lg" btnCls="text-shadow-lg" />

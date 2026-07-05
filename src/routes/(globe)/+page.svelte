@@ -229,7 +229,7 @@
 <div class="relative" class:pointer-events-none={!showCollapse}>
   <div class="hero min-h-screen">
     <div
-      class="hero-top-bar bg-base-100/80 pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 rounded-full md:gap-1 lg:gap-2"
+      class="hero-top-bar bg-base-100/50 pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 rounded-full backdrop-blur-lg md:gap-1 lg:gap-2"
       in:fade={{ delay: 300, duration: 400 }}
       out:fade={{ duration: 300 }}
     >
@@ -356,7 +356,7 @@
           </div>
         </div>
         <div
-          class="bg-base-200/80 dark:bg-base-200/95 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+          class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
           class:collapse-open={showCollapse}
           class:min-h-fit={showCollapse}
           class:h-full={showCollapse}
@@ -647,7 +647,7 @@
         <!-- Starred Shops Real-time Attendance -->
         {#if data.starredShops.length > 0}
           <div
-            class="bg-base-200/80 dark:bg-base-200/95 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
+            class="bg-base-200/60 dark:bg-base-200/90 bg-opacity-30 collapse-transition border-base-300 collapse -mt-5 h-0 rounded-xl border shadow-none backdrop-blur-2xl hover:shadow-lg dark:border-neutral-700 dark:shadow-neutral-700/70"
             class:collapse-open={!showCollapse}
             class:min-h-fit={!showCollapse}
             class:h-full={!showCollapse}
