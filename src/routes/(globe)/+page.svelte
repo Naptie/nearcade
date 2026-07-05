@@ -264,17 +264,19 @@
       out:fade={{ duration: 300 }}
     >
       <div
-        class="pointer-events-auto flex w-full flex-col gap-6 px-8 py-6 transition-all duration-600"
+        class="xs:w-[97vw] ss:w-[90vw] pointer-events-auto flex w-screen flex-col gap-6 px-8 py-6 transition-all duration-600 sm:max-w-3xl"
         class:mt-72={showGlobe}
       >
         <SiteTitle
-          class="title text-6xl sm:text-8xl xl:text-9xl {showGlobe ? 'title-base-content' : ''}"
+          class="title xs:text-5xl ss:text-6xl text-4xl sm:text-8xl xl:text-9xl {showGlobe
+            ? 'title-base-content'
+            : ''}"
         />
         <p class="text-base-content/80 mx-auto mb-4 text-xl leading-relaxed sm:text-2xl">
           {m.greeting()}
         </p>
 
-        <div class="flex flex-col gap-3 sm:flex-row">
+        <div class="flex flex-col gap-3 md:flex-row">
           <button
             type="button"
             class="btn btn-primary flex-2 grow basis-0 py-5 shadow-none hover:shadow-lg dark:shadow-neutral-700/70"
@@ -287,11 +289,11 @@
               <i class="fa-solid fa-angle-down fa-sm"></i>
             </span>
           </button>
-          <div class="flex flex-row gap-2">
-            <div class="join not-sm:w-full">
+          <div class="flex flex-1 flex-row gap-2">
+            <div class="join w-full">
               <a
                 href={resolve('/(main)/shops')}
-                class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+                class="btn btn-soft hover:bg-primary join-item hover:text-primary-content flex flex-1 items-center gap-2 py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
               >
                 <i class="fa-solid fa-gamepad fa-lg"></i>
                 <span>{m.find_arcades()}</span>
@@ -303,6 +305,8 @@
                   class="fa-solid fa-graduation-cap fa-lg"
                   btnCls="btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
                   text={m.find_universities()}
+                  expanded={!viewport.md}
+                  override={!viewport.md}
                   square={false}
                 />
                 <FancyButton
@@ -310,6 +314,8 @@
                   class="fa-solid fa-users fa-lg"
                   btnCls="btn-soft hover:bg-primary join-item hover:text-primary-content py-5 text-nowrap sm:gap-2 dark:hover:bg-white dark:hover:text-black"
                   text={m.find_clubs()}
+                  expanded={!viewport.md}
+                  override={!viewport.md}
                   square={false}
                 />
               {:else}
@@ -495,9 +501,7 @@
                       oninput={handleUniversityQueryChange}
                     />
                   </div>
-                  <div
-                    class="mt-3 w-[65vw] max-w-md min-w-full space-y-3 sm:w-[60vw] md:w-[55vw] lg:w-[50vw]"
-                  >
+                  <div class="mt-3 space-y-3">
                     {#if isSearchingUniversities}
                       <span class="loading loading-spinner loading-sm"></span>
                     {/if}
@@ -651,7 +655,7 @@
             class:opacity-0={showCollapse}
           >
             <div
-              class="collapse-content flex max-w-full min-w-full flex-col items-center gap-2 sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw]"
+              class="collapse-content flex max-w-full flex-col items-center gap-2"
               class:pt-4={!showCollapse}
             >
               {#if starredReady}
