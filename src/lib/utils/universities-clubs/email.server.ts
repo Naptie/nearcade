@@ -11,10 +11,7 @@ export const STUDENT_EMAIL_VERIFICATION_SUCCESS_QUERY_PARAM = 'studentEmailVerif
 export const STUDENT_EMAIL_VERIFICATION_ERROR_QUERY_PARAM = 'studentEmailError';
 
 export type StudentEmailVerificationError =
-  | 'already_verified'
-  | 'domain_mismatch'
-  | 'invalid_or_expired'
-  | 'underconfigured_university';
+  'already_verified' | 'domain_mismatch' | 'invalid_or_expired' | 'underconfigured_university';
 
 export type PendingStudentEmailVerification = {
   token: string;

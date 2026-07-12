@@ -13,14 +13,7 @@ const WECHAT_TOKEN_EXPIRY = 300;
  * Supported WeChat Message Types
  */
 type WeChatMsgType =
-  | 'text'
-  | 'image'
-  | 'voice'
-  | 'video'
-  | 'shortvideo'
-  | 'location'
-  | 'link'
-  | 'event';
+  'text' | 'image' | 'voice' | 'video' | 'shortvideo' | 'location' | 'link' | 'event';
 
 /**
  * Common WeChat Event Types

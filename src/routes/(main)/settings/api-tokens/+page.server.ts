@@ -18,8 +18,7 @@ type ApiTokenListItem = {
 
 type CreatedApiKey = Awaited<ReturnType<typeof auth.api.createApiKey>>;
 type ExpirationResult =
-  | { ok: true; expiresAt: Date }
-  | { ok: false; response: ReturnType<typeof fail> };
+  { ok: true; expiresAt: Date } | { ok: false; response: ReturnType<typeof fail> };
 
 const getUnauthorizedFailure = () => fail(401, { message: 'unauthorized' });
 
