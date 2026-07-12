@@ -2389,7 +2389,7 @@
             "in": "query",
             "name": "radius",
             "schema": {
-              "description": "范围半径，单位 km；默认为 10。\n\nSearch radius in kilometers. Defaults to 10.",
+              "description": "范围半径，单位 km；0 表示无限制。默认为 10。\n\nSearch radius in kilometers; 0 means unlimited. Defaults to 10.",
               "anyOf": [
                 {
                   "type": "string"
@@ -2402,7 +2402,48 @@
                 }
               ]
             },
-            "description": "范围半径，单位 km；默认为 10。\n\nSearch radius in kilometers. Defaults to 10."
+            "description": "范围半径，单位 km；0 表示无限制。默认为 10。\n\nSearch radius in kilometers; 0 means unlimited. Defaults to 10."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "结果数量限制；最小为 1，最大为 150。默认为 150。\n\nResult count limit; minimum is 1, maximum is 150. Defaults to 150.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "结果数量限制；最小为 1，最大为 150。默认为 150。\n\nResult count limit; minimum is 1, maximum is 150. Defaults to 150."
+          },
+          {
+            "in": "query",
+            "name": "gameTitleIds",
+            "schema": {
+              "description": "按游戏标题 ID 筛选，以逗号分隔。仅返回包含所有指定游戏的店铺。\n\nFilter by game title IDs, comma-separated. Only shops with all specified games are returned.",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                {
+                  "not": {}
+                }
+              ]
+            },
+            "description": "按游戏标题 ID 筛选，以逗号分隔。仅返回包含所有指定游戏的店铺。\n\nFilter by game title IDs, comma-separated. Only shops with all specified games are returned."
           },
           {
             "in": "query",
@@ -2815,6 +2856,17 @@
                     "radius": {
                       "type": "number",
                       "description": "范围半径。\n\nSearch radius in kilometers."
+                    },
+                    "limit": {
+                      "description": "结果数量限制。\n\nResult count limit.",
+                      "type": "number"
+                    },
+                    "gameTitleIds": {
+                      "description": "游戏标题筛选。\n\nGame title filter.",
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
                     }
                   },
                   "required": ["shops", "location", "radius"],

@@ -30,6 +30,8 @@
   import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
+  import { LIMIT_OPTIONS, RADIUS_OPTIONS } from '$lib/constants';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
 
   let { data }: { data: PageData } = $props();
 
@@ -39,14 +41,13 @@
   let starredReady = $state(false);
   let mode = $state(0);
   let radius = $state(10);
+  let limit = $state(20);
   let location = $state<{
     name: string;
     latitude: number;
     longitude: number;
     confirmed: boolean;
   } | null>(null);
-
-  const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 20, 25, 30];
 
   const showIcpLicense =
     env.PUBLIC_ICP_LICENSE_ENABLED_ORIGINS?.split(',').includes(page.url.origin) &&
@@ -55,6 +56,7 @@
   $effect(() => {
     if (browser) {
       localStorage.setItem('nearcade-radius', radius.toString());
+      localStorage.setItem('nearcade-result-count', limit.toString());
     }
   });
   let isLoadingLocation = $state(false);
@@ -151,10 +153,18 @@
       await convertCoordinates(location, amap);
     }
 
-    goto(
-      resolve('/(main)/discover') +
-        `?latitude=${location.latitude}&longitude=${location.longitude}&radius=${radius}${location.name ? `&name=${encodeURIComponent(location.name)}` : ''}`
-    );
+    const params = new SvelteURLSearchParams({
+      latitude: location.latitude.toString(),
+      longitude: location.longitude.toString(),
+      radius: radius.toString(),
+      limit: limit.toString()
+    });
+
+    if (location.name) {
+      params.set('name', location.name);
+    }
+
+    goto(resolve('/(main)/discover') + `?${params.toString()}`);
   };
 
   const assignAMap = (event: CustomEventInit<typeof AMap>) => {
@@ -189,9 +199,17 @@
 
     const savedRadius = localStorage.getItem('nearcade-radius');
     if (savedRadius) {
-      const parsedRadius = parseInt(savedRadius);
+      const parsedRadius = parseInt(savedRadius) as (typeof RADIUS_OPTIONS)[number];
       if (RADIUS_OPTIONS.includes(parsedRadius)) {
         radius = parsedRadius;
+      }
+    }
+
+    const savedLimit = localStorage.getItem('nearcade-result-count');
+    if (savedLimit) {
+      const parsedLimit = parseInt(savedLimit) as (typeof LIMIT_OPTIONS)[number];
+      if (LIMIT_OPTIONS.includes(parsedLimit)) {
+        limit = parsedLimit;
       }
     }
 
@@ -414,24 +432,30 @@
                     {#each RADIUS_OPTIONS as r (r)}
                       <option value={r}>{r} km</option>
                     {/each}
+                    <option value={0}>{m.unlimited()}</option>
                   </select>
                 </div>
                 <div class="hidden sm:block">
                   <span class="label my-1 flex w-full items-center justify-between">
                     <span>{m.search_radius()}</span>
-                    <span class="text-sm font-medium">{radius} km</span>
+                    <span class="text-sm font-medium"
+                      >{radius === 0 ? m.unlimited() : `${radius} km`}</span
+                    >
                   </span>
                   <input
                     type="range"
                     min={0}
-                    max={RADIUS_OPTIONS.length - 1}
+                    max={RADIUS_OPTIONS.length}
                     step="1"
                     class="range range-sm range-nuetral w-full"
-                    value={RADIUS_OPTIONS.indexOf(radius)}
+                    value={radius === 0
+                      ? RADIUS_OPTIONS.length
+                      : RADIUS_OPTIONS.indexOf(radius as (typeof RADIUS_OPTIONS)[number])}
                     oninput={(e) => {
                       const target = e.target as HTMLInputElement;
                       if (target) {
-                        radius = RADIUS_OPTIONS[parseInt(target.value)];
+                        const idx = parseInt(target.value);
+                        radius = idx >= RADIUS_OPTIONS.length ? 0 : RADIUS_OPTIONS[idx];
                       }
                     }}
                   />
@@ -443,6 +467,47 @@
                         class:opacity-100={i === 0 ||
                           i === RADIUS_OPTIONS.length - 1 ||
                           i === Math.floor(RADIUS_OPTIONS.length / 2)}>{r} km</span
+                      >
+                    {/each}
+                    <span class:opacity-100={radius === 0}>{m.unlimited()}</span>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1 sm:hidden">
+                  <span class="label mt-1 w-full">{m.result_count()}</span>
+                  <select class="select w-full" bind:value={limit}>
+                    {#each LIMIT_OPTIONS as l (l)}
+                      <option value={l}>{l}</option>
+                    {/each}
+                  </select>
+                </div>
+                <div class="hidden sm:block">
+                  <span class="label my-1 flex w-full items-center justify-between">
+                    <span>{m.result_count()}</span>
+                    <span class="text-sm font-medium">{limit}</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={LIMIT_OPTIONS.length - 1}
+                    step="1"
+                    class="range range-sm range-nuetral w-full"
+                    value={LIMIT_OPTIONS.indexOf(limit as (typeof LIMIT_OPTIONS)[number])}
+                    oninput={(e) => {
+                      const target = e.target as HTMLInputElement;
+                      if (target) {
+                        limit = LIMIT_OPTIONS[parseInt(target.value)];
+                      }
+                    }}
+                  />
+                  <div
+                    class="mt-1 flex w-full justify-between text-xs leading-tight font-light opacity-50 md:leading-snug lg:leading-normal"
+                  >
+                    {#each LIMIT_OPTIONS as l, i (l)}
+                      <span
+                        class:opacity-100={i === 0 ||
+                          i === LIMIT_OPTIONS.length - 1 ||
+                          i === Math.floor(LIMIT_OPTIONS.length / 2)}>{l}</span
                       >
                     {/each}
                   </div>

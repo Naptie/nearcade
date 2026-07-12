@@ -40,11 +40,7 @@ export interface ImageMutationAccess {
 
 export interface ImageDraftContext {
   kind?:
-    | 'post'
-    | 'post-comment'
-    | 'shop-comment'
-    | 'shop-delete-request'
-    | 'delete-request-comment';
+    'post' | 'post-comment' | 'shop-comment' | 'shop-delete-request' | 'delete-request-comment';
   organizationType?: 'university' | 'club';
   organizationId?: string;
   postId?: string;

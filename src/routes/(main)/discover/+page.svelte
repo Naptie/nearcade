@@ -29,6 +29,7 @@
   } from '$lib/utils';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
+  import { goto } from '$app/navigation';
   import RouteGuidance from '$lib/components/RouteGuidance.svelte';
   import {
     SELECTED_ROUTE_INDEX,
@@ -38,7 +39,9 @@
     SHOP_INDEX,
     SELECTED_SHOP_INDEX,
     HOVERED_SHOP_INDEX,
-    GAME_TITLES
+    GAME_TITLES,
+    RADIUS_OPTIONS,
+    LIMIT_OPTIONS
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
@@ -76,6 +79,8 @@
   let highlightedShopIdTimeout: ReturnType<typeof setTimeout> | null = $state(null);
   let darkMode = $derived(browser ? isDarkMode() : undefined);
   let transportMethod = $state<TransportMethod>(undefined); // 'transit', 'walking', 'riding', 'driving'
+  let discoverRadius = $derived(data.radius ?? 10);
+  let discoverLimit = $derived(data.limit ?? 20);
   let travelData = $state<
     Record<
       string,
@@ -457,15 +462,14 @@
   let selectedTitleIds = $state<number[]>([]);
   let showAbsentGames = $state(false);
 
-  const shopMatchesSelectedTitles = (shop: Shop, titleIds: number[]) => {
-    return (
-      titleIds.length === 0 ||
-      titleIds.every((id) => shop.games.some((game) => game.titleId === id))
-    );
-  };
+  $effect(() => {
+    if (data.gameTitleIds && data.gameTitleIds.length > 0) {
+      selectedTitleIds = data.gameTitleIds;
+    }
+  });
 
   let filteredShops = $derived.by(() => {
-    return sortedShops.filter((shop) => shopMatchesSelectedTitles(shop, selectedTitleIds));
+    return sortedShops;
   });
 
   let visibleGameIds = $derived.by(() => {
@@ -984,10 +988,31 @@
   });
 
   const handleTitleFilterChange = (titleId: number) => {
+    let newIds: number[];
     if (selectedTitleIds.includes(titleId)) {
-      selectedTitleIds = selectedTitleIds.filter((id) => id !== titleId);
+      newIds = selectedTitleIds.filter((id) => id !== titleId);
     } else {
-      selectedTitleIds = [...selectedTitleIds, titleId];
+      newIds = [...selectedTitleIds, titleId];
+    }
+    selectedTitleIds = newIds;
+
+    if (browser) {
+      const url = new URL(window.location.href);
+      if (newIds.length > 0) {
+        url.searchParams.set('gameTitleIds', newIds.join(','));
+      } else {
+        url.searchParams.delete('gameTitleIds');
+      }
+      goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+    }
+  };
+
+  const updateDiscoverSettings = () => {
+    if (browser) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('radius', discoverRadius.toString());
+      url.searchParams.set('limit', discoverLimit.toString());
+      goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
     }
   };
 
@@ -1112,7 +1137,14 @@
                 {m.filter_by_game_titles()}
                 <button
                   class="btn btn-sm btn-ghost hover:btn-error"
-                  onclick={() => (selectedTitleIds = [])}
+                  onclick={() => {
+                    selectedTitleIds = [];
+                    if (browser) {
+                      const url = new URL(window.location.href);
+                      url.searchParams.delete('gameTitleIds');
+                      goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+                    }
+                  }}
                 >
                   <i class="fa-solid fa-trash"></i>
                   {m.clear_filters()}
@@ -1145,20 +1177,151 @@
       </p>
     </div>
     <div class="flex flex-col gap-1 {useGoogleMaps ? 'hidden' : ''}">
-      <label class="label not-md:mx-auto" for="transport-select">
-        <span class="label-text">{m.transport_method()}</span>
-      </label>
-      <select
-        id="transport-select"
-        class="select select-bordered w-full pe-8"
-        bind:value={transportMethod}
-      >
-        <option value={undefined}>{m.not_specified()}</option>
-        <option value="transit">{m.public_transport()}</option>
-        <option value="walking">{m.walking()}</option>
-        <option value="riding">{m.riding()}</option>
-        <option value="driving">{m.driving()}</option>
-      </select>
+      <!-- Wide screens: all selects inline -->
+      <div class="hidden md:flex md:items-end md:gap-2">
+        <div class="flex flex-col gap-1">
+          <label class="label" for="transport-select-wide">
+            <span class="label-text">{m.transport_method()}</span>
+          </label>
+          <select
+            id="transport-select-wide"
+            class="select select-bordered w-full pe-8"
+            bind:value={transportMethod}
+          >
+            <option value={undefined}>{m.not_specified()}</option>
+            <option value="transit">{m.public_transport()}</option>
+            <option value="walking">{m.walking()}</option>
+            <option value="riding">{m.riding()}</option>
+            <option value="driving">{m.driving()}</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="label" for="radius-select-wide">
+            <span class="label-text">{m.search_radius()}</span>
+          </label>
+          <select
+            id="radius-select-wide"
+            class="select select-bordered w-full pe-8"
+            value={discoverRadius}
+            onchange={(e) => {
+              discoverRadius = Number((e.target as HTMLSelectElement).value);
+              updateDiscoverSettings();
+            }}
+          >
+            {#each RADIUS_OPTIONS as r (r)}
+              <option value={r}>{r} km</option>
+            {/each}
+            <option value={0}>{m.unlimited()}</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="label" for="limit-select-wide">
+            <span class="label-text">{m.result_count()}</span>
+          </label>
+          <select
+            id="limit-select-wide"
+            class="select select-bordered w-full pe-8"
+            value={discoverLimit}
+            onchange={(e) => {
+              discoverLimit = Number((e.target as HTMLSelectElement).value);
+              updateDiscoverSettings();
+            }}
+          >
+            {#each LIMIT_OPTIONS as l (l)}
+              <option value={l}>{l}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+      <!-- Narrow screens: dropdown with all settings -->
+      <div class="flex md:hidden">
+        <div class="dropdown dropdown-end">
+          <button
+            type="button"
+            tabindex="0"
+            class="btn btn-soft hover:btn-accent btn-sm"
+            aria-label={m.settings()}
+          >
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          <div
+            role="menu"
+            tabindex="-1"
+            class="card dropdown-content bg-base-200 text-base-content z-50 mt-2 w-72 font-normal shadow-md"
+          >
+            <div class="card-body gap-4 p-4">
+              <div class="flex flex-col gap-1">
+                <span class="label text-xs">{m.transport_method()}</span>
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    class="btn btn-xs"
+                    class:btn-primary={transportMethod === undefined}
+                    onclick={() => (transportMethod = undefined)}>{m.not_specified()}</button
+                  >
+                  <button
+                    class="btn btn-xs"
+                    class:btn-primary={transportMethod === 'transit'}
+                    onclick={() => (transportMethod = 'transit')}>{m.public_transport()}</button
+                  >
+                  <button
+                    class="btn btn-xs"
+                    class:btn-primary={transportMethod === 'walking'}
+                    onclick={() => (transportMethod = 'walking')}>{m.walking()}</button
+                  >
+                  <button
+                    class="btn btn-xs"
+                    class:btn-primary={transportMethod === 'riding'}
+                    onclick={() => (transportMethod = 'riding')}>{m.riding()}</button
+                  >
+                  <button
+                    class="btn btn-xs"
+                    class:btn-primary={transportMethod === 'driving'}
+                    onclick={() => (transportMethod = 'driving')}>{m.driving()}</button
+                  >
+                </div>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="label text-xs">{m.search_radius()}</span>
+                <div class="flex flex-wrap gap-1">
+                  {#each RADIUS_OPTIONS as r (r)}
+                    <button
+                      class="btn btn-xs"
+                      class:btn-primary={discoverRadius === r}
+                      onclick={() => {
+                        discoverRadius = r;
+                        updateDiscoverSettings();
+                      }}>{r} km</button
+                    >
+                  {/each}
+                  <button
+                    class="btn btn-xs"
+                    class:btn-primary={discoverRadius === 0}
+                    onclick={() => {
+                      discoverRadius = 0;
+                      updateDiscoverSettings();
+                    }}>{m.unlimited()}</button
+                  >
+                </div>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="label text-xs">{m.result_count()}</span>
+                <div class="flex flex-wrap gap-1">
+                  {#each LIMIT_OPTIONS as l (l)}
+                    <button
+                      class="btn btn-xs"
+                      class:btn-primary={discoverLimit === l}
+                      onclick={() => {
+                        discoverLimit = l;
+                        updateDiscoverSettings();
+                      }}>{l}</button
+                    >
+                  {/each}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   {#if data.shops.length === 0}
@@ -1467,16 +1630,18 @@
         <div class="stat-desc">{m.arcade_machines()}</div>
       </div>
 
-      <div class="stat bg-base-200/30 dark:bg-base-200/60 rounded-xl">
-        <div class="stat-figure text-accent">
-          <i class="fas fa-bullseye text-3xl"></i>
+      {#if data.radius > 0}
+        <div class="stat bg-base-200/30 dark:bg-base-200/60 rounded-xl">
+          <div class="stat-figure text-accent">
+            <i class="fas fa-bullseye text-3xl"></i>
+          </div>
+          <div class="stat-title">{m.area_density()}</div>
+          <div class="stat-value text-accent">
+            {(machineCount / (Math.PI * Math.pow(data.radius, 2))).toFixed(3)}
+          </div>
+          <div class="stat-desc">{m.machines_per_km2()}</div>
         </div>
-        <div class="stat-title">{m.area_density()}</div>
-        <div class="stat-value text-accent">
-          {(machineCount / (Math.PI * Math.pow(data.radius, 2))).toFixed(3)}
-        </div>
-        <div class="stat-desc">{m.machines_per_km2()}</div>
-      </div>
+      {/if}
     </div>
   {/if}
 </div>

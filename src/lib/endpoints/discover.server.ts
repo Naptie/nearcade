@@ -28,7 +28,14 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
 
   const parsedQuery = parseQueryOrError(discoverQuerySchema, queryUrl);
   let { latitude, longitude } = parsedQuery;
-  const { radius: radiusKm, fetchAttendance, includeTimeInfo, convertFrom } = parsedQuery;
+  const {
+    radius: radiusKm,
+    limit: resultCount,
+    gameTitleIds,
+    fetchAttendance,
+    includeTimeInfo,
+    convertFrom
+  } = parsedQuery;
 
   // Convert coordinates from a non-GCJ-02 system if requested
   if (convertFrom) {
@@ -53,23 +60,27 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       }
     } catch (err) {
       console.error('Failed to convert coordinates via AMap:', err);
-      // Fall through with original coordinates
     }
   }
 
   try {
-    const radiusRadians = radiusKm / 6371;
-
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
+
+    const nearSpec: Record<string, unknown> = {
+      $geometry: { type: 'Point', coordinates: [longitude, latitude] }
+    };
+    if (radiusKm > 0) {
+      nearSpec.$maxDistance = radiusKm * 1000;
+    }
+
+    const query: Record<string, unknown> = { location: { $near: nearSpec } };
+    if (gameTitleIds && gameTitleIds.length > 0) {
+      query['games.titleId'] = { $all: gameTitleIds };
+    }
+
     const shops = (await shopsCollection
-      .find({
-        location: {
-          $geoWithin: {
-            $centerSphere: [[longitude, latitude], radiusRadians]
-          }
-        }
-      })
+      .find(query, { limit: resultCount })
       .toArray()) as unknown as Shop[];
 
     const now = new Date();
@@ -107,7 +118,7 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       let distance = Infinity;
 
       if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
-        const [shopLng, shopLat] = coordinates; // GeoJSON format is [longitude, latitude]
+        const [shopLng, shopLat] = coordinates;
         distance = calculateDistance(latitude, longitude, shopLat, shopLng);
       }
 
@@ -170,7 +181,9 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
           latitude,
           longitude
         },
-        radius: radiusKm
+        radius: radiusKm,
+        limit: resultCount,
+        gameTitleIds: gameTitleIds && gameTitleIds.length > 0 ? gameTitleIds : undefined
       })
     );
     return response;

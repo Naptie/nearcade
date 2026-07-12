@@ -12,11 +12,13 @@ export const load: PageLoad = async ({ data, url, fetch }) => {
     }
     data = await resp.json();
   }
-  const { shops, location, radius } = data;
+  const { shops, location, radius, limit, gameTitleIds } = data;
 
   return {
     shops,
     location,
-    radius
+    radius,
+    limit,
+    gameTitleIds: gameTitleIds ?? []
   };
 };

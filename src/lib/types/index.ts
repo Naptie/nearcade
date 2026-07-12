@@ -1,5 +1,5 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, GAME_TITLES } from '../constants';
+import type { RADIUS_OPTIONS, LIMIT_OPTIONS, GAME_TITLES } from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
@@ -95,6 +95,8 @@ export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAME_TITLE
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
+
+export type LimitFilter = (typeof LIMIT_OPTIONS)[number];
 
 // Post permission enums
 export enum PostReadability {

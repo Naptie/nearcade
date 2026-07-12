@@ -9,6 +9,7 @@ import {
   reportedBySchema,
   shopSchema
 } from './shops';
+import { MAX_DISCOVER_RESULTS } from '$lib/constants';
 
 export const discoverReportedAttendanceSchema = z
   .object({
@@ -52,9 +53,44 @@ export const discoverQuerySchema = z.object({
     .optional()
     .transform((value) => (value === undefined || value === '' ? 10 : Number(value)))
     .pipe(z.number())
-    .transform((value) => Math.max(1, Math.min(30, Math.floor(value))))
+    .transform((value) => Math.max(0, Math.min(30, Math.floor(value))))
     .describe(
-      bilingual('范围半径，单位 km；默认为 10。', 'Search radius in kilometers. Defaults to 10.')
+      bilingual(
+        '范围半径，单位 km；0 表示无限制。默认为 10。',
+        'Search radius in kilometers; 0 means unlimited. Defaults to 10.'
+      )
+    ),
+  limit: z
+    .union([z.string(), z.number(), z.undefined()])
+    .optional()
+    .transform((value) =>
+      value === undefined || value === '' ? MAX_DISCOVER_RESULTS : Number(value)
+    )
+    .pipe(z.number())
+    .transform((value) => Math.max(1, Math.min(MAX_DISCOVER_RESULTS, Math.floor(value))))
+    .describe(
+      bilingual(
+        `结果数量限制；最小为 1，最大为 ${MAX_DISCOVER_RESULTS}。默认为 ${MAX_DISCOVER_RESULTS}。`,
+        `Result count limit; minimum is 1, maximum is ${MAX_DISCOVER_RESULTS}. Defaults to ${MAX_DISCOVER_RESULTS}.`
+      )
+    ),
+  gameTitleIds: z
+    .union([z.string(), z.array(z.number()), z.undefined()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined || value === '') return undefined;
+      if (Array.isArray(value)) return value;
+      return value
+        .split(',')
+        .map((v) => Number(v.trim()))
+        .filter((v) => !isNaN(v));
+    })
+    .pipe(z.array(z.number()).optional())
+    .describe(
+      bilingual(
+        '按游戏标题 ID 筛选，以逗号分隔。仅返回包含所有指定游戏的店铺。',
+        'Filter by game title IDs, comma-separated. Only shops with all specified games are returned.'
+      )
     ),
   name: z.string().optional().describe(bilingual('原点地名。', 'Origin display name.')),
   fetchAttendance: optionalBooleanString
@@ -92,7 +128,12 @@ export const discoverResponseSchema = z.object({
       longitude: z.number().describe(bilingual('原点经度。', 'Origin longitude.'))
     })
     .describe(bilingual('原点。', 'Origin location.')),
-  radius: z.number().describe(bilingual('范围半径。', 'Search radius in kilometers.'))
+  radius: z.number().describe(bilingual('范围半径。', 'Search radius in kilometers.')),
+  limit: z.number().optional().describe(bilingual('结果数量限制。', 'Result count limit.')),
+  gameTitleIds: z
+    .array(z.number())
+    .optional()
+    .describe(bilingual('游戏标题筛选。', 'Game title filter.'))
 });
 
 export type DiscoverResponse = z.infer<typeof discoverResponseSchema>;
