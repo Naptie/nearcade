@@ -338,7 +338,7 @@
                 />
               {:else}
                 <!-- Mobile: three-dots dropdown for universities + clubs -->
-                <div class="join-item relative">
+                <div class="relative">
                   <div class="dropdown dropdown-end">
                     <div
                       tabindex="0"
