@@ -1111,128 +1111,7 @@
 
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
   <div class="xs:flex-row mb-6 flex flex-col items-center justify-between gap-2 not-sm:px-2">
-    <div class="not-xs:text-center">
-      <div class="mb-2 flex flex-wrap items-center gap-2">
-        <h1 class="text-3xl font-bold">{m.nearby_arcades()}</h1>
-        <div class="dropdown not-sm:dropdown-center">
-          <button
-            type="button"
-            tabindex="0"
-            class="btn btn-soft hover:btn-accent btn-sm"
-            class:btn-primary={selectedTitleIds.length > 0}
-            aria-label={m.filter_by_game_titles()}
-          >
-            <i class="fa-solid fa-filter"></i>
-            {#if selectedTitleIds.length > 0}
-              <span class="badge badge-sm">{selectedTitleIds.length}</span>
-            {/if}
-          </button>
-          <div
-            role="menu"
-            tabindex="-1"
-            class="card dropdown-content bg-base-200 text-base-content z-50 mt-2 w-fit font-normal shadow-md"
-          >
-            <div class="card-body p-4">
-              <h3 class="card-title justify-between text-base text-nowrap">
-                {m.filter_by_game_titles()}
-                <button
-                  class="btn btn-sm btn-ghost hover:btn-error"
-                  onclick={() => {
-                    selectedTitleIds = [];
-                    if (browser) {
-                      const url = new URL(window.location.href);
-                      url.searchParams.delete('gameTitleIds');
-                      goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-                    }
-                  }}
-                >
-                  <i class="fa-solid fa-trash"></i>
-                  {m.clear_filters()}
-                </button>
-              </h3>
-              <div class="space-y-2">
-                {#each GAME_TITLES as game (game.id)}
-                  <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                    <input
-                      type="checkbox"
-                      class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                      checked={selectedTitleIds.includes(game.id)}
-                      onchange={() => handleTitleFilterChange(game.id)}
-                    />
-                    <span class="text-sm">{getGameName(game.key)}</span>
-                  </label>
-                {/each}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="text-base-content/70">
-        {m.found_shops_near({
-          count: data.shops.length,
-          location:
-            data.location.name ??
-            `(${data.location.longitude.toFixed(6)}, ${data.location.latitude.toFixed(6)})`
-        })}
-      </p>
-    </div>
-    <div class="flex flex-col gap-1 {useGoogleMaps ? 'hidden' : ''}">
-      <!-- Wide screens: all selects inline -->
-      <div class="hidden md:flex md:items-end md:gap-2">
-        <div class="flex flex-col gap-1">
-          <label class="label" for="transport-select-wide">
-            <span class="label-text">{m.transport_method()}</span>
-          </label>
-          <select
-            id="transport-select-wide"
-            class="select select-bordered w-full pe-8"
-            bind:value={transportMethod}
-          >
-            <option value={undefined}>{m.not_specified()}</option>
-            <option value="transit">{m.public_transport()}</option>
-            <option value="walking">{m.walking()}</option>
-            <option value="riding">{m.riding()}</option>
-            <option value="driving">{m.driving()}</option>
-          </select>
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="label" for="radius-select-wide">
-            <span class="label-text">{m.search_radius()}</span>
-          </label>
-          <select
-            id="radius-select-wide"
-            class="select select-bordered w-full pe-8"
-            value={discoverRadius}
-            onchange={(e) => {
-              discoverRadius = Number((e.target as HTMLSelectElement).value);
-              updateDiscoverSettings();
-            }}
-          >
-            {#each RADIUS_OPTIONS as r (r)}
-              <option value={r}>{r} km</option>
-            {/each}
-            <option value={0}>{m.unlimited()}</option>
-          </select>
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="label" for="limit-select-wide">
-            <span class="label-text">{m.result_count()}</span>
-          </label>
-          <select
-            id="limit-select-wide"
-            class="select select-bordered w-full pe-8"
-            value={discoverLimit}
-            onchange={(e) => {
-              discoverLimit = Number((e.target as HTMLSelectElement).value);
-              updateDiscoverSettings();
-            }}
-          >
-            {#each LIMIT_OPTIONS as l (l)}
-              <option value={l}>{l}</option>
-            {/each}
-          </select>
-        </div>
-      </div>
+    {#snippet settings()}
       <!-- Narrow screens: dropdown with all settings -->
       <div class="flex md:hidden">
         <div class="dropdown dropdown-end">
@@ -1322,6 +1201,137 @@
           </div>
         </div>
       </div>
+    {/snippet}
+    <div class="not-xs:text-center">
+      <div class="not-xs:flex-col xs:flex-wrap mb-2 flex items-center gap-2">
+        <h1 class="ss:text-3xl text-2xl font-bold">{m.nearby_arcades()}</h1>
+        <div class="xs:flex-wrap flex items-center gap-2">
+          <div class="dropdown not-sm:dropdown-center">
+            <button
+              type="button"
+              tabindex="0"
+              class="btn btn-soft hover:btn-accent btn-sm"
+              class:btn-primary={selectedTitleIds.length > 0}
+              aria-label={m.filter_by_game_titles()}
+            >
+              <i class="fa-solid fa-filter"></i>
+              {#if selectedTitleIds.length > 0}
+                <span class="badge badge-sm">{selectedTitleIds.length}</span>
+              {/if}
+            </button>
+            <div
+              role="menu"
+              tabindex="-1"
+              class="card dropdown-content bg-base-200 text-base-content z-50 mt-2 w-fit font-normal shadow-md"
+            >
+              <div class="card-body p-4">
+                <h3 class="card-title justify-between text-base text-nowrap">
+                  {m.filter_by_game_titles()}
+                  <button
+                    class="btn btn-sm btn-ghost hover:btn-error"
+                    onclick={() => {
+                      selectedTitleIds = [];
+                      if (browser) {
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('gameTitleIds');
+                        goto(url.toString(), {
+                          replaceState: true,
+                          keepFocus: true,
+                          noScroll: true
+                        });
+                      }
+                    }}
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                    {m.clear_filters()}
+                  </button>
+                </h3>
+                <div class="space-y-2">
+                  {#each GAME_TITLES as game (game.id)}
+                    <label class="flex cursor-pointer items-center gap-2 text-nowrap">
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                        checked={selectedTitleIds.includes(game.id)}
+                        onchange={() => handleTitleFilterChange(game.id)}
+                      />
+                      <span class="text-sm">{getGameName(game.key)}</span>
+                    </label>
+                  {/each}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="xs:hidden">{@render settings()}</div>
+        </div>
+      </div>
+      <p class="ss:text-base text-base-content/70 text-sm">
+        {m.found_shops_near({
+          count: data.shops.length,
+          location:
+            data.location.name ??
+            `(${data.location.longitude.toFixed(6)}, ${data.location.latitude.toFixed(6)})`
+        })}
+      </p>
+    </div>
+    <div class="not-xs:hidden flex flex-col gap-1 {useGoogleMaps ? 'hidden' : ''}">
+      <!-- Wide screens: all selects inline -->
+      <div class="hidden md:flex md:items-end md:gap-2">
+        <div class="flex flex-col gap-1">
+          <label class="label" for="transport-select-wide">
+            <span class="label-text">{m.transport_method()}</span>
+          </label>
+          <select
+            id="transport-select-wide"
+            class="select select-bordered w-full pe-8"
+            bind:value={transportMethod}
+          >
+            <option value={undefined}>{m.not_specified()}</option>
+            <option value="transit">{m.public_transport()}</option>
+            <option value="walking">{m.walking()}</option>
+            <option value="riding">{m.riding()}</option>
+            <option value="driving">{m.driving()}</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="label" for="radius-select-wide">
+            <span class="label-text">{m.search_radius()}</span>
+          </label>
+          <select
+            id="radius-select-wide"
+            class="select select-bordered w-full pe-8"
+            value={discoverRadius}
+            onchange={(e) => {
+              discoverRadius = Number((e.target as HTMLSelectElement).value);
+              updateDiscoverSettings();
+            }}
+          >
+            {#each RADIUS_OPTIONS as r (r)}
+              <option value={r}>{r} km</option>
+            {/each}
+            <option value={0}>{m.unlimited()}</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="label" for="limit-select-wide">
+            <span class="label-text">{m.result_count()}</span>
+          </label>
+          <select
+            id="limit-select-wide"
+            class="select select-bordered w-full pe-8"
+            value={discoverLimit}
+            onchange={(e) => {
+              discoverLimit = Number((e.target as HTMLSelectElement).value);
+              updateDiscoverSettings();
+            }}
+          >
+            {#each LIMIT_OPTIONS as l (l)}
+              <option value={l}>{l}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+      {@render settings()}
     </div>
   </div>
   {#if data.shops.length === 0}
