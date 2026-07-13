@@ -44,11 +44,11 @@ code,
   @apply inline;
 }
 
-.not-md:prose-xs pre code {
+.not-md\:prose-xs pre code {
   @apply text-xs;
 }
 
-.not-md:prose-sm pre code {
+.not-md\:prose-sm pre code {
   @apply not-md:text-xs;
 }
 
