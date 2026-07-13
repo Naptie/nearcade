@@ -36,9 +36,8 @@ export function ip2region(): Plugin {
         console.log(`[ip2region] Saved ${file.name}`);
       }
     },
-    async writeBundle(options) {
-      const outDir = options.dir ?? resolve('build');
-      const destDir = resolve(outDir, 'ip2region');
+    async writeBundle() {
+      const destDir = resolve('ip2region');
       await mkdir(destDir, { recursive: true });
 
       for (const file of FILES) {
@@ -46,7 +45,7 @@ export function ip2region(): Plugin {
         const dest = resolve(destDir, file.name);
         if (existsSync(src)) {
           await copyFile(src, dest);
-          console.log(`[ip2region] Copied ${file.name} to build output`);
+          console.log(`[ip2region] Copied ${file.name} to ${destDir}`);
         }
       }
     }
