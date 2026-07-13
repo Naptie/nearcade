@@ -19,8 +19,8 @@ const REPLACEMENTS = [
 ] as const;
 
 const GA_TRANSPORT_URL = 'https://google-analytics.phi.zone';
-const GTAG_CONFIG_ORIGIN = 'origin="firebase"';
-const GTAG_CONFIG_INJECTED = `origin="firebase",transport_url="${GA_TRANSPORT_URL}"`;
+const GTAG_ORIGIN_REGEX = /(\w+)\.origin="firebase"/;
+const GTAG_ORIGIN_REPLACEMENT = `$&,$1.transport_url="${GA_TRANSPORT_URL}"`;
 
 export function firebaseProxy(): Plugin {
   return {
@@ -35,8 +35,8 @@ export function firebaseProxy(): Plugin {
             console.log(`[firebase-proxy] ${fileName}: replaced ${count} ${label} URL(s)`);
           }
         }
-        if (chunk.code.includes(GTAG_CONFIG_ORIGIN)) {
-          chunk.code = chunk.code.replace(GTAG_CONFIG_ORIGIN, GTAG_CONFIG_INJECTED);
+        if (GTAG_ORIGIN_REGEX.test(chunk.code)) {
+          chunk.code = chunk.code.replace(GTAG_ORIGIN_REGEX, GTAG_ORIGIN_REPLACEMENT);
           console.log(`[firebase-proxy] ${fileName}: injected gtag transport_url`);
         }
       }
