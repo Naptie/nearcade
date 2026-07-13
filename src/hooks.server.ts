@@ -3,6 +3,7 @@ import pc from 'picocolors';
 import {
   redirect,
   error,
+  isHttpError,
   type RequestEvent,
   type Handle,
   type HandleServerError,
@@ -30,16 +31,19 @@ import { SSC_SECRET } from '$env/static/private';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
-  if (status === 404) {
+  if (isHttpError(error)) {
+    const body = error.body;
+    const message = typeof body === 'string' ? body : body?.message;
     return {
-      message: '',
-      code: ''
+      message: status === 404 ? '' : message || m.unexpected_error(),
+      code: String(status)
     };
   }
+
   console.error(error);
   return {
     message: m.unexpected_error(),
-    code: 'INTERNAL_ERROR'
+    code: '500'
   };
 };
 
