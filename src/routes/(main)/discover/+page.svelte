@@ -714,7 +714,7 @@
         }
       });
     } else if (!useGoogleMaps && amap) {
-      // Initialize AMap (existing code)
+      // Initialize AMap
       untrack(() => {
         if (!amap) return;
         map = new amap.Map('amap-container', {
@@ -723,6 +723,9 @@
           mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
           viewMode: '2D'
         });
+
+        // Reset traffic layer
+        trafficLayer = undefined;
 
         const origin = new amap.Marker({
           position: [data.location.longitude, data.location.latitude],
