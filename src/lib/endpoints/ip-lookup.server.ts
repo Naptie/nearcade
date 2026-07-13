@@ -118,17 +118,18 @@ function toDisplayName(
   );
 
   const network = data.isp;
-  const useChineseFormat = locale === 'zh' || locale === 'ja';
+  const reverse = !(locale === 'zh' || locale === 'ja');
 
   if (network && locationParts.length > 0) {
-    return `${useChineseFormat ? locationParts.join(' · ') : locationParts.toReversed().join(', ')} | ${network}`;
+    return `${reverse ? locationParts.toReversed().join(', ') : locationParts.join(' · ')} | ${network}`;
   }
 
   if (network) {
     return network;
   }
 
-  return locationParts.length > 0 ? locationParts.join(useChineseFormat ? ' · ' : ', ') : null;
+  const orderedParts = reverse ? locationParts.toReversed() : locationParts;
+  return locationParts.length > 0 ? orderedParts.join(reverse ? ', ' : ' · ') : null;
 }
 
 export async function lookupIpRegion(
