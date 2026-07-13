@@ -40,8 +40,22 @@
   let showCollapse = $state(false);
   let starredReady = $state(false);
   let mode = $state(0);
-  let radius = $state(10);
-  let limit = $state(20);
+  let radius = $state(
+    browser
+      ? (() => {
+          const v = parseInt(localStorage.getItem('nearcade-radius') || '');
+          return RADIUS_OPTIONS.includes(v as (typeof RADIUS_OPTIONS)[number]) ? v : 10;
+        })()
+      : 10
+  );
+  let limit = $state(
+    browser
+      ? (() => {
+          const v = parseInt(localStorage.getItem('nearcade-result-count') || '');
+          return LIMIT_OPTIONS.includes(v as (typeof LIMIT_OPTIONS)[number]) ? v : 20;
+        })()
+      : 20
+  );
   let location = $state<{
     name: string;
     latitude: number;
@@ -196,22 +210,6 @@
     const interval = setInterval(() => {
       now = new Date();
     }, 1000);
-
-    const savedRadius = localStorage.getItem('nearcade-radius');
-    if (savedRadius) {
-      const parsedRadius = parseInt(savedRadius) as (typeof RADIUS_OPTIONS)[number];
-      if (RADIUS_OPTIONS.includes(parsedRadius)) {
-        radius = parsedRadius;
-      }
-    }
-
-    const savedLimit = localStorage.getItem('nearcade-result-count');
-    if (savedLimit) {
-      const parsedLimit = parseInt(savedLimit) as (typeof LIMIT_OPTIONS)[number];
-      if (LIMIT_OPTIONS.includes(parsedLimit)) {
-        limit = parsedLimit;
-      }
-    }
 
     // Defer the heavy starred-shops list until after the initial mount so
     // the globe -> landing transition isn't blocked by it.
