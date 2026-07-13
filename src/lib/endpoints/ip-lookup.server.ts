@@ -32,10 +32,7 @@ export type ResolvedIpRegion = {
   countryName: string | null;
   regionName: string | null;
   city: string | null;
-  district: string | null;
   isp: string | null;
-  organization: string | null;
-  asn: string | null;
   display: string | null;
 };
 
@@ -54,7 +51,7 @@ function getSearcher(ip: string): Searcher | null {
         const cBuffer = loadContentFromFile(XDB_V6_PATH);
         v6Searcher = newWithBuffer(IPv6, cBuffer);
       } catch (err) {
-        console.error('[ip-lookup] failed to load v6 xdb:', err);
+        console.error('[IPGL] Failed to load v6 xdb:', err);
         return null;
       }
     }
@@ -67,7 +64,7 @@ function getSearcher(ip: string): Searcher | null {
       const cBuffer = loadContentFromFile(XDB_V4_PATH);
       v4Searcher = newWithBuffer(IPv4, cBuffer);
     } catch (err) {
-      console.error('[ip-lookup] failed to load v4 xdb:', err);
+      console.error('[IPGL] Failed to load v4 xdb:', err);
       return null;
     }
   }
@@ -150,17 +147,14 @@ export async function lookupIpRegion(
       countryName: null,
       regionName: null,
       city: null,
-      district: null,
       isp: null,
-      organization: null,
-      asn: null,
       display: null
     };
   }
 
   const searcher = getSearcher(normalizedIp);
   if (!searcher) {
-    console.warn('[ip-lookup] xdb not available, skipping lookup for', normalizedIp);
+    console.warn('[IPGL] xdb not available, skipping lookup for', normalizedIp);
     return null;
   }
 
@@ -177,20 +171,16 @@ export async function lookupIpRegion(
       countryName,
       regionName: parsed.province,
       city: parsed.city,
-      district: null,
       isp: parsed.isp,
-      organization: null,
-      asn: null,
-      display: null
+      display: toDisplayName(
+        { countryName, regionName: parsed.province, isp: parsed.isp },
+        locale
+      )
     };
 
-    resolved.display = toDisplayName(
-      { countryName: resolved.countryName, regionName: resolved.regionName, isp: resolved.isp },
-      locale
-    );
     return resolved;
   } catch (error) {
-    console.error('[ip-lookup] failed for ip', normalizedIp, error);
+    console.error('[IPGL] Failed for IP', normalizedIp, error);
     return null;
   }
 }
