@@ -931,7 +931,7 @@ export const isStandalone = () => {
 /**
  * Builds a page title with proper ordering for PWA standalone mode
  * In standalone mode: returns parts in original reverse order (C - B - A)
- * In browser mode: returns parts in reverse order with app name (C - B - A - {appName})
+ * In browser mode: returns parts in reverse order with app name (C | B | A | {appName})
  */
 export const pageTitle = (...parts: string[]): string => {
   const filteredParts = parts.filter(Boolean); // Remove empty strings
@@ -939,7 +939,7 @@ export const pageTitle = (...parts: string[]): string => {
   if (isStandalone()) {
     return [...filteredParts].reverse().join(' - ');
   } else {
-    return `${filteredParts.join(' - ')} - ${m.app_name()}`;
+    return `${filteredParts.join(' | ')} | ${m.app_name()}`;
   }
 };
 

@@ -946,7 +946,7 @@
 
 <svelte:head>
   {#if shop}
-    <title>{pageTitle(shop.name, m.shop_details())}</title>
+    <title>{pageTitle(shop.name)}</title>
     <meta name="description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
     <meta property="og:title" content={pageTitle(shop.name, m.shop_details())} />
     <meta property="og:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
