@@ -7,10 +7,9 @@ allowBuilds:
   workerd: true
 patchedDependencies:
   '@inlang/paraglide-js@2.19.0': patches/@inlang__paraglide-js@2.19.0.patch
-  better-auth@1.6.18: patches/better-auth@1.6.18.patch
+  better-auth@1.6.23: patches/better-auth@1.6.23.patch
   firebase@12.14.0: patches/firebase@12.14.0.patch
 updateConfig:
   ignoreDependencies:
-    - better-auth
     - firebase
     - '@inlang/paraglide-js'
