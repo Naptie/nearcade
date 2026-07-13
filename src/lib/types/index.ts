@@ -325,13 +325,13 @@ export interface AttendanceReportRecord {
   reportedAt: Date;
 }
 
-// Extended types for route guidance
+// Extended types for directions
 export interface CachedRouteData {
   routeData: TransportSearchResult;
   selectedRouteIndex: number;
 }
 
-export interface RouteGuidanceState {
+export interface DirectionsState {
   isOpen: boolean;
   shopId: string | null;
   selectedRouteIndex: number;

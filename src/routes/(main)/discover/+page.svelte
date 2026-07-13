@@ -7,7 +7,7 @@
     TransportMethod,
     TransportSearchResult,
     CachedRouteData,
-    RouteGuidanceState
+    DirectionsState
   } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, getContext, untrack } from 'svelte';
@@ -30,7 +30,7 @@
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
-  import RouteGuidance from '$lib/components/RouteGuidance.svelte';
+  import Directions from '$lib/components/Directions.svelte';
   import {
     SELECTED_ROUTE_INDEX,
     HOVERED_ROUTE_INDEX,
@@ -89,11 +89,11 @@
         distance: number;
         path: AMap.LngLat[];
         route: AMap.Polyline;
-        routeData?: TransportSearchResult; // Store complete route data for guidance
+        routeData?: TransportSearchResult; // Store complete route data for directions
       } | null
     >
   >({}); // shopId -> travel data
-  let routeGuidance = $state<RouteGuidanceState>({
+  let directions = $state<DirectionsState>({
     isOpen: false,
     shopId: null,
     selectedRouteIndex: 0
@@ -246,31 +246,30 @@
   };
 
   let routeLink = $derived.by(
-    () => getRouteLink(data.shops.find((s) => `${s.id}` === routeGuidance.shopId)) || ''
+    () => getRouteLink(data.shops.find((s) => `${s.id}` === directions.shopId)) || ''
   );
 
   const getRouteOptions = (id: string): Partial<AMap.PolylineOptions> => {
     const isSelected = selectedShopId === id;
     const isHovered = hoveredShopId === id;
-    const hasGuidanceOpen = routeGuidance.isOpen && routeGuidance.shopId === id;
+    const hasDirectionsOpen = directions.isOpen && directions.shopId === id;
 
     return {
       strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
       strokeWeight: isSelected ? 3.8 : isHovered ? 4.2 : 3,
-      strokeOpacity: hasGuidanceOpen ? 0 : isSelected || isHovered ? 1 : 0.4,
+      strokeOpacity: hasDirectionsOpen ? 0 : isSelected || isHovered ? 1 : 0.4,
       lineJoin: 'round',
       zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
     };
   };
 
-  const showRouteGuidance = () => {
-    if (routeGuidance.isOpen || !routeGuidance.shopId || routeGuidance.shopId !== selectedShopId)
-      return;
-    openRouteGuidance();
+  const showDirections = () => {
+    if (directions.isOpen || !directions.shopId || directions.shopId !== selectedShopId) return;
+    openDirections();
   };
 
-  const openRouteGuidance = () => {
-    routeGuidance.isOpen = true;
+  const openDirections = () => {
+    directions.isOpen = true;
     if (isMobileView) {
       mapContainer?.scrollIntoView({
         behavior: 'smooth',
@@ -360,7 +359,7 @@
           });
           routeLine.on('click', () => {
             selectedShopId = `${shop.id}`;
-            showRouteGuidance();
+            showDirections();
           });
 
           polylines.push(routeLine);
@@ -452,7 +451,7 @@
       (map as AMap.Map).add(polylines);
     }
 
-    if (!routeGuidance.isOpen && map && 'setFitView' in map) map.setFitView();
+    if (!directions.isOpen && map && 'setFitView' in map) map.setFitView();
   };
 
   const findGame = (games: Game[], titleId: number): Game | null => {
@@ -698,7 +697,7 @@
               }, 3000);
 
               const shopElement = document.getElementById(`shop-${shop.id}`);
-              if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
+              if (shopElement && !(isMobileView && directions.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             });
@@ -781,13 +780,13 @@
               if (highlightedShopIdTimeout) {
                 clearTimeout(highlightedShopIdTimeout);
               }
-              if (!routeGuidance.isOpen) {
+              if (!directions.isOpen) {
                 highlightedShopIdTimeout = setTimeout(() => {
                   highlightedShopId = null;
                 }, 3000);
               }
               const shopElement = document.getElementById(`shop-${shop.id}`);
-              if (shopElement && !(isMobileView && routeGuidance.isOpen)) {
+              if (shopElement && !(isMobileView && directions.isOpen)) {
                 shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             });
@@ -834,8 +833,8 @@
     if (useGoogleMaps) return;
     void hoveredShopId;
     void selectedShopId;
-    void routeGuidance.isOpen;
-    void routeGuidance.shopId;
+    void directions.isOpen;
+    void directions.shopId;
     untrack(() => {
       Object.keys(travelData).forEach((shopId) => {
         const data = travelData[shopId];
@@ -846,11 +845,11 @@
   });
 
   $effect(() => {
-    // Update route colors when guidance state changes
-    if (routeGuidance.shopId && !useGoogleMaps) {
-      const routeData = travelData[routeGuidance.shopId];
+    // Update route colors when directions state changes
+    if (directions.shopId && !useGoogleMaps) {
+      const routeData = travelData[directions.shopId];
       if (routeData && routeData.route.setOptions) {
-        routeData.route.setOptions(getRouteOptions(routeGuidance.shopId));
+        routeData.route.setOptions(getRouteOptions(directions.shopId));
       }
     }
   });
@@ -872,8 +871,8 @@
           const route = travelData[selectedShopId!]?.route;
           if (route && map && 'setFitView' in map) {
             map.setFitView([route]);
-            routeGuidance.shopId = selectedShopId;
-            openRouteGuidance();
+            directions.shopId = selectedShopId;
+            openDirections();
           } else {
             const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
             if (shop && map && 'setZoomAndCenter' in map) {
@@ -911,12 +910,12 @@
         const cachedData = cachedRoutes[cacheKey];
         const selectedIndex = cachedData?.selectedRouteIndex ?? 0;
 
-        routeGuidance = {
+        directions = {
           isOpen: true,
           shopId: selected,
           selectedRouteIndex: selectedIndex
         };
-        openRouteGuidance();
+        openDirections();
       });
     }
   });
@@ -997,8 +996,8 @@
   });
 
   $effect(() => {
-    if (routeGuidance.isOpen && routeGuidance.shopId) {
-      highlightedShopId = routeGuidance.shopId;
+    if (directions.isOpen && directions.shopId) {
+      highlightedShopId = directions.shopId;
       return () => {
         highlightedShopId = null;
       };
@@ -1051,27 +1050,27 @@
   });
 </script>
 
-<RouteGuidance
-  bind:isOpen={routeGuidance.isOpen}
-  shop={routeGuidance.shopId ? data.shops.find((s) => `${s.id}` === routeGuidance.shopId) : null}
-  selectedRouteIndex={routeGuidance.selectedRouteIndex}
-  routeData={routeGuidance.shopId ? travelData[routeGuidance.shopId]?.routeData : null}
-  isLoading={!!routeGuidance.shopId && !travelData[routeGuidance.shopId]}
+<Directions
+  bind:isOpen={directions.isOpen}
+  shop={directions.shopId ? data.shops.find((s) => `${s.id}` === directions.shopId) : null}
+  selectedRouteIndex={directions.selectedRouteIndex}
+  routeData={directions.shopId ? travelData[directions.shopId]?.routeData : null}
+  isLoading={!!directions.shopId && !travelData[directions.shopId]}
   map={map as AMap.Map}
   {amap}
   amapLink={routeLink}
   onClose={() => {
-    routeGuidance.isOpen = false;
+    directions.isOpen = false;
   }}
   onRouteSelected={(index) => {
-    routeGuidance.selectedRouteIndex = index;
+    directions.selectedRouteIndex = index;
 
     // Update cache with new selected route index
-    if (routeGuidance.shopId && transportMethod) {
+    if (directions.shopId && transportMethod) {
       const cacheKey = generateRouteCacheKey(
         data.location.latitude,
         data.location.longitude,
-        routeGuidance.shopId,
+        directions.shopId,
         transportMethod
       );
       const cachedData = cachedRoutes[cacheKey];
@@ -1082,8 +1081,8 @@
     }
 
     // Update the polyline on the map to show the selected route
-    if (routeGuidance.shopId && transportMethod && amap && map) {
-      const shopData = travelData[routeGuidance.shopId];
+    if (directions.shopId && transportMethod && amap && map) {
+      const shopData = travelData[directions.shopId];
       if (shopData?.routeData) {
         const result = shopData.routeData;
         if (typeof result === 'object') {
@@ -1101,7 +1100,7 @@
 
             shopData.route.setPath(path);
 
-            travelData[routeGuidance.shopId] = {
+            travelData[directions.shopId] = {
               ...shopData,
               time: selectedRoute.time ?? 0,
               distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
@@ -1492,7 +1491,7 @@
               onclick={(event) => {
                 if ((event.target as Element)?.closest('button, a')) return;
                 selectedShopId = `${shop.id}`;
-                if (!(isMobileView && routeGuidance.isOpen))
+                if (!(isMobileView && directions.isOpen))
                   mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
             >

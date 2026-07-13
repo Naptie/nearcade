@@ -541,7 +541,7 @@
     <div class="bg-base-100 flex items-center justify-between gap-2 p-2 md:p-4">
       <div class="min-w-0 flex-1">
         <h3 class="truncate text-base font-semibold not-md:ml-2 md:text-lg">{shop?.name}</h3>
-        <p class="text-base-content/70 text-sm not-md:hidden">{m.route_guidance()}</p>
+        <p class="text-base-content/70 text-sm not-md:hidden">{m.directions()}</p>
       </div>
       <div class="flex items-center gap-0.5">
         <FancyButton
@@ -621,7 +621,7 @@
 
             <!-- Route Steps -->
             <div class="space-y-3">
-              <h4 class="text-sm font-medium">{m.route_steps()}</h4>
+              <h4 class="text-sm font-medium">{m.details()}</h4>
               {#if selectedRoute.segments && selectedRoute.segments.length > 0}
                 {#if transportMethod === 'transit'}
                   {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
