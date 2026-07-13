@@ -140,7 +140,13 @@ export const load: PageServerLoad = async ({ parent }) => {
           $project: {
             _id: 0,
             clubId: 1,
-            starredArcades: '$club.starredArcades'
+            starredArcades: {
+              $cond: {
+                if: { $ifNull: ['$club', false] },
+                then: '$club.starredArcades',
+                else: '$$REMOVE'
+              }
+            }
           }
         }
       ])

@@ -129,13 +129,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           'user.email': 1,
           'user.image': 1,
           'user.userType': 1,
-          'reviewer._id': 1,
-          'reviewer.id': 1,
-          'reviewer.name': 1,
-          'reviewer.displayName': 1,
-          'reviewer.email': 1,
-          'reviewer.image': 1,
-          'reviewer.userType': 1
+          reviewer: {
+            $cond: {
+              if: { $ifNull: ['$reviewer', false] },
+              then: {
+                _id: '$reviewer._id',
+                id: '$reviewer.id',
+                name: '$reviewer.name',
+                displayName: '$reviewer.displayName',
+                email: '$reviewer.email',
+                image: '$reviewer.image',
+                userType: '$reviewer.userType'
+              },
+              else: '$$REMOVE'
+            }
+          }
         }
       }
     ];

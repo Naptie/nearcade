@@ -81,10 +81,16 @@ export const listOAuthClients = async (
         scopes: 1,
         creatorId: 1,
         creator: {
-          id: '$creator.id',
-          name: '$creator.name',
-          displayName: '$creator.displayName',
-          image: '$creator.image'
+          $cond: {
+            if: { $ifNull: ['$creator', false] },
+            then: {
+              id: '$creator.id',
+              name: '$creator.name',
+              displayName: '$creator.displayName',
+              image: '$creator.image'
+            },
+            else: '$$REMOVE'
+          }
         }
       }
     }
@@ -133,10 +139,16 @@ export const getOAuthClientConsentInfo = async (
           icon: 1,
           uri: 1,
           creator: {
-            id: '$creator.id',
-            name: '$creator.name',
-            displayName: '$creator.displayName',
-            image: '$creator.image'
+            $cond: {
+              if: { $ifNull: ['$creator', false] },
+              then: {
+                id: '$creator.id',
+                name: '$creator.name',
+                displayName: '$creator.displayName',
+                image: '$creator.image'
+              },
+              else: '$$REMOVE'
+            }
           }
         }
       }

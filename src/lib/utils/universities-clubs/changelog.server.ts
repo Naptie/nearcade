@@ -275,10 +275,16 @@ export const getChangelogEntries = async (
         userImage: 1,
         createdAt: 1,
         user: {
-          id: '$user.id',
-          name: '$user.name',
-          displayName: '$user.displayName',
-          image: '$user.image'
+          $cond: {
+            if: { $ifNull: ['$user', false] },
+            then: {
+              id: '$user.id',
+              name: '$user.name',
+              displayName: '$user.displayName',
+              image: '$user.image'
+            },
+            else: '$$REMOVE'
+          }
         }
       }
     }
