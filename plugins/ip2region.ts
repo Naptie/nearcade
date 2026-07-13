@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
-const XDB_DIR = resolve('src/lib/assets/ip2region');
+const XDB_SRC_DIR = resolve('src/lib/assets/ip2region');
 
 const FILES = [
   {
@@ -20,10 +20,10 @@ export function ip2region(): Plugin {
   return {
     name: 'ip2region',
     async buildStart() {
-      await mkdir(XDB_DIR, { recursive: true });
+      await mkdir(XDB_SRC_DIR, { recursive: true });
 
       for (const file of FILES) {
-        const dest = resolve(XDB_DIR, file.name);
+        const dest = resolve(XDB_SRC_DIR, file.name);
         if (existsSync(dest)) continue;
 
         console.log(`[ip2region] Downloading ${file.name}...`);
@@ -34,6 +34,20 @@ export function ip2region(): Plugin {
         }
         await writeFile(dest, Buffer.from(await res.arrayBuffer()));
         console.log(`[ip2region] Saved ${file.name}`);
+      }
+    },
+    async writeBundle(options) {
+      const outDir = options.dir ?? resolve('build');
+      const destDir = resolve(outDir, 'ip2region');
+      await mkdir(destDir, { recursive: true });
+
+      for (const file of FILES) {
+        const src = resolve(XDB_SRC_DIR, file.name);
+        const dest = resolve(destDir, file.name);
+        if (existsSync(src)) {
+          await copyFile(src, dest);
+          console.log(`[ip2region] Copied ${file.name} to build output`);
+        }
       }
     }
   };

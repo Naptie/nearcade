@@ -34,9 +34,4 @@ declare module 'virtual:pwa-register/svelte' {
   };
 }
 
-declare module '*.xdb?url' {
-  const url: string;
-  export default url;
-}
-
 export {};

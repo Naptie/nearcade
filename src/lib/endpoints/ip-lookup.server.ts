@@ -1,13 +1,28 @@
 import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { IPv4, IPv6, loadContentFromFile, newWithBuffer } from 'ip2region.js';
 import type { Searcher } from 'ip2region.js';
 import { extractLocaleFromRequest } from '$lib/paraglide/runtime';
-import v4xdbUrl from '$lib/assets/ip2region/ip2region_v4.xdb?url';
-import v6xdbUrl from '$lib/assets/ip2region/ip2region_v6.xdb?url';
-import { fileURLToPath } from 'node:url';
 
-const XDB_V4_PATH = fileURLToPath(v4xdbUrl);
-const XDB_V6_PATH = fileURLToPath(v6xdbUrl);
+function resolveXdbPath(name: string): string | null {
+  const devPath = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'assets',
+    'ip2region',
+    name
+  );
+  if (existsSync(devPath)) return devPath;
+
+  const prodPath = resolve(process.cwd(), 'ip2region', name);
+  if (existsSync(prodPath)) return prodPath;
+
+  return null;
+}
+
+const XDB_V4_PATH = resolveXdbPath('ip2region_v4.xdb');
+const XDB_V6_PATH = resolveXdbPath('ip2region_v6.xdb');
 
 type SupportedLocale = 'en' | 'zh' | 'ja';
 
@@ -34,7 +49,7 @@ function getSearcher(ip: string): Searcher | null {
 
   if (isV6) {
     if (!v6Searcher) {
-      if (!existsSync(XDB_V6_PATH)) return null;
+      if (!XDB_V6_PATH) return null;
       try {
         const cBuffer = loadContentFromFile(XDB_V6_PATH);
         v6Searcher = newWithBuffer(IPv6, cBuffer);
@@ -47,7 +62,7 @@ function getSearcher(ip: string): Searcher | null {
   }
 
   if (!v4Searcher) {
-    if (!existsSync(XDB_V4_PATH)) return null;
+    if (!XDB_V4_PATH) return null;
     try {
       const cBuffer = loadContentFromFile(XDB_V4_PATH);
       v4Searcher = newWithBuffer(IPv4, cBuffer);
