@@ -7,6 +7,7 @@ on:
     paths:
       - 'messages/**'
       - 'patches/**'
+      - 'plugins/**'
       - 'project.inlang/**'
       - 'scripts/**'
       - 'src/**'
