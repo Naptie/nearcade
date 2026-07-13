@@ -26,6 +26,7 @@
   import { browser } from '$app/environment';
   import { initializeApp } from 'firebase/app';
   import { getMessaging, getToken } from 'firebase/messaging';
+  import { getAnalytics, setAnalyticsCollectionEnabled } from 'firebase/analytics';
   import Clarity from '@microsoft/clarity';
 
   let { data, children } = $props();
@@ -160,6 +161,10 @@
       };
 
       const app = initializeApp(firebaseConfig);
+
+      const analytics = getAnalytics(app);
+      setAnalyticsCollectionEnabled(analytics, !import.meta.env.DEV);
+
       const messaging = getMessaging(app);
 
       // Request permission and get token
