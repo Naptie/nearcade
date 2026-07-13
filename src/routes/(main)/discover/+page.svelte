@@ -322,6 +322,7 @@
     }
 
     const plugin = plugins[method];
+    const polylines: AMap.Polyline[] = [];
 
     const processShop = async (shop: Shop, retryCount = 0): Promise<void> => {
       return new Promise((resolve) => {
@@ -362,7 +363,7 @@
             showRouteGuidance();
           });
 
-          (map as AMap.Map).add(routeLine);
+          polylines.push(routeLine);
           travelData[`${shop.id}`] = {
             time: selectedRoute.time ?? 0,
             distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
@@ -446,6 +447,11 @@
       await processShop(shop);
     }
 
+    // Batch add all polylines at once to avoid per-add re-renders
+    if (polylines.length > 0 && map && 'add' in map) {
+      (map as AMap.Map).add(polylines);
+    }
+
     if (!routeGuidance.isOpen && map && 'setFitView' in map) map.setFitView();
   };
 
@@ -468,14 +474,10 @@
     }
   });
 
-  let filteredShops = $derived.by(() => {
-    return sortedShops;
-  });
-
   let visibleGameIds = $derived.by(() => {
     const ids = [...selectedTitleIds];
 
-    filteredShops.forEach((shop) => {
+    sortedShops.forEach((shop) => {
       shop.games.forEach((game) => {
         if (!ids.includes(game.titleId)) {
           ids.push(game.titleId);
@@ -601,7 +603,10 @@
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined) return;
 
-    const shops = filteredShops;
+    // Don't track sortedShops — it depends on travelData which would cause
+    // the map to re-initialize during route calculation.
+    // We only want to re-init when `data` changes (new server fetch).
+    const shops = untrack(() => sortedShops);
     if (useGoogleMaps && google.maps) {
       // Initialize Google Maps
       untrack(async () => {
@@ -809,7 +814,11 @@
         Object.keys(travelData).forEach((shopId) => {
           const route = travelData[shopId]?.route;
           if (route && map && (map as { remove?: (route: unknown) => void }).remove) {
-            (map as { remove: (route: unknown) => void }).remove(route);
+            try {
+              (map as { remove: (route: unknown) => void }).remove(route);
+            } catch {
+              // Map may already be destroyed during navigation
+            }
           }
         });
       };
@@ -819,11 +828,17 @@
   });
 
   $effect(() => {
-    if (useGoogleMaps) return; // Skip for Google Maps
-    Object.keys(travelData).forEach((shopId) => {
-      const data = travelData[shopId];
-      if (!data || !data.route.setOptions) return;
-      data.route.setOptions(getRouteOptions(shopId));
+    if (useGoogleMaps) return;
+    void hoveredShopId;
+    void selectedShopId;
+    void routeGuidance.isOpen;
+    void routeGuidance.shopId;
+    untrack(() => {
+      Object.keys(travelData).forEach((shopId) => {
+        const data = travelData[shopId];
+        if (!data || !data.route.setOptions) return;
+        data.route.setOptions(getRouteOptions(shopId));
+      });
     });
   });
 
@@ -1410,7 +1425,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each filteredShops as shop (shop._id)}
+          {#each sortedShops as shop (shop._id)}
             {@const openingHours = getShopOpeningHours(shop)}
             {@const isShopOpen =
               openingHours &&
