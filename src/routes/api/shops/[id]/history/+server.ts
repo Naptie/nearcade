@@ -75,10 +75,16 @@ export const GET: RequestHandler = async ({ params, url }) => {
             reportedBy: 1,
             reportedAt: 1,
             reporter: {
-              id: '$reporter.id',
-              name: '$reporter.name',
-              displayName: '$reporter.displayName',
-              image: '$reporter.image'
+              $cond: {
+                if: { $ifNull: ['$reporter', false] },
+                then: {
+                  id: '$reporter.id',
+                  name: '$reporter.name',
+                  displayName: '$reporter.displayName',
+                  image: '$reporter.image'
+                },
+                else: '$$REMOVE'
+              }
             }
           }
         }
