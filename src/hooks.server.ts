@@ -26,6 +26,7 @@ import {
 import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 import { SSC_SECRET } from '$env/static/private';
+import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (status === 404) {
@@ -270,6 +271,24 @@ const handleAuth: Handle = async ({ event, resolve }) => {
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
+const handleIpDebug: Handle = async ({ event, resolve }) => {
+  const cfIp = event.request.headers.get('cf-connecting-ip');
+  const aliIp = event.request.headers.get('ali-cdn-real-ip');
+  const xff = event.request.headers.get('x-forwarded-for');
+
+  const detectedIp = cfIp || aliIp || xff?.split(',')[0]?.trim() || 'unknown';
+  const region = await lookupIpRegion(detectedIp, event.request);
+
+  console.log(
+    `[ip-debug] ${event.request.method} ${event.url.pathname} | ` +
+      `ip=${detectedIp} ` +
+      `(cf=${cfIp ?? '-'}, ali=${aliIp ?? '-'}, xff=${xff ?? '-'}) | ` +
+      `region=${region?.display ?? 'unknown'}`
+  );
+
+  return resolve(event);
+};
+
 export const handle: Handle = sequence(
   handleOptions,
   handleParaglide,
@@ -278,7 +297,8 @@ export const handle: Handle = sequence(
   handleUserShortcut,
   handleLegacyShopPaths,
   handleHeaders,
-  handleAuth
+  handleAuth,
+  handleIpDebug
 );
 
 export const handleError: HandleServerError = reportError;

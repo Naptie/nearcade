@@ -181,6 +181,9 @@ function createAuth() {
     trustedOrigins: ['*'],
     advanced: {
       trustedProxyHeaders: true,
+      ipAddress: {
+        ipAddressHeaders: ['cf-connecting-ip', 'ali-cdn-real-ip', 'x-forwarded-for']
+      },
       backgroundTasks: {
         handler: runBackgroundTask
       }
