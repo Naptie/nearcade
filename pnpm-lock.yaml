@@ -7,7 +7,6 @@ settings:
 patchedDependencies:
   '@inlang/paraglide-js@2.19.0': bd1299b55f459df95bc950133928c24ed220b7436297ed2a898e5b385623d1f7
   better-auth@1.6.23: 5e27588b1f3f5cdb497f4fc4113a8be3aee2a78ef4e628b6396cd2c00c4c4a7d
-  firebase@12.14.0: 1b38d828fad48fcd500124cd71c8a2d2a89275978befc034ddc92901e5940f40
 
 importers:
 
@@ -241,7 +240,7 @@ importers:
         version: 3.20.0(eslint@10.7.0(jiti@2.7.0))(svelte@5.56.4(@typescript-eslint/types@8.63.0))
       firebase:
         specifier: ^12.14.0
-        version: 12.14.0(patch_hash=1b38d828fad48fcd500124cd71c8a2d2a89275978befc034ddc92901e5940f40)
+        version: 12.14.0
       globals:
         specifier: ^17.7.0
         version: 17.7.0
@@ -9375,7 +9374,7 @@ snapshots:
       - encoding
       - supports-color
 
-  firebase@12.14.0(patch_hash=1b38d828fad48fcd500124cd71c8a2d2a89275978befc034ddc92901e5940f40):
+  firebase@12.14.0:
     dependencies:
       '@firebase/ai': 2.13.0(@firebase/app-types@0.9.5)(@firebase/app@0.14.13)
       '@firebase/analytics': 0.10.22(@firebase/app@0.14.13)
