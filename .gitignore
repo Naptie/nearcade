@@ -31,5 +31,8 @@ src/paraglide
 google-sak.json
 deploy.sh
 
+# Build-time data
+data/
+
 # ip2region database
 src/lib/assets/ip2region/*.xdb
