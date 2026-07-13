@@ -5,6 +5,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { ip2region } from './plugins/ip2region';
+import { firebaseProxy } from './plugins/firebase-proxy';
 
 export default defineConfig({
   plugins: [
@@ -12,6 +13,7 @@ export default defineConfig({
     tailwindcss(),
     sveltekit(),
     devtoolsJson(),
+    firebaseProxy(),
     // i18n
     paraglideVitePlugin({
       project: './project.inlang',
