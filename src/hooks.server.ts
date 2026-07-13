@@ -35,9 +35,13 @@ const reportError: HandleServerError = ({ status, error }) => {
     const body = error.body;
     const message = typeof body === 'string' ? body : body?.message;
     return {
-      message: status === 404 ? '' : message || m.unexpected_error(),
+      message: message || m.unexpected_error(),
       code: String(status)
     };
+  }
+
+  if (status === 404) {
+    return { message: '', code: '404' };
   }
 
   console.error(error);
