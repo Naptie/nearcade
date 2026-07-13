@@ -172,10 +172,7 @@ export async function lookupIpRegion(
       regionName: parsed.province,
       city: parsed.city,
       isp: parsed.isp,
-      display: toDisplayName(
-        { countryName, regionName: parsed.province, isp: parsed.isp },
-        locale
-      )
+      display: toDisplayName({ countryName, regionName: parsed.province, isp: parsed.isp }, locale)
     };
 
     return resolved;
