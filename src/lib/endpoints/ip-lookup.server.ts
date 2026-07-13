@@ -77,6 +77,8 @@ function getSearcher(ip: string): Searcher | null {
 function normalizeIp(input: string): string | null {
   const value = input.trim();
   if (!value) return null;
+  if (value.includes(':') && !value.match(/^[0-9a-fA-F:]+$/)) return null;
+  if (!value.includes(':') && !value.match(/^[0-9.]+$/)) return null;
   return value;
 }
 

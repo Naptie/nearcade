@@ -1,4 +1,5 @@
 import { sequence } from '@sveltejs/kit/hooks';
+import pc from 'picocolors';
 import {
   redirect,
   error,
@@ -271,19 +272,33 @@ const handleAuth: Handle = async ({ event, resolve }) => {
   return svelteKitHandler({ event, resolve, auth, building });
 };
 
-const handleIpDebug: Handle = async ({ event, resolve }) => {
+const handleRequestLogging: Handle = async ({ event, resolve }) => {
   const cfIp = event.request.headers.get('cf-connecting-ip');
   const aliIp = event.request.headers.get('ali-cdn-real-ip');
   const xff = event.request.headers.get('x-forwarded-for');
+  const userAgent = event.request.headers.get('user-agent');
 
-  const detectedIp = cfIp || aliIp || xff?.split(',')[0]?.trim() || 'unknown';
-  const region = await lookupIpRegion(detectedIp, event.request);
+  const detectedIp = cfIp || aliIp || xff?.split(',')[0]?.trim() || null;
+  const region = detectedIp ? await lookupIpRegion(detectedIp, event.request) : null;
+  const user = event.locals.user;
+
+  const method = pc.bold(pc.cyan(event.request.method));
+
+  const path = event.url.pathname;
+
+  const userName = user?.name ?? user?.email ?? 'Anonymous';
+  const userDisplay = pc.green(userName);
+
+  const ip = detectedIp ? pc.yellow(detectedIp) : pc.gray('direct');
+  const regionDisplay = region?.display ?? 'unknown';
+
+  const uaDisplay = pc.dim(pc.gray(userAgent || '-'));
+
+  const sep = pc.dim(pc.gray(' | '));
+  const arrow = pc.dim(pc.gray(' → '));
 
   console.log(
-    `[ip-debug] ${event.request.method} ${event.url.pathname} | ` +
-      `ip=${detectedIp} ` +
-      `(cf=${cfIp ?? '-'}, ali=${aliIp ?? '-'}, xff=${xff ?? '-'}) | ` +
-      `region=${region?.display ?? 'unknown'}`
+    `${method} ${path}${sep}${userDisplay}${sep}${ip}${arrow}${regionDisplay}${sep}${uaDisplay}`
   );
 
   return resolve(event);
@@ -298,7 +313,7 @@ export const handle: Handle = sequence(
   handleLegacyShopPaths,
   handleHeaders,
   handleAuth,
-  handleIpDebug
+  handleRequestLogging
 );
 
 export const handleError: HandleServerError = reportError;
