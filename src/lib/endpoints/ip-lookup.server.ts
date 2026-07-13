@@ -1,13 +1,13 @@
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { IPv4, IPv6, loadContentFromFile, newWithBuffer } from 'ip2region.js';
 import type { Searcher } from 'ip2region.js';
 import { extractLocaleFromRequest } from '$lib/paraglide/runtime';
+import v4xdbUrl from '$lib/assets/ip2region/ip2region_v4.xdb?url';
+import v6xdbUrl from '$lib/assets/ip2region/ip2region_v6.xdb?url';
+import { fileURLToPath } from 'node:url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const XDB_V4_PATH = resolve(__dirname, '..', 'assets', 'ip2region', 'ip2region_v4.xdb');
-const XDB_V6_PATH = resolve(__dirname, '..', 'assets', 'ip2region', 'ip2region_v6.xdb');
+const XDB_V4_PATH = fileURLToPath(v4xdbUrl);
+const XDB_V6_PATH = fileURLToPath(v6xdbUrl);
 
 type SupportedLocale = 'en' | 'zh' | 'ja';
 
