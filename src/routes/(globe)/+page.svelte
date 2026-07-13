@@ -18,9 +18,7 @@
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
-    getShopOpeningHours,
-    pageTitle
-
+    getShopOpeningHours
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { viewport } from '$lib/utils/viewport.svelte';
@@ -233,7 +231,7 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle(m.greeting())}</title>
+  <title>{m.app_name()} | {m.greeting()}</title>
   <meta name="description" content={m.greeting()} />
   <meta property="og:title" content={m.app_name()} />
   <meta property="og:description" content={m.greeting()} />
