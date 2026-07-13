@@ -15,7 +15,7 @@ function resolveXdbPath(name: string): string | null {
   );
   if (existsSync(devPath)) return devPath;
 
-  const prodPath = resolve(process.cwd(), 'ip2region', name);
+  const prodPath = resolve(process.cwd(), 'data', 'ip2region', name);
   if (existsSync(prodPath)) return prodPath;
 
   return null;

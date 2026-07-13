@@ -37,7 +37,7 @@ export function ip2region(): Plugin {
       }
     },
     async writeBundle() {
-      const destDir = resolve('ip2region');
+      const destDir = resolve('data', 'ip2region');
       await mkdir(destDir, { recursive: true });
 
       for (const file of FILES) {

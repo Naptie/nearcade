@@ -83,6 +83,7 @@ jobs:
           name: build
           path: |
             build/
+            data/
             patches/
             scripts/
             package.json
