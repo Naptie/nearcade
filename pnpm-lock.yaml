@@ -64,6 +64,9 @@ importers:
       firebase-admin:
         specifier: ^13.10.0
         version: 13.10.0
+      ip2region.js:
+        specifier: ^3.1.8
+        version: 3.1.8
       leancloud-storage:
         specifier: ^4.15.2
         version: 4.15.2
@@ -3945,6 +3948,9 @@ packages:
   invert-kv@1.0.0:
     resolution: {integrity: sha512-xgs2NH9AE66ucSq4cNG1nhSFghr5l6tdL15Pk+jl46bmmBapgoaY/AacXyaDznAqmGL99TiLSQgO/XazFSKYeQ==}
     engines: {node: '>=0.10.0'}
+
+  ip2region.js@3.1.8:
+    resolution: {integrity: sha512-USvUDme5Gyh0qs21Xpjb7QAXN5eRFDe5ZNtPVk3Ns2wYOc5eLIC57zPXZYBbN9kvA2yK0dBpJImArf1ekobSNA==}
 
   is-array-buffer@3.0.5:
     resolution: {integrity: sha512-DDfANUiiG2wC1qawP66qlTugJeL5HyzMpfr8lLK+jMQirGzNod0B12cFB/9q838Ru27sBwfw78/rdoU7RERz6A==}
@@ -8769,10 +8775,10 @@ snapshots:
 
   better-call@1.3.7(zod@4.4.3):
     dependencies:
-      '@better-auth/utils': 0.4.1
-      '@better-fetch/fetch': 1.3.0
+      '@better-auth/utils': 0.4.2
+      '@better-fetch/fetch': 1.3.1
       rou3: 0.7.12
-      set-cookie-parser: 3.1.1
+      set-cookie-parser: 3.1.2
     optionalDependencies:
       zod: 4.4.3
 
@@ -10026,6 +10032,8 @@ snapshots:
       side-channel: 1.1.1
 
   invert-kv@1.0.0: {}
+
+  ip2region.js@3.1.8: {}
 
   is-array-buffer@3.0.5:
     dependencies:

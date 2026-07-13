@@ -1,26 +1,15 @@
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
+import { IPv4, IPv6, loadContentFromFile, newWithBuffer } from 'ip2region.js';
+import type { Searcher } from 'ip2region.js';
 import { extractLocaleFromRequest } from '$lib/paraglide/runtime';
-import { m } from '$lib/paraglide/messages';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const XDB_V4_PATH = resolve(__dirname, '..', 'assets', 'ip2region', 'ip2region_v4.xdb');
+const XDB_V6_PATH = resolve(__dirname, '..', 'assets', 'ip2region', 'ip2region_v6.xdb');
 
 type SupportedLocale = 'en' | 'zh' | 'ja';
-
-type IpApiResponse = {
-  status: 'success' | 'fail';
-  message?: string;
-  query?: string;
-  country?: string;
-  countryCode?: string;
-  region?: string;
-  regionName?: string;
-  city?: string;
-  district?: string;
-  zip?: string;
-  lat?: number;
-  lon?: number;
-  timezone?: string;
-  isp?: string;
-  org?: string;
-  as?: string;
-};
 
 export type ResolvedIpRegion = {
   ip: string;
@@ -35,28 +24,39 @@ export type ResolvedIpRegion = {
   display: string | null;
 };
 
-const IP_API_FIELDS = [
-  'status',
-  'message',
-  'query',
-  'country',
-  'countryCode',
-  'regionName',
-  'city',
-  'district',
-  'isp',
-  'org',
-  'as'
-].join(',');
-
-const ipLookupCache = new Map<string, { expiresAt: number; value: ResolvedIpRegion | null }>();
-const CACHE_TTL_MS = 1000 * 60 * 60 * 12;
-const NEVER_EXPIRES = Number.POSITIVE_INFINITY;
 const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
 
-function getSupportedLocale(request: Request): SupportedLocale {
-  const locale = extractLocaleFromRequest(request);
-  return locale === 'zh' || locale === 'ja' ? locale : 'en';
+let v4Searcher: Searcher | null = null;
+let v6Searcher: Searcher | null = null;
+
+function getSearcher(ip: string): Searcher | null {
+  const isV6 = ip.includes(':');
+
+  if (isV6) {
+    if (!v6Searcher) {
+      if (!existsSync(XDB_V6_PATH)) return null;
+      try {
+        const cBuffer = loadContentFromFile(XDB_V6_PATH);
+        v6Searcher = newWithBuffer(IPv6, cBuffer);
+      } catch (err) {
+        console.error('[ip-lookup] failed to load v6 xdb:', err);
+        return null;
+      }
+    }
+    return v6Searcher;
+  }
+
+  if (!v4Searcher) {
+    if (!existsSync(XDB_V4_PATH)) return null;
+    try {
+      const cBuffer = loadContentFromFile(XDB_V4_PATH);
+      v4Searcher = newWithBuffer(IPv4, cBuffer);
+    } catch (err) {
+      console.error('[ip-lookup] failed to load v4 xdb:', err);
+      return null;
+    }
+  }
+  return v4Searcher;
 }
 
 function normalizeIp(input: string): string | null {
@@ -65,22 +65,28 @@ function normalizeIp(input: string): string | null {
   return value;
 }
 
-const REGION_CODE_OVERRIDES = ['CN', 'HK', 'MO', 'TW'] as const;
+function parseXdbRegion(region: string): {
+  country: string | null;
+  province: string | null;
+  city: string | null;
+  isp: string | null;
+  countryCode: string | null;
+} {
+  const parts = region.split('|');
+  return {
+    country: parts[0] || null,
+    province: parts[1] || null,
+    city: parts[2] || null,
+    isp: parts[3] && parts[3] !== '0' ? parts[3] : null,
+    countryCode: parts[4] || null
+  };
+}
 
 function getCountryDisplayName(
-  countryCode: string | undefined,
-  fallbackCountryName: string | undefined,
-  locale: SupportedLocale
+  countryCode: string | null,
+  fallbackCountryName: string | null
 ): string | null {
-  if (!countryCode) return fallbackCountryName ?? null;
-  const regionCode = countryCode as (typeof REGION_CODE_OVERRIDES)[number];
-  if (REGION_CODE_OVERRIDES.includes(regionCode)) {
-    try {
-      return m[`country_label_${regionCode}`]({}, { locale }) as string;
-    } catch {
-      // fall through
-    }
-  }
+  if (!countryCode) return fallbackCountryName;
   return fallbackCountryName ?? countryCode;
 }
 
@@ -88,10 +94,7 @@ function toDisplayName(
   data: {
     countryName: string | null;
     regionName: string | null;
-    city: string | null;
-    district: string | null;
     isp: string | null;
-    organization: string | null;
   },
   locale: SupportedLocale
 ): string | null {
@@ -99,16 +102,18 @@ function toDisplayName(
     (value, index, array): value is string => !!value && array.indexOf(value) === index
   );
 
-  const network = data.isp || data.organization;
+  const network = data.isp;
+  const useChineseFormat = locale === 'zh' || locale === 'ja';
+
   if (network && locationParts.length > 0) {
-    return `${locale === 'zh' || locale === 'ja' ? locationParts.join(' · ') : locationParts.toReversed().join(', ')} | ${network}`;
+    return `${useChineseFormat ? locationParts.join(' · ') : locationParts.toReversed().join(', ')} | ${network}`;
   }
 
   if (network) {
     return network;
   }
 
-  return locationParts.length > 0 ? locationParts.join(' · ') : null;
+  return locationParts.length > 0 ? locationParts.join(useChineseFormat ? ' · ' : ', ') : null;
 }
 
 export async function lookupIpRegion(
@@ -119,15 +124,9 @@ export async function lookupIpRegion(
   if (!normalizedIp) return null;
 
   const locale = getSupportedLocale(request);
-  const cacheKey = `${locale}:${normalizedIp}`;
 
   if (LOOPBACK_IPS.has(normalizedIp)) {
-    const cachedLoopback = ipLookupCache.get(cacheKey);
-    if (cachedLoopback?.expiresAt === NEVER_EXPIRES) {
-      return cachedLoopback.value;
-    }
-
-    const loopbackRegion: ResolvedIpRegion = {
+    return {
       ip: normalizedIp,
       countryCode: null,
       countryName: null,
@@ -139,64 +138,46 @@ export async function lookupIpRegion(
       asn: null,
       display: null
     };
-
-    ipLookupCache.set(cacheKey, {
-      expiresAt: NEVER_EXPIRES,
-      value: loopbackRegion
-    });
-    return loopbackRegion;
   }
 
-  const cached = ipLookupCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.value;
+  const searcher = getSearcher(normalizedIp);
+  if (!searcher) {
+    console.warn('[ip-lookup] xdb not available, skipping lookup for', normalizedIp);
+    return null;
   }
 
   try {
-    const url = new URL(`http://ip-api.com/json/${encodeURIComponent(normalizedIp)}`);
-    url.searchParams.set('lang', locale === 'zh' ? 'zh-CN' : locale);
-    url.searchParams.set('fields', IP_API_FIELDS);
+    const region = await searcher.search(normalizedIp);
+    if (!region) return null;
 
-    const response = await fetch(url, {
-      headers: {
-        accept: 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`ip-api HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as IpApiResponse;
-    if (data.status !== 'success') {
-      throw new Error(data.message ?? 'ip-api lookup failed');
-    }
+    const parsed = parseXdbRegion(region);
+    const countryName = getCountryDisplayName(parsed.countryCode, parsed.country);
 
     const resolved: ResolvedIpRegion = {
-      ip: data.query ?? normalizedIp,
-      countryCode: data.countryCode ?? null,
-      countryName: getCountryDisplayName(data.countryCode, data.country, locale),
-      regionName: data.regionName ?? null,
-      city: data.city ?? null,
-      district: data.district ?? null,
-      isp: data.isp ?? null,
-      organization: data.org ?? null,
-      asn: data.as ?? null,
+      ip: normalizedIp,
+      countryCode: parsed.countryCode,
+      countryName,
+      regionName: parsed.province,
+      city: parsed.city,
+      district: null,
+      isp: parsed.isp,
+      organization: null,
+      asn: null,
       display: null
     };
 
-    resolved.display = toDisplayName(resolved, locale);
-    ipLookupCache.set(cacheKey, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      value: resolved
-    });
+    resolved.display = toDisplayName(
+      { countryName: resolved.countryName, regionName: resolved.regionName, isp: resolved.isp },
+      locale
+    );
     return resolved;
   } catch (error) {
     console.error('[ip-lookup] failed for ip', normalizedIp, error);
-    ipLookupCache.set(cacheKey, {
-      expiresAt: Date.now() + 1000 * 60,
-      value: null
-    });
     return null;
   }
+}
+
+function getSupportedLocale(request: Request): SupportedLocale {
+  const locale = extractLocaleFromRequest(request);
+  return locale === 'zh' || locale === 'ja' ? locale : 'en';
 }

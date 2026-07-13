@@ -4,9 +4,11 @@ import devtoolsJson from 'vite-plugin-devtools-json';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { ip2region } from './plugins/ip2region';
 
 export default defineConfig({
   plugins: [
+    ip2region(),
     tailwindcss(),
     sveltekit(),
     devtoolsJson(),

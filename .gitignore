@@ -30,3 +30,6 @@ src/paraglide
 .leancloud
 google-sak.json
 deploy.sh
+
+# ip2region database
+src/lib/assets/ip2region/*.xdb
