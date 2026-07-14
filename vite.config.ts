@@ -86,11 +86,12 @@ export default defineConfig({
         theme_color: '#1B1618',
         lang: 'en',
         icons: [
-          { src: 'logo-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'logo-192.webp', sizes: '192x192', type: 'image/webp' },
-          { src: 'logo-256.webp', sizes: '256x256', type: 'image/webp' },
-          { src: 'logo-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'logo-512.webp', sizes: '512x512', type: 'image/webp' }
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icon-192.webp', sizes: '192x192', type: 'image/webp' },
+          { src: 'icon-256.png', sizes: '256x256', type: 'image/png' },
+          { src: 'icon-256.webp', sizes: '256x256', type: 'image/webp' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icon-512.webp', sizes: '512x512', type: 'image/webp' }
         ]
       }
     })

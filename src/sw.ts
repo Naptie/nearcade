@@ -82,8 +82,8 @@ setDefaultHandler(new NetworkFirst());
 //       const notificationTitle = notificationPayload.notification?.title || 'nearcade';
 //       const notificationOptions = {
 //         body: notificationPayload.notification?.body || '',
-//         icon: `${base}/logo-192.webp`,
-//         badge: `${base}/logo-192.webp`,
+//         icon: `${base}/icon-192.webp`,
+//         badge: `${base}/icon-192.webp`,
 //         data: notificationPayload.data || {},
 //         tag: notificationPayload.data?.tag || `notification-${Date.now()}`
 //       };
@@ -148,8 +148,8 @@ self.addEventListener('push', (event) => {
       const title = getNotificationTitle(data.data);
       const options: NotificationOptions = {
         body: data.data.content || data.notification.body,
-        icon: data.notification.icon || `${base}//logo-192.webp`,
-        badge: data.notification.badge || `${base}//logo-192.webp`,
+        icon: data.notification.icon || `${base}//icon-192.webp`,
+        badge: data.notification.badge || `${base}//icon-192.webp`,
         data: data.data || {},
         tag: data.notification.tag || `notification-${Date.now()}`,
         requireInteraction: false,

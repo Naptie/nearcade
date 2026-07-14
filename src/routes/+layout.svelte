@@ -214,8 +214,8 @@
             //     const notificationTitle = payload.notification?.title || 'nearcade';
             //     const notificationOptions = {
             //       body: payload.notification?.body || '',
-            //       icon: `${base}/logo-192.webp`,
-            //       badge: `${base}/logo-192.webp`,
+            //       icon: `${base}/icon-192.webp`,
+            //       badge: `${base}/icon-192.webp`,
             //       tag: payload.data?.tag || `notification-${Date.now()}`
             //     };
 
