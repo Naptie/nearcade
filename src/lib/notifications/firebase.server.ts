@@ -36,6 +36,7 @@ const originalHttpsRequest = https.request;
 let app: App | null;
 
 const initialize = () => {
+  if (!GSAK_BASE64) return null;
   const decoded = Buffer.from(GSAK_BASE64, 'base64').toString('utf8');
   const serviceAccount = JSON.parse(decoded);
   return initializeApp({
