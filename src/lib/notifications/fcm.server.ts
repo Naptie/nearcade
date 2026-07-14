@@ -35,24 +35,34 @@ async function getUserFCMTokens(client: MongoClient, userId: string): Promise<st
 export async function sendFCMNotification(
   notification: Notification
 ): Promise<{ success: boolean; response: BatchResponse | undefined }> {
-  if (!app) return { success: false, response: undefined };
+  if (!app) {
+    console.log('[FCM Server] Firebase app not initialized, skipping');
+    return { success: false, response: undefined };
+  }
   try {
     // Get user's FCM tokens
     const tokens = await getUserFCMTokens(mongo, notification.targetUserId);
     if (tokens.length === 0) {
-      console.log(`No FCM tokens found for user ${notification.targetUserId}`);
+      console.log(`[FCM Server] No FCM tokens found for user ${notification.targetUserId}`);
       return { success: true, response: undefined };
     }
+    console.log(
+      `[FCM Server] Found ${tokens.length} FCM token(s) for user ${notification.targetUserId}`
+    );
 
     // Prepare FCM message
+    const title = getNotificationTitle(notification);
+    const body = notification.content || '';
+    console.log(`[FCM Server] Sending notification: "${title}" - "${body}"`);
+
     const message = {
       notification: {
-        title: getNotificationTitle(notification),
-        body: notification.content || ''
+        title,
+        body
       },
-      data: Object.fromEntries(
-        Object.entries(notification).map(([key, value]) => [key, String(value)])
-      ),
+      data: {
+        notification: JSON.stringify(notification)
+      },
       android: {
         notification: {
           icon: 'ic_notification',
@@ -80,11 +90,23 @@ export async function sendFCMNotification(
     };
 
     // Send the message
-    const response = await getMessaging(app).sendEachForMulticast(message);
+    console.log('[FCM Server] Calling sendEachForMulticast with', tokens.length, 'token(s)');
+    const messaging = getMessaging(app);
+    messaging.enableLegacyHttpTransport();
+    const response = await messaging.sendEachForMulticast(message);
 
     console.log(
-      `FCM notification sent: ${response.successCount} successful, ${response.failureCount} failed`
+      `[FCM Server] sendEachForMulticast result: ${response.successCount} successful, ${response.failureCount} failed`
     );
+
+    // Log individual response errors
+    if (response.failureCount > 0) {
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          console.error(`[FCM Server] Token ${idx} failed:`, resp.error?.code, resp.error?.message);
+        }
+      });
+    }
 
     // Clean up failed tokens
     if (response.failureCount > 0) {

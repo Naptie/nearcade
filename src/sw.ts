@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 // Custom Service Worker (injectManifest) for nearcade with FCM support
-import { getNotificationLink, getNotificationTitle } from '$lib/notifications/index.client';
+import { getNotificationLink, getNotificationTitle } from '$lib/notifications/sw-utils';
 import type { Notification, WindowMessage } from '$lib/types';
 // import { initializeApp } from 'firebase/app';
 // import { getMessaging, onMessage } from 'firebase/messaging';
@@ -119,10 +119,14 @@ const postMessage = async (message: WindowMessage, { focus = false, once = true 
 };
 
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  console.log('[SW] Push event received');
+  if (!event.data) {
+    console.log('[SW] Push event has no data');
+    return;
+  }
 
   let data: {
-    data: Notification;
+    data: { notification?: string };
     fcmMessageId: string;
     from: string;
     notification: {
@@ -136,27 +140,46 @@ self.addEventListener('push', (event) => {
   };
   try {
     data = event.data.json();
+    console.log('[SW] Push data parsed:', JSON.stringify(data).substring(0, 300));
   } catch (error) {
-    console.error('Failed to parse push notification data:', error);
+    console.error('[SW] Failed to parse push notification data:', error);
     return;
   }
 
   event.waitUntil(
     (async () => {
+      console.log('[SW] Sending INVALIDATE to clients');
       await postMessage({ type: 'INVALIDATE' }, { once: false });
 
-      const title = getNotificationTitle(data.data);
+      let notification: Notification | undefined;
+      if (data.data?.notification) {
+        try {
+          notification = JSON.parse(data.data.notification) as Notification;
+          console.log('[SW] Notification parsed from data:', notification.type, notification.id);
+        } catch (e) {
+          console.error('[SW] Failed to parse notification data from push payload:', e);
+        }
+      } else {
+        console.log(
+          '[SW] No notification data in push payload, data.data:',
+          JSON.stringify(data.data)
+        );
+      }
+
+      const title = notification ? getNotificationTitle(notification) : data.notification.title;
+      console.log('[SW] Showing notification with title:', title);
       const options: NotificationOptions = {
-        body: data.data.content || data.notification.body,
-        icon: data.notification.icon || `${base}//icon-192.webp`,
-        badge: data.notification.badge || `${base}//icon-192.webp`,
-        data: data.data || {},
+        body: notification?.content || data.notification.body || '',
+        icon: data.notification.icon || `${base}/icon-192.webp`,
+        badge: data.notification.badge || `${base}/icon-192.webp`,
+        data: notification || {},
         tag: data.notification.tag || `notification-${Date.now()}`,
         requireInteraction: false,
         silent: false
       };
 
       await self.registration.showNotification(title, options);
+      console.log('[SW] Notification shown successfully');
     })()
   );
 });
