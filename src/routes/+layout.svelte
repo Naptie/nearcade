@@ -32,10 +32,14 @@
   import GlobalSeo from '$lib/components/GlobalSeo.svelte';
   import MetaRobots from '$lib/components/MetaRobots.svelte';
 
-  const noindexPaths = ['/admin/', '/settings/', '/auth/', '/oauth/'];
+  const noindexPaths = ['/admin', '/settings', '/auth', '/oauth'];
   const shouldNoIndex = $derived(
     noindexPaths.some(
-      (p) => page.url.pathname.startsWith(`${base}${p}`) || page.url.pathname.startsWith(p)
+      (p) =>
+        page.url.pathname === `${base}${p}` ||
+        page.url.pathname.startsWith(`${base}${p}/`) ||
+        page.url.pathname === p ||
+        page.url.pathname.startsWith(`${p}/`)
     )
   );
 
