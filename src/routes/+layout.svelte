@@ -13,7 +13,8 @@
     PUBLIC_FIREBASE_MEASUREMENT_ID,
     PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     PUBLIC_FIREBASE_PROJECT_ID,
-    PUBLIC_FIREBASE_STORAGE_BUCKET
+    PUBLIC_FIREBASE_STORAGE_BUCKET,
+    PUBLIC_BAIDU_SITE_VERIFICATION
   } from '$env/static/public';
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
@@ -28,6 +29,15 @@
   import { getMessaging, getToken } from 'firebase/messaging';
   import { getAnalytics, setAnalyticsCollectionEnabled } from 'firebase/analytics';
   import Clarity from '@microsoft/clarity';
+  import GlobalSeo from '$lib/components/GlobalSeo.svelte';
+  import MetaRobots from '$lib/components/MetaRobots.svelte';
+
+  const noindexPaths = ['/admin/', '/settings/', '/auth/', '/oauth/'];
+  const shouldNoIndex = $derived(
+    noindexPaths.some(
+      (p) => page.url.pathname.startsWith(`${base}${p}`) || page.url.pathname.startsWith(p)
+    )
+  );
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -226,12 +236,20 @@
     content={browser && isDarkMode() ? '#1B1618' : '#FFFFFF'}
     bind:this={themeColorMeta}
   />
+  {#if shouldNoIndex}
+    <MetaRobots />
+  {/if}
+  {#if PUBLIC_BAIDU_SITE_VERIFICATION}
+    <meta name="baidu-site-verification" content={PUBLIC_BAIDU_SITE_VERIFICATION} />
+  {/if}
   <script
     type="text/javascript"
     src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async"
     defer
   ></script>
 </svelte:head>
+
+<GlobalSeo />
 
 {@render children()}
 

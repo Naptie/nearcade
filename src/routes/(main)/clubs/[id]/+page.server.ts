@@ -23,40 +23,41 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
   const session = locals.session;
 
-  // Stream the club data
+  const db = mongo.db();
+  const clubsCollection = db.collection<Club>('clubs');
+  const universitiesCollection = db.collection<University>('universities');
+
+  // Load the club and university synchronously so SEO-critical data is in the initial HTML
+  let club = await clubsCollection.findOne({
+    id: id
+  });
+
+  if (!club) {
+    club = await clubsCollection.findOne({
+      slug: id
+    });
+  }
+
+  if (!club) {
+    error(404, m.club_not_found());
+  }
+
+  const university = await universitiesCollection.findOne({
+    id: club.universityId
+  });
+
+  // Stream heavier/secondary data for fast first paint
   const clubData = (async () => {
     try {
       const db = mongo.db();
-      const clubsCollection = db.collection<Club>('clubs');
       const membersCollection = db.collection<ClubMember>('club_members');
-      const universitiesCollection = db.collection<University>('universities');
       const universityMembersCollection = db.collection<UniversityMember>('university_members');
       const shopsCollection = db.collection<Shop>('shops');
-
-      // Try to find club by ID first, then by slug
-      let club = await clubsCollection.findOne({
-        id: id
-      });
-
-      if (!club) {
-        club = await clubsCollection.findOne({
-          slug: id
-        });
-      }
-
-      if (!club) {
-        throw error(404, m.club_not_found());
-      }
 
       // Check user permissions if authenticated
       const userPermissions = session?.user
         ? await checkClubPermission(session.user, club, mongo)
         : { canEdit: false, canManage: false, canJoin: 0 as const };
-
-      // Get university information
-      const university = await universitiesCollection.findOne({
-        id: club.universityId
-      });
 
       // Get university membership if user is authenticated
       const universityMembership = session?.user
@@ -120,6 +121,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   })();
 
   return {
+    club: toPlainObject(club),
+    university: toPlainObject(university),
     clubData,
     user: session?.user || null
   };

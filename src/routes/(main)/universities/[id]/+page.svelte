@@ -18,6 +18,14 @@
   import { fromPath } from '$lib/utils/scoped';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
+  import JsonLd from '$lib/components/JsonLd.svelte';
+  import {
+    buildUniversitySchema,
+    buildBreadcrumbSchema,
+    buildKeywords,
+    getCanonicalUrl,
+    toAbsoluteUrl
+  } from '$lib/utils/seo';
 
   let { data }: { data: PageData } = $props();
 
@@ -39,6 +47,23 @@
         universityDataLoading = false;
       });
   });
+
+  // SEO-critical university data is available immediately from the server load
+  let university = $derived(data.university);
+  let canonicalUrl = $derived(getCanonicalUrl(page.url));
+  let ogImage = $derived(
+    university?.avatarUrl ? toAbsoluteUrl(university.avatarUrl, page.url.origin) : null
+  );
+  let universitySchema = $derived(
+    buildUniversitySchema(university, canonicalUrl, ogImage ?? undefined)
+  );
+  let breadcrumbSchema = $derived(
+    buildBreadcrumbSchema([
+      { name: m.home(), item: `${page.url.origin}/` },
+      { name: m.browse_universities(), item: `${page.url.origin}/universities` },
+      { name: university.name }
+    ])
+  );
 
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
@@ -320,33 +345,36 @@
 </script>
 
 <svelte:head>
-  {#if universityDataResolved}
-    <title>{pageTitle(universityDataResolved?.university.name)}</title>
+  {#if university}
+    <title>{pageTitle(university.name)}</title>
+    <meta name="description" content={university.description || university.name} />
     <meta
-      name="description"
-      content={universityDataResolved?.university.description ||
-        universityDataResolved?.university.name}
+      name="keywords"
+      content={buildKeywords([
+        university.name,
+        university.type,
+        university.majorCategory,
+        university.description
+      ])}
     />
-    <meta property="og:title" content={pageTitle(universityDataResolved?.university.name)} />
-    <meta
-      property="og:description"
-      content={universityDataResolved?.university.description ||
-        universityDataResolved?.university.name}
-    />
-    {#if universityDataResolved?.university.avatarUrl}
-      <meta property="og:image" content={universityDataResolved?.university.avatarUrl} />
-      <meta name="twitter:image" content={universityDataResolved?.university.avatarUrl} />
+    <meta property="og:title" content={pageTitle(university.name)} />
+    <meta property="og:description" content={university.description || university.name} />
+    {#if ogImage}
+      <meta property="og:image" content={ogImage} />
     {/if}
-    <meta name="twitter:title" content={pageTitle(universityDataResolved?.university.name)} />
-    <meta
-      name="twitter:description"
-      content={universityDataResolved?.university.description ||
-        universityDataResolved?.university.name}
-    />
+    <meta name="twitter:title" content={pageTitle(university.name)} />
+    <meta name="twitter:description" content={university.description || university.name} />
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    {#if ogImage}
+      <meta name="twitter:image" content={ogImage} />
+    {/if}
   {:else}
     <title>{pageTitle(m.university())}</title>
   {/if}
 </svelte:head>
+
+<JsonLd schema={universitySchema} />
+<JsonLd schema={breadcrumbSchema} />
 
 {#if universityDataLoading}
   <!-- Loading State with Skeleton -->

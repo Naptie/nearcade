@@ -26,26 +26,27 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   // Get session data immediately
   const { session } = await parent();
 
-  // Stream the shop data
+  const db = mongo.db();
+  const shopsCollection = db.collection<Shop>('shops');
+
+  // Load the shop synchronously so SEO-critical data is in the initial HTML
+  const shop = await shopsCollection.findOne({ id: shopId });
+  if (!shop) {
+    error(404, m.shop_not_found());
+  }
+
+  const firstPhoto = await db
+    .collection<ShopPhoto>('images')
+    .findOne({ shopId }, { sort: { uploadedAt: -1 }, projection: { url: 1 } });
+
+  let userAttendance: { shop: Shop; attendedAt: Date } | null = null;
+  if (session?.user?.id) {
+    userAttendance = await getCurrentAttendance(session.user.id);
+  }
+
+  // Stream heavier/secondary data for fast first paint
   const shopData = (async () => {
     try {
-      const db = mongo.db();
-      const shopsCollection = db.collection<Shop>('shops');
-
-      // Find the shop by id
-      const shop = await shopsCollection.findOne({
-        id: shopId
-      });
-
-      if (!shop) {
-        throw error(404, m.shop_not_found());
-      }
-
-      let userAttendance: { shop: Shop; attendedAt: Date } | null = null;
-      if (session?.user?.id) {
-        userAttendance = await getCurrentAttendance(session.user.id);
-      }
-
       // Load comments for this shop
       const commentsCollection = db.collection<Comment>('comments');
       const comments = await commentsCollection
@@ -150,10 +151,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       }
 
       return {
-        shop: toPlainObject(shop),
-        currentAttendance: userAttendance
-          ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
-          : null,
         comments: toPlainArray(hydratedComments),
         pendingDeleteRequest: pendingDeleteRequest ? toPlainObject(pendingDeleteRequest) : null,
         photos: toPlainArray(photos),
@@ -163,12 +160,17 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       if (err && (isHttpError(err) || isRedirect(err))) {
         throw err;
       }
-      console.error('Error loading shop:', err);
+      console.error('Error loading shop data:', err);
       throw error(500, m.failed_to_load_shop());
     }
   })();
 
   return {
+    shop: toPlainObject(shop),
+    firstPhoto: firstPhoto ? toPlainObject(firstPhoto) : null,
+    currentAttendance: userAttendance
+      ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }
+      : null,
     shopData,
     user: session?.user
   };

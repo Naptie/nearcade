@@ -22,29 +22,31 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   const { session } = await parent();
   const user = session?.user;
 
-  // Stream the university data
+  const db = mongo.db();
+  const universitiesCollection = db.collection('universities');
+
+  // Load the university synchronously so SEO-critical data is in the initial HTML
+  let university = (await universitiesCollection.findOne({
+    id: id
+  })) as unknown as University | null;
+
+  if (!university) {
+    university = (await universitiesCollection.findOne({
+      slug: id
+    })) as unknown as University | null;
+  }
+
+  if (!university) {
+    error(404, m.university_not_found());
+  }
+
+  // Stream heavier/secondary data for fast first paint
   const universityData = (async () => {
     try {
       const db = mongo.db();
-      const universitiesCollection = db.collection('universities');
       const membersCollection = db.collection('university_members');
       const clubsCollection = db.collection('clubs');
       const shopsCollection = db.collection<Shop>('shops');
-
-      // Try to find university by ID first, then by slug
-      let university = (await universitiesCollection.findOne({
-        id: id
-      })) as unknown as University | null;
-
-      if (!university) {
-        university = (await universitiesCollection.findOne({
-          slug: id
-        })) as unknown as University | null;
-      }
-
-      if (!university) {
-        throw error(404, m.university_not_found());
-      }
 
       // Check permissions for the current user
       let userPermissions: {
@@ -120,6 +122,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   })();
 
   return {
+    university: toPlainObject(university),
     universityData,
     user
   };

@@ -10,6 +10,9 @@ import {
   type ServerInit
 } from '@sveltejs/kit';
 import { paraglideMiddleware } from '$lib/paraglide/server';
+import { locales } from '$lib/paraglide/runtime';
+import { createSeoHandler } from '$lib/endpoints/seo.server';
+import { handleLocaleQuery } from '$lib/endpoints/locale-query.server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
@@ -88,14 +91,20 @@ const handleOptions: Handle = async ({ event, resolve }) => {
   return resolve(event);
 };
 
-const handleParaglide: Handle = ({ event, resolve }) =>
-  paraglideMiddleware(event.request, ({ request, locale }) => {
+const handleSeo = createSeoHandler(locales);
+
+const handleParaglide: Handle = async ({ event, resolve }) => {
+  return paraglideMiddleware(event.request, async ({ request, locale }) => {
     event.request = request;
 
-    return resolve(event, {
+    const response = await resolve(event, {
       transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
     });
+
+    response.headers.set('Content-Language', locale);
+    return response;
   });
+};
 
 const handleHeaders: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
@@ -314,6 +323,8 @@ const handleRequestLogging: Handle = async ({ event, resolve }) => {
 
 export const handle: Handle = sequence(
   handleOptions,
+  handleSeo,
+  handleLocaleQuery,
   handleParaglide,
   handleAMap,
   handleDiscoverShortcut,

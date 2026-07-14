@@ -15,6 +15,14 @@
   import { adaptiveNewTab, aggregateGames, formatDate, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { invalidateAll } from '$app/navigation';
+  import JsonLd from '$lib/components/JsonLd.svelte';
+  import {
+    buildClubSchema,
+    buildBreadcrumbSchema,
+    buildKeywords,
+    getCanonicalUrl,
+    toAbsoluteUrl
+  } from '$lib/utils/seo';
 
   let { data }: { data: PageData } = $props();
 
@@ -36,6 +44,20 @@
         clubDataLoading = false;
       });
   });
+
+  // SEO-critical club and university data are available immediately from the server load
+  let club = $derived(data.club);
+  let university = $derived(data.university);
+  let canonicalUrl = $derived(getCanonicalUrl(page.url));
+  let ogImage = $derived(club?.avatarUrl ? toAbsoluteUrl(club.avatarUrl, page.url.origin) : null);
+  let clubSchema = $derived(buildClubSchema(club, canonicalUrl, ogImage ?? undefined));
+  let breadcrumbSchema = $derived(
+    buildBreadcrumbSchema([
+      { name: m.home(), item: `${page.url.origin}/` },
+      { name: m.browse_clubs(), item: `${page.url.origin}/clubs` },
+      { name: club.name }
+    ])
+  );
 
   const tabs = [
     { id: 'posts', label: m.posts(), icon: 'fa-comments' },
@@ -368,33 +390,45 @@
 </script>
 
 <svelte:head>
-  {#if clubDataResolved}
-    <title>{pageTitle(clubDataResolved.club.name)}</title>
+  {#if club}
+    <title>{pageTitle(club.name)}</title>
     <meta
       name="description"
-      content={clubDataResolved.club.description ||
-        `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+      content={club.description || `${club.name} - ${m.meta_description_club()}`}
     />
-    <meta property="og:title" content={pageTitle(clubDataResolved.club.name)} />
+    <meta
+      name="keywords"
+      content={buildKeywords([
+        club.name,
+        university?.name,
+        club.description,
+        m.meta_description_club()
+      ])}
+    />
+    <meta property="og:title" content={pageTitle(club.name)} />
     <meta
       property="og:description"
-      content={clubDataResolved.club.description ||
-        `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+      content={club.description || `${club.name} - ${m.meta_description_club()}`}
     />
-    {#if clubDataResolved.club.avatarUrl}
-      <meta property="og:image" content={clubDataResolved.club.avatarUrl} />
-      <meta name="twitter:image" content={clubDataResolved.club.avatarUrl} />
+    {#if ogImage}
+      <meta property="og:image" content={ogImage} />
     {/if}
-    <meta name="twitter:title" content={pageTitle(clubDataResolved.club.name)} />
+    <meta name="twitter:title" content={pageTitle(club.name)} />
     <meta
       name="twitter:description"
-      content={clubDataResolved.club.description ||
-        `${clubDataResolved.club.name} - ${m.meta_description_club()}`}
+      content={club.description || `${club.name} - ${m.meta_description_club()}`}
     />
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    {#if ogImage}
+      <meta name="twitter:image" content={ogImage} />
+    {/if}
   {:else}
     <title>{pageTitle(m.club())}</title>
   {/if}
 </svelte:head>
+
+<JsonLd schema={clubSchema} />
+<JsonLd schema={breadcrumbSchema} />
 
 {#if clubDataLoading}
   <!-- Loading State with Skeleton -->

@@ -38,6 +38,14 @@
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import JsonLd from '$lib/components/JsonLd.svelte';
+  import {
+    buildShopSchema,
+    buildBreadcrumbSchema,
+    buildKeywords,
+    getCanonicalUrl,
+    toAbsoluteUrl
+  } from '$lib/utils/seo';
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { buildImageUploadUrl } from '$lib/utils/image';
@@ -74,8 +82,20 @@
       });
   });
 
-  let shop = $derived(shopDataResolved?.shop);
-  let currentAttendanceFromServer = $derived(shopDataResolved?.currentAttendance);
+  // SEO-critical shop data is available immediately from the server load
+  let shop = $derived(data.shop);
+  let firstPhoto = $derived(data.firstPhoto);
+  let canonicalUrl = $derived(getCanonicalUrl(page.url));
+  let ogImage = $derived(firstPhoto?.url ? toAbsoluteUrl(firstPhoto.url, page.url.origin) : null);
+  let shopSchema = $derived(buildShopSchema(shop, canonicalUrl, ogImage ?? undefined));
+  let breadcrumbSchema = $derived(
+    buildBreadcrumbSchema([
+      { name: m.home(), item: `${page.url.origin}/` },
+      { name: m.browse_shops(), item: `${page.url.origin}/shops` },
+      { name: shop.name }
+    ])
+  );
+  let currentAttendanceFromServer = $derived(data.currentAttendance);
   let pendingDeleteRequest = $derived(shopDataResolved?.pendingDeleteRequest);
   let photosFromServer = $derived(shopDataResolved?.photos ?? []);
   let shopOwner = $derived(shopDataResolved?.shopOwner ?? null);
@@ -948,14 +968,32 @@
   {#if shop}
     <title>{pageTitle(shop.name)}</title>
     <meta name="description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+    <meta
+      name="keywords"
+      content={buildKeywords([
+        shop.name,
+        formatShopAddress(shop),
+        ...(shop.games?.map((game) => game.name) ?? [])
+      ])}
+    />
     <meta property="og:title" content={pageTitle(shop.name, m.shop_details())} />
     <meta property="og:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+    {#if ogImage}
+      <meta property="og:image" content={ogImage} />
+    {/if}
     <meta name="twitter:title" content={pageTitle(shop.name, m.shop_details())} />
     <meta name="twitter:description" content={`${shop.name} - ${formatShopAddress(shop)}`} />
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    {#if ogImage}
+      <meta name="twitter:image" content={ogImage} />
+    {/if}
   {:else}
     <title>{pageTitle(m.shop_details())}</title>
   {/if}
 </svelte:head>
+
+<JsonLd schema={shopSchema} />
+<JsonLd schema={breadcrumbSchema} />
 
 {#if !shopDataResolved && shopDataLoading}
   <!-- Loading State with Skeleton -->

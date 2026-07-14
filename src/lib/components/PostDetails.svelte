@@ -25,6 +25,15 @@
   import { getDisplayName, getFnsLocale, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getLocale } from '$lib/paraglide/runtime';
+  import { page } from '$app/state';
+  import JsonLd from './JsonLd.svelte';
+  import {
+    buildPostSchema,
+    buildKeywords,
+    getCanonicalUrl,
+    stripMarkdown,
+    toAbsoluteUrl
+  } from '$lib/utils/seo';
 
   interface Props {
     post: PostWithAuthor;
@@ -89,6 +98,23 @@
   let showDeletePostConfirm = $state(false);
   let isPostRendered = $state(false);
   let showPostImages = $state(false);
+
+  let canonicalUrl = $derived(getCanonicalUrl(page.url));
+  let postDescription = $derived(stripMarkdown(post.content).slice(0, 200));
+  let ogImage = $derived(
+    post.resolvedImages?.[0]?.url
+      ? toAbsoluteUrl(post.resolvedImages[0].url, page.url.origin)
+      : null
+  );
+  let postSchema = $derived(buildPostSchema(post, canonicalUrl, ogImage ?? undefined));
+  let postKeywords = $derived(
+    buildKeywords([
+      post.title,
+      organizationName,
+      post.author?.name ? `@${post.author.name}` : null,
+      post.author?.displayName
+    ])
+  );
 
   let netVotes = $derived(post.upvotes - post.downvotes);
   let isOwnPost = $derived(currentUserId === post.createdBy);
@@ -500,12 +526,22 @@
 
 <svelte:head>
   <title>{pageTitle(post.title, organizationName)}</title>
-  <meta name="description" content={post.content.substring(0, 200)} />
+  <meta name="description" content={postDescription} />
+  <meta name="keywords" content={postKeywords} />
   <meta property="og:title" content={pageTitle(post.title, organizationName)} />
-  <meta property="og:description" content={post.content.substring(0, 200)} />
+  <meta property="og:description" content={postDescription} />
+  {#if ogImage}
+    <meta property="og:image" content={ogImage} />
+  {/if}
   <meta name="twitter:title" content={pageTitle(post.title, organizationName)} />
-  <meta name="twitter:description" content={post.content.substring(0, 200)} />
+  <meta name="twitter:description" content={postDescription} />
+  <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+  {#if ogImage}
+    <meta name="twitter:image" content={ogImage} />
+  {/if}
 </svelte:head>
+
+<JsonLd schema={postSchema} />
 
 <BackToTopButton />
 
