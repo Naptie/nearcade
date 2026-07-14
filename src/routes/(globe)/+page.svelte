@@ -232,11 +232,11 @@
 
 <svelte:head>
   <title>{m.app_name()} | {m.greeting()}</title>
-  <meta name="description" content={m.greeting()} />
+  <meta name="description" content={m.meta_description_home()} />
   <meta property="og:title" content={m.app_name()} />
-  <meta property="og:description" content={m.greeting()} />
+  <meta property="og:description" content={m.meta_description_home()} />
   <meta name="twitter:title" content={m.app_name()} />
-  <meta name="twitter:description" content={m.greeting()} />
+  <meta name="twitter:description" content={m.meta_description_home()} />
 </svelte:head>
 
 <!-- Landing page content sits above the fixed globe background (z-0).
