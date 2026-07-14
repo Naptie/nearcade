@@ -8,7 +8,7 @@ const ROBOTS_PATH = `${base}/robots.txt`;
 
 const SITEMAP_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-let sitemapCache: { xml: string; expiresAt: number } | null = null;
+const sitemapCache: Map<string, { xml: string; expiresAt: number }> = new Map();
 
 function toIsoDate(value: unknown): string | undefined {
   if (value instanceof Date) return value.toISOString();
@@ -31,18 +31,18 @@ function renderUrlEntry(
 ): string {
   const loc = entityUrl(origin, path);
   const lastmod = toIsoDate(updatedAt);
-  const alternates = locales
-    .map(
-      (locale) =>
-        `      <xhtml:link rel="alternate" hreflang="${locale}" href="${loc}?locale=${locale}" />`
-    )
-    .join('\n');
+  const lastmodLine = lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : '';
+  const hreflangLinks =
+    locales
+      .map(
+        (locale) =>
+          `      <xhtml:link rel="alternate" hreflang="${locale}" href="${loc}?locale=${locale}" />`
+      )
+      .join('\n') + `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}" />`;
 
   return `  <url>
     <loc>${loc}</loc>
-${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ''}${
-    alternates ? `${alternates}\n` : ''
-  }    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}" />
+${lastmodLine}${hreflangLinks}
   </url>`;
 }
 
@@ -115,12 +115,13 @@ ${entries.join('\n')}
 
 async function getSitemapResponse(origin: string, locales: readonly string[]): Promise<Response> {
   const now = Date.now();
-  if (!sitemapCache || sitemapCache.expiresAt < now) {
+  const cached = sitemapCache.get(origin);
+  if (!cached || cached.expiresAt < now) {
     const xml = await generateSitemap(origin, locales);
-    sitemapCache = { xml, expiresAt: now + SITEMAP_CACHE_TTL_MS };
+    sitemapCache.set(origin, { xml, expiresAt: now + SITEMAP_CACHE_TTL_MS });
   }
 
-  return new Response(sitemapCache.xml, {
+  return new Response(sitemapCache.get(origin)!.xml, {
     headers: {
       'Content-Type': 'application/xml',
       'Cache-Control': 'public, max-age=3600'
