@@ -61,7 +61,7 @@ export const notify = async (
 
     // Send FCM notification (fire-and-forget)
     notifyFCM(fullNotification).catch((error) => {
-      console.error('[FCM Dispatch] Failed to send FCM notification:', error);
+      console.error('Failed to send FCM notification:', error);
     });
   } catch (error) {
     console.error('Failed to send notification:', error);
@@ -69,26 +69,9 @@ export const notify = async (
 };
 
 const notifyFCM = async (notification: Notification) => {
-  console.log(
-    '[FCM Dispatch] Sending FCM for notification:',
-    notification.type,
-    notification.id,
-    'to user:',
-    notification.targetUserId
-  );
   if (!env.FCM_PROXY) {
-    console.log('[FCM Dispatch] No FCM_PROXY, sending directly');
-    const result = await sendFCMNotification(notification);
-    console.log(
-      '[FCM Dispatch] Direct send result:',
-      result.success,
-      'response:',
-      result.response
-        ? `${result.response.successCount} ok, ${result.response.failureCount} fail`
-        : 'undefined'
-    );
+    await sendFCMNotification(notification);
   } else {
-    console.log('[FCM Dispatch] Using FCM_PROXY:', env.FCM_PROXY);
     const response = await fetch(env.FCM_PROXY, {
       method: 'POST',
       headers: {
@@ -97,7 +80,9 @@ const notifyFCM = async (notification: Notification) => {
       },
       body: JSON.stringify(notification)
     });
-    console.log('[FCM Dispatch] Proxy response:', response.status, await response.text());
+    if (!response.ok) {
+      console.error('FCM proxy error:', response.status, await response.text());
+    }
   }
 };
 

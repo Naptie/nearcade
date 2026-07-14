@@ -119,11 +119,7 @@ const postMessage = async (message: WindowMessage, { focus = false, once = true 
 };
 
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push event received');
-  if (!event.data) {
-    console.log('[SW] Push event has no data');
-    return;
-  }
+  if (!event.data) return;
 
   let data: {
     data: { notification?: string };
@@ -140,34 +136,25 @@ self.addEventListener('push', (event) => {
   };
   try {
     data = event.data.json();
-    console.log('[SW] Push data parsed:', JSON.stringify(data).substring(0, 300));
   } catch (error) {
-    console.error('[SW] Failed to parse push notification data:', error);
+    console.error('Failed to parse push notification data:', error);
     return;
   }
 
   event.waitUntil(
     (async () => {
-      console.log('[SW] Sending INVALIDATE to clients');
       await postMessage({ type: 'INVALIDATE' }, { once: false });
 
       let notification: Notification | undefined;
       if (data.data?.notification) {
         try {
           notification = JSON.parse(data.data.notification) as Notification;
-          console.log('[SW] Notification parsed from data:', notification.type, notification.id);
-        } catch (e) {
-          console.error('[SW] Failed to parse notification data from push payload:', e);
+        } catch {
+          console.error('Failed to parse notification data from push payload');
         }
-      } else {
-        console.log(
-          '[SW] No notification data in push payload, data.data:',
-          JSON.stringify(data.data)
-        );
       }
 
       const title = notification ? getNotificationTitle(notification) : data.notification.title;
-      console.log('[SW] Showing notification with title:', title);
       const options: NotificationOptions = {
         body: notification?.content || data.notification.body || '',
         icon: data.notification.icon || `${base}/icon-192.webp`,
@@ -179,7 +166,6 @@ self.addEventListener('push', (event) => {
       };
 
       await self.registration.showNotification(title, options);
-      console.log('[SW] Notification shown successfully');
     })()
   );
 });

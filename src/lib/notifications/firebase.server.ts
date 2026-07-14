@@ -12,7 +12,6 @@ const originalHttp2Connect = http2.connect;
 ) => {
   if (typeof authority === 'string' && authority.includes('fcm.googleapis.com')) {
     const redirected = authority.replace('fcm.googleapis.com', FCM_PROXY_HOST);
-    console.log(`[firebase-proxy] http2.connect: ${authority} → ${redirected}`);
     return originalHttp2Connect(redirected, options);
   }
   return originalHttp2Connect(authority, options);
@@ -29,7 +28,6 @@ const originalHttpsRequest = https.request;
     !(options instanceof URL) &&
     options.hostname === 'oauth2.googleapis.com'
   ) {
-    console.log(`[firebase-proxy] https.request: oauth2.googleapis.com → ${GLOAUTH2_PROXY_HOST}`);
     options.hostname = GLOAUTH2_PROXY_HOST;
     options.host = GLOAUTH2_PROXY_HOST;
   }

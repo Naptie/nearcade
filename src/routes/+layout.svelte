@@ -123,19 +123,15 @@
 
     // Initialize push notifications for logged-in users
     if (data.session?.user) {
-      console.log('[FCM] User is logged in, setting up interaction listener');
       const onFirstInteraction = () => {
-        console.log('[FCM] First interaction detected, initializing push notifications');
         initializePushNotifications(app).catch((error) => {
-          console.error('[FCM] Failed to initialize push notifications:', error);
+          console.error('Failed to initialize push notifications:', error);
         });
         window.removeEventListener('pointerdown', onFirstInteraction, true);
         window.removeEventListener('keydown', onFirstInteraction, true);
       };
       window.addEventListener('pointerdown', onFirstInteraction, true);
       window.addEventListener('keydown', onFirstInteraction, true);
-    } else {
-      console.log('[FCM] No user session, skipping push notification setup');
     }
 
     (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
@@ -179,55 +175,31 @@
   });
 
   const initializePushNotifications = async (app: ReturnType<typeof initializeApp>) => {
-    if (!data.session?.user) {
-      console.log('[FCM] No user session, aborting');
-      return;
-    }
+    if (!data.session?.user) return;
 
     try {
-      console.log('[FCM] Getting messaging instance');
       const messaging = getMessaging(app);
 
-      // Request permission and get token
-      console.log('[FCM] Requesting notification permission');
       const permission = await Notification.requestPermission();
-      console.log('[FCM] Permission result:', permission);
-
       if (permission === 'granted') {
         try {
-          // Detect service worker file based on environment
           const swPath = import.meta.env.DEV ? `${base}/dev-sw.js?dev-sw` : `${base}/sw.js`;
           const swOptions = import.meta.env.DEV ? { type: 'module' as const } : undefined;
-          console.log('[FCM] Registering service worker at:', swPath, 'options:', swOptions);
           await navigator.serviceWorker.register(swPath, swOptions);
-          console.log('[FCM] Service worker registered, waiting for ready');
           const registration = await navigator.serviceWorker.ready;
-          console.log('[FCM] Service worker ready:', registration.active?.scriptURL);
           navigator.serviceWorker.addEventListener('message', handleWindowMessage);
-          console.log('[FCM] Calling getToken with VAPID key');
           const token = await getToken(messaging, {
             vapidKey: PUBLIC_FIREBASE_VAPID_KEY,
             serviceWorkerRegistration: registration
           });
-          console.log(
-            '[FCM] getToken result:',
-            token ? 'token received (' + token.substring(0, 20) + '...)' : 'null'
-          );
           if (token) {
-            // Store token on server
-            console.log('[FCM] Storing token on server');
-            const response = await fetch(resolve('/api/notifications/fcm/token'), {
+            await fetch(resolve('/api/notifications/fcm/token'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ token, action: 'store' })
             });
-            console.log('[FCM] Token store response:', response.status, await response.text());
-            console.log('[FCM] FCM token registered:', token);
 
-            // Listen for foreground messages
-            console.log('[FCM] Setting up foreground message listener');
             onMessage(messaging, (payload) => {
-              console.log('[FCM] Message received in foreground:', payload);
               invalidateAll();
 
               if (Notification.permission === 'granted') {
@@ -251,16 +223,13 @@
                 });
               }
             });
-            console.log('[FCM] Foreground listener set up, initialization complete');
           }
         } catch (error) {
-          console.error('[FCM] Failed in SW registration or token fetch:', error);
+          console.error('Failed to get FCM token:', error);
         }
-      } else {
-        console.log('[FCM] Permission not granted:', permission);
       }
     } catch (error) {
-      console.error('[FCM] Failed to initialize Firebase messaging:', error);
+      console.error('Failed to initialize Firebase messaging:', error);
     }
   };
 </script>
