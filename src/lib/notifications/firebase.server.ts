@@ -1,5 +1,4 @@
-import { env } from '$env/dynamic/private';
-import { FCM_PROXY_HOST, GLOAUTH2_PROXY_HOST } from '$env/static/private';
+import { FCM_PROXY_HOST, GLOAUTH2_PROXY_HOST, GSAK_BASE64 } from '$env/static/private';
 import { cert, initializeApp, type App } from 'firebase-admin/app';
 import http2 from 'node:http2';
 import https from 'node:https';
@@ -37,8 +36,7 @@ const originalHttpsRequest = https.request;
 let app: App | null;
 
 const initialize = () => {
-  if (!env.GSAK_BASE64) return null;
-  const decoded = Buffer.from(env.GSAK_BASE64, 'base64').toString('utf8');
+  const decoded = Buffer.from(GSAK_BASE64, 'base64').toString('utf8');
   const serviceAccount = JSON.parse(decoded);
   return initializeApp({
     credential: cert(serviceAccount)
