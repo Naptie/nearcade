@@ -303,8 +303,8 @@ const handleRequestLogging: Handle = async ({ event, resolve }) => {
 
   const path = event.url.pathname;
 
-  const userName = user?.name ?? user?.email ?? 'Anonymous';
-  const userDisplay = pc.green(userName);
+  const userName = user?.displayName ?? (user?.name ? `@${user?.name}` : 'Anonymous');
+  const userDisplay = userName === 'Anonymous' ? pc.gray(userName) : pc.green(userName);
 
   const ip = detectedIp ? pc.yellow(detectedIp) : pc.gray('direct');
   const regionDisplay = region?.display ?? 'unknown';
