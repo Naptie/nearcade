@@ -79,6 +79,7 @@ jobs:
           PUBLIC_GA_TRANSPORT_URL: ${{ vars.PUBLIC_GA_TRANSPORT_URL }}
           FCM_PROXY_HOST: ${{ vars.FCM_PROXY_HOST }}
           GLOAUTH2_PROXY_HOST: ${{ vars.GLOAUTH2_PROXY_HOST }}
+          GSAK_BASE64: ${{ secrets.GSAK_BASE64 }}
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
           AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
           WECHAT_TEMPLATE_BIND_RESULT: ${{ secrets.WECHAT_TEMPLATE_BIND_RESULT }}
