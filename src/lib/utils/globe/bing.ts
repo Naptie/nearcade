@@ -133,7 +133,17 @@ export function fixBingStyleUrls(style: StyleSpecification): StyleSpecification 
     .replaceAll('raster://', 'https://')
     .replaceAll('{quadkey}', '{z}/{x}/{y}');
   const result = JSON.parse(raw) as StyleSpecification;
-  result.layers = result.layers.filter((layer) => layer.type !== 'raster');
+  // Remove background raster layers (globe uses 3D textures instead) but keep
+  // the jk raster-label layer — it provides map labels (roads, place names)
+  // that the globe's vector layers don't fully cover.
+  result.layers = result.layers.filter(
+    (layer) => layer.type !== 'raster' || layer.source === 'jk'
+  );
+  // Remove geographic bounds on the jk source so labels render globally on the
+  // globe (the original bounds are Korea-only).
+  if (result.sources.jk && 'bounds' in result.sources.jk) {
+    delete result.sources.jk.bounds;
+  }
   for (const source of Object.values(result.sources)) {
     if ('attribution' in source && !source.attribution) source.attribution = BING_ATTRIBUTION;
     if ('tiles' in source && Array.isArray(source.tiles)) {
@@ -380,6 +390,13 @@ export function applyBingDarkMode(style: StyleSpecification): StyleSpecification
   for (const layer of result.layers) {
     if (layer.type === 'symbol' && layer.paint && !layer.paint['text-color']) {
       layer.paint['text-color'] = '#C8CCD4';
+    }
+    // Dim raster layers (jk labels) so they blend with the dark globe
+    if (layer.type === 'raster') {
+      layer.paint = layer.paint || {};
+      layer.paint['raster-brightness-max'] = 0.6;
+      layer.paint['raster-contrast'] = -0.2;
+      layer.paint['raster-saturation'] = -0.5;
     }
   }
   return result;
