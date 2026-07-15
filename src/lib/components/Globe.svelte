@@ -24,7 +24,8 @@
     applyBingDarkMode,
     bingTransformRequest,
     fixBingStyleUrls,
-    getBingStyleUrl
+    getBingStyleUrl,
+    prefetchBingTiles
   } from '$lib/utils/globe/bing';
 
   // ---- Props ----
@@ -545,10 +546,19 @@
     });
   });
 
+  const flyToWithAnticipatedBasemap = (
+    instance: maplibregl.Map,
+    options: maplibregl.FlyToOptions & { center: maplibregl.LngLatLike; zoom: number }
+  ) => {
+    const center = maplibregl.LngLat.convert(options.center);
+    prefetchBingTiles(instance, [center.lng, center.lat], options.zoom, { radius: 1 });
+    instance.flyTo(options);
+  };
+
   const flyToShop = (entry: ShopEntry) => {
     const instance = map;
     if (!instance) return;
-    instance.flyTo({
+    flyToWithAnticipatedBasemap(instance, {
       center: [entry.location.longitude, entry.location.latitude],
       zoom: Math.max(instance.getZoom(), 10),
       duration: 1200
@@ -1130,7 +1140,8 @@
             }, SIDEBAR_SHOW_DELAY_MS);
             labelLayersEnabled = false;
             stopAutoRotation();
-            instance.flyTo(
+            flyToWithAnticipatedBasemap(
+              instance,
               // FLYTO DURATION (ms) — should match or slightly exceed SIDEBAR_SHOW_DELAY_MS
               { center: [155, 45], zoom: 2, pitch: 0, bearing: 0, duration: 2000, essential: true }
             );
@@ -1160,7 +1171,8 @@
               sidebarCollapsed = false;
             }, LANDING_TRANSITION_DELAY_MS);
             labelLayersEnabled = false;
-            instance.flyTo(
+            flyToWithAnticipatedBasemap(
+              instance,
               // FLYTO DURATION (ms) for fullscreen→landing
               {
                 center: [LANDING_LONGITUDE, LANDING_LATITUDE],

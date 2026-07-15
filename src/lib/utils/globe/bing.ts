@@ -1,4 +1,9 @@
-import type { RequestParameters, ResourceType, StyleSpecification } from 'maplibre-gl';
+import type {
+  Map as MaplibreMap,
+  RequestParameters,
+  ResourceType,
+  StyleSpecification
+} from 'maplibre-gl';
 
 export const BING_FONT_STACK = ['Roboto Regular', 'Roboto Bold'] as string[];
 
@@ -19,6 +24,17 @@ export function getBingLanguage(locale: string): string {
   return BING_MKT[locale] ?? BING_MKT.en;
 }
 
+export function lngLatToTile(lng: number, lat: number, z: number): { x: number; y: number } {
+  const scale = 1 << z;
+  const x = Math.floor(((lng + 180) / 360) * scale);
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) /
+      2) *
+      scale
+  );
+  return { x, y };
+}
+
 export function xyzToQuadkey(x: number, y: number, z: number): string {
   let q = '';
   for (let i = z; i > 0; i--) {
@@ -29,6 +45,38 @@ export function xyzToQuadkey(x: number, y: number, z: number): string {
     q += d;
   }
   return q;
+}
+
+export function prefetchBingTiles(
+  instance: MaplibreMap,
+  center: [number, number],
+  zoom: number,
+  options: { radius?: number; sourceId?: string } = {}
+): void {
+  const { radius = 1, sourceId = 'bing-mvt' } = options;
+  if (!instance.isStyleLoaded()) return;
+
+  const style = instance.getStyle();
+  const source = style.sources[sourceId] as { tiles?: string[] } | undefined;
+  if (!source?.tiles?.length) return;
+
+  const template = source.tiles[0];
+  const z = Math.floor(zoom);
+  const { x: cx, y: cy } = lngLatToTile(center[0], center[1], z);
+  const maxTiles = 1 << z;
+
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      const x = ((cx + dx) % maxTiles + maxTiles) % maxTiles;
+      const y = Math.max(0, Math.min(maxTiles - 1, cy + dy));
+      const url = template
+        .replaceAll('{z}', String(z))
+        .replaceAll('{x}', String(x))
+        .replaceAll('{y}', String(y));
+      // Fire-and-forget: warm the browser cache before the flyTo camera arrives.
+      void fetch(url, { method: 'GET', priority: 'low' } as RequestInit).catch(() => undefined);
+    }
+  }
 }
 
 export function bingTransformRequest(
