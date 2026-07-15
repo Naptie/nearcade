@@ -295,7 +295,8 @@ function createAuth() {
         schema: {
           oauthClient: { modelName: 'oauth_client' },
           oauthConsent: { modelName: 'oauth_consent' },
-          oauthAccessToken: { modelName: 'oauth_access_token' }
+          oauthAccessToken: { modelName: 'oauth_access_token' },
+          oauthRefreshToken: { modelName: 'oauth_refresh_token' }
         }
       }),
       apiKey({
