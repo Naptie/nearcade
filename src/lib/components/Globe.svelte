@@ -745,7 +745,6 @@
       position: [1, azimuth, polar]
     });
     instance.setSky({ 'atmosphere-blend': getAtmosphereBlend() });
-    instance.setGlyphs(`${base}/fonts/{fontstack}/{range}.pbf`);
   };
 
   const toDatetimeLocalValue = (d: Date) => {
