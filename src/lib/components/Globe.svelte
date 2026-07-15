@@ -305,7 +305,6 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
-  let filterDropdownOpen = $state(false);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -1814,68 +1813,54 @@
               <button
                 type="button"
                 tabindex="0"
-                class="btn btn-soft hover:btn-accent"
+                class="btn btn-soft hover:btn-accent transition-colors!"
                 class:btn-primary={selectedTitleIds.length > 0}
                 aria-label={m.filter_by_game_titles()}
-                onmouseenter={() => {
-                  filterDropdownOpen = true;
-                }}
-                onmouseleave={() => {
-                  filterDropdownOpen = false;
-                }}
               >
                 <i class="fa-solid fa-filter"></i>
                 {#if selectedTitleIds.length > 0}
                   <span class="badge badge-xs">{selectedTitleIds.length}</span>
                 {/if}
               </button>
-              {#if filterDropdownOpen}
-                <div
-                  role="menu"
-                  tabindex="-1"
-                  class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
-                  onmouseenter={() => {
-                    filterDropdownOpen = true;
-                  }}
-                  onmouseleave={() => {
-                    filterDropdownOpen = false;
-                  }}
-                >
-                  <div class="card-body p-4">
-                    <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
-                    <div class="space-y-2">
-                      {#each GAME_TITLES as game (game.id)}
-                        <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                          <input
-                            type="checkbox"
-                            class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                            checked={selectedTitleIds.includes(game.id)}
-                            onchange={() => {
-                              selectedTitleIds = selectedTitleIds.includes(game.id)
-                                ? selectedTitleIds.filter((id) => id !== game.id)
-                                : [...selectedTitleIds, game.id];
-                            }}
-                          />
-                          <span class="text-sm">{getGameName(game.key)}</span>
-                        </label>
-                      {/each}
-                    </div>
-                    <div class="card-actions mt-2 justify-end">
-                      <button
-                        type="button"
-                        class="btn btn-soft hover:btn-error btn-xs"
-                        onclick={() => {
-                          selectedTitleIds = [];
-                        }}
-                        disabled={selectedTitleIds.length === 0}
-                      >
-                        <i class="fa-solid fa-trash"></i>
-                        {m.clear_filters()}
-                      </button>
-                    </div>
+              <div
+                role="menu"
+                tabindex="-1"
+                class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg transition!"
+              >
+                <div class="card-body p-4">
+                  <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
+                  <div class="space-y-2">
+                    {#each GAME_TITLES as game (game.id)}
+                      <label class="flex cursor-pointer items-center gap-2 text-nowrap">
+                        <input
+                          type="checkbox"
+                          class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
+                          checked={selectedTitleIds.includes(game.id)}
+                          onchange={() => {
+                            selectedTitleIds = selectedTitleIds.includes(game.id)
+                              ? selectedTitleIds.filter((id) => id !== game.id)
+                              : [...selectedTitleIds, game.id];
+                          }}
+                        />
+                        <span class="text-sm">{getGameName(game.key)}</span>
+                      </label>
+                    {/each}
+                  </div>
+                  <div class="card-actions mt-2 justify-end">
+                    <button
+                      type="button"
+                      class="btn btn-soft hover:btn-error btn-xs"
+                      onclick={() => {
+                        selectedTitleIds = [];
+                      }}
+                      disabled={selectedTitleIds.length === 0}
+                    >
+                      <i class="fa-solid fa-trash"></i>
+                      {m.clear_filters()}
+                    </button>
                   </div>
                 </div>
-              {/if}
+              </div>
             </div>
 
             <div class="relative flex-1">
@@ -1893,7 +1878,7 @@
               <button
                 type="button"
                 tabindex="0"
-                class="btn btn-circle btn-soft"
+                class="btn btn-circle btn-soft transition-colors!"
                 aria-label={m.more_actions()}
                 title={m.more_actions()}
               >
@@ -1902,7 +1887,7 @@
               <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
               <ul
                 tabindex="0"
-                class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow"
+                class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow transition!"
               >
                 <li>
                   <button onclick={enterShopLocationPickMode}>
