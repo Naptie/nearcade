@@ -394,9 +394,10 @@ export function applyBingDarkMode(style: StyleSpecification): StyleSpecification
     // Dim raster layers (jk labels) so they blend with the dark globe
     if (layer.type === 'raster') {
       layer.paint = layer.paint || {};
-      layer.paint['raster-brightness-max'] = 0.6;
-      layer.paint['raster-contrast'] = -0.2;
-      layer.paint['raster-saturation'] = -0.5;
+      layer.paint['raster-brightness-max'] = 0.5;
+      layer.paint['raster-brightness-min'] = 0.0;
+      layer.paint['raster-contrast'] = 0.15;
+      layer.paint['raster-saturation'] = -0.7;
     }
   }
   return result;
