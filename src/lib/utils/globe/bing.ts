@@ -28,7 +28,8 @@ export function lngLatToTile(lng: number, lat: number, z: number): { x: number; 
   const scale = 1 << z;
   const x = Math.floor(((lng + 180) / 360) * scale);
   const y = Math.floor(
-    ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) /
+    ((1 -
+      Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) /
       2) *
       scale
   );
@@ -67,7 +68,7 @@ export function prefetchBingTiles(
 
   for (let dx = -radius; dx <= radius; dx++) {
     for (let dy = -radius; dy <= radius; dy++) {
-      const x = ((cx + dx) % maxTiles + maxTiles) % maxTiles;
+      const x = (((cx + dx) % maxTiles) + maxTiles) % maxTiles;
       const y = Math.max(0, Math.min(maxTiles - 1, cy + dy));
       const url = template
         .replaceAll('{z}', String(z))
@@ -136,9 +137,7 @@ export function fixBingStyleUrls(style: StyleSpecification): StyleSpecification 
   // Remove background raster layers (globe uses 3D textures instead) but keep
   // the jk raster-label layer — it provides map labels (roads, place names)
   // that the globe's vector layers don't fully cover.
-  result.layers = result.layers.filter(
-    (layer) => layer.type !== 'raster' || layer.source === 'jk'
-  );
+  result.layers = result.layers.filter((layer) => layer.type !== 'raster' || layer.source === 'jk');
   // Remove geographic bounds on the jk source so labels render globally on the
   // globe (the original bounds are Korea-only).
   if (result.sources.jk && 'bounds' in result.sources.jk) {
