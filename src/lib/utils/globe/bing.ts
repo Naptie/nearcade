@@ -113,6 +113,21 @@ export function bingTransformRequest(
   return { url };
 }
 
+const ADDITIONAL_TILE_ENDPOINTS = [1, 2, 3] as const;
+
+function expandBingTileEndpoints(tiles: string[]): string[] {
+  const result = [...tiles];
+  for (const url of tiles) {
+    const match = url.match(/dynamic\.t(\d+)\.tiles\.ditu\.live\.com/);
+    if (!match) continue;
+    for (const idx of ADDITIONAL_TILE_ENDPOINTS) {
+      const expanded = url.replace(/dynamic\.t\d+\.tiles/, `dynamic.t${idx}.tiles`);
+      if (!result.includes(expanded)) result.push(expanded);
+    }
+  }
+  return result;
+}
+
 export function fixBingStyleUrls(style: StyleSpecification): StyleSpecification {
   const raw = JSON.stringify(style)
     .replaceAll('raster://', 'https://')
@@ -121,6 +136,9 @@ export function fixBingStyleUrls(style: StyleSpecification): StyleSpecification 
   result.layers = result.layers.filter((layer) => layer.type !== 'raster');
   for (const source of Object.values(result.sources)) {
     if ('attribution' in source && !source.attribution) source.attribution = BING_ATTRIBUTION;
+    if ('tiles' in source && Array.isArray(source.tiles)) {
+      source.tiles = expandBingTileEndpoints(source.tiles);
+    }
   }
   return result;
 }
