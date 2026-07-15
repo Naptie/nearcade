@@ -42,6 +42,7 @@
         page.url.pathname.startsWith(`${p}/`)
     )
   );
+  const isGlobePage = $derived(page.url.pathname === resolve('/globe'));
 
   let { data, children } = $props();
   let amap: typeof AMap | undefined = $state(undefined);
@@ -89,7 +90,7 @@
   };
 
   afterNavigate(() => {
-    if (data.session?.user) {
+    if (data.session?.user && !isGlobePage) {
       Clarity.identify(
         data.session.user.id,
         undefined,
@@ -100,60 +101,62 @@
   });
 
   onMount(() => {
-    Clarity.init(PUBLIC_CLARITY_PROJECT_ID);
-
-    const firebaseConfig = {
-      apiKey: PUBLIC_FIREBASE_API_KEY,
-      authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: PUBLIC_FIREBASE_APP_ID,
-      measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    setAnalyticsCollectionEnabled(analytics, !import.meta.env.DEV);
-
     setHighlightTheme();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', handleThemeChange);
     window.addEventListener('nearcade-theme-change', handleThemeChange);
 
-    // Initialize push notifications for logged-in users
-    if (data.session?.user) {
-      const onFirstInteraction = () => {
-        initializePushNotifications(app).catch((error) => {
-          console.error('Failed to initialize push notifications:', error);
-        });
-        window.removeEventListener('pointerdown', onFirstInteraction, true);
-        window.removeEventListener('keydown', onFirstInteraction, true);
+    if (!isGlobePage) {
+      Clarity.init(PUBLIC_CLARITY_PROJECT_ID);
+
+      const firebaseConfig = {
+        apiKey: PUBLIC_FIREBASE_API_KEY,
+        authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: PUBLIC_FIREBASE_APP_ID,
+        measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
       };
-      window.addEventListener('pointerdown', onFirstInteraction, true);
-      window.addEventListener('keydown', onFirstInteraction, true);
-    }
 
-    (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
-      serviceHost: fromPath('/_AMapService')
-    };
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      setAnalyticsCollectionEnabled(analytics, !import.meta.env.DEV);
 
-    // Load AMap by default
-    try {
-      import('@amap/amap-jsapi-loader').then((loader) => {
-        loader.default
-          .load({
-            key: PUBLIC_AMAP_KEY,
-            version: '2.0'
-          })
-          .then((a: typeof AMap) => {
-            amap = a;
-            window.dispatchEvent(new CustomEvent('amap-loaded', { detail: a }));
+      // Initialize push notifications for logged-in users
+      if (data.session?.user) {
+        const onFirstInteraction = () => {
+          initializePushNotifications(app).catch((error) => {
+            console.error('Failed to initialize push notifications:', error);
           });
-      });
-    } catch (error) {
-      console.error('Failed to load AMap:', error);
-      amapError = error instanceof Error ? error.message : 'Failed to load AMap';
+          window.removeEventListener('pointerdown', onFirstInteraction, true);
+          window.removeEventListener('keydown', onFirstInteraction, true);
+        };
+        window.addEventListener('pointerdown', onFirstInteraction, true);
+        window.addEventListener('keydown', onFirstInteraction, true);
+      }
+
+      (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
+        serviceHost: fromPath('/_AMapService')
+      };
+
+      // Load AMap by default outside the Globe, where Bing supplies the map.
+      try {
+        import('@amap/amap-jsapi-loader').then((loader) => {
+          loader.default
+            .load({
+              key: PUBLIC_AMAP_KEY,
+              version: '2.0'
+            })
+            .then((a: typeof AMap) => {
+              amap = a;
+              window.dispatchEvent(new CustomEvent('amap-loaded', { detail: a }));
+            });
+        });
+      } catch (error) {
+        console.error('Failed to load AMap:', error);
+        amapError = error instanceof Error ? error.message : 'Failed to load AMap';
+      }
     }
 
     let redirect = page.url.searchParams.get('redirect');
@@ -247,11 +250,13 @@
   {#if PUBLIC_BAIDU_SITE_VERIFICATION}
     <meta name="baidu-site-verification" content={PUBLIC_BAIDU_SITE_VERIFICATION} />
   {/if}
-  <script
-    type="text/javascript"
-    src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async"
-    defer
-  ></script>
+  {#if !isGlobePage}
+    <script
+      type="text/javascript"
+      src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async"
+      defer
+    ></script>
+  {/if}
 </svelte:head>
 
 <GlobalSeo />

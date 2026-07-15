@@ -120,14 +120,23 @@ const SUN_COLOR = new THREE.Color(1.0, 0.92, 0.72);
 /** Fixed specular/sunlight intensity used internally by the shader layer. */
 const DEFAULT_SUNLIGHT_INTENSITY = 1;
 
+/** Maximum opacity of the day map overlay. */
+const MAX_DAY_MAP_OPACITY = 1;
+/** Radius scale factor for the day map shell so it sits just above the raster globe. */
+const DAY_MAP_ALTITUDE_SCALE = 1.0005;
+/** Fade the day map near the visible limb to avoid a hard edge. */
+const DAY_MAP_LIMB_SOFTNESS = 0.16;
+
 /** Names of the individual Three.js mesh layers that can be toggled. */
-export type GlobeLayerName = 'clouds' | 'cloudShadow' | 'nightLights' | 'specular' | 'atmosphere';
+export type GlobeLayerName =
+  'clouds' | 'cloudShadow' | 'nightLights' | 'specular' | 'atmosphere' | 'dayMap';
 
 export type GlobeVisualTextureSet = {
   cloud: string;
   nightLights: string;
   specular: string;
   normal: string;
+  dayMap: string;
 };
 
 type GlobeVisualTextureTier = 'low' | 'high';
@@ -137,9 +146,11 @@ type GlobeLoadedTextureSet = {
   nightLights: THREE.Texture | null;
   specular: THREE.Texture | null;
   normal: THREE.Texture | null;
+  dayMap: THREE.Texture | null;
 };
 
 export type GlobeVisualsLayerOptions = {
+  id?: string;
   enabledLayers?: Iterable<GlobeLayerName>;
   highResolutionTextureSet?: GlobeVisualTextureSet | null;
   highResolutionPrefetchZoom?: number;
@@ -153,7 +164,8 @@ const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
   'cloudShadow',
   'nightLights',
   'specular',
-  'atmosphere'
+  'atmosphere',
+  'dayMap'
 ];
 
 const GLOBE_MESH_WIDTH_SEGMENTS = 48;
@@ -317,6 +329,33 @@ const atmosphereFragmentShader = /* glsl */ `
   }
 `;
 
+const dayMapFragmentShader = /* glsl */ `
+  precision highp float;
+
+  uniform sampler2D uDayMap;
+  uniform vec3      uCameraPos;
+  uniform vec3      uSunDir;
+  uniform float     uOpacity;
+  uniform float     uLimbSoftness;
+
+  varying vec3 vNormal;
+  varying vec3 vWorldPos;
+  varying vec2 vUv;
+
+  void main() {
+    vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
+    vec3 N = normalize(vNormal);
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    float nDotV = max(dot(N, viewDir), 0.0);
+
+    // Fade near the limb so the visible edge blends softly into the Bing base.
+    float limbFade = smoothstep(0.0, uLimbSoftness, nDotV);
+
+    vec3 color = texture2D(uDayMap, sampleUv).rgb;
+    gl_FragColor = vec4(color, limbFade * uOpacity);
+  }
+`;
+
 const cloudFragmentShader = /* glsl */ `
   precision highp float;
 
@@ -431,7 +470,7 @@ const cloudShadowFragmentShader = /* glsl */ `
 const EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y = -Math.PI / 2;
 
 export class GlobeVisualsLayer {
-  readonly id = 'globe-visuals';
+  readonly id: string;
   readonly type = 'custom' as const;
   readonly renderingMode = '3d' as const;
 
@@ -446,6 +485,7 @@ export class GlobeVisualsLayer {
   private nightLightsMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private specMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
   private atmosphereMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
+  private dayMapMesh: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> | null = null;
 
   private map: maplibregl.Map | null = null;
   private loaded = false;
@@ -480,7 +520,8 @@ export class GlobeVisualsLayer {
     cloudShadow: true,
     nightLights: true,
     specular: true,
-    atmosphere: true
+    atmosphere: true,
+    dayMap: true
   };
 
   private hasAnyVisibleMesh(): boolean {
@@ -500,6 +541,7 @@ export class GlobeVisualsLayer {
     private readonly lowResolutionTextureSet: GlobeVisualTextureSet,
     options: GlobeVisualsLayerOptions = {}
   ) {
+    this.id = options.id ?? 'globe-visuals';
     this.enabledLayers = new Set(options.enabledLayers ?? ALL_GLOBE_LAYER_NAMES);
     this.highResolutionTextureSet = options.highResolutionTextureSet ?? null;
     this.highResolutionPrefetchZoom =
@@ -569,6 +611,8 @@ export class GlobeVisualsLayer {
         return this.specMesh;
       case 'atmosphere':
         return this.atmosphereMesh;
+      case 'dayMap':
+        return this.dayMapMesh;
     }
   }
 
@@ -604,7 +648,8 @@ export class GlobeVisualsLayer {
       textures.cloud,
       textures.nightLights,
       textures.specular,
-      textures.normal
+      textures.normal,
+      textures.dayMap
     ]) {
       if (!texture || disposedTextures.has(texture)) continue;
       disposedTextures.add(texture);
@@ -631,18 +676,23 @@ export class GlobeVisualsLayer {
       this.specMesh.material.uniforms.uSpecularMap.value = textures.specular;
       this.specMesh.material.uniforms.uNormalMap.value = textures.normal;
     }
+    if (this.dayMapMesh) {
+      this.dayMapMesh.material.uniforms.uDayMap.value = textures.dayMap;
+    }
 
     console.debug('[GlobeVisualsDebug] applied texture tier', {
       tier,
       cloud: Boolean(textures.cloud),
       nightLights: Boolean(textures.nightLights),
       specular: Boolean(textures.specular),
-      normal: Boolean(textures.normal)
+      normal: Boolean(textures.normal),
+      dayMap: Boolean(textures.dayMap)
     });
   }
 
   private revealMeshes(): void {
     const revealOrder: GlobeLayerName[] = [
+      'dayMap',
       'atmosphere',
       'specular',
       'nightLights',
@@ -691,10 +741,13 @@ export class GlobeVisualsLayer {
         : Promise.resolve(null),
       this.isLayerEnabled('specular')
         ? this.loadTexture(textureSet.normal, THREE.NoColorSpace)
+        : Promise.resolve(null),
+      this.isLayerEnabled('dayMap')
+        ? this.loadTexture(textureSet.dayMap, THREE.SRGBColorSpace)
         : Promise.resolve(null)
     ])
-      .then(([cloud, nightLights, specular, normal]) => {
-        const textures = { cloud, nightLights, specular, normal };
+      .then(([cloud, nightLights, specular, normal, dayMap]) => {
+        const textures = { cloud, nightLights, specular, normal, dayMap };
 
         if (this.aborted) {
           this.disposeTextureSet(textures);
@@ -707,7 +760,8 @@ export class GlobeVisualsLayer {
           cloud: Boolean(cloud),
           nightLights: Boolean(nightLights),
           specular: Boolean(specular),
-          normal: Boolean(normal)
+          normal: Boolean(normal),
+          dayMap: Boolean(dayMap)
         });
         return textures;
       })
@@ -1007,7 +1061,37 @@ export class GlobeVisualsLayer {
       this.atmosphereMesh.visible = false;
     }
 
-    // Render order: shadow → night lights → specular → clouds → atmosphere
+    if (this.isLayerEnabled('dayMap')) {
+      // ── Day map sphere ───────────────────────────────────────────────────────
+      const dayMapGeom = new THREE.SphereGeometry(
+        1,
+        GLOBE_MESH_WIDTH_SEGMENTS,
+        GLOBE_MESH_HEIGHT_SEGMENTS
+      );
+      const dayMapMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uDayMap: { value: null },
+          uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
+          uSunDir: { value: new THREE.Vector3(0, 0, 1) },
+          uOpacity: { value: 0 },
+          uLimbSoftness: { value: DAY_MAP_LIMB_SOFTNESS }
+        },
+        vertexShader: specularVertexShader,
+        fragmentShader: dayMapFragmentShader,
+        transparent: true,
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+        depthTest: false
+      });
+      this.dayMapMesh = new THREE.Mesh(dayMapGeom, dayMapMat);
+      this.dayMapMesh.scale.setScalar(DAY_MAP_ALTITUDE_SCALE);
+      this.dayMapMesh.rotation.y = EQUIRECTANGULAR_ALIGNMENT_ROTATION_Y;
+      this.dayMapMesh.renderOrder = 5;
+      this.dayMapMesh.visible = false;
+    }
+
+    // Render order: day map → shadow → night lights → specular → clouds → atmosphere
+    if (this.dayMapMesh) this.scene.add(this.dayMapMesh);
     if (this.cloudShadowMesh) this.scene.add(this.cloudShadowMesh);
     if (this.nightLightsMesh) this.scene.add(this.nightLightsMesh);
     if (this.specMesh) this.scene.add(this.specMesh);
@@ -1091,6 +1175,12 @@ export class GlobeVisualsLayer {
       u.uSunIntensity.value = this.sunlightIntensity;
       u.uOpacity.value = t * ATMOSPHERE_OPACITY;
     }
+    if (this.dayMapMesh) {
+      const u = this.dayMapMesh.material.uniforms;
+      u.uCameraPos.value.copy(this._cameraPos);
+      u.uSunDir.value.copy(this._sunDir);
+      u.uOpacity.value = t * MAX_DAY_MAP_OPACITY;
+    }
 
     // ── Render ────────────────────────────────────────────────────────────────
     // resetState() tells Three.js that the WebGL state may have changed (MapLibre
@@ -1148,6 +1238,12 @@ export class GlobeVisualsLayer {
       this.atmosphereMesh.geometry.dispose();
       this.atmosphereMesh.material.dispose();
       this.atmosphereMesh = null;
+    }
+    if (this.dayMapMesh) {
+      this.dayMapMesh.geometry.dispose();
+      this.dayMapMesh.material.uniforms.uDayMap.value = null;
+      this.dayMapMesh.material.dispose();
+      this.dayMapMesh = null;
     }
 
     // Do NOT call renderer.dispose() — it would destroy the shared WebGL context.
