@@ -1825,7 +1825,7 @@
               <div
                 role="menu"
                 tabindex="-1"
-                class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg transition!"
+                class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
               >
                 <div class="card-body p-4">
                   <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
@@ -1887,7 +1887,7 @@
               <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
               <ul
                 tabindex="0"
-                class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow transition!"
+                class="dropdown-content menu bg-base-300 rounded-box z-10 w-56 p-2 shadow"
               >
                 <li>
                   <button onclick={enterShopLocationPickMode}>

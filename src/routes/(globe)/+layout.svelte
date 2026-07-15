@@ -22,7 +22,7 @@
   <style>
     /* Disable CSS transitions inside the sidebar to avoid the browser
        evaluating transitions for 122+ elements on every visibility change. */
-    aside * {
+    aside *:not(.dropdown-content) {
       transition-duration: 0s !important;
       animation-duration: 0s !important;
     }
