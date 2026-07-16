@@ -560,7 +560,7 @@
                 <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
                   {m.club_introduction()}
                 </div>
-                <div class="text-sm leading-relaxed break-all">
+                <div class="text-sm leading-relaxed break-words">
                   {clubDataResolved.club.description}
                 </div>
               </div>

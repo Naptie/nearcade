@@ -6,7 +6,7 @@
   import type { PageData } from './$types';
 
   type TaskState = 'idle' | 'running' | 'succeeded' | 'failed';
-  type TaskId = 'university_stats' | 'rankings';
+  type TaskId = 'university_stats' | 'rankings' | 'region_rankings';
 
   type Task = {
     id: TaskId;
@@ -40,6 +40,12 @@
       description: m.admin_data_update_rankings_description(),
       icon: 'fa-trophy',
       summaryKeys: ['processedCount', 'campusCount', 'totalCount']
+    },
+    region_rankings: {
+      title: m.admin_data_update_region_rankings(),
+      description: m.admin_data_update_region_rankings_description(),
+      icon: 'fa-earth-americas',
+      summaryKeys: ['totalCount']
     }
   };
 

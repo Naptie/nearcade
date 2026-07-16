@@ -28,3 +28,25 @@ export const IS_LOW_DATA =
   'connection' in navigator &&
   navigator.connection &&
   (navigator.connection as { saveData: boolean }).saveData === true;
+
+/**
+ * Whether the device has a discrete / high-performance GPU (NVIDIA, AMD Radeon,
+ * Apple Silicon). Detected via WEBGL_debug_renderer_info; falls back to false if
+ * the extension is blocked or unavailable.
+ */
+export const HAS_DISCRETE_GPU = (() => {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (gl) {
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (ext) {
+        const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        return /(NVIDIA|GeForce|RTX|GTX|Radeon|Apple\s+M\d)/i.test(renderer);
+      }
+    }
+  } catch {
+    // WebGL unavailable or extension blocked.
+  }
+  return false;
+})();

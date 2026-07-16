@@ -70,7 +70,14 @@ async function generateSitemap(origin: string, locales: readonly string[]): Prom
     >
   ]);
 
-  const staticPaths = ['/', '/shops', '/universities', '/clubs', '/rankings'];
+  const staticPaths = [
+    '/',
+    '/shops',
+    '/universities',
+    '/clubs',
+    '/rankings/campus',
+    '/rankings/region'
+  ];
   const entries: string[] = staticPaths.map((path) =>
     renderUrlEntry(origin, path, undefined, locales)
   );

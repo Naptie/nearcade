@@ -78,13 +78,13 @@
               {#each navigationItems as item (item.href)}
                 <a
                   href={item.href}
-                  class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                  class="flex min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
                   class:bg-primary={isActive(item.href, item.exact)}
                   class:text-primary-content={isActive(item.href, item.exact)}
                   class:hover:bg-base-300={!isActive(item.href, item.exact)}
                 >
-                  <i class="fa-solid {item.icon} fa-sm"></i>
-                  {item.label}
+                  <i class="fa-solid {item.icon} fa-sm shrink-0"></i>
+                  <span class="truncate">{item.label}</span>
                   {#if item.warn}
                     <span
                       class="badge badge-warning badge-sm ml-auto transition-opacity"

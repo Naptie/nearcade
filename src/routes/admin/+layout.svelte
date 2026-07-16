@@ -235,7 +235,7 @@
       </aside>
 
       <!-- Main Content -->
-      <main class="flex-1 p-6 sm:max-w-[calc(100%-16rem)]">
+      <main class="min-w-0 flex-1 p-6 sm:max-w-[calc(100%-16rem)]">
         {@render children()}
       </main>
     </div>

@@ -27,7 +27,7 @@
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { fade, slide } from 'svelte/transition';
 
-  import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
+  import { HAS_DISCRETE_GPU, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
   import { LIMIT_OPTIONS, RADIUS_OPTIONS } from '$lib/constants';
@@ -85,7 +85,7 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
-  let showGlobe = $state(browser && !IS_ANDROID_OR_IOS && !IS_LOW_DATA);
+  let showGlobe = $state(browser && HAS_DISCRETE_GPU && !IS_LOW_DATA);
   let now = $state(new Date());
 
   const searchUniversities = async (query: string, requestId: number) => {
@@ -269,11 +269,18 @@
         <span class="hidden lg:inline">{m.globe()}</span>
       </a>
       <a
-        href={resolve('/(main)/rankings')}
+        href={resolve('/(main)/rankings/campus')}
         class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
       >
         <i class="fa-solid fa-trophy fa-lg"></i>
         <span class="hidden lg:inline">{m.campus_rankings()}</span>
+      </a>
+      <a
+        href={resolve('/(main)/rankings/region')}
+        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+      >
+        <i class="fa-solid fa-earth-americas fa-lg"></i>
+        <span class="hidden lg:inline">{m.region_rankings()}</span>
       </a>
       <AuthModal size="lg" />
     </div>

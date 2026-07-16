@@ -127,7 +127,10 @@ const PATH_RESOURCE_RULES: {
   { prefix: '/api/discover', resource: 'shops' },
 
   // Rankings (read-only public data — allow with read:universities)
-  { prefix: '/api/rankings', resource: 'universities' }
+  { prefix: '/api/rankings/campus', resource: 'universities' },
+
+  // Region Rankings (read-only public data — allow with read:shops)
+  { prefix: '/api/rankings/region', resource: 'shops' }
 ];
 
 /** Paths that are completely blocked from OAuth access (admin, internal). */

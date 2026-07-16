@@ -3,14 +3,14 @@
   import { page } from '$app/state';
   import Globe from '$lib/components/Globe.svelte';
   import { onMount } from 'svelte';
-  import { IS_ANDROID_OR_IOS, IS_LOW_DATA } from '$lib/utils/index.client';
+  import { HAS_DISCRETE_GPU, IS_LOW_DATA } from '$lib/utils/index.client';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 
   let showGlobe = $state(false);
 
   onMount(() => {
-    showGlobe = !IS_ANDROID_OR_IOS && !IS_LOW_DATA;
+    showGlobe = HAS_DISCRETE_GPU && !IS_LOW_DATA;
   });
 
   const isLandingPage = $derived(page.url.pathname === resolve('/'));

@@ -1,11 +1,13 @@
 import { env } from '$env/dynamic/public';
 import type { MongoClient } from 'mongodb';
 import mongo from '$lib/db/index.server';
-import { GAME_TITLES, RADIUS_OPTIONS } from '$lib/constants';
+import { GAME_TITLES, RANKING_RADIUS_OPTIONS, REGION_LEVELS } from '$lib/constants';
 import type {
   Club,
   Location,
   RankingMetrics,
+  RegionLevel,
+  RegionRankingData,
   SortCriteria,
   University,
   UniversityMember,
@@ -14,7 +16,7 @@ import type {
 import { calculateAreaDensity, calculateDistance } from '$lib/utils';
 import { getOrigin } from '$lib/utils/index.server';
 
-export const DATA_UPDATE_TASK_IDS = ['university_stats', 'rankings'] as const;
+export const DATA_UPDATE_TASK_IDS = ['university_stats', 'rankings', 'region_rankings'] as const;
 
 export type DataUpdateTaskId = (typeof DATA_UPDATE_TASK_IDS)[number];
 export type DataUpdateTaskState = 'idle' | 'running' | 'succeeded' | 'failed';
@@ -69,7 +71,21 @@ interface RankingsCacheMetadata {
   calculationStarted?: Date;
 }
 
+interface RegionRankingsCacheMetadata {
+  _id: string;
+  createdAt: Date;
+  expiresAt: Date;
+  totalCount: number;
+  isCalculating?: boolean;
+  calculationStarted?: Date;
+}
+
 interface CachedRanking extends UniversityRankingData {
+  rankOrder: Record<string, number>;
+}
+
+interface CachedRegionRanking extends RegionRankingData {
+  _id: string;
   rankOrder: Record<string, number>;
 }
 
@@ -81,6 +97,7 @@ interface UniversityStats {
 
 interface RankingsShop {
   location: Location;
+  address?: { general?: string[] };
   games: Array<{
     titleId: number;
     quantity: number;
@@ -136,7 +153,8 @@ const DATA_UPDATE_COLLECTION = 'admin_data_updates';
 const RANKINGS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
 const TASK_TIMEOUT_MS: Record<DataUpdateTaskId, number> = {
   university_stats: 30 * 60 * 1000,
-  rankings: 60 * 60 * 1000
+  rankings: 60 * 60 * 1000,
+  region_rankings: 60 * 60 * 1000
 };
 
 const getTaskCollection = (client: MongoClient) =>
@@ -207,6 +225,33 @@ const getDerivedRankingsTaskRecord = async (
   };
 };
 
+const getDerivedRegionRankingsTaskRecord = async (
+  client: MongoClient
+): Promise<Partial<DataUpdateTaskRecord>> => {
+  const metadata = (await client
+    .db()
+    .collection('region_rankings')
+    .findOne({
+      _id: 'metadata'
+    } as never)) as RegionRankingsCacheMetadata | null;
+
+  if (!metadata) {
+    return {};
+  }
+
+  return {
+    status: metadata.isCalculating ? 'running' : 'succeeded',
+    startedAt: metadata.calculationStarted ?? null,
+    finishedAt: metadata.isCalculating ? null : (metadata.createdAt ?? null),
+    lastSuccessfulAt: metadata.createdAt ?? null,
+    updatedAt: metadata.calculationStarted ?? metadata.createdAt ?? new Date(0),
+    summary: {
+      totalCount: metadata.totalCount ?? 0,
+      cached: true
+    }
+  };
+};
+
 const getDerivedUniversityStatsTaskRecord = async (
   client: MongoClient
 ): Promise<Partial<DataUpdateTaskRecord>> => {
@@ -252,7 +297,9 @@ const getDerivedTaskRecord = async (
   const derived =
     taskId === 'rankings'
       ? await getDerivedRankingsTaskRecord(client)
-      : await getDerivedUniversityStatsTaskRecord(client);
+      : taskId === 'region_rankings'
+        ? await getDerivedRegionRankingsTaskRecord(client)
+        : await getDerivedUniversityStatsTaskRecord(client);
 
   return normalizeTaskRecord(taskId, derived);
 };
@@ -684,7 +731,7 @@ const runRankingsTask = async (
           district: campus.district,
           address: campus.address,
           location: campus.location,
-          rankings: RADIUS_OPTIONS.map((radius) =>
+          rankings: RANKING_RADIUS_OPTIONS.map((radius) =>
             calculateMetricsForRadius(getShopsWithinRadius(shops, campus.location, radius), radius)
           )
         });
@@ -714,7 +761,7 @@ const runRankingsTask = async (
     }));
 
     for (const sortBy of sortCriteria) {
-      for (const radius of RADIUS_OPTIONS) {
+      for (const radius of RANKING_RADIUS_OPTIONS) {
         const sortKey = `${sortBy}_${radius}`;
         const sorted = [...cachedRankings].sort((left, right) => {
           const leftMetrics = left.rankings.find((entry) => entry.radius === radius);
@@ -744,10 +791,7 @@ const runRankingsTask = async (
         });
 
         sorted.forEach((ranking, index) => {
-          const cachedRanking = cachedRankings.find((entry) => entry.id === ranking.id);
-          if (cachedRanking) {
-            cachedRanking.rankOrder[sortKey] = index + 1;
-          }
+          ranking.rankOrder[sortKey] = index + 1;
         });
       }
     }
@@ -795,6 +839,364 @@ const runRankingsTask = async (
   }
 };
 
+interface RegionNode {
+  id: string;
+  level: RegionLevel;
+  name: string;
+  country: string | null;
+  province: string | null;
+  city: string | null;
+  county: string | null;
+  shopCount: number;
+  totalMachines: number;
+  gameQuantities: Map<number, number>;
+  locations: Array<[number, number]>;
+}
+
+const buildRegionNode = (
+  level: RegionLevel,
+  name: string,
+  country: string | null,
+  province: string | null,
+  city: string | null,
+  county: string | null,
+  shopCount: number,
+  totalMachines: number,
+  gameQuantities: Map<number, number>,
+  locations: Array<[number, number]>
+): RegionNode => {
+  const levelIndex = REGION_LEVELS.findIndex((l) => l.key === level);
+  const idParts = [country, province, city, county].slice(0, levelIndex + 1).filter(Boolean);
+  return {
+    id: `${level}:${idParts.join(':')}`,
+    level,
+    name,
+    country,
+    province,
+    city,
+    county,
+    shopCount,
+    totalMachines,
+    gameQuantities,
+    locations
+  };
+};
+
+const nodeToRegionData = (node: RegionNode): RegionRankingData => {
+  const loc: Location =
+    node.locations.length > 0
+      ? {
+          type: 'Point',
+          coordinates: [
+            node.locations.reduce((s, c) => s + c[0], 0) / node.locations.length,
+            node.locations.reduce((s, c) => s + c[1], 0) / node.locations.length
+          ] as [number, number]
+        }
+      : { type: 'Point', coordinates: [0, 0] as [number, number] };
+
+  return {
+    id: node.id,
+    level: node.level,
+    name: node.name,
+    country: node.country,
+    province: node.province,
+    city: node.city,
+    county: node.county,
+    location: loc,
+    rankings: RANKING_RADIUS_OPTIONS.map((radius) => ({
+      radius,
+      shopCount: node.shopCount,
+      totalMachines: node.totalMachines,
+      areaDensity: calculateAreaDensity(node.totalMachines, radius),
+      gameSpecificMachines: GAME_TITLES.map((game) => ({
+        name: game.key,
+        quantity: node.gameQuantities.get(game.id) || 0
+      }))
+    }))
+  };
+};
+
+const buildRegionRankings = (shops: RankingsShop[]): RegionRankingData[] => {
+  // Phase 1: aggregate shops into county-level nodes
+  const counties = new Map<string, RegionNode>();
+
+  for (const shop of shops) {
+    if (!shop.address?.general) continue;
+    const addr = shop.address.general;
+    if (addr.length < 4 || !addr[3]) continue;
+
+    const id = `county:${addr[0]}:${addr[1]}:${addr[2]}:${addr[3]}`;
+    const machines = shop.games.reduce((s, g) => s + g.quantity, 0);
+    const loc: [number, number] = shop.location?.coordinates ?? [0, 0];
+
+    const existing = counties.get(id);
+    if (existing) {
+      existing.shopCount += 1;
+      existing.totalMachines += machines;
+      existing.locations.push(loc);
+      for (const g of shop.games) {
+        existing.gameQuantities.set(
+          g.titleId,
+          (existing.gameQuantities.get(g.titleId) || 0) + g.quantity
+        );
+      }
+    } else {
+      const gameQuantities = new Map<number, number>();
+      for (const g of shop.games) {
+        gameQuantities.set(g.titleId, g.quantity);
+      }
+      counties.set(
+        id,
+        buildRegionNode(
+          'county',
+          addr[3],
+          addr[0],
+          addr[1],
+          addr[2],
+          addr[3],
+          1,
+          machines,
+          gameQuantities,
+          [loc]
+        )
+      );
+    }
+  }
+
+  // Phase 2: roll counties up into cities
+  const cities = new Map<string, RegionNode>();
+  for (const county of counties.values()) {
+    const id = `city:${county.country}:${county.province}:${county.city}`;
+    const existing = cities.get(id);
+    if (existing) {
+      existing.shopCount += county.shopCount;
+      existing.totalMachines += county.totalMachines;
+      existing.locations.push(...county.locations);
+      for (const [tid, qty] of county.gameQuantities) {
+        existing.gameQuantities.set(tid, (existing.gameQuantities.get(tid) || 0) + qty);
+      }
+    } else {
+      const gameQuantities = new Map(county.gameQuantities);
+      cities.set(
+        id,
+        buildRegionNode(
+          'city',
+          county.city!,
+          county.country,
+          county.province,
+          county.city,
+          null,
+          county.shopCount,
+          county.totalMachines,
+          gameQuantities,
+          [...county.locations]
+        )
+      );
+    }
+  }
+
+  // Phase 3: roll cities up into provinces
+  const provinces = new Map<string, RegionNode>();
+  for (const city of cities.values()) {
+    const id = `province:${city.country}:${city.province}`;
+    const existing = provinces.get(id);
+    if (existing) {
+      existing.shopCount += city.shopCount;
+      existing.totalMachines += city.totalMachines;
+      existing.locations.push(...city.locations);
+      for (const [tid, qty] of city.gameQuantities) {
+        existing.gameQuantities.set(tid, (existing.gameQuantities.get(tid) || 0) + qty);
+      }
+    } else {
+      const gameQuantities = new Map(city.gameQuantities);
+      provinces.set(
+        id,
+        buildRegionNode(
+          'province',
+          city.province!,
+          city.country,
+          city.province,
+          null,
+          null,
+          city.shopCount,
+          city.totalMachines,
+          gameQuantities,
+          [...city.locations]
+        )
+      );
+    }
+  }
+
+  // Phase 4: roll provinces up into countries
+  const countries = new Map<string, RegionNode>();
+  for (const province of provinces.values()) {
+    const id = `country:${province.country}`;
+    const existing = countries.get(id);
+    if (existing) {
+      existing.shopCount += province.shopCount;
+      existing.totalMachines += province.totalMachines;
+      existing.locations.push(...province.locations);
+      for (const [tid, qty] of province.gameQuantities) {
+        existing.gameQuantities.set(tid, (existing.gameQuantities.get(tid) || 0) + qty);
+      }
+    } else {
+      const gameQuantities = new Map(province.gameQuantities);
+      countries.set(
+        id,
+        buildRegionNode(
+          'country',
+          province.country!,
+          province.country,
+          null,
+          null,
+          null,
+          province.shopCount,
+          province.totalMachines,
+          gameQuantities,
+          [...province.locations]
+        )
+      );
+    }
+  }
+
+  // Collect all levels
+  const allNodes = new Map<string, RegionNode>();
+  for (const n of counties.values()) allNodes.set(n.id, n);
+  for (const n of cities.values()) allNodes.set(n.id, n);
+  for (const n of provinces.values()) allNodes.set(n.id, n);
+  for (const n of countries.values()) allNodes.set(n.id, n);
+
+  return Array.from(allNodes.values()).map(nodeToRegionData);
+};
+
+const runRegionRankingsTask = async (
+  client: MongoClient,
+  reportProgress: ProgressReporter
+): Promise<{
+  progress: DataUpdateTaskProgress;
+  summary: DataUpdateTaskSummary;
+}> => {
+  const db = client.db();
+  const cacheCollection = db.collection('region_rankings');
+  const existingMetadata = (await cacheCollection.findOne({
+    _id: 'metadata'
+  } as never)) as RegionRankingsCacheMetadata | null;
+
+  await cacheCollection.replaceOne(
+    { _id: 'metadata' } as never,
+    {
+      _id: 'metadata',
+      createdAt: existingMetadata?.createdAt || new Date(),
+      expiresAt: existingMetadata?.expiresAt || new Date(Date.now() - 1),
+      totalCount: existingMetadata?.totalCount || 0,
+      isCalculating: true,
+      calculationStarted: new Date()
+    } as never,
+    { upsert: true }
+  );
+
+  try {
+    await cacheCollection.deleteMany({ _id: { $ne: 'metadata' } } as never);
+
+    const shops = await db.collection<RankingsShop>('shops').find({}).toArray();
+
+    const rankings = buildRegionRankings(shops);
+
+    const sortCriteria: SortCriteria[] = [
+      'shops',
+      'machines',
+      'density',
+      ...GAME_TITLES.map((game) => game.key)
+    ];
+
+    const cachedRankings: CachedRegionRanking[] = rankings.map((ranking) => ({
+      _id: ranking.id,
+      ...ranking,
+      rankOrder: {}
+    }));
+
+    for (const sortBy of sortCriteria) {
+      for (const radius of RANKING_RADIUS_OPTIONS) {
+        const sortKey = `${sortBy}_${radius}`;
+        const sorted = [...cachedRankings].sort((left, right) => {
+          const leftMetrics = left.rankings.find((entry) => entry.radius === radius);
+          const rightMetrics = right.rankings.find((entry) => entry.radius === radius);
+
+          if (!leftMetrics || !rightMetrics) {
+            return 0;
+          }
+
+          switch (sortBy) {
+            case 'shops':
+              return rightMetrics.shopCount - leftMetrics.shopCount;
+            case 'machines':
+              return rightMetrics.totalMachines - leftMetrics.totalMachines;
+            case 'density':
+              return rightMetrics.areaDensity - leftMetrics.areaDensity;
+            default: {
+              const leftEntry = leftMetrics.gameSpecificMachines.find(
+                (entry) => entry.name === sortBy
+              );
+              const rightEntry = rightMetrics.gameSpecificMachines.find(
+                (entry) => entry.name === sortBy
+              );
+              return (rightEntry?.quantity || 0) - (leftEntry?.quantity || 0);
+            }
+          }
+        });
+
+        sorted.forEach((ranking, index) => {
+          ranking.rankOrder[sortKey] = index + 1;
+        });
+      }
+    }
+
+    await reportProgress(
+      { processed: rankings.length, total: rankings.length },
+      { totalCount: cachedRankings.length }
+    );
+
+    if (cachedRankings.length > 0) {
+      await cacheCollection.insertMany(cachedRankings as never[]);
+    }
+
+    await cacheCollection.replaceOne(
+      { _id: 'metadata' } as never,
+      {
+        _id: 'metadata',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + RANKINGS_CACHE_DURATION_MS),
+        totalCount: cachedRankings.length,
+        isCalculating: false,
+        calculationStarted: undefined
+      } as never,
+      { upsert: true }
+    );
+
+    return {
+      progress: { processed: rankings.length, total: rankings.length },
+      summary: {
+        totalCount: cachedRankings.length
+      }
+    };
+  } catch (error) {
+    await cacheCollection.replaceOne(
+      { _id: 'metadata' } as never,
+      {
+        _id: 'metadata',
+        createdAt: existingMetadata?.createdAt || new Date(),
+        expiresAt: existingMetadata?.expiresAt || new Date(Date.now() - 1),
+        totalCount: existingMetadata?.totalCount || 0,
+        isCalculating: false,
+        calculationStarted: undefined
+      } as never,
+      { upsert: true }
+    );
+
+    throw error;
+  }
+};
+
 const runTaskInBackground = (
   taskId: DataUpdateTaskId,
   startedAt: Date,
@@ -808,9 +1210,13 @@ const runTaskInBackground = (
             ? await runRankingsTask(client, (progress, summary) =>
                 updateTaskProgress(taskId, progress, summary, client)
               )
-            : await runUniversityStatsTask(client, (progress, summary) =>
-                updateTaskProgress(taskId, progress, summary, client)
-              );
+            : taskId === 'region_rankings'
+              ? await runRegionRankingsTask(client, (progress, summary) =>
+                  updateTaskProgress(taskId, progress, summary, client)
+                )
+              : await runUniversityStatsTask(client, (progress, summary) =>
+                  updateTaskProgress(taskId, progress, summary, client)
+                );
 
         await finishTaskRun(
           taskId,

@@ -1,5 +1,10 @@
 import type { ObjectId } from 'mongodb';
-import type { RADIUS_OPTIONS, LIMIT_OPTIONS, GAME_TITLES } from '../constants';
+import type {
+  RADIUS_OPTIONS,
+  LIMIT_OPTIONS,
+  GAME_TITLES,
+  RANKING_RADIUS_OPTIONS
+} from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
@@ -84,10 +89,40 @@ export interface RankingMetrics {
   }[];
 }
 
-export interface UniversityRankingCache {
+export interface RankingsTableItem {
+  id: string;
+  rankings: RankingMetrics[];
+}
+
+export type RegionLevel = 'country' | 'province' | 'city' | 'county';
+
+export interface RegionRankingData {
+  id: string;
+  level: RegionLevel;
+  name: string;
+  country: string | null;
+  province: string | null;
+  city: string | null;
+  county: string | null;
+  location: Location;
+  rankings: RankingMetrics[];
+}
+
+export interface RegionRankingResponse {
+  data: RegionRankingData[];
+  totalCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+  cached: boolean;
+  cacheTime: string;
+  stale: boolean;
+  calculating?: boolean;
+}
+
+export interface RegionRankingCache {
   createdAt: Date;
   expiresAt: Date;
-  data: UniversityRankingData[];
+  data: RegionRankingData[];
 }
 
 export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAME_TITLES)[number]['key'];
@@ -95,6 +130,8 @@ export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAME_TITLE
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
+
+export type RankingRadiusFilter = (typeof RANKING_RADIUS_OPTIONS)[number];
 
 export type LimitFilter = (typeof LIMIT_OPTIONS)[number];
 

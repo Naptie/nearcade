@@ -11,6 +11,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import { isTouchscreen, getGameName, getAddressParts, calculateDistance } from '$lib/utils';
+  import { HAS_DISCRETE_GPU } from '$lib/utils/index.client';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
   import {
@@ -57,9 +58,9 @@
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
   const VISUAL_TEXTURE_TRANSCODER_PATH = `${base}/globe/basis/`;
-  const VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM = 3.8;
-  const VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM = 4.2;
-  const VISUAL_TEXTURE_HIGH_RES_RELEASE_ZOOM = 3.6;
+  const VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM = 3.3;
+  const VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM = 3.5;
+  const VISUAL_TEXTURE_HIGH_RES_RELEASE_ZOOM = 3.0;
   /**
    * Cap the rendering resolution on high-DPR devices. Modern phones report 2.5x–3x
    * DPR, which makes the full-screen globe render several times more pixels than
@@ -67,6 +68,10 @@
    */
   const GLOBE_MAX_PIXEL_RATIO = 2;
   const getGlobePixelRatio = () => Math.min(window.devicePixelRatio || 1, GLOBE_MAX_PIXEL_RATIO);
+
+  /** Enable MSAA when a discrete GPU is detected. */
+  const getCanvasContextAttributes = (): maplibregl.MapOptions['canvasContextAttributes'] =>
+    HAS_DISCRETE_GPU ? { antialias: true } : undefined;
 
   type EnsureMapLayersOptions = {
     deferVisuals?: boolean;
@@ -78,14 +83,14 @@
       nightLights: `${base}/globe/nightlights_4k.ktx2`,
       specular: `${base}/globe/specular_map_4k.ktx2`,
       normal: `${base}/globe/normal_map_4k.ktx2`,
-      dayMap: `${base}/globe/day_map.ktx2`
+      dayMap: `${base}/globe/day_map${HAS_DISCRETE_GPU ? '_4k' : ''}.ktx2`
     },
     high: {
       cloud: `${base}/globe/clouds.ktx2`,
       nightLights: `${base}/globe/nightlights.ktx2`,
       specular: `${base}/globe/specular_map.ktx2`,
       normal: `${base}/globe/normal_map_4k.ktx2`,
-      dayMap: `${base}/globe/day_map_4k.ktx2`
+      dayMap: `${base}/globe/day_map_${HAS_DISCRETE_GPU ? '8k' : '4k'}.ktx2`
     }
   };
 
@@ -1384,7 +1389,8 @@
         bearing: cameraSnapshot?.bearing ?? (mode === 'landing' ? LANDING_BEARING : 0),
         pixelRatio: getGlobePixelRatio(),
         transformRequest: bingTransformRequest,
-        attributionControl: false
+        attributionControl: false,
+        canvasContextAttributes: getCanvasContextAttributes()
       });
       map = instance;
 

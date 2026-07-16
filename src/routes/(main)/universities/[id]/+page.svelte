@@ -512,7 +512,7 @@
                 <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
                   {m.school_introduction()}
                 </div>
-                <div class="text-sm leading-relaxed">
+                <div class="text-sm leading-relaxed break-words">
                   {universityDataResolved?.university.description}
                 </div>
               </div>

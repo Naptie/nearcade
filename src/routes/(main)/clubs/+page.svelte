@@ -71,7 +71,7 @@
         <select
           bind:value={selectedUniversityId}
           onchange={handleUniversityFilter}
-          class="select select-bordered max-w-[30vw] not-sm:max-w-[20vw]"
+          class="select select-bordered max-w-[30vw] not-sm:max-w-[40vw] not-sm:shrink-0"
         >
           <option value="">{m.all_universities()}</option>
           {#each universities as university (university.id)}

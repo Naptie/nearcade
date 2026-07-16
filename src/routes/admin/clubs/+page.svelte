@@ -85,7 +85,7 @@
           <tbody>
             {#each data.clubs as club (club.id)}
               <tr class="hover">
-                <td class="max-w-[20vw]">
+                <td class="max-w-[40vw]">
                   <a
                     href={resolve('/(main)/clubs/[id]', { id: club.id })}
                     target={adaptiveNewTab()}

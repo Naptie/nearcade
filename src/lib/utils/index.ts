@@ -1089,10 +1089,21 @@ export const formatOpeningHourLiteral = (time: unknown) => {
   return `${hh}:${mm}`;
 };
 
+export const isCJKText = (text: string) => !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(text.trim());
+
 export const isShopChinaBased = (shop: { address: { general: string[] } }) => {
-  return (
-    shop.address.general[0] && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(shop.address.general[0].trim())
-  );
+  return shop.address.general[0] && isCJKText(shop.address.general[0]);
+};
+
+/**
+ * Formats address parts with locale-aware separators.
+ * CJK (non-Latin first part): natural order, dot-separated  → "中国 · 上海"
+ * Western (Latin first part): reversed, comma-separated      → "California, United States"
+ */
+export const formatAddressParts = (parts: string[]): string => {
+  if (parts.length === 0) return '';
+  const cjk = isCJKText(parts[0]);
+  return cjk ? parts.join(' · ') : parts.toReversed().join(', ');
 };
 
 /**
@@ -1109,14 +1120,14 @@ export const formatShopAddress = (
   const addressParts = getAddressParts(address.general);
   const detailedAddress = address.detailed ?? '';
 
+  if (addressParts.length === 0) return '';
+
+  const formatted = formatAddressParts(addressParts);
   const reverse = !isShopChinaBased(shop);
 
-  return addressParts.length > 0
-    ? (reverse
-        ? (detailed ? detailedAddress + '\n' : '') + addressParts.toReversed().join(', ')
-        : addressParts.join(' · ') + (detailed ? '\n' + detailedAddress : '')
-      ).trim()
-    : '';
+  return detailed
+    ? (reverse ? detailedAddress + '\n' + formatted : formatted + '\n' + detailedAddress).trim()
+    : formatted;
 };
 
 export const getAddressParts = (address: string[]) => {

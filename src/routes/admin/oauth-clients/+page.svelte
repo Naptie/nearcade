@@ -95,15 +95,15 @@
       <table class="bg-base-100 table w-full table-fixed rounded-xl shadow">
         <thead>
           <tr>
-            <th class="w-[18%]">{m.name()}</th>
-            <th class="w-[26%]">Client ID</th>
+            <th class="w-[35%] sm:w-[18%]">{m.name()}</th>
+            <th class="w-[45%] sm:w-[26%]">Client ID</th>
             <th class="w-[8%] not-lg:hidden">{m.admin_oauth_type()}</th>
             <th class="w-[22%] not-xl:hidden">{m.admin_oauth_redirect_uris()}</th>
             {#if data.isSiteAdmin}
               <th class="w-[16%] not-lg:hidden">{m.admin_oauth_client_creator()}</th>
               <th class="w-[10%] not-xl:hidden">{m.admin_oauth_consent_skip()}</th>
             {/if}
-            <th class="w-[10%]">{m.actions()}</th>
+            <th class="w-[20%] sm:w-[10%]">{m.actions()}</th>
           </tr>
         </thead>
         <tbody>

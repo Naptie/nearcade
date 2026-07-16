@@ -46,6 +46,9 @@ export const SOCIAL_PLATFORMS = ['qq', 'wechat', 'github', 'discord', 'divingfis
 // Radius constants for search distances
 export const RADIUS_OPTIONS = [1, 2, 5, 10, 20, 30] as const;
 
+// Radius constants for rankings
+export const RANKING_RADIUS_OPTIONS = [2, 5, 10, 30] as const;
+
 // Limit constants for count-based search
 export const LIMIT_OPTIONS = [5, 10, 20, 50, 100, 150] as const;
 
@@ -66,6 +69,13 @@ export const SORT_CRITERIA = [
   ...GAME_TITLES.map((game) => ({
     key: game.key
   }))
+] as const;
+
+export const REGION_LEVELS = [
+  { key: 'country', label: 'country' },
+  { key: 'province', label: 'province' },
+  { key: 'city', label: 'city' },
+  { key: 'county', label: 'county' }
 ] as const;
 
 export const ROUTE_CACHE_STORE = 'route-cache';

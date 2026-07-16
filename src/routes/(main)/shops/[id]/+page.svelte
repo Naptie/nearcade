@@ -1123,8 +1123,8 @@
             ]}
         <!-- Shop Header -->
         <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
-          <div class="mb-4 flex items-center justify-between gap-2">
-            <h1 class="text-3xl font-bold">
+          <div class="mb-4 flex min-w-0 items-center justify-between gap-2">
+            <h1 class="text-3xl font-bold break-words">
               {shop.name}
               {#if shop.isClaimed}
                 {#snippet badge()}
@@ -1170,17 +1170,20 @@
           <div
             class="alert alert-success alert-soft flex flex-col items-start gap-2 text-[1.03125rem] leading-normal"
           >
-            <div class="flex items-start gap-2">
+            <div class="flex min-w-0 items-start gap-2">
               <div class="w-4 text-center">
                 <i class="fa-solid fa-location-dot mt-0.75 shrink-0"></i>
               </div>
-              <span class="whitespace-pre-line">{formatShopAddress(shop, true)}</span>
+              <span class="break-words whitespace-pre-line">{formatShopAddress(shop, true)}</span>
             </div>
           </div>
 
           {#if shopComment.content}
             <div class="text-base-content/80 mt-4">
-              <p class="prose-md h-auto flex-1 overflow-auto" class:prose={shopComment.rendered}>
+              <p
+                class="prose-md h-auto flex-1 overflow-auto break-words"
+                class:prose={shopComment.rendered}
+              >
                 {#if shopComment.rendered}
                   {@html shopComment.content}
                 {:else}

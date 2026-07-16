@@ -196,7 +196,7 @@
 
   <!-- Filters -->
   <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <div class="flex gap-4">
+    <div class="flex flex-col gap-4 sm:flex-row">
       <div class="form-control flex-1">
         <label class="label" for="search">
           <span class="label-text font-medium">{m.search()}</span>
@@ -240,21 +240,21 @@
       </div>
     {:else if users && users.length > 0}
       <div class="overflow-x-auto">
-        <table class="table">
+        <table class="table w-full table-fixed">
           <thead>
             <tr>
-              <th>{m.admin_user_header()}</th>
+              <th class="w-[40%] sm:w-auto">{m.admin_user_header()}</th>
               <th class="not-ss:hidden">{m.admin_type_header()}</th>
-              <th>{m.admin_associations_header()}</th>
+              <th class="w-[40%] sm:w-auto">{m.admin_associations_header()}</th>
               <th class="not-sm:hidden">{m.admin_last_active_header()}</th>
               <th class="not-md:hidden">{m.admin_joined_header()}</th>
-              <th class="text-right">{m.admin_actions_header()}</th>
+              <th class="w-[20%] text-right sm:w-auto">{m.admin_actions_header()}</th>
             </tr>
           </thead>
           <tbody>
             {#each users as user (user.id)}
               <tr class="hover">
-                <td class="max-w-[15vw]">
+                <td class="max-w-[35vw]">
                   <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
                     <UserAvatar {user} size="md" target={adaptiveNewTab()} />
                     <a
@@ -305,9 +305,9 @@
                   {/if}
                 </td>
                 <td>
-                  <div class="flex justify-end gap-2">
+                  <div class="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:gap-2">
                     <button
-                      class="btn btn-primary btn-soft btn-sm text-nowrap"
+                      class="btn btn-primary btn-soft btn-xs sm:btn-sm min-h-[36px] text-nowrap sm:min-h-[44px] sm:min-w-[44px]"
                       onclick={() => openEditModal(user)}
                     >
                       <i class="fa-solid fa-edit"></i>
@@ -326,12 +326,12 @@
                           await update();
                         };
                       }}
-                      class="inline"
+                      class="contents"
                     >
                       <input type="hidden" name="userId" value={user.id} />
                       <button
                         type="button"
-                        class="btn btn-error btn-sm btn-soft text-nowrap"
+                        class="btn btn-error btn-soft btn-xs sm:btn-sm min-h-[36px] text-nowrap sm:min-h-[44px] sm:min-w-[44px]"
                         onclick={(e) =>
                           confirm(m.admin_user_delete_confirm()) &&
                           e.currentTarget.closest('form')?.requestSubmit()}

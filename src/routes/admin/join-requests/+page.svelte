@@ -142,12 +142,12 @@
           <tbody>
             {#each data.joinRequests as request (request.id)}
               <tr class="hover">
-                <td class="max-w-[10vw]">
+                <td class="max-w-[30vw]">
                   <div class="flex items-center gap-3">
                     <UserAvatar user={request.user} target={adaptiveNewTab()} showName size="sm" />
                   </div>
                 </td>
-                <td class="max-w-[10vw]">
+                <td class="max-w-[25vw]">
                   <div class="flex items-center gap-2">
                     {#if request.target}
                       {#if request.type === 'university'}

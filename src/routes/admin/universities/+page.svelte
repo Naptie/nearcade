@@ -82,7 +82,7 @@
           <tbody>
             {#each data.universities as university (university.id)}
               <tr class="hover">
-                <td class="max-w-[20vw]">
+                <td class="max-w-[40vw]">
                   <a
                     href={resolve('/(main)/universities/[id]', {
                       id: university.slug || university.id
