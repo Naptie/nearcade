@@ -475,22 +475,22 @@
 
     if (!shopListSortOrigin) return matches;
 
-    return matches.sort((a, b) => {
-      const da = calculateDistance(
+    const withDistance = matches.map((entry) => ({
+      entry,
+      distance: calculateDistance(
         shopListSortOrigin.latitude,
         shopListSortOrigin.longitude,
-        a.location.latitude,
-        a.location.longitude
-      );
-      const db = calculateDistance(
-        shopListSortOrigin.latitude,
-        shopListSortOrigin.longitude,
-        b.location.latitude,
-        b.location.longitude
-      );
-      if (da === db) return a.shop.name.localeCompare(b.shop.name);
-      return da - db;
+        entry.location.latitude,
+        entry.location.longitude
+      )
+    }));
+
+    withDistance.sort((a, b) => {
+      if (a.distance === b.distance) return a.entry.shop.name.localeCompare(b.entry.shop.name);
+      return a.distance - b.distance;
     });
+
+    return withDistance.map(({ entry }) => entry);
   });
 
   $effect(() => {
