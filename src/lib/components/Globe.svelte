@@ -420,10 +420,34 @@
     }
   });
 
-  const filteredShops = $derived.by(() => {
+  const shopsSortedByDistance = $derived.by(() => {
     if (!shops) return null;
+    if (!shopListSortOrigin) return shops;
+
+    const withDistance = shops.map((entry) => ({
+      entry,
+      distance: calculateDistance(
+        shopListSortOrigin.latitude,
+        shopListSortOrigin.longitude,
+        entry.location.latitude,
+        entry.location.longitude
+      )
+    }));
+
+    withDistance.sort((a, b) => {
+      if (a.distance === b.distance)
+        return a.entry.shop.name.localeCompare(b.entry.shop.name, getLocale());
+      return a.distance - b.distance;
+    });
+
+    return withDistance.map(({ entry }) => entry);
+  });
+
+  const filteredShops = $derived.by(() => {
+    const sourceShops = shopsSortedByDistance;
+    if (!sourceShops) return null;
     const q = searchQuery.trim().toLowerCase();
-    const matches = shops.filter(({ shop }) => {
+    return sourceShops.filter(({ shop }) => {
       const general = shop.address.general;
       let matchesRegion = false;
       switch (regionFilter.type) {
@@ -472,26 +496,6 @@
       }
       return true;
     });
-
-    if (!shopListSortOrigin) return matches;
-
-    const withDistance = matches.map((entry) => ({
-      entry,
-      distance: calculateDistance(
-        shopListSortOrigin.latitude,
-        shopListSortOrigin.longitude,
-        entry.location.latitude,
-        entry.location.longitude
-      )
-    }));
-
-    withDistance.sort((a, b) => {
-      if (a.distance === b.distance)
-        return a.entry.shop.name.localeCompare(b.entry.shop.name, getLocale());
-      return a.distance - b.distance;
-    });
-
-    return withDistance.map(({ entry }) => entry);
   });
 
   $effect(() => {
