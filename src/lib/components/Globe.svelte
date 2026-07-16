@@ -487,7 +487,7 @@
 
     withDistance.sort((a, b) => {
       if (a.distance === b.distance)
-        return a.entry.shop.name.localeCompare(b.entry.shop.name, currentLocale);
+        return a.entry.shop.name.localeCompare(b.entry.shop.name, getLocale());
       return a.distance - b.distance;
     });
 
