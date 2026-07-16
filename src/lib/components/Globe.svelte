@@ -423,6 +423,7 @@
   const shopsSortedByDistance = $derived.by(() => {
     if (!shops) return null;
     if (!shopListSortOrigin) return shops;
+    const nameCollator = new Intl.Collator(getLocale());
 
     const withDistance = shops.map((entry) => ({
       entry,
@@ -433,10 +434,9 @@
         entry.location.longitude
       )
     }));
-
     withDistance.sort((a, b) => {
       if (a.distance === b.distance)
-        return a.entry.shop.name.localeCompare(b.entry.shop.name, getLocale());
+        return nameCollator.compare(a.entry.shop.name, b.entry.shop.name);
       return a.distance - b.distance;
     });
 
@@ -1496,8 +1496,8 @@
         pinnedShop = null;
         markerHoveredShop = null;
         regionFilter = { type: 'world' };
-        const { lat, lng } = event.lngLat;
-        shopListSortOrigin = { latitude: lat, longitude: lng };
+        const { lat: latitude, lng: longitude } = event.lngLat;
+        shopListSortOrigin = { latitude, longitude };
       };
 
       const handleMouseMove = (e: MouseEvent) => {
