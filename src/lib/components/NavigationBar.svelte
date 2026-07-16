@@ -118,7 +118,7 @@
         <span class="hidden lg:inline">{m.campus_rankings()}</span>
       </a>
     {/if}
-    {#if page.url.pathname !== resolve('/(main)/rankings/region')}
+    <!-- {#if page.url.pathname !== resolve('/(main)/rankings/region')}
       <a
         href={resolve('/(main)/rankings/region')}
         class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2 text-shadow-lg"
@@ -126,7 +126,7 @@
         <i class="fa-solid fa-earth-americas fa-lg"></i>
         <span class="hidden lg:inline">{m.region_rankings()}</span>
       </a>
-    {/if}
+    {/if} -->
     {#if page.url.pathname !== resolve('/(main)/shops')}
       <a
         href={resolve('/(main)/shops')}

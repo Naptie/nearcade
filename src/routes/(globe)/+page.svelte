@@ -275,13 +275,13 @@
         <i class="fa-solid fa-trophy fa-lg"></i>
         <span class="hidden lg:inline">{m.campus_rankings()}</span>
       </a>
-      <a
+      <!-- <a
         href={resolve('/(main)/rankings/region')}
         class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
       >
         <i class="fa-solid fa-earth-americas fa-lg"></i>
         <span class="hidden lg:inline">{m.region_rankings()}</span>
-      </a>
+      </a> -->
       <AuthModal size="lg" />
     </div>
 
