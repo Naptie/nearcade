@@ -1491,7 +1491,8 @@
         pinnedShop = null;
         markerHoveredShop = null;
         regionFilter = { type: 'world' };
-        shopListSortOrigin = { latitude: event.lngLat.lat, longitude: event.lngLat.lng };
+        const { lat, lng } = event.lngLat;
+        shopListSortOrigin = { latitude: lat, longitude: lng };
       };
 
       const handleMouseMove = (e: MouseEvent) => {
