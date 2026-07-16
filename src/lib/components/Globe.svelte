@@ -305,7 +305,7 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
-  let shopListSortOrigin = $state<{ latitude: number; longitude: number } | null>(null);
+  let shopListSortOrigin = $state<{ lat: number; lng: number } | null>(null);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -428,8 +428,8 @@
     const withDistance = shops.map((entry) => ({
       entry,
       distance: calculateDistance(
-        shopListSortOrigin.latitude,
-        shopListSortOrigin.longitude,
+        shopListSortOrigin.lat,
+        shopListSortOrigin.lng,
         entry.location.latitude,
         entry.location.longitude
       )
@@ -590,10 +590,7 @@
   };
 
   const pinShop = (shopEntry: ShopEntry) => {
-    shopListSortOrigin = {
-      latitude: shopEntry.location.latitude,
-      longitude: shopEntry.location.longitude
-    };
+    shopListSortOrigin = { lat: shopEntry.location.latitude, lng: shopEntry.location.longitude };
     pinnedShop = shopEntry.shop;
     markerHoveredShop = null;
     flyToShop(shopEntry);
@@ -1496,8 +1493,8 @@
         pinnedShop = null;
         markerHoveredShop = null;
         regionFilter = { type: 'world' };
-        const { lat: latitude, lng: longitude } = event.lngLat;
-        shopListSortOrigin = { latitude, longitude };
+        const { lat, lng } = event.lngLat;
+        shopListSortOrigin = { lat, lng };
       };
 
       const handleMouseMove = (e: MouseEvent) => {
