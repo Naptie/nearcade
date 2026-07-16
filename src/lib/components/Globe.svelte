@@ -1757,7 +1757,7 @@
              md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
              {sidebarCollapsed ? 'md:h-[52px] md:w-[52px]' : ''}
              {sidebarOpen ? 'not-md:translate-y-0' : 'not-md:translate-y-full'}"
-      style="{getSidebarCssVars()}; contain: strict"
+      style="{getSidebarCssVars()}; contain: layout paint style"
     >
       <!-- Mobile drag handle -->
       <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
