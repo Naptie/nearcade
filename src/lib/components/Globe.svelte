@@ -428,8 +428,8 @@
     const withDistance = shops.map((entry) => ({
       entry,
       distance: calculateDistance(
-        shopListSortOrigin.lat,
-        shopListSortOrigin.lng,
+        shopListSortOrigin!.lat,
+        shopListSortOrigin!.lng,
         entry.location.latitude,
         entry.location.longitude
       )
