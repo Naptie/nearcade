@@ -10,7 +10,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import { isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
+  import { isTouchscreen, getGameName, getAddressParts, calculateDistance } from '$lib/utils';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
   import {
@@ -108,6 +108,7 @@
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
   let currentLocale = $derived(getLocale());
+  const shopNameCollator = $derived.by(() => new Intl.Collator(currentLocale));
   let currentTheme = $state<ThemeMode>('light');
   let isMapStyleLoading = $state(false);
   let visualsLayer: GlobeVisualsLayer | null = null;
@@ -305,6 +306,7 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
+  let shopListSortOrigin = $state<{ lat: number; lng: number } | null>(null);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -418,11 +420,34 @@
         return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
     }
   });
+  const shopsSortedByDistance = $derived.by(() => {
+    if (!shops) return null;
+    if (!shopListSortOrigin) return shops;
+    const nameCollator = shopNameCollator;
+
+    const withDistance = shops.map((entry) => ({
+      entry,
+      distance: calculateDistance(
+        shopListSortOrigin!.lat,
+        shopListSortOrigin!.lng,
+        entry.location.latitude,
+        entry.location.longitude
+      )
+    }));
+    withDistance.sort((a, b) => {
+      if (a.distance === b.distance)
+        return nameCollator.compare(a.entry.shop.name, b.entry.shop.name);
+      return a.distance - b.distance;
+    });
+
+    return withDistance.map(({ entry }) => entry);
+  });
 
   const filteredShops = $derived.by(() => {
-    if (!shops) return null;
+    const sourceShops = shopsSortedByDistance;
+    if (!sourceShops) return null;
     const q = searchQuery.trim().toLowerCase();
-    return shops.filter(({ shop }) => {
+    return sourceShops.filter(({ shop }) => {
       const general = shop.address.general;
       let matchesRegion = false;
       switch (regionFilter.type) {
@@ -565,6 +590,7 @@
   };
 
   const pinShop = (shopEntry: ShopEntry) => {
+    shopListSortOrigin = { lat: shopEntry.location.latitude, lng: shopEntry.location.longitude };
     pinnedShop = shopEntry.shop;
     markerHoveredShop = null;
     flyToShop(shopEntry);
@@ -1165,6 +1191,7 @@
               if (pinnedShop !== null) pinnedShop = null;
               if (markerHoveredShop !== null) markerHoveredShop = null;
               if (regionFilter.type !== 'world') regionFilter = { type: 'world' };
+              if (shopListSortOrigin !== null) shopListSortOrigin = null;
               if (sidebarOpen) sidebarOpen = false;
               sidebarCollapsed = false;
             }, LANDING_TRANSITION_DELAY_MS);
@@ -1466,6 +1493,8 @@
         pinnedShop = null;
         markerHoveredShop = null;
         regionFilter = { type: 'world' };
+        const { lat, lng } = event.lngLat;
+        shopListSortOrigin = { lat, lng };
       };
 
       const handleMouseMove = (e: MouseEvent) => {
@@ -1757,7 +1786,7 @@
              md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
              {sidebarCollapsed ? 'md:h-[52px] md:w-[52px]' : ''}
              {sidebarOpen ? 'not-md:translate-y-0' : 'not-md:translate-y-full'}"
-      style="{getSidebarCssVars()}; contain: strict"
+      style="{getSidebarCssVars()}; contain: layout paint style"
     >
       <!-- Mobile drag handle -->
       <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
