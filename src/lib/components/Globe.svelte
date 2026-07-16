@@ -56,7 +56,6 @@
   const LANDING_ROTATION_SPEED = 0.03; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
-  const DISTANCE_SORT_EPSILON = 1e-9;
   const VISUAL_TEXTURE_TRANSCODER_PATH = `${base}/globe/basis/`;
   const VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM = 3.8;
   const VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM = 4.2;
@@ -109,6 +108,7 @@
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
   let currentLocale = $derived(getLocale());
+  const shopNameCollator = $derived.by(() => new Intl.Collator(currentLocale));
   let currentTheme = $state<ThemeMode>('light');
   let isMapStyleLoading = $state(false);
   let visualsLayer: GlobeVisualsLayer | null = null;
@@ -420,8 +420,6 @@
         return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
     }
   });
-  const shopNameCollator = $derived(new Intl.Collator(getLocale()));
-
   const shopsSortedByDistance = $derived.by(() => {
     if (!shops) return null;
     if (!shopListSortOrigin) return shops;
@@ -437,7 +435,7 @@
       )
     }));
     withDistance.sort((a, b) => {
-      if (Math.abs(a.distance - b.distance) < DISTANCE_SORT_EPSILON)
+      if (a.distance === b.distance)
         return nameCollator.compare(a.entry.shop.name, b.entry.shop.name);
       return a.distance - b.distance;
     });
