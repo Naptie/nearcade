@@ -10,7 +10,13 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import { isTouchscreen, getGameName, getAddressParts, calculateDistance } from '$lib/utils';
+  import {
+    isTouchscreen,
+    getGameName,
+    getAddressParts,
+    calculateDistance,
+    getCachedLocation
+  } from '$lib/utils';
   import { HAS_DISCRETE_GPU } from '$lib/utils/index.client';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
@@ -311,7 +317,10 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
-  let shopListSortOrigin = $state<{ lat: number; lng: number } | null>(null);
+  let shopListSortOrigin = $derived.by<{ lat: number; lng: number } | null>(() => {
+    const cached = getCachedLocation(false);
+    return cached ? { lat: cached.latitude, lng: cached.longitude } : null;
+  });
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -425,6 +434,7 @@
         return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
     }
   });
+
   const shopsSortedByDistance = $derived.by(() => {
     if (!shops) return null;
     if (!shopListSortOrigin) return shops;

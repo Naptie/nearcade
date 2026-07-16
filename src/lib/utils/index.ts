@@ -1324,63 +1324,104 @@ export const getShopOpeningHours = (
   return result;
 };
 
-export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> =>
-  new Promise((resolve, reject) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      reject(m.location_not_supported());
-      return;
-    }
+const LOCATION_CACHE_KEY = 'nearcade-cached-location';
+const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-    const requestLocation = () => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        (error) => {
-          let msg = m.location_unknown_error();
-          switch (error?.code) {
-            case 1: // PERMISSION_DENIED
-              msg = m.location_permission_denied();
-              break;
-            case 2: // POSITION_UNAVAILABLE
-              msg = m.location_unavailable();
-              break;
-            case 3: // TIMEOUT
-              msg = m.location_timeout();
-              break;
-          }
-          console.error('Geolocation error:', error);
-          reject(msg);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 300000
+interface CachedLocation {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+}
+
+export const getCachedLocation = (
+  respectsTTL = true
+): { latitude: number; longitude: number } | null => {
+  try {
+    const raw = sessionStorage.getItem(LOCATION_CACHE_KEY);
+    if (!raw) return null;
+    const cached: CachedLocation = JSON.parse(raw);
+    if (respectsTTL && Date.now() - cached.timestamp > LOCATION_CACHE_TTL_MS) return null;
+    return { latitude: cached.latitude, longitude: cached.longitude };
+  } catch {
+    return null;
+  }
+};
+
+const setCachedLocation = (latitude: number, longitude: number): void => {
+  try {
+    const entry: CachedLocation = { latitude, longitude, timestamp: Date.now() };
+    sessionStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // sessionStorage unavailable (e.g. private browsing, quota exceeded)
+  }
+};
+
+export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> => {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    return Promise.reject(m.location_not_supported());
+  }
+
+  const cached = getCachedLocation();
+  if (cached) return Promise.resolve(cached);
+
+  const { promise, resolve, reject } = Promise.withResolvers<{
+    latitude: number;
+    longitude: number;
+  }>();
+
+  const requestLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const loc = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        };
+        setCachedLocation(loc.latitude, loc.longitude);
+        resolve(loc);
+      },
+      (error) => {
+        let msg = m.location_unknown_error();
+        switch (error?.code) {
+          case 1: // PERMISSION_DENIED
+            msg = m.location_permission_denied();
+            break;
+          case 2: // POSITION_UNAVAILABLE
+            msg = m.location_unavailable();
+            break;
+          case 3: // TIMEOUT
+            msg = m.location_timeout();
+            break;
         }
-      );
-    };
+        console.error('Geolocation error:', error);
+        reject(msg);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000
+      }
+    );
+  };
 
-    if ('permissions' in navigator) {
-      navigator.permissions
-        .query({ name: 'geolocation' })
-        .then((permission) => {
-          if (permission.state === 'denied') {
-            reject(m.location_permission_denied());
-            return;
-          }
-          requestLocation();
-        })
-        .catch(() => {
-          // Fallback for browsers that don't support permissions API
-          requestLocation();
-        });
-    } else {
-      requestLocation();
-    }
-  });
+  if ('permissions' in navigator) {
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((permission) => {
+        if (permission.state === 'denied') {
+          reject(m.location_permission_denied());
+          return;
+        }
+        requestLocation();
+      })
+      .catch(() => {
+        // Fallback for browsers that don't support permissions API
+        requestLocation();
+      });
+  } else {
+    requestLocation();
+  }
+
+  return promise;
+};
 
 /**
  * Convert GPS coordinates to AMap coordinates when AMap is available
