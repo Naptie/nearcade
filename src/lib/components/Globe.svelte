@@ -56,6 +56,7 @@
   const LANDING_ROTATION_SPEED = 0.03; // degrees per second
   const LANDING_LONGITUDE = 80; // starting longitude
   const LANDING_LATITUDE = 15; // starting latitude
+  const DISTANCE_SORT_EPSILON = 1e-9;
   const VISUAL_TEXTURE_TRANSCODER_PATH = `${base}/globe/basis/`;
   const VISUAL_TEXTURE_HIGH_RES_PREFETCH_ZOOM = 3.8;
   const VISUAL_TEXTURE_HIGH_RES_SWAP_ZOOM = 4.2;
@@ -419,11 +420,12 @@
         return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
     }
   });
+  const shopNameCollator = $derived(new Intl.Collator(getLocale()));
 
   const shopsSortedByDistance = $derived.by(() => {
     if (!shops) return null;
     if (!shopListSortOrigin) return shops;
-    const nameCollator = new Intl.Collator(getLocale());
+    const nameCollator = shopNameCollator;
 
     const withDistance = shops.map((entry) => ({
       entry,
@@ -435,7 +437,7 @@
       )
     }));
     withDistance.sort((a, b) => {
-      if (a.distance === b.distance)
+      if (Math.abs(a.distance - b.distance) < DISTANCE_SORT_EPSILON)
         return nameCollator.compare(a.entry.shop.name, b.entry.shop.name);
       return a.distance - b.distance;
     });
