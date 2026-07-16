@@ -10,7 +10,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import { isTouchscreen, getGameName, getAddressParts } from '$lib/utils';
+  import { isTouchscreen, getGameName, getAddressParts, calculateDistance } from '$lib/utils';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
   import {
@@ -305,6 +305,7 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
+  let shopListSortOrigin = $state<{ latitude: number; longitude: number } | null>(null);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -422,7 +423,7 @@
   const filteredShops = $derived.by(() => {
     if (!shops) return null;
     const q = searchQuery.trim().toLowerCase();
-    return shops.filter(({ shop }) => {
+    const matches = shops.filter(({ shop }) => {
       const general = shop.address.general;
       let matchesRegion = false;
       switch (regionFilter.type) {
@@ -470,6 +471,25 @@
           return false;
       }
       return true;
+    });
+
+    if (!shopListSortOrigin) return matches;
+
+    return matches.sort((a, b) => {
+      const da = calculateDistance(
+        shopListSortOrigin.latitude,
+        shopListSortOrigin.longitude,
+        a.location.latitude,
+        a.location.longitude
+      );
+      const db = calculateDistance(
+        shopListSortOrigin.latitude,
+        shopListSortOrigin.longitude,
+        b.location.latitude,
+        b.location.longitude
+      );
+      if (da === db) return a.shop.name.localeCompare(b.shop.name);
+      return da - db;
     });
   });
 
@@ -565,6 +585,10 @@
   };
 
   const pinShop = (shopEntry: ShopEntry) => {
+    shopListSortOrigin = {
+      latitude: shopEntry.location.latitude,
+      longitude: shopEntry.location.longitude
+    };
     pinnedShop = shopEntry.shop;
     markerHoveredShop = null;
     flyToShop(shopEntry);
@@ -1165,6 +1189,7 @@
               if (pinnedShop !== null) pinnedShop = null;
               if (markerHoveredShop !== null) markerHoveredShop = null;
               if (regionFilter.type !== 'world') regionFilter = { type: 'world' };
+              if (shopListSortOrigin !== null) shopListSortOrigin = null;
               if (sidebarOpen) sidebarOpen = false;
               sidebarCollapsed = false;
             }, LANDING_TRANSITION_DELAY_MS);
@@ -1466,6 +1491,7 @@
         pinnedShop = null;
         markerHoveredShop = null;
         regionFilter = { type: 'world' };
+        shopListSortOrigin = { latitude: event.lngLat.lat, longitude: event.lngLat.lng };
       };
 
       const handleMouseMove = (e: MouseEvent) => {
