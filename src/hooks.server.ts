@@ -32,6 +32,7 @@ import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 import { SSC_SECRET } from '$env/static/private';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
+import { handleWellKnown } from '$lib/endpoints/well-known.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (isHttpError(error)) {
@@ -326,6 +327,7 @@ export const handle: Handle = sequence(
   handleSeo,
   handleLocaleQuery,
   handleParaglide,
+  handleWellKnown,
   handleAMap,
   handleDiscoverShortcut,
   handleUserShortcut,
