@@ -68,8 +68,8 @@ const stripNullishFields = (value: Record<string, unknown>, keys: readonly strin
   return normalized;
 };
 
-const buildUnsetPayload = (fieldNames: readonly string[]) =>
-  Object.fromEntries(fieldNames.map((fieldName) => [fieldName, '']));
+const buildUnsetPayload = (fieldNames: readonly string[]): Record<string, ''> =>
+  Object.fromEntries(fieldNames.map((fieldName) => [fieldName, ''] as const));
 
 const sameJson = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 

@@ -1,4 +1,4 @@
-import { simpleParser, Source, ParsedMail } from 'mailparser';
+import { simpleParser, type Source, type ParsedMail } from 'mailparser';
 import Imap from 'node-imap';
 import { createHmac } from 'crypto';
 import { createClient as createRedisClient } from 'redis';

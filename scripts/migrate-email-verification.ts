@@ -22,7 +22,7 @@ type UserDocument = {
 };
 
 async function migrate() {
-  const client = new MongoClient(MONGODB_URI, {
+  const client = new MongoClient(MONGODB_URI!, {
     serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
   });
 
