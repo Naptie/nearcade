@@ -6,7 +6,7 @@
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '$lib/styles/maplibre.css';
-  import { SvelteMap } from 'svelte/reactivity';
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
@@ -418,22 +418,81 @@
     }
   });
 
-  const regionHierarchy = $derived.by((): string[] => {
-    switch (regionFilter.type) {
-      case 'world':
-        return [];
-      case 'address':
-        return getAddressParts(regionFilter.address).slice(0, -1);
-      case 'country':
-        return [];
-      case 'country-level1':
-        return [regionFilter.countryName];
-      case 'country-level2':
-        return [regionFilter.countryName, regionFilter.level1Name];
-      case 'country-level3':
-        return [regionFilter.countryName, regionFilter.level1Name, regionFilter.level2Name];
+  const regionHierarchy = $derived.by(
+    (): {
+      label: string;
+      target: RegionFilter;
+    }[] => {
+      const filter = regionFilter;
+      switch (filter.type) {
+        case 'world':
+        case 'country':
+          return [];
+        case 'address': {
+          const parts = getAddressParts(filter.address).slice(0, -1);
+          return parts.map((label, i) => {
+            const seen = new SvelteSet<string>();
+            let end = 0;
+            for (const part of filter.address) {
+              end++;
+              const trimmed = part.trim();
+              if (trimmed && !seen.has(trimmed)) {
+                seen.add(trimmed);
+                if (seen.size > i) break;
+              }
+            }
+            return { label, target: { type: 'address', address: filter.address.slice(0, end) } };
+          });
+        }
+        case 'country-level1':
+          return [
+            {
+              label: filter.countryName,
+              target: { type: 'country', countryName: filter.countryName }
+            }
+          ];
+        case 'country-level2':
+          return [
+            {
+              label: filter.countryName,
+              target: { type: 'country', countryName: filter.countryName }
+            },
+            {
+              label: filter.level1Name,
+              target: {
+                type: 'country-level1',
+                countryName: filter.countryName,
+                level1Name: filter.level1Name
+              }
+            }
+          ];
+        case 'country-level3':
+          return [
+            {
+              label: filter.countryName,
+              target: { type: 'country', countryName: filter.countryName }
+            },
+            {
+              label: filter.level1Name,
+              target: {
+                type: 'country-level1',
+                countryName: filter.countryName,
+                level1Name: filter.level1Name
+              }
+            },
+            {
+              label: filter.level2Name,
+              target: {
+                type: 'country-level2',
+                countryName: filter.countryName,
+                level1Name: filter.level1Name,
+                level2Name: filter.level2Name
+              }
+            }
+          ];
+      }
     }
-  });
+  );
 
   const shopsSortedByDistance = $derived.by(() => {
     if (!shops) return null;
@@ -1840,8 +1899,22 @@
           <div class="min-w-0" class:md:hidden={sidebarCollapsed}>
             <h2 class="truncate text-2xl font-bold">{regionTitle}</h2>
             {#if regionHierarchy.length > 0}
-              <p class="text-base-content/60 mt-0.5 truncate text-sm">
-                {regionHierarchy.join(' › ')}
+              <p
+                class="text-base-content/60 mt-0.5 flex flex-wrap items-baseline gap-x-1.25 text-sm"
+              >
+                {#each regionHierarchy as item, i (i)}
+                  {#if i > 0}
+                    <span class="select-none">›</span>
+                  {/if}
+                  <button
+                    class="cursor-pointer underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white"
+                    onclick={() => {
+                      regionFilter = item.target;
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                {/each}
               </p>
             {/if}
           </div>
@@ -1857,7 +1930,7 @@
               <button
                 type="button"
                 tabindex="0"
-                class="btn btn-soft hover:btn-accent transition-colors!"
+                class="btn btn-soft hover:btn-accent transition-colors"
                 class:btn-primary={selectedTitleIds.length > 0}
                 aria-label={m.filter_by_game_titles()}
               >
@@ -1922,7 +1995,7 @@
               <button
                 type="button"
                 tabindex="0"
-                class="btn btn-circle btn-soft transition-colors!"
+                class="btn btn-circle btn-soft transition-colors"
                 aria-label={m.more_actions()}
                 title={m.more_actions()}
               >

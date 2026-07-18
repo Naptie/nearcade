@@ -18,17 +18,6 @@
   const globeMode = $derived<'landing' | 'fullscreen'>(isGlobePage ? 'fullscreen' : 'landing');
 </script>
 
-<svelte:head>
-  <style>
-    /* Disable CSS transitions inside the sidebar to avoid the browser
-       evaluating transitions for 122+ elements on every visibility change. */
-    aside *:not(.dropdown-content) {
-      transition-duration: 0s !important;
-      animation-duration: 0s !important;
-    }
-  </style>
-</svelte:head>
-
 <!-- Globe is always mounted while navigating between / and /globe.
      It is positioned fixed behind all page content and controls its own overlay UI. -->
 {#if (isLandingPage && showGlobe) || isGlobePage}
