@@ -126,7 +126,7 @@
           </div>
         {:else}
           <div class="text-base-content/50 py-6 text-center text-sm">
-            {m.changelog_no_entries()}
+            {m.no_data()}
           </div>
         {/each}
       </div>
