@@ -1,10 +1,11 @@
 import { isHttpError, isRedirect, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { RegionRankingData, SortCriteria, RadiusFilter, RegionLevel } from '$lib/types';
+import type { RegionRankingData, SortCriteria, RegionLevel } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { expandRegionHierarchyWithNames } from '$lib/regions/utils.server';
 
 interface RegionRankingsCacheMetadata {
   _id: string;
@@ -29,9 +30,8 @@ export const GET: RequestHandler = async ({ url }) => {
     const cacheCollection = db.collection('region_rankings');
 
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
-    const radiusFilter = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
     const level = url.searchParams.get('level') || 'country';
-    const limit = parseInt(url.searchParams.get('limit') || '') || PAGINATION.PAGE_SIZE;
+    const limit = parseInt(url.searchParams.get('limit') || '') || PAGINATION.RANKING_PAGE_SIZE;
     const after = url.searchParams.get('after') || null;
 
     if (!isValidRegionLevel(level)) {
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     if (metadata.totalCount > 0) {
-      const sortKey = `${sortBy}_${radiusFilter}`;
+      const sortKey = sortBy;
       const query: Record<string, unknown> = { _id: { $ne: 'metadata' }, level };
 
       if (after) {
@@ -81,17 +81,35 @@ export const GET: RequestHandler = async ({ url }) => {
           ? rankings[rankings.length - 1].rankOrder[sortKey]?.toString()
           : null;
 
-      const responseData: RegionRankingData[] = rankings.map((ranking) => ({
-        id: ranking.id,
-        level: ranking.level,
-        name: ranking.name,
-        country: ranking.country,
-        province: ranking.province,
-        city: ranking.city,
-        county: ranking.county,
-        location: ranking.location,
-        rankings: ranking.rankings
-      }));
+      const responseData: RegionRankingData[] = await Promise.all(
+        rankings.map(async (ranking) => {
+          let regionChain: { id: string; name: Record<string, string> }[];
+          try {
+            regionChain = await expandRegionHierarchyWithNames(ranking.id);
+          } catch {
+            regionChain = [];
+          }
+
+          return {
+            id: ranking.id,
+            level: ranking.level,
+            name: ranking.name,
+            country: ranking.country,
+            province: ranking.province,
+            city: ranking.city,
+            county: ranking.county,
+            regionChain,
+            location: ranking.location,
+            area: ranking.area ?? null,
+            population: ranking.population ?? null,
+            shopCount: ranking.shopCount,
+            totalMachines: ranking.totalMachines,
+            areaDensity: ranking.areaDensity ?? null,
+            machinesPerCapita: ranking.machinesPerCapita ?? null,
+            gameSpecificMachines: ranking.gameSpecificMachines
+          };
+        })
+      );
 
       return json({
         data: responseData,

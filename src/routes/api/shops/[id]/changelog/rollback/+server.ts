@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { applyShopRollback, buildShopRollbackPreview } from '$lib/utils/shops/changelog.server';
 import mongo from '$lib/db/index.server';
 import { requireBoundPhone } from '$lib/utils/index.server';
+import { expandShopRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';
 
@@ -44,10 +45,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   try {
     const preview = await buildShopRollbackPreview(mongo, shopId, targetEntryId);
+    const [currentShop, rolledBackShop] = await Promise.all([
+      expandShopRegions(preview.currentShop),
+      expandShopRegions(preview.rolledBackShop)
+    ]);
     return json({
       ...preview,
-      currentShop: toPlainObject(preview.currentShop),
-      rolledBackShop: toPlainObject(preview.rolledBackShop)
+      currentShop: toPlainObject(currentShop),
+      rolledBackShop: toPlainObject(rolledBackShop)
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to preview rollback';
@@ -79,11 +84,15 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       name: session.user.name,
       image: session.user.image
     });
+    const [currentShop, rolledBackShop] = await Promise.all([
+      expandShopRegions(preview.currentShop),
+      expandShopRegions(preview.rolledBackShop)
+    ]);
     return json({
       success: true,
       ...preview,
-      currentShop: toPlainObject(preview.currentShop),
-      rolledBackShop: toPlainObject(preview.rolledBackShop)
+      currentShop: toPlainObject(currentShop),
+      rolledBackShop: toPlainObject(rolledBackShop)
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to apply rollback';

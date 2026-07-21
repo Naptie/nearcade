@@ -130,7 +130,14 @@ export const shopAddressSchema = z.object({
         'General address, usually [country/region, province, city, district].'
       )
     ),
-  detailed: z.string().default('').describe(bilingual('详细地址。', 'Detailed street address.'))
+  detailed: z.string().default('').describe(bilingual('详细地址。', 'Detailed street address.')),
+  region: z
+    .union([
+      z.array(z.string()),
+      z.array(z.object({ id: z.string(), name: z.record(z.string(), z.string()) }))
+    ])
+    .optional()
+    .describe(bilingual('区域 ID 层级。', 'Region hierarchy.'))
 });
 
 export const gameSchema = z.object({
@@ -220,6 +227,11 @@ export const shopSchema = z.object({
 
 export const shopsListQuerySchema = paginationQuerySchema.extend({
   q: z.string().optional().default('').describe(bilingual('查询字符串。', 'Search query string.')),
+  regionId: z
+    .string()
+    .optional()
+    .default('')
+    .describe(bilingual('地区筛选 ID。', 'Region ID to filter by.')),
   includeTimeInfo: includeTimeInfoSchema
 });
 

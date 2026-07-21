@@ -652,6 +652,36 @@
                                 "default": "",
                                 "description": "详细地址。\n\nDetailed street address.",
                                 "type": "string"
+                              },
+                              "region": {
+                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                ]
                               }
                             },
                             "required": ["general", "detailed"],
@@ -1032,6 +1062,36 @@
                                 "default": "",
                                 "description": "详细地址。\n\nDetailed street address.",
                                 "type": "string"
+                              },
+                              "region": {
+                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                ]
                               }
                             },
                             "required": ["general", "detailed"],
@@ -2558,6 +2618,36 @@
                                 "default": "",
                                 "description": "详细地址。\n\nDetailed street address.",
                                 "type": "string"
+                              },
+                              "region": {
+                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                ]
                               }
                             },
                             "required": ["general", "detailed"],
@@ -4380,6 +4470,16 @@
           },
           {
             "in": "query",
+            "name": "regionId",
+            "schema": {
+              "default": "",
+              "description": "地区筛选 ID。\n\nRegion ID to filter by.",
+              "type": "string"
+            },
+            "description": "地区筛选 ID。\n\nRegion ID to filter by."
+          },
+          {
+            "in": "query",
             "name": "includeTimeInfo",
             "schema": {
               "description": "是否包含时间信息（包括 timezone 与 isOpen）。默认为是。\n\nInclude computed timezone and open status. Defaults to true.",
@@ -4449,6 +4549,36 @@
                                 "default": "",
                                 "description": "详细地址。\n\nDetailed street address.",
                                 "type": "string"
+                              },
+                              "region": {
+                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                ]
                               }
                             },
                             "required": ["general", "detailed"],
@@ -4734,6 +4864,35 @@
                         "default": "",
                         "description": "详细地址。\n\nDetailed street address.",
                         "type": "string"
+                      },
+                      "region": {
+                        "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["id", "name"]
+                            }
+                          }
+                        ]
                       }
                     }
                   },
@@ -4913,6 +5072,36 @@
                               "default": "",
                               "description": "详细地址。\n\nDetailed street address.",
                               "type": "string"
+                            },
+                            "region": {
+                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": ["id", "name"],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              ]
                             }
                           },
                           "required": ["general", "detailed"],
@@ -5229,6 +5418,36 @@
                               "default": "",
                               "description": "详细地址。\n\nDetailed street address.",
                               "type": "string"
+                            },
+                            "region": {
+                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": ["id", "name"],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              ]
                             }
                           },
                           "required": ["general", "detailed"],
@@ -5510,6 +5729,35 @@
                         "default": "",
                         "description": "详细地址。\n\nDetailed street address.",
                         "type": "string"
+                      },
+                      "region": {
+                        "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["id", "name"]
+                            }
+                          }
+                        ]
                       }
                     }
                   },
@@ -5693,6 +5941,36 @@
                               "default": "",
                               "description": "详细地址。\n\nDetailed street address.",
                               "type": "string"
+                            },
+                            "region": {
+                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": ["id", "name"],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              ]
                             }
                           },
                           "required": ["general", "detailed"],
@@ -6005,6 +6283,36 @@
                               "default": "",
                               "description": "详细地址。\n\nDetailed street address.",
                               "type": "string"
+                            },
+                            "region": {
+                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": ["id", "name"],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              ]
                             }
                           },
                           "required": ["general", "detailed"],
@@ -12244,6 +12552,36 @@
                                     "default": "",
                                     "description": "详细地址。\n\nDetailed street address.",
                                     "type": "string"
+                                  },
+                                  "region": {
+                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "anyOf": [
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "object",
+                                              "additionalProperties": {
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "required": ["id", "name"],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": ["general", "detailed"],
@@ -12490,6 +12828,36 @@
                                     "default": "",
                                     "description": "详细地址。\n\nDetailed street address.",
                                     "type": "string"
+                                  },
+                                  "region": {
+                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "anyOf": [
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "object",
+                                              "additionalProperties": {
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "required": ["id", "name"],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": ["general", "detailed"],
@@ -13673,6 +14041,36 @@
                                     "default": "",
                                     "description": "详细地址。\n\nDetailed street address.",
                                     "type": "string"
+                                  },
+                                  "region": {
+                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "anyOf": [
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "object",
+                                              "additionalProperties": {
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "required": ["id", "name"],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": ["general", "detailed"],
@@ -13919,6 +14317,36 @@
                                     "default": "",
                                     "description": "详细地址。\n\nDetailed street address.",
                                     "type": "string"
+                                  },
+                                  "region": {
+                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "anyOf": [
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "object",
+                                              "additionalProperties": {
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "required": ["id", "name"],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": ["general", "detailed"],

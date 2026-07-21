@@ -12,6 +12,7 @@ import { PAGINATION } from '$lib/constants';
 import { logCampusChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { omitUndefinedFields } from '$lib/utils/organizations.server';
 
@@ -96,6 +97,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
             id: { $in: frequentingArcadeIds }
           })
           .toArray()) as unknown as Shop[];
+        frequentingArcades = await expandShopsRegions(frequentingArcades);
       }
 
       return {

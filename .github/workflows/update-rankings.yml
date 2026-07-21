@@ -19,11 +19,20 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Trigger rankings update
+      - name: Trigger region rankings update
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
           curl -X POST "https://nearca.de/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
-            -d '{"task":"rankings"}'
+            -d '{"task":"region_rankings"}'
+
+      - name: Trigger campus rankings update
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"campus_rankings"}'

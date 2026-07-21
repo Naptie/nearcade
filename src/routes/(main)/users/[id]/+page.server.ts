@@ -4,6 +4,7 @@ import type { User } from '$lib/auth/types';
 import type { University, UniversityMember, Shop } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { toPlainArray } from '$lib/utils';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -109,6 +110,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
           .toArray();
       }
     }
+
+    frequentingArcades = await expandShopsRegions(frequentingArcades);
+    starredArcades = await expandShopsRegions(starredArcades);
 
     return {
       user: {

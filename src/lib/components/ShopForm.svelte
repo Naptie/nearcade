@@ -1,24 +1,13 @@
 <script lang="ts">
-  import { untrack, tick } from 'svelte';
+  import { untrack } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { GAME_TITLES } from '$lib/constants';
-  import { base } from '$app/paths';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
-  import { getSupportedCountryByName, SUPPORTED_COUNTRIES } from '$lib/countries';
+  import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
   import type { OpeningHourTime } from '$lib/types';
   import type { GameFormData, ShopFormData } from '$lib/schemas/forms';
-
-  // ---- Types ----
-
-  type AddressOption = {
-    id: string;
-    value: string;
-    label: string;
-    adcode?: string;
-    supported?: boolean;
-  };
 
   type Props = {
     initialData?: Partial<ShopFormData>;
@@ -111,364 +100,16 @@
     m.sunday()
   ];
 
-  // ---- Address ----
+  // ---- Address (dynamic region hierarchy) ----
 
-  // Prepared address options from the shop address endpoint
-  const ADDRESS_OPTIONS_ENDPOINT = `${base}/api/geo/address`;
+  let regionIds = $state<string[]>([]);
+  let regionComplete = $state(false);
+  let regionSectionTouched = $state(false);
 
-  let countryOptions = $state<AddressOption[]>([]);
-  let selectedCountryName = $state('');
-  let provinceOptions = $state<AddressOption[]>([]);
-  let cityOptions = $state<AddressOption[]>([]);
-  let countyOptions = $state<AddressOption[]>([]);
-
-  let selectedProvinceName = $state('');
-  let selectedProvinceAdcode = $state('');
-  let selectedCityName = $state('');
-  let selectedCityAdcode = $state('');
-  let selectedCountyName = $state('');
-
-  // Extra free-text fields beyond selects
-  let extraFields = $state<string[]>([]);
-
-  // Pending auto-fill data – applied reactively as sub-level options load.
-  type PendingFill = {
-    province?: { value: string; adcode: string };
-    city?: { value: string; adcode: string };
-    county?: { value: string };
-    extras?: string[];
-  };
-  let pendingFill = $state<PendingFill | null>(null);
-
-  let selectedCountryObj = $derived(getSupportedCountryByName(selectedCountryName));
-  let countryLevels = $derived(selectedCountryObj?.levels ?? []);
-
-  // selectSlots = 1 (country) + sub-levels for supported countries;
-  // = 1 for an unsupported country with a name chosen; = 0 when no country is chosen.
-  let selectSlots = $derived(
-    selectedCountryName ? (selectedCountryObj ? 1 + countryLevels.length : 1) : 0
-  );
-
-  // Total address parts = select-driven parts + extra free-text fields (max 4)
-  let totalParts = $derived(selectSlots + extraFields.length);
-  const MAX_PARTS = 4;
-
-  // Whether all currently-visible selects have been chosen (gating extra inputs)
-  let allSelectsFilled = $derived.by(() => {
-    if (!selectedCountryName) return false;
-    if (!selectedCountryObj) return true; // non-supported: country chosen = done
-    const levels = selectedCountryObj.levels;
-    if (levels.length === 0) return true;
-    if (!selectedProvinceName) return false;
-    if (levels.length === 1) return true;
-    if (!selectedCityName) return false;
-    if (levels.length === 2) return true;
-    // Level 3: county select only appears when city options are loaded
-    // – we allow adding extra fields once city is chosen even if counties aren't needed
-    return true;
-  });
-
-  function addExtraField() {
-    if (totalParts < MAX_PARTS) {
-      extraFields = [...extraFields, ''];
-    }
-  }
-
-  function removeExtraField(idx: number) {
-    extraFields = extraFields.filter((_, i) => i !== idx);
-  }
-
-  async function fetchAddressOptions(dataset = 'countries', parentAdcode?: string) {
-    const params = new URLSearchParams([
-      ['dataset', dataset],
-      ...(parentAdcode ? ([['parentAdcode', parentAdcode]] as [string, string][]) : [])
-    ]);
-
-    const response = await fetch(`${ADDRESS_OPTIONS_ENDPOINT}?${params}`);
-    if (!response.ok) throw new Error(`Failed to load ${dataset} address options`);
-    return (await response.json()) as AddressOption[];
-  }
-
-  // Load countries
-  $effect(() => {
-    fetchAddressOptions()
-      .then((options) => {
-        countryOptions = options;
-      })
-      .catch(console.error);
-  });
-
-  // Load provinces when country changes; apply pendingFill if present.
-  $effect(() => {
-    if (!selectedCountryObj) {
-      provinceOptions = [];
-      cityOptions = [];
-      countyOptions = [];
-      selectedProvinceName = '';
-      selectedProvinceAdcode = '';
-      selectedCityName = '';
-      selectedCityAdcode = '';
-      selectedCountyName = '';
-      pendingFill = null;
-      return;
-    }
-    if (selectedCountryObj.levels.length > 0) {
-      const dataset = selectedCountryObj.levels[0].dataset;
-      fetchAddressOptions(dataset)
-        .then((options) => {
-          provinceOptions = options;
-          const pf = pendingFill;
-          if (pf?.province) {
-            const match = options.find((o) => o.value === pf.province!.value);
-            if (match) {
-              selectedProvinceName = match.value;
-              selectedProvinceAdcode = match.adcode ?? '';
-            } else {
-              extraFields = pf.extras ?? [];
-              pendingFill = null;
-            }
-          }
-        })
-        .catch(console.error);
-    } else {
-      // No province level – apply extras right away.
-      const pf = pendingFill;
-      if (pf) {
-        extraFields = pf.extras ?? [];
-        pendingFill = null;
-      }
-    }
-  });
-
-  // Load cities when province changes; apply pendingFill if present.
-  $effect(() => {
-    if (!selectedProvinceAdcode || !selectedCountryObj || selectedCountryObj.levels.length < 2) {
-      cityOptions = [];
-      selectedCityName = '';
-      selectedCityAdcode = '';
-      countyOptions = [];
-      selectedCountyName = '';
-      return;
-    }
-    const dataset = selectedCountryObj.levels[1].dataset;
-    fetchAddressOptions(dataset, selectedProvinceAdcode)
-      .then((options) => {
-        cityOptions = options;
-        const pf = pendingFill;
-        if (pf?.city) {
-          const match = options.find((o) => o.value === pf.city!.value);
-          if (match) {
-            selectedCityName = match.value;
-            selectedCityAdcode = match.adcode ?? '';
-          } else {
-            extraFields = pf.extras ?? [];
-            pendingFill = null;
-          }
-        } else if (pf && !pf.city) {
-          extraFields = pf.extras ?? [];
-          pendingFill = null;
-        }
-      })
-      .catch(console.error);
-  });
-
-  // Load counties when city changes; apply pendingFill if present.
-  $effect(() => {
-    if (!selectedCityAdcode || !selectedCountryObj || selectedCountryObj.levels.length < 3) {
-      countyOptions = [];
-      selectedCountyName = '';
-      // If there is no county level, apply pending extras here.
-      const pf = pendingFill;
-      if (pf && selectedCountryObj && selectedCountryObj.levels.length < 3 && selectedCityAdcode) {
-        extraFields = pf.extras ?? [];
-        pendingFill = null;
-      }
-      return;
-    }
-    const dataset = selectedCountryObj.levels[2].dataset;
-    fetchAddressOptions(dataset, selectedCityAdcode)
-      .then((options) => {
-        countyOptions = options;
-        const pf = pendingFill;
-        if (pf) {
-          if (pf.county) {
-            const match = options.find((o) => o.value === pf.county!.value);
-            if (match) {
-              selectedCountyName = match.value;
-            }
-          }
-          // Always apply extras and clear pendingFill at the deepest level.
-          extraFields = pf.extras ?? [];
-          pendingFill = null;
-        }
-      })
-      .catch(console.error);
-  });
-
-  // Build the general address array from selects + extra fields.
-  // Country addressName is always prepended for supported countries.
-  let generalAddress = $derived.by(() => {
-    const parts: string[] = [];
-    if (selectedCountryObj) {
-      parts.push(selectedCountryObj.addressName);
-      if (selectedProvinceName) parts.push(selectedProvinceName);
-      if (selectedCityName) parts.push(selectedCityName);
-      if (selectedCountyName) parts.push(selectedCountyName);
-    } else if (selectedCountryName) {
-      parts.push(selectedCountryName);
-    }
-    for (const f of extraFields) {
-      if (f.trim()) parts.push(f.trim());
-    }
-    return parts;
-  });
-
-  // Auto-fill selects and extras from an array of stored general address parts.
-  // Handles the new format (parts[0] = addressName) and the legacy format (no country name).
-  async function autoFillFromAddressParts(parts: string[]): Promise<void> {
-    if (!parts.length || countryOptions.length === 0) return;
-
-    let partIdx = 0;
-    let matchedCountry: (typeof SUPPORTED_COUNTRIES)[0] | undefined;
-
-    // New format: parts[0] is the country's addressName (e.g. '中国')
-    for (const country of SUPPORTED_COUNTRIES) {
-      if (parts[0] === country.addressName) {
-        matchedCountry = country;
-        partIdx = 1;
-        break;
-      }
-    }
-
-    // Backward-compat: parts[0] might be a province name with no country prefix.
-    if (!matchedCountry && parts.length > 0) {
-      for (const country of SUPPORTED_COUNTRIES) {
-        if (country.levels.length === 0) continue;
-        const provinces = await fetchAddressOptions(country.levels[0].dataset).catch(() => []);
-        const prov = provinces.find((p) => p.value === parts[0]);
-        if (prov) {
-          matchedCountry = country;
-          partIdx = 0;
-          break;
-        }
-      }
-    }
-
-    if (matchedCountry) {
-      const subParts = parts.slice(partIdx);
-      const fill: PendingFill = { extras: [] };
-      let subIdx = 0;
-
-      if (subParts[subIdx] && matchedCountry.levels.length > 0) {
-        const provinces = await fetchAddressOptions(matchedCountry.levels[0].dataset).catch(
-          () => []
-        );
-        const prov = provinces.find((p) => p.value === subParts[subIdx]);
-        if (prov) {
-          fill.province = { value: prov.value, adcode: prov.adcode ?? '' };
-          subIdx++;
-
-          if (subParts[subIdx] && matchedCountry.levels.length > 1 && prov.adcode) {
-            const cities = await fetchAddressOptions(
-              matchedCountry.levels[1].dataset,
-              prov.adcode
-            ).catch(() => []);
-            const city = cities.find((c) => c.value === subParts[subIdx]);
-            if (city) {
-              fill.city = { value: city.value, adcode: city.adcode ?? '' };
-              subIdx++;
-
-              if (subParts[subIdx] && matchedCountry.levels.length > 2 && city.adcode) {
-                const counties = await fetchAddressOptions(
-                  matchedCountry.levels[2].dataset,
-                  city.adcode
-                ).catch(() => []);
-                const county = counties.find((c) => c.value === subParts[subIdx]);
-                if (county) {
-                  fill.county = { value: county.value };
-                  subIdx++;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      fill.extras = subParts.slice(subIdx).filter((p) => p.trim());
-      pendingFill = fill;
-      selectedCountryName = matchedCountry.name;
-    } else {
-      // Non-supported or unknown country.
-      const countryOpt = countryOptions.find((o) => o.value === parts[0]);
-      if (countryOpt) {
-        selectedCountryName = parts[0];
-        extraFields = parts.slice(1).filter((p) => p.trim());
-      } else {
-        extraFields = parts.filter((p) => p.trim());
-      }
-    }
-  }
-
-  // Auto-fill from a raw address string (e.g. from location picker).
-  // Returns the remaining address after extracting the general parts.
-  async function autoFillFromAddressString(raw: string): Promise<string> {
-    let remaining = raw;
-
-    for (const country of SUPPORTED_COUNTRIES) {
-      if (country.levels.length === 0) continue;
-      const provinces = await fetchAddressOptions(country.levels[0].dataset).catch(() => []);
-      const prov = provinces.find((p) => remaining.startsWith(p.value));
-      if (!prov) continue;
-
-      remaining = remaining.slice(prov.value.length);
-      const fill: PendingFill = {
-        province: { value: prov.value, adcode: prov.adcode ?? '' },
-        extras: []
-      };
-
-      if (country.levels.length >= 2 && prov.adcode) {
-        const cities = await fetchAddressOptions(country.levels[1].dataset, prov.adcode).catch(
-          () => []
-        );
-        const city = cities.find((c) => remaining.startsWith(c.value));
-        if (city) {
-          remaining = remaining.slice(city.value.length);
-          fill.city = { value: city.value, adcode: city.adcode ?? '' };
-
-          if (country.levels.length >= 3 && city.adcode) {
-            const counties = await fetchAddressOptions(
-              country.levels[2].dataset,
-              city.adcode
-            ).catch(() => []);
-            const county = counties.find((c) => remaining.startsWith(c.value));
-            if (county) {
-              remaining = remaining.slice(county.value.length);
-              fill.county = { value: county.value };
-            }
-          }
-        }
-      }
-
-      // If this country was already selected, reset first to force the reactive chain.
-      if (selectedCountryName === country.name) {
-        selectedCountryName = '';
-        await tick();
-      }
-      pendingFill = fill;
-      selectedCountryName = country.name;
-      return remaining; // remaining becomes the detailed address
-    }
-
-    return raw; // no match
-  }
-
-  // Pre-populate address from initialData – runs once when country options are available.
-  let addressPrefilled = $state(false);
-  $effect(() => {
-    if (addressPrefilled || countryOptions.length === 0) return;
-    if (!initialData.address?.general?.length) return;
-    addressPrefilled = true;
-    autoFillFromAddressParts(initialData.address.general).catch(console.error);
+  const initialRegionIds = untrack(() => {
+    const addr = initialData.address;
+    if (!addr?.region || addr.region.length === 0) return undefined;
+    return addr.region.map((r) => (typeof r === 'string' ? r : r.id));
   });
 
   // ---- Games ----
@@ -539,6 +180,10 @@
       errorMessage = 'Location is required';
       return;
     }
+    if (!regionComplete) {
+      errorMessage = m.shop_region_incomplete();
+      return;
+    }
 
     const openingHours: [OpeningHourTime, OpeningHourTime][] = slots.map(([oh, om, ch, cm]) => [
       { hour: oh, minute: om },
@@ -551,8 +196,9 @@
         name: name.trim(),
         comment,
         address: {
-          general: generalAddress,
-          detailed: detailedAddress
+          general: [],
+          detailed: detailedAddress,
+          region: regionIds
         },
         openingHours,
         location,
@@ -596,117 +242,24 @@
   <div class="form-control gap-3">
     <span class="label-text font-medium">{m.shop_address()}</span>
     <div class="flex flex-col gap-1">
-      <div class="grid grid-cols-2 gap-1">
-        <select
-          id="shop-address-country"
-          class="select select-bordered w-full"
-          class:col-span-2={!(
-            selectedCountryObj &&
-            selectedCountryObj.levels.length > 0 &&
-            provinceOptions.length > 0
-          )}
-          bind:value={selectedCountryName}
-          onchange={() => {
-            selectedProvinceName = '';
-            selectedProvinceAdcode = '';
-            selectedCityName = '';
-            selectedCityAdcode = '';
-            selectedCountyName = '';
-            extraFields = [];
-          }}
-        >
-          <option value="">{m.shop_select_country()}</option>
-          {#each countryOptions as option (option.id)}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
-        {#if selectedCountryObj && selectedCountryObj.levels.length > 0 && provinceOptions.length > 0}
-          <select
-            id="shop-address-province"
-            class="select select-bordered w-full"
-            bind:value={selectedProvinceName}
-            onchange={(e) => {
-              const target = e.target as HTMLSelectElement;
-              const option = provinceOptions.find((o) => o.value === target.value);
-              selectedProvinceAdcode = option?.adcode ?? '';
-              selectedCityName = '';
-              selectedCityAdcode = '';
-              selectedCountyName = '';
-            }}
-          >
-            <option value="">{m.shop_select_province()}</option>
-            {#each provinceOptions as option (option.id)}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        {/if}
-        {#if selectedCountryObj && selectedCountryObj.levels.length > 1 && cityOptions.length > 0}
-          <select
-            id="shop-address-city"
-            class="select select-bordered w-full"
-            class:col-span-2={!(
-              selectedCountryObj &&
-              selectedCountryObj.levels.length > 2 &&
-              countyOptions.length > 0
-            )}
-            bind:value={selectedCityName}
-            onchange={(e) => {
-              const target = e.target as HTMLSelectElement;
-              const option = cityOptions.find((o) => o.value === target.value);
-              selectedCityAdcode = option?.adcode ?? '';
-              selectedCountyName = '';
-            }}
-          >
-            <option value="">{m.shop_select_city()}</option>
-            {#each cityOptions as option (option.id)}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-          <!-- County select -->
-          {#if selectedCountryObj && selectedCountryObj.levels.length > 2 && countyOptions.length > 0}
-            <select
-              id="shop-address-county"
-              class="select select-bordered w-full"
-              bind:value={selectedCountyName}
-            >
-              <option value="">{m.shop_select_county()}</option>
-              {#each countyOptions as option (option.id)}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          {/if}
-        {/if}
+      <div
+        onfocusin={() => {
+          regionSectionTouched = false;
+        }}
+        onfocusout={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            regionSectionTouched = true;
+          }
+        }}
+      >
+        <RegionCascadeSelect bind:regionIds bind:regionComplete {initialRegionIds} />
       </div>
 
-      <!-- Extra free-text fields (only shown after all selects are filled) -->
-      {#if allSelectsFilled}
-        {#each extraFields as extraField, idx (idx)}
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              class="input input-bordered flex-1"
-              value={extraField}
-              oninput={(e) => {
-                extraFields[idx] = (e.target as HTMLInputElement).value;
-              }}
-            />
-            <button
-              type="button"
-              class="btn btn-ghost btn-sm btn-circle"
-              onclick={() => removeExtraField(idx)}
-              aria-label="Remove field"
-            >
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        {/each}
-
-        {#if totalParts < MAX_PARTS}
-          <button type="button" class="btn btn-ghost btn-sm self-start" onclick={addExtraField}>
-            <i class="fa-solid fa-plus"></i>
-            {m.shop_address_add_field()}
-          </button>
-        {/if}
+      {#if regionIds.length > 0 && !regionComplete && regionSectionTouched}
+        <p class="text-warning text-xs">
+          <i class="fa-solid fa-circle-info"></i>
+          {m.shop_region_incomplete()}
+        </p>
       {/if}
     </div>
 
@@ -955,16 +508,8 @@
       coordinates: [loc.longitude, loc.latitude]
     };
     locationName = loc.name ?? '';
-    // Extract general address parts from the address string and auto-select selects.
-    // The remaining string (after general parts are removed) becomes the detailed address.
-    if (loc.address) {
-      autoFillFromAddressString(loc.address)
-        .then((remaining) => {
-          detailedAddress = remaining;
-        })
-        .catch(() => {
-          if (!detailedAddress) detailedAddress = loc.address;
-        });
+    if (loc.address && !detailedAddress) {
+      detailedAddress = loc.address;
     }
   }}
 />

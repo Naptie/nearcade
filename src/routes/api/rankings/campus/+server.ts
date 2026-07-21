@@ -22,11 +22,11 @@ interface CachedRanking extends UniversityRankingData {
 export const GET: RequestHandler = async ({ url }) => {
   try {
     const db = mongo.db();
-    const cacheCollection = db.collection('rankings');
+    const cacheCollection = db.collection('campus_rankings');
 
     const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
     const radiusFilter = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
-    const limit = parseInt(url.searchParams.get('limit') || '') || PAGINATION.PAGE_SIZE;
+    const limit = parseInt(url.searchParams.get('limit') || '') || PAGINATION.RANKING_PAGE_SIZE;
     const after = url.searchParams.get('after') || null;
 
     // Check cache metadata

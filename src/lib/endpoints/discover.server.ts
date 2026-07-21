@@ -4,6 +4,7 @@ import { calculateDistance, toPlainObject, getShopOpeningHours, getShopTimezone 
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { getShopsAttendanceData } from './attendance.server';
 import type { PublicUser } from '$lib/auth/types';
 import {
@@ -173,9 +174,11 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
 
     enrichedShops.sort((a, b) => a.distance - b.distance);
 
+    const shopsWithRegions = await expandShopsRegions(enrichedShops);
+
     const response = discoverResponseSchema.parse(
       toPlainObject({
-        shops: enrichedShops,
+        shops: shopsWithRegions,
         location: {
           name: url.searchParams.get('name'),
           latitude,

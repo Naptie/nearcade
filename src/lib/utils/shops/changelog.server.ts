@@ -174,6 +174,8 @@ export const logShopFieldChanges = async (
   const effectiveName = (newData.name ?? shopName).trim();
 
   for (const field of fieldsToTrack) {
+    // Skip fields not present in newData — they were not part of this update.
+    if (!(field in newData)) continue;
     const oldVal = formatValueForComparison(oldData[field]);
     const newVal = formatValueForComparison(newData[field]);
     if (oldVal === newVal) continue;
@@ -300,6 +302,58 @@ export const getShopChangelogEntries = async (
   const [entries, total] = await Promise.all([
     collection.aggregate(pipeline).toArray() as Promise<ShopChangelogEntryWithUser[]>,
     collection.countDocuments({ shopId })
+  ]);
+
+  return {
+    entries: entries.map((entry) => {
+      if (!isDeletedPhotoEntry(entry) || canViewDeletedPhotoInChangelog(entry, viewer)) {
+        return entry;
+      }
+
+      return sanitizeDeletedPhotoEntry(entry) as ShopChangelogEntryWithUser;
+    }),
+    total
+  };
+};
+
+/**
+ * Fetch the most recent shop changelog entries across the entire site,
+ * with uploader data joined via $lookup.
+ */
+export const getRecentShopChangelogEntries = async (
+  client: MongoClient,
+  options: { limit?: number; offset?: number; viewer?: ShopChangelogViewer | null } = {}
+): Promise<{ entries: ShopChangelogEntryWithUser[]; total: number }> => {
+  const { limit = 20, offset = 0, viewer = null } = options;
+  const db = client.db();
+  const collection = db.collection<ShopChangelogEntry>('shop_changelog');
+
+  const pipeline = [
+    { $sort: { createdAt: -1 } },
+    { $skip: offset },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: 'users',
+        let: { uid: '$userId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
+          { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: 1 } }
+        ],
+        as: 'userArr'
+      }
+    },
+    {
+      $addFields: {
+        user: { $arrayElemAt: ['$userArr', 0] }
+      }
+    },
+    { $project: { userArr: 0 } }
+  ];
+
+  const [entries, total] = await Promise.all([
+    collection.aggregate(pipeline).toArray() as Promise<ShopChangelogEntryWithUser[]>,
+    collection.estimatedDocumentCount()
   ]);
 
   return {

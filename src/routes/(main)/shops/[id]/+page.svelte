@@ -357,8 +357,28 @@
     return normalized.hour * 60 + normalized.minute;
   };
 
-  const formatShopOpeningHourPair = (pair: [OpeningHourTime | number, OpeningHourTime | number]) =>
-    `${formatOpeningHourLiteral(pair[0])} – ${formatOpeningHourLiteral(pair[1])}`;
+  const formatShopOpeningHourPair = (
+    pair: [OpeningHourTime | number, OpeningHourTime | number]
+  ) => {
+    const openStr = formatOpeningHourLiteral(pair[0]);
+    const closeStr = formatOpeningHourLiteral(pair[1]);
+    const closesNextDay =
+      getOpeningHourTotalMinutes(pair[1]) <= getOpeningHourTotalMinutes(pair[0]);
+    return closesNextDay ? `${openStr} – ${m.tomorrow()} ${closeStr}` : `${openStr} – ${closeStr}`;
+  };
+
+  const formatUserSingleOpeningHourPair = (open: Date, close: Date) => {
+    const sameUserDay =
+      open.getDate() === close.getDate() &&
+      open.getMonth() === close.getMonth() &&
+      open.getFullYear() === close.getFullYear();
+    const openStr = formatTime(open);
+    const closeStr = formatTime(close);
+    if (!sameUserDay) {
+      return `${openStr} – ${m.tomorrow()} ${closeStr}`;
+    }
+    return `${openStr} – ${closeStr}`;
+  };
 
   const padTimePart = (value: number) => String(value).padStart(2, '0');
 
@@ -440,7 +460,7 @@
     const showCloseDay = close.getDay() !== expectedCloseDay || showOpenDay;
     const labels = JS_DAY_LABELS();
     const openLabel = `${showOpenDay ? `${labels[open.getDay()]} ` : ''}${formatTime(open)}`;
-    const closeLabel = `${showCloseDay ? `${labels[close.getDay()]} ` : ''}${formatTime(close)}`;
+    const closeLabel = `${showCloseDay ? `${closesNextShopDay ? formatTime(close) + ' (' + m.tomorrow() + ')' : labels[close.getDay()] + ' ' + formatTime(close)}` : formatTime(close)}`;
 
     return `${openLabel} – ${closeLabel}`;
   };
@@ -1124,7 +1144,7 @@
         <!-- Shop Header -->
         <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
           <div class="mb-4 flex min-w-0 items-center justify-between gap-2">
-            <h1 class="text-3xl font-bold break-words">
+            <h1 class="text-3xl font-bold wrap-break-word">
               {shop.name}
               {#if shop.isClaimed}
                 {#snippet badge()}
@@ -1174,14 +1194,14 @@
               <div class="w-4 text-center">
                 <i class="fa-solid fa-location-dot mt-0.75 shrink-0"></i>
               </div>
-              <span class="break-words whitespace-pre-line">{formatShopAddress(shop, true)}</span>
+              <span class="wrap-break-word whitespace-pre-line">{formatShopAddress(shop, true)}</span>
             </div>
           </div>
 
           {#if shopComment.content}
             <div class="text-base-content/80 mt-4">
               <p
-                class="prose-md h-auto flex-1 overflow-auto break-words"
+                class="prose-md h-auto flex-1 overflow-auto wrap-break-word"
                 class:prose={shopComment.rendered}
               >
                 {#if shopComment.rendered}
@@ -1466,8 +1486,8 @@
                       </span>
                       <span class="text-right font-semibold">
                         {showOpeningHoursInUserTime
-                          ? formatTime(openingHours.open) + ' – ' + formatTime(openingHours.close)
-                          : openingHours.openLocal + ' – ' + openingHours.closeLocal}
+                          ? formatUserSingleOpeningHourPair(openingHours.open, openingHours.close)
+                          : formatShopOpeningHourPair(shop.openingHours[0])}
                       </span>
                     </div>
                   {/if}

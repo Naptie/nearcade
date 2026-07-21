@@ -1,5 +1,5 @@
 import type { Shop, Club, University, PostWithAuthor } from '$lib/types';
-import { formatShopAddress } from '$lib/utils';
+import { formatShopAddress, getDisplayAddressParts } from '$lib/utils';
 
 export function getCanonicalUrl(url: URL): string {
   const clean = new URL(url.href);
@@ -91,6 +91,21 @@ export function buildBreadcrumbSchema(items: { name: string; item?: string }[]):
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const getLocaleForShop = (shop: Shop): string => {
+  const countryCode =
+    typeof shop.address?.region?.[0] === 'string'
+      ? shop.address.region[0]
+      : shop.address?.region?.[0]?.id;
+  switch (countryCode) {
+    case 'CN':
+      return 'zh';
+    case 'JP':
+      return 'ja';
+    default:
+      return 'en';
+  }
+};
+
 function buildOpeningHoursSpecification(
   openingHours: Array<[{ hour: number; minute: number }, { hour: number; minute: number }]>
 ): unknown[] | undefined {
@@ -118,17 +133,19 @@ function buildOpeningHoursSpecification(
 }
 
 export function buildShopSchema(shop: Shop, canonicalUrl: string, imageUrl?: string): object {
-  const addressGeneral = shop.address?.general ?? [];
+  const addressParts = getDisplayAddressParts(
+    { general: shop.address?.general ?? [], region: shop.address?.region },
+    getLocaleForShop(shop)
+  );
   const address: Record<string, string> = {
     '@type': 'PostalAddress',
     streetAddress: shop.address?.detailed ?? ''
   };
 
-  if (addressGeneral.length >= 1) address.addressCountry = addressGeneral[0];
-  if (addressGeneral.length >= 2) address.addressRegion = addressGeneral[1];
-  if (addressGeneral.length >= 3) address.addressLocality = addressGeneral[2];
-  if (addressGeneral.length >= 4) address.addressDistrict = addressGeneral[3];
-
+  if (addressParts.length >= 1) address.addressCountry = addressParts[0];
+  if (addressParts.length >= 2) address.addressRegion = addressParts[1];
+  if (addressParts.length >= 3) address.addressLocality = addressParts[2];
+  if (addressParts.length >= 4) address.addressDistrict = addressParts[3];
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',

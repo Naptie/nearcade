@@ -6,7 +6,7 @@
   import type { PageData } from './$types';
 
   type TaskState = 'idle' | 'running' | 'succeeded' | 'failed';
-  type TaskId = 'university_stats' | 'rankings' | 'region_rankings';
+  type TaskId = 'university_stats' | 'campus_rankings' | 'region_rankings' | 'meilisearch';
 
   type Task = {
     id: TaskId;
@@ -35,9 +35,9 @@
       icon: 'fa-building-columns',
       summaryKeys: ['processedCount', 'updatedCount', 'errorCount']
     },
-    rankings: {
-      title: m.admin_data_update_rankings(),
-      description: m.admin_data_update_rankings_description(),
+    campus_rankings: {
+      title: m.admin_data_update_campus_rankings(),
+      description: m.admin_data_update_campus_rankings_description(),
       icon: 'fa-trophy',
       summaryKeys: ['processedCount', 'campusCount', 'totalCount']
     },
@@ -46,6 +46,12 @@
       description: m.admin_data_update_region_rankings_description(),
       icon: 'fa-earth-americas',
       summaryKeys: ['totalCount']
+    },
+    meilisearch: {
+      title: m.admin_data_update_meilisearch(),
+      description: m.admin_data_update_meilisearch_description(),
+      icon: 'fa-magnifying-glass',
+      summaryKeys: ['indexedCount', 'shopCount', 'universityCount', 'clubCount']
     }
   };
 
@@ -54,7 +60,11 @@
     updatedCount: m.admin_data_update_summary_updated_count(),
     errorCount: m.admin_data_update_summary_error_count(),
     campusCount: m.admin_data_update_summary_campus_count(),
-    totalCount: m.admin_data_update_summary_total_count()
+    totalCount: m.admin_data_update_summary_total_count(),
+    indexedCount: m.admin_data_update_summary_indexed_count(),
+    shopCount: m.admin_data_update_summary_shop_count(),
+    universityCount: m.admin_data_update_summary_university_count(),
+    clubCount: m.admin_data_update_summary_club_count()
   };
 
   let tasks = $state<Task[]>([]);

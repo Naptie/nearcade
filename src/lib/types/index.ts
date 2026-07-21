@@ -82,7 +82,8 @@ export interface RankingMetrics {
   radius: number; // in kilometers
   shopCount: number;
   totalMachines: number;
-  areaDensity: number; // machines per km²
+  areaDensity: number | null; // machines per km² (null when region area is unavailable)
+  machinesPerCapita: number | null; // machines per 10,000 people; null when population is unavailable
   gameSpecificMachines: {
     name: string;
     quantity: number;
@@ -95,17 +96,24 @@ export interface RankingsTableItem {
 }
 
 export type RegionLevel = 'country' | 'province' | 'city' | 'county';
-
 export interface RegionRankingData {
-  id: string;
+  id: string; // region ID from globe-cn hierarchy
   level: RegionLevel;
   name: string;
-  country: string | null;
-  province: string | null;
-  city: string | null;
-  county: string | null;
+  country: string | null; // country region ID (not name)
+  province: string | null; // province region ID
+  city: string | null; // city region ID
+  county: string | null; // county region ID
+  /** Full region hierarchy (root → self) with multilingual names, populated by API. */
+  regionChain?: { id: string; name: Record<string, string> }[];
   location: Location;
-  rankings: RankingMetrics[];
+  area: number | null; // km² from region document
+  population: number | null; // from region document
+  shopCount: number;
+  totalMachines: number;
+  areaDensity: number | null; // machines per km² (null when region area is unavailable)
+  machinesPerCapita: number | null; // machines per 10,000 people; null when population is unavailable
+  gameSpecificMachines: { name: string; quantity: number }[];
 }
 
 export interface RegionRankingResponse {
@@ -125,7 +133,8 @@ export interface RegionRankingCache {
   data: RegionRankingData[];
 }
 
-export type SortCriteria = 'shops' | 'machines' | 'density' | (typeof GAME_TITLES)[number]['key'];
+export type SortCriteria =
+  'shops' | 'machines' | 'density' | 'per_capita' | (typeof GAME_TITLES)[number]['key'];
 
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
@@ -461,6 +470,7 @@ export interface GlobeShop {
   name: string;
   address: {
     general: string[];
+    region?: string[] | { id: string; name: Record<string, string> }[];
   };
   openingHours: Shop['openingHours'];
   location: Shop['location'];

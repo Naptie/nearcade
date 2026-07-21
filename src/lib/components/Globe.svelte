@@ -1,25 +1,21 @@
 <script lang="ts">
   import { base, resolve } from '$app/paths';
   import { goto, invalidate } from '$app/navigation';
+  import { page } from '$app/state';
   import { onMount, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '$lib/styles/maplibre.css';
-  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+  import { SvelteMap } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import {
-    isTouchscreen,
-    getGameName,
-    getAddressParts,
-    calculateDistance,
-    getCachedLocation
-  } from '$lib/utils';
+  import { isTouchscreen, getGameName, calculateDistance, getCachedLocation } from '$lib/utils';
   import { HAS_DISCRETE_GPU } from '$lib/utils/index.client';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
+  import type { AddressRegionEntry } from '$lib/regions/types';
   import {
     GlobeVisualsLayer,
     DEFAULT_CLOUD_SHADOW_OPACITY,
@@ -35,6 +31,11 @@
     prefetchBingTiles
   } from '$lib/utils/globe/bing';
 
+  const regionIncludesId = (region: GlobeShop['address']['region'], id: string | undefined) =>
+    id != null &&
+    Array.isArray(region) &&
+    region.some((r) => (typeof r === 'string' ? r : r.id) === id);
+
   // ---- Props ----
   type Props = {
     mode: 'landing' | 'fullscreen';
@@ -47,6 +48,11 @@
   // expensive flush cycle (~400ms) when the visual mode changes.
   // The sidebar, bottom gradient, etc. are shown/hidden via getElementById.
   let visualModeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Holds the landing-mode scroll-sync function once the map is mounted, so
+  // mode transitions can re-assert gradient opacity after !important CSS
+  // overrides are removed (see pollMode landing branch).
+  let syncGradientToScrollRef: (() => void) | null = null;
 
   // ---- Globe layer/source IDs ----
   const GLOBE_DATA_ENDPOINT = `${base}/api/globe/data`;
@@ -238,6 +244,33 @@
     }
   };
 
+  // ---- Landing-mode interaction policy ----
+  // In landing mode the globe is a decorative background: gestures that would
+  // conflict with normal page usage (mouse wheel scroll, pinch/dbl-click zoom,
+  // keyboard) are disabled so the page scrolls natively. Drag-panning stays
+  // enabled to preserve the tactile globe interaction, while one-finger touch
+  // drag is coasted so mobile users can still scroll the page over the globe.
+  const applyLandingInteractionMode = (instance: maplibregl.Map, m: 'landing' | 'fullscreen') => {
+    if (m === 'landing') {
+      instance.scrollZoom.disable();
+      instance.boxZoom.disable();
+      instance.keyboard.disable();
+      instance.doubleClickZoom.disable();
+      instance.touchZoomRotate.disable();
+      instance.touchPitch.disable();
+      instance.dragRotate.disable();
+      instance.dragPan.enable();
+    } else {
+      instance.scrollZoom.enable();
+      instance.boxZoom.enable();
+      instance.keyboard.enable();
+      instance.doubleClickZoom.enable();
+      instance.touchZoomRotate.enable();
+      instance.touchPitch.enable();
+      instance.dragRotate.enable();
+    }
+  };
+
   // ---- Gradient blur layers (same pattern as NavigationBar, reversed direction) ----
   const maxBlurRadius = 64;
   const blurIterations = 16;
@@ -385,37 +418,16 @@
   });
 
   // ---- Region filter ----
-  type RegionFilter =
-    | { type: 'world' }
-    | { type: 'address'; address: string[] }
-    | { type: 'country'; countryName: string }
-    | { type: 'country-level1'; countryName: string; level1Name: string }
-    | { type: 'country-level2'; countryName: string; level1Name: string; level2Name: string }
-    | {
-        type: 'country-level3';
-        countryName: string;
-        level1Name: string;
-        level2Name: string;
-        level3Name: string;
-      };
-
+  type RegionFilter = { type: 'world' } | { type: 'region'; region: AddressRegionEntry[] };
   let regionFilter = $state<RegionFilter>({ type: 'world' });
 
+  const getLocalName = (entry: AddressRegionEntry) =>
+    entry.name[currentLocale] ?? entry.name.en ?? Object.values(entry.name)[0] ?? entry.id;
+
   const regionTitle = $derived.by(() => {
-    switch (regionFilter.type) {
-      case 'world':
-        return m.world();
-      case 'address':
-        return regionFilter.address[regionFilter.address.length - 1];
-      case 'country':
-        return regionFilter.countryName;
-      case 'country-level1':
-        return regionFilter.level1Name;
-      case 'country-level2':
-        return regionFilter.level2Name;
-      case 'country-level3':
-        return regionFilter.level3Name;
-    }
+    if (regionFilter.type === 'world') return m.world();
+    const { region } = regionFilter;
+    return getLocalName(region[region.length - 1]);
   });
 
   const regionHierarchy = $derived.by(
@@ -423,74 +435,12 @@
       label: string;
       target: RegionFilter;
     }[] => {
-      const filter = regionFilter;
-      switch (filter.type) {
-        case 'world':
-        case 'country':
-          return [];
-        case 'address': {
-          const parts = getAddressParts(filter.address).slice(0, -1);
-          return parts.map((label, i) => {
-            const seen = new SvelteSet<string>();
-            let end = 0;
-            for (const part of filter.address) {
-              end++;
-              const trimmed = part.trim();
-              if (trimmed && !seen.has(trimmed)) {
-                seen.add(trimmed);
-                if (seen.size > i) break;
-              }
-            }
-            return { label, target: { type: 'address', address: filter.address.slice(0, end) } };
-          });
-        }
-        case 'country-level1':
-          return [
-            {
-              label: filter.countryName,
-              target: { type: 'country', countryName: filter.countryName }
-            }
-          ];
-        case 'country-level2':
-          return [
-            {
-              label: filter.countryName,
-              target: { type: 'country', countryName: filter.countryName }
-            },
-            {
-              label: filter.level1Name,
-              target: {
-                type: 'country-level1',
-                countryName: filter.countryName,
-                level1Name: filter.level1Name
-              }
-            }
-          ];
-        case 'country-level3':
-          return [
-            {
-              label: filter.countryName,
-              target: { type: 'country', countryName: filter.countryName }
-            },
-            {
-              label: filter.level1Name,
-              target: {
-                type: 'country-level1',
-                countryName: filter.countryName,
-                level1Name: filter.level1Name
-              }
-            },
-            {
-              label: filter.level2Name,
-              target: {
-                type: 'country-level2',
-                countryName: filter.countryName,
-                level1Name: filter.level1Name,
-                level2Name: filter.level2Name
-              }
-            }
-          ];
-      }
+      if (regionFilter.type === 'world') return [];
+      const { region } = regionFilter;
+      return region.slice(0, -1).map((_entry, i) => ({
+        label: getLocalName(region[i]),
+        target: { type: 'region' as const, region: region.slice(0, i + 1) }
+      }));
     }
   );
 
@@ -521,45 +471,45 @@
     const sourceShops = shopsSortedByDistance;
     if (!sourceShops) return null;
     const q = searchQuery.trim().toLowerCase();
+    const rf = regionFilter;
     return sourceShops.filter(({ shop }) => {
-      const general = shop.address.general;
-      let matchesRegion = false;
-      switch (regionFilter.type) {
-        case 'world':
-          matchesRegion = true;
-          break;
-        case 'address':
-          matchesRegion = regionFilter.address.every(
-            (v, i) => general.length <= i || v.toLowerCase() === general[i].toLowerCase()
-          );
-          break;
-        case 'country':
-          matchesRegion = general[0] === regionFilter.countryName;
-          break;
-        case 'country-level1':
-          matchesRegion =
-            general[0] === regionFilter.countryName && general[1] === regionFilter.level1Name;
-          break;
-        case 'country-level2':
-          matchesRegion =
-            general[0] === regionFilter.countryName &&
-            general[1] === regionFilter.level1Name &&
-            general[2] === regionFilter.level2Name;
-          break;
-        case 'country-level3':
-          matchesRegion =
-            general[0] === regionFilter.countryName &&
-            general[1] === regionFilter.level1Name &&
-            general[2] === regionFilter.level2Name &&
-            general[3] === regionFilter.level3Name;
-          break;
+      if (rf.type === 'region') {
+        const r = rf.region;
+        const leafId = r[r.length - 1].id;
+        if (leafId) {
+          if (!regionIncludesId(shop.address.region, leafId)) {
+            const general = shop.address.general;
+            const filterGeneral = r.map((e) => getLocalName(e));
+            if (
+              filterGeneral.length > general.length ||
+              filterGeneral.some((v, i) => general[i]?.toLowerCase() !== v.toLowerCase())
+            ) {
+              return false;
+            }
+          }
+        } else {
+          const general = shop.address.general;
+          const filterGeneral = r.map((e) => getLocalName(e));
+          if (
+            filterGeneral.length > general.length ||
+            filterGeneral.some((v, i) => general[i]?.toLowerCase() !== v.toLowerCase())
+          ) {
+            return false;
+          }
+        }
       }
-      if (!matchesRegion) return false;
       if (q) {
         try {
           const nameMatch = shop.name.toLowerCase().includes(q);
+          const region = shop.address.region;
+          const regionMatch =
+            Array.isArray(region) &&
+            region.some((r) => {
+              if (typeof r === 'string') return r.toLowerCase().includes(q);
+              return Object.values(r.name).some((n) => n.toLowerCase().includes(q));
+            });
           const addrMatch = shop.address.general.some((v) => v.toLowerCase().includes(q));
-          if (!nameMatch && !addrMatch) return false;
+          if (!nameMatch && !regionMatch && !addrMatch) return false;
         } catch {
           return false;
         }
@@ -644,6 +594,46 @@
     });
   });
 
+  let regionParamsApplied = false;
+
+  $effect(() => {
+    if (regionParamsApplied) return;
+    const instance = map;
+    const shopsData = shops;
+    if (!instance || !shopsData) return;
+
+    const urlParams = page.url.searchParams;
+    const lat = urlParams.get('lat');
+    const lng = urlParams.get('lng');
+    const zoom = urlParams.get('zoom');
+    const regionParam = urlParams.get('region');
+
+    if (!lat || !lng || !zoom || !regionParam) {
+      regionParamsApplied = true;
+      return;
+    }
+
+    try {
+      const chain = JSON.parse(decodeURIComponent(atob(regionParam))) as AddressRegionEntry[];
+      if (chain.length > 0) {
+        regionFilter = { type: 'region', region: chain };
+      }
+
+      shopListSortOrigin = { lat: parseFloat(lat), lng: parseFloat(lng) };
+      sidebarOpen = true;
+
+      flyToWithAnticipatedBasemap(instance, {
+        center: [parseFloat(lng), parseFloat(lat)],
+        zoom: parseFloat(zoom),
+        duration: 2000
+      });
+    } catch (e) {
+      console.error('Failed to parse region param:', e);
+    }
+
+    regionParamsApplied = true;
+  });
+
   const flyToWithAnticipatedBasemap = (
     instance: maplibregl.Map,
     options: maplibregl.FlyToOptions & { center: maplibregl.LngLatLike; zoom: number }
@@ -663,8 +653,10 @@
     });
   };
 
-  const pinShop = (shopEntry: ShopEntry) => {
-    shopListSortOrigin = { lat: shopEntry.location.latitude, lng: shopEntry.location.longitude };
+  const pinShop = (shopEntry: ShopEntry, skipSortOrigin = false) => {
+    if (!skipSortOrigin) {
+      shopListSortOrigin = { lat: shopEntry.location.latitude, lng: shopEntry.location.longitude };
+    }
     pinnedShop = shopEntry.shop;
     markerHoveredShop = null;
     flyToShop(shopEntry);
@@ -704,12 +696,26 @@
   };
 
   const applyShopRegionFilter = (shop: GlobeShop) => {
+    const region = shop.address.region;
+    const expanded =
+      region && Array.isArray(region) && region.length > 0 && typeof region[0] === 'object'
+        ? (region as AddressRegionEntry[])
+        : null;
+
+    if (expanded && expanded.length > 0) {
+      regionFilter = { type: 'region', region: expanded };
+      return;
+    }
+
     const general = shop.address.general;
     if (!general.length) {
       regionFilter = { type: 'world' };
       return;
     }
-    regionFilter = { type: 'address', address: general };
+    regionFilter = {
+      type: 'region',
+      region: general.map((name) => ({ id: '', name: { en: name } }))
+    };
   };
 
   const isShopInCurrentFilter = (shop: GlobeShop): boolean => {
@@ -1237,6 +1243,7 @@
               sidebarReady = true;
             }, SIDEBAR_SHOW_DELAY_MS);
             labelLayersEnabled = false;
+            applyLandingInteractionMode(instance, 'fullscreen');
             stopAutoRotation();
             flyToWithAnticipatedBasemap(
               instance,
@@ -1268,8 +1275,13 @@
               if (shopListSortOrigin !== null) shopListSortOrigin = null;
               if (sidebarOpen) sidebarOpen = false;
               sidebarCollapsed = false;
+              // Re-assert the scroll-driven gradient opacity now that the
+              // fullscreen/exiting !important overrides have been lifted, so
+              // the blur/fade returns when back in landing mode.
+              syncGradientToScrollRef?.();
             }, LANDING_TRANSITION_DELAY_MS);
             labelLayersEnabled = false;
+            applyLandingInteractionMode(instance, 'landing');
             flyToWithAnticipatedBasemap(
               instance,
               // FLYTO DURATION (ms) for fullscreen→landing
@@ -1462,6 +1474,7 @@
         canvasContextAttributes: getCanvasContextAttributes()
       });
       map = instance;
+      applyLandingInteractionMode(instance, mode);
 
       // Register style.load IMMEDIATEALLY after construction — when passing a
       // style object, MapLibre may fire style.load synchronously during the
@@ -1786,9 +1799,71 @@
       globeDataRefreshToken += 1;
     }, 60_000);
 
+    // In landing mode, the bottom gradient blur/fade belongs visually to the
+    // hero content: as the user scrolls down it must travel with the hero and
+    // eventually leave the viewport, while the globe canvas itself stays put.
+    // The blur layers use backdrop-filter, which samples the *backdrop* (the
+    // fixed map canvas), so we cannot simply translate the whole gradient
+    // container — that would smear the blurred region across the wrong part of
+    // the map. Instead we:
+    //   1. fade the blur/fade layers out over the first ~35vh of scrolling;
+    //   2. only translate a *solid* base-color floor (no backdrop-filter) that
+    //      rises with the scrolled content and keeps covering the globe below
+    //      the fold, so the blur layers never have to sample page content.
+    let scrollGradientRaf: number | null = null;
+    const GRADIENT_FADE_SCROLL_VH = 0.35;
+
+    // Single source of truth for the scroll-driven gradient state. Exposed so
+    // mode transitions can re-assert it after the CSS !important overrides are
+    // lifted (otherwise the inline opacity can get stuck at 0 and the gradient
+    // never comes back when scrolling to the top / re-entering landing mode).
+    const syncGradientToScroll = () => {
+      const gradient = document.getElementById('globe-bottom-gradient');
+      const floor = document.getElementById('globe-scroll-floor');
+      if (untrack(() => mode) !== 'landing') return;
+      const scrollY = window.scrollY;
+      const vh = window.innerHeight;
+      const fadeProgress = Math.min(scrollY / (vh * GRADIENT_FADE_SCROLL_VH), 1);
+      if (floor) {
+        floor.style.transform = `translate3d(0, ${-scrollY}px, 0)`;
+      }
+      if (gradient) {
+        gradient.style.opacity = `${1 - fadeProgress}`;
+        // While fully faded out it must not swallow clicks/wheel events.
+        gradient.style.pointerEvents = fadeProgress >= 1 ? 'none' : '';
+      }
+    };
+    // Register for mode transitions.
+    syncGradientToScrollRef = syncGradientToScroll;
+
+    const handleLandingScroll = () => {
+      if (scrollGradientRaf !== null) return;
+      scrollGradientRaf = requestAnimationFrame(() => {
+        scrollGradientRaf = null;
+        syncGradientToScroll();
+      });
+    };
+    if (mode === 'landing') {
+      syncGradientToScroll();
+      window.addEventListener('scroll', handleLandingScroll, { passive: true });
+    }
+
     return () => {
       destroyed = true;
       window.removeEventListener('nearcade-theme-change', handleThemeChange);
+      window.removeEventListener('scroll', handleLandingScroll);
+      if (scrollGradientRaf !== null) {
+        cancelAnimationFrame(scrollGradientRaf);
+        scrollGradientRaf = null;
+      }
+      syncGradientToScrollRef = null;
+      const gradient = document.getElementById('globe-bottom-gradient');
+      if (gradient) {
+        gradient.style.opacity = '';
+        gradient.style.pointerEvents = '';
+      }
+      const floor = document.getElementById('globe-scroll-floor');
+      if (floor) floor.style.transform = '';
       reinitializeGlobe = null;
       startBenchmark = null;
       stopBenchmark?.();
@@ -1821,7 +1896,9 @@
     class="landing-mode pointer-events-auto h-full w-full cursor-pointer"
   ></div>
 
-  <!-- ---- Bottom gradient blur (landing mode only) ---- -->
+  <!-- ---- Bottom gradient blur (landing mode only) ----
+       pointer-events-none by default so wheel/touch always pass through to
+       the page/canvas; JS toggles inline pointerEvents only as a safety net. -->
   <div
     id="globe-bottom-gradient"
     class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]"
@@ -1845,6 +1922,17 @@
       class="from-base-100 absolute inset-x-0 bottom-[30vh] h-[40vh] bg-linear-to-t to-transparent"
     ></div>
   </div>
+
+  <!-- ---- Solid scroll floor (landing mode only) ----
+       A plain (no backdrop-filter) base-color surface that starts at the bottom
+       of the first viewport and is translated upwards with page scroll. It keeps
+       the globe canvas below the fold covered with the page background color as
+       the hero content scrolls away, since the blur layers above are faded out
+       and cannot be moved themselves. -->
+  <div
+    id="globe-scroll-floor"
+    class="bg-base-100 absolute inset-x-0 top-full z-10 h-[200vh] will-change-transform"
+  ></div>
 
   <!-- ================================================================
        Sidebar (fullscreen mode only)
@@ -2042,7 +2130,7 @@
                     mobileButtons
                     onclick={() => {
                       const entry = shopLookup.get(getShopKey(shop));
-                      if (entry) pinShop(entry);
+                      if (entry) pinShop(entry, true);
                     }}
                   />
                 </div>
@@ -2426,6 +2514,13 @@
     pointer-events: none;
   }
 
+  /* In landing mode, let one-finger touch drags scroll the page vertically
+     instead of being consumed by the map canvas. Mouse drag-panning is
+     unaffected (it does not rely on touch-action). */
+  :global(.landing-mode .maplibregl-canvas) {
+    touch-action: pan-y;
+  }
+
   /* ── Transition phases ──
      Phase 1 (globe-exiting-landing): Fade out gradient + hero content immediately.
      Phase 2 (globe-visual-fullscreen): Show sidebar after delay.
@@ -2452,18 +2547,22 @@
     pointer-events: none;
   }
 
-  /* Bottom gradient — fades out when exiting landing */
-  :global(#globe-bottom-gradient) {
+  /* Bottom gradient — fades out when exiting landing.
+     In landing mode its opacity is also driven inline by page scroll. */
+  :global(.globe-visual-fullscreen #globe-bottom-gradient) {
+    opacity: 0 !important;
     transition: opacity 0.4s ease;
   }
-  :global(.globe-visual-landing #globe-bottom-gradient) {
-    opacity: 1;
-  }
-  :global(.globe-visual-fullscreen #globe-bottom-gradient) {
-    opacity: 0;
-  }
   :global(.globe-exiting-landing #globe-bottom-gradient) {
-    opacity: 0;
+    opacity: 0 !important;
+    transition: opacity 0.4s ease;
+  }
+
+  /* Scroll floor is only meaningful in landing mode */
+  :global(.globe-visual-fullscreen #globe-scroll-floor),
+  :global(.globe-exiting-landing #globe-scroll-floor),
+  :global(.globe-exiting-fullscreen #globe-scroll-floor) {
+    display: none;
   }
 
   /* Dev panel position */

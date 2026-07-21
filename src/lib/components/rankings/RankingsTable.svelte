@@ -115,7 +115,8 @@
     return num.toLocaleString();
   };
 
-  const formatDensity = (density: number): string => {
+  const formatDensity = (density: number | null): string => {
+    if (density == null) return '—';
     if (density === 0) return '0.000';
     return density.toFixed(3);
   };

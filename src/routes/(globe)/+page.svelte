@@ -26,6 +26,9 @@
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { fade, slide } from 'svelte/transition';
+  import HomeContent from '$lib/components/home/HomeContent.svelte';
+  import NavigationBar from '$lib/components/NavigationBar.svelte';
+  import Footer from '$lib/components/Footer.svelte';
 
   import { HAS_DISCRETE_GPU, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
@@ -87,6 +90,11 @@
 
   let showGlobe = $state(browser && HAS_DISCRETE_GPU && !IS_LOW_DATA);
   let now = $state(new Date());
+
+  // Once the user has scrolled a full viewport height, the globe is fully
+  // covered by the new content — swap the hero top bar for the regular
+  // NavigationBar. The heavy navbar is only mounted when needed.
+  let showScrolledNavbar = $state(false);
 
   const searchUniversities = async (query: string, requestId: number) => {
     if (query.trim().length === 0) {
@@ -211,6 +219,21 @@
       now = new Date();
     }, 1000);
 
+    // Track scroll depth to swap the hero top bar for the real NavigationBar
+    // once the first (full-height) screen has been scrolled past.
+    let navbarScrollRaf: number | null = null;
+    const handleNavbarScroll = () => {
+      if (navbarScrollRaf !== null) return;
+      navbarScrollRaf = requestAnimationFrame(() => {
+        navbarScrollRaf = null;
+        const threshold = window.innerHeight * 0.85;
+        const shouldShow = window.scrollY >= threshold;
+        if (shouldShow !== showScrolledNavbar) showScrolledNavbar = shouldShow;
+      });
+    };
+    handleNavbarScroll();
+    window.addEventListener('scroll', handleNavbarScroll, { passive: true });
+
     // Defer the heavy starred-shops list until after the initial mount so
     // the globe -> landing transition isn't blocked by it.
     const starredTimer = setTimeout(() => {
@@ -224,6 +247,8 @@
 
     return () => {
       window.removeEventListener('amap-loaded', assignAMap);
+      window.removeEventListener('scroll', handleNavbarScroll);
+      if (navbarScrollRaf !== null) cancelAnimationFrame(navbarScrollRaf);
       clearInterval(interval);
       clearTimeout(starredTimer);
     };
@@ -242,6 +267,23 @@
   <meta name="twitter:description" content={m.meta_description_home()} />
   <meta name="twitter:image" content="{base}/logo-og.png" />
 </svelte:head>
+
+<!-- Regular NavigationBar, mounted lazily: it only appears once the user has
+     scrolled a full viewport height and the globe is completely covered by the
+     new content. The hero top bar scrolls away with the hero content.
+     The wrapper is fixed with a high z-index so it always composites above
+     page content during the whole fade — otherwise a fast scroll past the
+     threshold makes it pop in abruptly after the transition. -->
+{#if showScrolledNavbar}
+  <div
+    class="globe-navbar-wrap pointer-events-none fixed inset-x-0 top-0 z-1000"
+    transition:fade={{ duration: 300 }}
+  >
+    <div class="pointer-events-auto">
+      <NavigationBar />
+    </div>
+  </div>
+{/if}
 
 <!-- Landing page content sits above the fixed globe background (z-0).
      Outer containers are pointer-events-none so empty areas pass clicks through
@@ -268,20 +310,6 @@
         <i class="fa-solid fa-globe fa-lg"></i>
         <span class="hidden lg:inline">{m.globe()}</span>
       </a>
-      <a
-        href={resolve('/(main)/rankings/campus')}
-        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
-      >
-        <i class="fa-solid fa-trophy fa-lg"></i>
-        <span class="hidden lg:inline">{m.campus_rankings()}</span>
-      </a>
-      <!-- <a
-        href={resolve('/(main)/rankings/region')}
-        class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
-      >
-        <i class="fa-solid fa-earth-americas fa-lg"></i>
-        <span class="hidden lg:inline">{m.region_rankings()}</span>
-      </a> -->
       <AuthModal size="lg" />
     </div>
 
@@ -822,35 +850,53 @@
     </div>
 
     <div
-      class="hero-bottom-bar pointer-events-auto absolute bottom-4 flex w-full flex-row-reverse items-center justify-between gap-0.5 px-3 md:gap-1 lg:gap-2 lg:px-4 xl:px-6"
+      class="hero-bottom-bar pointer-events-none fixed inset-x-0 bottom-4 z-20 px-3 transition-opacity duration-300 md:px-4 lg:px-6"
+      class:opacity-0={showScrolledNavbar}
       in:fade={{ delay: 500, duration: 400 }}
       out:fade={{ duration: 300 }}
     >
-      <div class="flex items-center gap-0.5 md:gap-1 lg:gap-2">
-        <a
-          href={GITHUB_LINK}
-          target="_blank"
-          class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+      <div
+        class="pointer-events-auto flex w-full flex-row-reverse items-center justify-between gap-0.5 md:gap-1 lg:gap-2"
+      >
+        <!-- Capsule background matching the hero top bar -->
+        <div
+          class="bg-base-100/50 flex items-center gap-0.5 rounded-full px-1 backdrop-blur-lg md:gap-1 lg:gap-2"
         >
-          <i class="fa-brands fa-github fa-lg"></i>
-          <span class="hidden lg:inline">GitHub</span>
-        </a>
-        <SocialMediaModal
-          name="QQ"
-          class="fa-brands fa-qq fa-lg"
-          description={m.qq_description()}
-          image="{base}/group-chat-qq.jpg"
-        />
-        <ThemeSwitch />
+          <a
+            href={GITHUB_LINK}
+            target="_blank"
+            class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+          >
+            <i class="fa-brands fa-github fa-lg"></i>
+            <span class="hidden lg:inline">GitHub</span>
+          </a>
+          <SocialMediaModal
+            name="QQ"
+            class="fa-brands fa-qq fa-lg"
+            description={m.qq_description()}
+            image="{base}/group-chat-qq.jpg"
+          />
+          <ThemeSwitch />
+        </div>
+        {#if showIcpLicense}
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            class="text-base-content/60 hover:text-base-content text-xs transition sm:text-sm md:text-base"
+            >{env.PUBLIC_ICP_LICENSE}</a
+          >
+        {/if}
       </div>
-      {#if showIcpLicense}
-        <a
-          href="https://beian.miit.gov.cn/"
-          target="_blank"
-          class="text-base-content/60 hover:text-base-content text-xs transition sm:text-sm md:text-base"
-          >{env.PUBLIC_ICP_LICENSE}</a
-        >
-      {/if}
+    </div>
+  </div>
+
+  <!-- Below-the-fold content: stats, leaderboards, recent changelog.
+       Only reachable by scrolling past the first (full-height) hero screen. -->
+  <div class="pointer-events-auto relative z-10">
+    <HomeContent />
+    <!-- Page-bottom footer (always visible at the end of the scrolled content) -->
+    <div class="bg-base-100 flex justify-center pb-6">
+      <Footer />
     </div>
   </div>
 </div>

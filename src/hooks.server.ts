@@ -1,3 +1,4 @@
+import { initRegionCache } from '$lib/regions/utils.server';
 import { sequence } from '@sveltejs/kit/hooks';
 import pc from 'picocolors';
 import {
@@ -344,6 +345,7 @@ export const init: ServerInit = async () => {
     const meili = await import('$lib/db/meili.server');
     await meili.init();
     const mongo = (await import('$lib/db/index.server')).default;
+    await initRegionCache(mongo);
     const redis = (await import('$lib/db/redis.server')).default;
     const oss = getAvailableOSS();
     console.log(

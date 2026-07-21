@@ -57,7 +57,7 @@
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('radius', radiusFilter.toString());
         apiUrl.searchParams.set('after', nextCursor);
-        apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());
+        apiUrl.searchParams.set('limit', PAGINATION.RANKING_PAGE_SIZE.toString());
 
         const response = await fetch(apiUrl.toString());
 

@@ -1,3 +1,5 @@
+import type { AddressRegionEntry } from '$lib/regions/types';
+
 const HIGHLIGHT_PRE_TAG = '<span class="text-highlight">';
 const HIGHLIGHT_POST_TAG = '</span>';
 
@@ -66,4 +68,38 @@ export const expandHighlightedBracketsRecursive = <T>(input: T, query: string): 
   };
 
   return visit(input) as T;
+};
+
+/**
+ * Apply search-query highlighting to expanded region entries' name values.
+ * For each region entry, if the query (or any token of it) matches a name value
+ * (case-insensitive substring), that value is wrapped with highlight tags.
+ * This ensures `formatShopAddress` → `getDisplayAddressParts` → `selectLocalizedRegionName`
+ * picks up the highlighted name for the user's locale.
+ */
+export const highlightRegionEntries = (
+  entries: AddressRegionEntry[],
+  query: string
+): AddressRegionEntry[] => {
+  const trimmed = query.trim();
+  if (!trimmed) return entries;
+
+  const tokens = tokenizeSearchQuery(trimmed);
+  if (tokens.length === 0) return entries;
+
+  return entries.map((entry) => {
+    const highlightedName: Record<string, string> = {};
+    for (const [locale, value] of Object.entries(entry.name)) {
+      if (!value) {
+        highlightedName[locale] = value;
+        continue;
+      }
+      const lowerValue = value.toLowerCase();
+      const matched = tokens.some((token) => lowerValue.includes(token.toLowerCase()));
+      highlightedName[locale] = matched
+        ? `${HIGHLIGHT_PRE_TAG}${value}${HIGHLIGHT_POST_TAG}`
+        : value;
+    }
+    return { id: entry.id, name: highlightedName };
+  });
 };

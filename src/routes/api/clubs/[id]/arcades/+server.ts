@@ -4,6 +4,7 @@ import { PAGINATION } from '$lib/constants';
 import type { Club, Shop } from '$lib/types';
 import { toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import {
   clubArcadesQuerySchema,
@@ -59,9 +60,11 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
       // Sort arcades to match the order in club.starredArcades
       const arcadeMap = new Map(arcadeResults.map((arcade) => [arcade.id, arcade]));
-      arcades = toPlainArray(
-        pageArcadeIdentifiers.map((arcade) => arcadeMap.get(arcade)).filter(Boolean) as Shop[]
-      );
+      arcades = pageArcadeIdentifiers
+        .map((arcade) => arcadeMap.get(arcade))
+        .filter(Boolean) as Shop[];
+      arcades = await expandShopsRegions(arcades);
+      arcades = toPlainArray(arcades);
     }
 
     return json(

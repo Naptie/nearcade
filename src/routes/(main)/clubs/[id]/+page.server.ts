@@ -17,6 +17,7 @@ import {
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -86,14 +87,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade));
 
         if (arcades.length > 0) {
-          starredArcades = toPlainArray(
-            await shopsCollection
-              .find({
-                id: { $in: arcades }
-              })
-              .limit(PAGINATION.PAGE_SIZE)
-              .toArray()
-          );
+          starredArcades = await shopsCollection
+            .find({
+              id: { $in: arcades }
+            })
+            .limit(PAGINATION.PAGE_SIZE)
+            .toArray();
+          starredArcades = await expandShopsRegions(starredArcades);
+          starredArcades = toPlainArray(starredArcades);
         }
       }
 

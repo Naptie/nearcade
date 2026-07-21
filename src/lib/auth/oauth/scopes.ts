@@ -126,7 +126,7 @@ const PATH_RESOURCE_RULES: {
   // Discover (read-only public data — allow with read:shops)
   { prefix: '/api/discover', resource: 'shops' },
 
-  // Rankings (read-only public data — allow with read:universities)
+  // Campus Rankings (read-only public data — allow with read:universities)
   { prefix: '/api/rankings/campus', resource: 'universities' },
 
   // Region Rankings (read-only public data — allow with read:shops)

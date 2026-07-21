@@ -30,16 +30,8 @@ const createRedisClient = () => {
     console.error('[Redis] Client error:', err);
   });
 
-  client.on('connect', () => {
-    console.log('[Redis] Connected');
-  });
-
   client.on('reconnecting', () => {
     console.log('[Redis] Reconnecting...');
-  });
-
-  client.on('ready', () => {
-    console.log('[Redis] Ready');
   });
 
   return client;

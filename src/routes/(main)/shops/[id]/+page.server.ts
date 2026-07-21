@@ -9,6 +9,7 @@ import type {
 } from '$lib/types';
 import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { expandShopRegions } from '$lib/utils/region.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
@@ -42,6 +43,12 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   let userAttendance: { shop: Shop; attendedAt: Date } | null = null;
   if (session?.user?.id) {
     userAttendance = await getCurrentAttendance(session.user.id);
+    if (userAttendance) {
+      userAttendance = {
+        ...userAttendance,
+        shop: await expandShopRegions(userAttendance.shop)
+      };
+    }
   }
 
   // Stream heavier/secondary data for fast first paint
@@ -165,8 +172,10 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
   })();
 
+  const shopWithRegions = await expandShopRegions(shop);
+
   return {
-    shop: toPlainObject(shop),
+    shop: toPlainObject(shopWithRegions),
     firstPhoto: firstPhoto ? toPlainObject(firstPhoto) : null,
     currentAttendance: userAttendance
       ? { shop: toPlainObject(userAttendance.shop), attendedAt: userAttendance.attendedAt }

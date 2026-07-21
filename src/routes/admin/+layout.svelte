@@ -54,6 +54,14 @@
       developerVisible: false
     },
     {
+      id: 'regions',
+      label: m.admin_regions(),
+      icon: 'fa-map-location-dot',
+      href: resolve('/admin/regions'),
+      requiresSiteAdmin: true,
+      developerVisible: false
+    },
+    {
       id: 'clubs',
       label: m.admin_clubs(),
       icon: 'fa-users',

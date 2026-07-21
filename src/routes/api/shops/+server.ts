@@ -16,6 +16,11 @@ import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.serve
 import { m } from '$lib/paraglide/messages';
 import { buildSearchPattern } from '$lib/utils/search';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
+import {
+  resolveShopAddress,
+  expandShopAddress,
+  localizeAddressGeneral
+} from '$lib/utils/region.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -123,6 +128,7 @@ export const GET: RequestHandler = async ({ url }) => {
     q: query,
     page,
     limit: parsedLimit,
+    regionId,
     includeTimeInfo
   } = parseQueryOrError(shopsListQuerySchema, url);
   const limit = parsedLimit || PAGINATION.PAGE_SIZE;
@@ -132,13 +138,17 @@ export const GET: RequestHandler = async ({ url }) => {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
+    // Build region filter: match shops whose address.region array contains the given ID
+    const regionFilter = regionId ? { 'address.region': regionId } : {};
+
     let shops: Shop[];
     let totalCount: number;
     if (query.trim().length === 0) {
       // Fetch all shops with pagination
-      totalCount = await shopsCollection.countDocuments();
+      const baseFilter = { ...regionFilter };
+      totalCount = await shopsCollection.countDocuments(baseFilter);
       shops = (await shopsCollection
-        .find({})
+        .find(baseFilter)
         .sort({ name: 1 })
         .collation({ locale: 'zh@collation=gb2312han' })
         .skip(skip)
@@ -151,48 +161,59 @@ export const GET: RequestHandler = async ({ url }) => {
 
       try {
         // Try Atlas Search first
-        searchResults = (await shopsCollection
-          .aggregate([
-            {
-              $search: {
-                index: 'default',
-                compound: {
-                  should: [
-                    {
-                      text: {
-                        query: query,
-                        path: 'name',
-                        score: { boost: { value: 2 } }
-                      }
-                    },
-                    {
-                      text: {
-                        query: query,
-                        path: 'address.general'
-                      }
-                    },
-                    {
-                      text: {
-                        query: query,
-                        path: 'address.detailed'
-                      }
+        const searchPipeline: object[] = [
+          {
+            $search: {
+              index: 'default',
+              compound: {
+                should: [
+                  {
+                    text: {
+                      query: query,
+                      path: 'name',
+                      score: { boost: { value: 2 } }
                     }
-                  ]
-                }
+                  },
+                  {
+                    text: {
+                      query: query,
+                      path: 'address.general'
+                    }
+                  },
+                  {
+                    text: {
+                      query: query,
+                      path: 'address.detailed'
+                    }
+                  }
+                ]
               }
-            },
-            { $sort: { score: { $meta: 'searchScore' }, name: 1 } },
-            { $skip: skip },
-            { $limit: limit }
-          ])
+            }
+          },
+          { $sort: { score: { $meta: 'searchScore' }, name: 1 } }
+        ];
+
+        if (regionId) {
+          searchPipeline.push({ $match: { 'address.region': regionId } });
+        }
+
+        searchPipeline.push({ $skip: skip }, { $limit: limit });
+
+        searchResults = (await shopsCollection
+          .aggregate(searchPipeline)
           .toArray()) as unknown as Shop[];
       } catch {
         // Fallback to regex search
-        const searchQuery = {
-          $or: [
-            { name: { $regex: pattern, $options: 'is' } },
-            { 'address.general': { $elemMatch: { $regex: pattern, $options: 'is' } } },
-            { 'address.detailed': { $regex: pattern, $options: 'is' } }
+        const searchQuery: Record<string, unknown> = {
+          $and: [
+            {
+              $or: [
+                { name: { $regex: pattern, $options: 'is' } },
+                { 'address.general': { $elemMatch: { $regex: pattern, $options: 'is' } } },
+                { 'address.detailed': { $regex: pattern, $options: 'is' } }
+              ]
+            },
+            ...(regionId ? [{ 'address.region': regionId }] : [])
           ]
         };
 
@@ -216,27 +237,43 @@ export const GET: RequestHandler = async ({ url }) => {
 
     const response = shopsListResponseSchema.parse(
       toPlainObject({
-        shops: shops.map((shop) => {
-          const extraTimeInfo = (() => {
-            if (!includeTimeInfo)
-              return {} as Partial<{
-                timezone: { name: string; offset: number };
-                isOpen: boolean;
-              }>;
-            const openingHours = getShopOpeningHours(shop);
-            const isOpen = now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
-            const timezoneName = getShopTimezone(shop.location);
-            return {
-              timezone: { name: timezoneName, offset: openingHours.offsetHours },
-              isOpen
-            };
-          })();
+        shops: await Promise.all(
+          shops.map(async (shop) => {
+            const extraTimeInfo = (() => {
+              if (!includeTimeInfo)
+                return {} as Partial<{
+                  timezone: { name: string; offset: number };
+                  isOpen: boolean;
+                }>;
+              const openingHours = getShopOpeningHours(shop);
+              const isOpen =
+                now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
+              const timezoneName = getShopTimezone(shop.location);
+              return {
+                timezone: { name: timezoneName, offset: openingHours.offsetHours },
+                isOpen
+              };
+            })();
 
-          return {
-            ...shop,
-            ...extraTimeInfo
-          };
-        }),
+            const rawRegion = shop.address?.region;
+            const regionIds =
+              Array.isArray(rawRegion) &&
+              rawRegion.length > 0 &&
+              rawRegion.every((r): r is string => typeof r === 'string')
+                ? rawRegion
+                : undefined;
+            const expandedRegion = await expandShopAddress(regionIds);
+            const localizedAddress = { ...shop.address, region: expandedRegion };
+            return {
+              ...shop,
+              address: {
+                ...localizedAddress,
+                general: localizeAddressGeneral(localizedAddress)
+              },
+              ...extraTimeInfo
+            };
+          })
+        ),
         totalCount,
         currentPage: page,
         hasNextPage: skip + shops.length < totalCount,
@@ -285,13 +322,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       );
     }
 
+    const resolvedAddress = await resolveShopAddress({
+      general: address?.general ?? [],
+      detailed: address?.detailed ?? '',
+      region: address?.region as string[] | undefined,
+      coordinates: location?.coordinates ?? null
+    });
+
     const now = new Date();
     const newShop: Shop = {
       _id: nanoid(),
       id: newId,
       name: name.trim(),
       comment: comment ?? '',
-      address: address ?? { general: [], detailed: '' },
+      address: resolvedAddress,
       openingHours: normalizedOpeningHours,
       location,
       games: normalizedGames ?? [],
@@ -318,7 +362,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       console.error('Failed to log shop creation changelog:', logErr);
     }
 
-    const response = shopResponseSchema.parse(toPlainObject({ shop: newShop }));
+    const expandedRegion = await expandShopAddress(resolvedAddress.region);
+    const localizedAddress = { ...newShop.address, region: expandedRegion };
+    const response = shopResponseSchema.parse(
+      toPlainObject({
+        shop: {
+          ...newShop,
+          address: {
+            ...localizedAddress,
+            general: localizeAddressGeneral(localizedAddress)
+          }
+        }
+      })
+    );
 
     return json(response, { status: 201 });
   } catch (err) {

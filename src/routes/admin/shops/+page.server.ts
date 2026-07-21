@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -63,8 +64,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   // Get shop statistics
   const totalShops = await db.collection('shops').countDocuments();
 
+  const shopsWithRegions = await expandShopsRegions(shops);
+
   return {
-    shops: toPlainArray(shops),
+    shops: toPlainArray(shopsWithRegions),
     search,
     currentPage: page,
     hasMore,

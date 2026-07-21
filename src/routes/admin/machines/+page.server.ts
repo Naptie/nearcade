@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import type { Machine, Shop } from '$lib/types';
 import { serialNumber, toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
 
@@ -91,8 +92,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const totalMachines = await machinesCollection.countDocuments();
   const activatedMachines = await machinesCollection.countDocuments({ isActivated: true });
 
+  const machinesWithRegions = await expandShopsRegions(
+    (machines as MachineListItem[]).map((machine) => machine.shop).filter(Boolean) as Shop[]
+  );
+  const machineShopMap = new Map(machinesWithRegions.map((shop) => [shop.id, shop]));
+  const machinesWithExpandedShops = (machines as MachineListItem[]).map((machine) => ({
+    ...machine,
+    shop: machine.shop ? (machineShopMap.get(machine.shop.id) ?? machine.shop) : undefined
+  }));
+
   return {
-    machines: toPlainArray(machines as MachineListItem[]),
+    machines: toPlainArray(machinesWithExpandedShops),
     search,
     currentPage: page,
     hasMore,

@@ -167,6 +167,7 @@
         class="fa-solid fa-circle-info"
         btnCls="btn btn-primary btn-soft btn-sm"
         text={m.shop_details()}
+        stayExpandedOnWideScreens
       />
       <FancyButton
         href={nearbyUrl}
@@ -174,6 +175,7 @@
         class="fa-solid fa-map-location-dot"
         btnCls="btn btn-accent btn-soft btn-sm"
         text={m.explore_nearby()}
+        stayExpandedOnWideScreens
       />
       <FancyButton
         href={mapUrl}
@@ -181,6 +183,7 @@
         class="fa-solid fa-map"
         btnCls="btn btn-soft btn-sm"
         text={mapLinkLabel}
+        stayExpandedOnWideScreens
       />
     </div>
   {/if}

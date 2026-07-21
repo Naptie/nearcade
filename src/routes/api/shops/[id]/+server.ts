@@ -18,6 +18,11 @@ import {
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
+import {
+  resolveShopAddress,
+  expandShopAddress,
+  localizeAddressGeneral
+} from '$lib/utils/region.server';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
@@ -325,9 +330,26 @@ export const GET: RequestHandler = async ({ params, url }) => {
       };
     })();
 
+    const rawRegion = shop.address?.region;
+    const regionIds =
+      Array.isArray(rawRegion) &&
+      rawRegion.length > 0 &&
+      rawRegion.every((r): r is string => typeof r === 'string')
+        ? rawRegion
+        : undefined;
+    const expandedRegion = await expandShopAddress(regionIds);
+    const localizedAddress = { ...shop.address, region: expandedRegion };
+
     const response = shopResponseSchema.parse(
       toPlainObject({
-        shop: { ...shop, ...extraTimeInfo }
+        shop: {
+          ...shop,
+          address: {
+            ...localizedAddress,
+            general: localizeAddressGeneral(localizedAddress)
+          },
+          ...extraTimeInfo
+        }
       })
     );
 
@@ -370,7 +392,20 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     const updateFields: Partial<Shop> = { updatedAt: new Date() };
     if (name !== undefined) updateFields.name = name;
     if (comment !== undefined) updateFields.comment = comment;
-    if (address !== undefined) updateFields.address = address;
+    if (address !== undefined) {
+      const coords = (location?.coordinates ?? existing.location?.coordinates ?? null) as
+        [number, number] | null;
+      const regionIds =
+        address.region && Array.isArray(address.region)
+          ? address.region.map((r) => (typeof r === 'string' ? r : r.id))
+          : undefined;
+      updateFields.address = await resolveShopAddress({
+        general: address.general ?? [],
+        detailed: address.detailed ?? '',
+        region: regionIds,
+        coordinates: coords
+      });
+    }
     if (openingHours !== undefined) {
       const normalizedOpeningHours = normalizeOpeningHours(openingHours);
       if (!normalizedOpeningHours) {
@@ -426,7 +461,24 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const updated = await shopsCollection.findOne({ id: shopId });
-    const response = shopResponseSchema.parse(toPlainObject({ shop: updated! }));
+    const rawRegion = updated!.address?.region;
+    const regionIds =
+      Array.isArray(rawRegion) && rawRegion.length > 0 && typeof rawRegion[0] === 'string'
+        ? (rawRegion as string[])
+        : undefined;
+    const expandedRegion = await expandShopAddress(regionIds);
+    const localizedAddress = { ...updated!.address, region: expandedRegion };
+    const response = shopResponseSchema.parse(
+      toPlainObject({
+        shop: {
+          ...updated!,
+          address: {
+            ...localizedAddress,
+            general: localizeAddressGeneral(localizedAddress)
+          }
+        }
+      })
+    );
     return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
@@ -465,7 +517,24 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
 
     const updated = await shopsCollection.findOne({ id: shopId });
-    const response = shopResponseSchema.parse(toPlainObject({ shop: updated! }));
+    const rawRegion = updated!.address?.region;
+    const regionIds =
+      Array.isArray(rawRegion) && rawRegion.length > 0 && typeof rawRegion[0] === 'string'
+        ? (rawRegion as string[])
+        : undefined;
+    const expandedRegion = await expandShopAddress(regionIds);
+    const localizedAddress = { ...updated!.address, region: expandedRegion };
+    const response = shopResponseSchema.parse(
+      toPlainObject({
+        shop: {
+          ...updated!,
+          address: {
+            ...localizedAddress,
+            general: localizeAddressGeneral(localizedAddress)
+          }
+        }
+      })
+    );
     return json(response);
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {

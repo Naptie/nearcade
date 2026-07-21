@@ -23,7 +23,7 @@ const requireSiteAdminOrSecret = (request: Request, locals: App.Locals) => {
     return {
       source: 'ssc',
       userId: null,
-      userName: 'SSC_SECRET'
+      userName: 'Remote service'
     } satisfies DataUpdateTriggerContext;
   }
 

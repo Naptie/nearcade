@@ -13,7 +13,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
     const apiUrl = new URL('/api/rankings/campus', env.PUBLIC_API_BASE || url.origin);
     apiUrl.searchParams.set('sortBy', sortBy);
     apiUrl.searchParams.set('radius', radius.toString());
-    apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());
+    apiUrl.searchParams.set('limit', PAGINATION.RANKING_PAGE_SIZE.toString());
 
     const response = await fetch(apiUrl.toString());
 

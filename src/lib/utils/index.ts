@@ -1,4 +1,5 @@
 import { m } from '$lib/paraglide/messages';
+import { getLocale } from '$lib/paraglide/runtime';
 import { Database } from '$lib/db/index.client';
 import { GAME_TITLES } from '$lib/constants';
 import { userPrivateFieldNames } from '$lib/schemas/common';
@@ -1089,50 +1090,79 @@ export const formatOpeningHourLiteral = (time: unknown) => {
   return `${hh}:${mm}`;
 };
 
-export const isCJKText = (text: string) => !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(text.trim());
-
-export const isShopChinaBased = (shop: { address: { general: string[] } }) => {
-  return shop.address.general[0] && isCJKText(shop.address.general[0]);
+export const isShopChinaBased = (shop: {
+  address: {
+    general: string[];
+    region?: string[] | { id: string; name: Record<string, string> }[];
+  };
+}) => {
+  const regions = shop.address.region;
+  if (regions && regions.length > 0) {
+    const first = regions[0];
+    return typeof first === 'string' ? first === 'CN' : first.id === 'CN';
+  }
+  // Fallback: without region data, assume non-China (safe default for map links)
+  return false;
 };
 
 /**
  * Formats address parts with locale-aware separators.
- * CJK (non-Latin first part): natural order, dot-separated  → "中国 · 上海"
- * Western (Latin first part): reversed, comma-separated      → "California, United States"
+ * zh/ja locales: natural order, dot-separated  → "中国 · 上海"
+ * Other locales: reversed, comma-separated      → "California, United States"
  */
-export const formatAddressParts = (parts: string[]): string => {
+export const formatAddressParts = (parts: string[], locale?: string): string => {
   if (parts.length === 0) return '';
-  const cjk = isCJKText(parts[0]);
-  return cjk ? parts.join(' · ') : parts.toReversed().join(', ');
+  const useNaturalOrder = locale === 'zh-CN' || locale === 'zh' || locale === 'ja';
+  return useNaturalOrder ? parts.join(' · ') : parts.toReversed().join(', ');
 };
 
 /**
- * Formats a shop's address array into a readable string
+ * Pick the most appropriate localized name from a region's name map.
+ * Falls back through: exact locale → language code → English → any available value.
  */
-export const formatShopAddress = (
-  shop: {
-    address: { general: string[]; detailed?: string };
-    addressHl?: { general: string[]; detailed?: string };
-  },
-  detailed = false
-): string => {
-  const address = shop.addressHl || shop.address;
-  const addressParts = getAddressParts(address.general);
-  const detailedAddress = address.detailed ?? '';
-
-  if (addressParts.length === 0) return '';
-
-  const formatted = formatAddressParts(addressParts);
-  const reverse = !isShopChinaBased(shop);
-
-  return detailed
-    ? (reverse ? detailedAddress + '\n' + formatted : formatted + '\n' + detailedAddress).trim()
-    : formatted;
+const selectLocalizedRegionName = (name: Record<string, string>, locale?: string): string => {
+  if (locale) {
+    if (name[locale]) return name[locale];
+    const language = locale.split('-')[0];
+    if (name[language]) return name[language];
+  }
+  if (name.en) return name.en;
+  const firstAvailable = Object.values(name).find((value) => value);
+  return firstAvailable ?? '';
 };
 
+/**
+ * Derive locale-aware display address parts from region data.
+ * Falls back to `address.general` when region data is unavailable.
+ */
+export const getDisplayAddressParts = (
+  address: {
+    general: string[];
+    region?: string[] | { id: string; name: Record<string, string> }[];
+  },
+  locale: string = getLocale()
+): string[] => {
+  const regions = address.region;
+  if (regions && regions.length > 0 && typeof regions[0] === 'object') {
+    const entries = regions as { id: string; name: Record<string, string> }[];
+    return entries.map((entry) => selectLocalizedRegionName(entry.name, locale));
+  }
+  // Fallback: use general address with deduplication
+  const parts: string[] = [];
+  const seen = new Set<string>();
+  for (const part of address.general) {
+    if (!part) continue;
+    const trimmed = part.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    parts.push(trimmed);
+  }
+  return parts;
+};
+
+// Keep getAddressParts as the dedup-only variant for backwards compat
 export const getAddressParts = (address: string[]) => {
   const addressParts: string[] = [];
-
   if (address) {
     const seen = new Set<string>();
     for (const part of address) {
@@ -1146,6 +1176,45 @@ export const getAddressParts = (address: string[]) => {
     }
   }
   return addressParts;
+};
+
+/**
+ * Formats a shop's address into a readable string using region data when available.
+ * Respects the user's locale for both region names and address ordering.
+ */
+export const formatShopAddress = (
+  shop: {
+    address: {
+      general: string[];
+      detailed?: string;
+      region?: string[] | { id: string; name: Record<string, string> }[];
+    };
+    addressHl?: {
+      general: string[];
+      detailed?: string;
+      region?: string[] | { id: string; name: Record<string, string> }[];
+    };
+  },
+  detailed = false,
+  locale: string = getLocale()
+): string => {
+  const address = shop.addressHl || shop.address;
+  const region = shop.address.region; // always from original, never from highlight
+  const general = address.general; // may be highlighted
+  const addressParts =
+    region?.length && typeof region[0] === 'object'
+      ? getDisplayAddressParts({ general, region }, locale)
+      : getAddressParts(general);
+  const detailedAddress = address.detailed ?? '';
+
+  if (addressParts.length === 0) return '';
+  const formatted = formatAddressParts(addressParts, locale);
+  // CJK locales show region before detailed street address; Western locales show street first.
+  const cjkLocale = locale === 'zh-CN' || locale === 'zh' || locale === 'ja';
+
+  return detailed
+    ? (cjkLocale ? formatted + '\n' + detailedAddress : detailedAddress + '\n' + formatted).trim()
+    : formatted;
 };
 
 /**
@@ -1246,11 +1315,12 @@ export const getNextTimeAtHour = (
   }
 
   return {
-    hours: normalizedHours.map((hour) => {
+    hours: normalizedHours.map((hour, idx) => {
       let diff = hour.totalMinutes - basis.totalMinutes;
-      // If diff is positive, the time appears "after" the basis in the same day,
-      // meaning it actually belongs to the previous day.
-      if (diff > 0) diff -= 1440;
+      // If diff is non-negative, the time appears at or after the basis in the
+      // same day, meaning it actually belongs to the previous day (unless it
+      // is the basis element itself, i.e. the last entry).
+      if (diff >= 0 && idx !== normalizedHours.length - 1) diff -= 1440;
       return new Date(targetUtcMs + diff * 60 * 1000);
     }),
     hour: new Date(targetUtcMs)
@@ -1290,7 +1360,7 @@ export const getShopOpeningHours = (
   const openingHours =
     shop.openingHours.length === 1
       ? shop.openingHours[0]
-      : (shop.openingHours[nowShifted.getDay()] ?? shop.openingHours[0]);
+      : (shop.openingHours[nowShifted.getUTCDay()] ?? shop.openingHours[0]);
   const normalizedOpeningHours = openingHours ?? [
     { hour: 10, minute: 0 },
     { hour: 22, minute: 0 }

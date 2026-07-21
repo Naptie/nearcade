@@ -3,6 +3,8 @@ import { getAllShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import { GAME_TITLES } from '$lib/constants';
 import type { GlobeShop, GlobeShopGameSummary, Shop } from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
+import { expandRegionHierarchyWithNames } from '$lib/regions/utils.server';
+import { localizeAddressGeneral } from '$lib/utils/region.server';
 
 export type GlobeAttendanceTotals = Array<{ gameId: number; total: number }>;
 export type GlobeAttendanceMap = Map<string, GlobeAttendanceTotals>;
@@ -14,6 +16,7 @@ type RawGlobeShop = {
   name: Shop['name'];
   address: {
     general: Shop['address']['general'];
+    region?: string[];
   };
   location: Shop['location'];
   openingHours: Shop['openingHours'];
@@ -23,11 +26,11 @@ type RawGlobeShop = {
 const GAME_SEATS_BY_TITLE_ID = new Map<number, number>(
   GAME_TITLES.map((game) => [game.id, game.seats || 1])
 );
-
 const globeShopProjection = {
   _id: 0,
   name: 1,
   'address.general': 1,
+  'address.region': 1,
   location: 1,
   openingHours: 1,
   'games.gameId': 1,
@@ -107,7 +110,8 @@ const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): Gl
   id: shop.id,
   name: shop.name,
   address: {
-    general: shop.address.general
+    general: shop.address.general,
+    region: shop.address.region
   },
   openingHours: shop.openingHours,
   location: shop.location,
@@ -127,12 +131,36 @@ export const loadGlobeShops = async (): Promise<GlobeShop[]> => {
   return shops.map((shop) => toGlobeShop(shop, attendance.get(`${shop.id}`) ?? []));
 };
 
+export const loadGlobeShopsWithRegions = async (): Promise<GlobeShop[]> => {
+  const [rawShops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendance()]);
+
+  const result: GlobeShop[] = [];
+  for (const raw of rawShops) {
+    const region = raw.address.region;
+    const expandedRegion = region?.length
+      ? await expandRegionHierarchyWithNames(region[region.length - 1]).catch(() => [])
+      : undefined;
+    const addressWithRegion = {
+      general: raw.address.general,
+      region: expandedRegion as GlobeShop['address']['region']
+    };
+    result.push({
+      ...toGlobeShop(raw, attendance.get(`${raw.id}`) ?? []),
+      address: {
+        general: localizeAddressGeneral(addressWithRegion),
+        region: expandedRegion as GlobeShop['address']['region']
+      }
+    });
+  }
+  return result;
+};
+
 export const loadGlobeAttendance = (): Promise<GlobeAttendanceMap> => getAllShopsAttendanceData();
 
 export const loadGlobeDataResponse = async (): Promise<{
   shops: GlobeShop[];
 }> => {
   return {
-    shops: await loadGlobeShops()
+    shops: await loadGlobeShopsWithRegions()
   };
 };

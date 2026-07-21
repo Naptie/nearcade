@@ -10,12 +10,27 @@
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
 
   let { data }: { data: PageData } = $props();
 
   let searchQuery = $derived(data.query);
   let isSearching = $state(false);
   let selectedTitleIds = $derived<number[]>(data.titleIds || []);
+  let selectedRegionIds = $state<string[]>([]);
+  let selectedRegionId = $derived(
+    selectedRegionIds.length > 0 ? selectedRegionIds[selectedRegionIds.length - 1] : ''
+  );
+  let regionDropdownOpen = $state(false);
+
+  // Sync regionId from URL on initial load
+  $effect(() => {
+    const urlRegionId = data.regionId;
+    if (urlRegionId && selectedRegionIds.length === 0) {
+      // We only store the leaf ID from the URL; the cascade will be re-selected by the user
+      selectedRegionIds = [urlRegionId];
+    }
+  });
 
   const handleSearch = async (event: Event) => {
     event.preventDefault();
@@ -26,6 +41,9 @@
     }
     if (selectedTitleIds.length > 0) {
       params.set('titleIds', selectedTitleIds.join(','));
+    }
+    if (selectedRegionId) {
+      params.set('regionId', selectedRegionId);
     }
     await goto(resolve('/(main)/shops') + `?${params.toString()}`);
     isSearching = false;
@@ -54,12 +72,16 @@
     if (selectedTitleIds.length > 0) {
       params.set('titleIds', selectedTitleIds.join(','));
     }
+    if (selectedRegionId) {
+      params.set('regionId', selectedRegionId);
+    }
     await goto(resolve('/(main)/shops') + `?${params.toString()}`);
     isSearching = false;
   };
 
   const clearFilters = async () => {
     selectedTitleIds = [];
+    selectedRegionIds = [];
     isSearching = true;
     const params = new SvelteURLSearchParams();
     if (searchQuery.trim()) {
@@ -162,7 +184,55 @@
                 type="button"
                 class="btn btn-soft hover:btn-error btn-sm"
                 onclick={clearFilters}
-                disabled={selectedTitleIds.length === 0}
+                disabled={selectedTitleIds.length === 0 && !selectedRegionId}
+              >
+                <i class="fa-solid fa-trash"></i>
+                {m.clear_filters()}
+              </button>
+              <button type="button" class="btn btn-primary btn-soft btn-sm" onclick={applyFilters}>
+                <i class="fa-solid fa-filter"></i>
+                {m.apply_filters()}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Region Filter Dropdown -->
+      <div class="dropdown" class:dropdown-open={regionDropdownOpen}>
+        <button
+          type="button"
+          class="btn btn-soft hover:btn-accent"
+          class:btn-primary={!!selectedRegionId}
+          aria-label={m.filter_by_region()}
+          onclick={() => (regionDropdownOpen = !regionDropdownOpen)}
+        >
+          <i class="fa-solid fa-earth-asia"></i>
+          {#if selectedRegionId}
+            <i class="fa-solid fa-circle-check text-xs"></i>
+          {/if}
+        </button>
+        <div
+          role="menu"
+          class="card dropdown-content bg-base-200 z-10 mt-2 w-72 shadow-lg"
+          onfocusout={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              regionDropdownOpen = false;
+            }
+          }}
+        >
+          <div class="card-body p-4">
+            <h3 class="card-title text-base text-nowrap">{m.filter_by_region()}</h3>
+            <RegionCascadeSelect
+              bind:regionIds={selectedRegionIds}
+              gridClass="grid grid-cols-1 gap-1"
+            />
+            <div class="card-actions mt-2 w-fit flex-nowrap justify-between whitespace-nowrap">
+              <button
+                type="button"
+                class="btn btn-soft hover:btn-error btn-sm"
+                onclick={clearFilters}
+                disabled={selectedTitleIds.length === 0 && !selectedRegionId}
               >
                 <i class="fa-solid fa-trash"></i>
                 {m.clear_filters()}

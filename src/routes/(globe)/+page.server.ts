@@ -3,6 +3,7 @@ import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
+import { expandShopsRegions } from '$lib/utils/region.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { AuthSession } from '$lib/auth/types';
 
@@ -190,9 +191,10 @@ export const load: PageServerLoad = async ({ parent }) => {
     }
 
     const shopsWithAttendance = await getAttendanceData(allShops, session);
+    const shopsWithRegions = await expandShopsRegions(shopsWithAttendance);
 
     return {
-      starredShops: toPlainArray(shopsWithAttendance)
+      starredShops: toPlainArray(shopsWithRegions)
     };
   } catch (error) {
     console.error('Failed to load starred shops:', error);

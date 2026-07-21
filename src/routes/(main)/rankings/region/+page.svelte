@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
   import { getGameName, formatAddressParts } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy } from 'svelte';
@@ -52,7 +54,7 @@
         apiUrl.searchParams.set('sortBy', sortBy);
         apiUrl.searchParams.set('level', level);
         apiUrl.searchParams.set('after', nextCursor);
-        apiUrl.searchParams.set('limit', PAGINATION.PAGE_SIZE.toString());
+        apiUrl.searchParams.set('limit', PAGINATION.RANKING_PAGE_SIZE.toString());
 
         const response = await fetch(apiUrl.toString());
 
@@ -99,6 +101,11 @@
     isLoadingMore = false;
   });
 
+  const getLocalName = (entry: { id: string; name: Record<string, string> }): string => {
+    const locale = getLocale();
+    return entry.name[locale] ?? entry.name.en ?? Object.values(entry.name)[0] ?? entry.id;
+  };
+
   const getLevelLabel = (levelKey: RegionLevel): string => {
     const f = m[`region_level_${levelKey}`];
     return typeof f === 'function' ? f() : levelKey;
@@ -109,36 +116,47 @@
     return num.toLocaleString();
   };
 
-  const formatDensity = (density: number): string => {
+  const formatDensity = (density: number | null): string => {
+    if (density == null) return '—';
     if (density === 0) return '0.000';
     return density.toFixed(3);
   };
 
-  const buildParentChain = (ranking: RegionRankingData): string => {
-    const parts: string[] = [];
-    if (level === 'province' && ranking.country) {
-      parts.push(ranking.country);
-    } else if (level === 'city') {
-      if (ranking.country && ranking.province && ranking.country !== ranking.province) {
-        parts.push(ranking.country);
-      }
-      if (ranking.province) {
-        parts.push(ranking.province);
-      }
-    } else if (level === 'county') {
-      if (ranking.province) {
-        parts.push(ranking.province);
-      }
-      if (ranking.city) {
-        parts.push(ranking.city);
-      }
+  const getRegionZoom = (level: RegionLevel): number => {
+    switch (level) {
+      case 'country':
+        return 6;
+      case 'province':
+        return 8;
+      case 'city':
+        return 10;
+      case 'county':
+        return 12;
+      default:
+        return 8;
     }
-    return formatAddressParts(parts);
   };
 
-  const getMetrics = (ranking: RegionRankingData) => {
-    // All radius entries have the same data; use the first one
-    return ranking.rankings[0];
+  const getGlobeUrl = (ranking: RegionRankingData): string => {
+    const coords = ranking.location.coordinates;
+    const zoom = getRegionZoom(ranking.level);
+    const chain = ranking.regionChain || [];
+    const params = new URLSearchParams({
+      lat: coords[1].toFixed(6),
+      lng: coords[0].toFixed(6),
+      zoom: zoom.toString(),
+      region: btoa(encodeURIComponent(JSON.stringify(chain)))
+    });
+    return resolve('/(globe)/globe') + '?' + params.toString();
+  };
+
+  const buildParentChain = (ranking: RegionRankingData): string => {
+    if (!ranking.regionChain || ranking.regionChain.length <= 1) return '';
+    const ancestors = ranking.regionChain.slice(0, -1);
+    return formatAddressParts(
+      ancestors.map((e) => getLocalName(e)),
+      getLocale()
+    );
   };
 
   const visibleGameTitles = $derived.by(() => {
@@ -170,7 +188,7 @@
     <div class="tabs tabs-border mb-4 justify-center not-sm:mx-2">
       {#each REGION_LEVELS as option (option.key)}
         <button
-          class="tab {level === option.key ? 'tab-active' : ''}"
+          class="tab transition-colors {level === option.key ? 'tab-active' : ''}"
           onclick={() => (level = option.key)}
         >
           {getLevelLabel(option.key)}
@@ -179,7 +197,7 @@
     </div>
 
     {#if displayedRankings && displayedRankings.length > 0}
-      <div class="overflow-x-auto overflow-y-hidden">
+      <div class="overflow-x-auto overflow-y-hidden rounded-2xl">
         <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
           <thead>
             <tr>
@@ -209,6 +227,14 @@
               >
                 {m.sort_by_density()}
               </th>
+              <th
+                class="cursor-pointer text-center transition not-md:hidden {sortBy === 'per_capita'
+                  ? 'text-accent'
+                  : 'hover:text-base-content'}"
+                onclick={() => (sortBy = 'per_capita')}
+              >
+                {m.sort_by_per_capita()}
+              </th>
               {#each visibleGameTitles as game (game.id)}
                 <th
                   class="cursor-pointer text-center transition not-lg:hidden {sortBy === game.key
@@ -223,68 +249,74 @@
           </thead>
           <tbody>
             {#each displayedRankings as ranking, index (ranking.id)}
-              {@const metrics = getMetrics(ranking)}
+              {@const localizedName = ranking.regionChain?.length
+                ? getLocalName(ranking.regionChain[ranking.regionChain.length - 1])
+                : ranking.name}
               {@const parentChain = buildParentChain(ranking)}
               <tr class="h-12 transition-opacity duration-200" class:opacity-50={isLoading}>
                 <td class="text-center font-bold">
                   <span class="text-lg">{index + 1}</span>
                 </td>
-                <td class="min-w-36">
-                  <div class="flex flex-col">
-                    <span class="font-semibold">{ranking.name}</span>
+                <td class="min-w-39">
+                  <a
+                    href={getGlobeUrl(ranking)}
+                    target="_blank"
+                    class="hover:text-accent flex flex-col transition-colors"
+                  >
+                    <span class="font-semibold">{localizedName}</span>
                     {#if parentChain}
                       <span class="text-base-content/50 text-xs">
                         {parentChain}
                       </span>
                     {/if}
-                  </div>
+                  </a>
                 </td>
-                {#if metrics}
-                  <td
-                    class="text-center transition {sortBy === 'shops'
-                      ? 'text-accent font-semibold'
-                      : ''}"
-                  >
-                    {formatNumber(metrics.shopCount)}
-                  </td>
-                  <td
-                    class="text-center transition {sortBy === 'machines'
-                      ? 'text-accent font-semibold'
-                      : ''}"
-                  >
-                    {formatNumber(metrics.totalMachines)}
-                  </td>
-                  <td
-                    class="text-center transition not-md:hidden {sortBy === 'density'
-                      ? 'text-accent font-semibold'
-                      : ''}"
-                  >
-                    {formatDensity(metrics.areaDensity)}
-                  </td>
-                  {#each visibleGameTitles as game (game.id)}
-                    {@const gameMetric = metrics.gameSpecificMachines.find(
-                      (e) => e.name === game.key
-                    )}
-                    <td
-                      class="text-center transition not-lg:hidden {sortBy === game.key
-                        ? 'text-accent font-semibold'
-                        : ''}"
-                    >
-                      {formatNumber(gameMetric?.quantity || 0)}
-                    </td>
-                  {/each}
-                {:else}
-                  <td class="text-center"><span class="text-base-content/40">—</span></td>
-                  <td class="text-center"><span class="text-base-content/40">—</span></td>
-                  <td class="text-center not-md:hidden">
+                <td
+                  class="text-center transition {sortBy === 'shops'
+                    ? 'text-accent font-semibold'
+                    : ''}"
+                >
+                  {formatNumber(ranking.shopCount)}
+                </td>
+                <td
+                  class="text-center transition {sortBy === 'machines'
+                    ? 'text-accent font-semibold'
+                    : ''}"
+                >
+                  {formatNumber(ranking.totalMachines)}
+                </td>
+                <td
+                  class="text-center transition not-md:hidden {sortBy === 'density'
+                    ? 'text-accent font-semibold'
+                    : ''}"
+                >
+                  <span class={ranking.areaDensity == null ? 'text-base-content/40' : ''}>
+                    {formatDensity(ranking.areaDensity)}
+                  </span>
+                </td>
+                <td
+                  class="text-center transition not-md:hidden {sortBy === 'per_capita'
+                    ? 'text-accent font-semibold'
+                    : ''}"
+                >
+                  {#if ranking.machinesPerCapita != null}
+                    {formatDensity(ranking.machinesPerCapita)}
+                  {:else}
                     <span class="text-base-content/40">—</span>
+                  {/if}
+                </td>
+                {#each visibleGameTitles as game (game.id)}
+                  {@const gameMetric = ranking.gameSpecificMachines.find(
+                    (e) => e.name === game.key
+                  )}
+                  <td
+                    class="text-center transition not-lg:hidden {sortBy === game.key
+                      ? 'text-accent font-semibold'
+                      : ''}"
+                  >
+                    {formatNumber(gameMetric?.quantity || 0)}
                   </td>
-                  {#each visibleGameTitles as game (game.id)}
-                    <td class="text-center not-lg:hidden">
-                      <span class="text-base-content/40">—</span>
-                    </td>
-                  {/each}
-                {/if}
+                {/each}
               </tr>
             {/each}
           </tbody>

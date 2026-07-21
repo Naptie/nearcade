@@ -58,6 +58,7 @@ export const MAX_DISCOVER_RESULTS = 150;
 // Pagination constants
 export const PAGINATION = {
   PAGE_SIZE: 48,
+  RANKING_PAGE_SIZE: 24,
   SCROLL_THRESHOLD: 300 // pixels from bottom to trigger load more
 } as const;
 
@@ -66,6 +67,7 @@ export const SORT_CRITERIA = [
   { key: 'shops' },
   { key: 'machines' },
   { key: 'density' },
+  { key: 'per_capita' },
   ...GAME_TITLES.map((game) => ({
     key: game.key
   }))
