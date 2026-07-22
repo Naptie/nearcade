@@ -1,16 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { Region } from '$lib/regions/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { initRegionCache, getAdminRegionChildren } from '$lib/regions/utils.server';
 import { m } from '$lib/paraglide/messages';
-
-const LEVEL_ORDER: Record<Region['level'], number> = {
-  country: 0,
-  province: 1,
-  city: 2,
-  county: 3
-};
 
 export const load: PageServerLoad = async ({ locals }) => {
   const session = locals.session;
@@ -23,14 +16,10 @@ export const load: PageServerLoad = async ({ locals }) => {
     error(403, m.access_denied());
   }
 
-  const db = mongo.db();
-  const regions = (await db.collection<Region>('regions').find({}).toArray()) as Region[];
-
-  regions.sort((a, b) => {
-    const levelDiff = LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level];
-    if (levelDiff !== 0) return levelDiff;
-    return a.id.localeCompare(b.id);
-  });
+  // Only ship the top-level countries; deeper levels are fetched lazily by the
+  // client via /api/admin/regions?parentId=... as the admin expands each node.
+  await initRegionCache(mongo);
+  const regions = getAdminRegionChildren(null);
 
   return {
     regions: toPlainArray(regions)

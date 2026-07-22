@@ -8,7 +8,7 @@
  * functions await it if init is still in-flight.
  */
 import type { MongoClient } from 'mongodb';
-import type { Region, AddressRegionEntry } from './types';
+import type { Region, AddressRegionEntry, AdminRegionNode, AdminRegionSearchHit } from './types';
 
 // ── Cached data ────────────────────────────────────────────────────────────
 
@@ -163,6 +163,64 @@ export async function getSelectorOptions(
       hasChildren: childrenByParentId?.has(child.id) ?? false
     };
   });
+}
+
+// ── Admin tree helpers ─────────────────────────────────────────────────────
+// These read from the in-memory cache so the admin panel can lazily load the
+// region tree one level at a time instead of shipping all ~150k regions to the
+// client in a single payload.
+
+function toAdminRegionNode(region: Region): AdminRegionNode {
+  return {
+    id: region.id,
+    parentId: region.parentId,
+    level: region.level,
+    name: region.name,
+    population: region.population,
+    area: region.area,
+    location: region.location,
+    hasChildren: childrenByParentId?.has(region.id) ?? false
+  };
+}
+
+/**
+ * Return the immediate children of a region (or top-level countries when
+ * `parentId` is null) with full details and a `hasChildren` flag. Results are
+ * sorted by region ID for a stable admin tree ordering.
+ */
+export function getAdminRegionChildren(parentId: string | null): AdminRegionNode[] {
+  const bucket = childrenByParentId?.get(parentId) ?? [];
+  return bucket.map((region) => toAdminRegionNode(region)).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
+ * Search every cached region by ID or localized name, returning matches with
+ * their ancestor chain (root → parent) so the admin UI can render each hit in
+ * context without loading the whole tree.
+ */
+export function searchAdminRegions(query: string, limit = 200): AdminRegionSearchHit[] {
+  if (!byId) return [];
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const hits: AdminRegionSearchHit[] = [];
+  for (const region of byId.values()) {
+    if (hits.length >= limit) break;
+    const matches =
+      region.id.toLowerCase().includes(q) ||
+      Object.values(region.name).some((name) => name?.toLowerCase().includes(q));
+    if (!matches) continue;
+
+    const ancestors: AddressRegionEntry[] = [];
+    let cursor = region.parentId ? byId.get(region.parentId) : undefined;
+    while (cursor) {
+      ancestors.unshift({ id: cursor.id, name: cursor.name });
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+    }
+
+    hits.push({ ...toAdminRegionNode(region), ancestors });
+  }
+  return hits;
 }
 
 /**

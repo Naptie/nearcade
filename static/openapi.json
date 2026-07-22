@@ -654,7 +654,7 @@
                                 "type": "string"
                               },
                               "region": {
-                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                 "anyOf": [
                                   {
                                     "type": "array",
@@ -1064,7 +1064,7 @@
                                 "type": "string"
                               },
                               "region": {
-                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                 "anyOf": [
                                   {
                                     "type": "array",
@@ -2620,7 +2620,7 @@
                                 "type": "string"
                               },
                               "region": {
-                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                 "anyOf": [
                                   {
                                     "type": "array",
@@ -4551,7 +4551,7 @@
                                 "type": "string"
                               },
                               "region": {
-                                "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                 "anyOf": [
                                   {
                                     "type": "array",
@@ -4866,7 +4866,7 @@
                         "type": "string"
                       },
                       "region": {
-                        "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                        "description": "地区 ID 层级。\n\nRegion hierarchy.",
                         "anyOf": [
                           {
                             "type": "array",
@@ -5074,7 +5074,7 @@
                               "type": "string"
                             },
                             "region": {
-                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
                               "anyOf": [
                                 {
                                   "type": "array",
@@ -5420,7 +5420,7 @@
                               "type": "string"
                             },
                             "region": {
-                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
                               "anyOf": [
                                 {
                                   "type": "array",
@@ -5731,7 +5731,7 @@
                         "type": "string"
                       },
                       "region": {
-                        "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                        "description": "地区 ID 层级。\n\nRegion hierarchy.",
                         "anyOf": [
                           {
                             "type": "array",
@@ -5943,7 +5943,7 @@
                               "type": "string"
                             },
                             "region": {
-                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
                               "anyOf": [
                                 {
                                   "type": "array",
@@ -6285,7 +6285,7 @@
                               "type": "string"
                             },
                             "region": {
-                              "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
                               "anyOf": [
                                 {
                                   "type": "array",
@@ -12554,7 +12554,7 @@
                                     "type": "string"
                                   },
                                   "region": {
-                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                     "anyOf": [
                                       {
                                         "type": "array",
@@ -12830,7 +12830,7 @@
                                     "type": "string"
                                   },
                                   "region": {
-                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                     "anyOf": [
                                       {
                                         "type": "array",
@@ -14043,7 +14043,7 @@
                                     "type": "string"
                                   },
                                   "region": {
-                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                     "anyOf": [
                                       {
                                         "type": "array",
@@ -14319,7 +14319,7 @@
                                     "type": "string"
                                   },
                                   "region": {
-                                    "description": "区域 ID 层级。\n\nRegion hierarchy.",
+                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
                                     "anyOf": [
                                       {
                                         "type": "array",

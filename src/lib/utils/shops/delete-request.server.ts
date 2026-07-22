@@ -5,6 +5,7 @@ import type {
   ShopDeleteRequestVote,
   ShopDeleteRequestVoteSummary
 } from '$lib/types';
+import type { PublicUser, User } from '$lib/auth/types';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import { protect } from '$lib/utils';
 
@@ -126,4 +127,39 @@ export const getShopDeleteRequestComments = async (
   }));
 
   return hydrateEntitiesWithImages(db, protectedComments);
+};
+
+/**
+ * Attach the requester's public user profile to each delete request.
+ *
+ * The denormalized `requestedByName` field only stores `user.name`, which for
+ * some accounts falls back to the raw user ID. Resolving the actual user record
+ * lets the client render a proper display name via `getDisplayName`.
+ */
+export const attachDeleteRequestRequesters = async <T extends { requestedBy?: string | null }>(
+  db: Db,
+  requests: T[]
+): Promise<(T & { requestedByUser: PublicUser | null })[]> => {
+  const requesterIds = [
+    ...new Set(requests.map((request) => request.requestedBy).filter((id): id is string => !!id))
+  ];
+
+  const requesterById = new Map<string, PublicUser>();
+  if (requesterIds.length > 0) {
+    const users = await db
+      .collection<User>('users')
+      .find({ id: { $in: requesterIds } })
+      .toArray();
+    for (const user of users) {
+      const publicUser = protect(user);
+      if (publicUser) {
+        requesterById.set(user.id, publicUser);
+      }
+    }
+  }
+
+  return requests.map((request) => ({
+    ...request,
+    requestedByUser: request.requestedBy ? (requesterById.get(request.requestedBy) ?? null) : null
+  }));
 };

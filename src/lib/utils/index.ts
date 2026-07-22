@@ -721,7 +721,12 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
   }
 };
 
-export const getDisplayName = (user?: { displayName?: string | null; name?: string | null }) => {
+export const getDisplayName = (
+  user?: {
+    displayName?: string | null;
+    name?: string | null;
+  } | null
+) => {
   return !user
     ? m.unknown_user()
     : user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());

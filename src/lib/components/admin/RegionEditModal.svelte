@@ -151,7 +151,7 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="form-control">
             <label class="label" for="area">
-              <span class="label-text">{m.region_area()}</span>
+              <span class="label-text">{m.region_area()} (km²)</span>
             </label>
             <input
               id="area"

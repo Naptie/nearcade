@@ -4,7 +4,7 @@
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
-  import { pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import { goto, invalidateAll } from '$app/navigation';
   import Comment from '$lib/components/Comment.svelte';
@@ -483,7 +483,7 @@
     <div class="mb-6 grid gap-3 text-sm sm:grid-cols-2">
       <div>
         <span class="text-base-content/60">{m.request_by()}</span>
-        <p class="font-medium">{req.requestedByName ?? m.anonymous_user()}</p>
+        <p class="font-medium">{getDisplayName(req.requestedByUser)}</p>
       </div>
       <div>
         <span class="text-base-content/60">{m.created_at()}</span>

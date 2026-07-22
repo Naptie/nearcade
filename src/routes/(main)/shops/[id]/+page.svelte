@@ -12,6 +12,7 @@
     formatOpeningHourLiteral,
     formatShopAddress,
     formatTime,
+    getDisplayName,
     getFnsLocale,
     getGameName,
     getMyLocation,
@@ -1194,7 +1195,9 @@
               <div class="w-4 text-center">
                 <i class="fa-solid fa-location-dot mt-0.75 shrink-0"></i>
               </div>
-              <span class="wrap-break-word whitespace-pre-line">{formatShopAddress(shop, true)}</span>
+              <span class="wrap-break-word whitespace-pre-line"
+                >{formatShopAddress(shop, true)}</span
+              >
             </div>
           </div>
 
@@ -1644,7 +1647,7 @@
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60">{m.request_by()}:</span>
                     <span class="text-right font-medium">
-                      {pendingDeleteRequest.requestedByName ?? m.anonymous_user()}
+                      {getDisplayName(pendingDeleteRequest.requestedByUser)}
                     </span>
                   </div>
                   <div class="flex items-center justify-between gap-1">

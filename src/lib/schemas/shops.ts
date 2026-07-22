@@ -137,7 +137,7 @@ export const shopAddressSchema = z.object({
       z.array(z.object({ id: z.string(), name: z.record(z.string(), z.string()) }))
     ])
     .optional()
-    .describe(bilingual('区域 ID 层级。', 'Region hierarchy.'))
+    .describe(bilingual('地区 ID 层级。', 'Region hierarchy.'))
 });
 
 export const gameSchema = z.object({

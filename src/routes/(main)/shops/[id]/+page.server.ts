@@ -13,6 +13,7 @@ import { expandShopRegions } from '$lib/utils/region.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
+import { attachDeleteRequestRequesters } from '$lib/utils/shops/delete-request.server';
 import type { User } from '$lib/auth/types';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
@@ -111,9 +112,13 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       const hydratedComments = await hydrateEntitiesWithImages(db, comments);
 
       // Load pending delete request for this shop
-      const pendingDeleteRequest = await db
+      const pendingDeleteRequestDoc = await db
         .collection<ShopDeleteRequest>('shop_delete_requests')
         .findOne({ shopId, photoId: { $in: [null, undefined] }, status: 'pending' });
+
+      const pendingDeleteRequest = pendingDeleteRequestDoc
+        ? (await attachDeleteRequestRequesters(db, [pendingDeleteRequestDoc]))[0]
+        : null;
 
       // Load photos (up to 20 for the carousel) with uploader data joined
       const photos = await db

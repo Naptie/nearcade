@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
-  import { pageTitle } from '$lib/utils';
+  import { getDisplayName, pageTitle } from '$lib/utils';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   import { fromPath } from '$lib/utils/scoped';
@@ -151,7 +151,7 @@
           </div>
 
           <p class="text-base-content/60 mb-1 text-xs">
-            {m.request_by()}: {req.requestedByName ?? m.anonymous_user()}
+            {m.request_by()}: {getDisplayName(req.requestedByUser)}
             &nbsp;@&nbsp;
             {new Date(req.createdAt).toLocaleString()}
           </p>

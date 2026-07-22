@@ -3,24 +3,48 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { resolve } from '$app/paths';
   import { adaptiveNewTab } from '$lib/utils';
-  import type { Region } from '$lib/regions/types';
+  import type { AdminRegionNode } from '$lib/regions/types';
   import RegionTreeNode from './RegionTreeNode.svelte';
 
   type Props = {
-    region: Region;
-    childrenMap: Record<string, Region[]>;
-    ancestors: Region[];
+    region: AdminRegionNode;
+    childrenMap: Record<string, AdminRegionNode[]>;
+    ancestors: AdminRegionNode[];
     depth?: number;
-    onEdit: (region: Region) => void;
-    onDelete: (region: Region) => void;
+    loadChildren: (parentId: string) => Promise<void>;
+    onEdit: (region: AdminRegionNode) => void;
+    onDelete: (region: AdminRegionNode) => void;
   };
 
-  let { region, childrenMap, ancestors, depth = 0, onEdit, onDelete }: Props = $props();
+  let {
+    region,
+    childrenMap,
+    ancestors,
+    depth = 0,
+    loadChildren,
+    onEdit,
+    onDelete
+  }: Props = $props();
 
-  let expanded = $state((() => depth < 1)());
+  // Start collapsed: children are only fetched when the admin expands a node.
+  let expanded = $state(false);
+  let isLoadingChildren = $state(false);
 
-  const children = $derived(childrenMap[region.id] ?? []);
-  const hasChildren = $derived(children.length > 0);
+  const children = $derived(childrenMap[region.id]);
+  const hasChildren = $derived(region.hasChildren);
+  const childrenLoaded = $derived(children !== undefined);
+
+  const toggleExpanded = async () => {
+    if (!expanded && hasChildren && !childrenLoaded && !isLoadingChildren) {
+      isLoadingChildren = true;
+      try {
+        await loadChildren(region.id);
+      } finally {
+        isLoadingChildren = false;
+      }
+    }
+    expanded = !expanded;
+  };
 
   const locale = getLocale();
   const localizedName = $derived(
@@ -38,7 +62,7 @@
   ]);
 
   const globeUrl = $derived.by(() => {
-    const zoomMap: Record<Region['level'], number> = {
+    const zoomMap: Record<AdminRegionNode['level'], number> = {
       country: 6,
       province: 8,
       city: 10,
@@ -78,10 +102,14 @@
     <button
       type="button"
       class="btn btn-ghost btn-circle btn-xs {hasChildren ? '' : 'invisible'}"
-      onclick={() => (expanded = !expanded)}
+      onclick={toggleExpanded}
       aria-label={expanded ? m.collapse() : m.expand()}
     >
-      <i class="fa-solid {expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
+      {#if isLoadingChildren}
+        <span class="loading loading-spinner loading-xs"></span>
+      {:else}
+        <i class="fa-solid {expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
+      {/if}
     </button>
 
     <div class="min-w-0 flex-1">
@@ -91,7 +119,7 @@
         <span class="text-base-content/50 text-xs">{region.id}</span>
       </div>
       <div class="text-base-content/60 mt-0.5 flex flex-wrap gap-3 text-xs">
-        <span>{m.region_area()}: {formatNumber(region.area)}</span>
+        <span>{m.region_area()}: {formatNumber(region.area)} km²</span>
         <span>{m.region_population()}: {formatNumber(region.population)}</span>
         {#if !region.location}
           <span class="text-base-content/40">{m.region_no_location()}</span>
@@ -144,17 +172,28 @@
   </div>
 
   {#if expanded && hasChildren}
-    <ul>
-      {#each children as child (child.id)}
-        <RegionTreeNode
-          region={child}
-          {childrenMap}
-          ancestors={[...ancestors, region]}
-          depth={depth + 1}
-          {onEdit}
-          {onDelete}
-        />
-      {/each}
-    </ul>
+    {#if childrenLoaded}
+      <ul>
+        {#each children ?? [] as child (child.id)}
+          <RegionTreeNode
+            region={child}
+            {childrenMap}
+            ancestors={[...ancestors, region]}
+            depth={depth + 1}
+            {loadChildren}
+            {onEdit}
+            {onDelete}
+          />
+        {/each}
+      </ul>
+    {:else}
+      <div
+        class="text-base-content/50 flex items-center gap-2 py-2 text-sm"
+        style="padding-left: {(depth + 1) * 1.25 + 0.75}rem"
+      >
+        <span class="loading loading-spinner loading-xs"></span>
+        {m.loading()}
+      </div>
+    {/if}
   {/if}
 </li>
