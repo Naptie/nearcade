@@ -186,9 +186,6 @@
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         try {
-          const swPath = import.meta.env.DEV ? `${base}/dev-sw.js?dev-sw` : `${base}/sw.js`;
-          const swOptions = import.meta.env.DEV ? { type: 'module' as const } : undefined;
-          await navigator.serviceWorker.register(swPath, swOptions);
           const registration = await navigator.serviceWorker.ready;
           navigator.serviceWorker.addEventListener('message', handleWindowMessage);
           const token = await getToken(messaging, {

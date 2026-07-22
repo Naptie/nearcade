@@ -25,7 +25,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       // allow PWA features during dev
       devOptions: {
-        enabled: true,
+        enabled: false,
         suppressWarnings: true,
         type: 'module'
       },
