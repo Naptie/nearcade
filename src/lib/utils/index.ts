@@ -59,7 +59,7 @@ export const getProviders = (bind = false) =>
     },
     {
       name: 'Phira',
-      icon: 'phira.png',
+      icon: 'phira.webp',
       class:
         'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
     }

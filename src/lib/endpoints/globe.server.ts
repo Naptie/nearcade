@@ -164,3 +164,67 @@ export const loadGlobeDataResponse = async (): Promise<{
     shops: await loadGlobeShopsWithRegions()
   };
 };
+
+// ---- Lightweight markers endpoint ( Optimization 1 ) ----
+
+export type GlobeMarker = {
+  id: number;
+  name: string;
+  lng: number;
+  lat: number;
+  density: number;
+};
+
+/**
+ * Returns minimal marker data for all shops: id, name, coordinates, density.
+ * This is ~95% smaller than the full globe data response.
+ */
+export const loadGlobeMarkers = async (): Promise<GlobeMarker[]> => {
+  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendance()]);
+
+  return shops.map((shop) => ({
+    id: shop.id,
+    name: shop.name,
+    lng: shop.location.coordinates[0],
+    lat: shop.location.coordinates[1],
+    density: getGlobeShopDensity(shop, attendance.get(`${shop.id}`) ?? [])
+  }));
+};
+
+/**
+ * Loads full GlobeShop details for a specific set of shop IDs.
+ * Used by the client to fetch details on demand (sidebar, hover, pin).
+ */
+export const loadGlobeShopsByIds = async (ids: number[]): Promise<GlobeShop[]> => {
+  if (ids.length === 0) return [];
+
+  const [rawShops, attendance] = await Promise.all([
+    mongo
+      .db()
+      .collection<Shop>('shops')
+      .find({ id: { $in: ids } })
+      .project(globeShopProjection)
+      .toArray() as Promise<RawGlobeShop[]>,
+    loadGlobeAttendance()
+  ]);
+
+  const result: GlobeShop[] = [];
+  for (const raw of rawShops) {
+    const region = raw.address.region;
+    const expandedRegion = region?.length
+      ? await expandRegionHierarchyWithNames(region[region.length - 1]).catch(() => [])
+      : undefined;
+    const addressWithRegion = {
+      general: raw.address.general,
+      region: expandedRegion as GlobeShop['address']['region']
+    };
+    result.push({
+      ...toGlobeShop(raw, attendance.get(`${raw.id}`) ?? []),
+      address: {
+        general: localizeAddressGeneral(addressWithRegion),
+        region: expandedRegion as GlobeShop['address']['region']
+      }
+    });
+  }
+  return result;
+};

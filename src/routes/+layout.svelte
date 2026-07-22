@@ -5,7 +5,6 @@
   import {
     PUBLIC_AMAP_KEY,
     PUBLIC_FIREBASE_VAPID_KEY,
-    PUBLIC_GOOGLE_MAPS_API_KEY,
     PUBLIC_CLARITY_PROJECT_ID,
     PUBLIC_FIREBASE_API_KEY,
     PUBLIC_FIREBASE_APP_ID,
@@ -25,9 +24,6 @@
   import { goto, invalidateAll, afterNavigate } from '$app/navigation';
   import { resolve, base } from '$app/paths';
   import { browser } from '$app/environment';
-  import { initializeApp } from 'firebase/app';
-  import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-  import { getAnalytics, setAnalyticsCollectionEnabled } from 'firebase/analytics';
   import Clarity from '@microsoft/clarity';
   import GlobalSeo from '$lib/components/GlobalSeo.svelte';
   import MetaRobots from '$lib/components/MetaRobots.svelte';
@@ -109,32 +105,42 @@
     if (!isGlobePage) {
       Clarity.init(PUBLIC_CLARITY_PROJECT_ID);
 
-      const firebaseConfig = {
-        apiKey: PUBLIC_FIREBASE_API_KEY,
-        authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
-        projectId: PUBLIC_FIREBASE_PROJECT_ID,
-        storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-        appId: PUBLIC_FIREBASE_APP_ID,
-        measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
+      // Dynamically import Firebase to split it out of the main bundle (~33KB savings)
+      const initFirebase = async () => {
+        const { initializeApp } = await import('firebase/app');
+        const { getAnalytics, setAnalyticsCollectionEnabled } = await import('firebase/analytics');
+
+        const firebaseConfig = {
+          apiKey: PUBLIC_FIREBASE_API_KEY,
+          authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: PUBLIC_FIREBASE_APP_ID,
+          measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        setAnalyticsCollectionEnabled(analytics, !import.meta.env.DEV);
+
+        // Initialize push notifications for logged-in users on first interaction
+        if (data.session?.user) {
+          const onFirstInteraction = () => {
+            initializePushNotifications(app).catch((error) => {
+              console.error('Failed to initialize push notifications:', error);
+            });
+            window.removeEventListener('pointerdown', onFirstInteraction, true);
+            window.removeEventListener('keydown', onFirstInteraction, true);
+          };
+          window.addEventListener('pointerdown', onFirstInteraction, true);
+          window.addEventListener('keydown', onFirstInteraction, true);
+        }
       };
 
-      const app = initializeApp(firebaseConfig);
-      const analytics = getAnalytics(app);
-      setAnalyticsCollectionEnabled(analytics, !import.meta.env.DEV);
-
-      // Initialize push notifications for logged-in users
-      if (data.session?.user) {
-        const onFirstInteraction = () => {
-          initializePushNotifications(app).catch((error) => {
-            console.error('Failed to initialize push notifications:', error);
-          });
-          window.removeEventListener('pointerdown', onFirstInteraction, true);
-          window.removeEventListener('keydown', onFirstInteraction, true);
-        };
-        window.addEventListener('pointerdown', onFirstInteraction, true);
-        window.addEventListener('keydown', onFirstInteraction, true);
-      }
+      initFirebase().catch((error) => {
+        console.error('Failed to initialize Firebase:', error);
+      });
 
       (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
         serviceHost: fromPath('/_AMapService')
@@ -177,11 +183,12 @@
     };
   });
 
-  const initializePushNotifications = async (app: ReturnType<typeof initializeApp>) => {
+  const initializePushNotifications = async (app: unknown) => {
     if (!data.session?.user) return;
 
     try {
-      const messaging = getMessaging(app);
+      const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
+      const messaging = getMessaging(app as Parameters<typeof getMessaging>[0]);
 
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
@@ -246,13 +253,6 @@
   {/if}
   {#if PUBLIC_BAIDU_SITE_VERIFICATION}
     <meta name="baidu-site-verification" content={PUBLIC_BAIDU_SITE_VERIFICATION} />
-  {/if}
-  {#if !isGlobePage}
-    <script
-      type="text/javascript"
-      src="https://maps.googleapis.com/maps/api/js?key={PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async"
-      defer
-    ></script>
   {/if}
 </svelte:head>
 

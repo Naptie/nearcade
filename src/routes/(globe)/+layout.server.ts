@@ -1,12 +1,12 @@
-import { base } from '$app/paths';
-import { loadGlobeShops } from '$lib/endpoints/globe.server';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ depends, url }) => {
+export const load: LayoutServerLoad = async ({ depends }) => {
   depends('app:globe-shops');
-  const isGlobePage = url.pathname === `${base}/globe`;
 
+  // Globe shop data is now fetched client-side via /api/globe/markers (lightweight)
+  // and /api/globe/shops?ids=... (on-demand details) to avoid serializing ~6.7MB
+  // of shop data into the SSR HTML payload.
   return {
-    globeShopData: isGlobePage ? loadGlobeShops() : null
+    globeShopData: null
   };
 };

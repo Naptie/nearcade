@@ -606,9 +606,16 @@
     // the map to re-initialize during route calculation.
     // We only want to re-init when `data` changes (new server fetch).
     const shops = untrack(() => sortedShops);
-    if (useGoogleMaps && google.maps) {
-      // Initialize Google Maps
+    if (useGoogleMaps) {
+      // Dynamically load Google Maps only when needed (overseas shops)
       untrack(async () => {
+        const { loadGoogleMaps } = await import('$lib/utils/google-maps.client');
+        try {
+          await loadGoogleMaps();
+        } catch {
+          console.error('Failed to load Google Maps');
+          return;
+        }
         if (!google.maps) return;
         await Promise.all(['core', 'maps', 'marker'].map((lib) => google.maps.importLibrary(lib)));
 

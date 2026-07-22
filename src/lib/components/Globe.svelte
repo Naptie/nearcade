@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base, resolve } from '$app/paths';
-  import { goto, invalidate } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { onMount, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
@@ -39,9 +39,8 @@
   // ---- Props ----
   type Props = {
     mode: 'landing' | 'fullscreen';
-    shopData?: Promise<GlobeShop[]> | null;
   };
-  let { mode, shopData }: Props = $props();
+  let { mode }: Props = $props();
 
   // ---- Imperative visual mode ----
   // Use direct DOM manipulation instead of reactive state to avoid Svelte's
@@ -55,7 +54,8 @@
   let syncGradientToScrollRef: (() => void) | null = null;
 
   // ---- Globe layer/source IDs ----
-  const GLOBE_DATA_ENDPOINT = `${base}/api/globe/data`;
+  const GLOBE_MARKERS_ENDPOINT = `${base}/api/globe/markers`;
+  const GLOBE_SHOPS_ENDPOINT = `${base}/api/globe/shops`;
   const SHOPS_SOURCE_ID = 'shops';
   const SHOPS_LAYER_ID = 'shops-circles';
   const SHOPS_ACTIVE_LAYER_ID = 'shops-circles-active';
@@ -285,49 +285,105 @@
   }));
 
   // ---- Shop data state ----
+  type GlobeMarker = {
+    id: number;
+    name: string;
+    lng: number;
+    lat: number;
+    density: number;
+  };
+
   type ShopEntry = {
-    shop: GlobeShop;
+    id: number;
+    name: string;
     location: { latitude: number; longitude: number };
+    density: number;
   };
 
-  type GlobeDataResponse = {
-    shops: GlobeShop[];
-  };
+  type GlobeMarkersResponse = { shops: GlobeMarker[] };
 
-  let shopDataResolved = $state<GlobeShop[]>([]);
+  let markers = $state<ShopEntry[] | null>(null);
+  const markerLookup = new SvelteMap<string, ShopEntry>();
   let shops = $state<ShopEntry[] | null>(null);
-  const shopLookup = new SvelteMap<string, ShopEntry>();
-  let lazyGlobeDataPromise: Promise<GlobeDataResponse> | null = null;
+  const shopDetailsCache = new SvelteMap<number, GlobeShop>();
+  let allDetailsLoaded = $state(false);
+  let lazyMarkersPromise: Promise<GlobeMarkersResponse> | null = null;
   let globeDataRequestId = 0;
   let globeDataRefreshToken = $state(0);
 
-  const getShopKey = (shop: Pick<GlobeShop, 'id'>) => `${shop.id}`;
+  const BATCH_SIZE = 50;
 
-  const applyResolvedGlobeData = (resolvedShops: GlobeShop[]) => {
-    shopDataResolved = resolvedShops;
+  const loadBatchDetails = async (allIds: number[]) => {
+    const uncachedIds = allIds.filter((id) => !shopDetailsCache.has(id));
+    for (let i = 0; i < uncachedIds.length; i += BATCH_SIZE) {
+      const batchIds = uncachedIds.slice(i, i + BATCH_SIZE);
+      try {
+        const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?ids=${batchIds.join(',')}`);
+        if (!res.ok) throw new Error(`Batch fetch failed (${res.status})`);
+        const data = (await res.json()) as { shops: GlobeShop[] };
+        for (const shop of data.shops) {
+          shopDetailsCache.set(shop.id, shop);
+        }
+      } catch (e) {
+        console.error('Failed to load shop details batch:', e);
+      }
+    }
+    allDetailsLoaded = true;
+    // Build full shop entries for sidebar filtering
+    const entries: ShopEntry[] = [];
+    for (const [id, shop] of shopDetailsCache) {
+      entries.push({
+        id,
+        name: shop.name,
+        location: {
+          latitude: shop.location.coordinates[1],
+          longitude: shop.location.coordinates[0]
+        },
+        density: shop.density
+      });
+    }
+    shops = entries;
   };
 
-  const fetchGlobeData = () => {
-    if (!lazyGlobeDataPromise) {
-      lazyGlobeDataPromise = fetch(GLOBE_DATA_ENDPOINT)
+  const fetchMarkers = () => {
+    if (!lazyMarkersPromise) {
+      lazyMarkersPromise = fetch(GLOBE_MARKERS_ENDPOINT)
         .then(async (response) => {
           if (!response.ok) {
-            throw new Error(`Failed to load globe data (${response.status})`);
+            throw new Error(`Failed to load globe markers (${response.status})`);
           }
-          return (await response.json()) as GlobeDataResponse;
+          return (await response.json()) as GlobeMarkersResponse;
         })
         .catch((error) => {
-          lazyGlobeDataPromise = null;
+          lazyMarkersPromise = null;
           throw error;
         });
     }
+    return lazyMarkersPromise;
+  };
 
-    return lazyGlobeDataPromise;
+  const fetchShopDetail = async (id: number): Promise<GlobeShop | null> => {
+    const cached = shopDetailsCache.get(id);
+    if (cached) return cached;
+    try {
+      const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?ids=${id}`);
+      if (!res.ok) return null;
+      const data = (await res.json()) as { shops: GlobeShop[] };
+      if (data.shops.length > 0) {
+        shopDetailsCache.set(id, data.shops[0]);
+        return data.shops[0];
+      }
+    } catch (e) {
+      console.error(`Failed to fetch detail for shop ${id}:`, e);
+    }
+    return null;
   };
 
   // ---- Pinned / hover shop state ----
   let markerHoveredShop = $state<GlobeShop | null>(null);
   let pinnedShop = $state<GlobeShop | null>(null);
+  let hoveredMarkerId = $state<number | null>(null);
+  let pinnedMarkerId = $state<number | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
   const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
@@ -459,8 +515,7 @@
       )
     }));
     withDistance.sort((a, b) => {
-      if (a.distance === b.distance)
-        return nameCollator.compare(a.entry.shop.name, b.entry.shop.name);
+      if (a.distance === b.distance) return nameCollator.compare(a.entry.name, b.entry.name);
       return a.distance - b.distance;
     });
 
@@ -472,7 +527,9 @@
     if (!sourceShops) return null;
     const q = searchQuery.trim().toLowerCase();
     const rf = regionFilter;
-    return sourceShops.filter(({ shop }) => {
+    return sourceShops.filter((entry) => {
+      const shop = shopDetailsCache.get(entry.id);
+      if (!shop) return false;
       if (rf.type === 'region') {
         const r = rf.region;
         const leafId = r[r.length - 1].id;
@@ -523,14 +580,14 @@
   });
 
   $effect(() => {
-    const key = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
+    const key = hoveredMarkerId != null ? `${hoveredMarkerId}` : '';
     const instance = map;
     if (!instance?.getLayer(SHOPS_ACTIVE_LAYER_ID)) return;
     instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], key]);
   });
 
   $effect(() => {
-    const key = pinnedShop ? getShopKey(pinnedShop) : '';
+    const key = pinnedMarkerId != null ? `${pinnedMarkerId}` : '';
     const instance = map;
     if (!instance?.getLayer(SHOPS_PINNED_LAYER_ID)) return;
     instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], key]);
@@ -543,52 +600,45 @@
 
     void (async () => {
       try {
-        const sourceShopData = untrack(() => shopData);
-        if (sourceShopData) {
-          const resolvedShops = await sourceShopData;
-          if (requestId !== globeDataRequestId) return;
-          applyResolvedGlobeData(resolvedShops);
-        } else {
-          const response = await fetchGlobeData();
-          if (requestId !== globeDataRequestId) return;
-          applyResolvedGlobeData(response.shops);
-        }
+        const response = await fetchMarkers();
+        if (requestId !== globeDataRequestId) return;
+        const markerEntries: ShopEntry[] = response.shops.map((s) => ({
+          id: s.id,
+          name: s.name,
+          location: { latitude: s.lat, longitude: s.lng },
+          density: s.density
+        }));
+        markers = markerEntries;
+        markerLookup.clear();
+        for (const entry of markerEntries) markerLookup.set(`${entry.id}`, entry);
+        // Start batch loading full details for sidebar
+        allDetailsLoaded = false;
+        void loadBatchDetails(markerEntries.map((e) => e.id));
       } catch (error) {
         if (requestId !== globeDataRequestId) return;
-        console.error('Failed to load globe shop data:', error);
+        console.error('Failed to load globe markers:', error);
       }
     })();
   });
 
   $effect(() => {
-    if (!shopDataResolved.length) return;
-    const nextShops = shopDataResolved.map((shop) => ({
-      shop,
-      location: {
-        latitude: shop.location.coordinates[1],
-        longitude: shop.location.coordinates[0]
-      }
-    }));
-    shops = nextShops;
-    shopLookup.clear();
-    for (const entry of nextShops) shopLookup.set(getShopKey(entry.shop), entry);
-  });
-
-  $effect(() => {
     const instance = map;
-    const shopsData = shops;
-    if (!instance || !shopsData) return;
+    const markersData = markers;
+    if (!instance || !markersData) return;
     const source = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!source) return;
     source.setData({
       type: 'FeatureCollection',
-      features: shopsData.map(({ shop, location }) => ({
+      features: markersData.map((entry) => ({
         type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [location.longitude, location.latitude] },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [entry.location.longitude, entry.location.latitude]
+        },
         properties: {
-          key: getShopKey(shop),
-          density: shop.density,
-          name: shop.name.replace('（', '(').replace('）', ')')
+          key: `${entry.id}`,
+          density: entry.density,
+          name: entry.name.replace('（', '(').replace('）', ')')
         }
       }))
     });
@@ -599,8 +649,8 @@
   $effect(() => {
     if (regionParamsApplied) return;
     const instance = map;
-    const shopsData = shops;
-    if (!instance || !shopsData) return;
+    const markersData = markers;
+    if (!instance || !markersData) return;
 
     const urlParams = page.url.searchParams;
     const lat = urlParams.get('lat');
@@ -657,12 +707,23 @@
     if (!skipSortOrigin) {
       shopListSortOrigin = { lat: shopEntry.location.latitude, lng: shopEntry.location.longitude };
     }
-    pinnedShop = shopEntry.shop;
+    pinnedMarkerId = shopEntry.id;
+    hoveredMarkerId = null;
     markerHoveredShop = null;
+    // Set pinnedShop from cache or fetch on demand
+    const cached = shopDetailsCache.get(shopEntry.id);
+    if (cached) {
+      pinnedShop = cached;
+    } else {
+      pinnedShop = null;
+      void fetchShopDetail(shopEntry.id).then((detail) => {
+        if (pinnedMarkerId === shopEntry.id) pinnedShop = detail;
+      });
+    }
     flyToShop(shopEntry);
     if (isCompactViewport) sidebarOpen = true;
     requestAnimationFrame(() => {
-      cardRefs.get(getShopKey(shopEntry.shop))?.scrollIntoView({
+      cardRefs.get(`${shopEntry.id}`)?.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest'
       });
@@ -718,11 +779,10 @@
     };
   };
 
-  const isShopInCurrentFilter = (shop: GlobeShop): boolean => {
+  const isShopInCurrentFilter = (shopId: number): boolean => {
     const fs = filteredShops;
     if (!fs) return false;
-    const key = getShopKey(shop);
-    return fs.some(({ shop: s }) => getShopKey(s) === key);
+    return fs.some((entry) => entry.id === shopId);
   };
 
   // ---- Floating sidebar drag / resize (desktop) ----
@@ -1271,6 +1331,8 @@
               mapEl?.classList.add('cursor-pointer', 'landing-mode');
               if (pinnedShop !== null) pinnedShop = null;
               if (markerHoveredShop !== null) markerHoveredShop = null;
+              pinnedMarkerId = null;
+              hoveredMarkerId = null;
               if (regionFilter.type !== 'world') regionFilter = { type: 'world' };
               if (shopListSortOrigin !== null) shopListSortOrigin = null;
               if (sidebarOpen) sidebarOpen = false;
@@ -1486,32 +1548,32 @@
 
         ensureMapLayers(instance, { deferVisuals: true });
         applyModeLayers(instance, mode);
-        const shopsData = shops;
-        if (shopsData) {
+        const markersData = markers;
+        if (markersData) {
           const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
           if (src) {
             src.setData({
               type: 'FeatureCollection',
-              features: shopsData.map(({ shop, location }) => ({
+              features: markersData.map((entry) => ({
                 type: 'Feature' as const,
                 geometry: {
                   type: 'Point' as const,
-                  coordinates: [location.longitude, location.latitude]
+                  coordinates: [entry.location.longitude, entry.location.latitude]
                 },
                 properties: {
-                  key: getShopKey(shop),
-                  density: shop.density,
-                  name: shop.name.replace('（', '(').replace('）', ')')
+                  key: `${entry.id}`,
+                  density: entry.density,
+                  name: entry.name.replace('（', '(').replace('）', ')')
                 }
               }))
             });
           }
         }
-        const hoverKey = markerHoveredShop ? getShopKey(markerHoveredShop) : '';
+        const hoverKey = hoveredMarkerId != null ? `${hoveredMarkerId}` : '';
         if (instance.getLayer(SHOPS_ACTIVE_LAYER_ID)) {
           instance.setFilter(SHOPS_ACTIVE_LAYER_ID, ['==', ['get', 'key'], hoverKey]);
         }
-        const pinnedKey = pinnedShop ? getShopKey(pinnedShop) : '';
+        const pinnedKey = pinnedMarkerId != null ? `${pinnedMarkerId}` : '';
         if (instance.getLayer(SHOPS_PINNED_LAYER_ID)) {
           instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], pinnedKey]);
         }
@@ -1580,6 +1642,8 @@
 
         pinnedShop = null;
         markerHoveredShop = null;
+        pinnedMarkerId = null;
+        hoveredMarkerId = null;
         regionFilter = { type: 'world' };
         const { lat, lng } = event.lngLat;
         shopListSortOrigin = { lat, lng };
@@ -1591,19 +1655,31 @@
 
       const handleShopMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
         instance.getCanvas().style.cursor = 'pointer';
-        if (pinnedShop) return;
+        if (pinnedMarkerId != null) return;
         if (e.features && e.features[0]) {
           const key = e.features[0].properties?.key as string | undefined;
           if (key) {
-            const entry = shopLookup.get(key);
-            if (entry) markerHoveredShop = entry.shop;
+            const id = parseInt(key, 10);
+            hoveredMarkerId = id;
+            const cached = shopDetailsCache.get(id);
+            if (cached) {
+              markerHoveredShop = cached;
+            } else {
+              markerHoveredShop = null;
+              void fetchShopDetail(id).then((detail) => {
+                if (hoveredMarkerId === id) markerHoveredShop = detail;
+              });
+            }
           }
         }
       };
 
       const handleShopMouseLeave = () => {
         instance.getCanvas().style.cursor = '';
-        if (!pinnedShop) markerHoveredShop = null;
+        if (pinnedMarkerId == null) {
+          markerHoveredShop = null;
+          hoveredMarkerId = null;
+        }
       };
 
       const handleShopClick = (e: maplibregl.MapLayerMouseEvent) => {
@@ -1612,21 +1688,25 @@
         if (e.features && e.features[0]) {
           const key = e.features[0].properties?.key as string | undefined;
           if (key) {
-            const entry = shopLookup.get(key);
+            const entry = markerLookup.get(key);
             if (entry) {
               if (mode === 'landing') {
                 goto(resolve('/globe'));
                 return;
               }
-              if (pinnedShop && getShopKey(pinnedShop) === key) {
+              if (pinnedMarkerId === entry.id) {
                 pinnedShop = null;
+                pinnedMarkerId = null;
                 markerHoveredShop = null;
+                hoveredMarkerId = null;
               } else {
-                if (!isShopInCurrentFilter(entry.shop)) {
+                if (!isShopInCurrentFilter(entry.id)) {
                   searchQuery = '';
                   selectedTitleIds = [];
                 }
-                applyShopRegionFilter(entry.shop);
+                // Apply region filter from cached detail if available
+                const cached = shopDetailsCache.get(entry.id);
+                if (cached) applyShopRegionFilter(cached);
                 pinShop(entry);
               }
             }
@@ -1743,6 +1823,8 @@
       navigationControl = null;
       markerHoveredShop = null;
       pinnedShop = null;
+      hoveredMarkerId = null;
+      pinnedMarkerId = null;
       void initializeMap(cameraSnapshot);
     };
 
@@ -1790,12 +1872,10 @@
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
 
-      if (shopData) {
-        void invalidate('app:globe-shops');
-        return;
-      }
-
-      lazyGlobeDataPromise = null;
+      // Refresh markers and details
+      lazyMarkersPromise = null;
+      shopDetailsCache.clear();
+      allDetailsLoaded = false;
       globeDataRefreshToken += 1;
     }, 60_000);
 
@@ -2107,7 +2187,7 @@
 
         <!-- Shop list -->
         <div class="flex-1 space-y-2 overflow-y-auto p-3">
-          {#if !shops}
+          {#if !allDetailsLoaded}
             <div class="flex justify-center py-8">
               <span class="loading loading-spinner loading-md"></span>
             </div>
@@ -2115,25 +2195,28 @@
             <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
           {:else if filteredShops !== null}
             {#if sidebarReady}
-              {#each filteredShops.slice(0, visibleCount) as { shop } (`${shop.id}`)}
-                {@const cardKey = `${shop.id}`}
-                {@const isPinned = pinnedShop ? getShopKey(pinnedShop) === getShopKey(shop) : false}
-                <div
-                  bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
-                  class="rounded-xl transition-all {isPinned
-                    ? '[&>*:first-child]:not-hover:border-accent/60'
-                    : ''}"
-                >
-                  <ShopCard
-                    {shop}
-                    interactive
-                    mobileButtons
-                    onclick={() => {
-                      const entry = shopLookup.get(getShopKey(shop));
-                      if (entry) pinShop(entry, true);
-                    }}
-                  />
-                </div>
+              {#each filteredShops.slice(0, visibleCount) as entry (entry.id)}
+                {@const shop = shopDetailsCache.get(entry.id)}
+                {@const cardKey = `${entry.id}`}
+                {@const isPinned = pinnedMarkerId === entry.id}
+                {#if shop}
+                  <div
+                    bind:this={() => cardRefs.get(cardKey), (v) => cardRefs.set(cardKey, v)}
+                    class="rounded-xl transition-all {isPinned
+                      ? '[&>*:first-child]:not-hover:border-accent/60'
+                      : ''}"
+                  >
+                    <ShopCard
+                      {shop}
+                      interactive
+                      mobileButtons
+                      onclick={() => {
+                        const markerEntry = markerLookup.get(`${entry.id}`);
+                        if (markerEntry) pinShop(markerEntry, true);
+                      }}
+                    />
+                  </div>
+                {/if}
               {/each}
               {#if filteredShops.length > visibleCount}
                 <div bind:this={listSentinelEl} class="flex justify-center py-4">
@@ -2203,7 +2286,9 @@
             aria-label={m.close()}
             onclick={() => {
               pinnedShop = null;
+              pinnedMarkerId = null;
               markerHoveredShop = null;
+              hoveredMarkerId = null;
             }}
           >
             <i class="fa-solid fa-xmark text-xs"></i>
