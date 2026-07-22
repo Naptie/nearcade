@@ -165,10 +165,7 @@ export async function getSelectorOptions(
   });
 }
 
-// ── Admin tree helpers ─────────────────────────────────────────────────────
-// These read from the in-memory cache so the admin panel can lazily load the
-// region tree one level at a time instead of shipping all ~150k regions to the
-// client in a single payload.
+// Admin tree helpers
 
 function toAdminRegionNode(region: Region): AdminRegionNode {
   return {
