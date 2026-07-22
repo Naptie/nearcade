@@ -1821,7 +1821,7 @@
                       <div class="flex items-start gap-2 whitespace-pre-line">
                         <i class="fa-solid fa-circle-info mt-1"></i>
                         <div
-                          class="prose prose-sm flex h-auto flex-1 flex-col items-center gap-2 overflow-auto *:my-0"
+                          class="prose prose-sm flex h-auto flex-1 flex-col gap-2 overflow-auto *:my-0"
                         >
                           {@html gameComments[game.gameId]}
                         </div>
