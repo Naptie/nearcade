@@ -2,7 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { formatDistance, getGameName } from '$lib/utils';
-  import { GAME_TITLES, RANKING_RADIUS_OPTIONS } from '$lib/constants';
+  import { RANKING_RADIUS_OPTIONS, RANKING_FIXED_GAMES } from '$lib/constants';
   import type {
     RankingMetrics,
     SortCriteria,
@@ -10,6 +10,7 @@
     RankingsTableItem
   } from '$lib/types';
   import type { Snippet } from 'svelte';
+  import { fade } from 'svelte/transition';
 
   interface Props {
     rankings: RankingsTableItem[];
@@ -46,6 +47,45 @@
   let hoverTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
   let hoverDetailsHeights = $state<{ [key: number]: number }>({});
   let screenWidth = $state(0);
+  let otherTooltip = $state<{
+    x: number;
+    y: number;
+    games: { name: string; quantity: number }[];
+    showBelow: boolean;
+  } | null>(null);
+  let hideOtherTooltipTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
+
+  const showOtherTooltip = (
+    e: MouseEvent,
+    games: { name: string; quantity: number }[],
+    rowIndex: number
+  ) => {
+    if (hideOtherTooltipTimeout) {
+      clearTimeout(hideOtherTooltipTimeout);
+      hideOtherTooltipTimeout = null;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    otherTooltip = {
+      x: rect.left,
+      y: rowIndex < 3 ? rect.bottom + 4 : rect.top,
+      games,
+      showBelow: rowIndex < 3
+    };
+  };
+
+  const hideOtherTooltip = () => {
+    if (hideOtherTooltipTimeout) clearTimeout(hideOtherTooltipTimeout);
+    hideOtherTooltipTimeout = setTimeout(() => {
+      otherTooltip = null;
+    }, 150);
+  };
+
+  const keepOtherTooltip = () => {
+    if (hideOtherTooltipTimeout) {
+      clearTimeout(hideOtherTooltipTimeout);
+      hideOtherTooltipTimeout = null;
+    }
+  };
 
   const visibleRadiusOptions = $derived.by(() => {
     if (screenWidth < 640) return [RANKING_RADIUS_OPTIONS[1]];
@@ -108,6 +148,9 @@
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
     }
+    if (hideOtherTooltipTimeout) {
+      clearTimeout(hideOtherTooltipTimeout);
+    }
   });
 
   const formatNumber = (num: number): string => {
@@ -145,9 +188,9 @@
       <tbody>
         {#each rankings as ranking, index (index)}
           <tr
-            class="overflow-y-hidden transition-all duration-200 {hoveredRowId === index
-              ? 'bg-base-300/30 h-52'
-              : 'h-16'}"
+            class="transition-all duration-200 {hoveredRowId === index
+              ? 'bg-base-300/30 h-52 overflow-visible'
+              : 'h-16 overflow-y-hidden'}"
             class:skeleton={isLoading}
             onmouseenter={() => handleMouseEnter(index)}
             onmouseleave={handleMouseLeave}
@@ -210,7 +253,7 @@
 
                   {#if showHoverDetails === index}
                     <div
-                      class="absolute inset-0 flex flex-col items-center justify-center overflow-hidden px-2 text-xs transition-opacity duration-200 lg:px-4 {hoveredRowId ===
+                      class="absolute inset-0 flex flex-col items-center justify-center px-2 text-xs transition-opacity duration-200 lg:px-4 {hoveredRowId ===
                       index
                         ? 'opacity-100'
                         : 'opacity-0'}"
@@ -225,17 +268,38 @@
                         </div>
                         {#if metrics.gameSpecificMachines.some((game) => game.quantity > 0)}
                           <div class="divider my-0.5"></div>
-                          {#each GAME_TITLES as game (game.id)}
+                          {#each RANKING_FIXED_GAMES as gameKey (gameKey)}
                             {@const gameMetrics = metrics.gameSpecificMachines.find(
-                              (e) => e.name == game.key
+                              (e) => e.name == gameKey
                             )}
                             {#if gameMetrics && gameMetrics.quantity > 0}
                               <div class="flex justify-between gap-1">
-                                <span class="truncate">{getGameName(game.key)}</span>
+                                <span class="truncate">{getGameName(gameKey)}</span>
                                 <span>{formatNumber(gameMetrics.quantity)}</span>
                               </div>
                             {/if}
                           {/each}
+                          {@const otherGames = metrics.gameSpecificMachines.filter(
+                            (g) =>
+                              g.quantity > 0 &&
+                              !RANKING_FIXED_GAMES.includes(
+                                g.name as (typeof RANKING_FIXED_GAMES)[number]
+                              )
+                          )}
+                          {@const otherCount = otherGames.reduce((sum, g) => sum + g.quantity, 0)}
+                          {#if otherGames.length > 0}
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                              class="flex cursor-help justify-between gap-1"
+                              onmouseenter={(e) => showOtherTooltip(e, otherGames, index)}
+                              onmouseleave={hideOtherTooltip}
+                            >
+                              <span class="truncate underline decoration-dotted underline-offset-2"
+                                >{m.other_games()}</span
+                              >
+                              <span>{formatNumber(otherCount)}</span>
+                            </div>
+                          {/if}
                         {/if}
                       </div>
                     </div>
@@ -256,6 +320,28 @@
       </tbody>
     </table>
   </div>
+
+  {#if otherTooltip}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      style="position: fixed; left: {otherTooltip.x}px; top: {otherTooltip.y}px; transform: translateY({otherTooltip.showBelow
+        ? '0'
+        : '-100%'}); z-index: 50;"
+      class="rounded-box bg-base-200 border-base-300 border p-2 text-xs shadow-lg"
+      onmouseenter={keepOtherTooltip}
+      onmouseleave={hideOtherTooltip}
+      transition:fade={{ duration: 100 }}
+    >
+      <div class="flex flex-col gap-0.5">
+        {#each otherTooltip.games as game (game.name)}
+          <div class="flex justify-between gap-2">
+            <span class="truncate">{getGameName(game.name)}</span>
+            <span>{formatNumber(game.quantity)}</span>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   {#if hasMore}
     {#if isLoadingMore}

@@ -46,6 +46,13 @@ export const SOCIAL_PLATFORMS = ['qq', 'wechat', 'github', 'discord', 'divingfis
 // Radius constants for search distances
 export const RADIUS_OPTIONS = [1, 2, 5, 10, 20, 30] as const;
 
+export const RANKING_FIXED_GAMES: readonly GameKey[] = [
+  'maimai_dx',
+  'chunithm',
+  'taiko_no_tatsujin',
+  'jubeat_cn'
+];
+
 // Radius constants for rankings
 export const RANKING_RADIUS_OPTIONS = [2, 5, 10, 30] as const;
 
