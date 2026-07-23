@@ -150,8 +150,16 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       // Delete the specific photo
       await db.collection('images').deleteOne({ id: deleteRequest.photoId });
     } else {
-      // Delete the shop
-      await db.collection('shops').deleteOne({ id: deleteRequest.shopId });
+      const shop = await db.collection('shops').findOne({ id: deleteRequest.shopId });
+      if (shop) {
+        await db.collection('deleted_shops').insertOne({
+          ...shop,
+          deletedAt: now,
+          deletedBy: session.user.id,
+          deleteRequestId: deleteRequest.id
+        });
+        await db.collection('shops').deleteOne({ id: deleteRequest.shopId });
+      }
     }
   }
 

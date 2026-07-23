@@ -16,6 +16,7 @@ import { parseJsonOrError, parseQueryOrError } from '$lib/utils/validation.serve
 import { m } from '$lib/paraglide/messages';
 import { buildSearchPattern } from '$lib/utils/search';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
+import { getNextShopId } from '$lib/utils/shops/id.server';
 import {
   resolveShopAddress,
   expandShopAddress,
@@ -45,15 +46,6 @@ const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | nu
   }
 
   return normalized;
-};
-
-const findLowestUnoccupiedShopId = (ids: number[]) => {
-  const occupied = new Set(ids.filter((id) => Number.isInteger(id) && id > 0));
-  let candidate = 1;
-  while (occupied.has(candidate)) {
-    candidate += 1;
-  }
-  return candidate;
 };
 
 const normalizeGamesForShop = (shopId: number, games: unknown): Shop['games'] | null => {
@@ -311,8 +303,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const db = mongo.db();
     const shopsCollection = db.collection<Shop>('shops');
 
-    const existingIds = await shopsCollection.find({}, { projection: { id: 1 } }).toArray();
-    const newId = findLowestUnoccupiedShopId(existingIds.map((shop) => shop.id));
+    const newId = await getNextShopId(db);
 
     const normalizedGames = games === undefined ? [] : normalizeGamesForShop(newId, games);
     if (games !== undefined && !normalizedGames) {
