@@ -11,7 +11,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
-  import { isTouchscreen, getGameName, calculateDistance, getCachedLocation } from '$lib/utils';
+  import { isTouchscreen, getGameName, getCachedLocation } from '$lib/utils';
   import { HAS_DISCRETE_GPU } from '$lib/utils/index.client';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
@@ -125,7 +125,6 @@
   let map = $state<maplibregl.Map | undefined>();
   let navigationControl: maplibregl.NavigationControl | null = null;
   let currentLocale = $derived(getLocale());
-  const shopNameCollator = $derived.by(() => new Intl.Collator(currentLocale));
   let currentTheme = $state<ThemeMode>('light');
   let isMapStyleLoading = $state(false);
   let visualsLayer: GlobeVisualsLayer | null = null;
@@ -307,59 +306,69 @@
   let shops = $state<ShopEntry[] | null>(null);
   const shopDetailsCache = new SvelteMap<number, GlobeShop>();
   let allDetailsLoaded = $state(false);
-  let detailLoadPromise: Promise<void> | null = null;
+  let sidebarDetailsRequestId = 0;
+  let sidebarOrigin = $state<{ lat: number; lng: number } | null>(null);
+  let sidebarHasMore = $state(false);
+  let sidebarPageLoading = $state(false);
+  let originFallbackRequested = false;
+  let originFallbackResolved = $state(false);
   let lazyMarkersPromise: Promise<GlobeMarkersResponse> | null = null;
   let globeDataRequestId = 0;
   let globeDataRefreshToken = $state(0);
 
-  const BATCH_SIZE = 200;
+  const toShopEntries = (detailShops: GlobeShop[]): ShopEntry[] =>
+    detailShops.map((shop) => ({
+      id: shop.id,
+      name: shop.name,
+      location: {
+        latitude: shop.location.coordinates[1],
+        longitude: shop.location.coordinates[0]
+      },
+      density: shop.density
+    }));
 
-  const loadBatchDetails = (allIds: number[]) => {
-    if (detailLoadPromise) return detailLoadPromise;
+  const loadSidebarDetails = async (append = false) => {
+    const origin = sidebarOrigin;
+    if (append && (!sidebarHasMore || sidebarPageLoading)) return;
 
-    detailLoadPromise = (async () => {
-      const uncachedIds = allIds.filter((id) => !shopDetailsCache.has(id));
-      let failed = false;
+    const requestId = ++sidebarDetailsRequestId;
+    const offset = append ? (shops?.length ?? 0) : 0;
+    if (!append) {
+      allDetailsLoaded = false;
+      sidebarHasMore = false;
+    }
+    sidebarPageLoading = true;
 
-      for (let i = 0; i < uncachedIds.length; i += BATCH_SIZE) {
-        const batchIds = uncachedIds.slice(i, i + BATCH_SIZE);
-        try {
-          const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?ids=${batchIds.join(',')}`);
-          if (!res.ok) throw new Error(`Batch fetch failed (${res.status})`);
-          const data = (await res.json()) as { shops: GlobeShop[] };
-          for (const shop of data.shops) {
-            shopDetailsCache.set(shop.id, shop);
-          }
-        } catch (e) {
-          failed = true;
-          console.error('Failed to load shop details batch:', e);
-        }
+    const queryParts = origin
+      ? [`lat=${origin.lat}`, `lng=${origin.lng}`, `offset=${offset}`]
+      : [`offset=${offset}`];
+    if (regionFilter.type === 'region') {
+      const regionId = regionFilter.region.at(-1)?.id;
+      if (regionId) queryParts.push(`region=${encodeURIComponent(regionId)}`);
+    }
+
+    try {
+      const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?${queryParts.join('&')}`);
+      if (!res.ok) throw new Error(`Sidebar fetch failed (${res.status})`);
+      const data = (await res.json()) as { shops: GlobeShop[]; hasMore: boolean };
+      if (requestId !== sidebarDetailsRequestId) return;
+
+      for (const shop of data.shops) {
+        shopDetailsCache.set(shop.id, shop);
       }
-
-      // Build full shop entries for sidebar filtering only after every batch
-      // has completed. A failed batch remains in the loading state so a later
-      // fullscreen entry can retry instead of displaying a partial list.
-      if (failed) return;
-
-      const entries: ShopEntry[] = [];
-      for (const [id, shop] of shopDetailsCache) {
-        entries.push({
-          id,
-          name: shop.name,
-          location: {
-            latitude: shop.location.coordinates[1],
-            longitude: shop.location.coordinates[0]
-          },
-          density: shop.density
-        });
+      const entries = toShopEntries(data.shops);
+      shops = append ? [...(shops ?? []), ...entries] : entries;
+      sidebarHasMore = data.hasMore;
+    } catch (e) {
+      if (requestId !== sidebarDetailsRequestId) return;
+      console.error('Failed to load sidebar shop details:', e);
+      if (!append) shops = [];
+    } finally {
+      if (requestId === sidebarDetailsRequestId) {
+        allDetailsLoaded = true;
+        sidebarPageLoading = false;
       }
-      shops = entries;
-      allDetailsLoaded = true;
-    })().finally(() => {
-      detailLoadPromise = null;
-    });
-
-    return detailLoadPromise;
+    }
   };
 
   const fetchMarkers = () => {
@@ -423,10 +432,6 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
-  let shopListSortOrigin = $derived.by<{ lat: number; lng: number } | null>(() => {
-    const cached = getCachedLocation(false);
-    return cached ? { lat: cached.latitude, lng: cached.longitude } : null;
-  });
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -449,40 +454,15 @@
       .filter(Boolean)
       .join('; ');
 
-  const PAGE_SIZE = 6;
-  const INITIAL_RENDER_COUNT = 4;
-  let visibleCount = $state(0);
   let listSentinelEl = $state<HTMLDivElement | undefined>();
   let sidebarReady = $state(false);
-
-  $effect(() => {
-    const _len = filteredShops?.length ?? 0;
-    void _len;
-    visibleCount = 0;
-    let loaded = 0;
-    let raf: number | null = null;
-    const step = () => {
-      loaded = Math.min(loaded + INITIAL_RENDER_COUNT, PAGE_SIZE);
-      visibleCount = loaded;
-      if (loaded < PAGE_SIZE && loaded < (_len || 0)) {
-        raf = requestAnimationFrame(step);
-      }
-    };
-    raf = requestAnimationFrame(step);
-    return () => {
-      if (raf !== null) cancelAnimationFrame(raf);
-    };
-  });
 
   $effect(() => {
     const sentinel = listSentinelEl;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          visibleCount =
-            (filteredShops?.length ?? 0) > visibleCount ? visibleCount + PAGE_SIZE : visibleCount;
-        }
+        if (entries[0]?.isIntersecting) void loadSidebarDetails(true);
       },
       { threshold: 0 }
     );
@@ -517,30 +497,8 @@
     }
   );
 
-  const shopsSortedByDistance = $derived.by(() => {
-    if (!shops) return null;
-    if (!shopListSortOrigin) return shops;
-    const nameCollator = shopNameCollator;
-
-    const withDistance = shops.map((entry) => ({
-      entry,
-      distance: calculateDistance(
-        shopListSortOrigin!.lat,
-        shopListSortOrigin!.lng,
-        entry.location.latitude,
-        entry.location.longitude
-      )
-    }));
-    withDistance.sort((a, b) => {
-      if (a.distance === b.distance) return nameCollator.compare(a.entry.name, b.entry.name);
-      return a.distance - b.distance;
-    });
-
-    return withDistance.map(({ entry }) => entry);
-  });
-
   const filteredShops = $derived.by(() => {
-    const sourceShops = shopsSortedByDistance;
+    const sourceShops = shops;
     if (!sourceShops) return null;
     const q = searchQuery.trim().toLowerCase();
     const rf = regionFilter;
@@ -642,15 +600,47 @@
     })();
   });
 
-  // Desktop sidebars are visible while sidebarOpen remains false (that flag
-  // only controls the mobile drawer), so fullscreen mode is the authoritative
-  // trigger for detail loading.
+  // All sidebar requests use one origin. Start from the last cached device
+  // location, then replace it only when the user picks a map point or shop.
   $effect(() => {
-    const fullscreen = mode === 'fullscreen';
-    const enabled = sidebarEnabled;
-    const markerEntries = markers;
-    if (!fullscreen || !enabled || !markerEntries || allDetailsLoaded) return;
-    void loadBatchDetails(markerEntries.map((e) => e.id));
+    if (sidebarOrigin) return;
+    const cached = getCachedLocation(false);
+    if (cached) {
+      sidebarOrigin = { lat: cached.latitude, lng: cached.longitude };
+      originFallbackResolved = true;
+      return;
+    }
+    if (originFallbackRequested) return;
+    originFallbackRequested = true;
+
+    void fetch(`${base}/api/globe/origin`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Origin fallback failed (${response.status})`);
+        return (await response.json()) as {
+          origin: { lat: number; lng: number; source: 'ip-region' } | null;
+        };
+      })
+      .then(({ origin }) => {
+        if (origin && !sidebarOrigin) {
+          sidebarOrigin = { lat: origin.lat, lng: origin.lng };
+        }
+        originFallbackResolved = true;
+      })
+      .catch((error) => {
+        console.warn('Failed to resolve Globe IP-region origin:', error);
+        originFallbackResolved = true;
+      });
+  });
+
+  // Region is only a server-side filter for the same origin-sorted query.
+  // Changing either the region or origin restarts pagination at offset zero.
+  $effect(() => {
+    const origin = sidebarOrigin;
+    const fallbackResolved = originFallbackResolved;
+    const filter = regionFilter;
+    void filter;
+    if (!origin && !fallbackResolved) return;
+    void loadSidebarDetails();
   });
 
   $effect(() => {
@@ -701,7 +691,7 @@
         regionFilter = { type: 'region', region: chain };
       }
 
-      shopListSortOrigin = { lat: parseFloat(lat), lng: parseFloat(lng) };
+      sidebarOrigin = { lat: parseFloat(lat), lng: parseFloat(lng) };
       sidebarOpen = true;
 
       flyToWithAnticipatedBasemap(instance, {
@@ -735,10 +725,11 @@
     });
   };
 
-  const pinShop = (shopEntry: ShopEntry, skipSortOrigin = false) => {
-    if (!skipSortOrigin) {
-      shopListSortOrigin = { lat: shopEntry.location.latitude, lng: shopEntry.location.longitude };
-    }
+  const pinShop = (shopEntry: ShopEntry) => {
+    sidebarOrigin = {
+      lat: shopEntry.location.latitude,
+      lng: shopEntry.location.longitude
+    };
     pinnedMarkerId = shopEntry.id;
     hoveredMarkerId = null;
     markerHoveredShop = null;
@@ -746,10 +737,14 @@
     const cached = shopDetailsCache.get(shopEntry.id);
     if (cached) {
       pinnedShop = cached;
+      applyShopRegionFilter(cached);
     } else {
       pinnedShop = null;
       void fetchShopDetail(shopEntry.id).then((detail) => {
-        if (pinnedMarkerId === shopEntry.id) pinnedShop = detail;
+        if (detail && pinnedMarkerId === shopEntry.id) {
+          pinnedShop = detail;
+          applyShopRegionFilter(detail);
+        }
       });
     }
     flyToShop(shopEntry);
@@ -1366,7 +1361,6 @@
               pinnedMarkerId = null;
               hoveredMarkerId = null;
               if (regionFilter.type !== 'world') regionFilter = { type: 'world' };
-              if (shopListSortOrigin !== null) shopListSortOrigin = null;
               if (sidebarOpen) sidebarOpen = false;
               sidebarCollapsed = false;
               // Re-assert the scroll-driven gradient opacity now that the
@@ -1678,7 +1672,7 @@
         hoveredMarkerId = null;
         regionFilter = { type: 'world' };
         const { lat, lng } = event.lngLat;
-        shopListSortOrigin = { lat, lng };
+        sidebarOrigin = { lat, lng };
       };
 
       const handleMouseMove = (e: MouseEvent) => {
@@ -2227,7 +2221,7 @@
             <p class="text-base-content/60 py-6 text-center text-sm">{m.no_shops_found()}</p>
           {:else if filteredShops !== null}
             {#if sidebarReady}
-              {#each filteredShops.slice(0, visibleCount) as entry (entry.id)}
+              {#each filteredShops as entry (entry.id)}
                 {@const shop = shopDetailsCache.get(entry.id)}
                 {@const cardKey = `${entry.id}`}
                 {@const isPinned = pinnedMarkerId === entry.id}
@@ -2244,15 +2238,17 @@
                       mobileButtons
                       onclick={() => {
                         const markerEntry = markerLookup.get(`${entry.id}`);
-                        if (markerEntry) pinShop(markerEntry, true);
+                        if (markerEntry) pinShop(markerEntry);
                       }}
                     />
                   </div>
                 {/if}
               {/each}
-              {#if filteredShops.length > visibleCount}
+              {#if sidebarHasMore}
                 <div bind:this={listSentinelEl} class="flex justify-center py-4">
-                  <span class="loading loading-spinner loading-sm"></span>
+                  {#if sidebarPageLoading}
+                    <span class="loading loading-spinner loading-sm"></span>
+                  {/if}
                 </div>
               {/if}
             {:else}

@@ -212,23 +212,8 @@ export const loadGlobeMarkers = async (): Promise<GlobeMarker[]> => {
   }));
 };
 
-/**
- * Loads full GlobeShop details for a specific set of shop IDs.
- * Used by the client to fetch details on demand (sidebar, hover, pin).
- */
-export const loadGlobeShopsByIds = async (ids: number[]): Promise<GlobeShop[]> => {
-  if (ids.length === 0) return [];
-
-  const [rawShops, attendance] = await Promise.all([
-    mongo
-      .db()
-      .collection<Shop>('shops')
-      .find({ id: { $in: ids } })
-      .project(globeShopProjection)
-      .toArray() as Promise<RawGlobeShop[]>,
-    loadGlobeAttendanceCached()
-  ]);
-
+const hydrateGlobeShops = async (rawShops: RawGlobeShop[]): Promise<GlobeShop[]> => {
+  const attendance = await loadGlobeAttendanceCached();
   const result: GlobeShop[] = [];
   for (const raw of rawShops) {
     const region = raw.address.region;
@@ -248,4 +233,75 @@ export const loadGlobeShopsByIds = async (ids: number[]): Promise<GlobeShop[]> =
     });
   }
   return result;
+};
+
+/**
+ * Loads full GlobeShop details for a specific set of shop IDs.
+ * Used by the client to fetch details on demand (sidebar, hover, pin).
+ */
+export const loadGlobeShopsByIds = async (ids: number[]): Promise<GlobeShop[]> => {
+  if (ids.length === 0) return [];
+
+  const rawShops = (await mongo
+    .db()
+    .collection<Shop>('shops')
+    .find({ id: { $in: ids } })
+    .project(globeShopProjection)
+    .toArray()) as RawGlobeShop[];
+
+  return hydrateGlobeShops(rawShops);
+};
+
+export const GLOBE_SHOPS_PAGE_SIZE = 6;
+
+export const loadGlobeShopsByDistance = async (
+  longitude: number,
+  latitude: number,
+  offset: number,
+  regionId?: string
+): Promise<{ shops: GlobeShop[]; hasMore: boolean }> => {
+  const rawShops = (await mongo
+    .db()
+    .collection<Shop>('shops')
+    .aggregate([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [longitude, latitude] },
+          key: 'location',
+          distanceField: '_globeDistance',
+          ...(regionId ? { query: { 'address.region': regionId } } : {})
+        }
+      },
+      { $skip: offset },
+      { $limit: GLOBE_SHOPS_PAGE_SIZE + 1 },
+      { $project: globeShopProjection }
+    ])
+    .toArray()) as RawGlobeShop[];
+
+  const hasMore = rawShops.length > GLOBE_SHOPS_PAGE_SIZE;
+  return {
+    shops: await hydrateGlobeShops(rawShops.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
+    hasMore
+  };
+};
+
+export const loadGlobeShopsByName = async (
+  offset: number,
+  regionId?: string
+): Promise<{ shops: GlobeShop[]; hasMore: boolean }> => {
+  const rawShops = (await mongo
+    .db()
+    .collection<Shop>('shops')
+    .find(regionId ? { 'address.region': regionId } : {})
+    .sort({ name: 1, id: 1 })
+    .skip(offset)
+    .limit(GLOBE_SHOPS_PAGE_SIZE + 1)
+    .project(globeShopProjection)
+    .toArray()) as RawGlobeShop[];
+
+  const hasMore = rawShops.length > GLOBE_SHOPS_PAGE_SIZE;
+  return {
+    shops: await hydrateGlobeShops(rawShops.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
+    hasMore
+  };
 };
