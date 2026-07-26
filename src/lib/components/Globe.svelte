@@ -8,6 +8,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '$lib/styles/maplibre.css';
   import { SvelteMap } from 'svelte/reactivity';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
@@ -315,6 +316,8 @@
   let lazyMarkersPromise: Promise<GlobeMarkersResponse> | null = null;
   let globeDataRequestId = 0;
   let globeDataRefreshToken = $state(0);
+  let markerFilterRequestId = 0;
+  let highlightedMarkerIds = $state<Set<number> | null>(null);
 
   const toShopEntries = (detailShops: GlobeShop[]): ShopEntry[] =>
     detailShops.map((shop) => ({
@@ -386,6 +389,19 @@
         });
     }
     return lazyMarkersPromise;
+  };
+
+  const fetchFilteredMarkerIds = async (regionId: string | undefined, titleIds: number[]) => {
+    const params = new SvelteURLSearchParams();
+    if (regionId) params.set('region', regionId);
+    if (titleIds.length > 0) params.set('titles', titleIds.join(','));
+
+    const response = await fetch(`${GLOBE_MARKERS_ENDPOINT}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Filtered marker fetch failed (${response.status})`);
+    }
+    const data = (await response.json()) as GlobeMarkersResponse;
+    return new Set(data.shops.map((shop) => shop.id));
   };
 
   const fetchShopDetail = async (id: number): Promise<GlobeShop | null> => {
@@ -568,6 +584,30 @@
     instance.setFilter(SHOPS_PINNED_LAYER_ID, ['==', ['get', 'key'], key]);
   });
 
+  // The sidebar contains only one page of shop details. Query the marker endpoint
+  // separately so the globe highlights every shop matching the active filters.
+  $effect(() => {
+    const regionId =
+      regionFilter.type === 'region' ? regionFilter.region.at(-1)?.id || undefined : undefined;
+    const titleIds = selectedTitleIds;
+    const requestId = ++markerFilterRequestId;
+
+    if (!regionId && titleIds.length === 0) {
+      highlightedMarkerIds = null;
+      return;
+    }
+
+    void fetchFilteredMarkerIds(regionId, titleIds)
+      .then((ids) => {
+        if (requestId === markerFilterRequestId) highlightedMarkerIds = ids;
+      })
+      .catch((error) => {
+        if (requestId !== markerFilterRequestId) return;
+        console.error('Failed to load filtered globe markers:', error);
+        highlightedMarkerIds = null;
+      });
+  });
+
   $effect(() => {
     const refreshToken = globeDataRefreshToken;
     const requestId = ++globeDataRequestId;
@@ -646,6 +686,7 @@
   $effect(() => {
     const instance = map;
     const markersData = markers;
+    const highlightedIds = highlightedMarkerIds;
     if (!instance || !markersData) return;
     const source = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!source) return;
@@ -660,6 +701,7 @@
         properties: {
           key: `${entry.id}`,
           density: entry.density,
+          isFilteredOut: highlightedIds?.has(entry.id) ? 0 : highlightedIds ? 1 : 0,
           name: entry.name.replace('（', '(').replace('）', ')')
         }
       }))
@@ -1165,7 +1207,8 @@
           'circle-color': DENSITY_COLOR_EXPR,
           'circle-stroke-width': 1.5,
           'circle-stroke-color': 'rgba(255,255,255,0.6)',
-          'circle-opacity': 0.9
+          'circle-opacity': ['case', ['==', ['get', 'isFilteredOut'], 1], 0.18, 0.9],
+          'circle-stroke-opacity': ['case', ['==', ['get', 'isFilteredOut'], 1], 0.12, 0.6]
         }
       });
     }
@@ -1220,6 +1263,7 @@
         },
         paint: {
           'text-color': '#ffffff',
+          'text-opacity': ['case', ['==', ['get', 'isFilteredOut'], 1], 0.05, 1],
           'text-halo-color': 'rgba(0,0,0,0.8)',
           'text-halo-width': 1.2
         }
@@ -1575,6 +1619,7 @@
         ensureMapLayers(instance, { deferVisuals: true });
         applyModeLayers(instance, mode);
         const markersData = markers;
+        const highlightedIds = highlightedMarkerIds;
         if (markersData) {
           const src = instance.getSource(SHOPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
           if (src) {
@@ -1589,6 +1634,7 @@
                 properties: {
                   key: `${entry.id}`,
                   density: entry.density,
+                  isFilteredOut: highlightedIds?.has(entry.id) ? 0 : highlightedIds ? 1 : 0,
                   name: entry.name.replace('（', '(').replace('）', ')')
                 }
               }))

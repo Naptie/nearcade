@@ -1,4 +1,5 @@
 import mongo from '$lib/db/index.server';
+import type { Filter } from 'mongodb';
 import { getAllShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import { GAME_TITLES } from '$lib/constants';
 import type { GlobeShop, GlobeShopGameSummary, Shop } from '$lib/types';
@@ -138,10 +139,27 @@ const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): Gl
   density: getGlobeShopDensity(shop, attendances)
 });
 
-const loadRawGlobeShops = () =>
-  mongo.db().collection<Shop>('shops').find({}).project(globeShopProjection).toArray() as Promise<
-    RawGlobeShop[]
-  >;
+type GlobeMarkerFilters = {
+  regionId?: string;
+  titleIds?: number[];
+};
+
+const loadRawGlobeShops = (filters: GlobeMarkerFilters = {}) => {
+  const { regionId, titleIds = [] } = filters;
+  const query: Filter<Shop> = {
+    ...(regionId ? { 'address.region': regionId } : {}),
+    ...(titleIds.length > 0
+      ? { games: { $all: titleIds.map((titleId) => ({ $elemMatch: { titleId } })) } }
+      : {})
+  };
+
+  return mongo
+    .db()
+    .collection<Shop>('shops')
+    .find(query)
+    .project(globeShopProjection)
+    .toArray() as Promise<RawGlobeShop[]>;
+};
 
 export const loadGlobeShops = async (): Promise<GlobeShop[]> => {
   const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendanceCached()]);
@@ -200,8 +218,13 @@ export type GlobeMarker = {
  * Returns minimal marker data for all shops: id, name, coordinates, density.
  * This is ~95% smaller than the full globe data response.
  */
-export const loadGlobeMarkers = async (): Promise<GlobeMarker[]> => {
-  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendanceCached()]);
+export const loadGlobeMarkers = async (
+  filters: GlobeMarkerFilters = {}
+): Promise<GlobeMarker[]> => {
+  const [shops, attendance] = await Promise.all([
+    loadRawGlobeShops(filters),
+    loadGlobeAttendanceCached()
+  ]);
 
   return shops.map((shop) => ({
     id: shop.id,
