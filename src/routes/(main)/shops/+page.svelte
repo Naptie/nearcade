@@ -22,6 +22,23 @@
     selectedRegionIds.length > 0 ? selectedRegionIds[selectedRegionIds.length - 1] : ''
   );
   let regionDropdownOpen = $state(false);
+  let regionDropdownEl = $state<HTMLElement>();
+
+  $effect(() => {
+    const open = regionDropdownOpen;
+    if (!open) return;
+    const el = regionDropdownEl;
+    if (!el) return;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      if (!el.contains(e.target as Node)) {
+        regionDropdownOpen = false;
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  });
 
   // Sync regionId from URL on initial load
   $effect(() => {
@@ -199,7 +216,7 @@
       </div>
 
       <!-- Region Filter Dropdown -->
-      <div class="dropdown" class:dropdown-open={regionDropdownOpen}>
+      <div class="dropdown" class:dropdown-open={regionDropdownOpen} bind:this={regionDropdownEl}>
         <button
           type="button"
           class="btn btn-soft hover:btn-accent"
@@ -216,7 +233,8 @@
           role="menu"
           class="card dropdown-content bg-base-200 z-10 mt-2 w-72 shadow-lg"
           onfocusout={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            const relatedTarget = e.relatedTarget as Node | null;
+            if (relatedTarget && !e.currentTarget.contains(relatedTarget)) {
               regionDropdownOpen = false;
             }
           }}
