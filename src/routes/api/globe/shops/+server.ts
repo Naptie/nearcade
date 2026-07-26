@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { loadGlobeShopsByIds } from '$lib/endpoints/globe.server';
 import type { RequestHandler } from './$types';
 
-const MAX_IDS_PER_REQUEST = 50;
+const MAX_IDS_PER_REQUEST = 200;
 
 export const GET: RequestHandler = async ({ url }) => {
   const idsParam = url.searchParams.get('ids');

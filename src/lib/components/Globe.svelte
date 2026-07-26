@@ -311,7 +311,7 @@
   let globeDataRequestId = 0;
   let globeDataRefreshToken = $state(0);
 
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 200;
 
   const loadBatchDetails = async (allIds: number[]) => {
     const uncachedIds = allIds.filter((id) => !shopDetailsCache.has(id));
@@ -611,14 +611,30 @@
         markers = markerEntries;
         markerLookup.clear();
         for (const entry of markerEntries) markerLookup.set(`${entry.id}`, entry);
-        // Start batch loading full details for sidebar
-        allDetailsLoaded = false;
-        void loadBatchDetails(markerEntries.map((e) => e.id));
+        // Details are loaded lazily when the sidebar opens — not eagerly here.
+        // Update cached details' density from fresh markers so sidebar sorting
+        // (by distance) still works without re-fetching everything.
+        for (const m of markerEntries) {
+          const cached = shopDetailsCache.get(m.id);
+          if (cached) cached.density = m.density;
+        }
+        allDetailsLoaded = shopDetailsCache.size > 0;
       } catch (error) {
         if (requestId !== globeDataRequestId) return;
         console.error('Failed to load globe markers:', error);
       }
     })();
+  });
+
+  // Lazy-load full shop details when the sidebar is opened.  Markers
+  // (lightweight) are already present; details are fetched in batches
+  // and cached so the sidebar can filter / sort by region, games, etc.
+  $effect(() => {
+    const open = sidebarOpen;
+    const markerEntries = markers;
+    if (!open || !markerEntries) return;
+    if (allDetailsLoaded && shops) return;
+    void loadBatchDetails(markerEntries.map((e) => e.id));
   });
 
   $effect(() => {
@@ -1872,10 +1888,10 @@
     const refreshInterval = setInterval(() => {
       viewTime = new Date();
 
-      // Refresh markers and details
+      // Refresh markers only (lightweight). Density updates propagate
+      // into cached details in-place without clearing the cache, so
+      // the sidebar stays functional across refreshes.
       lazyMarkersPromise = null;
-      shopDetailsCache.clear();
-      allDetailsLoaded = false;
       globeDataRefreshToken += 1;
     }, 60_000);
 

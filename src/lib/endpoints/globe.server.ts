@@ -9,6 +9,24 @@ import { localizeAddressGeneral } from '$lib/utils/region.server';
 export type GlobeAttendanceTotals = Array<{ gameId: number; total: number }>;
 export type GlobeAttendanceMap = Map<string, GlobeAttendanceTotals>;
 
+// ── Attendance cache ────────────────────────────────────────────────────────
+// /api/globe/shops receives many batch requests per refresh cycle (e.g. 140+
+// batches for 7,000+ shops). Without caching, each batch performs
+// Redis KEYS nearcade:attend:* + KEYS nearcade:attend-report:* — two full O(N)
+// scans. A short TTL cache collapses those into a single scan per cycle.
+let cachedAttendance: { data: GlobeAttendanceMap; expiresAt: number } | null = null;
+const ATTENDANCE_CACHE_TTL_MS = 15_000;
+
+const loadGlobeAttendanceCached = async (): Promise<GlobeAttendanceMap> => {
+  const now = Date.now();
+  if (cachedAttendance && now < cachedAttendance.expiresAt) {
+    return cachedAttendance.data;
+  }
+  const data = await getAllShopsAttendanceData();
+  cachedAttendance = { data, expiresAt: now + ATTENDANCE_CACHE_TTL_MS };
+  return data;
+};
+
 type RawGlobeShopGame = Pick<Shop['games'][number], 'gameId' | 'titleId' | 'name' | 'quantity'>;
 
 type RawGlobeShop = {
@@ -126,13 +144,16 @@ const loadRawGlobeShops = () =>
   >;
 
 export const loadGlobeShops = async (): Promise<GlobeShop[]> => {
-  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendance()]);
+  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendanceCached()]);
 
   return shops.map((shop) => toGlobeShop(shop, attendance.get(`${shop.id}`) ?? []));
 };
 
 export const loadGlobeShopsWithRegions = async (): Promise<GlobeShop[]> => {
-  const [rawShops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendance()]);
+  const [rawShops, attendance] = await Promise.all([
+    loadRawGlobeShops(),
+    loadGlobeAttendanceCached()
+  ]);
 
   const result: GlobeShop[] = [];
   for (const raw of rawShops) {
@@ -155,7 +176,7 @@ export const loadGlobeShopsWithRegions = async (): Promise<GlobeShop[]> => {
   return result;
 };
 
-export const loadGlobeAttendance = (): Promise<GlobeAttendanceMap> => getAllShopsAttendanceData();
+export const loadGlobeAttendance = (): Promise<GlobeAttendanceMap> => loadGlobeAttendanceCached();
 
 export const loadGlobeDataResponse = async (): Promise<{
   shops: GlobeShop[];
@@ -180,7 +201,7 @@ export type GlobeMarker = {
  * This is ~95% smaller than the full globe data response.
  */
 export const loadGlobeMarkers = async (): Promise<GlobeMarker[]> => {
-  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendance()]);
+  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendanceCached()]);
 
   return shops.map((shop) => ({
     id: shop.id,
@@ -205,7 +226,7 @@ export const loadGlobeShopsByIds = async (ids: number[]): Promise<GlobeShop[]> =
       .find({ id: { $in: ids } })
       .project(globeShopProjection)
       .toArray() as Promise<RawGlobeShop[]>,
-    loadGlobeAttendance()
+    loadGlobeAttendanceCached()
   ]);
 
   const result: GlobeShop[] = [];

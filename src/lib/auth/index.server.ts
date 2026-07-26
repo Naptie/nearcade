@@ -188,6 +188,11 @@ function createAuth() {
         handler: runBackgroundTask
       }
     },
+    rateLimit: {
+      customRules: {
+        '/sign-in/**': { window: 10, max: 30 }
+      }
+    },
     database: mongodbAdapter(mongo.db(), {
       usePlural: true
     }),
