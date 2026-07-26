@@ -307,42 +307,59 @@
   let shops = $state<ShopEntry[] | null>(null);
   const shopDetailsCache = new SvelteMap<number, GlobeShop>();
   let allDetailsLoaded = $state(false);
+  let detailLoadPromise: Promise<void> | null = null;
   let lazyMarkersPromise: Promise<GlobeMarkersResponse> | null = null;
   let globeDataRequestId = 0;
   let globeDataRefreshToken = $state(0);
 
   const BATCH_SIZE = 200;
 
-  const loadBatchDetails = async (allIds: number[]) => {
-    const uncachedIds = allIds.filter((id) => !shopDetailsCache.has(id));
-    for (let i = 0; i < uncachedIds.length; i += BATCH_SIZE) {
-      const batchIds = uncachedIds.slice(i, i + BATCH_SIZE);
-      try {
-        const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?ids=${batchIds.join(',')}`);
-        if (!res.ok) throw new Error(`Batch fetch failed (${res.status})`);
-        const data = (await res.json()) as { shops: GlobeShop[] };
-        for (const shop of data.shops) {
-          shopDetailsCache.set(shop.id, shop);
+  const loadBatchDetails = (allIds: number[]) => {
+    if (detailLoadPromise) return detailLoadPromise;
+
+    detailLoadPromise = (async () => {
+      const uncachedIds = allIds.filter((id) => !shopDetailsCache.has(id));
+      let failed = false;
+
+      for (let i = 0; i < uncachedIds.length; i += BATCH_SIZE) {
+        const batchIds = uncachedIds.slice(i, i + BATCH_SIZE);
+        try {
+          const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?ids=${batchIds.join(',')}`);
+          if (!res.ok) throw new Error(`Batch fetch failed (${res.status})`);
+          const data = (await res.json()) as { shops: GlobeShop[] };
+          for (const shop of data.shops) {
+            shopDetailsCache.set(shop.id, shop);
+          }
+        } catch (e) {
+          failed = true;
+          console.error('Failed to load shop details batch:', e);
         }
-      } catch (e) {
-        console.error('Failed to load shop details batch:', e);
       }
-    }
-    allDetailsLoaded = true;
-    // Build full shop entries for sidebar filtering
-    const entries: ShopEntry[] = [];
-    for (const [id, shop] of shopDetailsCache) {
-      entries.push({
-        id,
-        name: shop.name,
-        location: {
-          latitude: shop.location.coordinates[1],
-          longitude: shop.location.coordinates[0]
-        },
-        density: shop.density
-      });
-    }
-    shops = entries;
+
+      // Build full shop entries for sidebar filtering only after every batch
+      // has completed. A failed batch remains in the loading state so a later
+      // fullscreen entry can retry instead of displaying a partial list.
+      if (failed) return;
+
+      const entries: ShopEntry[] = [];
+      for (const [id, shop] of shopDetailsCache) {
+        entries.push({
+          id,
+          name: shop.name,
+          location: {
+            latitude: shop.location.coordinates[1],
+            longitude: shop.location.coordinates[0]
+          },
+          density: shop.density
+        });
+      }
+      shops = entries;
+      allDetailsLoaded = true;
+    })().finally(() => {
+      detailLoadPromise = null;
+    });
+
+    return detailLoadPromise;
   };
 
   const fetchMarkers = () => {
@@ -615,10 +632,9 @@
         // Update cached details' density from fresh markers so sidebar sorting
         // (by distance) still works without re-fetching everything.
         for (const m of markerEntries) {
-          const cached = shopDetailsCache.get(m.id);
+          const cached = untrack(() => shopDetailsCache.get(m.id));
           if (cached) cached.density = m.density;
         }
-        allDetailsLoaded = shopDetailsCache.size > 0;
       } catch (error) {
         if (requestId !== globeDataRequestId) return;
         console.error('Failed to load globe markers:', error);
@@ -626,14 +642,14 @@
     })();
   });
 
-  // Lazy-load full shop details when the sidebar is opened.  Markers
-  // (lightweight) are already present; details are fetched in batches
-  // and cached so the sidebar can filter / sort by region, games, etc.
+  // Desktop sidebars are visible while sidebarOpen remains false (that flag
+  // only controls the mobile drawer), so fullscreen mode is the authoritative
+  // trigger for detail loading.
   $effect(() => {
-    const open = sidebarOpen;
+    const fullscreen = mode === 'fullscreen';
+    const enabled = sidebarEnabled;
     const markerEntries = markers;
-    if (!open || !markerEntries) return;
-    if (allDetailsLoaded && shops) return;
+    if (!fullscreen || !enabled || !markerEntries || allDetailsLoaded) return;
     void loadBatchDetails(markerEntries.map((e) => e.id));
   });
 
