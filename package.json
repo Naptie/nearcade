@@ -84,7 +84,7 @@
     "@aws-sdk/lib-storage": "^3.1085.0",
     "@better-auth/api-key": "^1.6.23",
     "@better-auth/core": "^1.6.23",
-    "@better-auth/oauth-provider": "^1.6.23",
+    "@better-auth/oauth-provider": "^1.6.25",
     "@elysia/eden": "^1.4.10",
     "@microsoft/clarity": "^1.0.2",
     "@photostructure/tz-lookup": "^11.5.0",
