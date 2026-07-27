@@ -592,10 +592,14 @@ export class GlobeVisualsLayer {
     }
   }
 
-  setTextureDetail(zoom: number, allowHighResolutionTextures: boolean): void {
+  setTextureDetail(
+    zoom: number,
+    allowHighResolutionTextures: boolean,
+    deferTierSync = false
+  ): void {
     this.currentZoom = zoom;
     this.allowHighResolutionTextures = allowHighResolutionTextures;
-    if (!this.renderer) return;
+    if (!this.renderer || deferTierSync) return;
     this.syncDesiredTextureTier();
   }
 
@@ -862,8 +866,7 @@ export class GlobeVisualsLayer {
     // it accepts WebGL2 at runtime.  Cast via unknown to satisfy the declaration.
     this.renderer = new THREE.WebGLRenderer({
       canvas: map.getCanvas(),
-      context: gl as unknown as WebGLRenderingContext,
-      antialias: true
+      context: gl as unknown as WebGLRenderingContext
     });
     this.renderer.autoClear = false;
     this.textureLoader = new THREE.TextureLoader();

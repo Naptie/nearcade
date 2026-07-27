@@ -13,7 +13,6 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import { isTouchscreen, getGameName, getCachedLocation } from '$lib/utils';
-  import { HAS_DISCRETE_GPU } from '$lib/utils/index.client';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
   import type { AddressRegionEntry } from '$lib/regions/types';
@@ -82,9 +81,12 @@
   const GLOBE_MAX_PIXEL_RATIO = 2;
   const getGlobePixelRatio = () => Math.min(window.devicePixelRatio || 1, GLOBE_MAX_PIXEL_RATIO);
 
-  /** Enable MSAA when a discrete GPU is detected. */
-  const getCanvasContextAttributes = (): maplibregl.MapOptions['canvasContextAttributes'] =>
-    HAS_DISCRETE_GPU ? { antialias: true } : undefined;
+  // MapLibre and Three.js share one context. MSAA is selected at context
+  // creation and adds substantial fill cost during fast camera motion.
+  const getCanvasContextAttributes = (): maplibregl.MapOptions['canvasContextAttributes'] => ({
+    antialias: false,
+    powerPreference: 'high-performance'
+  });
 
   type EnsureMapLayersOptions = {
     deferVisuals?: boolean;
@@ -96,14 +98,14 @@
       nightLights: `${base}/globe/nightlights_4k.ktx2`,
       specular: `${base}/globe/specular_map_4k.ktx2`,
       normal: `${base}/globe/normal_map_4k.ktx2`,
-      dayMap: `${base}/globe/day_map${HAS_DISCRETE_GPU ? '_4k' : ''}.ktx2`
+      dayMap: `${base}/globe/day_map_4k.ktx2`
     },
     high: {
       cloud: `${base}/globe/clouds.ktx2`,
       nightLights: `${base}/globe/nightlights.ktx2`,
       specular: `${base}/globe/specular_map.ktx2`,
       normal: `${base}/globe/normal_map_4k.ktx2`,
-      dayMap: `${base}/globe/day_map_${HAS_DISCRETE_GPU ? '8k' : '4k'}.ktx2`
+      dayMap: `${base}/globe/day_map_8k.ktx2`
     }
   };
 
@@ -1057,11 +1059,11 @@
     layer.setCloudShadowOpacity(visualLayers.cloudShadowOpacity);
   };
 
-  const syncVisualTextureDetail = (instance: maplibregl.Map) => {
+  const syncVisualTextureDetail = (instance: maplibregl.Map, settle = false) => {
     const zoom = instance.getZoom();
     const highRes = mode === 'fullscreen';
-    visualsLayer?.setTextureDetail(zoom, highRes);
-    dayMapLayer?.setTextureDetail(zoom, highRes);
+    visualsLayer?.setTextureDetail(zoom, highRes, !settle);
+    dayMapLayer?.setTextureDetail(zoom, highRes, !settle);
   };
 
   const getEnabledVisualLayerNames = (): GlobeLayerName[] => {
@@ -1677,13 +1679,15 @@
           // Reveal labels only once the camera has settled so glyph loading
           // does not contend with the transition animation.
           labelLayersEnabled = true;
-          syncVisualTextureDetail(instance);
+          syncVisualTextureDetail(instance, true);
           return;
         }
-        syncVisualTextureDetail(instance);
+        syncVisualTextureDetail(instance, true);
       };
 
       const handleZoom = () => {
+        // Record the current zoom but defer KTX2 decode/GPU uploads until
+        // moveend; texture work must not contend with camera animation.
         syncVisualTextureDetail(instance);
       };
 

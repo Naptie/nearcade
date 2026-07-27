@@ -29,24 +29,126 @@ export const IS_LOW_DATA =
   navigator.connection &&
   (navigator.connection as { saveData: boolean }).saveData === true;
 
+const GLOBE_PERFORMANCE_CACHE_KEY = 'nearcade-globe-performance-v1';
+const GLOBE_BENCHMARK_SIZE = 512;
+const GLOBE_BENCHMARK_DRAWS = 4;
+const GLOBE_MAX_BENCHMARK_MS = 34;
+
+const createGlobeBenchmarkProgram = (gl: WebGL2RenderingContext): WebGLProgram | null => {
+  const compile = (type: number, source: string) => {
+    const shader = gl.createShader(type);
+    if (!shader) return null;
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+    gl.deleteShader(shader);
+    return null;
+  };
+
+  const vertex = compile(
+    gl.VERTEX_SHADER,
+    `#version 300 es
+      in vec2 aPosition;
+      void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }`
+  );
+  const fragment = compile(
+    gl.FRAGMENT_SHADER,
+    `#version 300 es
+      precision highp float;
+      out vec4 outColor;
+      void main() {
+        vec2 p = gl_FragCoord.xy * 0.003;
+        float value = 0.0;
+        for (int i = 0; i < 48; i++) {
+          p = mat2(0.80, -0.60, 0.60, 0.80) * p + vec2(0.02, 0.03);
+          value += sin(p.x) * cos(p.y);
+        }
+        outColor = vec4(vec3(value * 0.02 + 0.5), 1.0);
+      }`
+  );
+  if (!vertex || !fragment) {
+    if (vertex) gl.deleteShader(vertex);
+    if (fragment) gl.deleteShader(fragment);
+    return null;
+  }
+
+  const program = gl.createProgram();
+  if (!program) return null;
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program;
+  gl.deleteProgram(program);
+  return null;
+};
+
 /**
- * Whether the device has a discrete / high-performance GPU (NVIDIA, AMD Radeon,
- * Apple Silicon). Detected via WEBGL_debug_renderer_info; falls back to false if
- * the extension is blocked or unavailable.
+ * Determines whether the browser-selected high-performance WebGL adapter can
+ * sustain a small GPU workload.
+ *
+ * The result is cached per tab. The actual MapLibre context also requests
+ * `powerPreference: 'high-performance'`, so the probe and map ask the browser
+ * for the same adapter policy.
  */
-export const HAS_DISCRETE_GPU = (() => {
+export const canRenderGlobeLanding = async (): Promise<boolean> => {
   try {
-    const gl = document.createElement('canvas').getContext('webgl2');
-    if (gl) {
-      const ext = gl.getExtension('WEBGL_debug_renderer_info');
-      if (ext) {
-        const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
-        gl.getExtension('WEBGL_lose_context')?.loseContext();
-        return /(NVIDIA|GeForce|RTX|GTX|Radeon|Apple\s+M\d)/i.test(renderer);
+    const cached = sessionStorage.getItem(GLOBE_PERFORMANCE_CACHE_KEY);
+    if (cached !== null) return cached === '1';
+  } catch {
+    // Storage can be disabled; run the short calibration without caching.
+  }
+
+  let passed: boolean;
+  let gl: WebGL2RenderingContext | null = null;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = GLOBE_BENCHMARK_SIZE;
+    canvas.height = GLOBE_BENCHMARK_SIZE;
+    gl = canvas.getContext('webgl2', {
+      powerPreference: 'high-performance'
+    });
+    if (!gl || gl.getParameter(gl.MAX_TEXTURE_SIZE) < 4096) {
+      passed = false;
+    } else {
+      const program = createGlobeBenchmarkProgram(gl);
+      const buffer = gl.createBuffer();
+      if (!program || !buffer) {
+        passed = false;
+      } else {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+        const position = gl.getAttribLocation(program, 'aPosition');
+        gl.useProgram(program);
+        gl.enableVertexAttribArray(position);
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+        // Warm shader compilation and driver setup before timing GPU throughput.
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.finish();
+
+        const start = performance.now();
+        for (let i = 0; i < GLOBE_BENCHMARK_DRAWS; i++) gl.drawArrays(gl.TRIANGLES, 0, 3);
+        // readPixels forces completion of submitted work; without it the CPU
+        // could measure command submission rather than rendering speed.
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+        passed = performance.now() - start <= GLOBE_MAX_BENCHMARK_MS;
+
+        gl.deleteBuffer(buffer);
+        gl.deleteProgram(program);
       }
     }
   } catch {
-    // WebGL unavailable or extension blocked.
+    passed = false;
+  } finally {
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
   }
-  return false;
-})();
+
+  try {
+    sessionStorage.setItem(GLOBE_PERFORMANCE_CACHE_KEY, passed ? '1' : '0');
+  } catch {
+    // Storage is optional for this optimization.
+  }
+  return passed;
+};

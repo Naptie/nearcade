@@ -30,7 +30,7 @@
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
 
-  import { HAS_DISCRETE_GPU, IS_LOW_DATA } from '$lib/utils/index.client';
+  import { canRenderGlobeLanding, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
   import { LIMIT_OPTIONS, RADIUS_OPTIONS } from '$lib/constants';
@@ -88,7 +88,7 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
-  let showGlobe = $state(browser && HAS_DISCRETE_GPU && !IS_LOW_DATA);
+  let showGlobe = $state(false);
   let now = $state(new Date());
 
   // Once the user has scrolled a full viewport height, the globe is fully
@@ -214,6 +214,11 @@
   };
 
   onMount(() => {
+    if (!IS_LOW_DATA) {
+      void canRenderGlobeLanding().then((canRender) => {
+        showGlobe = canRender;
+      });
+    }
     window.addEventListener('amap-loaded', assignAMap);
     const interval = setInterval(() => {
       now = new Date();
