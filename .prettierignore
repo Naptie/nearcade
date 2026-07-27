@@ -8,3 +8,5 @@ bun.lockb
 static/**
 !static/openapi.json
 src/lib/assets/globe/*.geo.json
+
+.venv
