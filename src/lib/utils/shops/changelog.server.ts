@@ -286,7 +286,15 @@ export const getShopChangelogEntries = async (
         let: { uid: '$userId' },
         pipeline: [
           { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
-          { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: { $ifNull: ['$image', null] } } }
+          {
+            $project: {
+              _id: 0,
+              id: 1,
+              name: 1,
+              displayName: 1,
+              image: { $ifNull: ['$image', null] }
+            }
+          }
         ],
         as: 'userArr'
       }
@@ -338,7 +346,15 @@ export const getRecentShopChangelogEntries = async (
         let: { uid: '$userId' },
         pipeline: [
           { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
-          { $project: { _id: 0, id: 1, name: 1, displayName: 1, image: { $ifNull: ['$image', null] } } }
+          {
+            $project: {
+              _id: 0,
+              id: 1,
+              name: 1,
+              displayName: 1,
+              image: { $ifNull: ['$image', null] }
+            }
+          }
         ],
         as: 'userArr'
       }
