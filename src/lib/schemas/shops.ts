@@ -244,7 +244,7 @@ export const createShopRequestSchema = z.object({
   comment: optionalShopCommentSchema.default(''),
   address: shopAddressSchema
     .optional()
-    .default({ general: [], detailed: '' })
+    .default({ general: [], detailed: '', region: [] })
     .describe(bilingual('店铺地址。', 'Shop address.')),
   openingHours: openingHoursSchema,
   location: shopLocationSchema,

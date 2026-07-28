@@ -405,6 +405,10 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
         region: regionIds,
         coordinates: coords
       });
+
+      if (!updateFields.address.region || updateFields.address.region.length === 0) {
+        error(400, m.shop_region_incomplete());
+      }
     }
     if (openingHours !== undefined) {
       const normalizedOpeningHours = normalizeOpeningHours(openingHours);

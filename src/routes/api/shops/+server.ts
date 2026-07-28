@@ -320,6 +320,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       coordinates: location?.coordinates ?? null
     });
 
+    if (resolvedAddress.region.length === 0) {
+      return json(
+        {
+          error:
+            'address.region is required; provide a leaf region ID or a complete address.general'
+        },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
     const newShop: Shop = {
       _id: nanoid(),

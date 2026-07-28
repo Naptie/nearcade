@@ -15,6 +15,13 @@ import type { Region, AddressRegionEntry, AdminRegionNode, AdminRegionSearchHit 
 let byId: Map<string, Region> | null = null;
 let childrenByParentId: Map<string | null, Region[]> | null = null;
 
+/**
+ * Reverse lookup: `parentId \0 level \0 name[zh]` → Region.
+ * Built during cache initialisation for resolving `address.general` names
+ * back to region IDs when a leaf region ID is not provided by the client.
+ */
+let byName: Map<string, Region> | null = null;
+
 // ── Loading ────────────────────────────────────────────────────────────────
 
 export async function initRegionCache(client: MongoClient) {
@@ -40,6 +47,7 @@ export async function initRegionCache(client: MongoClient) {
   byId = new Map(raw.map((r) => [r.id, r]));
 
   childrenByParentId = new Map<string | null, Region[]>();
+  byName = new Map();
   for (const region of raw) {
     const key = region.parentId;
     const bucket = childrenByParentId.get(key);
@@ -48,12 +56,22 @@ export async function initRegionCache(client: MongoClient) {
     } else {
       childrenByParentId.set(key, [region]);
     }
+
+    // Build reverse lookup keyed by (parentId, level, zh-name).
+    // Use the zh name as the canonical key since address.general stores
+    // Chinese names for Chinese regions.
+    const zhName = region.name.zh;
+    if (zhName) {
+      const nameKey = `${region.parentId ?? '__root__'}\0${region.level}\0${zhName}`;
+      byName.set(nameKey, region);
+    }
   }
 }
 
 export async function reloadRegionCache(client: MongoClient): Promise<void> {
   byId = null;
   childrenByParentId = null;
+  byName = null;
   await initRegionCache(client);
 }
 
@@ -138,6 +156,52 @@ export async function deriveGeneralAddress(
   const isChina = entries.length > 0 && entries[0].id === 'CN';
   const general = entries.map((e) => (isChina ? (e.name.zh ?? e.name.en) : e.name.en) ?? e.id);
   return { general, region: entries.map((e) => e.id) };
+}
+
+/**
+ * Attempt to resolve region IDs from a `general` address array (e.g.
+ * `["中国", "黑龙江省", "齐齐哈尔市", "龙沙区"]`) by matching names
+ * bottom-up against the in-memory region cache.
+ *
+ * Matches each name against the children of the previously resolved parent,
+ * trying each remaining administrative level in order (country → province →
+ * city → county).  This handles variable-length `general` arrays caused by
+ * direct-administered municipalities (e.g. `["中国", "重庆市", "沙坪坝区"]`).
+ *
+ * Returns the region ID hierarchy on success, or `null` if any level
+ * could not be resolved unambiguously.
+ */
+export function resolveRegionFromGeneral(general: string[]): string[] | null {
+  if (!byName || general.length === 0) return null;
+
+  const levels: Region['level'][] = ['country', 'province', 'city', 'county'];
+
+  const resolved: string[] = [];
+  let parentId: string | null = null;
+  let levelCursor = 0; // index into `levels` for the NEXT expected level
+
+  for (const name of general) {
+    let matched: Region | undefined;
+
+    // Try each remaining level at the current parent.
+    for (let offset = 0; levelCursor + offset < levels.length; offset++) {
+      const candidateLevel = levels[levelCursor + offset];
+      const key = `${parentId ?? '__root__'}\0${candidateLevel}\0${name}`;
+      const candidate = byName.get(key);
+      if (candidate) {
+        matched = candidate;
+        levelCursor = levelCursor + offset + 1; // advance past the matched level
+        break;
+      }
+    }
+
+    if (!matched) return null;
+
+    resolved.push(matched.id);
+    parentId = matched.id;
+  }
+
+  return resolved;
 }
 
 export async function getSelectorChildren(

@@ -1,4 +1,8 @@
-import { deriveGeneralAddress, expandRegionHierarchyWithNames } from '$lib/regions/utils.server';
+import {
+  deriveGeneralAddress,
+  expandRegionHierarchyWithNames,
+  resolveRegionFromGeneral
+} from '$lib/regions/utils.server';
 import type { AddressRegionEntry } from '$lib/regions/types';
 import type { Shop } from '$lib/types';
 import { getLocale } from '$lib/paraglide/runtime';
@@ -25,11 +29,32 @@ export async function resolveShopAddress(input: {
   coordinates?: [number, number] | null;
 }): Promise<ResolvedShopAddress> {
   const { general, detailed, region } = input;
+
+  // 1. Region ID provided → expand to full hierarchy, derive general.
   if (region && region.length > 0) {
     const leafId = region[region.length - 1];
-    const derived = await deriveGeneralAddress(leafId);
-    return { general: derived.general, detailed, region: derived.region };
+    try {
+      const derived = await deriveGeneralAddress(leafId);
+      return { general: derived.general, detailed, region: derived.region };
+    } catch {
+      // Expansion failed; fall through to try name-based resolution.
+    }
   }
+
+  // 2. No valid region IDs provided but general has values →
+  //    attempt reverse lookup from general names.
+  if (general.length > 0) {
+    const resolved = resolveRegionFromGeneral(general);
+    if (resolved && resolved.length > 0) {
+      return { general, detailed, region: resolved };
+    }
+    // Could not resolve — log a warning but preserve the general data.
+    console.warn(
+      `resolveShopAddress: could not resolve region IDs from general: [${general.join(', ')}]`
+    );
+  }
+
+  // 3. Neither region nor general → return empty.
   return { general, detailed, region: [] };
 }
 
