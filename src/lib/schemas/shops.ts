@@ -514,7 +514,7 @@ const shopChangelogUserSchema = z
       .nullable()
       .optional()
       .describe(bilingual('显示名称。', 'Display name.')),
-    image: z.string().nullable().describe(bilingual('头像。', 'Avatar URL.'))
+    image: z.string().nullable().optional().describe(bilingual('头像。', 'Avatar URL.'))
   })
   .describe(bilingual('触发该变更的用户。', 'User who caused the change.'));
 
