@@ -281,7 +281,7 @@ export const getChangelogEntries = async (
               id: '$user.id',
               name: '$user.name',
               displayName: '$user.displayName',
-              image: '$user.image'
+              image: { $ifNull: ['$user.image', null] }
             },
             else: '$$REMOVE'
           }
