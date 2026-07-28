@@ -168,8 +168,8 @@ const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
   'dayMap'
 ];
 
-const GLOBE_MESH_WIDTH_SEGMENTS = 48;
-const GLOBE_MESH_HEIGHT_SEGMENTS = 24;
+const GLOBE_MESH_WIDTH_SEGMENTS = 32;
+const GLOBE_MESH_HEIGHT_SEGMENTS = 16;
 const MESH_REVEAL_STAGGER_MS = 120;
 const DEFAULT_HIGH_RES_PREFETCH_ZOOM = 3.8;
 const DEFAULT_HIGH_RES_SWAP_ZOOM = 4.2;
@@ -517,7 +517,7 @@ export class GlobeVisualsLayer {
   /** Visibility state stored before onAdd so it survives style reloads. */
   private readonly _meshVisibility: Record<GlobeLayerName, boolean> = {
     clouds: true,
-    cloudShadow: true,
+    cloudShadow: false,
     nightLights: true,
     specular: true,
     atmosphere: true,
@@ -910,7 +910,7 @@ export class GlobeVisualsLayer {
         transparent: true,
         blending: THREE.NormalBlending,
         depthWrite: false,
-        depthTest: true
+        depthTest: false
       });
       this.cloudMesh = new THREE.Mesh(cloudGeom, cloudMat);
       // CLOUD_ALTITUDE_SCALE makes the cloud sphere 0.4% larger than the base globe.

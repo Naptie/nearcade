@@ -4,11 +4,13 @@
   import Footer from '$lib/components/Footer.svelte';
   import { pageTitle } from '$lib/utils';
   import { resolve } from '$app/paths';
+  import { viewport } from '$lib/utils/viewport.svelte';
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
 
   let showUi = $state(false);
   let isExiting = $state(false);
+  let isNarrowViewport = $derived(!viewport.md);
 
   onMount(() => {
     // Defer the heavy navbar/footer mount until the flyTo animation has
@@ -53,11 +55,13 @@
   <!-- Full-screen spacer so the page takes up the full viewport (the globe fills the background) -->
   <div class="h-screen w-full"></div>
 
-  <div
-    class="globe-footer-wrap pointer-events-none absolute bottom-6 flex w-full justify-center *:pointer-events-auto"
-    in:fade={{ delay: 100, duration: 300 }}
-    out:fade={{ duration: 300 }}
-  >
-    <Footer />
-  </div>
+  {#if !isNarrowViewport}
+    <div
+      class="globe-footer-wrap pointer-events-none absolute bottom-6 flex w-full justify-center *:pointer-events-auto"
+      in:fade={{ delay: 100, duration: 300 }}
+      out:fade={{ duration: 300 }}
+    >
+      <Footer />
+    </div>
+  {/if}
 {/if}

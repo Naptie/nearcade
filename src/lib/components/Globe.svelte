@@ -12,6 +12,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
+  import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getGameName, getCachedLocation } from '$lib/utils';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShop } from '$lib/types';
@@ -273,19 +274,6 @@
     }
   };
 
-  // ---- Gradient blur layers (same pattern as NavigationBar, reversed direction) ----
-  const maxBlurRadius = 64;
-  const blurIterations = 16;
-  const bottomBlurLayers = Array.from({ length: blurIterations }, (_, i) => ({
-    blur: maxBlurRadius / (4 * maxBlurRadius) ** (i / (blurIterations - 1)),
-    maskStops: [
-      Math.max(0, ((i - 2) * 100) / blurIterations),
-      Math.max(0, ((i - 1) * 100) / blurIterations),
-      (i * 100) / blurIterations,
-      ((i + 1) * 100) / blurIterations
-    ]
-  }));
-
   // ---- Shop data state ----
   type GlobeMarker = {
     id: number;
@@ -430,8 +418,7 @@
   let pinnedMarkerId = $state<number | null>(null);
 
   let cursorPos = $state({ x: 0, y: 0 });
-  const COMPACT_VIEWPORT_MEDIA_QUERY = '(max-width: 47.999rem)';
-  let isCompactViewport = $state(false);
+  let isCompactViewport = $derived(!viewport.md);
   let isCoarsePointer = $state(false);
 
   // ---- Sidebar state ----
@@ -453,7 +440,6 @@
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
-    isCompactViewport = window.matchMedia(COMPACT_VIEWPORT_MEDIA_QUERY).matches;
     isCoarsePointer = isTouchscreen();
     if (isCompactViewport) {
       isDraggingSidebar = false;
@@ -2052,25 +2038,15 @@
     class="landing-mode pointer-events-auto h-full w-full cursor-pointer"
   ></div>
 
-  <!-- ---- Bottom gradient blur (landing mode only) ----
-       pointer-events-none by default so wheel/touch always pass through to
-       the page/canvas; JS toggles inline pointerEvents only as a safety net. -->
+  <!-- ---- Bottom gradient fade (landing mode only) ----
+       A simple color gradient from bg-base-100 at the bottom fading to
+       transparent above. No backdrop-filter — the gradient alone provides
+       a clean visual transition into the page content without GPU
+       compositor overhead. -->
   <div
     id="globe-bottom-gradient"
     class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[70vh]"
   >
-    {#each bottomBlurLayers as layer, index (index)}
-      <div
-        class="absolute inset-0"
-        style="backdrop-filter: blur({layer.blur}px);
-               mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
-          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
-          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);
-               -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0) {layer
-          .maskStops[0]}%, rgba(0,0,0,1) {layer.maskStops[1]}%, rgba(0,0,0,1) {layer
-          .maskStops[2]}%, rgba(0,0,0,0) {layer.maskStops[3]}%);"
-      ></div>
-    {/each}
     <!-- Solid bg-base-100 floor occupying the bottom 30 vh -->
     <div class="bg-base-100 absolute inset-x-0 bottom-0 h-[30vh]"></div>
     <!-- Gradient fade from bg-base-100 (bottom) to transparent (top) for the next 40 vh -->
@@ -2078,17 +2054,6 @@
       class="from-base-100 absolute inset-x-0 bottom-[30vh] h-[40vh] bg-linear-to-t to-transparent"
     ></div>
   </div>
-
-  <!-- ---- Solid scroll floor (landing mode only) ----
-       A plain (no backdrop-filter) base-color surface that starts at the bottom
-       of the first viewport and is translated upwards with page scroll. It keeps
-       the globe canvas below the fold covered with the page background color as
-       the hero content scrolls away, since the blur layers above are faded out
-       and cannot be moved themselves. -->
-  <div
-    id="globe-scroll-floor"
-    class="bg-base-100 absolute inset-x-0 top-full z-10 h-[200vh] will-change-transform"
-  ></div>
 
   <!-- ================================================================
        Sidebar (fullscreen mode only)
@@ -2126,7 +2091,7 @@
         <div class="flex flex-row-reverse items-start justify-between gap-2">
           <button
             type="button"
-            class="btn btn-circle btn-ghost btn-sm shrink-0 md:hidden"
+            class="btn btn-circle btn-ghost shrink-0 md:hidden"
             aria-label={m.close()}
             onclick={() => (sidebarOpen = false)}
           >

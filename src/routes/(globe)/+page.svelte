@@ -30,7 +30,7 @@
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
 
-  import { canRenderGlobeLanding, IS_LOW_DATA } from '$lib/utils/index.client';
+  import { HAS_DISCRETE_GPU, IS_LOW_DATA } from '$lib/utils/index.client';
   import { env } from '$env/dynamic/public';
   import { page } from '$app/state';
   import { LIMIT_OPTIONS, RADIUS_OPTIONS } from '$lib/constants';
@@ -88,7 +88,7 @@
   let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = $state(0);
 
-  let showGlobe = $state(false);
+  let showGlobe = $state(browser && HAS_DISCRETE_GPU && !IS_LOW_DATA);
   let now = $state(new Date());
 
   // Once the user has scrolled a full viewport height, the globe is fully
@@ -214,11 +214,6 @@
   };
 
   onMount(() => {
-    if (!IS_LOW_DATA) {
-      void canRenderGlobeLanding().then((canRender) => {
-        showGlobe = canRender;
-      });
-    }
     window.addEventListener('amap-loaded', assignAMap);
     const interval = setInterval(() => {
       now = new Date();
@@ -294,7 +289,7 @@
      Outer containers are pointer-events-none so empty areas pass clicks through
      to the globe canvas; only the interactive children opt back in. -->
 <div class="relative" class:pointer-events-none={!showCollapse}>
-  <div class="hero min-h-screen">
+  <div class="hero hero-bg min-h-screen">
     <div
       class="hero-top-bar bg-base-100/50 pointer-events-auto absolute top-4 right-4 z-10 flex items-center gap-0.5 rounded-full backdrop-blur-lg md:gap-1 lg:gap-2"
       in:fade={{ delay: 300, duration: 400 }}
@@ -896,8 +891,11 @@
   </div>
 
   <!-- Below-the-fold content: stats, leaderboards, recent changelog.
-       Only reachable by scrolling past the first (full-height) hero screen. -->
+       Only reachable by scrolling past the first (full-height) hero screen.
+       The background layer flows naturally right after the hero, so its top
+       edge is always exactly where the hero ends — no fixed 100vh cut. -->
   <div class="pointer-events-auto relative z-10">
+    <div class="below-fold-bg" aria-hidden="true"></div>
     <HomeContent />
     <!-- Page-bottom footer (always visible at the end of the scrolled content) -->
     <div class="bg-base-100 flex justify-center pb-6">
@@ -938,5 +936,28 @@
 
   :global(.title-base-content) {
     color: oklch(0.86768 0.001 17.911);
+  }
+
+  /* Hero bottom fade — applied directly to the hero element so it flows
+     with the hero's actual height (no fixed 100vh cut). The gradient is
+     transparent in the upper portion (letting the globe show through) and
+     fades to the base colour in the bottom ~8rem, providing a solid
+     backdrop for semi-transparent panels even on short viewports. */
+  .hero-bg {
+    background: linear-gradient(
+      to bottom,
+      transparent calc(100% - 8rem),
+      var(--color-base-100) 100%
+    );
+  }
+
+  /* Background layer behind the below-the-fold content — starts right where
+     the hero ends and continues solid to the bottom of the page. The gradient
+     at its top edge smoothly fades the globe into the solid base colour. */
+  .below-fold-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent, 2rem, var(--color-base-100) 6rem);
+    pointer-events: none;
   }
 </style>

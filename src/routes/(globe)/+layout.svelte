@@ -2,7 +2,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { canRenderGlobeLanding, IS_LOW_DATA } from '$lib/utils/index.client';
+  import { HAS_DISCRETE_GPU, IS_LOW_DATA } from '$lib/utils/index.client';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -10,10 +10,7 @@
   let GlobeComponent = $state<typeof import('$lib/components/Globe.svelte').default | null>(null);
 
   onMount(() => {
-    if (IS_LOW_DATA) return;
-    void canRenderGlobeLanding().then((canRender) => {
-      showGlobe = canRender;
-    });
+    showGlobe = HAS_DISCRETE_GPU && !IS_LOW_DATA;
   });
 
   const isLandingPage = $derived(page.url.pathname === resolve('/'));
