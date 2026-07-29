@@ -4847,7 +4847,8 @@
                   "address": {
                     "default": {
                       "general": [],
-                      "detailed": ""
+                      "detailed": "",
+                      "region": []
                     },
                     "description": "店铺地址。\n\nShop address.",
                     "type": "object",
@@ -7586,12 +7587,12 @@
                                 "type": "string"
                               },
                               "image": {
-                                "nullable": true,
                                 "description": "头像。\n\nAvatar URL.",
+                                "nullable": true,
                                 "type": "string"
                               }
                             },
-                            "required": ["id", "name", "image"],
+                            "required": ["id", "name"],
                             "additionalProperties": false,
                             "description": "触发该变更的用户。\n\nUser who caused the change."
                           }
@@ -13684,12 +13685,12 @@
                                     "type": "string"
                                   },
                                   "image": {
-                                    "nullable": true,
                                     "description": "头像。\n\nAvatar URL.",
+                                    "nullable": true,
                                     "type": "string"
                                   }
                                 },
-                                "required": ["id", "name", "image"],
+                                "required": ["id", "name"],
                                 "additionalProperties": false,
                                 "description": "触发该变更的用户。\n\nUser who caused the change."
                               }
