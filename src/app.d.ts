@@ -6,6 +6,7 @@ declare global {
     interface Locals {
       session: import('$lib/auth/types').AuthSession | null;
       user: import('$lib/auth/types').User | null;
+      localeOverride?: string;
     }
     // interface PageData {}
     // interface PageState {}

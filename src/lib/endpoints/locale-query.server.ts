@@ -15,7 +15,21 @@ export const handleLocaleQuery: Handle = async ({ event, resolve }) => {
       maxAge: COOKIE_MAX_AGE_SECONDS,
       sameSite: 'lax'
     });
+
+    // Store the locale in locals so we can inject it into the page
+    event.locals.localeOverride = locale;
   }
 
-  return resolve(event);
+  return resolve(event, {
+    transformPageChunk: ({ html, done }) => {
+      if (done && locale && (locales as readonly string[]).includes(locale)) {
+        // Inject script before closing </head> to set localStorage before hydration
+        return html.replace(
+          '</head>',
+          `<script>try{localStorage.setItem('${COOKIE_NAME}','${locale}')}catch(e){}</script></head>`
+        );
+      }
+      return html;
+    }
+  });
 };
