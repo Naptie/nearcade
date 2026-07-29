@@ -7,6 +7,7 @@ import type {
   ShopChangelogEntryWithUser
 } from '$lib/types';
 import { nanoid } from 'nanoid';
+import { resolveShopAddress } from '$lib/utils/region.server';
 
 interface ChangelogUser {
   id: string | null;
@@ -503,6 +504,22 @@ export const applyShopRollback = async (
 ): Promise<ShopRollbackPreview> => {
   const preview = await buildShopRollbackPreview(client, shopId, targetEntryId);
   const db = client.db();
+  const storedRegion = preview.rolledBackShop.address.region;
+  const region = Array.isArray(storedRegion)
+    ? storedRegion.map((entry) => (typeof entry === 'string' ? entry : entry.id))
+    : undefined;
+  const address = await resolveShopAddress({
+    general: preview.rolledBackShop.address.general ?? [],
+    detailed: preview.rolledBackShop.address.detailed ?? '',
+    region,
+    coordinates: preview.rolledBackShop.location?.coordinates ?? null
+  });
+
+  if (address.region.length === 0) {
+    throw new Error('Shop rollback address has no valid terminal region');
+  }
+
+  preview.rolledBackShop.address = address;
 
   await db.collection<Shop>('shops').updateOne(
     { id: shopId },

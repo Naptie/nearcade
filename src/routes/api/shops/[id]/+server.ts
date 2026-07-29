@@ -19,6 +19,7 @@ import {
   parseQueryOrError
 } from '$lib/utils/validation.server';
 import {
+  IncompleteShopRegionError,
   resolveShopAddress,
   expandShopAddress,
   localizeAddressGeneral
@@ -487,6 +488,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
       throw err;
+    }
+    if (err instanceof IncompleteShopRegionError) {
+      error(400, m.shop_region_incomplete());
     }
     console.error('Error updating shop:', err);
     error(500, 'Failed to update shop');

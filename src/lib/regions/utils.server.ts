@@ -158,6 +158,11 @@ export async function deriveGeneralAddress(
   return { general, region: entries.map((e) => e.id) };
 }
 
+/** Whether a region has no selectable descendants. */
+export async function isTerminalRegion(id: string): Promise<boolean> {
+  return byId?.has(id) === true && !(childrenByParentId?.has(id) ?? false);
+}
+
 /**
  * Attempt to resolve region IDs from a `general` address array (e.g.
  * `["中国", "黑龙江省", "齐齐哈尔市", "龙沙区"]`) by matching names

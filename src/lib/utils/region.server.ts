@@ -1,6 +1,7 @@
 import {
   deriveGeneralAddress,
   expandRegionHierarchyWithNames,
+  isTerminalRegion,
   resolveRegionFromGeneral
 } from '$lib/regions/utils.server';
 import type { AddressRegionEntry } from '$lib/regions/types';
@@ -11,6 +12,13 @@ export interface ResolvedShopAddress {
   general: string[];
   detailed: string;
   region: string[];
+}
+
+export class IncompleteShopRegionError extends Error {
+  constructor() {
+    super('Shop region information is incomplete. Please select a region.');
+    this.name = 'IncompleteShopRegionError';
+  }
 }
 
 /**
@@ -35,8 +43,15 @@ export async function resolveShopAddress(input: {
     const leafId = region[region.length - 1];
     try {
       const derived = await deriveGeneralAddress(leafId);
+      if (
+        derived.region.length > 0 &&
+        !(await isTerminalRegion(derived.region[derived.region.length - 1]!))
+      ) {
+        throw new IncompleteShopRegionError();
+      }
       return { general: derived.general, detailed, region: derived.region };
-    } catch {
+    } catch (error) {
+      if (error instanceof IncompleteShopRegionError) throw error;
       // Expansion failed; fall through to try name-based resolution.
     }
   }
@@ -46,6 +61,9 @@ export async function resolveShopAddress(input: {
   if (general.length > 0) {
     const resolved = resolveRegionFromGeneral(general);
     if (resolved && resolved.length > 0) {
+      if (!(await isTerminalRegion(resolved[resolved.length - 1]!))) {
+        throw new IncompleteShopRegionError();
+      }
       return { general, detailed, region: resolved };
     }
     // Could not resolve — log a warning but preserve the general data.

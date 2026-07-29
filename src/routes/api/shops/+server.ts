@@ -18,6 +18,7 @@ import { buildSearchPattern } from '$lib/utils/search';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { getNextShopId } from '$lib/utils/shops/id.server';
 import {
+  IncompleteShopRegionError,
   resolveShopAddress,
   expandShopAddress,
   localizeAddressGeneral
@@ -379,6 +380,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json(response, { status: 201 });
   } catch (err) {
+    if (err instanceof IncompleteShopRegionError) {
+      return json({ error: m.shop_region_incomplete() }, { status: 400 });
+    }
     console.error('Error creating shop:', err);
     return json({ error: 'Failed to create shop' }, { status: 500 });
   }
