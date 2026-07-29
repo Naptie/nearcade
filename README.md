@@ -6,7 +6,7 @@
 
 有关网站的问题答疑、数据纠正、功能建议等请加入 QQ 群进行交流。
 
-<img src="static/group-chat-qq.jpg" alt="nearcade QQ 交流群二维码" width="350"/>
+<img src="static/group-chat-qq.png" alt="nearcade QQ 交流群二维码" width="350"/>
 
 ## ✨ 功能特性
 

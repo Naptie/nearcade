@@ -6,7 +6,7 @@ A modern web application that helps gamers discover arcade gaming venues and con
 
 Please join the following QQ group for discussions.
 
-<img src="static/group-chat-qq.jpg" alt="QR code for the nearcade QQ group" width="350"/>
+<img src="static/group-chat-qq.png" alt="QR code for the nearcade QQ group" width="350"/>
 
 ## ✨ Features
 
