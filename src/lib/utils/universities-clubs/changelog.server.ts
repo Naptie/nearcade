@@ -43,7 +43,7 @@ export const logChange = async (
     fieldInfo: change.fieldInfo,
     oldValue: change.oldValue,
     newValue: change.newValue,
-    metadata: change.metadata,
+    ...(change.metadata !== undefined ? { metadata: change.metadata } : {}),
     userId: change.user.id,
     userName: change.user.name,
     userImage: change.user.image,
