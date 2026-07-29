@@ -556,7 +556,7 @@
 
       <!-- QR Code Placeholder -->
       <img
-        src="{base}/wechat-official-account.jpg"
+        src="{base}/wechat-official-account.webp"
         alt={m.wechat_official_account_qr_code()}
         class="mx-auto h-48 w-48 rounded-lg"
       />

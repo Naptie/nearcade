@@ -58,7 +58,7 @@
 
       <div class="mb-6 flex justify-center">
         <img
-          src="{base}/donate-wechat.png"
+          src="{base}/donate-wechat.webp"
           alt={m.wechat_donation_qr()}
           class="max-h-[50vh] rounded-xl object-contain shadow-lg"
         />

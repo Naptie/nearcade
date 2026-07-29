@@ -874,7 +874,7 @@
             name="QQ"
             class="fa-brands fa-qq fa-lg"
             description={m.qq_description()}
-            image="{base}/group-chat-qq.png"
+            image="{base}/group-chat-qq.webp"
           />
           <ThemeSwitch />
         </div>
