@@ -611,13 +611,12 @@
       untrack(async () => {
         const { loadGoogleMaps } = await import('$lib/utils/google-maps.client');
         try {
-          await loadGoogleMaps();
+          await loadGoogleMaps(['core', 'maps', 'marker']);
         } catch {
           console.error('Failed to load Google Maps');
           return;
         }
         if (!google.maps) return;
-        await Promise.all(['core', 'maps', 'marker'].map((lib) => google.maps.importLibrary(lib)));
 
         const googleMap = new google.maps.Map(mapContainer!, {
           mapId: PUBLIC_GOOGLE_MAPS_MAP_ID,

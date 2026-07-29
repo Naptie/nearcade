@@ -135,46 +135,45 @@
       (async () => {
         const { loadGoogleMaps } = await import('$lib/utils/google-maps.client');
         try {
-          await loadGoogleMaps();
-        } catch {
-          console.error('Failed to load Google Maps');
-          return;
-        }
-        if (cancelled || !googleMaps) return;
+          await loadGoogleMaps(['maps', 'places']);
+          if (cancelled || !googleMaps) return;
 
-        map = new google.maps.Map(googleMaps, {
-          zoom: 15,
-          colorScheme: isDarkMode() ? 'DARK' : 'LIGHT',
-          gestureHandling: 'greedy',
-          streetViewControl: false
-        });
-        mapInstance = map;
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const userLocation = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
+          map = new google.maps.Map(googleMaps, {
+            zoom: 15,
+            colorScheme: isDarkMode() ? 'DARK' : 'LIGHT',
+            gestureHandling: 'greedy',
+            streetViewControl: false
+          });
+          mapInstance = map;
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const userLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              map!.setCenter(userLocation);
+            },
+            () => {
+              map!.setCenter({ lat: 39.9042, lng: 116.4074 });
+            }
+          );
+          google.maps.event.addListener(map, 'idle', async () => {
+            const center = map!.getCenter();
+            if (!center) return;
+
+            const location = {
+              name: placeQuery || '',
+              latitude: center.lat(),
+              longitude: center.lng(),
+              confirmed: false
             };
-            map!.setCenter(userLocation);
-          },
-          () => {
-            map!.setCenter({ lat: 39.9042, lng: 116.4074 });
-          }
-        );
-        google.maps.event.addListener(map, 'idle', async () => {
-          const center = map!.getCenter();
-          if (!center) return;
-
-          const location = {
-            name: placeQuery || '',
-            latitude: center.lat(),
-            longitude: center.lng(),
-            confirmed: false
-          };
-          await convertCoordinates(location, amap);
-          location.confirmed = true;
-          selectedLocation = location;
-        });
+            await convertCoordinates(location, amap);
+            location.confirmed = true;
+            selectedLocation = location;
+          });
+        } catch (error) {
+          console.error('Failed to initialize Google Maps:', error);
+        }
       })();
 
       return () => {
