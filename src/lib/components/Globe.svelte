@@ -300,6 +300,7 @@
   let sidebarDetailsRequestId = 0;
   let sidebarOrigin = $state<{ lat: number; lng: number } | null>(null);
   let sidebarHasMore = $state(false);
+  let sidebarTotalCount = $state<number | null>(null);
   let sidebarPageLoading = $state(false);
   let originFallbackRequested = false;
   let originFallbackResolved = $state(false);
@@ -329,6 +330,7 @@
     if (!append) {
       allDetailsLoaded = false;
       sidebarHasMore = false;
+      sidebarTotalCount = null;
     }
     sidebarPageLoading = true;
 
@@ -339,11 +341,16 @@
       const regionId = regionFilter.region.at(-1)?.id;
       if (regionId) queryParts.push(`region=${encodeURIComponent(regionId)}`);
     }
+    if (selectedTitleIds.length > 0) queryParts.push(`titles=${selectedTitleIds.join(',')}`);
 
     try {
       const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?${queryParts.join('&')}`);
       if (!res.ok) throw new Error(`Sidebar fetch failed (${res.status})`);
-      const data = (await res.json()) as { shops: GlobeShop[]; hasMore: boolean };
+      const data = (await res.json()) as {
+        shops: GlobeShop[];
+        hasMore: boolean;
+        totalCount: number;
+      };
       if (requestId !== sidebarDetailsRequestId) return;
 
       for (const shop of data.shops) {
@@ -352,6 +359,7 @@
       const entries = toShopEntries(data.shops);
       shops = append ? [...(shops ?? []), ...entries] : entries;
       sidebarHasMore = data.hasMore;
+      sidebarTotalCount = data.totalCount;
     } catch (e) {
       if (requestId !== sidebarDetailsRequestId) return;
       console.error('Failed to load sidebar shop details:', e);
@@ -666,7 +674,9 @@
     const origin = sidebarOrigin;
     const fallbackResolved = originFallbackResolved;
     const filter = regionFilter;
+    const titleIds = selectedTitleIds;
     void filter;
+    void titleIds;
     if (!origin && !fallbackResolved) return;
     void loadSidebarDetails();
   });
@@ -2301,8 +2311,8 @@
     >
       <i class="fa-solid fa-list text-sm"></i>
       <span class="text-sm font-medium">{regionTitle}</span>
-      {#if filteredShops !== null}
-        <span class="badge badge-soft badge-primary badge-xs">{filteredShops.length}</span>
+      {#if sidebarTotalCount !== null}
+        <span class="badge badge-soft badge-primary badge-xs">{sidebarTotalCount}</span>
       {/if}
     </button>
 

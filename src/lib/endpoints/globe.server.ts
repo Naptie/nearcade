@@ -139,19 +139,21 @@ const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): Gl
   density: getGlobeShopDensity(shop, attendances)
 });
 
-type GlobeMarkerFilters = {
+type GlobeShopFilters = {
   regionId?: string;
   titleIds?: number[];
 };
 
-const loadRawGlobeShops = (filters: GlobeMarkerFilters = {}) => {
+const getGlobeShopFilter = ({ regionId, titleIds = [] }: GlobeShopFilters): Filter<Shop> => ({
+  ...(regionId ? { 'address.region': regionId } : {}),
+  ...(titleIds.length > 0
+    ? { games: { $all: titleIds.map((titleId) => ({ $elemMatch: { titleId } })) } }
+    : {})
+});
+
+const loadRawGlobeShops = (filters: GlobeShopFilters = {}) => {
   const { regionId, titleIds = [] } = filters;
-  const query: Filter<Shop> = {
-    ...(regionId ? { 'address.region': regionId } : {}),
-    ...(titleIds.length > 0
-      ? { games: { $all: titleIds.map((titleId) => ({ $elemMatch: { titleId } })) } }
-      : {})
-  };
+  const query = getGlobeShopFilter({ regionId, titleIds });
 
   return mongo
     .db()
@@ -218,9 +220,7 @@ export type GlobeMarker = {
  * Returns minimal marker data for all shops: id, name, coordinates, density.
  * This is ~95% smaller than the full globe data response.
  */
-export const loadGlobeMarkers = async (
-  filters: GlobeMarkerFilters = {}
-): Promise<GlobeMarker[]> => {
+export const loadGlobeMarkers = async (filters: GlobeShopFilters = {}): Promise<GlobeMarker[]> => {
   const [shops, attendance] = await Promise.all([
     loadRawGlobeShops(filters),
     loadGlobeAttendanceCached()
@@ -281,50 +281,60 @@ export const loadGlobeShopsByDistance = async (
   longitude: number,
   latitude: number,
   offset: number,
-  regionId?: string
-): Promise<{ shops: GlobeShop[]; hasMore: boolean }> => {
-  const rawShops = (await mongo
-    .db()
-    .collection<Shop>('shops')
-    .aggregate([
-      {
-        $geoNear: {
-          near: { type: 'Point', coordinates: [longitude, latitude] },
-          key: 'location',
-          distanceField: '_globeDistance',
-          ...(regionId ? { query: { 'address.region': regionId } } : {})
-        }
-      },
-      { $skip: offset },
-      { $limit: GLOBE_SHOPS_PAGE_SIZE + 1 },
-      { $project: globeShopProjection }
-    ])
-    .toArray()) as RawGlobeShop[];
+  filters: GlobeShopFilters = {}
+): Promise<{ shops: GlobeShop[]; hasMore: boolean; totalCount: number }> => {
+  const filter = getGlobeShopFilter(filters);
+  const [rawShops, totalCount] = await Promise.all([
+    mongo
+      .db()
+      .collection<Shop>('shops')
+      .aggregate([
+        {
+          $geoNear: {
+            near: { type: 'Point', coordinates: [longitude, latitude] },
+            key: 'location',
+            distanceField: '_globeDistance',
+            ...(Object.keys(filter).length > 0 ? { query: filter } : {})
+          }
+        },
+        { $skip: offset },
+        { $limit: GLOBE_SHOPS_PAGE_SIZE + 1 },
+        { $project: globeShopProjection }
+      ])
+      .toArray() as Promise<RawGlobeShop[]>,
+    mongo.db().collection<Shop>('shops').countDocuments(filter)
+  ]);
 
   const hasMore = rawShops.length > GLOBE_SHOPS_PAGE_SIZE;
   return {
     shops: await hydrateGlobeShops(rawShops.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
-    hasMore
+    hasMore,
+    totalCount
   };
 };
 
 export const loadGlobeShopsByName = async (
   offset: number,
-  regionId?: string
-): Promise<{ shops: GlobeShop[]; hasMore: boolean }> => {
-  const rawShops = (await mongo
-    .db()
-    .collection<Shop>('shops')
-    .find(regionId ? { 'address.region': regionId } : {})
-    .sort({ name: 1, id: 1 })
-    .skip(offset)
-    .limit(GLOBE_SHOPS_PAGE_SIZE + 1)
-    .project(globeShopProjection)
-    .toArray()) as RawGlobeShop[];
+  filters: GlobeShopFilters = {}
+): Promise<{ shops: GlobeShop[]; hasMore: boolean; totalCount: number }> => {
+  const filter = getGlobeShopFilter(filters);
+  const [rawShops, totalCount] = await Promise.all([
+    mongo
+      .db()
+      .collection<Shop>('shops')
+      .find(filter)
+      .sort({ name: 1, id: 1 })
+      .skip(offset)
+      .limit(GLOBE_SHOPS_PAGE_SIZE + 1)
+      .project(globeShopProjection)
+      .toArray() as Promise<RawGlobeShop[]>,
+    mongo.db().collection<Shop>('shops').countDocuments(filter)
+  ]);
 
   const hasMore = rawShops.length > GLOBE_SHOPS_PAGE_SIZE;
   return {
     shops: await hydrateGlobeShops(rawShops.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
-    hasMore
+    hasMore,
+    totalCount
   };
 };
