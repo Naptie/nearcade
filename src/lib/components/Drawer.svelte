@@ -48,10 +48,17 @@
 
   // ---- Smart scroll state ----
   let contentEl = $state<HTMLDivElement | null>(null);
-  let isScrolling = $state(false);
+  let isTouchActive = $state(false);
   let scrollTouchId: number | null = null;
-  let scrollStartY = 0;
-  let lastScrollY = 0;
+  let lastTouchY = 0;
+
+  const canScrollUp = (): boolean => {
+    if (!contentEl) return false;
+    return contentEl.scrollTop > 0;
+  };
+
+  const canExpandDrawer = (): boolean => currentSnap < snapPoints.length - 1;
+  const canCollapseDrawer = (): boolean => currentSnap > 0;
 
   const currentHeightPx = $derived.by(() => {
     if (dragHeightPx !== null) return dragHeightPx;
@@ -135,62 +142,71 @@
     lastMoveTime = 0;
   };
 
-  // Smart scroll: expand drawer before scrolling up, collapse after scrolling to top
   const onContentTouchStart = (e: TouchEvent) => {
     if (!contentEl || isDragging) return;
     const touch = e.touches[0];
     scrollTouchId = touch.identifier;
-    scrollStartY = touch.clientY;
-    lastScrollY = touch.clientY;
-    isScrolling = true;
+    lastTouchY = touch.clientY;
+    // Seed dragHeightPx immediately so the CSS transition is suppressed from
+    // the very first pixel of movement — no perceptible "deadzone".
+    dragHeightPx = clampedHeightPx;
+    isTouchActive = true;
   };
 
   const onContentTouchMove = (e: TouchEvent) => {
-    if (!contentEl || !isScrolling || scrollTouchId === null) return;
+    if (!contentEl || !isTouchActive || scrollTouchId === null || isDragging) return;
 
     const touch = Array.from(e.touches).find((t) => t.identifier === scrollTouchId);
     if (!touch) return;
 
-    const deltaY = touch.clientY - lastScrollY;
-    const scrollTop = contentEl.scrollTop;
-    const isAtTop = scrollTop === 0;
+    // dy > 0: finger moved up → content moves up (scrolling down to see more below)
+    // dy < 0: finger moved down → content moves down (scrolling up to see more above)
+    const dy = lastTouchY - touch.clientY;
 
-    // Scrolling up (content should go up, finger moves down, deltaY > 0)
-    if (deltaY > 0) {
-      // At top of content: collapse drawer
-      if (isAtTop && currentSnap > 0) {
+    if (dy > 0) {
+      // Finger up: expand drawer first before letting content scroll down
+      if (canExpandDrawer()) {
         e.preventDefault();
-        const dy = scrollStartY - touch.clientY;
-        const newHeight = clampedHeightPx - dy;
-        const minH = snapPoints[0] * window.innerHeight;
-        dragHeightPx = Math.max(minH, newHeight);
+        dragHeightPx = Math.min(
+          snapPoints[snapPoints.length - 1] * window.innerHeight,
+          clampedHeightPx + dy
+        );
       }
-      // Otherwise let content scroll naturally
-    }
-    // Scrolling down (content should go down, finger moves up, deltaY < 0)
-    else if (deltaY < 0) {
-      // Not at max height: expand drawer first
-      if (currentSnap < snapPoints.length - 1) {
+      // Drawer at max — let content scroll naturally
+    } else if (dy < 0) {
+      // Finger down: collapse drawer only when content is already at the top
+      if (!canScrollUp() && canCollapseDrawer()) {
         e.preventDefault();
-        const dy = scrollStartY - touch.clientY;
-        const newHeight = clampedHeightPx - dy;
-        const maxH = snapPoints[snapPoints.length - 1] * window.innerHeight;
-        dragHeightPx = Math.max(clampedHeightPx, Math.min(maxH, newHeight));
+        const newHeight = Math.max(snapPoints[0] * window.innerHeight, clampedHeightPx + dy);
+        dragHeightPx = newHeight;
+        if (newHeight < snapPoints[0] * window.innerHeight * 0.5) {
+          open = false;
+        }
       }
-      // Otherwise let content scroll naturally
+      // Content not at top — let content scroll naturally
     }
 
-    lastScrollY = touch.clientY;
+    lastTouchY = touch.clientY;
   };
 
   const onContentTouchEnd = () => {
-    if (dragHeightPx !== null) {
+    if (dragHeightPx !== null && !isDragging) {
+      // Only snap if the height actually changed from the seeded value
       snapToNearest(dragHeightPx, 0);
-      dragHeightPx = null;
     }
-    isScrolling = false;
+    dragHeightPx = null;
+    isTouchActive = false;
     scrollTouchId = null;
   };
+
+  // Attach touchmove with { passive: false } so preventDefault() works.
+  // Svelte's ontouchmove attribute registers passive listeners which can't preventDefault.
+  $effect(() => {
+    const el = contentEl;
+    if (!el) return;
+    el.addEventListener('touchmove', onContentTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onContentTouchMove);
+  });
 
   // Reset snap when opening
   $effect(() => {
@@ -215,7 +231,7 @@
 
   <div
     class="pointer-events-auto fixed inset-x-0 bottom-0 z-250 flex flex-col overflow-hidden rounded-t-2xl
-           {isDragging ? '' : 'transition-[height] duration-300 ease-out'}
+           {isDragging || isTouchActive ? '' : 'transition-[height] duration-300 ease-out'}
            {className}"
     style="height: {open ? clampedHeightPx : 0}px; {open ? '' : 'pointer-events: none;'}"
     role="dialog"
@@ -245,7 +261,6 @@
         ? 'opacity-100'
         : 'opacity-0'} pointer-events-auto transition-opacity duration-200"
       ontouchstart={onContentTouchStart}
-      ontouchmove={onContentTouchMove}
       ontouchend={onContentTouchEnd}
       ontouchcancel={onContentTouchEnd}
     >
