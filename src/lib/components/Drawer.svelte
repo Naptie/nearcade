@@ -45,7 +45,7 @@
   let lastMoveY = 0;
   let lastMoveTime = 0;
   let velocity = 0;
-  
+
   // ---- Smart scroll state ----
   let contentEl = $state<HTMLDivElement | null>(null);
   let isScrolling = $state(false);
@@ -147,8 +147,8 @@
 
   const onContentTouchMove = (e: TouchEvent) => {
     if (!contentEl || !isScrolling || scrollTouchId === null) return;
-    
-    const touch = Array.from(e.touches).find(t => t.identifier === scrollTouchId);
+
+    const touch = Array.from(e.touches).find((t) => t.identifier === scrollTouchId);
     if (!touch) return;
 
     const deltaY = touch.clientY - lastScrollY;
