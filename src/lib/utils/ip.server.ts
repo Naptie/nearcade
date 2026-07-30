@@ -6,9 +6,9 @@ import type { RequestEvent } from '@sveltejs/kit';
  * Falls back to getClientAddress() if no proxy headers are present.
  */
 export function getClientIp(event: RequestEvent): string {
-	const cfIp = event.request.headers.get('cf-connecting-ip');
-	const aliIp = event.request.headers.get('ali-cdn-real-ip');
-	const xff = event.request.headers.get('x-forwarded-for');
+  const cfIp = event.request.headers.get('cf-connecting-ip');
+  const aliIp = event.request.headers.get('ali-cdn-real-ip');
+  const xff = event.request.headers.get('x-forwarded-for');
 
-	return cfIp || aliIp || xff?.split(',')[0]?.trim() || event.getClientAddress();
+  return cfIp || aliIp || xff?.split(',')[0]?.trim() || event.getClientAddress();
 }
