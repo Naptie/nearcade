@@ -12,6 +12,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
+  import Drawer from '$lib/components/Drawer.svelte';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getGameName, getCachedLocation } from '$lib/utils';
   import { GAME_TITLES } from '$lib/constants';
@@ -2071,20 +2072,7 @@
        Hidden via CSS when not in fullscreen mode.
        ================================================================ -->
   {#if mode === 'fullscreen' && sidebarEnabled && sidebarReady}
-    <aside
-      id="globe-sidebar"
-      transition:slide
-      class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 flex flex-col overflow-hidden border shadow-lg backdrop-blur-xl
-             not-md:inset-x-0 not-md:top-auto not-md:bottom-0 not-md:max-h-[65vh] not-md:rounded-t-2xl
-             not-md:transition-transform not-md:duration-300 not-md:ease-out not-md:will-change-transform
-             md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
-             {sidebarCollapsed ? 'md:h-[52px] md:w-[52px]' : ''}
-             {sidebarOpen ? 'not-md:translate-y-0' : 'not-md:translate-y-full'}"
-      style="{getSidebarCssVars()}; contain: layout paint style"
-    >
-      <!-- Mobile drag handle -->
-      <div class="bg-base-content/20 mx-auto mt-2 mb-1 h-1 w-10 rounded-full md:hidden"></div>
-
+    {#snippet sidebarContent()}
       <!-- Region header – acts as drag handle on desktop -->
       <div
         role="none"
@@ -2299,7 +2287,29 @@
           </svg>
         </div>
       </div>
+    {/snippet}
+
+    <!-- Desktop sidebar -->
+    <aside
+      id="globe-sidebar"
+      transition:slide
+      class="bg-base-200/70 border-base-300 pointer-events-auto absolute z-20 hidden flex-col overflow-hidden border shadow-lg backdrop-blur-xl
+             md:top-(--globe-sidebar-top) md:left-(--globe-sidebar-left) md:flex md:h-(--globe-sidebar-height) md:w-(--globe-sidebar-width) md:rounded-xl md:transition-[width,height] md:duration-300 md:ease-out
+             {sidebarCollapsed ? 'md:h-[52px] md:w-[52px]' : ''}"
+      style="{getSidebarCssVars()}; contain: layout paint style"
+    >
+      {@render sidebarContent()}
     </aside>
+
+    <!-- Mobile: bottom sheet drawer -->
+    <Drawer
+      bind:open={sidebarOpen}
+      snapPoints={[0.12, 0.5, 0.85]}
+      initialSnap={1}
+      class="bg-base-200/70 border-base-300 z-20 border shadow-lg backdrop-blur-xl"
+    >
+      {@render sidebarContent()}
+    </Drawer>
 
     <!-- Mobile sidebar toggle -->
     <button
@@ -2315,16 +2325,6 @@
         <span class="badge badge-soft badge-primary badge-xs">{sidebarTotalCount}</span>
       {/if}
     </button>
-
-    <!-- Mobile sidebar backdrop -->
-    {#if sidebarOpen}
-      <div
-        id="globe-mobile-backdrop"
-        role="presentation"
-        class="pointer-events-auto absolute inset-0 z-15 bg-black/40 md:hidden"
-        onclick={() => (sidebarOpen = false)}
-      ></div>
-    {/if}
 
     <!-- Desktop: pinned shop interactive card at bottom-right -->
     {#if pinnedShop && !isCompactViewport}

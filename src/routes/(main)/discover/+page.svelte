@@ -1415,7 +1415,9 @@
             >
               {m.realtime_attendance()}
             </th>
-            <th class="discover-header discover-sticky discover-sticky-travel text-center">
+            <th
+              class="discover-header discover-sticky discover-sticky-travel hidden text-center md:table-cell"
+            >
               {#if transportMethod}
                 {m.travel_time()}
               {:else}
@@ -1506,7 +1508,49 @@
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
                     <span class="text-sm">
-                      <span class="opacity-50">#{shop.id}</span>
+                      <!-- Narrow: show distance/time instead of ID -->
+                      <span class="hidden opacity-50 md:inline">#{shop.id}</span>
+                      <span class="md:hidden">
+                        {#if transportMethod}
+                          {@const hasTravelData = travelData[`${shop.id}`] !== undefined}
+                          {@const travelDist = travelData[`${shop.id}`]?.distance ?? shop.distance}
+                          {#if hasTravelData && travelData[`${shop.id}`] !== null}
+                            <span
+                              class="whitespace-nowrap {!hasTravelData
+                                ? ''
+                                : travelData[`${shop.id}`]!.time <
+                                    Math.max(avgTravelTime / 1.5, 1200)
+                                  ? 'text-success'
+                                  : travelData[`${shop.id}`]!.time <
+                                      Math.max(avgTravelTime * 1.5, 2400)
+                                    ? 'text-warning'
+                                    : 'text-error'}"
+                            >
+                              {formatDuration(travelData[`${shop.id}`]?.time)}
+                            </span>
+                          {:else}
+                            <span
+                              class="whitespace-nowrap {travelDist < avgTravelDistance / 1.5
+                                ? 'text-success'
+                                : travelDist < avgTravelDistance * 1.5
+                                  ? 'text-warning'
+                                  : 'text-error'}"
+                            >
+                              {formatDistance(travelDist, 2)}
+                            </span>
+                          {/if}
+                        {:else}
+                          <span
+                            class="whitespace-nowrap {shop.distance < avgTravelDistance / 1.5
+                              ? 'text-success'
+                              : shop.distance < avgTravelDistance * 1.5
+                                ? 'text-warning'
+                                : 'text-error'}"
+                          >
+                            {formatDistance(shop.distance, 2)}
+                          </span>
+                        {/if}
+                      </span>
                       <span class="opacity-50 xl:hidden">·</span>
                       <span
                         class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
@@ -1516,9 +1560,9 @@
                       {#if transportMethod}
                         {@const hasTravelData = travelData[`${shop.id}`] !== undefined}
                         {@const distance = travelData[`${shop.id}`]?.distance ?? shop.distance}
-                        <span class="opacity-50">·</span>
+                        <span class="hidden opacity-50 md:inline">·</span>
                         <span
-                          class="whitespace-nowrap transition-opacity not-hover:opacity-50 {!hasTravelData
+                          class="hidden whitespace-nowrap transition-opacity not-hover:opacity-50 md:inline {!hasTravelData
                             ? ''
                             : distance < avgTravelDistance / 1.5
                               ? 'text-success'
@@ -1538,7 +1582,9 @@
               >
                 {@render attendance()}
               </td>
-              <td class="discover-cell discover-sticky discover-sticky-travel text-center">
+              <td
+                class="discover-cell discover-sticky discover-sticky-travel hidden text-center md:table-cell"
+              >
                 {#if transportMethod}
                   {#if travelData[`${shop.id}`] === undefined}
                     <span class="loading loading-spinner loading-sm"></span>
@@ -1612,9 +1658,9 @@
                 </td>
               {/each}
               <td class="discover-cell discover-sticky discover-sticky-actions text-center">
-                <div class="flex flex-col justify-center gap-2 xl:flex-row">
+                <div class="flex flex-col justify-center gap-1 xl:flex-row xl:gap-2">
                   <a
-                    class="btn btn-ghost btn-sm text-nowrap"
+                    class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
                     href={resolve('/(main)/shops/[id]', {
                       id: shop.id.toString()
                     })}
@@ -1622,17 +1668,17 @@
                     onclick={() => handleShopClick(shop)}
                   >
                     <i class="fas fa-info-circle"></i>
-                    {m.details()}
+                    <span class="hidden md:inline">{m.details()}</span>
                   </a>
                   <a
-                    class="btn btn-ghost btn-sm text-nowrap"
+                    class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
                     href={getRouteLink(shop)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onclick={() => handleShopClick(shop)}
                   >
                     <i class="fas fa-map-marked-alt"></i>
-                    {m.route()}
+                    <span class="hidden md:inline">{m.route()}</span>
                   </a>
                 </div>
               </td>
@@ -1683,18 +1729,24 @@
   @reference "tailwindcss";
 
   .discover-table-wrap {
-    --discover-shop-width: 8rem;
+    --discover-shop-width: 9rem;
     --discover-attendance-width: 0rem;
-    --discover-travel-width: 6rem;
+    --discover-travel-width: 0rem;
     --discover-title-width: 10rem;
-    --discover-actions-width: 7.5rem;
+    --discover-actions-width: 3.5rem;
   }
 
   @media (min-width: 640px) {
     .discover-table-wrap {
       --discover-shop-width: 12rem;
-      --discover-travel-width: 8rem;
       --discover-title-width: 11rem;
+      --discover-actions-width: 4rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .discover-table-wrap {
+      --discover-travel-width: 8rem;
       --discover-actions-width: 9rem;
     }
   }
@@ -1752,7 +1804,12 @@
     left: calc(var(--discover-shop-width) + var(--discover-attendance-width));
     width: var(--discover-travel-width);
     min-width: var(--discover-travel-width);
-    box-shadow: 10px 0 16px -16px hsl(var(--bc) / 0.7);
+  }
+
+  @media (min-width: 768px) {
+    .discover-sticky-travel {
+      box-shadow: 10px 0 16px -16px hsl(var(--bc) / 0.7);
+    }
   }
 
   .discover-sticky-actions {

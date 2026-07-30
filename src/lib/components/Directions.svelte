@@ -16,6 +16,7 @@
   import { convertPath, formatDistance, formatDuration, removeRecursiveBrackets } from '$lib/utils';
   import { SELECTED_ROUTE_INDEX } from '$lib/constants';
   import FancyButton from './FancyButton.svelte';
+  import Drawer from './Drawer.svelte';
 
   type ProcessedStep = (WalkingStep | Ride | DrivingStep) & {
     isSignificant?: boolean;
@@ -424,10 +425,18 @@
   };
 
   const closeDialog = () => {
-    cleanupPolylines(stepPolylines);
     isOpen = false;
-    onClose();
   };
+
+  // Cleanup when drawer/panel closes (handles both button close and drag-to-close)
+  let wasOpen = false;
+  $effect(() => {
+    if (wasOpen && !isOpen) {
+      cleanupPolylines(stepPolylines);
+      onClose();
+    }
+    wasOpen = isOpen;
+  });
 
   const selectRoute = (index: number) => {
     selectedRouteIndex = index;
@@ -525,391 +534,398 @@
   };
 </script>
 
-<div
-  class="pointer-events-auto fixed z-1000 w-fit transition-transform duration-300 ease-out will-change-transform not-md:right-0 not-md:bottom-0 not-md:left-0 not-md:w-screen not-md:max-w-full md:top-0 md:right-0 md:bottom-0 {shop
-    ? 'opacity-100'
-    : 'opacity-0'} {isOpen
-    ? 'not-md:translate-y-0 md:translate-x-0'
-    : 'not-md:translate-y-full md:translate-x-full'}"
->
-  <div
-    class="flex h-full max-h-[50vh] flex-col overflow-hidden rounded-t-xl transition-all md:max-h-full md:rounded-l-xl md:rounded-tr-none {isOpen
-      ? 'shadow-lg/30 hover:shadow-lg/80'
-      : 'shadow-lg/0'}"
-  >
-    <!-- Header -->
-    <div class="bg-base-100 flex items-center justify-between gap-2 p-2 md:p-4">
-      <div class="min-w-0 flex-1">
-        <h3 class="truncate text-base font-semibold not-md:ml-2 md:text-lg">{shop?.name}</h3>
-        <p class="text-base-content/70 text-sm not-md:hidden">{m.directions()}</p>
-      </div>
-      <div class="flex items-center gap-0.5">
-        <FancyButton
-          href={amapLink}
-          target="_blank"
-          class="fa-solid fa-arrow-up-right-from-square fa-md"
-          btnCls="btn-ghost btn-sm"
-          text={m.view_in_amap()}
-        />
-        <button
-          class="btn btn-ghost btn-sm btn-circle"
-          onclick={closeDialog}
-          aria-label={m.close()}
-        >
-          <i class="fa-solid fa-xmark fa-lg"></i>
-        </button>
-      </div>
+{#snippet directionsBody()}
+  <!-- Header -->
+  <div class="bg-base-100 flex items-center justify-between gap-2 p-2 md:p-4">
+    <div class="min-w-0 flex-1">
+      <h3 class="truncate text-base font-semibold not-md:ml-2 md:text-lg">{shop?.name}</h3>
+      <p class="text-base-content/70 text-sm not-md:hidden">{m.directions()}</p>
     </div>
+    <div class="flex items-center gap-0.5">
+      <FancyButton
+        href={amapLink}
+        target="_blank"
+        class="fa-solid fa-arrow-up-right-from-square fa-md"
+        btnCls="btn-ghost btn-sm"
+        text={m.view_in_amap()}
+      />
+      <button class="btn btn-ghost btn-sm btn-circle" onclick={closeDialog} aria-label={m.close()}>
+        <i class="fa-solid fa-xmark fa-lg"></i>
+      </button>
+    </div>
+  </div>
 
-    <!-- Content -->
-    <div class="bg-base-100/40 flex-1 overflow-x-hidden overflow-y-auto backdrop-blur-3xl">
-      {#if isLoading}
-        <div class="flex h-full items-center justify-center p-20">
-          <div class="loading loading-spinner loading-lg"></div>
-        </div>
-      {:else}
-        {#if processedRoutes.length > 1}
-          <!-- Route Tabs -->
-          <div class="tabs tabs-border px-4 pt-4">
-            {#each processedRoutes as route, index (index)}
-              <button
-                class="tab tab-sm text-nowrap transition {selectedRouteIndex === index
-                  ? 'tab-active'
-                  : ''}"
-                onclick={() => selectRoute(index)}
-              >
-                <div class="tooltip tooltip-bottom" data-tip={getRouteSummary(route)}>
-                  <div class="inline-flex items-center gap-2 text-sm font-medium">
-                    {#if 'nightLine' in route && route.nightLine}
-                      <i class="fa-solid fa-moon"></i>
-                    {/if}
-                    {formatDuration(route.time)}
-                  </div>
-                </div>
-              </button>
-            {/each}
-          </div>
-        {/if}
-
-        {#if processedRoutes[selectedRouteIndex]}
-          {@const selectedRoute = processedRoutes[selectedRouteIndex]}
-          <div class="p-4 md:w-[30vw] md:max-w-lg md:min-w-full">
-            <!-- Route Summary -->
-            <div class="mb-4 grid grid-cols-2 gap-4">
-              {#if 'cost' in selectedRoute && selectedRoute.cost > 0}
-                <div class="stat bg-base-200/50 rounded-lg p-3">
-                  <div class="stat-title text-xs">{m.cost()}</div>
-                  <div class="stat-value text-lg text-wrap">
-                    {m.cost_cny({ cost: selectedRoute.cost })}
-                  </div>
-                </div>
-              {:else}
-                <div class="stat bg-base-200/50 rounded-lg p-3">
-                  <div class="stat-title text-xs">{m.travel_time()}</div>
-                  <div class="stat-value text-lg text-wrap">
-                    {formatDuration(selectedRoute.time)}
-                  </div>
-                </div>
-              {/if}
-              <div class="stat bg-base-200/50 rounded-lg p-3">
-                <div class="stat-title text-xs">{m.total_distance()}</div>
-                <div class="stat-value text-lg text-wrap">
-                  {formatDistance(selectedRoute.distance / 1000, 2)}
+  <!-- Content -->
+  <div class="bg-base-100/40 flex-1 overflow-x-hidden overflow-y-auto backdrop-blur-3xl">
+    {#if isLoading}
+      <div class="flex h-full items-center justify-center p-20">
+        <div class="loading loading-spinner loading-lg"></div>
+      </div>
+    {:else}
+      {#if processedRoutes.length > 1}
+        <!-- Route Tabs -->
+        <div class="tabs tabs-border px-4 pt-4">
+          {#each processedRoutes as route, index (index)}
+            <button
+              class="tab tab-sm text-nowrap transition {selectedRouteIndex === index
+                ? 'tab-active'
+                : ''}"
+              onclick={() => selectRoute(index)}
+            >
+              <div class="tooltip tooltip-bottom" data-tip={getRouteSummary(route)}>
+                <div class="inline-flex items-center gap-2 text-sm font-medium">
+                  {#if 'nightLine' in route && route.nightLine}
+                    <i class="fa-solid fa-moon"></i>
+                  {/if}
+                  {formatDuration(route.time)}
                 </div>
               </div>
-            </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
 
-            <!-- Route Steps -->
-            <div class="space-y-3">
-              <h4 class="text-sm font-medium">{m.details()}</h4>
-              {#if selectedRoute.segments && selectedRoute.segments.length > 0}
-                {#if transportMethod === 'transit'}
-                  {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
-                    {@const segment = s as Segment}
-                    {@const transitDetails = renderTransitSegmentDetails(segment)}
-                    {@const walkingSteps = renderWalkingStepDetails(segment)}
-                    <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
-                      <!-- Main step header -->
-                      <div class="flex items-center gap-3">
-                        <div class="shrink-0">
-                          {#if segment.transit_mode === 'SUBWAY'}
-                            <div
-                              class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white shadow-lg"
-                            >
-                              <i class="fas fa-subway text-xs"></i>
-                            </div>
-                          {:else if segment.transit_mode === 'BUS'}
-                            <div
-                              class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg"
-                            >
-                              <i class="fas fa-bus text-xs"></i>
-                            </div>
-                          {:else if segment.transit_mode === 'WALK'}
-                            <div
-                              class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
-                            >
-                              <i class="fas fa-walking text-xs"></i>
-                            </div>
+      {#if processedRoutes[selectedRouteIndex]}
+        {@const selectedRoute = processedRoutes[selectedRouteIndex]}
+        <div class="p-4 md:w-[30vw] md:max-w-lg md:min-w-full">
+          <!-- Route Summary -->
+          <div class="mb-4 grid grid-cols-2 gap-4">
+            {#if 'cost' in selectedRoute && selectedRoute.cost > 0}
+              <div class="stat bg-base-200/50 rounded-lg p-3">
+                <div class="stat-title text-xs">{m.cost()}</div>
+                <div class="stat-value text-lg text-wrap">
+                  {m.cost_cny({ cost: selectedRoute.cost })}
+                </div>
+              </div>
+            {:else}
+              <div class="stat bg-base-200/50 rounded-lg p-3">
+                <div class="stat-title text-xs">{m.travel_time()}</div>
+                <div class="stat-value text-lg text-wrap">
+                  {formatDuration(selectedRoute.time)}
+                </div>
+              </div>
+            {/if}
+            <div class="stat bg-base-200/50 rounded-lg p-3">
+              <div class="stat-title text-xs">{m.total_distance()}</div>
+              <div class="stat-value text-lg text-wrap">
+                {formatDistance(selectedRoute.distance / 1000, 2)}
+              </div>
+            </div>
+          </div>
+
+          <!-- Route Steps -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-medium">{m.details()}</h4>
+            {#if selectedRoute.segments && selectedRoute.segments.length > 0}
+              {#if transportMethod === 'transit'}
+                {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
+                  {@const segment = s as Segment}
+                  {@const transitDetails = renderTransitSegmentDetails(segment)}
+                  {@const walkingSteps = renderWalkingStepDetails(segment)}
+                  <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
+                    <!-- Main step header -->
+                    <div class="flex items-center gap-3">
+                      <div class="shrink-0">
+                        {#if segment.transit_mode === 'SUBWAY'}
+                          <div
+                            class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white shadow-lg"
+                          >
+                            <i class="fas fa-subway text-xs"></i>
+                          </div>
+                        {:else if segment.transit_mode === 'BUS'}
+                          <div
+                            class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg"
+                          >
+                            <i class="fas fa-bus text-xs"></i>
+                          </div>
+                        {:else if segment.transit_mode === 'WALK'}
+                          <div
+                            class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
+                          >
+                            <i class="fas fa-walking text-xs"></i>
+                          </div>
+                        {/if}
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <div class="text-sm font-medium sm:text-base">
+                          {formatStepInstruction(segment)}
+                        </div>
+                        <div class="text-base-content/60 text-xs sm:text-sm">
+                          <span>{formatDistance(segment.distance / 1000, 2)}</span>
+                          {#if segment.time}
+                            <span> · {formatDuration(segment.time)}</span>
                           {/if}
                         </div>
-                        <div class="min-w-0 flex-1">
-                          <div class="text-sm font-medium sm:text-base">
-                            {formatStepInstruction(segment)}
+                      </div>
+                    </div>
+
+                    {#if transitDetails}
+                      <div class="ml-9 space-y-2">
+                        <div class="flex items-center gap-2 text-sm">
+                          <i class="fas fa-route text-xs"></i>
+                          <div class="text-base-content/80">
+                            {#if transitDetails.lineName}
+                              <span class="font-medium"
+                                >{formatTransitLineName(transitDetails.lineName, true)} ·
+                              </span>
+                            {/if}
+                            <span
+                              >{transitDetails.lineType === 'SUBWAY'
+                                ? m.stations({ count: transitDetails.stationCount + 1 })
+                                : m.stops({ count: transitDetails.stationCount + 1 })}</span
+                            >
                           </div>
+                        </div>
+                        <div class="space-y-1 text-sm">
+                          {#if transitDetails.onStation}
+                            <div class="flex items-center gap-2">
+                              <i class="fas fa-circle-up text-xs text-green-500"></i>
+                              <span class="font-medium">{m.board_at()}:</span>
+                              <span class="text-base-content/80"
+                                >{transitDetails.onStation.name}</span
+                              >
+                            </div>
+                            {#if transitDetails.entrance}
+                              <div class="text-base-content/60 ml-5 text-xs">
+                                {m.entrance()}: {transitDetails.entrance.name}
+                              </div>
+                            {/if}
+                          {/if}
+                          {#if transitDetails.viaStops.length > 0}
+                            <details class="group ml-5">
+                              <summary
+                                class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                              >
+                                <i
+                                  class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
+                                ></i>
+                                {m.via_stops({ count: transitDetails.viaStops.length })}
+                              </summary>
+                              <div class="mt-2 ml-4 space-y-1">
+                                {#each transitDetails.viaStops as stop (stop.id)}
+                                  <div class="text-base-content/60 flex items-center gap-2 text-xs">
+                                    <i class="fas fa-circle text-xs opacity-30"></i>
+                                    {stop.name}
+                                  </div>
+                                {/each}
+                              </div>
+                            </details>
+                          {/if}
+                          {#if transitDetails.offStation}
+                            <div class="flex items-center gap-2">
+                              <i class="fas fa-circle-down text-xs text-red-500"></i>
+                              <span class="font-medium">{m.alight_at()}:</span>
+                              <span class="text-base-content/80"
+                                >{transitDetails.offStation.name}</span
+                              >
+                            </div>
+                            {#if transitDetails.exit}
+                              <div class="text-base-content/60 ml-5 text-xs">
+                                {m.exit()}: {transitDetails.exit.name}
+                              </div>
+                            {/if}
+                          {/if}
+                        </div>
+                      </div>
+                    {/if}
+
+                    {#if walkingSteps.length > 0}
+                      <div class="ml-9">
+                        <details class="group">
+                          <summary
+                            class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                          >
+                            <i
+                              class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
+                            ></i>
+                            <span class="group-open:hidden"
+                              >{m.expand_details()} ({walkingSteps.length})</span
+                            >
+                            <span class="hidden group-open:inline">{m.collapse_details()}</span>
+                          </summary>
+                          <div class="mt-2 space-y-1">
+                            {#each walkingSteps as walkStep, walkStepIndex (walkStepIndex)}
+                              <div class="text-base-content/60 flex items-center gap-2 text-xs">
+                                <div
+                                  class="bg-base-300 text-base-content/80 flex h-4 w-4 items-center justify-center rounded-full text-xs"
+                                >
+                                  {walkStepIndex + 1}
+                                </div>
+                                <span>{formatStepInstruction(walkStep)}</span>
+                              </div>
+                            {/each}
+                          </div>
+                        </details>
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+              {:else}
+                {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
+                  {@const segment = s as ProcessedSegment}
+                  <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
+                    <div class="flex items-center gap-3">
+                      <div class="shrink-0">
+                        {#if transportMethod === 'walking'}
+                          <div
+                            class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
+                          >
+                            <i class="fas fa-walking text-xs"></i>
+                          </div>
+                        {:else if transportMethod === 'driving'}
+                          <div
+                            class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white shadow-lg"
+                          >
+                            <i class="fas fa-car text-xs"></i>
+                          </div>
+                        {:else if transportMethod === 'riding'}
+                          <div
+                            class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-lg"
+                          >
+                            <i class="fas fa-bicycle text-xs"></i>
+                          </div>
+                        {/if}
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        {#if segment.name}
+                          <div class="text-sm font-medium sm:text-base">{segment.name}</div>
                           <div class="text-base-content/60 text-xs sm:text-sm">
                             <span>{formatDistance(segment.distance / 1000, 2)}</span>
                             {#if segment.time}
                               <span> · {formatDuration(segment.time)}</span>
                             {/if}
                           </div>
-                        </div>
-                      </div>
-
-                      {#if transitDetails}
-                        <div class="ml-9 space-y-2">
-                          <div class="flex items-center gap-2 text-sm">
-                            <i class="fas fa-route text-xs"></i>
-                            <div class="text-base-content/80">
-                              {#if transitDetails.lineName}
-                                <span class="font-medium"
-                                  >{formatTransitLineName(transitDetails.lineName, true)} ·
-                                </span>
-                              {/if}
-                              <span
-                                >{transitDetails.lineType === 'SUBWAY'
-                                  ? m.stations({ count: transitDetails.stationCount + 1 })
-                                  : m.stops({ count: transitDetails.stationCount + 1 })}</span
-                              >
-                            </div>
-                          </div>
-                          <div class="space-y-1 text-sm">
-                            {#if transitDetails.onStation}
-                              <div class="flex items-center gap-2">
-                                <i class="fas fa-circle-up text-xs text-green-500"></i>
-                                <span class="font-medium">{m.board_at()}:</span>
-                                <span class="text-base-content/80"
-                                  >{transitDetails.onStation.name}</span
-                                >
-                              </div>
-                              {#if transitDetails.entrance}
-                                <div class="text-base-content/60 ml-5 text-xs">
-                                  {m.entrance()}: {transitDetails.entrance.name}
-                                </div>
-                              {/if}
+                        {:else}
+                          <div class="text-sm font-medium sm:text-base">
+                            <span>{formatDistance(segment.distance / 1000, 2)}</span>
+                            {#if segment.time}
+                              <span> · {formatDuration(segment.time)}</span>
                             {/if}
-                            {#if transitDetails.viaStops.length > 0}
-                              <details class="group ml-5">
-                                <summary
-                                  class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+
+                    {#if segment.steps.length > 1}
+                      <div class="ml-9">
+                        <details class="group">
+                          <summary
+                            class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                          >
+                            <i
+                              class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
+                            ></i>
+                            <span class="group-open:hidden"
+                              >{m.expand_details()} ({segment.steps.length})</span
+                            >
+                            <span class="hidden group-open:inline">{m.collapse_details()}</span>
+                          </summary>
+                          <div class="mt-2 space-y-1 md:space-y-2">
+                            {#each segment.steps as step, stepIndex (stepIndex)}
+                              <div class="flex items-center gap-2 text-xs sm:text-sm">
+                                <div
+                                  class="flex h-6 w-6 shrink-0 items-center justify-center {step.isSignificant
+                                    ? 'text-base-content'
+                                    : 'text-base-content/80'}"
                                 >
-                                  <i
-                                    class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
-                                  ></i>
-                                  {m.via_stops({ count: transitDetails.viaStops.length })}
-                                </summary>
-                                <div class="mt-2 ml-4 space-y-1">
-                                  {#each transitDetails.viaStops as stop (stop.id)}
+                                  {#if step.orientation}
+                                    <span title={step.orientation}>
+                                      {#if step.orientation === '东'}
+                                        <i class="fa-solid fa-circle-arrow-right"></i>
+                                      {:else if step.orientation === '西'}
+                                        <i class="fa-solid fa-circle-arrow-left"></i>
+                                      {:else if step.orientation === '南'}
+                                        <i class="fa-solid fa-circle-arrow-down"></i>
+                                      {:else if step.orientation === '北'}
+                                        <i class="fa-solid fa-circle-arrow-up"></i>
+                                      {:else if step.orientation === '东北'}
+                                        <i
+                                          class="fa-solid fa-circle-arrow-up"
+                                          style="transform: rotate(45deg);"
+                                        ></i>
+                                      {:else if step.orientation === '东南'}
+                                        <i
+                                          class="fa-solid fa-circle-arrow-right"
+                                          style="transform: rotate(45deg);"
+                                        ></i>
+                                      {:else if step.orientation === '西南'}
+                                        <i
+                                          class="fa-solid fa-circle-arrow-down"
+                                          style="transform: rotate(45deg);"
+                                        ></i>
+                                      {:else if step.orientation === '西北'}
+                                        <i
+                                          class="fa-solid fa-circle-arrow-left"
+                                          style="transform: rotate(45deg);"
+                                        ></i>
+                                      {:else}
+                                        {step.orientation}
+                                      {/if}
+                                    </span>
+                                  {:else}
+                                    <span><i class="fa-solid fa-circle"></i></span>
+                                  {/if}
+                                </div>
+                                <div class="flex-1">
+                                  <span
+                                    class={step.isSignificant
+                                      ? 'text-base-content font-semibold'
+                                      : 'text-base-content/80'}>{step.instruction}</span
+                                  >
+                                  {#if step.isSignificant || step.time > 90}
                                     <div
-                                      class="text-base-content/60 flex items-center gap-2 text-xs"
+                                      class="text-xs {step.isSignificant
+                                        ? 'text-base-content/80'
+                                        : 'text-base-content/60 font-normal'}"
                                     >
-                                      <i class="fas fa-circle text-xs opacity-30"></i>
-                                      {stop.name}
+                                      <span>{formatDistance(step.distance / 1000, 2)}</span>
+                                      {#if step.time}
+                                        <span> · {formatDuration(step.time)}</span>
+                                      {/if}
                                     </div>
-                                  {/each}
+                                  {/if}
                                 </div>
-                              </details>
-                            {/if}
-                            {#if transitDetails.offStation}
-                              <div class="flex items-center gap-2">
-                                <i class="fas fa-circle-down text-xs text-red-500"></i>
-                                <span class="font-medium">{m.alight_at()}:</span>
-                                <span class="text-base-content/80"
-                                  >{transitDetails.offStation.name}</span
-                                >
                               </div>
-                              {#if transitDetails.exit}
-                                <div class="text-base-content/60 ml-5 text-xs">
-                                  {m.exit()}: {transitDetails.exit.name}
-                                </div>
-                              {/if}
-                            {/if}
+                            {/each}
                           </div>
-                        </div>
-                      {/if}
-
-                      {#if walkingSteps.length > 0}
-                        <div class="ml-9">
-                          <details class="group">
-                            <summary
-                              class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
-                            >
-                              <i
-                                class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
-                              ></i>
-                              <span class="group-open:hidden"
-                                >{m.expand_details()} ({walkingSteps.length})</span
-                              >
-                              <span class="hidden group-open:inline">{m.collapse_details()}</span>
-                            </summary>
-                            <div class="mt-2 space-y-1">
-                              {#each walkingSteps as walkStep, walkStepIndex (walkStepIndex)}
-                                <div class="text-base-content/60 flex items-center gap-2 text-xs">
-                                  <div
-                                    class="bg-base-300 text-base-content/80 flex h-4 w-4 items-center justify-center rounded-full text-xs"
-                                  >
-                                    {walkStepIndex + 1}
-                                  </div>
-                                  <span>{formatStepInstruction(walkStep)}</span>
-                                </div>
-                              {/each}
-                            </div>
-                          </details>
-                        </div>
-                      {/if}
-                    </div>
-                  {/each}
-                {:else}
-                  {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
-                    {@const segment = s as ProcessedSegment}
-                    <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
-                      <div class="flex items-center gap-3">
-                        <div class="shrink-0">
-                          {#if transportMethod === 'walking'}
-                            <div
-                              class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
-                            >
-                              <i class="fas fa-walking text-xs"></i>
-                            </div>
-                          {:else if transportMethod === 'driving'}
-                            <div
-                              class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white shadow-lg"
-                            >
-                              <i class="fas fa-car text-xs"></i>
-                            </div>
-                          {:else if transportMethod === 'riding'}
-                            <div
-                              class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-lg"
-                            >
-                              <i class="fas fa-bicycle text-xs"></i>
-                            </div>
-                          {/if}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          {#if segment.name}
-                            <div class="text-sm font-medium sm:text-base">{segment.name}</div>
-                            <div class="text-base-content/60 text-xs sm:text-sm">
-                              <span>{formatDistance(segment.distance / 1000, 2)}</span>
-                              {#if segment.time}
-                                <span> · {formatDuration(segment.time)}</span>
-                              {/if}
-                            </div>
-                          {:else}
-                            <div class="text-sm font-medium sm:text-base">
-                              <span>{formatDistance(segment.distance / 1000, 2)}</span>
-                              {#if segment.time}
-                                <span> · {formatDuration(segment.time)}</span>
-                              {/if}
-                            </div>
-                          {/if}
-                        </div>
+                        </details>
                       </div>
-
-                      {#if segment.steps.length > 1}
-                        <div class="ml-9">
-                          <details class="group">
-                            <summary
-                              class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
-                            >
-                              <i
-                                class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
-                              ></i>
-                              <span class="group-open:hidden"
-                                >{m.expand_details()} ({segment.steps.length})</span
-                              >
-                              <span class="hidden group-open:inline">{m.collapse_details()}</span>
-                            </summary>
-                            <div class="mt-2 space-y-1 md:space-y-2">
-                              {#each segment.steps as step, stepIndex (stepIndex)}
-                                <div class="flex items-center gap-2 text-xs sm:text-sm">
-                                  <div
-                                    class="flex h-6 w-6 shrink-0 items-center justify-center {step.isSignificant
-                                      ? 'text-base-content'
-                                      : 'text-base-content/80'}"
-                                  >
-                                    {#if step.orientation}
-                                      <span title={step.orientation}>
-                                        {#if step.orientation === '东'}
-                                          <i class="fa-solid fa-circle-arrow-right"></i>
-                                        {:else if step.orientation === '西'}
-                                          <i class="fa-solid fa-circle-arrow-left"></i>
-                                        {:else if step.orientation === '南'}
-                                          <i class="fa-solid fa-circle-arrow-down"></i>
-                                        {:else if step.orientation === '北'}
-                                          <i class="fa-solid fa-circle-arrow-up"></i>
-                                        {:else if step.orientation === '东北'}
-                                          <i
-                                            class="fa-solid fa-circle-arrow-up"
-                                            style="transform: rotate(45deg);"
-                                          ></i>
-                                        {:else if step.orientation === '东南'}
-                                          <i
-                                            class="fa-solid fa-circle-arrow-right"
-                                            style="transform: rotate(45deg);"
-                                          ></i>
-                                        {:else if step.orientation === '西南'}
-                                          <i
-                                            class="fa-solid fa-circle-arrow-down"
-                                            style="transform: rotate(45deg);"
-                                          ></i>
-                                        {:else if step.orientation === '西北'}
-                                          <i
-                                            class="fa-solid fa-circle-arrow-left"
-                                            style="transform: rotate(45deg);"
-                                          ></i>
-                                        {:else}
-                                          {step.orientation}
-                                        {/if}
-                                      </span>
-                                    {:else}
-                                      <span><i class="fa-solid fa-circle"></i></span>
-                                    {/if}
-                                  </div>
-                                  <div class="flex-1">
-                                    <span
-                                      class={step.isSignificant
-                                        ? 'text-base-content font-semibold'
-                                        : 'text-base-content/80'}>{step.instruction}</span
-                                    >
-                                    {#if step.isSignificant || step.time > 90}
-                                      <div
-                                        class="text-xs {step.isSignificant
-                                          ? 'text-base-content/80'
-                                          : 'text-base-content/60 font-normal'}"
-                                      >
-                                        <span>{formatDistance(step.distance / 1000, 2)}</span>
-                                        {#if step.time}
-                                          <span> · {formatDuration(step.time)}</span>
-                                        {/if}
-                                      </div>
-                                    {/if}
-                                  </div>
-                                </div>
-                              {/each}
-                            </div>
-                          </details>
-                        </div>
-                      {/if}
-                    </div>
-                  {/each}
-                {/if}
+                    {/if}
+                  </div>
+                {/each}
               {/if}
-            </div>
+            {/if}
           </div>
-        {/if}
+        </div>
       {/if}
-    </div>
+    {/if}
+  </div>
+{/snippet}
+
+<!-- Desktop: right side panel -->
+<div
+  class="pointer-events-auto hidden w-fit will-change-transform md:fixed md:top-0 md:right-0 md:bottom-0 md:z-1000 md:block md:transition-transform md:duration-300 md:ease-out {shop
+    ? 'md:opacity-100'
+    : 'md:opacity-0'} {isOpen ? 'md:translate-x-0' : 'md:translate-x-full'}"
+>
+  <div
+    class="bg-base-100 flex h-full flex-col overflow-hidden md:max-h-full md:rounded-l-xl md:rounded-tr-none {isOpen
+      ? 'md:shadow-lg'
+      : 'md:shadow-none'}"
+  >
+    {@render directionsBody()}
   </div>
 </div>
+
+<!-- Mobile: bottom sheet drawer -->
+<Drawer
+  bind:open={isOpen}
+  snapPoints={[0.2, 0.5, 0.85]}
+  initialSnap={1}
+  class="bg-base-100 shadow-xl"
+>
+  {@render directionsBody()}
+</Drawer>
 
 <style lang="postcss">
   @reference "tailwindcss";
