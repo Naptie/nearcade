@@ -22,8 +22,6 @@
     backdrop?: boolean;
     /** Additional classes for the mobile drawer container (bg, border, shadow, z-index, etc.) */
     class?: string;
-    /** If true, content area uses overflow-hidden (for children that manage their own scroll). Default true. */
-    overflowHidden?: boolean;
     children: import('svelte').Snippet;
   };
 
@@ -33,7 +31,6 @@
     initialSnap = 1,
     backdrop = false,
     class: className = '',
-    overflowHidden = true,
     children
   }: Props = $props();
 
@@ -48,6 +45,13 @@
   let lastMoveY = 0;
   let lastMoveTime = 0;
   let velocity = 0;
+  
+  // ---- Smart scroll state ----
+  let contentEl = $state<HTMLDivElement | null>(null);
+  let isScrolling = $state(false);
+  let scrollTouchId: number | null = null;
+  let scrollStartY = 0;
+  let lastScrollY = 0;
 
   const currentHeightPx = $derived.by(() => {
     if (dragHeightPx !== null) return dragHeightPx;
@@ -131,6 +135,63 @@
     lastMoveTime = 0;
   };
 
+  // Smart scroll: expand drawer before scrolling up, collapse after scrolling to top
+  const onContentTouchStart = (e: TouchEvent) => {
+    if (!contentEl || isDragging) return;
+    const touch = e.touches[0];
+    scrollTouchId = touch.identifier;
+    scrollStartY = touch.clientY;
+    lastScrollY = touch.clientY;
+    isScrolling = true;
+  };
+
+  const onContentTouchMove = (e: TouchEvent) => {
+    if (!contentEl || !isScrolling || scrollTouchId === null) return;
+    
+    const touch = Array.from(e.touches).find(t => t.identifier === scrollTouchId);
+    if (!touch) return;
+
+    const deltaY = touch.clientY - lastScrollY;
+    const scrollTop = contentEl.scrollTop;
+    const isAtTop = scrollTop === 0;
+
+    // Scrolling up (content should go up, finger moves down, deltaY > 0)
+    if (deltaY > 0) {
+      // At top of content: collapse drawer
+      if (isAtTop && currentSnap > 0) {
+        e.preventDefault();
+        const dy = scrollStartY - touch.clientY;
+        const newHeight = clampedHeightPx - dy;
+        const minH = snapPoints[0] * window.innerHeight;
+        dragHeightPx = Math.max(minH, newHeight);
+      }
+      // Otherwise let content scroll naturally
+    }
+    // Scrolling down (content should go down, finger moves up, deltaY < 0)
+    else if (deltaY < 0) {
+      // Not at max height: expand drawer first
+      if (currentSnap < snapPoints.length - 1) {
+        e.preventDefault();
+        const dy = scrollStartY - touch.clientY;
+        const newHeight = clampedHeightPx - dy;
+        const maxH = snapPoints[snapPoints.length - 1] * window.innerHeight;
+        dragHeightPx = Math.max(clampedHeightPx, Math.min(maxH, newHeight));
+      }
+      // Otherwise let content scroll naturally
+    }
+
+    lastScrollY = touch.clientY;
+  };
+
+  const onContentTouchEnd = () => {
+    if (dragHeightPx !== null) {
+      snapToNearest(dragHeightPx, 0);
+      dragHeightPx = null;
+    }
+    isScrolling = false;
+    scrollTouchId = null;
+  };
+
   // Reset snap when opening
   $effect(() => {
     if (open) {
@@ -144,7 +205,7 @@
   {#if backdrop && open}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="fixed inset-0 z-[200] bg-black/40 {open
+      class="fixed inset-0 z-200 bg-black/40 {open
         ? 'opacity-100'
         : 'opacity-0'} pointer-events-auto transition-opacity duration-300"
       onclick={() => (open = false)}
@@ -153,7 +214,7 @@
   {/if}
 
   <div
-    class="pointer-events-auto fixed inset-x-0 bottom-0 z-[250] flex flex-col overflow-hidden rounded-t-2xl
+    class="pointer-events-auto fixed inset-x-0 bottom-0 z-250 flex flex-col overflow-hidden rounded-t-2xl
            {isDragging ? '' : 'transition-[height] duration-300 ease-out'}
            {className}"
     style="height: {open ? clampedHeightPx : 0}px; {open ? '' : 'pointer-events: none;'}"
@@ -177,9 +238,16 @@
 
     <!-- Content -->
     <div
-      class="min-h-0 flex-1 {overflowHidden ? 'overflow-hidden' : 'overflow-y-auto'} {open
+      bind:this={contentEl}
+      role="region"
+      aria-label="Drawer content"
+      class="min-h-0 flex-1 overflow-y-auto {open
         ? 'opacity-100'
         : 'opacity-0'} pointer-events-auto transition-opacity duration-200"
+      ontouchstart={onContentTouchStart}
+      ontouchmove={onContentTouchMove}
+      ontouchend={onContentTouchEnd}
+      ontouchcancel={onContentTouchEnd}
     >
       {@render children()}
     </div>
