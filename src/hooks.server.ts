@@ -34,6 +34,7 @@ import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 import { SSC_SECRET } from '$env/static/private';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import { handleWellKnown } from '$lib/endpoints/well-known.server';
+import { getClientIp } from '$lib/utils/ip.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (isHttpError(error)) {
@@ -292,13 +293,10 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 };
 
 const handleRequestLogging: Handle = async ({ event, resolve }) => {
-  const cfIp = event.request.headers.get('cf-connecting-ip');
-  const aliIp = event.request.headers.get('ali-cdn-real-ip');
-  const xff = event.request.headers.get('x-forwarded-for');
   const userAgent = event.request.headers.get('user-agent');
 
-  const detectedIp = cfIp || aliIp || xff?.split(',')[0]?.trim() || null;
-  const region = detectedIp ? await lookupIpRegion(detectedIp, event.request) : null;
+  const detectedIp = getClientIp(event);
+  const region = await lookupIpRegion(detectedIp, event.request);
   const user = event.locals.user;
 
   const method = pc.bold(pc.cyan(event.request.method));

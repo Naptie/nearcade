@@ -6,6 +6,7 @@ import type { User } from '$lib/auth/types';
 import { sendPhoneOtp } from '$lib/sms/index.server';
 import { m } from '$lib/paraglide/messages';
 import { env } from '$env/dynamic/private';
+import { getClientIp } from '$lib/utils/ip.server';
 
 const COOLDOWN_SECONDS = 60;
 const DAILY_LIMIT = 5;
@@ -72,14 +73,15 @@ function getConfiguredCaptchaProviders(): CaptchaProvider[] {
   return providers;
 }
 
-export const POST: RequestHandler = async ({ request, locals, getClientAddress }) => {
+export const POST: RequestHandler = async (event) => {
+  const { request, locals } = event;
   const session = locals.session;
   if (!session) {
     error(401, m.unauthorized());
   }
 
   const userId = session.user.id;
-  const ip = getClientAddress();
+  const ip = getClientIp(event);
 
   let body: {
     phoneNumber?: string;
