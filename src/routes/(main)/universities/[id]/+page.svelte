@@ -50,6 +50,7 @@
 
   // SEO-critical university data is available immediately from the server load
   let university = $derived(data.university);
+  let isGlobalUniversity = $derived(university.countryCode && university.countryCode !== 'CN');
   let canonicalUrl = $derived(getCanonicalUrl(page.url));
   let ogImage = $derived(
     university?.avatarUrl ? toAbsoluteUrl(university.avatarUrl, page.url.origin) : null
@@ -73,6 +74,13 @@
     { id: 'members', label: m.members(), icon: 'fa-user' },
     { id: 'changelog', label: m.changelog(), icon: 'fa-clock-rotate-left' }
   ];
+
+  const globalOwnershipLabel = (ownership: string) => {
+    if (ownership === 'public') return m.university_ownership_public();
+    if (ownership === 'private') return m.university_ownership_private();
+    if (ownership === 'national') return m.university_ownership_national();
+    return ownership;
+  };
 
   // Initialize activeTab from URL hash or default to 'posts'
   const getInitialTab = () => {
@@ -526,32 +534,56 @@
               <div class="text-sm font-medium">{universityDataResolved?.university.type}</div>
             </div>
 
-            <div>
-              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-                {m.discipline_category()}
-              </div>
-              <div class="text-sm font-medium">
-                {universityDataResolved?.university.majorCategory || m.uncategorized()}
-              </div>
-            </div>
+            {#if isGlobalUniversity}
+              {#if universityDataResolved?.university.natureOfRunning}
+                <div>
+                  <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                    {m.running_nature()}
+                  </div>
+                  <div class="text-sm font-medium">
+                    {globalOwnershipLabel(universityDataResolved.university.natureOfRunning)}
+                  </div>
+                </div>
+              {/if}
 
-            <div>
-              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-                {m.running_nature()}
+              {#if universityDataResolved?.university.foundedYear}
+                <div>
+                  <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                    {m.founded_year()}
+                  </div>
+                  <div class="text-sm font-medium">
+                    {universityDataResolved.university.foundedYear}
+                  </div>
+                </div>
+              {/if}
+            {:else}
+              <div>
+                <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                  {m.discipline_category()}
+                </div>
+                <div class="text-sm font-medium">
+                  {universityDataResolved?.university.majorCategory || m.uncategorized()}
+                </div>
               </div>
-              <div class="text-sm font-medium">
-                {universityDataResolved?.university.natureOfRunning || m.unknown()}
-              </div>
-            </div>
 
-            <div>
-              <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
-                {m.governing_body()}
+              <div>
+                <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                  {m.running_nature()}
+                </div>
+                <div class="text-sm font-medium">
+                  {universityDataResolved?.university.natureOfRunning || m.unknown()}
+                </div>
               </div>
-              <div class="text-sm font-medium">
-                {universityDataResolved?.university.affiliation}
+
+              <div>
+                <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
+                  {m.governing_body()}
+                </div>
+                <div class="text-sm font-medium">
+                  {universityDataResolved?.university.affiliation}
+                </div>
               </div>
-            </div>
+            {/if}
           </div>
 
           <!-- Links -->

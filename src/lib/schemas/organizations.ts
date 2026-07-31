@@ -116,6 +116,8 @@ export const universitySchema = z
       .describe(bilingual('头像图片资源 ID。', 'Avatar image asset ID.')),
     description: z.string().optional().describe(bilingual('大学简介。', 'University description.')),
     website: z.string().optional().describe(bilingual('大学官网。', 'University website.')),
+    foundedYear: z.int().min(1).max(9999).optional().describe(bilingual('建校年份。', 'Founded year.')),
+    countryCode: z.string().length(2).optional().describe(bilingual('国家代码。', 'Country code.')),
     postReadability: postReadabilitySchema.optional(),
     postWritability: postWritabilitySchema.optional(),
     studentsCount: z.int().min(0).optional().describe(bilingual('成员数。', 'Member count.')),
@@ -155,6 +157,7 @@ export const universityV2Schema = z.object({
   }),
   countryCode: z.string().length(2),
   website: z.string().url().nullable(),
+  foundedYear: z.int().min(1).max(9999).nullable().optional(),
   classification: z.object({
     academicLevel: z.string().nullable(),
     discipline: z.string().nullable(),

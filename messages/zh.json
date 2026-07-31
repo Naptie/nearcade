@@ -1567,6 +1567,10 @@
     }
   ],
   "university": "高校",
+  "founded_year": "建校年份",
+  "university_ownership_public": "公立",
+  "university_ownership_private": "私立",
+  "university_ownership_national": "国立",
   "university_affiliation": "隶属关系",
   "university_affiliation_placeholder": "例如：教育部",
   "university_associations": "高校关联",

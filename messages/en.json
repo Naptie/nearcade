@@ -1582,6 +1582,10 @@
     }
   ],
   "university": "University/College",
+  "founded_year": "Founded",
+  "university_ownership_public": "Public",
+  "university_ownership_private": "Private",
+  "university_ownership_national": "National",
   "university_affiliation": "Affiliation",
   "university_affiliation_placeholder": "e.g., Ministry of Education",
   "university_associations": "University Associations",
