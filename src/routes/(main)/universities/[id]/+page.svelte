@@ -82,6 +82,15 @@
     return ownership;
   };
 
+  const isMeaningfulGlobalDescription = (description: string) => {
+    const normalized = description.trim();
+    const length = [...normalized].length;
+    if (/\p{Script=Han}/u.test(normalized)) return length >= 12;
+    return (
+      length >= 32 && !/^(?:public |private |national )?university(?: in)?\b/i.test(normalized)
+    );
+  };
+
   // Initialize activeTab from URL hash or default to 'posts'
   const getInitialTab = () => {
     const hash = page.url.hash.substring(1);
@@ -515,7 +524,7 @@
 
           <!-- Basic Information -->
           <div class="space-y-3">
-            {#if universityDataResolved?.university.description}
+            {#if universityDataResolved?.university.description && (!isGlobalUniversity || isMeaningfulGlobalDescription(universityDataResolved.university.description))}
               <div>
                 <div class="text-base-content/50 mb-1 text-xs tracking-wide uppercase">
                   {m.school_introduction()}
