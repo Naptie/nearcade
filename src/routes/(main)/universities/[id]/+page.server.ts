@@ -15,7 +15,22 @@ import mongo from '$lib/db/index.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { omitUndefinedFields } from '$lib/utils/organizations.server';
-import { findUniversityByIdOrSlug } from '$lib/db/universities.server';
+import {
+  findUniversityByIdOrSlug,
+  getUniversitiesCollection,
+  isUniversityV2Enabled,
+  toUniversityCampusStorage,
+  toUniversityView
+} from '$lib/db/universities.server';
+
+const getUniversityPermissions = async (
+  user: Parameters<typeof checkUniversityPermission>[0],
+  id: string
+) => {
+  const university = await findUniversityByIdOrSlug(mongo.db(), id);
+  if (!university) throw error(404, m.university_not_found());
+  return checkUniversityPermission(user, university, mongo);
+};
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -141,7 +156,7 @@ export const actions: Actions = {
       const district = formData.get('district') as string;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user, universityId, mongo);
+      const permissions = await getUniversityPermissions(user, universityId);
       if (!permissions.canManage) {
         return fail(403, { message: m.privilege_insufficient() });
       }
@@ -151,7 +166,7 @@ export const actions: Actions = {
       }
 
       const db = mongo.db();
-      const universitiesCollection = db.collection('universities');
+      const universitiesCollection = getUniversitiesCollection(db);
 
       const newCampus = omitUndefinedFields({
         id: id || nanoid(),
@@ -167,9 +182,15 @@ export const actions: Actions = {
         createdAt: new Date(),
         createdBy: user.id || undefined
       });
+      const universityDocument = await universitiesCollection.findOne({ id: universityId });
+      if (!universityDocument) return fail(404, { message: m.university_not_found() });
+      const storedCampus = toUniversityCampusStorage(
+        newCampus as Campus,
+        String(universityDocument.countryCode || 'CN')
+      );
 
       await universitiesCollection.updateOne({ id: universityId }, {
-        $addToSet: { campuses: newCampus }
+        $addToSet: { campuses: storedCampus }
       } as object);
 
       // Log campus addition to changelog
@@ -207,7 +228,7 @@ export const actions: Actions = {
       const district = formData.get('district') as string;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user, universityId, mongo);
+      const permissions = await getUniversityPermissions(user, universityId);
       if (!permissions.canEdit) {
         return fail(403, { message: m.privilege_insufficient() });
       }
@@ -217,14 +238,17 @@ export const actions: Actions = {
       }
 
       const db = mongo.db();
-      const universitiesCollection = db.collection('universities');
+      const universitiesCollection = getUniversitiesCollection(db);
 
       // Get current campus data for changelog comparison
-      const currentUniversity = await universitiesCollection.findOne(
+      const currentUniversityDocument = await universitiesCollection.findOne(
         { id: universityId },
         { projection: { campuses: 1 } }
       );
-      const currentCampus = currentUniversity?.campuses?.find((c: Campus) => c.id === campusId);
+      const currentUniversity = currentUniversityDocument
+        ? toUniversityView(currentUniversityDocument)
+        : null;
+      const currentCampus = currentUniversity?.campuses.find((campus) => campus.id === campusId);
 
       if (!currentCampus) {
         return fail(404, { message: m.campus_not_found() });
@@ -244,22 +268,32 @@ export const actions: Actions = {
         updatedAt: new Date(),
         updatedBy: user.id || undefined
       }) as Campus;
+      const currentStoredCampus = currentUniversityDocument?.campuses?.find(
+        (campus: { id?: string }) => campus.id === campusId
+      );
+      const storedCampus = toUniversityCampusStorage(
+        updatedCampus,
+        String(currentUniversityDocument?.countryCode || 'CN'),
+        currentStoredCampus
+      );
 
       await universitiesCollection.updateOne(
         { id: universityId, 'campuses.id': campusId },
-        {
-          $set: omitUndefinedFields({
-            'campuses.$.name': name,
-            'campuses.$.address': address,
-            'campuses.$.province': province,
-            'campuses.$.city': city,
-            'campuses.$.district': district,
-            'campuses.$.location.type': 'Point',
-            'campuses.$.location.coordinates': [longitude, latitude],
-            'campuses.$.updatedAt': new Date(),
-            'campuses.$.updatedBy': user.id || undefined
-          })
-        }
+        isUniversityV2Enabled()
+          ? { $set: { 'campuses.$': storedCampus } }
+          : {
+              $set: omitUndefinedFields({
+                'campuses.$.name': name,
+                'campuses.$.address': address,
+                'campuses.$.province': province,
+                'campuses.$.city': city,
+                'campuses.$.district': district,
+                'campuses.$.location.type': 'Point',
+                'campuses.$.location.coordinates': [longitude, latitude],
+                'campuses.$.updatedAt': new Date(),
+                'campuses.$.updatedBy': user.id || undefined
+              })
+            }
       );
 
       // Log campus changes to changelog
@@ -297,7 +331,7 @@ export const actions: Actions = {
       const campusId = formData.get('campusId') as string;
 
       // Check permissions using new system - only managers can delete
-      const permissions = await checkUniversityPermission(user, universityId, mongo);
+      const permissions = await getUniversityPermissions(user, universityId);
       if (!permissions.canManage) {
         return fail(403, { message: m.privilege_insufficient() });
       }
@@ -307,23 +341,21 @@ export const actions: Actions = {
       }
 
       const db = mongo.db();
-      const universitiesCollection = db.collection('universities');
+      const universitiesCollection = getUniversitiesCollection(db);
 
       // Check if this is the last campus
-      const university = await universitiesCollection.findOne({ id: universityId });
+      const universityDocument = await universitiesCollection.findOne({ id: universityId });
+      const university = universityDocument ? toUniversityView(universityDocument) : null;
       if (!university || university.campuses.length <= 1) {
         return fail(400, { message: m.cannot_delete_the_last_campus() });
       }
 
       // Get campus data before deletion for changelog
-      const campusToDelete = university.campuses.find((c: Campus) => c.id === campusId);
+      const campusToDelete = university.campuses.find((campus) => campus.id === campusId);
       if (!campusToDelete) {
         return fail(404, { message: m.campus_not_found() });
       }
 
-      await universitiesCollection.updateOne({ id: universityId }, {
-        $pull: { campuses: { id: campusId } }
-      } as object);
       const updateResult = await universitiesCollection.updateOne({ id: universityId }, {
         $pull: { campuses: { id: campusId } }
       } as object);
@@ -360,7 +392,7 @@ export const actions: Actions = {
       const memberType = formData.get('memberType') as string;
 
       // Check permissions using new system - only managers can invite
-      const permissions = await checkUniversityPermission(user, universityId, mongo);
+      const permissions = await getUniversityPermissions(user, universityId);
       if (!permissions.canManage) {
         return fail(403, { message: m.privilege_insufficient() });
       }
@@ -430,7 +462,7 @@ export const actions: Actions = {
       }
 
       // Check permissions
-      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
+      const permissions = await getUniversityPermissions(session.user, universityId);
       if (!permissions.canEdit) {
         return fail(403, { message: m.insufficient_permissions() });
       }
@@ -483,7 +515,7 @@ export const actions: Actions = {
       }
 
       // Only admins can grant moderator roles
-      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
+      const permissions = await getUniversityPermissions(session.user, universityId);
       if (!permissions.canManage) {
         return fail(403, { message: m.only_admins_can_grant_moderator_roles() });
       }
@@ -523,7 +555,7 @@ export const actions: Actions = {
       }
 
       // Only admins can revoke moderator roles
-      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
+      const permissions = await getUniversityPermissions(session.user, universityId);
       if (!permissions.canManage) {
         return fail(403, { message: m.only_admins_can_revoke_moderator_roles() });
       }
@@ -604,7 +636,7 @@ export const actions: Actions = {
       }
 
       // Only non-site admins can transfer admin privileges (site admins use grantAdmin instead)
-      const permissions = await checkUniversityPermission(session.user, universityId, mongo);
+      const permissions = await getUniversityPermissions(session.user, universityId);
       if (!permissions.canManage) {
         return fail(403, { message: m.only_admins_can_transfer_admin_privileges() });
       }

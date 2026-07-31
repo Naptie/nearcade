@@ -1,5 +1,5 @@
 import { env } from '$env/dynamic/private';
-import type { University, UniversityV2 } from '$lib/types';
+import type { Campus, University, UniversityV2 } from '$lib/types';
 import type { Db, Document } from 'mongodb';
 
 export const LEGACY_UNIVERSITIES_COLLECTION = 'universities';
@@ -118,3 +118,31 @@ export const toUniversityStorageFields = (fields: Record<string, unknown>) =>
       value
     ])
   );
+
+export const toUniversityCampusStorage = (
+  campus: Campus,
+  countryCode: string,
+  current?: Document
+) => {
+  if (!isUniversityV2Enabled()) return campus;
+  const currentAddress = (current?.address || {}) as {
+    general?: string[];
+    region?: string[];
+  };
+  return {
+    id: campus.id,
+    name: campus.name,
+    address: {
+      general: [
+        currentAddress.general?.[0] || countryCode,
+        campus.province,
+        campus.city,
+        campus.district
+      ].filter((value): value is string => Boolean(value)),
+      detailed: campus.address,
+      region: currentAddress.region || []
+    },
+    location: campus.location,
+    locationPrecision: 'legacy'
+  };
+};
