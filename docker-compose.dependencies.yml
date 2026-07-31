@@ -1,0 +1,33 @@
+name: nearcade-dependencies
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: nearcade-redis
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6379:6379'
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.51.0
+    container_name: nearcade-meilisearch
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:7700:7700'
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: 'true'
+    volumes:
+      - meilisearch_data:/meili_data
+
+volumes:
+  redis_data:
+  meilisearch_data:
