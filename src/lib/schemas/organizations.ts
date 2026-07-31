@@ -129,6 +129,62 @@ export const universitySchema = z
   })
   .describe(bilingual('大学。', 'University.'));
 
+/** Canonical, global university record stored in `universities_v2`. */
+export const universityV2CampusSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  address: z.object({
+    general: z.array(z.string()),
+    detailed: z.string(),
+    region: z.array(z.string())
+  }),
+  location: locationSchema,
+  locationPrecision: z.enum(['campus', 'building', 'legacy'])
+});
+
+export const universityV2Schema = z.object({
+  _id: z.union([z.string(), objectIdSchema]).optional(),
+  id: z.string(),
+  name: z.string(),
+  slug: z.string().optional(),
+  names: z.object({
+    translations: z.record(z.string(), z.string()),
+    native: z.array(z.string()),
+    english: z.array(z.string()),
+    aliases: z.array(z.string())
+  }),
+  countryCode: z.string().length(2),
+  website: z.string().url().nullable(),
+  classification: z.object({
+    academicLevel: z.string().nullable(),
+    discipline: z.string().nullable(),
+    ownership: z.string().nullable(),
+    affiliation: z.string().nullable()
+  }),
+  china: z
+    .object({
+      is985: z.boolean(),
+      is211: z.boolean(),
+      isDoubleFirstClass: z.boolean()
+    })
+    .optional(),
+  campuses: z.array(universityV2CampusSchema).min(1),
+  profile: z.object({
+    description: z.string().nullable(),
+    avatarUrl: z.string().nullable(),
+    avatarImageId: z.string().nullable(),
+    backgroundColor: z.string().nullable()
+  }),
+  community: z.object({
+    postReadability: postReadabilitySchema.nullable(),
+    postWritability: postWritabilitySchema.nullable(),
+    studentsCount: z.int().min(0),
+    clubsCount: z.int().min(0),
+    frequentingArcades: z.array(z.int())
+  }),
+  updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.')).nullable()
+});
+
 export const universitySummarySchema = universitySchema.pick({
   id: true,
   slug: true,

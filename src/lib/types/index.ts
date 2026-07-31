@@ -17,7 +17,8 @@ import type {
   clubSchema,
   organizationChangelogEntrySchema,
   universityMemberSchema,
-  universitySchema
+  universitySchema,
+  universityV2Schema
 } from '$lib/schemas/organizations';
 import type { postSchema, postVoteSchema, postWithAuthorSchema } from '$lib/schemas/posts';
 import type {
@@ -46,6 +47,8 @@ export type Game = z.infer<typeof gameSchema>;
 export type Campus = z.infer<typeof campusSchema>;
 
 export type University = z.infer<typeof universitySchema>;
+
+export type UniversityV2 = z.infer<typeof universityV2Schema>;
 
 export interface UniversityRankingResponse {
   data: UniversityRankingData[];
