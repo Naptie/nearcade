@@ -1,7 +1,7 @@
 import { error, fail, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { PostReadability, PostWritability, type University } from '$lib/types';
-import { checkUniversityPermission, toPlainObject } from '$lib/utils';
+import { PostReadability, PostWritability } from '$lib/types';
+import { checkUniversityPermission } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import { logUniversityChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { resolve } from '$app/paths';
@@ -9,7 +9,13 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { postReadabilitySchema, postWritabilitySchema } from '$lib/schemas/posts';
-import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
+import {
+  findUniversityByIdOrSlug,
+  getUniversitiesCollection,
+  getUniversitiesSearchIndexName,
+  toUniversityStorageFields,
+  toUniversityView
+} from '$lib/db/universities.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -23,15 +29,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
 
   try {
     const db = mongo.db();
-    const universitiesCollection = db.collection('universities');
-
-    // Try to find university by ID first, then by slug
-    const university = (await universitiesCollection.findOne(
-      {
-        $or: [{ id }, { slug: id }]
-      },
-      { projection: { _id: 0 } }
-    )) as unknown as University | null;
+    const university = await findUniversityByIdOrSlug(db, id);
 
     if (!university) {
       error(404, m.university_not_found());
@@ -94,7 +92,9 @@ export const actions: Actions = {
       const postWritability = postWritabilityResult.success ? postWritabilityResult.data : null;
 
       // Check permissions using new system
-      const permissions = await checkUniversityPermission(user, id, mongo);
+      const permissionUniversity = await findUniversityByIdOrSlug(mongo.db(), id);
+      if (!permissionUniversity) return fail(404, { message: m.university_not_found() });
+      const permissions = await checkUniversityPermission(user, permissionUniversity, mongo);
       if (!permissions.canEdit) {
         return fail(403, { message: m.privilege_insufficient() });
       }
@@ -187,13 +187,14 @@ export const actions: Actions = {
       const nextPostWritability: PostWritability = postWritability as PostWritability;
 
       const db = mongo.db();
-      const universitiesCollection = db.collection('universities');
+      const universitiesCollection = getUniversitiesCollection(db);
 
       // Get current university data for changelog comparison
-      const currentUniversity = (await universitiesCollection.findOne(
+      const currentDocument = await universitiesCollection.findOne(
         { $or: [{ id }, { slug: id }] },
         { projection: { _id: 0 } }
-      )) as unknown as University | null;
+      );
+      const currentUniversity = currentDocument ? toUniversityView(currentDocument) : null;
 
       if (!currentUniversity) {
         return fail(404, { message: m.university_not_found() });
@@ -283,24 +284,18 @@ export const actions: Actions = {
       await universitiesCollection.updateOne(
         { id },
         {
-          $set: universitySetFields,
+          $set: toUniversityStorageFields(universitySetFields),
           ...(Object.keys(universityUnsetFields).length > 0
-            ? { $unset: universityUnsetFields }
+            ? { $unset: toUniversityStorageFields(universityUnsetFields) }
             : {})
         }
       );
-      const nextUniversity = {
-        ...currentUniversity,
-        ...universitySetFields
-      } as Record<string, unknown>;
-      for (const fieldName of Object.keys(universityUnsetFields)) {
-        delete nextUniversity[fieldName];
-      }
-      await meili
-        .index<University>('universities')
-        .updateDocuments([normalizeUniversityDocument(toPlainObject(nextUniversity))], {
+      const nextDocument = await universitiesCollection.findOne({ id });
+      if (nextDocument) {
+        await meili.index(getUniversitiesSearchIndexName()).updateDocuments([nextDocument], {
           primaryKey: 'id'
         });
+      }
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {

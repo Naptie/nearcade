@@ -91,3 +91,30 @@ export const universitySearchFields = () =>
         'campuses.address.detailed'
       ]
     : ['name', 'slug', 'campuses.name'];
+
+const v2FieldPaths: Record<string, string> = {
+  type: 'classification.academicLevel',
+  majorCategory: 'classification.discipline',
+  natureOfRunning: 'classification.ownership',
+  affiliation: 'classification.affiliation',
+  is985: 'china.is985',
+  is211: 'china.is211',
+  isDoubleFirstClass: 'china.isDoubleFirstClass',
+  description: 'profile.description',
+  avatarUrl: 'profile.avatarUrl',
+  avatarImageId: 'profile.avatarImageId',
+  backgroundColor: 'profile.backgroundColor',
+  postReadability: 'community.postReadability',
+  postWritability: 'community.postWritability',
+  studentsCount: 'community.studentsCount',
+  clubsCount: 'community.clubsCount',
+  frequentingArcades: 'community.frequentingArcades'
+};
+
+export const toUniversityStorageFields = (fields: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(fields).map(([field, value]) => [
+      isUniversityV2Enabled() ? v2FieldPaths[field] || field : field,
+      value
+    ])
+  );

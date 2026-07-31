@@ -5,11 +5,16 @@ import { m } from '$lib/paraglide/messages';
 import { createUploadedImage, deleteImagesByIds, getImagesByIds } from '$lib/images/index.server';
 import { checkUniversityPermission } from '$lib/utils';
 import { logChange } from '$lib/utils/universities-clubs/changelog.server';
-import type { University } from '$lib/types';
 import { avatarUploadResponseSchema } from '$lib/schemas/users';
 import { avatarUploadFormDataSchema } from '$lib/schemas/images';
 import { universityIdParamSchema } from '$lib/schemas/organizations';
 import { parseOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import {
+  findUniversityByIdOrSlug,
+  getUniversitiesCollection,
+  toUniversityStorageFields,
+  toUniversityView
+} from '$lib/db/universities.server';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
   const session = locals.session;
@@ -19,7 +24,9 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
   const { id } = parseParamsOrError(universityIdParamSchema, params);
 
-  const permissions = await checkUniversityPermission(session.user, id, mongo);
+  const permissionUniversity = await findUniversityByIdOrSlug(mongo.db(), id);
+  if (!permissionUniversity) error(404, m.university_not_found());
+  const permissions = await checkUniversityPermission(session.user, permissionUniversity, mongo);
   if (!permissions.canEdit) {
     error(403, m.privilege_insufficient());
   }
@@ -55,17 +62,19 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
   (async () => {
     try {
       const db = mongo.db();
-      const universitiesCollection = db.collection<University>('universities');
+      const universitiesCollection = getUniversitiesCollection(db);
 
-      const university = await universitiesCollection.findOne({
+      const universityDocument = await universitiesCollection.findOne({
         $or: [{ id }, { slug: id }]
       });
 
-      if (!university) {
+      if (!universityDocument) {
         enqueueEvent({ phase: 'error', message: m.university_not_found() });
         streamController.close();
         return;
       }
+
+      const university = toUniversityView(universityDocument);
 
       const universityId = university.id;
       const oldAvatarImageId = university.avatarImageId ?? null;
@@ -100,11 +109,11 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       await universitiesCollection.updateOne(
         { id: universityId },
         {
-          $set: {
+          $set: toUniversityStorageFields({
             avatarUrl: image.url,
             avatarImageId: image.id,
             updatedAt: new Date()
-          }
+          })
         }
       );
 
