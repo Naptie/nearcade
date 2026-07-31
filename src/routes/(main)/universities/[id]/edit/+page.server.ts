@@ -1,6 +1,6 @@
 import { error, fail, isHttpError, isRedirect, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { PostReadability, PostWritability } from '$lib/types';
+import { PostReadability, PostWritability, type University } from '$lib/types';
 import { checkUniversityPermission } from '$lib/utils';
 import { loginRedirect } from '$lib/utils/scoped';
 import { logUniversityChanges } from '$lib/utils/universities-clubs/changelog.server';
