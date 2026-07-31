@@ -4,6 +4,12 @@ import { toPlainArray } from '$lib/utils';
 import { env } from '$env/dynamic/private';
 import type { Shop } from '$lib/types';
 import { getShopRegionNames } from '$lib/utils/region.server';
+import {
+  getUniversitiesCollection,
+  getUniversitiesSearchIndexName,
+  isUniversityV2Enabled,
+  universitySearchFields
+} from './universities.server';
 
 let meili: Meilisearch | undefined;
 
@@ -42,7 +48,7 @@ export const init = async (): Promise<{
   const db = mongo.db();
   const meili = getMeiliClient();
   const shops = await db.collection<Shop>('shops').find().toArray();
-  const universities = await db.collection('universities').find().toArray();
+  const universities = await getUniversitiesCollection(db).find().toArray();
   const clubs = await db.collection('clubs').find().toArray();
 
   // Enrich shops with regionNames (all language variants) for multilingual search
@@ -60,12 +66,13 @@ export const init = async (): Promise<{
 
   // Delete existing indexes if they exist
   await meili.deleteIndexIfExists('shops');
-  await meili.deleteIndexIfExists('universities');
+  const universityIndexName = getUniversitiesSearchIndexName();
+  await meili.deleteIndexIfExists(universityIndexName);
   await meili.deleteIndexIfExists('clubs');
 
   // Get or create the index
   const shopIndex = meili.index('shops');
-  const universityIndex = meili.index('universities');
+  const universityIndex = meili.index(universityIndexName);
   const clubIndex = meili.index('clubs');
 
   // Configure searchable/filterable attributes
@@ -82,16 +89,18 @@ export const init = async (): Promise<{
     filterableAttributes: ['games.titleId', 'address.region']
   });
   await universityIndex.updateSettings({
-    searchableAttributes: [
-      'name',
-      'description',
-      'slug',
-      'website',
-      'campuses.province',
-      'campuses.city',
-      'campuses.district',
-      'campuses.address'
-    ]
+    searchableAttributes: isUniversityV2Enabled()
+      ? [...universitySearchFields(), 'profile.description', 'website']
+      : [
+          'name',
+          'description',
+          'slug',
+          'website',
+          'campuses.province',
+          'campuses.city',
+          'campuses.district',
+          'campuses.address'
+        ]
   });
   await clubIndex.updateSettings({
     searchableAttributes: ['name', 'description', 'slug', 'website'],

@@ -8,6 +8,7 @@ import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import {
   getUniversitiesCollection,
+  getUniversitiesSearchIndexName,
   isUniversityV2Enabled,
   toUniversityView,
   universitySearchFields
@@ -54,9 +55,8 @@ export const load: PageServerLoad = async ({ url, parent }) => {
         ).map(toUniversityView);
       } else {
         try {
-          if (isUniversityV2Enabled()) throw new Error('V2 Meilisearch index is not enabled yet');
           // Search using Meilisearch
-          const searchResults = await meili.index<University>('universities').search(query, {
+          const searchResults = await meili.index(getUniversitiesSearchIndexName()).search(query, {
             limit,
             offset: skip,
             attributesToHighlight: [
@@ -72,19 +72,25 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           });
 
           universities = await Promise.all(
-            searchResults.hits.map(
-              async (hit) =>
-                ({
-                  ...hit,
-                  ...(hit._formatted
-                    ? {
-                        nameHl: await sanitizeHTML(hit._formatted.name),
-                        descriptionHl: await sanitizeHTML(hit._formatted.description),
-                        campusesHl: await sanitizeRecursive(hit._formatted.campuses)
-                      }
-                    : {})
-                }) as (typeof universities)[number]
-            )
+            searchResults.hits.map(async (hit) => {
+              const university = toUniversityView(hit);
+              return {
+                ...university,
+                ...(hit._formatted
+                  ? {
+                      nameHl: await sanitizeHTML(hit._formatted.name),
+                      descriptionHl: await sanitizeHTML(
+                        isUniversityV2Enabled()
+                          ? hit._formatted.profile?.description
+                          : hit._formatted.description
+                      ),
+                      campusesHl: isUniversityV2Enabled()
+                        ? university.campuses
+                        : await sanitizeRecursive(hit._formatted.campuses)
+                    }
+                  : {})
+              } as (typeof universities)[number];
+            })
           );
           totalCount = searchResults.estimatedTotalHits;
         } catch {

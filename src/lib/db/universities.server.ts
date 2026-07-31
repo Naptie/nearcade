@@ -13,6 +13,10 @@ export const getUniversitiesCollectionName = () =>
 export const isUniversityV2Enabled = () =>
   getUniversitiesCollectionName() === V2_UNIVERSITIES_COLLECTION;
 
+export const getUniversitiesSearchIndexName = () =>
+  env.MEILISEARCH_UNIVERSITIES_INDEX ||
+  (isUniversityV2Enabled() ? V2_UNIVERSITIES_COLLECTION : LEGACY_UNIVERSITIES_COLLECTION);
+
 export const getUniversitiesCollection = (db: Db) =>
   db.collection<Document>(getUniversitiesCollectionName());
 
