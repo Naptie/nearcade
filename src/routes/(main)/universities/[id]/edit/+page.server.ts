@@ -13,6 +13,8 @@ import {
   findUniversityByIdOrSlug,
   getUniversitiesCollection,
   getUniversitiesSearchIndexName,
+  getUniversitiesSearchPrimaryKey,
+  toUniversitySearchDocument,
   toUniversityStorageFields,
   toUniversityView
 } from '$lib/db/universities.server';
@@ -292,9 +294,11 @@ export const actions: Actions = {
       );
       const nextDocument = await universitiesCollection.findOne({ id });
       if (nextDocument) {
-        await meili.index(getUniversitiesSearchIndexName()).updateDocuments([nextDocument], {
-          primaryKey: 'id'
-        });
+        await meili
+          .index(getUniversitiesSearchIndexName())
+          .updateDocuments([toUniversitySearchDocument(nextDocument)], {
+            primaryKey: getUniversitiesSearchPrimaryKey()
+          });
       }
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));

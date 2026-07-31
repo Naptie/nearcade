@@ -17,6 +17,22 @@ export const getUniversitiesSearchIndexName = () =>
   env.MEILISEARCH_UNIVERSITIES_INDEX ||
   (isUniversityV2Enabled() ? V2_UNIVERSITIES_COLLECTION : LEGACY_UNIVERSITIES_COLLECTION);
 
+/**
+ * Meilisearch document IDs cannot contain characters such as `:`. Keep the
+ * canonical university ID intact and use a reversible, URL-safe value only as
+ * the search index primary key for global V2 records.
+ */
+export const getUniversitiesSearchPrimaryKey = () => (isUniversityV2Enabled() ? 'searchId' : 'id');
+
+export const toUniversitySearchDocument = (document: Document): Document => {
+  if (!isUniversityV2Enabled()) return document;
+
+  return {
+    ...document,
+    searchId: Buffer.from(String(document.id)).toString('base64url')
+  };
+};
+
 export const getUniversitiesCollection = (db: Db) =>
   db.collection<Document>(getUniversitiesCollectionName());
 

@@ -7,7 +7,9 @@ import { getShopRegionNames } from '$lib/utils/region.server';
 import {
   getUniversitiesCollection,
   getUniversitiesSearchIndexName,
+  getUniversitiesSearchPrimaryKey,
   isUniversityV2Enabled,
+  toUniversitySearchDocument,
   universitySearchFields
 } from './universities.server';
 
@@ -109,7 +111,9 @@ export const init = async (): Promise<{
 
   // Add documents
   await shopIndex.addDocuments(toPlainArray(shopsWithRegionNames), { primaryKey: '_id' });
-  await universityIndex.addDocuments(toPlainArray(universities), { primaryKey: 'id' });
+  await universityIndex.addDocuments(toPlainArray(universities.map(toUniversitySearchDocument)), {
+    primaryKey: getUniversitiesSearchPrimaryKey()
+  });
   await clubIndex.addDocuments(toPlainArray(clubs), { primaryKey: 'id' });
 
   return {
