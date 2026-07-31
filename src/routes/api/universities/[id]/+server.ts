@@ -1,7 +1,6 @@
 import { isHttpError, isRedirect, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { University } from '$lib/types';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';
@@ -11,24 +10,14 @@ import {
 } from '$lib/schemas/organizations';
 import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
 import { parseParamsOrError } from '$lib/utils/validation.server';
+import { findUniversityByIdOrSlug } from '$lib/db/universities.server';
 
 export const GET: RequestHandler = async ({ params }) => {
   const { id } = parseParamsOrError(universityIdParamSchema, params);
 
   try {
     const db = mongo.db();
-    const universitiesCollection = db.collection('universities');
-
-    // Try to find university by ID first, then by slug
-    let university = (await universitiesCollection.findOne({
-      id: id
-    })) as unknown as University | null;
-
-    if (!university) {
-      university = (await universitiesCollection.findOne({
-        slug: id
-      })) as unknown as University | null;
-    }
+    const university = await findUniversityByIdOrSlug(db, id);
 
     if (!university) {
       error(404, m.university_not_found());

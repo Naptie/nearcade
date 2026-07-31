@@ -1,6 +1,6 @@
 import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { University, Club, Campus, Shop } from '$lib/types';
+import type { Club, Campus, Shop } from '$lib/types';
 import {
   checkUniversityPermission,
   getUniversityMembersWithUserData,
@@ -15,6 +15,7 @@ import mongo from '$lib/db/index.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { omitUndefinedFields } from '$lib/utils/organizations.server';
+import { findUniversityByIdOrSlug } from '$lib/db/universities.server';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -24,18 +25,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   const user = session?.user;
 
   const db = mongo.db();
-  const universitiesCollection = db.collection('universities');
-
   // Load the university synchronously so SEO-critical data is in the initial HTML
-  let university = (await universitiesCollection.findOne({
-    id: id
-  })) as unknown as University | null;
-
-  if (!university) {
-    university = (await universitiesCollection.findOne({
-      slug: id
-    })) as unknown as University | null;
-  }
+  const university = await findUniversityByIdOrSlug(db, id);
 
   if (!university) {
     error(404, m.university_not_found());
@@ -63,7 +54,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         canJoin: 0
       };
       if (user) {
-        userPermissions = await checkUniversityPermission(user, university.id, mongo);
+        userPermissions = await checkUniversityPermission(user, university, mongo);
       }
 
       // Get member statistics and list with user data joined

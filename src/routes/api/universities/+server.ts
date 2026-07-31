@@ -11,6 +11,12 @@ import {
 } from '$lib/schemas/organizations';
 import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
 import { parseQueryOrError } from '$lib/utils/validation.server';
+import {
+  getUniversitiesCollection,
+  isUniversityV2Enabled,
+  toUniversityView,
+  universitySearchFields
+} from '$lib/db/universities.server';
 
 export const GET: RequestHandler = async ({ url }) => {
   const { q: query } = parseQueryOrError(universitiesSearchQuerySchema, url);
@@ -21,11 +27,12 @@ export const GET: RequestHandler = async ({ url }) => {
 
   try {
     const db = mongo.db();
-    const universitiesCollection = db.collection('universities');
+    const universitiesCollection = getUniversitiesCollection(db);
 
     let universities: University[];
 
     try {
+      if (isUniversityV2Enabled()) throw new Error('Use MongoDB fallback for the V2 collection');
       // Try Atlas Search first
       universities = (await universitiesCollection
         .aggregate([
@@ -60,8 +67,9 @@ export const GET: RequestHandler = async ({ url }) => {
       universities = (await universitiesCollection
         .find({
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { 'campuses.name': { $regex: query, $options: 'i' } }
+            ...universitySearchFields().map((field) => ({
+              [field]: { $regex: query, $options: 'i' }
+            }))
           ]
         })
         .limit(10)
@@ -69,7 +77,7 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     const normalizedUniversities = universities.map((university) =>
-      normalizeUniversityDocument(university)
+      normalizeUniversityDocument(toUniversityView(university))
     );
 
     return json(

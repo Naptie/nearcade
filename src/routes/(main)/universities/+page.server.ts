@@ -6,6 +6,12 @@ import { sanitizeHTML, sanitizeRecursive, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
+import {
+  getUniversitiesCollection,
+  isUniversityV2Enabled,
+  toUniversityView,
+  universitySearchFields
+} from '$lib/db/universities.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -20,7 +26,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
   const universitiesData = (async () => {
     try {
       const db = mongo.db();
-      const universitiesCollection = db.collection<University>('universities');
+      const universitiesCollection = getUniversitiesCollection(db);
 
       let universities: (University & {
         _rankingScore?: number;
@@ -33,15 +39,22 @@ export const load: PageServerLoad = async ({ url, parent }) => {
       if (query.trim().length === 0) {
         // Load all universities with pagination
         totalCount = await universitiesCollection.countDocuments();
-        universities = (await universitiesCollection
-          .find({})
-          .sort({ studentsCount: -1, clubsCount: -1, name: 1 })
-          .collation({ locale: 'zh@collation=gb2312han' })
-          .skip(skip)
-          .limit(limit)
-          .toArray()) as unknown as University[];
+        universities = (
+          await universitiesCollection
+            .find({})
+            .sort(
+              isUniversityV2Enabled()
+                ? { 'community.studentsCount': -1, 'community.clubsCount': -1, name: 1 }
+                : { studentsCount: -1, clubsCount: -1, name: 1 }
+            )
+            .collation({ locale: 'zh@collation=gb2312han' })
+            .skip(skip)
+            .limit(limit)
+            .toArray()
+        ).map(toUniversityView);
       } else {
         try {
+          if (isUniversityV2Enabled()) throw new Error('V2 Meilisearch index is not enabled yet');
           // Search using Meilisearch
           const searchResults = await meili.index<University>('universities').search(query, {
             limit,
@@ -78,18 +91,25 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           // Fallback to regex search
           const searchQuery = {
             $or: [
-              { name: { $regex: query, $options: 'i' } },
-              { 'campuses.name': { $regex: query, $options: 'i' } }
+              ...universitySearchFields().map((field) => ({
+                [field]: { $regex: query, $options: 'i' }
+              }))
             ]
           };
 
           totalCount = await universitiesCollection.countDocuments(searchQuery);
-          universities = (await universitiesCollection
-            .find(searchQuery)
-            .sort({ studentsCount: -1, clubsCount: -1 })
-            .skip(skip)
-            .limit(limit)
-            .toArray()) as unknown as University[];
+          universities = (
+            await universitiesCollection
+              .find(searchQuery)
+              .sort(
+                isUniversityV2Enabled()
+                  ? { 'community.studentsCount': -1, 'community.clubsCount': -1 }
+                  : { studentsCount: -1, clubsCount: -1 }
+              )
+              .skip(skip)
+              .limit(limit)
+              .toArray()
+          ).map(toUniversityView);
         }
       }
 
