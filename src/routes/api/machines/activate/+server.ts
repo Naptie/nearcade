@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ url }) => {
   }
 
   // Generate API secret
-  const apiSecret = nanoid(32);
+  const apiSecret = `nk_${nanoid(32)}`;
 
   // Update the machine to mark it as activated and store the API secret
   await machinesCollection.updateOne(
