@@ -179,6 +179,9 @@ function createAuth() {
       : {}),
     basePath: '/api/auth',
     trustedOrigins: ['*'],
+    session: {
+      freshAge: 0 // Disable fresh-session requirement for listSessions/revokeSessions
+    },
     advanced: {
       trustedProxyHeaders: true,
       ipAddress: {
