@@ -37,12 +37,12 @@ export const getProviders = (bind = false) =>
     { name: 'QQ', icon: 'fa-qq' },
     ...(bind
       ? [
-          {
-            id: 'wechat',
-            name: m.social_platform_wechat(),
-            icon: 'fa-weixin',
-            class: 'hover:bg-[#07C160] hover:text-white'
-          }
+          // {
+          //   id: 'wechat',
+          //   name: m.social_platform_wechat(),
+          //   icon: 'fa-weixin',
+          //   class: 'hover:bg-[#07C160] hover:text-white'
+          // }
         ]
       : []),
     { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
