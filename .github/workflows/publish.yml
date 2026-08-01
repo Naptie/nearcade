@@ -95,6 +95,8 @@ jobs:
             patches/
             scripts/
             package.json
+            pnpm-lock.yaml
+            pnpm-workspace.yaml
           retention-days: 1
 
   webhook-publish:
