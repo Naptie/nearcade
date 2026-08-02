@@ -8,19 +8,17 @@
  * functions await it if init is still in-flight.
  */
 import type { MongoClient } from 'mongodb';
+import mongo from '$lib/db/index.server';
 import type { Region, AddressRegionEntry, AdminRegionNode, AdminRegionSearchHit } from './types';
 
 // ── Cached data ────────────────────────────────────────────────────────────
 
 let byId: Map<string, Region> | null = null;
 let childrenByParentId: Map<string | null, Region[]> | null = null;
-
-/**
- * Reverse lookup: `parentId \0 level \0 name[zh]` → Region.
- * Built during cache initialisation for resolving `address.general` names
- * back to region IDs when a leaf region ID is not provided by the client.
- */
 let byName: Map<string, Region> | null = null;
+
+let countryMachineCounts: { map: Map<string, number>; fetchedAt: number } | null = null;
+const COUNTRY_MACHINES_CACHE_TTL_MS = 60 * 60 * 1000;
 
 // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -208,6 +206,52 @@ export function resolveRegionFromGeneral(general: string[]): string[] | null {
 
   return resolved;
 }
+/**
+ * Load the total machine count per country from the `region_rankings`
+ * collection so top-level selector options can be ordered by arcade
+ * presence rather than alphabetically. Countries without a ranking entry
+ * (i.e. no machines) fall through to alphabetical order at the end.
+ */
+async function getCountryMachineCounts(): Promise<Map<string, number>> {
+  if (
+    countryMachineCounts &&
+    Date.now() - countryMachineCounts.fetchedAt < COUNTRY_MACHINES_CACHE_TTL_MS
+  ) {
+    return countryMachineCounts.map;
+  }
+  try {
+    const docs = (await mongo
+      .db()
+      .collection('region_rankings')
+      .find({ level: 'country' } as never)
+      .project({ _id: 1, totalMachines: 1 } as never)
+      .toArray()) as Array<{ _id: string; totalMachines?: number }>;
+
+    const map = new Map<string, number>();
+    for (const doc of docs) {
+      map.set(doc._id, typeof doc.totalMachines === 'number' ? doc.totalMachines : 0);
+    }
+    countryMachineCounts = { map, fetchedAt: Date.now() };
+    return map;
+  } catch (err) {
+    console.error('Failed to load country machine counts:', err);
+    return countryMachineCounts?.map ?? new Map<string, number>();
+  }
+}
+
+async function orderCountriesByMachines<T extends { id: string; label: string }>(
+  options: T[],
+  locale: string
+): Promise<T[]> {
+  const machineCounts = await getCountryMachineCounts();
+  const collator = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
+  return [...options].sort((a, b) => {
+    const ma = machineCounts.get(a.id) ?? -1;
+    const mb = machineCounts.get(b.id) ?? -1;
+    if (mb !== ma) return mb - ma;
+    return collator.compare(a.label, b.label);
+  });
+}
 
 export async function getSelectorChildren(
   parentId: string | null,
@@ -223,7 +267,7 @@ export async function getSelectorOptions(
   locale: string
 ): Promise<{ id: string; label: string; value: string; hasChildren: boolean }[]> {
   const children = await getSelectorChildren(parentId, locale);
-  return children.map((child) => {
+  const options = children.map((child) => {
     const label = selectRegionNameForLocale(child.name, locale);
     return {
       id: child.id,
@@ -232,6 +276,14 @@ export async function getSelectorOptions(
       hasChildren: childrenByParentId?.has(child.id) ?? false
     };
   });
+
+  // Top-level (country) options are ordered by machine count so relevant
+  // countries float to the top instead of being buried alphabetically.
+  if (!parentId) {
+    return orderCountriesByMachines(options, locale);
+  }
+
+  return options;
 }
 
 // Admin tree helpers
@@ -298,15 +350,15 @@ export function searchAdminRegions(query: string, limit = 200): AdminRegionSearc
  *   /api/regions/MX:71666       → expands to [MX, MX:71666]
  *   /api/regions/MX/MX:71666    → already full path, used as-is
  */
-export function getRegionHierarchyByIds(
+export async function getRegionHierarchyByIds(
   ids: string[],
   locale: string
-): {
+): Promise<{
   levels: {
     region: { id: string; label: string; level: string; hasChildren: boolean };
     options: { id: string; label: string; value: string; hasChildren: boolean }[];
   }[];
-} | null {
+} | null> {
   if (!byId || !childrenByParentId || ids.length === 0) return null;
 
   // Use the last ID as the target and walk up to build the full path.
@@ -330,12 +382,17 @@ export function getRegionHierarchyByIds(
 
     // Get sibling options (children of this region's parent).
     const siblings = childrenByParentId.get(region.parentId) ?? [];
-    const options = selectRegions(siblings, locale).map((s) => ({
+    let options = selectRegions(siblings, locale).map((s) => ({
       id: s.id,
       label: selectRegionNameForLocale(s.name, locale) || s.id,
       value: s.id,
       hasChildren: childrenByParentId?.has(s.id) ?? false
     }));
+
+    // Country-level sibling options follow the same machine-count ordering.
+    if (!region.parentId) {
+      options = await orderCountriesByMachines(options, locale);
+    }
 
     levels.push({
       region: {

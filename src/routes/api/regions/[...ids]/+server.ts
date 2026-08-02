@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
   }
 
   try {
-    const result = getRegionHierarchyByIds(ids, locale);
+    const result = await getRegionHierarchyByIds(ids, locale);
 
     if (!result) {
       return json({ error: 'Invalid region ID path' }, { status: 404 });
