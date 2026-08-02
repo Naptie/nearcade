@@ -551,11 +551,13 @@
 
     <div>
       <!-- Country code + phone number row -->
-      <div class="mb-4 flex gap-2">
-        <label class="form-control max-w-1/4 shrink-0 gap-2">
+      <div class="mb-4 flex flex-wrap gap-2">
+        <label
+          class="form-control shrink-0 basis-full gap-2 md:not-lg:max-w-1/4 md:not-lg:basis-1/4 xl:max-w-1/4 xl:basis-1/4"
+        >
           <span class="label-text sr-only">{m.phone_settings_country_code_placeholder()}</span>
           <select
-            class="select select-bordered"
+            class="select select-bordered w-full"
             bind:value={countryCode}
             autocomplete="tel-country-code"
           >

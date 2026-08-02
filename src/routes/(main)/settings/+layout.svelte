@@ -67,7 +67,7 @@
 </svelte:head>
 
 <div class="pt-12">
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-7xl px-0.25 py-8 sm:px-6 lg:px-8">
     <div class="lg:grid lg:grid-cols-12 lg:gap-8">
       <!-- Sidebar Navigation -->
       <div class="lg:col-span-3">
@@ -103,7 +103,7 @@
 
       <!-- Main Content -->
       <div class="mt-8 lg:col-span-9 lg:mt-0">
-        <div class="bg-base-200 rounded-xl p-6">
+        <div class="bg-base-200 rounded-xl p-6 not-sm:px-3">
           {@render children()}
         </div>
       </div>
