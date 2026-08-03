@@ -466,7 +466,7 @@
       >
         <input type="hidden" name="universityId" value={leavingUniversityId} />
         <button type="submit" class="btn btn-error btn-soft">
-          {m.leave()}
+          {m.leave_university()}
         </button>
       </form>
     </div>
@@ -503,7 +503,7 @@
       >
         <input type="hidden" name="clubId" value={leavingClubId} />
         <button type="submit" class="btn btn-error btn-soft">
-          {m.leave()}
+          {m.leave_club()}
         </button>
       </form>
     </div>
