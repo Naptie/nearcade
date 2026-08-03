@@ -2,6 +2,7 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
+  import StatCard from '$lib/components/admin/StatCard.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -22,145 +23,174 @@
 
   {#if data.stats}
     <!-- Statistics Cards -->
-    <div
-      class="grid grid-cols-1 gap-6 md:grid-cols-2"
-      class:lg:grid-cols-3={data.stats.totalUsers !== undefined &&
-        data.stats.totalShops !== undefined}
-    >
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       <!-- Total Users (site admin only) -->
       {#if data.stats.totalUsers !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.admin_users()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.totalUsers}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-              <i class="fa-solid fa-user text-lg text-blue-600"></i>
-            </div>
-          </div>
-          {#if data.recentActivity?.newUsers !== undefined}
-            <div class="mt-4 flex items-center text-sm">
-              <span class="font-medium text-green-600">+{data.recentActivity.newUsers}</span>
-              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-            </div>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- Total Universities -->
-      {#if data.stats.totalUniversities !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.admin_universities()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.totalUniversities}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-              <i class="fa-solid fa-graduation-cap text-lg text-purple-600"></i>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label={m.admin_users()}
+          value={data.stats.totalUsers}
+          icon="fa-user"
+          iconBgClass="bg-blue-100"
+          iconClass="text-blue-600"
+          trend={data.trends?.totalUsers}
+          trendColor="#2563eb"
+          delta={data.recentActivity?.newUsers}
+        />
       {/if}
 
       <!-- Total Clubs -->
       {#if data.stats.totalClubs !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.admin_clubs()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.totalClubs}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <i class="fa-solid fa-users text-lg text-green-600"></i>
-            </div>
-          </div>
-          {#if data.recentActivity?.newClubs !== undefined}
-            <div class="mt-4 flex items-center text-sm">
-              <span class="font-medium text-green-600">+{data.recentActivity.newClubs}</span>
-              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-            </div>
-          {/if}
-        </div>
+        <StatCard
+          label={m.admin_clubs()}
+          value={data.stats.totalClubs}
+          icon="fa-users"
+          iconBgClass="bg-green-100"
+          iconClass="text-green-600"
+          trend={data.trends?.totalClubs}
+          trendColor="#16a34a"
+          delta={data.recentActivity?.newClubs}
+        />
       {/if}
 
       <!-- Total Posts -->
       {#if data.stats.totalPosts !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.admin_posts()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.totalPosts}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-              <i class="fa-solid fa-file-lines text-lg text-blue-600"></i>
-            </div>
-          </div>
-          {#if data.recentActivity?.newPosts !== undefined}
-            <div class="mt-4 flex items-center text-sm">
-              <span class="font-medium text-green-600">+{data.recentActivity.newPosts}</span>
-              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-            </div>
-          {/if}
-        </div>
+        <StatCard
+          label={m.admin_posts()}
+          value={data.stats.totalPosts}
+          icon="fa-file-lines"
+          iconBgClass="bg-blue-100"
+          iconClass="text-blue-600"
+          trend={data.trends?.totalPosts}
+          trendColor="#2563eb"
+          delta={data.recentActivity?.newPosts}
+        />
       {/if}
 
       <!-- Total Shops (site admin only) -->
       {#if data.stats.totalShops !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.admin_arcade_shops()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.totalShops}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-              <i class="fa-solid fa-gamepad text-lg text-orange-600"></i>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label={m.admin_arcade_shops()}
+          value={data.stats.totalShops}
+          icon="fa-gamepad"
+          iconBgClass="bg-orange-100"
+          iconClass="text-orange-600"
+          trend={data.trends?.totalShops}
+          trendColor="#ea580c"
+          delta={data.recentActivity?.newShops}
+        />
+      {/if}
+
+      <!-- Total Shop Changelog Entries (site admin only) -->
+      {#if data.stats.totalShopChangelogs !== undefined}
+        <StatCard
+          label={m.admin_shop_changelogs()}
+          value={data.stats.totalShopChangelogs}
+          icon="fa-clock-rotate-left"
+          iconBgClass="bg-amber-100"
+          iconClass="text-amber-600"
+          trend={data.trends?.totalShopChangelogs}
+          trendColor="#d97706"
+          delta={data.recentActivity?.newShopChangelogs}
+        />
+      {/if}
+
+      <!-- Total Universities -->
+      {#if data.stats.totalUniversities !== undefined && data.stats.totalUniversityChangelogs !== undefined}
+        <StatCard
+          label={m.admin_universities()}
+          value={data.stats.totalUniversities}
+          icon="fa-graduation-cap"
+          iconBgClass="bg-purple-100"
+          iconClass="text-purple-600"
+          trend={data.trends?.totalUniversities}
+          trendColor="#7c3aed"
+          delta={data.recentActivity?.newUniversityChangelogs}
+          deltaLabel={m.admin_university_changelogs()}
+        />
+      {/if}
+
+      <!-- Total Machines (site admin only) -->
+      {#if data.stats.totalMachines !== undefined}
+        <StatCard
+          label={m.admin_machines()}
+          value={data.stats.totalMachines}
+          icon="fa-server"
+          iconBgClass="bg-teal-100"
+          iconClass="text-teal-600"
+          trend={data.trends?.totalMachines}
+          trendColor="#0d9488"
+          delta={data.recentActivity?.newMachines}
+        />
+      {/if}
+
+      <!-- Total Images (site admin only) -->
+      {#if data.stats.totalImages !== undefined}
+        <StatCard
+          label={m.admin_images()}
+          value={data.stats.totalImages}
+          icon="fa-images"
+          iconBgClass="bg-pink-100"
+          iconClass="text-pink-600"
+          trend={data.trends?.totalImages}
+          trendColor="#db2777"
+          delta={data.recentActivity?.newImages}
+        />
       {/if}
 
       <!-- Total Invites -->
       {#if data.stats.totalInvites !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.admin_invites()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.totalInvites}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-              <i class="fa-solid fa-link text-lg text-indigo-600"></i>
-            </div>
-          </div>
-          {#if data.recentActivity?.newInvites !== undefined}
-            <div class="mt-4 flex items-center text-sm">
-              <span class="font-medium text-green-600">+{data.recentActivity.newInvites}</span>
-              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-            </div>
-          {/if}
-        </div>
+        <StatCard
+          label={m.admin_invites()}
+          value={data.stats.totalInvites}
+          icon="fa-link"
+          iconBgClass="bg-indigo-100"
+          iconClass="text-indigo-600"
+          trend={data.trends?.totalInvites}
+          trendColor="#4f46e5"
+          delta={data.recentActivity?.newInvites}
+        />
       {/if}
 
-      <!-- Pending Join Requests -->
-      {#if data.stats.pendingJoinRequests !== undefined}
-        <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-base-content/60 text-sm font-medium">{m.pending_requests()}</p>
-              <p class="text-base-content text-2xl font-bold">{data.stats.pendingJoinRequests}</p>
-            </div>
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-              <i class="fa-solid fa-user-plus text-lg text-yellow-600"></i>
-            </div>
-          </div>
-          {#if data.recentActivity?.newJoinRequests !== undefined}
-            <div class="mt-4 flex items-center text-sm">
-              <span class="font-medium text-yellow-600">+{data.recentActivity.newJoinRequests}</span
-              >
-              <span class="text-base-content/60 ml-1">{m.admin_new_this_week()}</span>
-            </div>
-          {/if}
-        </div>
+      <!-- Total Join Requests -->
+      {#if data.stats.totalJoinRequests !== undefined}
+        <StatCard
+          label={m.join_requests()}
+          value={data.stats.totalJoinRequests}
+          icon="fa-user-plus"
+          iconBgClass="bg-yellow-100"
+          iconClass="text-yellow-600"
+          trend={data.trends?.totalJoinRequests}
+          trendColor="#ca8a04"
+          delta={data.recentActivity?.newJoinRequests}
+        />
+      {/if}
+
+      <!-- Total OAuth Clients (site admin only) -->
+      {#if data.stats.totalOAuthClients !== undefined}
+        <StatCard
+          label={m.admin_oauth_clients()}
+          value={data.stats.totalOAuthClients}
+          icon="fa-key"
+          iconBgClass="bg-slate-100"
+          iconClass="text-slate-600"
+          trend={data.trends?.totalOAuthClients}
+          trendColor="#475569"
+          delta={data.recentActivity?.newOAuthClients}
+        />
+      {/if}
+
+      <!-- Total Shop Delete Requests (site admin only) -->
+      {#if data.stats.totalShopDeleteRequests !== undefined}
+        <StatCard
+          label={m.shop_delete_requests()}
+          value={data.stats.totalShopDeleteRequests}
+          icon="fa-trash-can"
+          iconBgClass="bg-red-100"
+          iconClass="text-red-600"
+          trend={data.trends?.totalShopDeleteRequests}
+          trendColor="#dc2626"
+          delta={data.recentActivity?.newShopDeleteRequests}
+        />
       {/if}
     </div>
 
@@ -181,6 +211,18 @@
             <i class="fa-solid fa-images mr-2"></i>
             {m.admin_images()}
           </a>
+          <a href={resolve('/admin/machines')} class="btn btn-soft">
+            <i class="fa-solid fa-server mr-2"></i>
+            {m.admin_machines()}
+          </a>
+          <a href={resolve('/admin/oauth-clients')} class="btn btn-soft">
+            <i class="fa-solid fa-key mr-2"></i>
+            {m.admin_oauth_clients()}
+          </a>
+          <a href={resolve('/(main)/shops/delete-requests')} class="btn btn-soft">
+            <i class="fa-solid fa-trash-can mr-2"></i>
+            {m.shop_delete_requests()}
+          </a>
         {/if}
         <a href={resolve('/admin/universities')} class="btn btn-soft">
           <i class="fa-solid fa-graduation-cap mr-2"></i>
@@ -193,6 +235,10 @@
         <a href={resolve('/admin/join-requests')} class="btn btn-soft">
           <i class="fa-solid fa-user-plus mr-2"></i>
           {m.join_requests()}
+        </a>
+        <a href={resolve('/admin/invites')} class="btn btn-soft">
+          <i class="fa-solid fa-link mr-2"></i>
+          {m.admin_invites()}
         </a>
       </div>
     </div>

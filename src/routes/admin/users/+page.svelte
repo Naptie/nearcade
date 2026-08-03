@@ -95,10 +95,20 @@
   } | null = $state(null);
   let loadingUserDetails = $state(false);
   let newUserType = $state('');
-  let selectedOrganization = $state('');
+  let selectedOrganization = $state<{ id: string; name: string } | null>(null);
+  let organizationQuery = $state('');
+  let organizationResults = $state<Array<{ id: string; name: string; slug?: string }>>([]);
+  let isSearchingOrganizations = $state(false);
+  let organizationSearchTimeout: ReturnType<typeof setTimeout>;
   let selectedOrganizationType = $state('university');
   let selectedMemberType = $state('');
   let isSubmitting = $state(false);
+  let submittingVerificationEmailId = $state<string | null>(null);
+  let verificationEmailFeedback = $state<{
+    membershipId: string;
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   const memberTypeLabels = {
     member: m.admin_member_type_member(),
@@ -151,14 +161,59 @@
       editingUser = null;
       userDetails = null;
       loadingUserDetails = false;
-      selectedOrganization = '';
+      selectedOrganization = null;
+      organizationQuery = '';
+      organizationResults = [];
       selectedOrganizationType = 'university';
       selectedMemberType = '';
+      verificationEmailFeedback = null;
     }, 300);
   };
 
-  const getExistingMembership = (organizationType: string, organizationId: string) => {
-    if (!userDetails) return null;
+  const searchOrganizations = async (query: string) => {
+    if (!query.trim()) {
+      organizationResults = [];
+      return;
+    }
+    isSearchingOrganizations = true;
+    try {
+      const response = await fetch(
+        fromPath('/api/admin/organizations/search') +
+          `?type=${encodeURIComponent(selectedOrganizationType)}&q=${encodeURIComponent(query.trim())}`
+      );
+      if (response.ok) {
+        const result = await response.json();
+        organizationResults = result.organizations || [];
+      } else {
+        organizationResults = [];
+      }
+    } catch {
+      organizationResults = [];
+    } finally {
+      isSearchingOrganizations = false;
+    }
+  };
+
+  const handleOrganizationQueryInput = () => {
+    if (organizationQuery !== selectedOrganization?.name) {
+      selectedOrganization = null;
+    }
+    clearTimeout(organizationSearchTimeout);
+    organizationSearchTimeout = setTimeout(() => {
+      searchOrganizations(organizationQuery);
+    }, 300);
+  };
+
+  const selectOrganization = (org: { id: string; name: string }) => {
+    selectedOrganization = { id: org.id, name: org.name };
+    organizationQuery = org.name;
+    organizationResults = [];
+    const existing = getExistingMembership(selectedOrganizationType, org.id);
+    selectedMemberType = existing?.memberType || '';
+  };
+
+  const getExistingMembership = (organizationType: string, organizationId?: string | null) => {
+    if (!userDetails || !organizationId) return null;
 
     if (organizationType === 'university') {
       return (
@@ -450,7 +505,9 @@
                   await fetchUserDetails(editingUser?.id);
                   await fetchUsers();
                   // Reset form
-                  selectedOrganization = '';
+                  selectedOrganization = null;
+                  organizationQuery = '';
+                  organizationResults = [];
                   selectedMemberType = '';
                 }
                 await update();
@@ -461,7 +518,7 @@
             <input
               type="hidden"
               name="action"
-              value={getExistingMembership(selectedOrganizationType, selectedOrganization)
+              value={getExistingMembership(selectedOrganizationType, selectedOrganization?.id)
                 ? 'update'
                 : 'add'}
             />
@@ -477,7 +534,9 @@
                   class="select select-bordered w-full"
                   bind:value={selectedOrganizationType}
                   onchange={() => {
-                    selectedOrganization = '';
+                    selectedOrganization = null;
+                    organizationQuery = '';
+                    organizationResults = [];
                     selectedMemberType = '';
                   }}
                 >
@@ -486,36 +545,54 @@
                 </select>
               </div>
 
-              <div class="form-control md:col-span-2">
+              <div class="form-control relative md:col-span-2">
                 <label class="label" for="organizationId">
                   <span class="label-text">
                     {selectedOrganizationType === 'university' ? m.university() : m.club()}
                   </span>
                 </label>
-                <select
+                <input
                   id="organizationId"
-                  name="organizationId"
-                  class="select select-bordered w-full"
-                  bind:value={selectedOrganization}
-                  onchange={() => {
-                    const existing = getExistingMembership(
-                      selectedOrganizationType,
-                      selectedOrganization
-                    );
-                    selectedMemberType = existing?.memberType || '';
-                  }}
-                >
-                  <option value="">{m.admin_choose_organization()}</option>
-                  {#if selectedOrganizationType === 'university'}
-                    {#each data.universities || [] as university (university.id)}
-                      <option value={university.id}>{university.name}</option>
-                    {/each}
-                  {:else}
-                    {#each data.clubs || [] as club (club.id)}
-                      <option value={club.id}>{club.name}</option>
-                    {/each}
-                  {/if}
-                </select>
+                  type="text"
+                  class="input input-bordered w-full"
+                  placeholder={m.admin_search_organization_placeholder()}
+                  autocomplete="off"
+                  bind:value={organizationQuery}
+                  oninput={handleOrganizationQueryInput}
+                />
+                <input type="hidden" name="organizationId" value={selectedOrganization?.id || ''} />
+                {#if organizationQuery.trim() && !selectedOrganization}
+                  <div
+                    class="border-base-300 bg-base-100 absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-lg border shadow-lg"
+                  >
+                    {#if isSearchingOrganizations}
+                      <div class="px-3 py-2 text-sm opacity-60">
+                        <span class="loading loading-spinner loading-xs"></span>
+                        {m.loading()}
+                      </div>
+                    {:else if organizationResults.length > 0}
+                      <ul class="max-h-64 overflow-y-auto">
+                        {#each organizationResults as org (org.id)}
+                          <li>
+                            <button
+                              type="button"
+                              class="hover:bg-base-200 w-full px-3 py-2 text-left"
+                              onmousedown={(e) => e.preventDefault()}
+                              onclick={() => selectOrganization(org)}
+                            >
+                              <div class="text-sm font-medium">{org.name}</div>
+                              <div class="text-xs break-all opacity-60">{org.slug || org.id}</div>
+                            </button>
+                          </li>
+                        {/each}
+                      </ul>
+                    {:else}
+                      <div class="px-3 py-2 text-sm opacity-60">
+                        {m.admin_no_organizations_found()}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
               </div>
 
               <div class="form-control md:col-span-3">
@@ -551,12 +628,12 @@
                       <i
                         class="fa-solid {getExistingMembership(
                           selectedOrganizationType,
-                          selectedOrganization
+                          selectedOrganization?.id
                         )
                           ? 'fa-edit'
                           : 'fa-plus'}"
                       ></i>
-                      {getExistingMembership(selectedOrganizationType, selectedOrganization)
+                      {getExistingMembership(selectedOrganizationType, selectedOrganization?.id)
                         ? m.admin_update_role()
                         : m.admin_add_role()}
                     {/if}
@@ -597,7 +674,12 @@
                           aria-label={m.admin_edit_role()}
                           onclick={() => {
                             selectedOrganizationType = 'university';
-                            selectedOrganization = membership.universityId;
+                            selectedOrganization = {
+                              id: membership.universityId,
+                              name: membership.university?.name || ''
+                            };
+                            organizationQuery = membership.university?.name || '';
+                            organizationResults = [];
                             selectedMemberType = membership.memberType;
                           }}
                         >
@@ -638,6 +720,83 @@
                         </form>
                       </div>
                     </div>
+                    <div class="bg-base-200 rounded-lg p-3">
+                      <form
+                        method="POST"
+                        action="?/updateVerificationEmail"
+                        use:enhance={({ cancel }) => {
+                          if (submittingVerificationEmailId) return cancel();
+                          submittingVerificationEmailId = membership.id;
+                          verificationEmailFeedback = null;
+                          return async ({ result, update }) => {
+                            submittingVerificationEmailId = null;
+                            if (result.type === 'success') {
+                              verificationEmailFeedback = {
+                                membershipId: membership.id,
+                                type: 'success',
+                                text: m.admin_verification_email_updated()
+                              };
+                              await invalidateAll();
+                              await fetchUserDetails(editingUser?.id);
+                            } else {
+                              verificationEmailFeedback = {
+                                membershipId: membership.id,
+                                type: 'error',
+                                text:
+                                  (result.type === 'failure' &&
+                                    (result.data as { error?: string } | undefined)?.error) ||
+                                  m.admin_failed_to_update_verification_email()
+                              };
+                              await update();
+                            }
+                          };
+                        }}
+                      >
+                        <input type="hidden" name="userId" value={editingUser.id} />
+                        <input type="hidden" name="universityId" value={membership.universityId} />
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                          <div class="form-control flex-1">
+                            <label class="label" for="verificationEmail-{membership.id}">
+                              <span class="label-text">{m.admin_verification_email()}</span>
+                            </label>
+                            <input
+                              id="verificationEmail-{membership.id}"
+                              type="email"
+                              name="verificationEmail"
+                              class="input input-bordered input-sm w-full"
+                              placeholder={m.admin_verification_email_placeholder()}
+                              value={membership.verificationEmail || ''}
+                            />
+                            {#if membership.verifiedAt}
+                              <div class="text-base-content/60 mt-1 text-xs">
+                                {m.admin_verified_at({
+                                  date: formatDateTime(membership.verifiedAt)
+                                })}
+                              </div>
+                            {/if}
+                          </div>
+                          <button
+                            type="submit"
+                            class="btn btn-primary btn-sm"
+                            disabled={submittingVerificationEmailId === membership.id}
+                          >
+                            {#if submittingVerificationEmailId === membership.id}
+                              <span class="loading loading-spinner loading-sm"></span>
+                            {/if}
+                            {m.admin_update_verification_email()}
+                          </button>
+                        </div>
+                        {#if verificationEmailFeedback?.membershipId === membership.id}
+                          <div
+                            class="mt-2 text-xs {verificationEmailFeedback.type === 'success'
+                              ? 'text-success'
+                              : 'text-error'}"
+                          >
+                            {verificationEmailFeedback.text}
+                          </div>
+                        {/if}
+                      </form>
+                    </div>
                   {:else}
                     <div class="text-sm text-base-content/60 py-2">
                       {m.admin_no_university_memberships()}
@@ -667,7 +826,12 @@
                           aria-label={m.admin_edit_role()}
                           onclick={() => {
                             selectedOrganizationType = 'club';
-                            selectedOrganization = membership.clubId;
+                            selectedOrganization = {
+                              id: membership.clubId,
+                              name: membership.club?.name || ''
+                            };
+                            organizationQuery = membership.club?.name || '';
+                            organizationResults = [];
                             selectedMemberType = membership.memberType;
                           }}
                         >

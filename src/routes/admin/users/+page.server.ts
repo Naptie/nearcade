@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { toPlainArray, updateUserType } from '$lib/utils';
+import { updateUserType } from '$lib/utils';
 import type { User } from '$lib/auth/types';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
@@ -34,29 +34,11 @@ export const load: PageServerLoad = async ({ locals }) => {
     ])
     .toArray();
 
-  // Get universities and clubs for role management
-  const [universities, clubs] = await Promise.all([
-    db
-      .collection('universities')
-      .find({})
-      .sort({ name: 1 })
-      .collation({ locale: 'zh@collation=gb2312han' })
-      .toArray(),
-    db
-      .collection('clubs')
-      .find({})
-      .sort({ name: 1 })
-      .collation({ locale: 'zh@collation=gb2312han' })
-      .toArray()
-  ]);
-
   const countsMap = Object.fromEntries(
     userTypeStats.map((stat) => [stat._id || 'regular', stat.count])
   );
 
   return {
-    universities: toPlainArray(universities),
-    clubs: toPlainArray(clubs),
     userTypeStats: Object.fromEntries(USER_TYPES.map((k) => [k, countsMap[k] ?? 0]))
   };
 };
@@ -213,6 +195,84 @@ export const actions: Actions = {
     } catch (error) {
       console.error('Error updating organization role:', error);
       return fail(500, { error: m.failed_to_update_organization_role() });
+    }
+  },
+
+  updateVerificationEmail: async ({ request, locals }) => {
+    const session = locals.session;
+
+    if (!session?.user) {
+      return fail(401, { error: m.unauthorized() });
+    }
+
+    // Only site admins can update verification emails
+    if (session.user.userType !== 'site_admin') {
+      return fail(403, { error: m.access_denied() });
+    }
+
+    const formData = await request.formData();
+    const userId = formData.get('userId') as string;
+    const universityId = formData.get('universityId') as string;
+    const verificationEmail = ((formData.get('verificationEmail') as string) ?? '').trim();
+
+    if (!userId || !universityId) {
+      return fail(400, { error: m.missing_required_fields() });
+    }
+
+    let normalizedEmail: string | null = null;
+    if (verificationEmail) {
+      normalizedEmail = verificationEmail.toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return fail(400, { error: m.admin_invalid_verification_email() });
+      }
+
+      try {
+        const db = mongo.db();
+        const existing = await db.collection('university_members').findOne({
+          universityId,
+          verificationEmail: normalizedEmail,
+          userId: { $ne: userId }
+        });
+        if (existing) {
+          return fail(400, { error: m.admin_verification_email_in_use() });
+        }
+      } catch (error) {
+        console.error('Error checking verification email:', error);
+        return fail(500, { error: m.admin_failed_to_update_verification_email() });
+      }
+    }
+
+    try {
+      const db = mongo.db();
+      const membership = await db.collection('university_members').findOne({
+        universityId,
+        userId
+      });
+
+      if (!membership) {
+        return fail(404, { error: m.admin_membership_not_found() });
+      }
+
+      if (normalizedEmail) {
+        await db
+          .collection('university_members')
+          .updateOne(
+            { universityId, userId },
+            { $set: { verificationEmail: normalizedEmail, verifiedAt: new Date() } }
+          );
+      } else {
+        await db
+          .collection('university_members')
+          .updateOne(
+            { universityId, userId },
+            { $unset: { verificationEmail: '', verifiedAt: '' } }
+          );
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating verification email:', error);
+      return fail(500, { error: m.admin_failed_to_update_verification_email() });
     }
   },
 
