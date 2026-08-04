@@ -340,9 +340,9 @@ export const handleError: HandleServerError = reportError;
 
 export const init: ServerInit = async () => {
   if (!building) {
-    const meili = await import('$lib/db/meili.server');
-    await meili.init();
     const mongo = (await import('$lib/db/index.server')).default;
+    const meili = await import('$lib/db/meili.server');
+    await meili.init(mongo);
     await initRegionCache(mongo);
     const redis = (await import('$lib/db/redis.server')).default;
     const oss = getAvailableOSS();

@@ -64,6 +64,8 @@ export async function initRegionCache(client: MongoClient) {
       byName.set(nameKey, region);
     }
   }
+
+  console.log('[Region Cache] Loaded', byId.size, 'regions');
 }
 
 export async function reloadRegionCache(client: MongoClient): Promise<void> {

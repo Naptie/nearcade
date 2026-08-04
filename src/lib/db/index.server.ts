@@ -39,14 +39,6 @@ export const getMongoClient = (): MongoClient => {
   if (!mongo) {
     mongo = createMongoClient();
   }
-
-  mongo.addListener('connectionCreated', (event) => {
-    console.log(`[MongoDB] Connection created: ${event.connectionId}`);
-  });
-
-  mongo.addListener('connectionClosed', (event) => {
-    console.log(`[MongoDB] Connection closed: ${event.connectionId}`);
-  });
   return mongo;
 };
 

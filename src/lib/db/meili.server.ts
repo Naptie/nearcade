@@ -1,5 +1,5 @@
 import { Meilisearch } from 'meilisearch';
-import mongo from './index.server';
+import type { MongoClient } from 'mongodb';
 import { toPlainArray } from '$lib/utils';
 import { env } from '$env/dynamic/private';
 import type { Shop } from '$lib/types';
@@ -33,7 +33,9 @@ const meiliProxy = new Proxy({} as Meilisearch, {
   }
 });
 
-export const init = async (): Promise<{
+export const init = async (
+  mongo: MongoClient
+): Promise<{
   shops: number;
   universities: number;
   clubs: number;
