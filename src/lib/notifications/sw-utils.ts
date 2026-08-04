@@ -49,9 +49,13 @@ export const getNotificationTitle = (notification: Notification) => {
         ? `${actorName} approved your join request for ${targetName}`
         : `${actorName} rejected your join request for ${targetName}`;
     case 'SHOP_DELETE_REQUESTS':
-      return notification.shopDeleteRequestStatus === 'approved'
-        ? `Delete request approved for ${targetName}`
-        : `Delete request rejected for ${targetName}`;
+      if (notification.shopDeleteRequestStatus === 'approved') {
+        return `Delete request approved for ${targetName}`;
+      }
+      if (notification.shopDeleteRequestStatus === 'deleted') {
+        return `Delete request deleted for ${targetName}`;
+      }
+      return `Delete request rejected for ${targetName}`;
     default:
       return 'nearcade';
   }
@@ -82,6 +86,9 @@ export const getNotificationLink = (notification: Notification, base = '', fallb
       return fallback;
 
     case 'SHOP_DELETE_REQUESTS':
+      if (notification.shopDeleteRequestStatus === 'deleted' && notification.shopId) {
+        return `${base}/shops/${notification.shopId}`;
+      }
       if (notification.shopDeleteRequestId) {
         return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}`;
       }

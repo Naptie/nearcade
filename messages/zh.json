@@ -976,6 +976,7 @@
   "notification_comments": "评论",
   "notification_comments_desc": "当有人评论你的帖子或删除申请时",
   "notification_delete_request_approved": "{userName} 批准了 {targetName}",
+  "notification_delete_request_deleted": "{userName} 删除了 {targetName}",
   "notification_delete_request_rejected": "{userName} 拒绝了 {targetName}",
   "notification_delete_requests": "店铺删除申请",
   "notification_delete_requests_desc": "当管理员处理您的店铺删除申请时",

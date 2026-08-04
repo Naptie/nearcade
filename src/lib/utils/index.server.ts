@@ -74,6 +74,9 @@ export const getCurrentAttendance = async (userId: string) => {
 };
 
 export const requireBoundPhone = (user?: User | null): void => {
+  if (user?.userType === 'site_admin') {
+    return;
+  }
   if (!hasBoundPhone(user)) {
     error(403, m.phone_binding_required_for_contribution());
   }

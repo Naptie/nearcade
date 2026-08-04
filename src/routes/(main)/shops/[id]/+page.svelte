@@ -106,8 +106,8 @@
   $effect(() => {
     photos = photosFromServer;
   });
-  let hasPhone = $derived(hasBoundPhone(data.user));
   let isAdmin = $derived(data.user?.userType === 'site_admin');
+  let hasPhone = $derived(hasBoundPhone(data.user) || isAdmin);
   let isShopOwner = $derived(!!data.user && !!shop?.ownerId && shop.ownerId === data.user.id);
   let canModifyClaimedShop = $derived(!shop?.isClaimed || isAdmin || isShopOwner);
   let canModifyLockedShop = $derived(!shop?.isLocked || isAdmin);

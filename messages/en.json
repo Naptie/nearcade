@@ -984,6 +984,7 @@
   "notification_comments": "Comments",
   "notification_comments_desc": "When someone comments on your posts or delete requests",
   "notification_delete_request_approved": "{userName} approved the {targetName}",
+  "notification_delete_request_deleted": "{userName} deleted the {targetName}",
   "notification_delete_request_rejected": "{userName} rejected the {targetName}",
   "notification_delete_requests": "Shop delete requests",
   "notification_delete_requests_desc": "When an admin processes your shop delete request",

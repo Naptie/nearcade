@@ -103,12 +103,25 @@ export const init = async (): Promise<{
   await universityIndex.addDocuments(toPlainArray(universities), { primaryKey: 'id' });
   await clubIndex.addDocuments(toPlainArray(clubs), { primaryKey: 'id' });
 
-  return {
+  const results = {
     shops: shopsWithRegionNames.length,
     universities: universities.length,
     clubs: clubs.length,
     total: shopsWithRegionNames.length + universities.length + clubs.length
   };
+
+  console.log(
+    '[Meilisearch] Initialized with',
+    results.total,
+    'documents, including',
+    results.shops,
+    'shops,',
+    results.universities,
+    'universities, and',
+    results.clubs,
+    'clubs'
+  );
+  return results;
 };
 
 export default meiliProxy;

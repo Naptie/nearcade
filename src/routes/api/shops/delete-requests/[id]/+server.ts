@@ -98,6 +98,27 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
   await db.collection('shop_delete_requests').deleteOne({ id });
 
+  // Notify the requester when an admin deletes their request
+  if (isAdmin && !isRequester && deleteRequest.requestedBy) {
+    try {
+      await notify({
+        type: 'SHOP_DELETE_REQUESTS',
+        actorUserId: session.user.id,
+        actorName: session.user.name ?? '',
+        actorDisplayName: session.user.displayName ?? undefined,
+        actorImage: session.user.image ?? undefined,
+        targetUserId: deleteRequest.requestedBy,
+        shopId: deleteRequest.shopId,
+        shopDeleteRequestId: deleteRequest.id,
+        shopDeleteRequestStatus: 'deleted',
+        shopDeleteRequestType: deleteRequest.photoId ? 'photo' : 'shop',
+        shopName: deleteRequest.shopName
+      });
+    } catch (err) {
+      console.error('Failed to send delete request deletion notification:', err);
+    }
+  }
+
   return json(successResponseSchema.parse({ success: true }));
 };
 

@@ -55,15 +55,22 @@
           ? m.notification_user_approved_join_request({ userName: actorName, targetName })
           : m.notification_user_rejected_join_request({ userName: actorName, targetName });
       case 'SHOP_DELETE_REQUESTS':
-        return notification.shopDeleteRequestStatus === 'approved'
-          ? m.notification_delete_request_approved({
-              userName: actorName,
-              targetName
-            })
-          : m.notification_delete_request_rejected({
-              userName: actorName,
-              targetName
-            });
+        if (notification.shopDeleteRequestStatus === 'approved') {
+          return m.notification_delete_request_approved({
+            userName: actorName,
+            targetName
+          });
+        }
+        if (notification.shopDeleteRequestStatus === 'deleted') {
+          return m.notification_delete_request_deleted({
+            userName: actorName,
+            targetName
+          });
+        }
+        return m.notification_delete_request_rejected({
+          userName: actorName,
+          targetName
+        });
       default:
         return '';
     }
@@ -87,9 +94,13 @@
           ? 'fa-solid fa-user-check text-success'
           : 'fa-solid fa-user-xmark text-error';
       case 'SHOP_DELETE_REQUESTS':
-        return notification.shopDeleteRequestStatus === 'approved'
-          ? 'fa-solid fa-trash-can text-success'
-          : 'fa-solid fa-trash-can text-error';
+        if (notification.shopDeleteRequestStatus === 'approved') {
+          return 'fa-solid fa-trash-can text-success';
+        }
+        if (notification.shopDeleteRequestStatus === 'deleted') {
+          return 'fa-solid fa-trash-can text-warning';
+        }
+        return 'fa-solid fa-trash-can text-error';
       default:
         return 'fa-solid fa-bell';
     }

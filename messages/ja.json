@@ -976,6 +976,7 @@
   "notification_comments": "コメント",
   "notification_comments_desc": "誰かがあなたの投稿や削除申請にコメントしたとき",
   "notification_delete_request_approved": "{userName}が{targetName}を承認しました",
+  "notification_delete_request_deleted": "{userName}が{targetName}を削除しました",
   "notification_delete_request_rejected": "{userName}が{targetName}を却下しました",
   "notification_delete_requests": "店舗削除申請",
   "notification_delete_requests_desc": "管理者があなたの店舗削除申請を処理したとき",

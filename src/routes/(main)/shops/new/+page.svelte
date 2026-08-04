@@ -13,7 +13,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  const hasPhone = $derived(hasBoundPhone(data.user));
+  const hasPhone = $derived(hasBoundPhone(data.user) || data.user?.userType === 'site_admin');
   const canManageShop = $derived(!!data.user && hasPhone);
 
   const initialData: Partial<ShopFormData> = $derived.by(() => {

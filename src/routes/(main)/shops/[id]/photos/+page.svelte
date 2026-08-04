@@ -12,10 +12,11 @@
 
   let { data }: { data: PageData } = $props();
 
-  const hasPhone = $derived(hasBoundPhone(data.user));
+  const isAdmin = $derived(data.user?.userType === 'site_admin');
+  const hasPhone = $derived(hasBoundPhone(data.user) || isAdmin);
   const canManagePhotos = $derived(!!data.user && hasPhone);
   const photoActionDisabledReason = $derived.by(() => {
-    if (!data.user) {
+    if (!data.user || isAdmin) {
       return '';
     }
 

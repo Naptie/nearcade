@@ -66,15 +66,22 @@ export const getNotificationTitle = (notification: Notification) => {
         ? m.notification_user_approved_join_request({ userName: actorName, targetName })
         : m.notification_user_rejected_join_request({ userName: actorName, targetName });
     case 'SHOP_DELETE_REQUESTS':
-      return notification.shopDeleteRequestStatus === 'approved'
-        ? m.notification_delete_request_approved({
-            userName: actorName,
-            targetName
-          })
-        : m.notification_delete_request_rejected({
-            userName: actorName,
-            targetName
-          });
+      if (notification.shopDeleteRequestStatus === 'approved') {
+        return m.notification_delete_request_approved({
+          userName: actorName,
+          targetName
+        });
+      }
+      if (notification.shopDeleteRequestStatus === 'deleted') {
+        return m.notification_delete_request_deleted({
+          userName: actorName,
+          targetName
+        });
+      }
+      return m.notification_delete_request_rejected({
+        userName: actorName,
+        targetName
+      });
     default:
       return '';
   }
@@ -105,6 +112,9 @@ export const getNotificationLink = (notification: Notification, base = '', fallb
       return fallback;
 
     case 'SHOP_DELETE_REQUESTS':
+      if (notification.shopDeleteRequestStatus === 'deleted' && notification.shopId) {
+        return `${base}/shops/${notification.shopId}`;
+      }
       if (notification.shopDeleteRequestId) {
         return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}`;
       }

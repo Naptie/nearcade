@@ -324,7 +324,7 @@ export interface Notification {
 
   // Shop delete request details
   shopDeleteRequestId?: string;
-  shopDeleteRequestStatus?: 'approved' | 'rejected';
+  shopDeleteRequestStatus?: 'approved' | 'rejected' | 'deleted';
   shopDeleteRequestType?: 'shop' | 'photo';
   shopName?: string;
 

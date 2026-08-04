@@ -20,9 +20,11 @@
   let comments = $derived(data.comments ?? []);
   let voteSummary = $derived(data.voteSummary);
   let hasPhone = $derived(hasBoundPhone(data.user));
-  let canParticipate = $derived(!!data.user && hasPhone && req.status === 'pending');
+  let canParticipate = $derived(
+    !!data.user && (hasPhone || data.user.userType === 'site_admin') && req.status === 'pending'
+  );
   let canRetractRequest = $derived(canParticipate && data.user?.id === req.requestedBy);
-  let canModerateRequest = $derived(canParticipate && data.user?.userType === 'site_admin');
+  let canModerateRequest = $derived(!!data.user && data.user?.userType === 'site_admin');
   let reviewNote = $state('');
   let isProcessing = $state(false);
   let processError = $state('');

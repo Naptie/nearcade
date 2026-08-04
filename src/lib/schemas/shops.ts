@@ -751,7 +751,7 @@ export const shopDeleteRequestCreateResponseSchema = successResponseSchema.exten
 
 export const shopDeleteRequestReviewRequestSchema = z.object({
   action: shopDeleteRequestReviewActionSchema,
-  reviewNote: z.string().trim().optional().describe(bilingual('审核备注。', 'Review note.'))
+  reviewNote: z.string().trim().nullish().describe(bilingual('审核备注。', 'Review note.'))
 });
 
 export const shopDeleteRequestReviewResponseSchema = successResponseSchema.extend({
