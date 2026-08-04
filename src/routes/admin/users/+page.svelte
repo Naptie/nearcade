@@ -35,7 +35,22 @@
     >
   >([]);
   let isLoadingUsers = $state(false);
+  let copiedId = $state<string | null>(null);
   let searchTimeout: ReturnType<typeof setTimeout>;
+
+  const copyId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      copiedId = id;
+      setTimeout(() => {
+        if (copiedId === id) {
+          copiedId = null;
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   // Fetch users from the API
   const fetchUsers = async () => {
@@ -310,22 +325,40 @@
             {#each users as user (user.id)}
               <tr class="hover">
                 <td class="max-w-[35vw]">
-                  <div class="group flex cursor-pointer items-center gap-3" title="ID: {user.id}">
+                  <div
+                    class="group flex cursor-pointer items-center gap-3"
+                    title={user.email && !user.email.endsWith('.nearcade')
+                      ? `Email: ${user.email}`
+                      : undefined}
+                  >
                     <UserAvatar {user} size="md" target={adaptiveNewTab()} />
                     <a
                       href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
                       target={adaptiveNewTab()}
-                      class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors"
+                      class="group-hover:text-accent min-w-0 flex-1 transition-colors"
                     >
                       <div class="truncate font-medium">
                         {getDisplayName(user)}
                       </div>
-                      {#if user.email && !user.email.endsWith('.nearcade')}
-                        <div class="truncate text-sm opacity-60">
-                          {user.email}
-                        </div>
-                      {/if}
+                      <div class="truncate text-sm opacity-60">
+                        <code class="font-mono">{user.id}</code>
+                      </div>
                     </a>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
+                      class:btn-success={copiedId === user.id}
+                      class:btn-active={copiedId === user.id}
+                      onclick={() => copyId(user.id)}
+                      title={m.copy()}
+                      aria-label={m.copy()}
+                    >
+                      {#if copiedId === user.id}
+                        <i class="fa-solid fa-check fa-sm"></i>
+                      {:else}
+                        <i class="fa-solid fa-copy fa-sm"></i>
+                      {/if}
+                    </button>
                   </div>
                 </td>
                 <td class="not-ss:hidden">
