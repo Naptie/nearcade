@@ -1250,7 +1250,7 @@ const runMeilisearchTask = async (
 }> => {
   await reportProgress({ processed: 0, total: null });
 
-  const result = await initMeilisearch();
+  const result = await initMeilisearch(mongo);
 
   const progress: DataUpdateTaskProgress = {
     processed: result.total,
