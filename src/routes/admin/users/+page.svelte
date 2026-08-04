@@ -787,7 +787,7 @@
                       >
                         <input type="hidden" name="userId" value={editingUser.id} />
                         <input type="hidden" name="universityId" value={membership.universityId} />
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
                           <div class="form-control flex-1">
                             <label class="label" for="verificationEmail-{membership.id}">
                               <span class="label-text">{m.admin_verification_email()}</span>
@@ -800,17 +800,19 @@
                               placeholder={m.admin_verification_email_placeholder()}
                               value={membership.verificationEmail || ''}
                             />
-                            {#if membership.verifiedAt}
-                              <div class="text-base-content/60 mt-1 text-xs">
-                                {m.admin_verified_at({
-                                  date: formatDateTime(membership.verifiedAt)
-                                })}
-                              </div>
-                            {/if}
                           </div>
+                          {#if membership.verifiedAt}
+                            <div
+                              class="text-base-content/60 order-1 text-xs sm:order-none sm:w-full"
+                            >
+                              {m.admin_verified_at({
+                                date: formatDateTime(membership.verifiedAt)
+                              })}
+                            </div>
+                          {/if}
                           <button
                             type="submit"
-                            class="btn btn-primary btn-sm"
+                            class="btn btn-primary btn-sm order-2 sm:order-none"
                             disabled={submittingVerificationEmailId === membership.id}
                           >
                             {#if submittingVerificationEmailId === membership.id}
