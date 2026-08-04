@@ -47,7 +47,7 @@
     getCanonicalUrl,
     toAbsoluteUrl
   } from '$lib/utils/seo';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
@@ -972,7 +972,9 @@
       );
       if (response.ok) {
         deleteRequestReviewNote = '';
-        invalidateAll();
+        await goto(
+          resolve('/(main)/shops/delete-requests/[id]', { id: pendingDeleteRequest.id })
+        );
       } else {
         const err = (await response.json()) as { message?: string };
         deleteRequestProcessError = err.message || m.error_occurred();
