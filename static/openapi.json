@@ -9882,6 +9882,7 @@
                   },
                   "reviewNote": {
                     "description": "审核备注。\n\nReview note.",
+                    "nullable": true,
                     "type": "string"
                   }
                 },
