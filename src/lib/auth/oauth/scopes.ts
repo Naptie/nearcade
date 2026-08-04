@@ -140,7 +140,6 @@ const BLOCKED_PREFIXES = [
   '/api/wechat/',
   '/api/machines/',
   '/api/invites/',
-  '/api/geo/',
   '/api/redirect'
 ];
 
