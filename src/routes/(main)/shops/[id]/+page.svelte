@@ -972,9 +972,7 @@
       );
       if (response.ok) {
         deleteRequestReviewNote = '';
-        await goto(
-          resolve('/(main)/shops/delete-requests/[id]', { id: pendingDeleteRequest.id })
-        );
+        await goto(resolve('/(main)/shops/delete-requests/[id]', { id: pendingDeleteRequest.id }));
       } else {
         const err = (await response.json()) as { message?: string };
         deleteRequestProcessError = err.message || m.error_occurred();
