@@ -46,6 +46,7 @@
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
 
   let { data } = $props();
 
@@ -465,6 +466,7 @@
   const gameOrder = new Map(allGames.map((game, index) => [game.id, index]));
 
   let selectedTitleIds = $state<number[]>([]);
+  let gameFilterOpen = $state(false);
   let showAbsentGames = $state(false);
 
   $effect(() => {
@@ -1010,19 +1012,13 @@
     }
   });
 
-  const handleTitleFilterChange = (titleId: number) => {
-    let newIds: number[];
-    if (selectedTitleIds.includes(titleId)) {
-      newIds = selectedTitleIds.filter((id) => id !== titleId);
-    } else {
-      newIds = [...selectedTitleIds, titleId];
-    }
-    selectedTitleIds = newIds;
+  const applyGameFilter = (ids: number[]) => {
+    selectedTitleIds = ids;
 
     if (browser) {
       const url = new URL(window.location.href);
-      if (newIds.length > 0) {
-        url.searchParams.set('gameTitleIds', newIds.join(','));
+      if (ids.length > 0) {
+        url.searchParams.set('gameTitleIds', ids.join(','));
       } else {
         url.searchParams.delete('gameTitleIds');
       }
@@ -1229,62 +1225,18 @@
       <div class="not-xs:flex-col xs:flex-wrap mb-2 flex items-center gap-2">
         <h1 class="ss:text-3xl text-2xl font-bold">{m.nearby_arcades()}</h1>
         <div class="xs:flex-wrap flex items-center gap-2">
-          <div class="dropdown not-sm:dropdown-center">
-            <button
-              type="button"
-              tabindex="0"
-              class="btn btn-soft hover:btn-accent btn-sm"
-              class:btn-primary={selectedTitleIds.length > 0}
-              aria-label={m.filter_by_game_titles()}
-            >
-              <i class="fa-solid fa-filter"></i>
-              {#if selectedTitleIds.length > 0}
-                <span class="badge badge-sm">{selectedTitleIds.length}</span>
-              {/if}
-            </button>
-            <div
-              role="menu"
-              tabindex="-1"
-              class="card dropdown-content bg-base-200 text-base-content z-50 mt-2 w-fit font-normal shadow-md"
-            >
-              <div class="card-body p-4">
-                <h3 class="card-title justify-between text-base text-nowrap">
-                  {m.filter_by_game_titles()}
-                  <button
-                    class="btn btn-sm btn-ghost hover:btn-error"
-                    onclick={() => {
-                      selectedTitleIds = [];
-                      if (browser) {
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete('gameTitleIds');
-                        goto(url.toString(), {
-                          replaceState: true,
-                          keepFocus: true,
-                          noScroll: true
-                        });
-                      }
-                    }}
-                  >
-                    <i class="fa-solid fa-trash"></i>
-                    {m.clear_filters()}
-                  </button>
-                </h3>
-                <div class="space-y-2">
-                  {#each GAME_TITLES as game (game.id)}
-                    <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                      <input
-                        type="checkbox"
-                        class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                        checked={selectedTitleIds.includes(game.id)}
-                        onchange={() => handleTitleFilterChange(game.id)}
-                      />
-                      <span class="text-sm">{getGameName(game.key)}</span>
-                    </label>
-                  {/each}
-                </div>
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            class="btn btn-soft hover:btn-accent btn-sm"
+            class:btn-primary={selectedTitleIds.length > 0}
+            aria-label={m.filter_by_game_titles()}
+            onclick={() => (gameFilterOpen = true)}
+          >
+            <i class="fa-solid fa-filter"></i>
+            {#if selectedTitleIds.length > 0}
+              <span class="badge badge-sm">{selectedTitleIds.length}</span>
+            {/if}
+          </button>
           <div class="xs:hidden">{@render settings()}</div>
         </div>
       </div>
@@ -1724,6 +1676,8 @@
     </div>
   {/if}
 </div>
+
+<GameTitleFilterModal bind:isOpen={gameFilterOpen} {selectedTitleIds} onConfirm={applyGameFilter} />
 
 <style lang="postcss">
   @reference "tailwindcss";

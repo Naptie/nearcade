@@ -13,9 +13,9 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import Drawer from '$lib/components/Drawer.svelte';
+  import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
   import { viewport } from '$lib/utils/viewport.svelte';
-  import { isTouchscreen, getGameName, getCachedLocation } from '$lib/utils';
-  import { GAME_TITLES } from '$lib/constants';
+  import { isTouchscreen, getCachedLocation } from '$lib/utils';
   import type { GlobeShop } from '$lib/types';
   import type { AddressRegionEntry } from '$lib/regions/types';
   import {
@@ -446,6 +446,7 @@
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
   let selectedTitleIds = $state<number[]>([]);
+  let gameFilterOpen = $state(false);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -2133,59 +2134,18 @@
         <!-- Search + game filters -->
         <div class="border-base-300 border-b p-3">
           <div class="flex gap-2">
-            <div class="dropdown">
-              <button
-                type="button"
-                tabindex="0"
-                class="btn btn-soft hover:btn-accent transition-colors"
-                class:btn-primary={selectedTitleIds.length > 0}
-                aria-label={m.filter_by_game_titles()}
-              >
-                <i class="fa-solid fa-filter"></i>
-                {#if selectedTitleIds.length > 0}
-                  <span class="badge badge-xs">{selectedTitleIds.length}</span>
-                {/if}
-              </button>
-              <div
-                role="menu"
-                tabindex="-1"
-                class="card dropdown-content bg-base-200 z-20 mt-2 w-fit shadow-lg"
-              >
-                <div class="card-body p-4">
-                  <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
-                  <div class="space-y-2">
-                    {#each GAME_TITLES as game (game.id)}
-                      <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                        <input
-                          type="checkbox"
-                          class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                          checked={selectedTitleIds.includes(game.id)}
-                          onchange={() => {
-                            selectedTitleIds = selectedTitleIds.includes(game.id)
-                              ? selectedTitleIds.filter((id) => id !== game.id)
-                              : [...selectedTitleIds, game.id];
-                          }}
-                        />
-                        <span class="text-sm">{getGameName(game.key)}</span>
-                      </label>
-                    {/each}
-                  </div>
-                  <div class="card-actions mt-2 justify-end">
-                    <button
-                      type="button"
-                      class="btn btn-soft hover:btn-error btn-xs"
-                      onclick={() => {
-                        selectedTitleIds = [];
-                      }}
-                      disabled={selectedTitleIds.length === 0}
-                    >
-                      <i class="fa-solid fa-trash"></i>
-                      {m.clear_filters()}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <button
+              type="button"
+              class="btn btn-soft hover:btn-accent transition-colors"
+              class:btn-primary={selectedTitleIds.length > 0}
+              aria-label={m.filter_by_game_titles()}
+              onclick={() => (gameFilterOpen = true)}
+            >
+              <i class="fa-solid fa-filter"></i>
+              {#if selectedTitleIds.length > 0}
+                <span class="badge badge-xs">{selectedTitleIds.length}</span>
+              {/if}
+            </button>
 
             <div class="relative flex-1">
               <i
@@ -2351,6 +2311,12 @@
       </div>
     {/if}
   {/if}
+
+  <GameTitleFilterModal
+    bind:isOpen={gameFilterOpen}
+    {selectedTitleIds}
+    onConfirm={(ids) => (selectedTitleIds = ids)}
+  />
 
   {#if markerHoveredShop && !isCoarsePointer}
     <div

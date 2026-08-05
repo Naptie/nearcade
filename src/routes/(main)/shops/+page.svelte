@@ -11,6 +11,7 @@
   import type { Shop } from '$lib/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
+  import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -23,6 +24,7 @@
   );
   let regionDropdownOpen = $state(false);
   let regionDropdownEl = $state<HTMLElement>();
+  let gameFilterOpen = $state(false);
 
   $effect(() => {
     const open = regionDropdownOpen;
@@ -72,22 +74,15 @@
     goto(resolve('/(main)/shops') + `?${params.toString()}`);
   };
 
-  const handleTitleFilterChange = (titleId: number) => {
-    if (selectedTitleIds.includes(titleId)) {
-      selectedTitleIds = selectedTitleIds.filter((id) => id !== titleId);
-    } else {
-      selectedTitleIds = [...selectedTitleIds, titleId];
-    }
-  };
-
-  const applyFilters = async () => {
+  const applyFilters = async (titleIds?: number[]) => {
+    const effectiveTitleIds = titleIds ?? selectedTitleIds;
     isSearching = true;
     const params = new SvelteURLSearchParams();
     if (searchQuery.trim()) {
       params.set('q', searchQuery.trim());
     }
-    if (selectedTitleIds.length > 0) {
-      params.set('titleIds', selectedTitleIds.join(','));
+    if (effectiveTitleIds.length > 0) {
+      params.set('titleIds', effectiveTitleIds.join(','));
     }
     if (selectedRegionId) {
       params.set('regionId', selectedRegionId);
@@ -97,7 +92,6 @@
   };
 
   const clearFilters = async () => {
-    selectedTitleIds = [];
     selectedRegionIds = [];
     isSearching = true;
     const params = new SvelteURLSearchParams();
@@ -162,58 +156,19 @@
   <!-- Search Bar -->
   <div class="mb-8">
     <form onsubmit={handleSearch} class="flex gap-4">
-      <!-- Game Title Filter Dropdown -->
-      <div class="dropdown">
-        <button
-          type="button"
-          tabindex="0"
-          class="btn btn-soft hover:btn-accent"
-          class:btn-primary={selectedTitleIds.length > 0}
-          aria-label={m.filter_by_game_titles()}
-        >
-          <i class="fa-solid fa-filter"></i>
-          {#if selectedTitleIds.length > 0}
-            <span class="badge badge-sm">{selectedTitleIds.length}</span>
-          {/if}
-        </button>
-        <div
-          role="menu"
-          tabindex="-1"
-          class="card dropdown-content bg-base-200 z-10 mt-2 w-fit shadow-lg"
-        >
-          <div class="card-body p-4">
-            <h3 class="card-title text-base text-nowrap">{m.filter_by_game_titles()}</h3>
-            <div class="space-y-2">
-              {#each GAME_TITLES as game (game.id)}
-                <label class="flex cursor-pointer items-center gap-2 text-nowrap">
-                  <input
-                    type="checkbox"
-                    class="checkbox checkbox-sm checked:checkbox-success hover:checkbox-accent border-2 transition-colors"
-                    checked={selectedTitleIds.includes(game.id)}
-                    onchange={() => handleTitleFilterChange(game.id)}
-                  />
-                  <span class="text-sm">{getGameName(game.key)}</span>
-                </label>
-              {/each}
-            </div>
-            <div class="card-actions mt-2 w-fit flex-nowrap justify-between whitespace-nowrap">
-              <button
-                type="button"
-                class="btn btn-soft hover:btn-error btn-sm"
-                onclick={clearFilters}
-                disabled={selectedTitleIds.length === 0 && !selectedRegionId}
-              >
-                <i class="fa-solid fa-trash"></i>
-                {m.clear_filters()}
-              </button>
-              <button type="button" class="btn btn-primary btn-soft btn-sm" onclick={applyFilters}>
-                <i class="fa-solid fa-filter"></i>
-                {m.apply_filters()}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Game Title Filter -->
+      <button
+        type="button"
+        class="btn btn-soft hover:btn-accent"
+        class:btn-primary={selectedTitleIds.length > 0}
+        aria-label={m.filter_by_game_titles()}
+        onclick={() => (gameFilterOpen = true)}
+      >
+        <i class="fa-solid fa-filter"></i>
+        {#if selectedTitleIds.length > 0}
+          <span class="badge badge-sm">{selectedTitleIds.length}</span>
+        {/if}
+      </button>
 
       <!-- Region Filter Dropdown -->
       <div class="dropdown" class:dropdown-open={regionDropdownOpen} bind:this={regionDropdownEl}>
@@ -255,7 +210,11 @@
                 <i class="fa-solid fa-trash"></i>
                 {m.clear_filters()}
               </button>
-              <button type="button" class="btn btn-primary btn-soft btn-sm" onclick={applyFilters}>
+              <button
+                type="button"
+                class="btn btn-primary btn-soft btn-sm"
+                onclick={() => applyFilters()}
+              >
                 <i class="fa-solid fa-filter"></i>
                 {m.apply_filters()}
               </button>
@@ -500,3 +459,9 @@
     {/await}
   </div>
 </div>
+
+<GameTitleFilterModal
+  bind:isOpen={gameFilterOpen}
+  {selectedTitleIds}
+  onConfirm={(ids) => applyFilters(ids)}
+/>
