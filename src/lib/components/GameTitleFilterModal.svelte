@@ -63,7 +63,7 @@
               checked={draftIds.includes(game.id)}
               onchange={() => toggle(game.id)}
             />
-            <span class="text-sm">{getGameName(game.key)}</span>
+            <span class="min-w-0 text-sm wrap-break-word">{getGameName(game.key)}</span>
           </label>
         {/each}
       </div>
