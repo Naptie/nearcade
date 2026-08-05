@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
         const db = mongo.db();
         const accountsCollection = db.collection('accounts');
         const existingWechat = await accountsCollection.findOne({
-          userId: user.id,
+          userId: new ObjectId(user.id),
           providerId: 'wechat'
         });
 
@@ -66,7 +66,7 @@ export const load: PageServerLoad = async ({ parent, url, request }) => {
         } else {
           // Bind WeChat account
           await accountsCollection.insertOne({
-            userId: user.id,
+            userId: new ObjectId(user.id),
             providerId: 'wechat',
             accountId: wechatData.openId,
             createdAt: new Date(),

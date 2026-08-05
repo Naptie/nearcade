@@ -92,10 +92,10 @@ export const sendWeChatTemplateMessage = async (
   const accountsCollection = db.collection('accounts');
   const userAccount = await accountsCollection.findOne({
     userId: new ObjectId(userId),
-    provider: 'wechat'
+    providerId: 'wechat'
   });
-  if (userAccount && userAccount.providerAccountId) {
-    const openId = userAccount.providerAccountId;
+  if (userAccount && userAccount.accountId) {
+    const openId = userAccount.accountId;
 
     await ensureConnected();
     const accessToken = await redis.get('nearcade:wechat:access_token');
