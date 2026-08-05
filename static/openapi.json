@@ -1992,6 +1992,10 @@
                                     "username": {
                                       "type": "string",
                                       "description": "用户名。\n\nUsername."
+                                    },
+                                    "verified": {
+                                      "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -3600,6 +3604,10 @@
                                   "username": {
                                     "type": "string",
                                     "description": "用户名。\n\nUsername."
+                                  },
+                                  "verified": {
+                                    "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": ["platform", "username"],
@@ -3944,6 +3952,10 @@
                                     "username": {
                                       "type": "string",
                                       "description": "用户名。\n\nUsername."
+                                    },
+                                    "verified": {
+                                      "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -7243,6 +7255,10 @@
                                   "username": {
                                     "type": "string",
                                     "description": "用户名。\n\nUsername."
+                                  },
+                                  "verified": {
+                                    "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": ["platform", "username"],
@@ -8036,6 +8052,10 @@
                                 "username": {
                                   "type": "string",
                                   "description": "用户名。\n\nUsername."
+                                },
+                                "verified": {
+                                  "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                  "type": "boolean"
                                 }
                               },
                               "required": ["platform", "username"],
@@ -10236,6 +10256,10 @@
                                 "username": {
                                   "type": "string",
                                   "description": "用户名。\n\nUsername."
+                                },
+                                "verified": {
+                                  "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                  "type": "boolean"
                                 }
                               },
                               "required": ["platform", "username"],
@@ -12250,6 +12274,10 @@
                                     "username": {
                                       "type": "string",
                                       "description": "用户名。\n\nUsername."
+                                    },
+                                    "verified": {
+                                      "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -13085,6 +13113,10 @@
                               "username": {
                                 "type": "string",
                                 "description": "用户名。\n\nUsername."
+                              },
+                              "verified": {
+                                "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                "type": "boolean"
                               }
                             },
                             "required": ["platform", "username"],
@@ -14574,6 +14606,10 @@
                               "username": {
                                 "type": "string",
                                 "description": "用户名。\n\nUsername."
+                              },
+                              "verified": {
+                                "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                "type": "boolean"
                               }
                             },
                             "required": ["platform", "username"],

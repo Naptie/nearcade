@@ -43,6 +43,18 @@ export const USER_TYPES = [
 
 export const SOCIAL_PLATFORMS = ['qq', 'wechat', 'github', 'discord', 'divingfish'] as const;
 
+// Platforms whose usernames can be verified (OAuth link or qbind/Redis flow)
+export const VERIFIABLE_SOCIAL_PLATFORMS = ['qq', 'github', 'discord'] as const;
+
+// Public profile URLs per platform. `qq` is only linkable when verified
+// (the username is the QQ number), `github` is always linkable.
+export const SOCIAL_PLATFORM_PROFILE_URLS: Partial<
+  Record<SocialPlatform, (username: string) => string>
+> = {
+  qq: (username) => `https://user.qzone.qq.com/${username}`,
+  github: (username) => `https://github.com/${username}`
+};
+
 // Radius constants for search distances
 export const RADIUS_OPTIONS = [1, 2, 5, 10, 20, 30] as const;
 

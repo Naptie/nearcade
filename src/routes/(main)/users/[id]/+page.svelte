@@ -23,6 +23,7 @@
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import Hover3D from '$lib/components/Hover3D.svelte';
   import FullscreenFrame from '$lib/components/FullscreenFrame.svelte';
+  import { SOCIAL_PLATFORM_PROFILE_URLS } from '$lib/constants';
 
   let { data }: { data: PageData } = $props();
 
@@ -482,7 +483,9 @@
                               ? 'fa-solid fa-fish-fins'
                               : 'fa-solid fa-link'}
                   {@const linkUrl =
-                    link.platform === 'github' ? `https://github.com/${link.username}` : null}
+                    link.platform === 'qq' && !link.verified
+                      ? null
+                      : (SOCIAL_PLATFORM_PROFILE_URLS[link.platform]?.(link.username) ?? null)}
                   <div class="flex items-center gap-2 text-sm">
                     <div
                       class="flex w-4 justify-center"
@@ -511,6 +514,9 @@
                       </a>
                     {:else}
                       <span class="break-all">{link.username}</span>
+                    {/if}
+                    {#if link.verified}
+                      <i class="fa-solid fa-circle-check text-success" title={m.verified()}></i>
                     {/if}
                   </div>
                 {/each}

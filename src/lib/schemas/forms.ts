@@ -42,7 +42,8 @@ export const profileSettingsFormSchema = z.object({
   socialLinks: z.array(
     z.object({
       platform: z.enum(['qq', 'wechat', 'github', 'discord', 'divingfish']),
-      username: z.string().trim().min(1)
+      username: z.string().trim().min(1),
+      verified: z.boolean().optional()
     })
   )
 });

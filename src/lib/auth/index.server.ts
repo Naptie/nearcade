@@ -21,6 +21,7 @@ import {
 import { qqProvider } from './qq';
 import { githubProvider } from './github';
 import { phiraProvider } from './phira';
+import { syncVerifiedSocialLinkFromAccount } from './social-verify.server';
 import type { User } from './types';
 import { syncUserAvatarToOSSIfNeeded } from '$lib/images/avatar-sync.server';
 import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
@@ -71,7 +72,11 @@ function withProfileCache<T extends Record<string, unknown>>(
     const mapped = mapFn(profile);
     const accountId = String((profile as Record<string, unknown>).id ?? '');
     if (accountId) {
-      await cacheOAuthProfile(providerId, accountId, { email: mapped.email, image: mapped.image });
+      await cacheOAuthProfile(providerId, accountId, {
+        email: mapped.email,
+        image: mapped.image,
+        username: (mapped.username as string | undefined) || undefined
+      });
     }
     return mapped;
   };
@@ -105,7 +110,8 @@ function discordProvider() {
         name: p.global_name ?? p.username,
         email: p.email ?? `${p.id}@discord.nearcade`,
         image,
-        emailVerified: !!p.email
+        emailVerified: !!p.email,
+        username: p.username
       };
     })
   };
@@ -346,31 +352,43 @@ function createAuth() {
         create: {
           after: async (account) => {
             const profile = await getCachedOAuthProfile(account.providerId, account.accountId);
-            if (!profile) return;
 
-            const db = mongo.db();
-            const currentUser = await db
-              .collection('users')
-              .findOne({ _id: resolveId(account.userId) });
-            if (!currentUser) return;
-
-            const updates: Record<string, unknown> = {};
-            const hasPlaceholderEmail =
-              !currentUser.email || currentUser.email.endsWith('.nearcade');
-            const hasRealNewEmail = profile.email && !profile.email.endsWith('.nearcade');
-            if (hasPlaceholderEmail && hasRealNewEmail) {
-              updates.email = profile.email;
-              updates.emailVerified = true;
-            }
-            if (!currentUser.image && profile.image) {
-              updates.image = profile.image;
-            }
-
-            if (Object.keys(updates).length > 0) {
-              await db
+            if (profile) {
+              const db = mongo.db();
+              const currentUser = await db
                 .collection('users')
-                .updateOne({ _id: resolveId(account.userId) }, { $set: updates });
+                .findOne({ _id: resolveId(account.userId) });
+              if (!currentUser) return;
+
+              const updates: Record<string, unknown> = {};
+              const hasPlaceholderEmail =
+                !currentUser.email || currentUser.email.endsWith('.nearcade');
+              const hasRealNewEmail = profile.email && !profile.email.endsWith('.nearcade');
+              if (hasPlaceholderEmail && hasRealNewEmail) {
+                updates.email = profile.email;
+                updates.emailVerified = true;
+              }
+              if (!currentUser.image && profile.image) {
+                updates.image = profile.image;
+              }
+
+              if (Object.keys(updates).length > 0) {
+                await db
+                  .collection('users')
+                  .updateOne({ _id: resolveId(account.userId) }, { $set: updates });
+              }
             }
+
+            // Keep the verified social link in sync with the account binding so
+            // binding one side always produces the other (github/discord only).
+            // The canonical username comes straight from the cached OAuth
+            // profile when present, avoiding an extra provider API call.
+            await syncVerifiedSocialLinkFromAccount(
+              account.userId,
+              account.providerId,
+              account.accessToken as string | undefined,
+              profile?.username
+            );
           }
         }
       },

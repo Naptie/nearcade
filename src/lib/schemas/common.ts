@@ -133,7 +133,16 @@ export const dateTimeSchema = (description: string) =>
 
 export const socialLinkSchema = z.object({
   platform: z.enum(SOCIAL_PLATFORMS).describe(bilingual('社交平台。', 'Social platform.')),
-  username: z.string().describe(bilingual('用户名。', 'Username.'))
+  username: z.string().describe(bilingual('用户名。', 'Username.')),
+  verified: z
+    .boolean()
+    .optional()
+    .describe(
+      bilingual(
+        '是否已通过平台验证（验证后自行修改用户名会清除该标记）。',
+        'Whether the username has been verified via the platform (editing the username clears it).'
+      )
+    )
 });
 
 /**

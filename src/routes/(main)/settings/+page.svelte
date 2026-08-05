@@ -1,11 +1,25 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import { base } from '$app/paths';
   import type { SocialPlatform } from '$lib/constants';
+  import {
+    SOCIAL_PLATFORMS,
+    SOCIAL_PLATFORM_PROFILE_URLS,
+    VERIFIABLE_SOCIAL_PLATFORMS
+  } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName } from '$lib/utils';
+  import { authClient } from '$lib/auth/client';
   import type { PageData, ActionData } from './$types';
   import UploadModal from '$lib/components/UploadModal.svelte';
+  import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
+
+  interface SocialLinkItem {
+    platform: SocialPlatform;
+    username: string;
+    verified?: boolean;
+  }
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -24,8 +38,11 @@
   let isFrequentingArcadePublic = $derived(data.userProfile?.isFrequentingArcadePublic !== false);
   let isStarredArcadePublic = $derived(data.userProfile?.isStarredArcadePublic !== false);
 
-  // Social links
-  let socialLinks = $derived(data.userProfile?.socialLinks || []);
+  // Social links (writable derived: edits override the server value, and the
+  // override is dropped whenever fresh data arrives, e.g. after saving)
+  const getServerSocialLinks = () =>
+    (data.userProfile?.socialLinks || []).map((link) => ({ ...link }));
+  let socialLinks = $derived(getServerSocialLinks());
 
   // Notification settings
   let notificationTypeComments = $derived(
@@ -197,19 +214,211 @@
   };
 
   // Social links helper functions
-  const addSocialLink = () => {
-    socialLinks = [...socialLinks, { platform: 'qq', username: '' }];
-  };
-
   const removeSocialLink = (index: number) => {
     socialLinks = socialLinks.filter((_: unknown, i: number) => i !== index);
   };
 
-  const updateSocialLink = (index: number, field: 'platform' | 'username', value: string) => {
-    socialLinks = socialLinks.map(
-      (link: { platform: SocialPlatform; username: string }, i: number) =>
-        i === index ? { ...link, [field]: value } : link
+  // --- Social links modal (add / edit) ---
+
+  let socialModalOpen = $state(false);
+  let socialModalStep = $state<'platform' | 'details'>('platform');
+  let socialModalPlatform = $state<SocialPlatform>('qq');
+  let socialModalEditingIndex = $state<number | null>(null);
+  let socialModalUsername = $state('');
+  let socialModalError = $state('');
+
+  const platformIcon = (platform: string): string => {
+    switch (platform) {
+      case 'qq':
+        return 'fa-brands fa-qq';
+      case 'wechat':
+        return 'fa-brands fa-weixin';
+      case 'github':
+        return 'fa-brands fa-github';
+      case 'discord':
+        return 'fa-brands fa-discord';
+      case 'divingfish':
+        return 'fa-solid fa-fish-fins';
+      default:
+        return 'fa-solid fa-link';
+    }
+  };
+
+  const openAddSocialModal = () => {
+    socialModalEditingIndex = null;
+    socialModalPlatform = 'qq';
+    socialModalStep = 'platform';
+    socialModalUsername = '';
+    socialModalError = '';
+    socialModalOpen = true;
+  };
+
+  const openEditSocialModal = (index: number) => {
+    const link = socialLinks[index];
+    socialModalEditingIndex = index;
+    socialModalPlatform = link.platform;
+    socialModalStep = 'details';
+    socialModalUsername = link.username;
+    socialModalError = '';
+    socialModalOpen = true;
+  };
+
+  const closeSocialModal = () => {
+    socialModalOpen = false;
+  };
+
+  const pickSocialPlatform = (platform: SocialPlatform) => {
+    socialModalPlatform = platform;
+    socialModalUsername = '';
+    socialModalError = '';
+    socialModalStep = 'details';
+  };
+
+  // Platforms already present in the draft cannot be added again
+  const platformTaken = (platform: string): boolean =>
+    socialLinks.some((link) => link.platform === platform);
+
+  const confirmManualSocialLink = () => {
+    const username = socialModalUsername.trim();
+    if (!username) {
+      socialModalError = m.social_modal_username_required();
+      return;
+    }
+    if (socialModalEditingIndex === null) {
+      if (socialLinks.length >= 8) return;
+      socialLinks = [...socialLinks, { platform: socialModalPlatform, username }];
+    } else {
+      socialLinks = socialLinks.map((link, index) =>
+        index === socialModalEditingIndex
+          ? { ...link, platform: socialModalPlatform, username }
+          : link
+      );
+    }
+    closeSocialModal();
+  };
+
+  // The username in the modal still matches a saved verified link
+  const editingLinkIsVerified = $derived(
+    socialModalEditingIndex !== null &&
+      (data.userProfile?.socialLinks || []).some(
+        (savedLink) =>
+          savedLink.platform === socialModalPlatform &&
+          savedLink.username === socialModalUsername &&
+          savedLink.verified
+      )
+  );
+
+  const editingVerifiedHref = $derived(
+    SOCIAL_PLATFORM_PROFILE_URLS[socialModalPlatform]?.(socialModalUsername) ?? ''
+  );
+
+  // --- Social link verification ---
+
+  const isVerifiablePlatform = (platform: string): boolean =>
+    (VERIFIABLE_SOCIAL_PLATFORMS as readonly string[]).includes(platform);
+
+  // A link is only shown as verified while its value still matches the verified
+  // value persisted on the server; touching the input hides the badge immediately.
+  const isLinkVerified = (link: SocialLinkItem): boolean => {
+    if (!link.verified) return false;
+    const saved = (data.userProfile?.socialLinks || []).find(
+      (savedLink) => savedLink.platform === link.platform && savedLink.username === link.username
     );
+    return !!saved?.verified;
+  };
+
+  let pendingVerify: SocialPlatform | null = $state(null);
+  let formEl: HTMLFormElement | undefined = $state();
+
+  const verifyFromModal = () => {
+    if (socialModalPlatform === 'qq') {
+      openQQVerifyModal();
+      return;
+    }
+    // Save any pending edits first, then start the OAuth link flow
+    pendingVerify = socialModalPlatform;
+    formEl?.requestSubmit();
+  };
+
+  // OAuth verification result (landing back from oauth2.link)
+  let verifyResultLocal = $state<PageData['verifyResult']>(null);
+  let verifyResultDismissed = $state(false);
+  $effect(() => {
+    if (data.verifyResult) verifyResultLocal = data.verifyResult;
+  });
+
+  // Strip the verify/verifyError query params from the URL once handled
+  $effect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('verify') || url.searchParams.has('verifyError')) {
+      url.searchParams.delete('verify');
+      url.searchParams.delete('verifyError');
+      history.replaceState(history.state, '', url.href);
+    }
+  });
+
+  // --- QQ verification via qbind ---
+
+  let showQQVerifyModal = $state(false);
+  let qqToken = $state('');
+  let qqVerified: number | null = $state(null);
+  let qqExpired = $state(false);
+  let qqError = $state(false);
+  let copied = $state(false);
+  let copiedTimeout: ReturnType<typeof setTimeout> | undefined = $state();
+
+  const openQQVerifyModal = () => {
+    qqToken = data.qbindToken;
+    qqVerified = null;
+    qqExpired = false;
+    qqError = false;
+    showQQVerifyModal = true;
+  };
+
+  const copyQQCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(`/qbind ${qqToken}`);
+      copied = true;
+      clearTimeout(copiedTimeout);
+      copiedTimeout = setTimeout(() => {
+        copied = false;
+        copiedTimeout = undefined;
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
+  $effect(() => {
+    if (!showQQVerifyModal) return;
+    const deadline = Date.now() + 300_000;
+    const timer = setInterval(async () => {
+      if (Date.now() > deadline) {
+        qqExpired = true;
+        clearInterval(timer);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/qbind?token=${encodeURIComponent(qqToken)}`);
+        if (response.ok) {
+          const result = (await response.json()) as { success: boolean; qq: number };
+          qqVerified = result.qq;
+          clearInterval(timer);
+        } else if (response.status !== 404) {
+          qqError = true;
+          clearInterval(timer);
+        }
+      } catch {
+        // transient network error — keep polling
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  });
+
+  const finishQQVerify = () => {
+    showQQVerifyModal = false;
+    socialModalOpen = false;
+    invalidateAll();
   };
 </script>
 
@@ -235,6 +444,35 @@
     <div class="alert alert-error">
       <i class="fa-solid fa-exclamation-triangle"></i>
       <span>{getMessage(form.message)}</span>
+    </div>
+  {/if}
+
+  <!-- Social Link Verification Result -->
+  {#if verifyResultLocal && !verifyResultDismissed}
+    <div class="alert {verifyResultLocal.success ? 'alert-success' : 'alert-error'}">
+      <i
+        class="fa-solid {verifyResultLocal.success ? 'fa-check-circle' : 'fa-exclamation-triangle'}"
+      ></i>
+      <span>
+        {#if verifyResultLocal.success}
+          {m.social_verify_oauth_success({
+            platform: m[`social_platform_${verifyResultLocal.platform as SocialPlatform}`](),
+            username: verifyResultLocal.username || ''
+          })}
+        {:else if verifyResultLocal.error === 'no_account'}
+          {m.social_verify_oauth_no_account()}
+        {:else}
+          {m.social_verify_oauth_error()}
+        {/if}
+      </span>
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm"
+        onclick={() => (verifyResultDismissed = true)}
+        aria-label={m.close()}
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
   {/if}
 
@@ -291,6 +529,7 @@
   <form
     method="POST"
     action="?/updateProfile"
+    bind:this={formEl}
     use:enhance={() => {
       isSubmitting = true;
 
@@ -303,6 +542,16 @@
           setTimeout(() => {
             showSuccess = false;
           }, 5000);
+
+          const platform = pendingVerify;
+          if (platform) {
+            pendingVerify = null;
+            await authClient.oauth2.link({
+              providerId: platform,
+              callbackURL: `${base}/settings?verify=${platform}`,
+              errorCallbackURL: `${base}/settings?verify=${platform}&verifyError=1`
+            });
+          }
         }
       };
     }}
@@ -413,65 +662,75 @@
           <p class="text-base-content/70 text-sm">{m.social_links_description()}</p>
         </div>
         {#if socialLinks.length < 8}
-          <button type="button" class="btn btn-soft btn-success btn-sm" onclick={addSocialLink}>
+          <button
+            type="button"
+            class="btn btn-soft btn-success btn-sm"
+            onclick={openAddSocialModal}
+          >
             <i class="fa-solid fa-plus"></i>
             {m.add()}
           </button>
         {/if}
       </div>
 
-      <div id="social-links-section" class="space-y-3">
-        {#each socialLinks as link, index (index)}
-          <div class="flex items-center gap-2">
-            <div class="form-control flex-1">
-              <select
-                id="platform-{index}"
-                name="socialLinks[{index}].platform"
-                bind:value={link.platform}
-                onchange={(e) =>
-                  updateSocialLink(index, 'platform', (e.target as HTMLSelectElement).value)}
-                class="select select-bordered w-full"
+      {#if socialLinks.length === 0}
+        <div class="text-base-content/60 py-8 text-center">
+          <i class="fa-solid fa-link mb-2 text-2xl"></i>
+          <p>{m.social_links_empty()}</p>
+        </div>
+      {:else}
+        <div id="social-links-section" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {#each socialLinks as link, index (index)}
+            {@const verifiedHref = link.verified
+              ? (SOCIAL_PLATFORM_PROFILE_URLS[link.platform]?.(link.username) ?? '')
+              : ''}
+            <div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
+              <div
+                class="bg-base-100 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
               >
-                <option value="qq">
-                  {m.social_platform_qq()}
-                </option>
-                <option value="wechat">
-                  {m.social_platform_wechat()}
-                </option>
-                <option value="github">
-                  {m.social_platform_github()}
-                </option>
-                <option value="discord">
-                  {m.social_platform_discord()}
-                </option>
-                <option value="divingfish">
-                  {m.social_platform_divingfish()}
-                </option>
-              </select>
+                <i class="{platformIcon(link.platform)} text-base-content/70"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-base-content/60 truncate text-xs">
+                  {m[`social_platform_${link.platform}`]()}
+                </p>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-medium break-all">{link.username}</span>
+                  {#if isLinkVerified(link)}
+                    <VerifiedCheckMark href={verifiedHref} />
+                  {/if}
+                </div>
+              </div>
+              <div class="flex items-center">
+                <button
+                  type="button"
+                  class="btn btn-circle btn-ghost btn-sm"
+                  onclick={() => openEditSocialModal(index)}
+                  title={m.edit()}
+                  aria-label={m.edit()}
+                >
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-circle btn-ghost btn-error btn-sm"
+                  onclick={() => removeSocialLink(index)}
+                  title={m.delete()}
+                  aria-label={m.delete()}
+                >
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
             </div>
-            <div class="form-control flex-2">
-              <input
-                id="username-{index}"
-                name="socialLinks[{index}].username"
-                type="text"
-                bind:value={link.username}
-                oninput={(e) =>
-                  updateSocialLink(index, 'username', (e.target as HTMLInputElement).value)}
-                placeholder={m[`social_${link.platform}_placeholder`]()}
-                class="input input-bordered w-full"
-              />
-            </div>
-            <button
-              type="button"
-              class="btn btn-ghost btn-error btn-sm"
-              onclick={() => removeSocialLink(index)}
-              aria-label={m.delete()}
-            >
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
+      {/if}
+
+      <!-- Hidden fields so the draft social links are submitted with the form -->
+      {#each socialLinks as link, index (index)}
+        <input type="hidden" name="socialLinks[{index}].platform" value={link.platform} />
+        <input type="hidden" name="socialLinks[{index}].username" value={link.username} />
+      {/each}
     </div>
 
     <div class="divider">{m.notification_settings()}</div>
@@ -677,3 +936,237 @@
     </div>
   </form>
 </div>
+
+<!-- QQ Verification Modal (qbind) -->
+{#if showQQVerifyModal}
+  <div class="modal modal-open z-1000">
+    <div class="modal-box">
+      <button
+        class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
+        onclick={() => {
+          showQQVerifyModal = false;
+          invalidateAll();
+        }}
+        aria-label={m.close()}
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h3 class="flex items-center gap-2 text-lg font-bold">
+        <i class="fa-brands fa-qq"></i>
+        {m.social_verify_qq_title()}
+      </h3>
+      <div class="space-y-3 py-4">
+        {#if qqVerified}
+          <div
+            class="bg-success/10 border-success flex flex-col items-center gap-2 rounded-xl border-2 p-4"
+          >
+            <span>{m.social_verify_qq_success()}</span>
+            <div class="flex items-center gap-2">
+              <i class="fa-brands fa-qq text-2xl"></i>
+              <h4 class="font-medium">{qqVerified}</h4>
+            </div>
+          </div>
+        {:else if qqExpired}
+          <div
+            class="bg-error/10 border-error flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center"
+          >
+            <i class="fa-solid fa-clock text-error text-2xl"></i>
+            <span>{m.social_verify_qq_expired()}</span>
+          </div>
+        {:else if qqError}
+          <div
+            class="bg-error/10 border-error flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center"
+          >
+            <i class="fa-solid fa-exclamation-triangle text-error text-2xl"></i>
+            <span>{m.social_verify_qq_error()}</span>
+          </div>
+        {:else}
+          {#if data.qbindGroups && data.qbindGroups.length > 0}
+            <p>{m.social_verify_qq_instructions()}</p>
+            <div
+              class="bg-success/10 border-success flex flex-col items-center gap-1 rounded-xl border-2 p-4 text-sm"
+            >
+              <span class="text-base font-semibold">{m.social_verify_qq_group_label()}</span>
+              {#each data.qbindGroups as group, groupIndex (groupIndex)}
+                <div>
+                  {#if group.name}
+                    <span>{group.name}</span>
+                  {/if}
+                  {#if group.number}
+                    <span class="font-mono">({group.number})</span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <p>{m.social_verify_qq_instructions_no_group()}</p>
+          {/if}
+          <div class="bg-base-200 flex items-center justify-between gap-2 rounded-xl p-3">
+            <code class="text-left break-all">/qbind {qqToken}</code>
+            <button
+              class="btn btn-success btn-sm btn-square btn-soft"
+              class:btn-active={copied}
+              title={m.copy()}
+              onclick={copyQQCommand}
+            >
+              {#if copied}
+                <i class="fa-solid fa-check"></i>
+              {:else}
+                <i class="fa-solid fa-copy"></i>
+              {/if}
+            </button>
+          </div>
+          <div class="text-base-content/60 flex items-center justify-center gap-2 text-sm">
+            <span class="loading loading-spinner loading-sm"></span>
+            {m.social_verify_qq_waiting()}
+          </div>
+        {/if}
+      </div>
+      <div class="modal-action">
+        <button
+          class="btn btn-ghost"
+          onclick={() => {
+            showQQVerifyModal = false;
+            invalidateAll();
+          }}
+        >
+          {m.close()}
+        </button>
+        {#if qqVerified}
+          <button class="btn btn-success" onclick={finishQQVerify}>
+            <i class="fa-solid fa-check"></i>
+            {m.confirm()}
+          </button>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Add / Edit Social Link Modal -->
+{#if socialModalOpen}
+  <div class="modal modal-open">
+    <div class="modal-box">
+      <button
+        class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
+        onclick={closeSocialModal}
+        aria-label={m.close()}
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h3 class="text-lg font-bold">
+        {socialModalStep === 'platform'
+          ? m.social_modal_pick_platform()
+          : socialModalEditingIndex === null
+            ? m.social_modal_add_title()
+            : m.social_modal_edit_title()}
+      </h3>
+
+      {#if socialModalStep === 'platform'}
+        <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-2">
+          {#each SOCIAL_PLATFORMS as platform (platform)}
+            <button
+              type="button"
+              class="bg-base-200 hover:bg-base-300 disabled:hover:bg-base-200 flex items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={platformTaken(platform)}
+              onclick={() => pickSocialPlatform(platform)}
+            >
+              <div
+                class="bg-base-100 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              >
+                <i class="{platformIcon(platform)} text-lg"></i>
+              </div>
+              <span class="min-w-0 flex-1">
+                <span class="block font-medium">{m[`social_platform_${platform}`]()}</span>
+                {#if isVerifiablePlatform(platform)}
+                  <span class="text-success block text-xs">
+                    <i class="fa-solid fa-circle-check"></i>
+                    {m.social_link_verify()}
+                  </span>
+                {/if}
+              </span>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <div class="space-y-4 pt-4">
+          <div class="flex items-center gap-2">
+            {#if socialModalEditingIndex === null}
+              <button
+                type="button"
+                class="btn btn-circle btn-ghost btn-sm"
+                onclick={() => (socialModalStep = 'platform')}
+                aria-label={m.back()}
+              >
+                <i class="fa-solid fa-arrow-left"></i>
+              </button>
+            {/if}
+            <i class="{platformIcon(socialModalPlatform)} text-xl"></i>
+            <span class="font-semibold">{m[`social_platform_${socialModalPlatform}`]()}</span>
+          </div>
+
+          {#if isVerifiablePlatform(socialModalPlatform)}
+            {#if editingLinkIsVerified}
+              <div
+                class="bg-success/10 border-success flex items-center justify-between gap-2 rounded-xl border-2 p-3"
+              >
+                <span class="flex min-w-0 items-center gap-2">
+                  <span class="font-medium break-all">{socialModalUsername}</span>
+                  <VerifiedCheckMark href={editingVerifiedHref} />
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-soft btn-success btn-sm"
+                  onclick={verifyFromModal}
+                >
+                  <i class="fa-solid fa-circle-check"></i>
+                  {m.social_link_verify()}
+                </button>
+              </div>
+            {:else}
+              <button type="button" class="btn btn-primary btn-block" onclick={verifyFromModal}>
+                <i class="fa-solid fa-circle-check"></i>
+                {m.social_verify_with_platform({
+                  platform: m[`social_platform_${socialModalPlatform}`]()
+                })}
+              </button>
+              <p class="text-base-content/60 text-center text-xs">
+                {m.social_modal_verify_hint()}
+              </p>
+            {/if}
+            <div class="divider">{m.or()}</div>
+          {/if}
+
+          <div class="form-control">
+            <input
+              type="text"
+              bind:value={socialModalUsername}
+              oninput={() => (socialModalError = '')}
+              placeholder={m[`social_${socialModalPlatform}_placeholder`]()}
+              class="input input-bordered w-full"
+              class:input-error={!!socialModalError}
+            />
+            {#if socialModalError}
+              <div class="label">
+                <span class="label-text-alt text-error">
+                  <i class="fa-solid fa-exclamation-triangle mr-1"></i>
+                  {socialModalError}
+                </span>
+              </div>
+            {/if}
+          </div>
+
+          <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick={closeSocialModal}>
+              {m.close()}
+            </button>
+            <button type="button" class="btn btn-success" onclick={confirmManualSocialLink}>
+              <i class="fa-solid fa-check"></i>
+              {socialModalEditingIndex === null ? m.add() : m.save()}
+            </button>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}

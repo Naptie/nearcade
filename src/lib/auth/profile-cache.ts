@@ -6,7 +6,7 @@ const TTL_SECONDS = 60;
 export async function cacheOAuthProfile(
   providerId: string,
   accountId: string,
-  data: { email: string; image?: string }
+  data: { email: string; image?: string; username?: string }
 ) {
   await ensureConnected();
   await redis.setEx(`${KEY_PREFIX}${providerId}:${accountId}`, TTL_SECONDS, JSON.stringify(data));
@@ -16,5 +16,5 @@ export async function getCachedOAuthProfile(providerId: string, accountId: strin
   await ensureConnected();
   const raw = await redis.get(`${KEY_PREFIX}${providerId}:${accountId}`);
   if (!raw) return null;
-  return JSON.parse(raw) as { email: string; image?: string };
+  return JSON.parse(raw) as { email: string; image?: string; username?: string };
 }
