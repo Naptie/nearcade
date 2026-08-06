@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import type { ShopDeleteRequest } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import { attachDeleteRequestRequesters } from '$lib/utils/shops/delete-request.server';
+import { attachDeleteRequestUsers } from '$lib/utils/shops/delete-request.server';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const { session } = await parent();
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
     .limit(100)
     .toArray();
 
-  const requestsWithRequesters = await attachDeleteRequestRequesters(db, requests);
+  const requestsWithRequesters = await attachDeleteRequestUsers(db, requests);
 
   return {
     requests: toPlainArray(requestsWithRequesters),

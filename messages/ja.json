@@ -1207,6 +1207,7 @@
   "reviewed_at": "レビュー日時",
   "reviewed_at_time": "{time} にレビュー済み",
   "reviewed_by": "審査者：{name}",
+  "reviewer": "審査者",
   "revoke_moderator": "モデレーターを取り消す",
   "riding": "自転車",
   "route": "ルート",

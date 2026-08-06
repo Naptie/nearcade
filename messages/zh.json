@@ -1207,6 +1207,7 @@
   "reviewed_at": "审核时间",
   "reviewed_at_time": "审核于 {time}",
   "reviewed_by": "审核人：{name}",
+  "reviewer": "审核人",
   "revoke_moderator": "撤销版主",
   "riding": "骑行",
   "route": "路线",

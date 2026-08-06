@@ -13,7 +13,7 @@ import { expandShopRegions } from '$lib/utils/region.server';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
-import { attachDeleteRequestRequesters } from '$lib/utils/shops/delete-request.server';
+import { attachDeleteRequestUsers } from '$lib/utils/shops/delete-request.server';
 import type { User } from '$lib/auth/types';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
@@ -117,7 +117,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         .findOne({ shopId, photoId: { $in: [null, undefined] }, status: 'pending' });
 
       const pendingDeleteRequest = pendingDeleteRequestDoc
-        ? (await attachDeleteRequestRequesters(db, [pendingDeleteRequestDoc]))[0]
+        ? (await attachDeleteRequestUsers(db, [pendingDeleteRequestDoc]))[0]
         : null;
 
       // Load photos (up to 20 for the carousel) with uploader data joined

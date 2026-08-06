@@ -9464,6 +9464,135 @@
                             "description": "提交申请的用户 ID。\n\nRequester user ID.",
                             "type": "string"
                           },
+                          "requestedByUser": {
+                            "description": "提交申请者的公开资料。\n\nRequester public profile.",
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "用户 ID。\n\nUser ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                              },
+                              "email": {
+                                "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                "type": "string"
+                              },
+                              "image": {
+                                "description": "头像。\n\nAvatar URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "avatarImageId": {
+                                "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "description": "资料更新时间。\n\nProfile update time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "joinedAt": {
+                                "description": "加入时间。\n\nJoin time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "lastActiveAt": {
+                                "description": "最后活跃时间。\n\nLast active time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "userType": {
+                                "description": "用户类型。\n\nUser type.",
+                                "type": "string",
+                                "enum": [
+                                  "site_admin",
+                                  "developer",
+                                  "school_admin",
+                                  "club_admin",
+                                  "school_moderator",
+                                  "club_moderator",
+                                  "student",
+                                  "regular"
+                                ]
+                              },
+                              "bio": {
+                                "description": "个人简介。\n\nUser bio.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "socialLinks": {
+                                "description": "社交链接。\n\nSocial links visible to clients.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "platform": {
+                                      "type": "string",
+                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "description": "社交平台。\n\nSocial platform."
+                                    },
+                                    "username": {
+                                      "type": "string",
+                                      "description": "用户名。\n\nUsername."
+                                    },
+                                    "verified": {
+                                      "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": ["platform", "username"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "frequentingArcades": {
+                                "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "starredArcades": {
+                                "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": ["id", "name", "createdAt", "updatedAt"],
+                            "additionalProperties": false
+                          },
                           "requestedByName": {
                             "description": "提交申请的用户名。\n\nRequester username.",
                             "nullable": true,
@@ -9489,6 +9618,135 @@
                             "description": "审核者用户 ID。\n\nReviewer user ID.",
                             "nullable": true,
                             "type": "string"
+                          },
+                          "reviewedByUser": {
+                            "description": "审核者公开资料。\n\nReviewer public profile.",
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "用户 ID。\n\nUser ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                              },
+                              "email": {
+                                "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                "type": "string"
+                              },
+                              "image": {
+                                "description": "头像。\n\nAvatar URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "avatarImageId": {
+                                "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "description": "资料更新时间。\n\nProfile update time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "joinedAt": {
+                                "description": "加入时间。\n\nJoin time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "lastActiveAt": {
+                                "description": "最后活跃时间。\n\nLast active time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "userType": {
+                                "description": "用户类型。\n\nUser type.",
+                                "type": "string",
+                                "enum": [
+                                  "site_admin",
+                                  "developer",
+                                  "school_admin",
+                                  "club_admin",
+                                  "school_moderator",
+                                  "club_moderator",
+                                  "student",
+                                  "regular"
+                                ]
+                              },
+                              "bio": {
+                                "description": "个人简介。\n\nUser bio.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "socialLinks": {
+                                "description": "社交链接。\n\nSocial links visible to clients.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "platform": {
+                                      "type": "string",
+                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "description": "社交平台。\n\nSocial platform."
+                                    },
+                                    "username": {
+                                      "type": "string",
+                                      "description": "用户名。\n\nUsername."
+                                    },
+                                    "verified": {
+                                      "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": ["platform", "username"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "frequentingArcades": {
+                                "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "starredArcades": {
+                                "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": ["id", "name", "createdAt", "updatedAt"],
+                            "additionalProperties": false
                           },
                           "reviewNote": {
                             "description": "审核备注。\n\nReview note.",
@@ -9730,6 +9988,135 @@
                           "description": "提交申请的用户 ID。\n\nRequester user ID.",
                           "type": "string"
                         },
+                        "requestedByUser": {
+                          "description": "提交申请者的公开资料。\n\nRequester public profile.",
+                          "nullable": true,
+                          "type": "object",
+                          "properties": {
+                            "_id": {
+                              "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "description": "用户 ID。\n\nUser ID."
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                            },
+                            "email": {
+                              "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                              "type": "string"
+                            },
+                            "image": {
+                              "description": "头像。\n\nAvatar URL.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "avatarImageId": {
+                              "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "description": "创建时间。\n\nCreation time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "updatedAt": {
+                              "description": "资料更新时间。\n\nProfile update time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "joinedAt": {
+                              "description": "加入时间。\n\nJoin time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "lastActiveAt": {
+                              "description": "最后活跃时间。\n\nLast active time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "userType": {
+                              "description": "用户类型。\n\nUser type.",
+                              "type": "string",
+                              "enum": [
+                                "site_admin",
+                                "developer",
+                                "school_admin",
+                                "club_admin",
+                                "school_moderator",
+                                "club_moderator",
+                                "student",
+                                "regular"
+                              ]
+                            },
+                            "bio": {
+                              "description": "个人简介。\n\nUser bio.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "displayName": {
+                              "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "socialLinks": {
+                              "description": "社交链接。\n\nSocial links visible to clients.",
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                    "description": "社交平台。\n\nSocial platform."
+                                  },
+                                  "username": {
+                                    "type": "string",
+                                    "description": "用户名。\n\nUsername."
+                                  },
+                                  "verified": {
+                                    "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": ["platform", "username"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "frequentingArcades": {
+                              "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "starredArcades": {
+                              "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": ["id", "name", "createdAt", "updatedAt"],
+                          "additionalProperties": false
+                        },
                         "requestedByName": {
                           "description": "提交申请的用户名。\n\nRequester username.",
                           "nullable": true,
@@ -9755,6 +10142,135 @@
                           "description": "审核者用户 ID。\n\nReviewer user ID.",
                           "nullable": true,
                           "type": "string"
+                        },
+                        "reviewedByUser": {
+                          "description": "审核者公开资料。\n\nReviewer public profile.",
+                          "nullable": true,
+                          "type": "object",
+                          "properties": {
+                            "_id": {
+                              "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "description": "用户 ID。\n\nUser ID."
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                            },
+                            "email": {
+                              "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                              "type": "string"
+                            },
+                            "image": {
+                              "description": "头像。\n\nAvatar URL.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "avatarImageId": {
+                              "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "description": "创建时间。\n\nCreation time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "updatedAt": {
+                              "description": "资料更新时间。\n\nProfile update time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "joinedAt": {
+                              "description": "加入时间。\n\nJoin time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "lastActiveAt": {
+                              "description": "最后活跃时间。\n\nLast active time.",
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "userType": {
+                              "description": "用户类型。\n\nUser type.",
+                              "type": "string",
+                              "enum": [
+                                "site_admin",
+                                "developer",
+                                "school_admin",
+                                "club_admin",
+                                "school_moderator",
+                                "club_moderator",
+                                "student",
+                                "regular"
+                              ]
+                            },
+                            "bio": {
+                              "description": "个人简介。\n\nUser bio.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "displayName": {
+                              "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "socialLinks": {
+                              "description": "社交链接。\n\nSocial links visible to clients.",
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                    "description": "社交平台。\n\nSocial platform."
+                                  },
+                                  "username": {
+                                    "type": "string",
+                                    "description": "用户名。\n\nUsername."
+                                  },
+                                  "verified": {
+                                    "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": ["platform", "username"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "frequentingArcades": {
+                              "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "starredArcades": {
+                              "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": ["id", "name", "createdAt", "updatedAt"],
+                          "additionalProperties": false
                         },
                         "reviewNote": {
                           "description": "审核备注。\n\nReview note.",

@@ -57,6 +57,12 @@
       isDeletingRequest[requestId] = false;
     }
   };
+
+  const profileLinkClass =
+    'underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white';
+
+  const profileHref = (user?: { id: string; name?: string | null } | null) =>
+    user ? resolve('/(main)/users/[id]', { id: user.name ? '@' + user.name : user.id }) : '#';
 </script>
 
 <svelte:head>
@@ -151,15 +157,37 @@
           </div>
 
           <p class="text-base-content/60 mb-1 text-xs">
-            {m.request_by()}: {getDisplayName(req.requestedByUser)}
+            {m.request_by()}:
+            {#if req.requestedByUser}
+              <a href={profileHref(req.requestedByUser)} class={profileLinkClass}>
+                {getDisplayName(req.requestedByUser)}
+              </a>
+            {:else}
+              {req.requestedByName ?? m.unknown_user()}
+            {/if}
             &nbsp;@&nbsp;
             {new Date(req.createdAt).toLocaleString()}
           </p>
 
-          {#if req.reviewNote}
-            <p class="text-base-content/60 mb-1 text-xs">
-              {m.shop_delete_request_review_note()}: {req.reviewNote}
-            </p>
+          {#if req.reviewedAt}
+            <div class="text-base-content/60 mb-1 grid gap-x-3 gap-y-0.5 text-xs sm:grid-cols-2">
+              {#if req.reviewNote}
+                <div class="sm:row-span-2">
+                  {m.shop_delete_request_review_note()}: {req.reviewNote}
+                </div>
+              {/if}
+              <div>{m.reviewed_at()}: {new Date(req.reviewedAt).toLocaleString()}</div>
+              <div>
+                {m.reviewer()}:
+                {#if req.reviewedByUser}
+                  <a href={profileHref(req.reviewedByUser)} class={profileLinkClass}>
+                    {getDisplayName(req.reviewedByUser)}
+                  </a>
+                {:else}
+                  {m.unknown_user()}
+                {/if}
+              </div>
+            </div>
           {/if}
 
           {#if processErrors[req.id]}

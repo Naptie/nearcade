@@ -8,6 +8,7 @@ import {
 } from '$lib/schemas/shops';
 import { parseQueryOrError } from '$lib/utils/validation.server';
 import { toPlainArray } from '$lib/utils';
+import { attachDeleteRequestUsers } from '$lib/utils/shops/delete-request.server';
 import type { ShopDeleteRequest } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -27,9 +28,10 @@ export const GET: RequestHandler = async ({ url }) => {
     .toArray();
 
   const hydrated = await hydrateEntitiesWithImages(db, requests);
+  const hydratedWithUsers = await attachDeleteRequestUsers(db, hydrated);
 
   const response = shopDeleteRequestsListResponseSchema.parse({
-    requests: toPlainArray(hydrated),
+    requests: toPlainArray(hydratedWithUsers),
     currentStatus: status
   });
 

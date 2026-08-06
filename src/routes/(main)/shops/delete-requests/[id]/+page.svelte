@@ -317,6 +317,12 @@
         ? 'badge-success'
         : 'badge-error'
   );
+
+  const profileLinkClass =
+    'underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white';
+
+  const profileHref = (user?: { id: string; name?: string | null } | null) =>
+    user ? resolve('/(main)/users/[id]', { id: user.name ? '@' + user.name : user.id }) : '#';
 </script>
 
 <svelte:head>
@@ -485,7 +491,15 @@
     <div class="mb-6 grid gap-3 text-sm sm:grid-cols-2">
       <div>
         <span class="text-base-content/60">{m.request_by()}</span>
-        <p class="font-medium">{getDisplayName(req.requestedByUser)}</p>
+        {#if req.requestedByUser}
+          <p class="font-medium">
+            <a href={profileHref(req.requestedByUser)} class={profileLinkClass}>
+              {getDisplayName(req.requestedByUser)}
+            </a>
+          </p>
+        {:else}
+          <p class="font-medium">{req.requestedByName ?? m.unknown_user()}</p>
+        {/if}
       </div>
       <div>
         <span class="text-base-content/60">{m.created_at()}</span>
@@ -493,14 +507,26 @@
       </div>
       {#if req.reviewedAt}
         {#if req.reviewNote}
-          <div>
+          <div class="sm:row-span-2">
             <span class="text-base-content/60">{m.shop_delete_request_review_note()}</span>
-            <p class="font-medium">{req.reviewNote}</p>
+            <p class="font-medium break-words">{req.reviewNote}</p>
           </div>
         {/if}
         <div>
           <span class="text-base-content/60">{m.reviewed_at()}</span>
           <p class="font-medium">{new Date(req.reviewedAt).toLocaleString()}</p>
+        </div>
+        <div>
+          <span class="text-base-content/60">{m.reviewer()}</span>
+          {#if req.reviewedByUser}
+            <p class="font-medium">
+              <a href={profileHref(req.reviewedByUser)} class={profileLinkClass}>
+                {getDisplayName(req.reviewedByUser)}
+              </a>
+            </p>
+          {:else}
+            <p class="font-medium">{m.unknown_user()}</p>
+          {/if}
         </div>
       {/if}
     </div>

@@ -683,6 +683,12 @@
   // Lock toggle state
   let isTogglingLock = $state(false);
 
+  const profileLinkClass =
+    'underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white';
+
+  const profileHref = (user?: { id: string; name?: string | null } | null) =>
+    user ? resolve('/(main)/users/[id]', { id: user.name ? '@' + user.name : user.id }) : '#';
+
   const handleToggleLock = async () => {
     if (!shop || !isAdmin || isTogglingLock) return;
     isTogglingLock = true;
@@ -1647,7 +1653,16 @@
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60">{m.request_by()}:</span>
                     <span class="text-right font-medium">
-                      {getDisplayName(pendingDeleteRequest.requestedByUser)}
+                      {#if pendingDeleteRequest.requestedByUser}
+                        <a
+                          href={profileHref(pendingDeleteRequest.requestedByUser)}
+                          class={profileLinkClass}
+                        >
+                          {getDisplayName(pendingDeleteRequest.requestedByUser)}
+                        </a>
+                      {:else}
+                        {pendingDeleteRequest.requestedByName ?? m.unknown_user()}
+                      {/if}
                     </span>
                   </div>
                   <div class="flex items-center justify-between gap-1">

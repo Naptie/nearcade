@@ -677,6 +677,10 @@ export const shopDeleteRequestSchema = z
     requestedBy: userIdSchema
       .nullable()
       .describe(bilingual('提交申请的用户 ID。', 'Requester user ID.')),
+    requestedByUser: userPublicSchema
+      .nullable()
+      .optional()
+      .describe(bilingual('提交申请者的公开资料。', 'Requester public profile.')),
     requestedByName: z
       .string()
       .nullable()
@@ -689,6 +693,10 @@ export const shopDeleteRequestSchema = z
       .nullable()
       .optional()
       .describe(bilingual('审核者用户 ID。', 'Reviewer user ID.')),
+    reviewedByUser: userPublicSchema
+      .nullable()
+      .optional()
+      .describe(bilingual('审核者公开资料。', 'Reviewer public profile.')),
     reviewNote: z.string().nullable().optional().describe(bilingual('审核备注。', 'Review note.')),
     photoId: z
       .string()

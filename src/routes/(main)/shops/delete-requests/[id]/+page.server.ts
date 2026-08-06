@@ -7,7 +7,7 @@ import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import {
   getShopDeleteRequestComments,
   getShopDeleteRequestVoteSummary,
-  attachDeleteRequestRequesters
+  attachDeleteRequestUsers
 } from '$lib/utils/shops/delete-request.server';
 import { m } from '$lib/paraglide/messages';
 
@@ -26,9 +26,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
   const [hydratedDeleteRequest] = await hydrateEntitiesWithImages(db, [deleteRequest]);
 
-  const [deleteRequestWithRequester] = await attachDeleteRequestRequesters(db, [
-    hydratedDeleteRequest
-  ]);
+  const [deleteRequestWithRequester] = await attachDeleteRequestUsers(db, [hydratedDeleteRequest]);
 
   const [comments, voteSummary] = await Promise.all([
     getShopDeleteRequestComments(db, hydratedDeleteRequest.id, session?.user?.id),

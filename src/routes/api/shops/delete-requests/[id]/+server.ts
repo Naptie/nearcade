@@ -19,7 +19,10 @@ import {
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 import { successResponseSchema } from '$lib/schemas/common';
 import { toPlainObject } from '$lib/utils';
-import { getShopDeleteRequestVoteSummary } from '$lib/utils/shops/delete-request.server';
+import {
+  attachDeleteRequestUsers,
+  getShopDeleteRequestVoteSummary
+} from '$lib/utils/shops/delete-request.server';
 
 type ShopDeleteRequestEntry = z.infer<typeof shopDeleteRequestSchema>;
 type ShopPhotoEntry = z.infer<typeof shopPhotoSchema>;
@@ -35,15 +38,16 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   }
 
   const [hydratedDeleteRequest] = await hydrateEntitiesWithImages(db, [deleteRequest]);
+  const [deleteRequestWithUsers] = await attachDeleteRequestUsers(db, [hydratedDeleteRequest]);
   const voteSummary = await getShopDeleteRequestVoteSummary(
     db,
-    hydratedDeleteRequest.id,
+    deleteRequestWithUsers.id,
     locals.session?.user?.id
   );
 
   const response = shopDeleteRequestDetailResponseSchema.parse(
     toPlainObject({
-      deleteRequest: hydratedDeleteRequest,
+      deleteRequest: deleteRequestWithUsers,
       voteSummary
     })
   );

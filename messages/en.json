@@ -1216,6 +1216,7 @@
   "reviewed_at": "Reviewed At",
   "reviewed_at_time": "Reviewed at {time}",
   "reviewed_by": "Reviewed by {name}",
+  "reviewer": "Reviewer",
   "revoke_moderator": "Revoke Moderator",
   "riding": "Riding",
   "route": "Route",
