@@ -7286,6 +7286,10 @@
                           },
                           "required": ["id", "name", "createdAt", "updatedAt"],
                           "additionalProperties": false
+                        },
+                        "alreadyInQueue": {
+                          "description": "该账号是否已在任一机台排队。\n\nWhether this account already occupies a card slot in any queue.",
+                          "type": "boolean"
                         }
                       },
                       "required": ["shopId", "machineId", "slotIndex", "expiresAt"],

@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import mongo from '$lib/db/index.server';
-import type { Machine } from '$lib/types';
+import type { Machine, QueueRecord } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 
 export const MACHINE_API_SECRET_PREFIX = 'nk_';
@@ -31,4 +31,20 @@ export const validateMachineAuth = async (request: Request, shopId: number): Pro
   }
 
   return machine;
+};
+
+/**
+ * Whether the given user currently occupies a card slot in any shop's machine
+ * queue. Machines report full queue snapshots to the `queues` collection, so a
+ * single query across every shop is enough to enforce "one account = one card
+ * slot" globally.
+ */
+export const isUserQueued = async (userId: string): Promise<boolean> => {
+  const db = mongo.db();
+  const queuesCollection = db.collection<QueueRecord>('queues');
+  const record = await queuesCollection.findOne(
+    { 'games.queue.members.userId': userId },
+    { projection: { _id: 1 } }
+  );
+  return record !== null;
 };

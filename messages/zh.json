@@ -307,6 +307,7 @@
   "attend": "出勤",
   "attend_claimed": "该店铺已被认领。请使用店内机器登记出勤。",
   "attend_registration": "出勤登记",
+  "attend_registration_already_queued": "该账号已在排队中，请更换账号或先退出当前队列。",
   "attend_registration_already_registered": "此位置已被其他用户登记。",
   "attend_registration_expired_or_invalid": "二维码已过期或无效。请在机台上重新获取。",
   "attend_registration_failed": "登记失败",

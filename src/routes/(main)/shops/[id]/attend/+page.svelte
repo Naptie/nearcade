@@ -67,6 +67,10 @@
               </div>
             </div>
           {/if}
+        {:else if data.errorCode === 'already_queued'}
+          <p class="text-base-content/70 mt-2">
+            {m.attend_registration_already_queued()}
+          </p>
         {:else}
           <p class="text-base-content/70 mt-2">
             {m.unexpected_error()}

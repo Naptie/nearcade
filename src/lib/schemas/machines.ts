@@ -64,7 +64,16 @@ export const attendanceRegistrationGetResponseSchema = successResponseSchema.ext
       slotIndex: queueSlotIndexSchema,
       expiresAt: expiresAtSchema,
       userId: userIdSchema.optional().describe(bilingual('用户 ID。', 'User ID.')),
-      user: userPublicSchema.optional().describe(bilingual('关联用户。', 'Associated user.'))
+      user: userPublicSchema.optional().describe(bilingual('关联用户。', 'Associated user.')),
+      alreadyInQueue: z
+        .boolean()
+        .optional()
+        .describe(
+          bilingual(
+            '该账号是否已在任一机台排队。',
+            'Whether this account already occupies a card slot in any queue.'
+          )
+        )
     })
     .describe(bilingual('登记令牌信息。', 'Registration token details.'))
 });

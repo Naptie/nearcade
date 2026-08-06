@@ -8,6 +8,7 @@ import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
 import { protect, toPlainObject } from '$lib/utils';
 import { validateMachineAuth } from '$lib/utils/machine.server';
+import { isUserQueued } from '$lib/utils/queue.server';
 import {
   attendanceRegistrationPostRequestSchema,
   attendanceRegistrationCreateResponseSchema,
@@ -105,16 +106,22 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
     }
 
     let user: User | undefined = undefined;
+    let alreadyInQueue = false;
     if (registration.userId) {
       const db = mongo.db();
       const usersCollection = db.collection<User>('users');
       user = (await usersCollection.findOne({ id: registration.userId })) ?? undefined;
+      // Surface duplicate registrations to the kiosk even if the attend page was
+      // validated earlier (covers races and accounts queued at other shops).
+      alreadyInQueue = await isUserQueued(registration.userId);
     }
 
     const response = attendanceRegistrationGetResponseSchema.parse(
       toPlainObject({
         success: true,
-        registration: user ? { ...registration, user: protect(user) } : registration
+        registration: user
+          ? { ...registration, alreadyInQueue, user: protect(user) }
+          : { ...registration, alreadyInQueue }
       })
     );
 

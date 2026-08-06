@@ -307,6 +307,7 @@
   "attend": "チェックイン",
   "attend_claimed": "この店舗はすでに登録されています。店内の機械を使用してチェックインしてください。",
   "attend_registration": "チェックイン登録",
+  "attend_registration_already_queued": "このアカウントはすでに列に並んでいます。別のアカウントを使用するか、現在の列から先に退出してください。",
   "attend_registration_already_registered": "この場所はすでに他のユーザーによって登録されています。",
   "attend_registration_expired_or_invalid": "QRコードの有効期限が切れているか、無効です。筐体から新しいコードを取得してください。",
   "attend_registration_failed": "登録失敗",

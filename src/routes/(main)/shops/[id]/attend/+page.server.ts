@@ -5,6 +5,7 @@ import mongo from '$lib/db/index.server';
 import type { AttendanceRegistration, Shop } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import { loginRedirect } from '$lib/utils/scoped';
+import { isUserQueued } from '$lib/utils/machine.server';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 
@@ -67,6 +68,17 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
     return {
       status: 'error' as const,
       errorCode: 'already_registered',
+      shop: shop ? { name: shop.name, id: shop.id } : null,
+      slotIndex: registration.slotIndex
+    };
+  }
+
+  // Reject when the account already occupies a card slot in any shop's queue
+  // (one account = one card slot, enforced globally).
+  if (await isUserQueued(session.user.id)) {
+    return {
+      status: 'error' as const,
+      errorCode: 'already_queued',
       shop: shop ? { name: shop.name, id: shop.id } : null,
       slotIndex: registration.slotIndex
     };
