@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
 import { protect, toPlainObject } from '$lib/utils';
 import { validateMachineAuth } from '$lib/utils/machine.server';
-import { isUserQueued } from '$lib/utils/queue.server';
+import { isUserQueued } from '$lib/utils/machine.server';
 import {
   attendanceRegistrationPostRequestSchema,
   attendanceRegistrationCreateResponseSchema,
