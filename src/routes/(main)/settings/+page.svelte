@@ -274,9 +274,10 @@
     socialModalStep = 'details';
   };
 
-  // Platforms already present in the draft cannot be added again
-  const platformTaken = (platform: string): boolean =>
-    socialLinks.some((link) => link.platform === platform);
+  // The bound social link for a platform, if any (used to make bound platforms
+  // in the picker open the edit modal instead of being disabled)
+  const getBoundLink = (platform: SocialPlatform): SocialLinkItem | undefined =>
+    socialLinks.find((link) => link.platform === platform);
 
   const confirmManualSocialLink = () => {
     const username = socialModalUsername.trim();
@@ -354,6 +355,31 @@
       url.searchParams.delete('verify');
       url.searchParams.delete('verifyError');
       history.replaceState(history.state, '', url.href);
+    }
+  });
+
+  // Deep-link straight into a social link flow via ?social=<platform> (used by
+  // the kiosk QR code). Bound platforms open the edit modal (same as clicking
+  // its edit button); unbound QQ opens the qbind verification modal directly.
+  $effect(() => {
+    const url = new URL(window.location.href);
+    const social = url.searchParams.get('social');
+    if (!social) return;
+    url.searchParams.delete('social');
+    history.replaceState(history.state, '', url.href);
+
+    const platform = social as SocialPlatform;
+    const index = socialLinks.findIndex((link) => link.platform === platform);
+    if (index !== -1) {
+      openEditSocialModal(index);
+    } else if (platform === 'qq') {
+      openQQVerifyModal();
+    } else {
+      socialModalPlatform = platform;
+      socialModalStep = 'details';
+      socialModalUsername = '';
+      socialModalError = '';
+      socialModalOpen = true;
     }
   });
 
@@ -1065,11 +1091,18 @@
       {#if socialModalStep === 'platform'}
         <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-2">
           {#each SOCIAL_PLATFORMS as platform (platform)}
+            {@const boundLink = getBoundLink(platform)}
             <button
               type="button"
-              class="bg-base-200 hover:bg-base-300 disabled:hover:bg-base-200 flex items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={platformTaken(platform)}
-              onclick={() => pickSocialPlatform(platform)}
+              class="bg-base-200 hover:bg-base-300 flex items-center gap-3 rounded-lg p-3 text-left transition-colors"
+              onclick={() => {
+                if (boundLink) {
+                  const index = socialLinks.findIndex((l) => l.platform === platform);
+                  if (index !== -1) openEditSocialModal(index);
+                } else {
+                  pickSocialPlatform(platform);
+                }
+              }}
             >
               <div
                 class="bg-base-100 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -1078,7 +1111,11 @@
               </div>
               <span class="min-w-0 flex-1">
                 <span class="block font-medium">{m[`social_platform_${platform}`]()}</span>
-                {#if isVerifiablePlatform(platform)}
+                {#if boundLink}
+                  <span class="text-success block truncate text-xs">
+                    <i class="fa-solid fa-circle-check mr-1"></i>{boundLink.username}
+                  </span>
+                {:else if isVerifiablePlatform(platform)}
                   <span class="text-success block text-xs">
                     <i class="fa-solid fa-circle-check"></i>
                     {m.social_link_verify()}
