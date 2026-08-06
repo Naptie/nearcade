@@ -509,13 +509,9 @@
         {#if req.reviewNote}
           <div class="sm:row-span-2">
             <span class="text-base-content/60">{m.shop_delete_request_review_note()}</span>
-            <p class="font-medium break-words">{req.reviewNote}</p>
+            <p class="font-medium wrap-break-word">{req.reviewNote}</p>
           </div>
         {/if}
-        <div>
-          <span class="text-base-content/60">{m.reviewed_at()}</span>
-          <p class="font-medium">{new Date(req.reviewedAt).toLocaleString()}</p>
-        </div>
         <div>
           <span class="text-base-content/60">{m.reviewer()}</span>
           {#if req.reviewedByUser}
@@ -527,6 +523,10 @@
           {:else}
             <p class="font-medium">{m.unknown_user()}</p>
           {/if}
+        </div>
+        <div>
+          <span class="text-base-content/60">{m.reviewed_at()}</span>
+          <p class="font-medium">{new Date(req.reviewedAt).toLocaleString()}</p>
         </div>
       {/if}
     </div>

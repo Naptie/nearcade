@@ -156,27 +156,24 @@
             <p class="text-sm">{req.reason}</p>
           </div>
 
-          <p class="text-base-content/60 mb-1 text-xs">
-            {m.request_by()}:
-            {#if req.requestedByUser}
-              <a href={profileHref(req.requestedByUser)} class={profileLinkClass}>
-                {getDisplayName(req.requestedByUser)}
-              </a>
-            {:else}
-              {req.requestedByName ?? m.unknown_user()}
-            {/if}
-            &nbsp;@&nbsp;
-            {new Date(req.createdAt).toLocaleString()}
-          </p>
-
-          {#if req.reviewedAt}
-            <div class="text-base-content/60 mb-1 grid gap-x-3 gap-y-0.5 text-xs sm:grid-cols-2">
+          <div class="text-base-content/60 mb-1 grid gap-x-3 gap-y-0.5 text-xs sm:grid-cols-2">
+            <div>
+              {m.request_by()}:
+              {#if req.requestedByUser}
+                <a href={profileHref(req.requestedByUser)} class={profileLinkClass}>
+                  {getDisplayName(req.requestedByUser)}
+                </a>
+              {:else}
+                {req.requestedByName ?? m.unknown_user()}
+              {/if}
+            </div>
+            <div>{m.created_at()}: {new Date(req.createdAt).toLocaleString()}</div>
+            {#if req.reviewedAt}
               {#if req.reviewNote}
                 <div class="sm:row-span-2">
                   {m.shop_delete_request_review_note()}: {req.reviewNote}
                 </div>
               {/if}
-              <div>{m.reviewed_at()}: {new Date(req.reviewedAt).toLocaleString()}</div>
               <div>
                 {m.reviewer()}:
                 {#if req.reviewedByUser}
@@ -187,8 +184,9 @@
                   {m.unknown_user()}
                 {/if}
               </div>
-            </div>
-          {/if}
+              <div>{m.reviewed_at()}: {new Date(req.reviewedAt).toLocaleString()}</div>
+            {/if}
+          </div>
 
           {#if processErrors[req.id]}
             <div class="alert alert-error alert-soft mt-2 py-2 text-sm">
