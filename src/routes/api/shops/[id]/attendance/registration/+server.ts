@@ -2,11 +2,12 @@ import { error, json, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
-import type { Machine, AttendanceRegistration, Shop } from '$lib/types';
+import type { AttendanceRegistration, Shop } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
 import type { User } from '$lib/auth/types';
 import { protect, toPlainObject } from '$lib/utils';
+import { validateMachineAuth } from '$lib/utils/machine.server';
 import {
   attendanceRegistrationPostRequestSchema,
   attendanceRegistrationCreateResponseSchema,
@@ -23,34 +24,6 @@ import { successResponseSchema } from '$lib/schemas/common';
 
 const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
 const MAX_EXPIRATION_SECONDS = 2 * 60; // 2 minutes
-
-// Helper to validate machine API secret and check shop binding
-const validateMachineAuth = async (request: Request, shopId: number): Promise<Machine> => {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw error(401, m.unauthorized());
-  }
-
-  const apiSecret = authHeader.slice(7);
-  const db = mongo.db();
-  const machinesCollection = db.collection<Machine>('machines');
-
-  const machine = await machinesCollection.findOne({
-    apiSecret,
-    isActivated: true
-  });
-
-  if (!machine) {
-    throw error(401, m.invalid_machine_credentials());
-  }
-
-  // Validate machine is bound to the correct shop
-  if (machine.shopId !== shopId) {
-    throw error(403, m.machine_not_bound_to_shop());
-  }
-
-  return machine;
-};
 
 export const POST: RequestHandler = async ({ params, request }) => {
   try {

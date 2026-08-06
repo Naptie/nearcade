@@ -7,6 +7,7 @@ import {
   bilingual,
   dateTimeSchema,
   objectIdSchema,
+  positiveIntegerString,
   socialLinkSchema,
   successResponseSchema,
   userIdSchema,
@@ -273,3 +274,30 @@ export const avatarUploadRequestSchema = imageUploadRequestSchema.pick({ file: t
 export const avatarUploadResponseSchema = imageUploadEventSchema;
 
 export const userProfileDeleteResponseSchema = successResponseSchema;
+
+export const usersLookupQuerySchema = z.object({
+  qq: z
+    .string()
+    .regex(/^\d{5,12}$/)
+    .optional()
+    .describe(
+      bilingual(
+        '按已验证的 QQ 号查找。至少提供一个查询参数。',
+        'Look up by verified QQ number. Provide at least one lookup parameter.'
+      )
+    ),
+  shopId: positiveIntegerString
+    .optional()
+    .describe(
+      bilingual(
+        '店铺 ID（机台密钥鉴权时必须提供）。',
+        'Shop ID (required for machine secret auth).'
+      )
+    )
+});
+
+export const usersLookupResponseSchema = z.object({
+  users: z
+    .array(userPublicSchema)
+    .describe(bilingual('匹配到的用户列表（公开字段）。', 'Matched users (public fields).'))
+});

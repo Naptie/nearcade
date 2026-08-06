@@ -1,9 +1,10 @@
 import { error, json, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
-import type { Machine, QueueRecord, Shop, QueuePosition } from '$lib/types';
+import type { QueueRecord, Shop, QueuePosition } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import { getOrigin, sendWeChatTemplateMessage } from '$lib/utils/index.server';
+import { validateMachineAuth } from '$lib/utils/machine.server';
 import type { User } from '$lib/auth/types';
 import { WECHAT_TEMPLATE_QUEUE_NOTIFICATION } from '$env/static/private';
 import { toPlainObject } from '$lib/utils';
@@ -14,34 +15,6 @@ import {
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
-
-// Helper to validate machine API secret and check shop binding
-const validateMachineAuth = async (request: Request, shopId: number): Promise<Machine> => {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw error(401, m.unauthorized());
-  }
-
-  const apiSecret = authHeader.slice(7);
-  const db = mongo.db();
-  const machinesCollection = db.collection<Machine>('machines');
-
-  const machine = await machinesCollection.findOne({
-    apiSecret,
-    isActivated: true
-  });
-
-  if (!machine) {
-    throw error(401, m.invalid_machine_credentials());
-  }
-
-  // Validate machine is bound to the correct shop
-  if (machine.shopId !== shopId) {
-    throw error(403, m.machine_not_bound_to_shop());
-  }
-
-  return machine;
-};
 
 // Helper to find a member's position info across all queues
 interface MemberPositionInfo {

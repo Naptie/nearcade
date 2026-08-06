@@ -12462,6 +12462,206 @@
         }
       }
     },
+    "/users": {
+      "get": {
+        "tags": ["users"],
+        "summary": "按社交平台账号查找用户 / Look up users by social account",
+        "description": "通过已绑定的社交平台账号（如 QQ 号）查找用户。同一账号可能对应多个用户，因此返回匹配列表，由调用方决定取用哪个。鉴权支持 SSC_SECRET、站点管理员会话，或机台 API secret（此时必须同时提供 shopId 且与机台绑定店铺一致）。\n\nLook up users by a bound social account (e.g. a verified QQ number). A social account may map to several users, so all matches are returned and the caller decides which to use. Authorized via SSC_SECRET, a site admin session, or a machine API secret (which additionally requires a matching shopId).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "operationId": "getUsers",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "qq",
+            "schema": {
+              "description": "按已验证的 QQ 号查找。至少提供一个查询参数。\n\nLook up by verified QQ number. Provide at least one lookup parameter.",
+              "type": "string",
+              "pattern": "^\\d{5,12}$"
+            },
+            "description": "按已验证的 QQ 号查找。至少提供一个查询参数。\n\nLook up by verified QQ number. Provide at least one lookup parameter."
+          },
+          {
+            "in": "query",
+            "name": "shopId",
+            "schema": {
+              "description": "店铺 ID（机台密钥鉴权时必须提供）。\n\nShop ID (required for machine secret auth).",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "description": "店铺 ID（机台密钥鉴权时必须提供）。\n\nShop ID (required for machine secret auth)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "匹配的用户列表 / Matched users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                          },
+                          "email": {
+                            "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                            "type": "string"
+                          },
+                          "image": {
+                            "description": "头像。\n\nAvatar URL.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "avatarImageId": {
+                            "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "description": "创建时间。\n\nCreation time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "资料更新时间。\n\nProfile update time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "joinedAt": {
+                            "description": "加入时间。\n\nJoin time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "lastActiveAt": {
+                            "description": "最后活跃时间。\n\nLast active time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "userType": {
+                            "description": "用户类型。\n\nUser type.",
+                            "type": "string",
+                            "enum": [
+                              "site_admin",
+                              "developer",
+                              "school_admin",
+                              "club_admin",
+                              "school_moderator",
+                              "club_moderator",
+                              "student",
+                              "regular"
+                            ]
+                          },
+                          "bio": {
+                            "description": "个人简介。\n\nUser bio.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "socialLinks": {
+                            "description": "社交链接。\n\nSocial links visible to clients.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string",
+                                  "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                  "description": "社交平台。\n\nSocial platform."
+                                },
+                                "username": {
+                                  "type": "string",
+                                  "description": "用户名。\n\nUsername."
+                                },
+                                "verified": {
+                                  "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": ["platform", "username"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "frequentingArcades": {
+                            "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "starredArcades": {
+                            "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": ["id", "name", "createdAt", "updatedAt"],
+                        "additionalProperties": false
+                      },
+                      "description": "匹配到的用户列表（公开字段）。\n\nMatched users (public fields)."
+                    }
+                  },
+                  "required": ["users"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "403": {
+            "description": "禁止访问 / Forbidden"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
     "/users/{id}": {
       "get": {
         "tags": ["users"],
