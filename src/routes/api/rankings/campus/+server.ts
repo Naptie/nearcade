@@ -16,7 +16,7 @@ interface CacheMetadata {
 }
 
 interface CachedRanking extends UniversityRankingData {
-  rankOrder: { [key: string]: number }; // sortBy_radius -> rank
+  rankOrder: { [key: string]: number };
 }
 
 export const GET: RequestHandler = async ({ url }) => {

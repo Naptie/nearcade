@@ -37,7 +37,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ success: false, verified: false });
   }
 
-  // Bind the phone number to the user account
   const db = mongo.db();
   await db.collection<User>('users').updateOne(
     { id: userId },
