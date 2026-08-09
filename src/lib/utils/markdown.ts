@@ -38,8 +38,6 @@ const processor = unified()
   })
   .use(rehypeStringify);
 
-const isWhitespace = (char: string | undefined): boolean => !!char && /\s/.test(char);
-
 const isEscaped = (input: string, index: number): boolean => {
   let slashCount = 0;
 
@@ -74,13 +72,13 @@ const lineFence = (line: string): { marker: '`' | '~'; size: number } | undefine
 };
 
 /**
- * Escape single dollar signs unless they are surrounded by whitespace.
+ * 转义与数字直接相邻的单个 $ 号（货币场景），保留真实的行内公式。
  *
- * `remark-math` treats every unescaped single `$` as a possible inline math
- * delimiter. Requiring whitespace on both sides keeps `$5`-style prices as
- * text while still allowing spaced inline math such as ` $ x + y $ `.
+ * 规则：单个 `$` 前后紧邻数字（如 `$5`、`50$`、`$5.99`）才转义为 `\$`；
+ * 其余单个 `$`（如 `$v = at$`、`$t$`）原样保留，交给 remark-math 按行内公式
+ * 渲染。`$$` 块级公式与代码块内的 `$` 不受影响。
  */
-const escapeNonSpacedDollarDelimiters = (input: string): string => {
+const escapeCurrencyDollarDelimiters = (input: string): string => {
   let output = '';
   let index = 0;
   let fence: { marker: '`' | '~'; size: number } | undefined;
@@ -137,9 +135,12 @@ const escapeNonSpacedDollarDelimiters = (input: string): string => {
           continue;
         }
 
+        const prev = input[absoluteIndex - 1];
+        const next = input[absoluteIndex + 1];
+
         if (
           size === 1 &&
-          !(isWhitespace(input[absoluteIndex - 1]) && isWhitespace(input[absoluteIndex + 1]))
+          ((prev !== undefined && /\d/.test(prev)) || (next !== undefined && /\d/.test(next)))
         ) {
           output += '\\$';
           offset++;
@@ -162,7 +163,7 @@ const escapeNonSpacedDollarDelimiters = (input: string): string => {
  */
 export const render = async (input: string): Promise<string> => {
   if (!input) return '';
-  return String(await processor.process(escapeNonSpacedDollarDelimiters(input)));
+  return String(await processor.process(escapeCurrencyDollarDelimiters(input)));
 };
 
 /**
@@ -170,7 +171,7 @@ export const render = async (input: string): Promise<string> => {
  */
 export const strip = async (input: string): Promise<string> => {
   if (!input) return '';
-  const html = String(await barebone.process(escapeNonSpacedDollarDelimiters(input)));
+  const html = String(await barebone.process(escapeCurrencyDollarDelimiters(input)));
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return doc.body.innerText || '';
 };
