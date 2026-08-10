@@ -393,11 +393,19 @@
   let copied = $state(false);
   let copiedTimeout: ReturnType<typeof setTimeout> | undefined = $state();
 
-  const openQQVerifyModal = () => {
-    qqToken = data.qbindToken;
+  const openQQVerifyModal = async () => {
     qqVerified = null;
     qqExpired = false;
     qqError = false;
+    try {
+      const response = await fetch('/api/qbind/token', { method: 'POST' });
+      if (!response.ok) throw new Error('failed_to_issue_token');
+      const { token } = (await response.json()) as { token: string };
+      qqToken = token;
+    } catch {
+      qqToken = '';
+      qqError = true;
+    }
     showQQVerifyModal = true;
   };
 

@@ -1,6 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
-import { nanoid } from 'nanoid';
 import type { PageServerLoad, Actions } from './$types';
 import mongo from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
@@ -14,7 +13,6 @@ import {
   parseQbindGroups,
   syncVerifiedSocialLinkFromAccount
 } from '$lib/auth/social-verify.server';
-import { registerQbindToken } from '$lib/auth/qbind.server';
 
 export interface SocialLinkInput {
   platform: SocialPlatform;
@@ -107,9 +105,6 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 
   const qbindGroups = parseQbindGroups(env.QBIND_GROUPS);
 
-  const qbindToken = nanoid(32);
-  await registerQbindToken(qbindToken, user.id);
-
   return {
     userProfile: {
       id: user.id,
@@ -128,7 +123,6 @@ export const load: PageServerLoad = async ({ parent, url }) => {
       notificationTypes: user.notificationTypes,
       socialLinks
     },
-    qbindToken,
     qbindGroups,
     verifyResult
   };
