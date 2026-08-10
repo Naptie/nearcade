@@ -417,7 +417,7 @@
 
   $effect(() => {
     if (!showQQVerifyModal) return;
-    const deadline = Date.now() + 300_000;
+    const deadline = Date.now() + 600_000;
     const timer = setInterval(async () => {
       if (Date.now() > deadline) {
         qqExpired = true;
