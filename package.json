@@ -17,7 +17,7 @@
     "m": "tsx ./scripts/manage-messages.js",
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
-    "maintain-attendance": "tsx ./scripts/attendance-maintainer.ts",
+    "maintain": "tsx ./scripts/redis-maintainer.ts",
     "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },

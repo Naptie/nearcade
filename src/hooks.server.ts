@@ -345,8 +345,6 @@ export const init: ServerInit = async () => {
     await meili.init(mongo);
     await initRegionCache(mongo);
     const redis = (await import('$lib/db/redis.server')).default;
-    const qbind = await import('$lib/auth/qbind.server');
-    qbind.startRedisListener();
     const oss = getAvailableOSS();
     console.log(
       [
