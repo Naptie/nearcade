@@ -11,6 +11,10 @@
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName } from '$lib/utils';
   import { authClient } from '$lib/auth/client';
+  import { toast } from '$lib/notifications/toast.svelte';
+  import { resolveStatusMessage } from '$lib/notifications/messages';
+  import { showBanner, dismissBanner } from '$lib/notifications/banner.svelte';
+  import { unsavedChanges, markUnsavedChanges } from '$lib/actions/unsaved-changes';
   import type { PageData, ActionData } from './$types';
   import UploadModal from '$lib/components/UploadModal.svelte';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
@@ -24,7 +28,6 @@
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let isSubmitting = $state(false);
-  let showSuccess = $state(false);
   let isAvatarUploadOpen = $state(false);
 
   // Form data with error handling
@@ -214,8 +217,14 @@
   };
 
   // Social links helper functions
+  // Social links are stored in state and submitted via hidden inputs, so their
+  // mutations don't fire DOM input/change events — mark the form dirty manually.
+  const markProfileDirty = () =>
+    markUnsavedChanges(formEl, { id: 'settings-profile-unsaved' });
+
   const removeSocialLink = (index: number) => {
     socialLinks = socialLinks.filter((_: unknown, i: number) => i !== index);
+    markProfileDirty();
   };
 
   // --- Social links modal (add / edit) ---
@@ -295,6 +304,7 @@
           : link
       );
     }
+    markProfileDirty();
     closeSocialModal();
   };
 
@@ -346,6 +356,28 @@
   let verifyResultDismissed = $state(false);
   $effect(() => {
     if (data.verifyResult) verifyResultLocal = data.verifyResult;
+  });
+
+  // Persistent, dismissible banner for the social-link verification result
+  $effect(() => {
+    if (verifyResultLocal && !verifyResultDismissed) {
+      const message = verifyResultLocal.success
+        ? m.social_verify_oauth_success({
+            platform: m[`social_platform_${verifyResultLocal.platform as SocialPlatform}`](),
+            username: verifyResultLocal.username || ''
+          })
+        : verifyResultLocal.error === 'no_account'
+          ? m.social_verify_oauth_no_account()
+          : m.social_verify_oauth_error();
+      showBanner({
+        id: 'social-verify-result',
+        message,
+        type: verifyResultLocal.success ? 'success' : 'error',
+        icon: verifyResultLocal.success ? 'fa-circle-check' : 'fa-triangle-exclamation',
+        onDismiss: () => (verifyResultDismissed = true)
+      });
+    }
+    return () => dismissBanner('social-verify-result');
   });
 
   // Strip the verify/verifyError query params from the URL once handled
@@ -465,51 +497,6 @@
     </p>
   </div>
 
-  <!-- Success Alert -->
-  {#if showSuccess || (form?.success && form?.message)}
-    <div class="alert alert-success">
-      <i class="fa-solid fa-check-circle"></i>
-      <span>{form?.success ? getMessage(form.message) : m.profile_updated()}</span>
-    </div>
-  {/if}
-
-  <!-- Error Alert -->
-  {#if form?.message && !form.success}
-    <div class="alert alert-error">
-      <i class="fa-solid fa-exclamation-triangle"></i>
-      <span>{getMessage(form.message)}</span>
-    </div>
-  {/if}
-
-  <!-- Social Link Verification Result -->
-  {#if verifyResultLocal && !verifyResultDismissed}
-    <div class="alert {verifyResultLocal.success ? 'alert-success' : 'alert-error'}">
-      <i
-        class="fa-solid {verifyResultLocal.success ? 'fa-check-circle' : 'fa-exclamation-triangle'}"
-      ></i>
-      <span>
-        {#if verifyResultLocal.success}
-          {m.social_verify_oauth_success({
-            platform: m[`social_platform_${verifyResultLocal.platform as SocialPlatform}`](),
-            username: verifyResultLocal.username || ''
-          })}
-        {:else if verifyResultLocal.error === 'no_account'}
-          {m.social_verify_oauth_no_account()}
-        {:else}
-          {m.social_verify_oauth_error()}
-        {/if}
-      </span>
-      <button
-        type="button"
-        class="btn btn-ghost btn-sm"
-        onclick={() => (verifyResultDismissed = true)}
-        aria-label={m.close()}
-      >
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-  {/if}
-
   <!-- User Avatar & Basic Info -->
   {#if data.userProfile}
     <div class="bg-base-100 rounded-lg p-6">
@@ -567,15 +554,14 @@
     use:enhance={() => {
       isSubmitting = true;
 
-      return async ({ result }) => {
+      return async ({ result, update }) => {
         isSubmitting = false;
 
         if (result.type === 'success' && result.data?.success) {
-          showSuccess = true;
+          toast(m.profile_updated(), { type: 'success' });
           invalidateAll();
-          setTimeout(() => {
-            showSuccess = false;
-          }, 5000);
+          if (formEl) formEl.dataset.dirty = '0';
+          dismissBanner('settings-profile-unsaved');
 
           const platform = pendingVerify;
           if (platform) {
@@ -586,9 +572,16 @@
               errorCallbackURL: `${base}/settings?verify=${platform}&verifyError=1`
             });
           }
+        } else if (result.type === 'failure') {
+          const message = resolveStatusMessage(
+            (result.data as { message?: string } | undefined)?.message
+          );
+          if (message) toast(message, { type: 'error' });
+          await update();
         }
       };
     }}
+    use:unsavedChanges={{ id: 'settings-profile-unsaved' }}
     class="bg-base-100 space-y-6 rounded-lg p-6"
   >
     <h3 class="text-lg font-semibold">{m.profile_information()}</h3>

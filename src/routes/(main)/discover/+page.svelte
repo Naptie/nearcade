@@ -11,6 +11,7 @@
   } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
   import { onMount, getContext, untrack } from 'svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import {
     formatDistance,
     formatDuration,
@@ -1310,24 +1311,15 @@
     </div>
   </div>
   {#if data.shops.length === 0}
-    <div class="alert alert-soft alert-info mb-4 not-dark:hidden">
-      <i class="fa-solid fa-circle-info fa-lg"></i>
-      <span>{m.no_shops_found()}</span>
-    </div>
-    <div class="alert alert-info mb-4 dark:hidden">
-      <i class="fa-solid fa-circle-info fa-lg"></i>
-      <span>{m.no_shops_found()}</span>
-    </div>
+    <InlineAlert type="info" soft class="mb-4 not-dark:hidden">{m.no_shops_found()}</InlineAlert>
+    <InlineAlert type="info" class="mb-4 dark:hidden">{m.no_shops_found()}</InlineAlert>
   {/if}
   {#if amapError && !useGoogleMaps}
-    <div class="alert alert-error mb-4">
-      <i class="fa-solid fa-circle-xmark fa-lg"></i>
-      <span>
-        {m.map_failure({
-          error: amapError
-        })}
-      </span>
-    </div>
+    <InlineAlert type="error" icon="fa-circle-xmark" class="mb-4">
+      {m.map_failure({
+        error: amapError
+      })}
+    </InlineAlert>
   {/if}
   <div
     id="amap-container"

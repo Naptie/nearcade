@@ -1,12 +1,12 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
-  import { enhance } from '$app/forms';
-  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { m } from '$lib/paraglide/messages';
   import type { ActionData, PageData } from './$types';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import { feedback, type FeedbackResult } from '$lib/actions/form-feedback';
   import { formatDateTime, pageTitle } from '$lib/utils';
   import { resolve } from '$app/paths';
 
@@ -41,16 +41,6 @@
   const pendingExpiresAt = $derived.by(() =>
     data.pendingVerification?.expiresAt ? new Date(data.pendingVerification.expiresAt) : null
   );
-
-  const formMessage = $derived.by(() => {
-    if (form && 'message' in form && typeof form.message === 'string') {
-      return form.message;
-    }
-
-    return null;
-  });
-
-  const formSucceeded = $derived.by(() => Boolean(form && 'success' in form && form.success));
 
   const getVerificationErrorMessage = (errorCode: PageData['verificationError']) => {
     switch (errorCode) {
@@ -113,25 +103,11 @@
   </div>
   <div class="flex w-full max-w-2xl flex-col gap-4">
     {#if data.verificationSucceeded}
-      <div class="alert alert-success">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>{m.student_email_verification_success()}</span>
-      </div>
+      <InlineAlert type="success">{m.student_email_verification_success()}</InlineAlert>
     {/if}
 
     {#if data.verificationError}
-      <div class="alert alert-error">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        <span>{getVerificationErrorMessage(data.verificationError)}</span>
-      </div>
-    {/if}
-
-    {#if formMessage}
-      <div class={formSucceeded ? 'alert alert-success' : 'alert alert-error'}>
-        <i class={formSucceeded ? 'fa-solid fa-paper-plane' : 'fa-solid fa-triangle-exclamation'}
-        ></i>
-        <span>{formMessage}</span>
-      </div>
+      <InlineAlert type="error">{getVerificationErrorMessage(data.verificationError)}</InlineAlert>
     {/if}
 
     {#if data.verificationEmail}
@@ -177,14 +153,12 @@
           <form
             method="POST"
             action="?/sendVerificationEmail"
-            use:enhance={() => {
-              isSubmitting = true;
-
-              return async ({ update }) => {
-                isSubmitting = false;
-                await update();
-                await invalidateAll();
-              };
+            use:feedback={{
+              invalidate: true,
+              onPending: () => (isSubmitting = true),
+              onComplete: () => (isSubmitting = false),
+              successMessage: (r: FeedbackResult) => (r.data?.message as string | undefined) ?? '',
+              errorMessage: (r: FeedbackResult) => (r.data?.message as string | undefined) ?? ''
             }}
           >
             <label class="form-control w-full gap-2">
@@ -214,10 +188,7 @@
             </div>
           </form>
         {:else}
-          <div class="alert alert-error">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>{m.underconfigured_university_description()}</span>
-          </div>
+          <InlineAlert type="error">{m.underconfigured_university_description()}</InlineAlert>
         {/if}
       </section>
     {/if}

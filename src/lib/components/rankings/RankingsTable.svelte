@@ -2,6 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { formatDistance, getGameName } from '$lib/utils';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { RANKING_RADIUS_OPTIONS, RANKING_FIXED_GAMES } from '$lib/constants';
   import type {
     RankingMetrics,
@@ -355,10 +356,7 @@
     </div>
   {/if}
 {:else}
-  <div class="alert alert-info">
-    <i class="fa-solid fa-circle-info fa-lg"></i>
-    <span>{m.no_data()}</span>
-  </div>
+  <InlineAlert type="info" icon="fa-circle-info">{m.no_data()}</InlineAlert>
 {/if}
 
 <style lang="postcss">

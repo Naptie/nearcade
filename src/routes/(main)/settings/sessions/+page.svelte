@@ -9,6 +9,8 @@
   import { pageTitle } from '$lib/utils';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
   import { getScopeLabel, getScopeIcon } from '$lib/auth/oauth/scope-labels';
+  import { toast } from '$lib/notifications/toast.svelte';
+  import { resolveStatusMessage } from '$lib/notifications/messages';
   import type { PageData, ActionData } from './$types';
 
   type SessionItem = PageData['sessions'][number];
@@ -47,36 +49,18 @@
     }
   }
 
-  // ── Success / error message ───────────────────────────────────────────────
-  let showSuccess = $state(false);
-  let successTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  const getStatusMessage = (key: string | undefined): string => {
-    switch (key) {
-      case 'sessions_revoked':
-        return m.sessions_revoked();
-      case 'sessions_all_others_revoked':
-        return m.sessions_all_others_revoked();
-      case 'sessions_oauth_revoked':
-        return m.sessions_oauth_revoked();
-      case 'sessions_error_revoking':
-        return m.sessions_error_revoking();
-      case 'unauthorized':
-        return m.unauthorized();
-      default:
-        return key ?? '';
-    }
-  };
-
+  // ── Form result → toast ───────────────────────────────────────────────────
   $effect(() => {
     if (form?.success) {
-      showSuccess = true;
+      const message = resolveStatusMessage(form.message as string | undefined);
+      if (message) toast(message, { type: 'success' });
       showRevokeSessionConfirm = false;
       showRevokeOthersConfirm = false;
       showRevokeOAuthConfirm = false;
-      if (successTimeout) clearTimeout(successTimeout);
-      successTimeout = setTimeout(() => (showSuccess = false), 4000);
       invalidateAll();
+    } else if (form && !form.success && form.message) {
+      const message = resolveStatusMessage(form.message as string | undefined);
+      if (message) toast(message, { type: 'error' });
     }
   });
 
@@ -113,7 +97,6 @@
   $effect(() => {
     return () => {
       if (qrTimerInterval) clearInterval(qrTimerInterval);
-      if (successTimeout) clearTimeout(successTimeout);
     };
   });
 
@@ -140,19 +123,6 @@
       {m.sessions_add_session()}
     </button>
   </div>
-
-  <!-- Success / error alert -->
-  {#if showSuccess && form?.success}
-    <div class="alert alert-success">
-      <i class="fa-solid fa-check-circle"></i>
-      <span>{getStatusMessage(form.message as string | undefined)}</span>
-    </div>
-  {:else if form && !form.success && form.message}
-    <div class="alert alert-error">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span>{getStatusMessage(form.message as string | undefined)}</span>
-    </div>
-  {/if}
 
   <!-- ══ Cookie-based sessions ══════════════════════════════════════════════ -->
   <section class="space-y-4">

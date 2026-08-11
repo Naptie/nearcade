@@ -78,7 +78,7 @@ export const requireBoundPhone = (user?: User | null): void => {
     return;
   }
   if (!hasBoundPhone(user)) {
-    error(403, m.phone_binding_required_for_contribution());
+    error(403, m.phone_binding_required());
   }
 };
 

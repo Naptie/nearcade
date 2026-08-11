@@ -3,6 +3,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
+  import { toast } from '$lib/notifications/toast.svelte';
+  import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import ShopForm from '$lib/components/ShopForm.svelte';
@@ -28,12 +30,18 @@
     return {};
   });
 
-  let successMessage = $state('');
   let createdShopId = $state<number | null>(null);
   let createdShopPhotos = $state<ShopPhoto[]>([]);
 
   async function handleSubmit(formData: ShopFormData) {
-    if (!canManageShop) return;
+    if (!data.user) {
+      window.dispatchEvent(new CustomEvent('nearcade-login'));
+      return;
+    }
+    if (!canManageShop) {
+      phoneRequiredToast();
+      return;
+    }
 
     const response = await fetch('/api/shops', {
       method: 'POST',
@@ -47,7 +55,7 @@
     }
 
     const { shop } = await response.json();
-    successMessage = m.shop_created_successfully();
+    toast(m.shop_created_successfully(), { type: 'success' });
     createdShopId = shop.id;
   }
 </script>
@@ -61,20 +69,14 @@
     <h1 class="text-3xl font-bold">{m.create_shop()}</h1>
   </div>
 
-  {#if successMessage}
-    <div class="alert alert-success mb-6">
-      <i class="fa-solid fa-circle-check"></i>
-      <span>{successMessage}</span>
-    </div>
-  {/if}
-
   {#if createdShopId === null}
-    {#if canManageShop}
+    {#if data.user}
       <ShopForm
         {initialData}
         onSubmit={handleSubmit}
         onCancel={() => goto(resolve('/(main)/shops'))}
         submitLabel={m.create_shop()}
+        unsavedChangesId="shop-create-unsaved"
       />
     {:else}
       <VerifiedContactPrompt

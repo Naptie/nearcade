@@ -3,6 +3,7 @@
   import { resolve } from '$app/paths';
   import { GITHUB_LINK } from '$lib';
   import Footer from '$lib/components/Footer.svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
 
@@ -104,10 +105,9 @@
 
       <!-- Error Message (if available) -->
       {#if errorMessage}
-        <div class="alert alert-soft alert-error mb-4 text-left">
-          <i class="fas fa-exclamation-circle text-sm"></i>
+        <InlineAlert type="error" soft icon="fa-exclamation-circle" class="mb-4 text-left">
           <span class="font-mono">{errorMessage}</span>
-        </div>
+        </InlineAlert>
       {/if}
 
       <!-- Action Buttons -->

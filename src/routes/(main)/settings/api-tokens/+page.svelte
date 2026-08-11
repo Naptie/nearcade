@@ -8,6 +8,8 @@
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
   import CopyField from '$lib/components/CopyField.svelte';
   import { getFnsLocale } from '$lib/utils';
+  import { toast } from '$lib/notifications/toast.svelte';
+  import { resolveStatusMessage } from '$lib/notifications/messages';
 
   type TokenFormData = {
     id: string;
@@ -27,7 +29,6 @@
   let { data, form }: { data: PageData; form: ApiTokenActionData | null } = $props();
 
   let isSubmitting = $state(false);
-  let showSuccess = $state(false);
   let showCreateModal = $state(false);
   let showRenameModal = $state(false);
   let showDeleteModal = $state(false);
@@ -202,10 +203,11 @@
     }
 
     if (form?.success) {
-      showSuccess = true;
-      setTimeout(() => {
-        showSuccess = false;
-      }, 5000);
+      const message = resolveStatusMessage(form.message as string | undefined);
+      if (message) toast(message, { type: 'success' });
+    } else if (form && !form.success && form.message) {
+      const message = resolveStatusMessage(form.message as string | undefined);
+      if (message) toast(message, { type: 'error' });
     }
   });
 
@@ -254,22 +256,6 @@
       </div>
     {/if}
   </div>
-
-  <!-- Success Alert -->
-  {#if showSuccess && form?.success}
-    <div class="alert alert-success">
-      <i class="fa-solid fa-check-circle"></i>
-      <span>{getMessage(form.message)}</span>
-    </div>
-  {/if}
-
-  <!-- Error Alert -->
-  {#if form?.message && !form.success}
-    <div class="alert alert-error">
-      <i class="fa-solid fa-exclamation-triangle"></i>
-      <span>{getMessage(form.message)}</span>
-    </div>
-  {/if}
 
   {#if data.apiTokens && data.apiTokens.length > 0}
     <div class="space-y-4">
@@ -413,6 +399,15 @@
             clientErrors = {};
             if (result.type === 'success' && result.data?.success) {
               createdToken = result.data.token as TokenFormData;
+              toast(
+                resolveStatusMessage((result.data as { message?: string } | undefined)?.message),
+                { type: 'success' }
+              );
+            } else if (result.type === 'failure') {
+              toast(
+                resolveStatusMessage((result.data as { message?: string } | undefined)?.message),
+                { type: 'error' }
+              );
             }
             await invalidateAll();
           };
@@ -513,9 +508,24 @@
         action="?/renameToken"
         use:enhance={() => {
           isSubmitting = true;
-          return async () => {
+          return async ({ result }) => {
             isSubmitting = false;
             closeRenameModal();
+            if (result.type === 'success') {
+              toast(
+                resolveStatusMessage((result.data as { message?: string } | undefined)?.message),
+                {
+                  type: 'success'
+                }
+              );
+            } else if (result.type === 'failure') {
+              toast(
+                resolveStatusMessage((result.data as { message?: string } | undefined)?.message),
+                {
+                  type: 'error'
+                }
+              );
+            }
             invalidateAll();
           };
         }}
@@ -656,6 +666,19 @@
                 isSubmitting = false;
                 if (result.type === 'success' && result.data?.success) {
                   resetToken = result.data.token as TokenFormData;
+                  toast(
+                    resolveStatusMessage(
+                      (result.data as { message?: string } | undefined)?.message
+                    ),
+                    { type: 'success' }
+                  );
+                } else if (result.type === 'failure') {
+                  toast(
+                    resolveStatusMessage(
+                      (result.data as { message?: string } | undefined)?.message
+                    ),
+                    { type: 'error' }
+                  );
                 }
                 await invalidateAll();
               };
@@ -686,11 +709,17 @@
     message={m.confirm_delete_token()}
     onConfirm={async () => {
       isSubmitting = true;
-      await fetch('?/deleteToken', {
+      const response = await fetch('?/deleteToken', {
         method: 'POST',
         body: new URLSearchParams({ tokenId: currentToken!.id })
       });
       isSubmitting = false;
+      if (response.ok) {
+        toast(resolveStatusMessage('api_token_deleted'), { type: 'success' });
+      } else {
+        const data = (await response.json().catch(() => ({}))) as { message?: string };
+        toast(resolveStatusMessage(data?.message) || m.error_deleting_token(), { type: 'error' });
+      }
       closeDeleteModal();
       await invalidateAll();
     }}

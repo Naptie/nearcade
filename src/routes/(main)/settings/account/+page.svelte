@@ -7,6 +7,8 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getProviders, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { authClient } from '$lib/auth/client';
+  import { toast } from '$lib/notifications/toast.svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -457,9 +459,12 @@
         use:enhance={() => {
           showLeaveUniversityConfirm = false;
           leavingUniversityId = '';
-          return async ({ result }) => {
+          return async ({ result, update }) => {
             if (result.type === 'success') {
+              toast(m.left_university(), { type: 'success' });
               invalidateAll();
+            } else {
+              await update();
             }
           };
         }}
@@ -494,9 +499,12 @@
         use:enhance={() => {
           showLeaveClubConfirm = false;
           leavingClubId = '';
-          return async ({ result }) => {
+          return async ({ result, update }) => {
             if (result.type === 'success') {
+              toast(m.left_club(), { type: 'success' });
               invalidateAll();
+            } else {
+              await update();
             }
           };
         }}
@@ -515,10 +523,7 @@
   <div class="modal-box">
     <h3 class="text-error text-lg font-bold">{m.delete_account()}</h3>
     <p class="py-4">{m.confirm_delete_account()}</p>
-    <div class="alert alert-error mb-4">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span>{m.delete_account_irreversible()}</span>
-    </div>
+    <InlineAlert type="error" class="mb-4">{m.delete_account_irreversible()}</InlineAlert>
     <div class="modal-action">
       <button class="btn btn-ghost" onclick={() => (showDeleteConfirm = false)}>
         {m.cancel()}

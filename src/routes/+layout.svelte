@@ -27,6 +27,8 @@
   import Clarity from '@microsoft/clarity';
   import GlobalSeo from '$lib/components/GlobalSeo.svelte';
   import MetaRobots from '$lib/components/MetaRobots.svelte';
+  import ToastRegion from '$lib/components/ToastRegion.svelte';
+  import BannerRegion from '$lib/components/BannerRegion.svelte';
 
   const noindexPaths = ['/admin', '/settings', '/auth', '/oauth'];
   const shouldNoIndex = $derived(
@@ -261,3 +263,6 @@
 {@render children()}
 
 <NavigationTracker />
+
+<ToastRegion />
+<BannerRegion />

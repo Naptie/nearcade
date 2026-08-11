@@ -18,6 +18,10 @@
     canUpload?: boolean;
     canManagePhotos?: boolean;
     disabledActionReason?: string;
+    /** When set, blocked actions (e.g. phone required) render an enabled button
+     * that invokes this callback (e.g. to show a toast with an action) instead
+     * of a disabled button with a tooltip. */
+    onBlockedAction?: (reason: string) => void;
     title?: string;
     titleClass?: string;
     uploadUrl?: string;
@@ -47,6 +51,7 @@
     canUpload = currentUser !== undefined,
     canManagePhotos = currentUser !== undefined,
     disabledActionReason = '',
+    onBlockedAction,
     title = m.shop_photos(),
     titleClass = 'text-base font-semibold',
     uploadUrl,
@@ -139,6 +144,14 @@
               <i class="fa-solid fa-upload text-xs"></i>
               {uploadLabel}
             </button>
+          {:else if onBlockedAction && disabledActionReason}
+            <button
+              class="btn btn-ghost btn-sm gap-1"
+              onclick={() => onBlockedAction(disabledActionReason)}
+            >
+              <i class="fa-solid fa-upload text-xs"></i>
+              {uploadLabel}
+            </button>
           {:else}
             <div class="tooltip tooltip-left" data-tip={disabledActionReason}>
               <button class="btn btn-ghost btn-sm gap-1" disabled>
@@ -205,6 +218,7 @@
     {currentUser}
     {canManagePhotos}
     mutationDisabledReason={disabledActionReason}
+    {onBlockedAction}
     {allowDeleteRequest}
     deletePhoto={onDeletePhoto}
     {getDeleteUrl}

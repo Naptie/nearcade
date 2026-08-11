@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
+  import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { getDisplayName, pageTitle } from '$lib/utils';
   import { buildImageUploadUrl } from '$lib/utils/image';
@@ -22,6 +23,10 @@
   let hasPhone = $derived(hasBoundPhone(data.user));
   let canParticipate = $derived(
     !!data.user && (hasPhone || data.user.userType === 'site_admin') && req.status === 'pending'
+  );
+  /** True when the only thing blocking participation is a missing bound phone. */
+  let isPhoneOnlyBlock = $derived(
+    !!data.user && !hasPhone && data.user.userType !== 'site_admin' && req.status === 'pending'
   );
   let canRetractRequest = $derived(canParticipate && data.user?.id === req.requestedBy);
   let canModerateRequest = $derived(!!data.user && data.user?.userType === 'site_admin');
@@ -77,7 +82,11 @@
   };
 
   const handleDeleteRequestVote = async (voteType: ShopDeleteRequestVoteType) => {
-    if (!canParticipate || isSubmittingVote) return;
+    if (isSubmittingVote) return;
+    if (!canParticipate) {
+      if (isPhoneOnlyBlock) phoneRequiredToast();
+      return;
+    }
 
     isSubmittingVote = voteType;
     voteError = '';
@@ -437,7 +446,7 @@
             ? 'btn-success'
             : 'btn-ghost'}"
           onclick={() => handleDeleteRequestVote('favor')}
-          disabled={!canParticipate || !!isSubmittingVote}
+          disabled={(!canParticipate && !isPhoneOnlyBlock) || !!isSubmittingVote}
         >
           <span class="flex items-center gap-2">
             {#if isSubmittingVote === 'favor'}
@@ -455,7 +464,7 @@
             ? 'btn-error'
             : 'btn-ghost'}"
           onclick={() => handleDeleteRequestVote('against')}
-          disabled={!canParticipate || !!isSubmittingVote}
+          disabled={(!canParticipate && !isPhoneOnlyBlock) || !!isSubmittingVote}
         >
           <span class="flex items-center gap-2">
             {#if isSubmittingVote === 'against'}
@@ -476,7 +485,7 @@
         </div>
       {/if}
 
-      {#if req.status === 'pending' && !canParticipate}
+      {#if req.status === 'pending' && !canParticipate && !isPhoneOnlyBlock}
         <VerifiedContactPrompt
           user={data.user}
           loginMessage={m.login_to_vote_and_comment()}
@@ -547,9 +556,7 @@
             class="btn btn-warning btn-soft w-full"
             onclick={handleRetract}
             disabled={!canRetractRequest || isProcessing}
-            title={!canRetractRequest && data.user
-              ? m.phone_binding_required_for_contribution()
-              : undefined}
+            title={!canRetractRequest && data.user ? m.phone_binding_required() : undefined}
           >
             {#if isProcessing}
               <span class="loading loading-spinner loading-xs"></span>

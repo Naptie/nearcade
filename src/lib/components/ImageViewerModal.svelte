@@ -16,6 +16,10 @@
     currentUser?: User | undefined;
     canManagePhotos?: boolean;
     mutationDisabledReason?: string;
+    /** When set, mutation actions blocked by `mutationDisabledReason` (e.g.
+     * phone required) render enabled buttons invoking this callback instead of
+     * disabled buttons with a tooltip. */
+    onBlockedAction?: (reason: string) => void;
     allowDeleteRequest?: boolean;
     deletePhoto?: (photo: ImageAsset) => Promise<boolean> | boolean;
     getDeleteUrl?: (photo: ImageAsset) => string;
@@ -32,6 +36,7 @@
     currentUser = undefined,
     canManagePhotos = currentUser !== undefined,
     mutationDisabledReason = '',
+    onBlockedAction,
     allowDeleteRequest = false,
     deletePhoto,
     getDeleteUrl,
@@ -319,6 +324,14 @@
                     {/if}
                     {m.delete()}
                   </button>
+                {:else if showDisabledDeleteAction && onBlockedAction}
+                  <button
+                    class="btn btn-error btn-soft btn-sm"
+                    onclick={() => onBlockedAction(mutationDisabledReason)}
+                  >
+                    <i class="fa-solid fa-trash-can"></i>
+                    {m.delete()}
+                  </button>
                 {:else if showDisabledDeleteAction}
                   <div class="tooltip tooltip-left" data-tip={mutationDisabledReason}>
                     <button class="btn btn-error btn-soft btn-sm" disabled>
@@ -337,6 +350,14 @@
                       deleteRequestImageIds = [];
                       deleteRequestAttachments = [];
                     }}
+                  >
+                    <i class="fa-solid fa-flag"></i>
+                    {m.request_delete_shop()}
+                  </button>
+                {:else if showDisabledDeleteRequestAction && onBlockedAction}
+                  <button
+                    class="btn btn-warning btn-soft btn-sm"
+                    onclick={() => onBlockedAction(mutationDisabledReason)}
                   >
                     <i class="fa-solid fa-flag"></i>
                     {m.request_delete_shop()}

@@ -26,7 +26,7 @@
       return loginMessage;
     }
 
-    return m.phone_binding_required_for_contribution();
+    return m.phone_binding_required();
   });
 </script>
 
@@ -61,7 +61,7 @@
       {#if !hasPhone}
         <a href={resolve('/(main)/settings/phone')} class="btn btn-primary btn-soft btn-sm">
           <i class="fa-solid fa-mobile-screen"></i>
-          {m.phone_settings()}
+          {m.phone_settings_bind()}
         </a>
       {/if}
     </div>

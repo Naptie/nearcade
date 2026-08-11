@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
+  import { toast } from '$lib/notifications/toast.svelte';
   import { slide } from 'svelte/transition';
   import type { PageData } from './$types';
 
@@ -23,10 +24,6 @@
 
   // Removal state
   let isRemoving = $state(false);
-
-  // Messages
-  let errorMessage = $state('');
-  let successMessage = $state('');
 
   // 60-second frontend cooldown
   let cooldownSeconds = $state(0);
@@ -315,24 +312,22 @@
     const trimmedCountry = countryCode.trim();
 
     if (!trimmedPhone || !trimmedCountry) {
-      errorMessage = m.validation_error();
+      toast(m.validation_error(), { type: 'error' });
       return;
     }
 
     // Client-side uniqueness check: same as current bound number
     if (data.phone === trimmedPhone && data.phoneCountryCode === trimmedCountry) {
-      errorMessage = m.phone_settings_already_yours();
+      toast(m.phone_settings_already_yours(), { type: 'error' });
       return;
     }
 
     if (activeCaptchaProvider && !activeCaptchaToken) {
-      errorMessage = m.phone_settings_turnstile_failed();
+      toast(m.phone_settings_turnstile_failed(), { type: 'error' });
       return;
     }
 
     isSending = true;
-    errorMessage = '';
-    successMessage = '';
 
     try {
       const res = await fetch('/api/phone/send', {
@@ -353,9 +348,9 @@
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
         if (body.error === 'phone_already_yours') {
-          errorMessage = m.phone_settings_already_yours();
+          toast(m.phone_settings_already_yours(), { type: 'error' });
         } else {
-          errorMessage = m.phone_settings_taken();
+          toast(m.phone_settings_taken(), { type: 'error' });
         }
         resetActiveCaptcha();
         return;
@@ -365,9 +360,9 @@
         const body = await res.json().catch(() => ({}));
         if (body.error === 'cooldown') {
           startCooldown(body.retryAfter ?? 60);
-          errorMessage = m.phone_settings_cooldown({ seconds: body.retryAfter ?? 60 });
+          toast(m.phone_settings_cooldown({ seconds: body.retryAfter ?? 60 }), { type: 'error' });
         } else {
-          errorMessage = m.phone_settings_daily_limit();
+          toast(m.phone_settings_daily_limit(), { type: 'error' });
         }
         resetActiveCaptcha();
         return;
@@ -382,23 +377,22 @@
           body.error === 'captcha_missing' ||
           body.error === 'captcha_provider_invalid'
         ) {
-          errorMessage = m.phone_settings_turnstile_failed();
+          toast(m.phone_settings_turnstile_failed(), { type: 'error' });
           resetActiveCaptcha();
           return;
         }
       }
 
       if (!res.ok) {
-        errorMessage = m.phone_settings_error();
+        toast(m.phone_settings_error(), { type: 'error' });
         resetActiveCaptcha();
         return;
       }
 
       codeSent = true;
       startCooldown(60);
-      successMessage = '';
     } catch {
-      errorMessage = m.phone_settings_error();
+      toast(m.phone_settings_error(), { type: 'error' });
       resetActiveCaptcha();
     } finally {
       isSending = false;
@@ -408,13 +402,11 @@
   const handleVerify = async () => {
     const trimmedCode = code.trim();
     if (!trimmedCode) {
-      errorMessage = m.validation_error();
+      toast(m.validation_error(), { type: 'error' });
       return;
     }
 
     isVerifying = true;
-    errorMessage = '';
-    successMessage = '';
 
     try {
       const res = await fetch('/api/phone/verify', {
@@ -428,22 +420,22 @@
       });
 
       if (!res.ok) {
-        errorMessage = m.phone_settings_error_invalid();
+        toast(m.phone_settings_error_invalid(), { type: 'error' });
         return;
       }
 
       const body = await res.json();
       if (!body.verified) {
-        errorMessage = m.phone_settings_error_invalid();
+        toast(m.phone_settings_error_invalid(), { type: 'error' });
         return;
       }
 
       code = '';
       codeSent = false;
-      successMessage = m.phone_settings_verify_success();
+      toast(m.phone_settings_verify_success(), { type: 'success' });
       await invalidateAll();
     } catch {
-      errorMessage = m.phone_settings_error_invalid();
+      toast(m.phone_settings_error_invalid(), { type: 'error' });
     } finally {
       isVerifying = false;
     }
@@ -453,25 +445,23 @@
     if (!confirm(m.phone_settings_remove_confirm())) return;
 
     isRemoving = true;
-    errorMessage = '';
-    successMessage = '';
 
     try {
       const res = await fetch('/api/phone', { method: 'DELETE' });
 
       if (!res.ok) {
-        errorMessage = m.phone_settings_error();
+        toast(m.phone_settings_error(), { type: 'error' });
         return;
       }
 
-      successMessage = m.phone_settings_unbind_success();
+      toast(m.phone_settings_unbind_success(), { type: 'success' });
       codeSent = false;
       phoneNumber = '';
       countryCode = '';
       code = '';
       await invalidateAll();
     } catch {
-      errorMessage = m.phone_settings_error();
+      toast(m.phone_settings_error(), { type: 'error' });
     } finally {
       isRemoving = false;
     }
@@ -489,20 +479,6 @@
       {m.phone_settings_description()}
     </p>
   </div>
-
-  {#if successMessage}
-    <div class="alert alert-success">
-      <i class="fa-solid fa-check-circle"></i>
-      <span>{successMessage}</span>
-    </div>
-  {/if}
-
-  {#if errorMessage}
-    <div class="alert alert-error">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span>{errorMessage}</span>
-    </div>
-  {/if}
 
   <!-- Current phone number -->
   <section

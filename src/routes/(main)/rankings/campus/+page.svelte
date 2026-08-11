@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import { formatRegionLabel, adaptiveNewTab } from '$lib/utils';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy } from 'svelte';
   import type {
@@ -120,15 +121,11 @@
   />
 
   {#if data.error}
-    <div class="alert alert-error mb-4">
-      <i class="fa-solid fa-circle-xmark fa-lg"></i>
-      <span>{data.error}</span>
-    </div>
+    <InlineAlert type="error" icon="fa-circle-xmark" class="mb-4">{data.error}</InlineAlert>
   {:else if data.calculating}
-    <div class="alert alert-info mb-4">
-      <span class="loading loading-spinner loading-lg"></span>
-      <span>{m.rankings_being_updated()}</span>
-    </div>
+    <InlineAlert type="info" icon="fa-spinner fa-spin" class="mb-4"
+      >{m.rankings_being_updated()}</InlineAlert
+    >
   {:else}
     <RankingsTable
       rankings={displayedRankings}

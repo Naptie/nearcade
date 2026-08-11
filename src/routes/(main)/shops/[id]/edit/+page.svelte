@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
+  import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
   import ShopForm from '$lib/components/ShopForm.svelte';
@@ -36,7 +37,14 @@
   let successMessage = $state('');
 
   async function handleSubmit(formData: ShopFormData) {
-    if (!canManageShop) return;
+    if (!data.user) {
+      window.dispatchEvent(new CustomEvent('nearcade-login'));
+      return;
+    }
+    if (!canManageShop) {
+      phoneRequiredToast();
+      return;
+    }
 
     const response = await fetch(`/api/shops/${shop.id}`, {
       method: 'PUT',
@@ -71,12 +79,13 @@
     </div>
   {/if}
 
-  {#if canManageShop}
+  {#if data.user}
     <ShopForm
       {initialData}
       onSubmit={handleSubmit}
       onCancel={() => goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }))}
       submitLabel={m.save_changes()}
+      unsavedChangesId="shop-edit-unsaved"
     />
   {:else}
     <VerifiedContactPrompt
@@ -98,8 +107,9 @@
       disabledActionReason={!data.user
         ? ''
         : !hasPhone && !isAdmin
-          ? m.phone_binding_required_for_contribution()
+          ? m.phone_binding_required()
           : ''}
+      onBlockedAction={phoneRequiredToast}
     />
   </div>
 </div>

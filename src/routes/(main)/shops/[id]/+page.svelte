@@ -36,6 +36,7 @@
   import { fromZonedTime } from 'date-fns-tz';
   import { getLocale } from '$lib/paraglide/runtime';
   import { hasBoundPhone } from '$lib/utils';
+  import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
@@ -128,9 +129,15 @@
     }
 
     if (!hasPhone) {
-      return m.phone_binding_required_for_contribution();
+      return m.phone_binding_required();
     }
   });
+
+  /** True when the only thing blocking protected actions is a missing bound
+   * phone number. Only then do we enable the action and warn via toast. */
+  const isPhoneRequired = $derived(
+    (protectedShopActionMessage ?? '') === m.phone_binding_required()
+  );
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);
   let showAttendanceModal = $state(false);
@@ -1230,6 +1237,7 @@
               canUpload={canProtectedShopAction}
               canManagePhotos={canProtectedShopAction}
               disabledActionReason={protectedShopActionMessage}
+              onBlockedAction={isPhoneRequired ? phoneRequiredToast : undefined}
             />
           </section>
 
@@ -1336,6 +1344,11 @@
                           <i class="fa-solid fa-pen-to-square"></i>
                           {m.edit_shop()}
                         </a>
+                      {:else if isPhoneRequired}
+                        <button onclick={() => phoneRequiredToast()}>
+                          <i class="fa-solid fa-pen-to-square"></i>
+                          {m.edit_shop()}
+                        </button>
                       {:else}
                         <button
                           disabled
@@ -1351,15 +1364,22 @@
                     <li>
                       <button
                         onclick={() => {
-                          if (!canProtectedShopAction || pendingDeleteRequest) return;
+                          if (pendingDeleteRequest) return;
+                          if (!canProtectedShopAction) {
+                            if (isPhoneRequired) phoneRequiredToast();
+                            return;
+                          }
                           showDeleteRequestModal = true;
                         }}
-                        disabled={!canProtectedShopAction || !!pendingDeleteRequest}
-                        class:opacity-50={!canProtectedShopAction || !!pendingDeleteRequest}
-                        class:cursor-not-allowed={!canProtectedShopAction || !!pendingDeleteRequest}
+                        disabled={(!canProtectedShopAction && !isPhoneRequired) ||
+                          !!pendingDeleteRequest}
+                        class:opacity-50={(!canProtectedShopAction && !isPhoneRequired) ||
+                          !!pendingDeleteRequest}
+                        class:cursor-not-allowed={(!canProtectedShopAction && !isPhoneRequired) ||
+                          !!pendingDeleteRequest}
                         title={pendingDeleteRequest
                           ? m.shop_delete_request_already_pending()
-                          : !canProtectedShopAction
+                          : !canProtectedShopAction && !isPhoneRequired
                             ? protectedShopActionMessage
                             : undefined}
                       >

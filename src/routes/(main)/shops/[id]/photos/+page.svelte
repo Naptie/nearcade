@@ -20,7 +20,7 @@
       return '';
     }
 
-    return m.phone_binding_required_for_contribution();
+    return m.phone_binding_required();
   });
 
   let photos = $derived<ShopPhoto[]>(data.photos);

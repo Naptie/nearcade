@@ -5,6 +5,8 @@
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import type { PageData, ActionData } from './$types';
   import UploadModal from '$lib/components/UploadModal.svelte';
 
@@ -46,37 +48,32 @@
 
   <!-- Success Alert -->
   {#if form?.success}
-    <div class="alert alert-success mb-6">
-      <i class="fa-solid fa-check-circle"></i>
-      <span>{form.message}</span>
-    </div>
+    <InlineAlert type="success" class="mb-6">{form.message}</InlineAlert>
   {/if}
 
   <!-- Error Alert -->
   {#if (form?.message && !form.success) || errors.length > 0}
-    <div class="alert alert-error mb-6">
-      <i class="fa-solid fa-exclamation-triangle"></i>
-      <div>
-        {#if form?.message && !form.success}
-          <div class="font-medium">{form.message}</div>
-        {/if}
-        {#if errors.length > 0}
-          <div class="mt-2">
-            <div class="text-sm font-medium">{m.form_errors_found()}</div>
-            <ul class="mt-1 list-inside list-disc text-sm">
-              {#each errors as error (error)}
-                <li>{error}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-      </div>
-    </div>
+    <InlineAlert type="error" class="mb-6">
+      {#if form?.message && !form.success}
+        <div class="font-medium">{form.message}</div>
+      {/if}
+      {#if errors.length > 0}
+        <div class="mt-2">
+          <div class="text-sm font-medium">{m.form_errors_found()}</div>
+          <ul class="mt-1 list-inside list-disc text-sm">
+            {#each errors as error (error)}
+              <li>{error}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+    </InlineAlert>
   {/if}
 
   <!-- Edit Club Form -->
   <form
     method="POST"
+    use:unsavedChanges={{ id: 'club-edit-unsaved' }}
     use:enhance={() => {
       isSubmitting = true;
       return async ({ result }) => {

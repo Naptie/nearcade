@@ -11,6 +11,8 @@
   } from '$lib/auth/email';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
+  import { toast } from '$lib/notifications/toast.svelte';
+  import { showBanner, dismissBanner } from '$lib/notifications/banner.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -18,8 +20,7 @@
   let newEmail = $state('');
   let isSubmitting = $state(false);
   let isResending = $state(false);
-  let errorMessage = $state('');
-  let successMessage = $state('');
+  let changeSubmitted = $state(false);
 
   const currentEmailIsBound = $derived.by(() => hasBoundEmail(data.user.email));
   const canResendVerification = $derived.by(
@@ -30,30 +31,48 @@
     return withEmailVerificationSuccessMarker(new URL(page.url));
   };
 
-  $effect(() => {
-    if (data.verificationError) {
-      errorMessage = m.email_settings_verification_error();
-      successMessage = '';
-    } else if (data.verificationSucceeded) {
-      successMessage = m.email_settings_verification_success();
-      errorMessage = '';
-    }
+  let verificationHandled = $state(false);
 
-    if (data.verificationSucceeded || data.verificationError) {
-      history.replaceState(history.state, '', stripEmailVerificationStatus(new URL(page.url)));
+  $effect(() => {
+    if (!verificationHandled && (data.verificationError || data.verificationSucceeded)) {
+      verificationHandled = true;
+      if (data.verificationError) {
+        toast(m.email_settings_verification_error(), { type: 'error' });
+      } else {
+        toast(m.email_settings_verification_success(), { type: 'success' });
+      }
+
+      if (data.verificationSucceeded || data.verificationError) {
+        history.replaceState(history.state, '', stripEmailVerificationStatus(new URL(page.url)));
+      }
     }
+  });
+
+  // Persistent binding notice — shown while the user still needs to bind an email
+  $effect(() => {
+    if (data.prompt && data.needsEmailBinding) {
+      showBanner({
+        id: 'email-binding-notice',
+        message: m.email_settings_post_login_notice(),
+        type: 'info',
+        icon: 'fa-envelope-circle-check',
+        action: {
+          label: m.email_settings_continue(),
+          onClick: handleContinue
+        }
+      });
+    }
+    return () => dismissBanner('email-binding-notice');
   });
 
   const handleChangeEmail = async () => {
     const trimmedEmail = newEmail.trim();
     if (!trimmedEmail) {
-      errorMessage = m.validation_error();
+      toast(m.validation_error(), { type: 'error' });
       return;
     }
 
     isSubmitting = true;
-    errorMessage = '';
-    successMessage = '';
 
     try {
       await authClient.changeEmail({
@@ -61,10 +80,11 @@
         callbackURL: getCallbackURL()
       });
       newEmail = '';
-      successMessage = m.email_settings_change_success();
+      changeSubmitted = true;
+      toast(m.email_settings_change_success(), { type: 'success' });
       await invalidateAll();
     } catch {
-      errorMessage = m.email_settings_error();
+      toast(m.email_settings_error(), { type: 'error' });
     } finally {
       isSubmitting = false;
     }
@@ -76,17 +96,15 @@
     }
 
     isResending = true;
-    errorMessage = '';
-    successMessage = '';
 
     try {
       await authClient.sendVerificationEmail({
         email: data.user.email,
         callbackURL: getCallbackURL()
       });
-      successMessage = m.email_settings_resend_success();
+      toast(m.email_settings_resend_success(), { type: 'success' });
     } catch {
-      errorMessage = m.email_settings_error();
+      toast(m.email_settings_error(), { type: 'error' });
     } finally {
       isResending = false;
     }
@@ -108,27 +126,6 @@
       {m.email_settings_description()}
     </p>
   </div>
-
-  {#if data.prompt && data.needsEmailBinding}
-    <div class="alert alert-warning">
-      <i class="fa-solid fa-envelope-circle-check"></i>
-      <span>{m.email_settings_post_login_notice()}</span>
-    </div>
-  {/if}
-
-  {#if successMessage}
-    <div class="alert alert-success">
-      <i class="fa-solid fa-paper-plane"></i>
-      <span>{successMessage}</span>
-    </div>
-  {/if}
-
-  {#if errorMessage}
-    <div class="alert alert-error">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span>{errorMessage}</span>
-    </div>
-  {/if}
 
   <section
     class="bg-base-100 grid gap-4 rounded-2xl border border-current/10 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:p-6"
@@ -200,17 +197,9 @@
         {m.email_settings_change_submit()}
       </button>
 
-      {#if successMessage}
+      {#if changeSubmitted}
         <span class="text-base-content/70 text-sm">{m.email_settings_check_inbox()}</span>
       {/if}
     </div>
   </section>
-
-  {#if data.prompt}
-    <div class="flex justify-end">
-      <button type="button" class="btn btn-ghost" onclick={handleContinue}>
-        {m.email_settings_continue()}
-      </button>
-    </div>
-  {/if}
 </div>

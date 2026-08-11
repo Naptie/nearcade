@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { feedback } from '$lib/actions/form-feedback';
+  import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
-  import type { PageData, ActionData } from './$types';
+  import type { PageData } from './$types';
 
-  let { data, form }: { data: PageData; form: ActionData | null } = $props();
+  let { data }: { data: PageData } = $props();
 
   let isSubmitting = $state(false);
 
@@ -50,24 +51,14 @@
     {/if}
   </div>
 
-  <!-- Error Alert -->
-  {#if form?.message}
-    <div class="alert alert-error mb-6">
-      <i class="fa-solid fa-exclamation-triangle"></i>
-      <span>{form.message}</span>
-    </div>
-  {/if}
-
   <!-- Create Club Form -->
   <form
     method="POST"
-    use:enhance={() => {
-      isSubmitting = true;
-      return async ({ update }) => {
-        await update();
-        isSubmitting = false;
-      };
+    use:feedback={{
+      onPending: () => (isSubmitting = true),
+      onComplete: () => (isSubmitting = false)
     }}
+    use:unsavedChanges={{ id: 'club-create-unsaved' }}
     class="space-y-8"
   >
     <!-- Hidden university ID -->

@@ -6,6 +6,7 @@
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
+  import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import type { OpeningHourTime } from '$lib/types';
   import type { GameFormData, ShopFormData } from '$lib/schemas/forms';
 
@@ -14,9 +15,17 @@
     onSubmit: (data: ShopFormData) => Promise<void>;
     onCancel: () => void;
     submitLabel?: string;
+    /** When set, attach the "unsaved changes" warning banner with this dedupe id. */
+    unsavedChangesId?: string;
   };
 
-  let { initialData = {}, onSubmit, onCancel, submitLabel = m.save() }: Props = $props();
+  let {
+    initialData = {},
+    onSubmit,
+    onCancel,
+    submitLabel = m.save(),
+    unsavedChangesId
+  }: Props = $props();
 
   // ---- Form state ----
 
@@ -212,7 +221,13 @@
   }
 </script>
 
-<form onsubmit={handleSubmit} class="flex flex-col gap-8">
+<form
+  onsubmit={handleSubmit}
+  use:unsavedChanges={unsavedChangesId
+    ? { id: unsavedChangesId, actionLabel: submitLabel }
+    : undefined}
+  class="flex flex-col gap-8"
+>
   {#if errorMessage}
     <div class="alert alert-error">
       <i class="fa-solid fa-exclamation-triangle"></i>

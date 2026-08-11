@@ -6,6 +6,8 @@
   import { resolve } from '$app/paths';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import UploadModal from '$lib/components/UploadModal.svelte';
 
   let { data }: { data: PageData } = $props();
@@ -59,24 +61,21 @@
 
   <!-- Error Alert -->
   {#if errorMessage || errors.length > 0}
-    <div class="alert alert-error mb-6">
-      <i class="fa-solid fa-exclamation-triangle"></i>
-      <div>
-        {#if errorMessage}
-          <div class="font-medium">{errorMessage}</div>
-        {/if}
-        {#if errors.length > 0}
-          <div class="mt-2">
-            <div class="text-sm font-medium">{m.form_errors_found()}</div>
-            <ul class="mt-1 list-inside list-disc text-sm">
-              {#each errors as error, index (index)}
-                <li>{error}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-      </div>
-    </div>
+    <InlineAlert type="error" class="mb-6">
+      {#if errorMessage}
+        <div class="font-medium">{errorMessage}</div>
+      {/if}
+      {#if errors.length > 0}
+        <div class="mt-2">
+          <div class="text-sm font-medium">{m.form_errors_found()}</div>
+          <ul class="mt-1 list-inside list-disc text-sm">
+            {#each errors as error, index (index)}
+              <li>{error}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+    </InlineAlert>
   {/if}
 
   <!-- Form -->
@@ -111,6 +110,7 @@
         }
       };
     }}
+    use:unsavedChanges={{ id: 'university-edit-unsaved' }}
     class="space-y-6"
   >
     <div class="bg-base-200 rounded-lg p-6">
