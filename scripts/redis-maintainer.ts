@@ -56,7 +56,10 @@ const getQbindResultKey = (token: string) => `${getQbindKey(token)}:result`;
  * Claiming with GETDEL keeps this safe with the app's polling endpoint: only
  * one consumer wins, and re-claiming an already-completed token is a no-op.
  */
-const completeQbindBinding = async (commandClient: ReturnType<typeof createClient>, token: string) => {
+const completeQbindBinding = async (
+  commandClient: ReturnType<typeof createClient>,
+  token: string
+) => {
   try {
     const valueKey = getQbindKey(token);
     const raw = await commandClient.getDel(valueKey);
@@ -80,9 +83,7 @@ const completeQbindBinding = async (commandClient: ReturnType<typeof createClien
 
     const socialLinks = Array.isArray(user?.socialLinks) ? user.socialLinks : [];
     const verifiedLink = { platform: 'qq', username: String(qq), verified: true };
-    const index = socialLinks.findIndex(
-      (link: { platform: string }) => link.platform === 'qq'
-    );
+    const index = socialLinks.findIndex((link: { platform: string }) => link.platform === 'qq');
     if (index >= 0) {
       socialLinks[index] = verifiedLink;
     } else {
@@ -101,7 +102,11 @@ const completeQbindBinding = async (commandClient: ReturnType<typeof createClien
   }
 };
 
-const onQbindKeyWritten = (commandClient: ReturnType<typeof createClient>, channel: string, event: string) => {
+const onQbindKeyWritten = (
+  commandClient: ReturnType<typeof createClient>,
+  channel: string,
+  event: string
+) => {
   // React only to writes of the qbind value key itself (SET/SETEX); ignore
   // del/expiry events and the maintainer's own owner/result keys.
   if (event !== 'set' && event !== 'setex') return;
