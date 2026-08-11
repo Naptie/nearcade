@@ -79,4 +79,3 @@ export async function claimAndCompleteQbindToken(token: string): Promise<QbindCo
   await storeQbindResult(token, qq);
   return { status: 'success', qq };
 }
-
