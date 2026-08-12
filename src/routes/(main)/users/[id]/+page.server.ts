@@ -128,6 +128,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         frequentingArcades: toPlainArray(frequentingArcades),
         starredArcades: toPlainArray(starredArcades),
         isActivityPublic: user.isActivityPublic,
+        isEmailPublic: user.isEmailPublic,
+        isUniversityPublic: user.isUniversityPublic,
+        isFrequentingArcadePublic: user.isFrequentingArcadePublic,
+        isStarredArcadePublic: user.isStarredArcadePublic,
         socialLinks: user.socialLinks || []
       },
       frequentingArcadesCount: user.frequentingArcades ? user.frequentingArcades.length : 0,

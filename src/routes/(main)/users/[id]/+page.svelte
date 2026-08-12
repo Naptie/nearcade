@@ -24,12 +24,32 @@
   import Hover3D from '$lib/components/Hover3D.svelte';
   import FullscreenFrame from '$lib/components/FullscreenFrame.svelte';
   import { SOCIAL_PLATFORM_PROFILE_URLS } from '$lib/constants';
+  import { showBanner, dismissBanner } from '$lib/notifications/banner.svelte';
 
   let { data }: { data: PageData } = $props();
 
   const ARCADE_DISPLAY_LIMIT = 10;
 
   let radius = $state(10);
+
+  // Profile view mode (own profile only): preview how visitors see the profile
+  let profileView = $state<'me' | 'visitor'>('me');
+  const isVisitorView = $derived(data.isOwnProfile && profileView === 'visitor');
+
+  const showEmail = $derived(!isVisitorView || data.user.isEmailPublic === true);
+  const showUniversity = $derived(!isVisitorView || data.user.isUniversityPublic === true);
+  const hasVisibleFrequentingArcades = $derived((data.user.frequentingArcades?.length ?? 0) > 0);
+  const hasVisibleStarredArcades = $derived((data.user.starredArcades?.length ?? 0) > 0);
+  const showFrequentingSection = $derived(
+    isVisitorView
+      ? data.user.isFrequentingArcadePublic !== false && hasVisibleFrequentingArcades
+      : hasVisibleFrequentingArcades || data.isOwnProfile
+  );
+  const showStarredSection = $derived(
+    isVisitorView
+      ? data.user.isStarredArcadePublic !== false && hasVisibleStarredArcades
+      : hasVisibleStarredArcades || data.isOwnProfile
+  );
 
   // Activity loading state
   let activities = $state<Activity[]>([]);
@@ -49,7 +69,11 @@
   let ratingImage = $state<string | null>(null);
 
   // Check if can view activities
-  const canViewActivities = $derived(data.isOwnProfile || data.user.isActivityPublic !== false);
+  const canViewActivities = $derived(
+    isVisitorView
+      ? data.user.isActivityPublic !== false
+      : data.isOwnProfile || data.user.isActivityPublic !== false
+  );
 
   const loadActivities = async (page = 1, append = false) => {
     if (!canViewActivities) return;
@@ -128,6 +152,25 @@
       ratingImage = null;
     }
   });
+
+  // Persistent banner while in visitor view — click the action to switch back
+  $effect(() => {
+    if (isVisitorView) {
+      showBanner({
+        id: 'visitor-view-notice',
+        message: m.visitor_view_banner(),
+        type: 'info',
+        icon: 'fa-eye',
+        dismissible: true,
+        action: {
+          label: m.back_to_my_view(),
+          onClick: () => (profileView = 'me')
+        },
+        onDismiss: () => (profileView = 'me')
+      });
+    }
+    return () => dismissBanner('visitor-view-notice');
+  });
 </script>
 
 <svelte:head>
@@ -174,7 +217,7 @@
           {/if}
 
           <!-- University Info -->
-          {#if data.universityMembership}
+          {#if data.universityMembership && showUniversity}
             {@const university = data.universityMembership.university}
             {@const universityLink = resolve('/(main)/universities/[id]', {
               id: university.slug || university.id
@@ -233,13 +276,22 @@
           {/if}
         </div>
 
-        <!-- Edit Button (if own profile) -->
+        <!-- View Mode Toggle + Edit Button (if own profile) -->
         {#if data.isOwnProfile}
-          <div class="shrink-0">
-            <a href={resolve('/(main)/settings')} class="btn btn-sm btn-soft hover:btn-neutral">
-              <i class="fa-solid fa-edit"></i>
-              {m.edit()}
-            </a>
+          <div class="flex shrink-0 flex-col items-center gap-2 sm:items-end">
+            {#if !isVisitorView}
+              <button
+                class="btn btn-sm btn-soft hover:btn-neutral"
+                onclick={() => (profileView = 'visitor')}
+              >
+                <i class="fa-solid fa-eye"></i>
+                {m.view_as_visitor()}
+              </button>
+              <a href={resolve('/(main)/settings')} class="btn btn-sm btn-soft hover:btn-neutral">
+                <i class="fa-solid fa-edit"></i>
+                {m.edit()}
+              </a>
+            {/if}
           </div>
         {/if}
       </div>
@@ -305,7 +357,7 @@
         </div>
 
         <!-- Frequenting Arcades -->
-        {#if (data.user.frequentingArcades && data.user.frequentingArcades.length > 0) || data.isOwnProfile}
+        {#if showFrequentingSection}
           <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
               <i class="fa-solid fa-clock"></i>
@@ -335,7 +387,7 @@
         {/if}
 
         <!-- Starred Arcades -->
-        {#if (data.user.starredArcades && data.user.starredArcades.length > 0) || data.isOwnProfile}
+        {#if showStarredSection}
           <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
               <i class="fa-solid fa-star"></i>
@@ -419,7 +471,7 @@
         {/snippet}
 
         <!-- Sidebar Frequenting Arcades -->
-        {#if data.user.frequentingArcades && data.user.frequentingArcades.length > 0}
+        {#if showFrequentingSection && hasVisibleFrequentingArcades}
           <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-3 flex items-center gap-2 font-semibold">
               <i class="fa-solid fa-clock"></i>
@@ -441,7 +493,7 @@
         {/if}
 
         <!-- Sidebar Starred Arcades -->
-        {#if data.user.starredArcades && data.user.starredArcades.length > 0}
+        {#if showStarredSection && hasVisibleStarredArcades}
           <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-3 flex items-center gap-2 font-semibold">
               <i class="fa-solid fa-star"></i>
@@ -461,7 +513,7 @@
         {/if}
 
         <!-- Contact Info -->
-        {#if (data.user.socialLinks && data.user.socialLinks.length > 0) || (data.user.email && !data.user.email.endsWith('.nearcade'))}
+        {#if (data.user.socialLinks && data.user.socialLinks.length > 0) || (data.user.email && !data.user.email.endsWith('.nearcade') && showEmail)}
           <div class="bg-base-200 rounded-xl p-6">
             <h3 class="mb-3 flex items-center gap-2 font-semibold">
               <i class="fa-solid fa-envelope"></i>
@@ -521,7 +573,7 @@
                   </div>
                 {/each}
               {/if}
-              {#if data.user.email && !data.user.email.endsWith('.nearcade')}
+              {#if data.user.email && !data.user.email.endsWith('.nearcade') && showEmail}
                 <div class="flex items-center gap-2 text-sm">
                   <div class="flex w-4 justify-center" title={m.email_address()}>
                     <i class="fa-solid fa-envelope text-base-content/50"></i>
