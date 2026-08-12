@@ -219,8 +219,7 @@
   // Social links helper functions
   // Social links are stored in state and submitted via hidden inputs, so their
   // mutations don't fire DOM input/change events — mark the form dirty manually.
-  const markProfileDirty = () =>
-    markUnsavedChanges(formEl, { id: 'settings-profile-unsaved' });
+  const markProfileDirty = () => markUnsavedChanges(formEl, { id: 'settings-profile-unsaved' });
 
   const removeSocialLink = (index: number) => {
     socialLinks = socialLinks.filter((_: unknown, i: number) => i !== index);
