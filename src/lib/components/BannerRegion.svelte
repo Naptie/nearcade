@@ -37,13 +37,13 @@
 
       {#if banner.action}
         {#if banner.action.href}
-          <a href={banner.action.href} class="btn btn-primary btn-sm shrink-0">
+          <a href={banner.action.href} class="btn btn-{banner.type} btn-sm shrink-0">
             {banner.action.label}
           </a>
         {:else}
           <button
             type="button"
-            class="btn btn-primary btn-sm shrink-0"
+            class="btn btn-{banner.type} btn-sm shrink-0"
             onclick={() => handleAction(banner)}
           >
             {banner.action.label}
