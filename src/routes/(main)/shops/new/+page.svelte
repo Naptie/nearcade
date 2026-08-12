@@ -76,7 +76,6 @@
         onSubmit={handleSubmit}
         onCancel={() => goto(resolve('/(main)/shops'))}
         submitLabel={m.create_shop()}
-        unsavedChangesId="shop-create-unsaved"
       />
     {:else}
       <VerifiedContactPrompt

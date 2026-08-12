@@ -1,6 +1,5 @@
 <script lang="ts">
   import { feedback } from '$lib/actions/form-feedback';
-  import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
@@ -58,7 +57,6 @@
       onPending: () => (isSubmitting = true),
       onComplete: () => (isSubmitting = false)
     }}
-    use:unsavedChanges={{ id: 'club-create-unsaved' }}
     class="space-y-8"
   >
     <!-- Hidden university ID -->
