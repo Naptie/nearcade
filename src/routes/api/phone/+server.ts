@@ -16,7 +16,7 @@ export const DELETE: RequestHandler = async ({ locals }) => {
   await db.collection<User>('users').updateOne(
     { id: userId },
     {
-      $unset: { phone: '', phoneCountryCode: '' },
+      $unset: { phone: '', phoneDialCode: '' },
       $set: { updatedAt: new Date() }
     }
   );

@@ -45,7 +45,7 @@
       href: resolve('/(main)/settings/phone'),
       label: m.phone_settings(),
       icon: 'fa-phone',
-      warn: !data.user.phoneCountryCode || !data.user.phone
+      warn: !data.user.phoneDialCode || !data.user.phone
     },
     {
       href: resolve('/(main)/settings/account'),

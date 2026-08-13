@@ -5,15 +5,15 @@ import mongo from '$lib/db/index.server';
 import type { User } from '$lib/auth/types';
 import { sendPhoneOtp } from '$lib/sms/index.server';
 import { m } from '$lib/paraglide/messages';
-import { env } from '$env/dynamic/private';
+import {
+  getConfiguredCaptchaProviders,
+  verifyCaptcha,
+  type CaptchaProvider
+} from '$lib/captcha.server';
 import { getClientIp } from '$lib/utils/ip.server';
 
 const COOLDOWN_SECONDS = 60;
 const DAILY_LIMIT = 5;
-const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-const HCAPTCHA_VERIFY_URL = 'https://api.hcaptcha.com/siteverify';
-
-type CaptchaProvider = 'turnstile' | 'hcaptcha';
 
 function dailyKey(qualifier: string): string {
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -26,55 +26,6 @@ function cooldownKey(userId: string): string {
 
 function telegramSessionKey(sessionId: string): string {
   return `nearcade:sms:telegram:${sessionId}`;
-}
-
-async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
-  const secret = env.TURNSTILE_SECRET_KEY;
-  if (!secret) return true; // Skip verification if not configured
-  const resp = await fetch(TURNSTILE_VERIFY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secret, response: token, remoteip: ip })
-  });
-  if (!resp.ok) return false;
-  const data = (await resp.json()) as { success: boolean };
-  return data.success === true;
-}
-
-async function verifyHcaptcha(token: string, ip: string): Promise<boolean> {
-  const secret = env.HCAPTCHA_SECRET_KEY;
-  if (!secret) return true;
-
-  const body = new URLSearchParams({
-    secret,
-    response: token,
-    remoteip: ip,
-    ...(env.HCAPTCHA_SITE_KEY ? { sitekey: env.HCAPTCHA_SITE_KEY } : {})
-  });
-
-  const resp = await fetch(HCAPTCHA_VERIFY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString()
-  });
-
-  if (!resp.ok) return false;
-  const data = (await resp.json()) as { success: boolean };
-  return data.success === true;
-}
-
-function getConfiguredCaptchaProviders(): CaptchaProvider[] {
-  const providers: CaptchaProvider[] = [];
-
-  if (env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY) {
-    providers.push('turnstile');
-  }
-
-  if (env.HCAPTCHA_SITE_KEY && env.HCAPTCHA_SECRET_KEY) {
-    providers.push('hcaptcha');
-  }
-
-  return providers;
 }
 
 export const POST: RequestHandler = async (event) => {
@@ -134,10 +85,7 @@ export const POST: RequestHandler = async (event) => {
       error(400, JSON.stringify({ error: 'captcha_missing' }));
     }
 
-    const captchaOk =
-      captchaProvider === 'turnstile'
-        ? await verifyTurnstile(captchaToken, ip)
-        : await verifyHcaptcha(captchaToken, ip);
+    const captchaOk = await verifyCaptcha(captchaProvider, captchaToken, ip);
 
     if (!captchaOk) {
       error(400, JSON.stringify({ error: 'captcha_failed' }));
@@ -150,14 +98,14 @@ export const POST: RequestHandler = async (event) => {
   const db = mongo.db();
   const usersWithPhone = await db
     .collection<User>('users')
-    .countDocuments({ phone: phoneNumber, phoneCountryCode: dialCode });
+    .countDocuments({ phone: phoneNumber, phoneDialCode: dialCode });
   if (usersWithPhone >= 3) {
     error(409, JSON.stringify({ error: 'phone_taken' }));
   } else {
     const existingUser = await db
       .collection<User>('users')
       .findOne(
-        { phone: phoneNumber, phoneCountryCode: dialCode, id: userId },
+        { phone: phoneNumber, phoneDialCode: dialCode, id: userId },
         { projection: { id: 1 } }
       );
     if (existingUser) {

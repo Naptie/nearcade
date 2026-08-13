@@ -64,7 +64,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       {
         $set: {
           phone: context.phoneNumber,
-          phoneCountryCode: context.dialCode,
+          phoneDialCode: context.dialCode,
           updatedAt: new Date()
         }
       }

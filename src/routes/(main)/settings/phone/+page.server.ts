@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ parent }) => {
   const regions = await getSupportedRegions();
   return {
     phone: user.phone ?? null,
-    phoneCountryCode: user.phoneCountryCode ?? null,
+    phoneDialCode: user.phoneDialCode ?? null,
     regions,
     turnstileSiteKey:
       env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY ? env.TURNSTILE_SITE_KEY : null,

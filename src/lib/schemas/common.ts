@@ -291,7 +291,7 @@ export const userSchema = userPublicSchema.extend({
     .string()
     .optional()
     .describe(bilingual('手机号（不含国家/地区代码）。', 'Phone number without dial code.')),
-  phoneCountryCode: z
+  phoneDialCode: z
     .string()
     .optional()
     .describe(bilingual('手机号国家/地区拨号代码，例如 "86"。', 'Dial code, e.g. "86".'))

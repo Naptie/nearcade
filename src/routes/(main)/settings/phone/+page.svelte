@@ -36,7 +36,7 @@
   let telegramPollTimer: ReturnType<typeof setInterval> | null = null;
   let telegramExpiresAt = $state(0);
   let telegramPhone = $state('');
-  let telegramCountry = $state('');
+  let telegramDialCode = $state('');
 
   // Removal state
   let isRemoving = $state(false);
@@ -282,7 +282,7 @@
     // user edits the phone number or switches the dial code.
     if (
       telegramSession &&
-      (phoneNumber.trim() !== telegramPhone || countryCode.trim() !== telegramCountry)
+      (phoneNumber.trim() !== telegramPhone || countryCode.trim() !== telegramDialCode)
     ) {
       stopTelegramPolling();
       telegramSession = null;
@@ -410,15 +410,15 @@
 
   const handleSendCode = async () => {
     const trimmedPhone = phoneNumber.trim();
-    const trimmedCountry = countryCode.trim();
+    const trimmedDialCode = countryCode.trim();
 
-    if (!trimmedPhone || !trimmedCountry) {
+    if (!trimmedPhone || !trimmedDialCode) {
       toast(m.validation_error(), { type: 'error' });
       return;
     }
 
     // Client-side uniqueness check: same as current bound number
-    if (data.phone === trimmedPhone && data.phoneCountryCode === trimmedCountry) {
+    if (data.phone === trimmedPhone && data.phoneDialCode === trimmedDialCode) {
       toast(m.phone_settings_already_yours(), { type: 'error' });
       return;
     }
@@ -436,7 +436,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: trimmedPhone,
-          dialCode: trimmedCountry,
+          dialCode: trimmedDialCode,
           locale: getLocale(),
           ...(activeCaptchaProvider
             ? {
@@ -506,13 +506,14 @@
         // Start the Telegram verification flow: hand the deep link to the
         // user and poll the session status until verified or expired.
         telegramPhone = trimmedPhone;
-        telegramCountry = trimmedCountry;
+        telegramDialCode = trimmedDialCode;
         telegramSession = {
           sessionId: body.sessionId,
           deepLink: body.deepLink,
           expiresAt: body.expiresAt,
           ttl: body.ttl
         };
+        open(body.deepLink, '_blank', 'noopener,noreferrer');
         startTelegramPolling(telegramSession);
       } else {
         codeSent = true;
@@ -624,7 +625,7 @@
 
       {#if data.phone}
         <p class="text-base font-medium">
-          <span class="text-current/70">+{data.phoneCountryCode}</span>
+          <span class="text-current/70">+{data.phoneDialCode}</span>
           {data.phone}
         </p>
       {:else}
@@ -691,7 +692,11 @@
             ? 'btn-telegram'
             : 'btn-primary'} btn-soft not-sm:btn-circle"
           onclick={handleSendCode}
-          disabled={isSending || cooldownSeconds > 0}
+          disabled={isSending ||
+            cooldownSeconds > 0 ||
+            !phoneNumber.trim() ||
+            !countryCode.trim() ||
+            (activeCaptchaProvider !== null && !activeCaptchaToken && !codeSent)}
         >
           {#if isSending}
             <span class="loading loading-spinner"></span>
@@ -742,15 +747,6 @@
           <div class="flex flex-wrap items-center gap-3">
             <span class="loading loading-spinner loading-sm text-primary"></span>
             <p class="flex-1 text-sm">{m.phone_settings_telegram_waiting()}</p>
-            <a
-              class="btn btn-primary btn-sm"
-              href={telegramSession.deepLink}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <i class="fa-brands fa-telegram"></i>
-              {m.phone_settings_telegram_open()}
-            </a>
           </div>
         </div>
       {/if}

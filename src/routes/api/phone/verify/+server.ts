@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     {
       $set: {
         phone: phoneNumber,
-        phoneCountryCode: dialCode,
+        phoneDialCode: dialCode,
         updatedAt: new Date()
       }
     }

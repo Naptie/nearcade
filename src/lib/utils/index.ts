@@ -926,7 +926,7 @@ export const canReadPost = async (
 };
 
 export const hasBoundPhone = (user?: User | null): boolean => {
-  return !!user?.phone?.trim() && !!user?.phoneCountryCode?.trim();
+  return !!user?.phone?.trim() && !!user?.phoneDialCode?.trim();
 };
 
 export const isStandalone = () => {
