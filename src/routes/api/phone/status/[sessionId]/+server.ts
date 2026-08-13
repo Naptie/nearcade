@@ -16,6 +16,10 @@ function telegramSessionKey(sessionId: string): string {
   return `nearcade:sms:telegram:${sessionId}`;
 }
 
+function telegramSessionUserKey(userId: string): string {
+  return `nearcade:sms:telegram:user:${userId}`;
+}
+
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   const session = locals.session;
   if (!session) {
@@ -70,8 +74,10 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       }
     );
     await redis.del(telegramSessionKey(sessionId));
+    await redis.del(telegramSessionUserKey(userId));
   } else if (result.status === 'expired') {
     await redis.del(telegramSessionKey(sessionId));
+    await redis.del(telegramSessionUserKey(userId));
   }
 
   return json(result);

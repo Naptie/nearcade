@@ -423,7 +423,9 @@
       return;
     }
 
-    if (activeCaptchaProvider && !activeCaptchaToken) {
+    // Captcha is only required for the first send of a flow — re-requesting
+    // a Telegram session while one is in flight doesn't need a fresh token.
+    if (activeCaptchaProvider && !activeCaptchaToken && !telegramSession) {
       toast(m.phone_settings_turnstile_failed(), { type: 'error' });
       return;
     }
@@ -696,7 +698,10 @@
             cooldownSeconds > 0 ||
             !phoneNumber.trim() ||
             !countryCode.trim() ||
-            (activeCaptchaProvider !== null && !activeCaptchaToken && !codeSent)}
+            (activeCaptchaProvider !== null &&
+              !activeCaptchaToken &&
+              !codeSent &&
+              !telegramSession)}
         >
           {#if isSending}
             <span class="loading loading-spinner"></span>

@@ -28,6 +28,10 @@ function telegramSessionKey(sessionId: string): string {
   return `nearcade:sms:telegram:${sessionId}`;
 }
 
+function telegramSessionUserKey(userId: string): string {
+  return `nearcade:sms:telegram:user:${userId}`;
+}
+
 export const POST: RequestHandler = async (event) => {
   const { request, locals } = event;
   const session = locals.session;
@@ -37,6 +41,13 @@ export const POST: RequestHandler = async (event) => {
 
   const userId = session.user.id;
   const ip = getClientIp(event);
+
+  await ensureConnected();
+
+  // An in-flight Telegram verification session means the user already passed
+  // the captcha for this flow — re-requesting a session (e.g. after the
+  // cooldown) does not need a fresh captcha token.
+  const pendingTelegramSessionId = await redis.get(telegramSessionUserKey(userId));
 
   let body: {
     phoneNumber?: string;
@@ -76,7 +87,7 @@ export const POST: RequestHandler = async (event) => {
     error(400, 'phoneNumber and dialCode are required');
   }
 
-  if (configuredCaptchaProviders.length > 0) {
+  if (configuredCaptchaProviders.length > 0 && !pendingTelegramSessionId) {
     if (!captchaProvider || !configuredCaptchaProviders.includes(captchaProvider)) {
       error(400, JSON.stringify({ error: 'captcha_provider_invalid' }));
     }
@@ -91,8 +102,6 @@ export const POST: RequestHandler = async (event) => {
       error(400, JSON.stringify({ error: 'captcha_failed' }));
     }
   }
-
-  await ensureConnected();
 
   // Check that the phone number is not shared by too many accounts (max 3)
   const db = mongo.db();
@@ -144,11 +153,18 @@ export const POST: RequestHandler = async (event) => {
     // bind exactly the number confirmed via Telegram — the verified result
     // from unified-sms is authoritative, so no client-supplied values are
     // needed (or trusted) at bind time.
+    if (pendingTelegramSessionId) {
+      // A previous session for this flow is superseded by the new one.
+      await redis.del(telegramSessionKey(pendingTelegramSessionId));
+    }
     await redis.set(
       telegramSessionKey(result.sessionId),
       JSON.stringify({ userId, phoneNumber, dialCode }),
       { EX: result.ttl + 60 }
     );
+    await redis.set(telegramSessionUserKey(userId), result.sessionId, {
+      EX: result.ttl + 60
+    });
   }
 
   // Set cooldown and increment daily counters
