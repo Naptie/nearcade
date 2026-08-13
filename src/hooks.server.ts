@@ -344,6 +344,8 @@ export const init: ServerInit = async () => {
     const meili = await import('$lib/db/meili.server');
     await meili.init(mongo);
     await initRegionCache(mongo);
+    const sms = await import('$lib/sms/index.server');
+    await sms.initSmsRegions();
     const redis = (await import('$lib/db/redis.server')).default;
     const oss = getAvailableOSS();
     console.log(

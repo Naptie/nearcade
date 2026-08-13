@@ -214,7 +214,7 @@ export function resolveRegionFromGeneral(general: string[]): string[] | null {
  * presence rather than alphabetically. Countries without a ranking entry
  * (i.e. no machines) fall through to alphabetical order at the end.
  */
-async function getCountryMachineCounts(): Promise<Map<string, number>> {
+export async function getCountryMachineCounts(): Promise<Map<string, number>> {
   if (
     countryMachineCounts &&
     Date.now() - countryMachineCounts.fetchedAt < COUNTRY_MACHINES_CACHE_TTL_MS
