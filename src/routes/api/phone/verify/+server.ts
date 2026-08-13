@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const userId = session.user.id;
 
-  let body: { phoneNumber?: string; countryCode?: string; code?: string };
+  let body: { phoneNumber?: string; dialCode?: string; code?: string; locale?: string };
   try {
     body = await request.json();
   } catch {
@@ -21,14 +21,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const phoneNumber = body.phoneNumber?.trim();
-  const countryCode = body.countryCode?.trim();
+  const dialCode = body.dialCode?.trim();
   const code = body.code?.trim();
+  const locale = body.locale === 'zh' || body.locale === 'ja' ? body.locale : 'en';
 
-  if (!phoneNumber || !countryCode || !code) {
-    error(400, 'phoneNumber, countryCode, and code are required');
+  if (!phoneNumber || !dialCode || !code) {
+    error(400, 'phoneNumber, dialCode, and code are required');
   }
 
-  const result = await verifyPhoneOtp(phoneNumber, countryCode, code);
+  const result = await verifyPhoneOtp(phoneNumber, dialCode, code, locale);
   if (!result.success) {
     error(502, result.error);
   }
@@ -43,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     {
       $set: {
         phone: phoneNumber,
-        phoneCountryCode: countryCode,
+        phoneCountryCode: dialCode,
         updatedAt: new Date()
       }
     }

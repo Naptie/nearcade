@@ -24,6 +24,10 @@ function cooldownKey(userId: string): string {
   return `nearcade:sms:cooldown:${userId}`;
 }
 
+function telegramSessionKey(sessionId: string): string {
+  return `nearcade:sms:telegram:${sessionId}`;
+}
+
 async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   const secret = env.TURNSTILE_SECRET_KEY;
   if (!secret) return true; // Skip verification if not configured
@@ -85,7 +89,8 @@ export const POST: RequestHandler = async (event) => {
 
   let body: {
     phoneNumber?: string;
-    countryCode?: string;
+    dialCode?: string;
+    locale?: string;
     captchaProvider?: string;
     captchaToken?: string;
     turnstileToken?: string;
@@ -98,7 +103,8 @@ export const POST: RequestHandler = async (event) => {
   }
 
   const phoneNumber = body.phoneNumber?.trim();
-  const countryCode = body.countryCode?.trim();
+  const dialCode = body.dialCode?.trim();
+  const locale = body.locale === 'zh' || body.locale === 'ja' ? body.locale : 'en';
   const configuredCaptchaProviders = getConfiguredCaptchaProviders();
 
   let captchaProvider = body.captchaProvider?.trim() as CaptchaProvider | undefined;
@@ -115,8 +121,8 @@ export const POST: RequestHandler = async (event) => {
     }
   }
 
-  if (!phoneNumber || !countryCode) {
-    error(400, 'phoneNumber and countryCode are required');
+  if (!phoneNumber || !dialCode) {
+    error(400, 'phoneNumber and dialCode are required');
   }
 
   if (configuredCaptchaProviders.length > 0) {
@@ -144,14 +150,14 @@ export const POST: RequestHandler = async (event) => {
   const db = mongo.db();
   const usersWithPhone = await db
     .collection<User>('users')
-    .countDocuments({ phone: phoneNumber, phoneCountryCode: countryCode });
+    .countDocuments({ phone: phoneNumber, phoneCountryCode: dialCode });
   if (usersWithPhone >= 3) {
     error(409, JSON.stringify({ error: 'phone_taken' }));
   } else {
     const existingUser = await db
       .collection<User>('users')
       .findOne(
-        { phone: phoneNumber, phoneCountryCode: countryCode, id: userId },
+        { phone: phoneNumber, phoneCountryCode: dialCode, id: userId },
         { projection: { id: 1 } }
       );
     if (existingUser) {
@@ -180,9 +186,21 @@ export const POST: RequestHandler = async (event) => {
     error(429, JSON.stringify({ error: 'daily_limit_exceeded' }));
   }
 
-  const result = await sendPhoneOtp(phoneNumber, countryCode);
+  const result = await sendPhoneOtp(phoneNumber, dialCode, locale);
   if (!result.success) {
     error(502, result.error);
+  }
+
+  if (result.method === 'telegram') {
+    // Persist the pending verification context so the status endpoint can
+    // bind exactly the number confirmed via Telegram — the verified result
+    // from unified-sms is authoritative, so no client-supplied values are
+    // needed (or trusted) at bind time.
+    await redis.set(
+      telegramSessionKey(result.sessionId),
+      JSON.stringify({ userId, phoneNumber, dialCode }),
+      { EX: result.ttl + 60 }
+    );
   }
 
   // Set cooldown and increment daily counters
@@ -210,5 +228,5 @@ export const POST: RequestHandler = async (event) => {
     await redis.set(ipDailyKeyStr, '1', { EX: ttlUntilMidnight });
   }
 
-  return json({ success: true });
+  return json(result);
 };

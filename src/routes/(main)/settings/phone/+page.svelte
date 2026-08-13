@@ -1,19 +1,23 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
   import { pageTitle } from '$lib/utils';
   import { toast } from '$lib/notifications/toast.svelte';
   import { slide } from 'svelte/transition';
+  import { untrack } from 'svelte';
   import type { PageData } from './$types';
 
   type PhonePageData = PageData & {
     hcaptchaSiteKey: string | null;
   };
 
+  type Region = PhonePageData['regions'][number];
+
   let { data }: { data: PhonePageData } = $props();
 
   // Send OTP form state
-  let countryCode = $derived(data.countries.length > 0 ? data.countries[0].dialCode : '');
+  let countryCode = $state(untrack(() => data.regions[0]?.dialCode ?? ''));
   let phoneNumber = $state('');
   let isSending = $state(false);
 
@@ -21,6 +25,18 @@
   let code = $state('');
   let isVerifying = $state(false);
   let codeSent = $state(false);
+
+  // Telegram verification state
+  let telegramSession = $state<{
+    sessionId: string;
+    deepLink: string;
+    expiresAt: string;
+    ttl: number;
+  } | null>(null);
+  let telegramPollTimer: ReturnType<typeof setInterval> | null = null;
+  let telegramExpiresAt = $state(0);
+  let telegramPhone = $state('');
+  let telegramCountry = $state('');
 
   // Removal state
   let isRemoving = $state(false);
@@ -30,6 +46,22 @@
   let cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
   type CaptchaProvider = 'turnstile' | 'hcaptcha';
+
+  const selectedRegion = $derived(
+    data.regions.find((region) => region.dialCode === countryCode) ?? null
+  );
+  const selectedMethod = $derived<'sms' | 'telegram'>(selectedRegion?.method ?? 'sms');
+
+  function regionName(region: Region): string {
+    const locale = getLocale();
+    return (
+      region.name[locale] ??
+      region.name[locale.split('-')[0]] ??
+      region.name.en ??
+      Object.values(region.name).find(Boolean) ??
+      ''
+    );
+  }
 
   // Turnstile
   let turnstileToken = $state('');
@@ -246,10 +278,23 @@
   });
 
   $effect(() => {
+    // Discard an in-flight Telegram verification session as soon as the
+    // user edits the phone number or switches the dial code.
+    if (
+      telegramSession &&
+      (phoneNumber.trim() !== telegramPhone || countryCode.trim() !== telegramCountry)
+    ) {
+      stopTelegramPolling();
+      telegramSession = null;
+    }
+  });
+
+  $effect(() => {
     return () => {
       if (cooldownInterval) {
         clearInterval(cooldownInterval);
       }
+      stopTelegramPolling();
     };
   });
 
@@ -307,6 +352,62 @@
     }, 1000);
   }
 
+  function stopTelegramPolling() {
+    if (telegramPollTimer) {
+      clearInterval(telegramPollTimer);
+      telegramPollTimer = null;
+    }
+  }
+
+  async function pollTelegramStatus(sessionId: string) {
+    try {
+      const res = await fetch(
+        `/api/phone/status/${encodeURIComponent(sessionId)}?locale=${getLocale()}`
+      );
+
+      if (!res.ok) {
+        stopTelegramPolling();
+        telegramSession = null;
+        toast(m.phone_settings_error(), { type: 'error' });
+        return;
+      }
+
+      const body = (await res.json()) as {
+        status: 'pending' | 'verified' | 'expired';
+      };
+
+      if (body.status === 'verified') {
+        stopTelegramPolling();
+        telegramSession = null;
+        toast(m.phone_settings_verify_success(), { type: 'success' });
+        await invalidateAll();
+        return;
+      }
+
+      if (body.status === 'expired' || Date.now() > telegramExpiresAt) {
+        stopTelegramPolling();
+        telegramSession = null;
+        toast(m.phone_settings_telegram_expired(), { type: 'error' });
+        return;
+      }
+      // 'pending' — keep polling
+    } catch {
+      // Transient network error — keep polling.
+    }
+  }
+
+  function startTelegramPolling(session: { sessionId: string; ttl: number }) {
+    telegramExpiresAt = Date.now() + session.ttl * 1000;
+    stopTelegramPolling();
+    telegramPollTimer = setInterval(() => {
+      if (!telegramSession) {
+        stopTelegramPolling();
+        return;
+      }
+      pollTelegramStatus(telegramSession.sessionId);
+    }, 2500);
+  }
+
   const handleSendCode = async () => {
     const trimmedPhone = phoneNumber.trim();
     const trimmedCountry = countryCode.trim();
@@ -335,7 +436,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: trimmedPhone,
-          countryCode: trimmedCountry,
+          dialCode: trimmedCountry,
+          locale: getLocale(),
           ...(activeCaptchaProvider
             ? {
                 captchaProvider: activeCaptchaProvider,
@@ -389,7 +491,32 @@
         return;
       }
 
-      codeSent = true;
+      const body = (await res.json()) as
+        | { success: true; method: 'sms' }
+        | {
+            success: true;
+            method: 'telegram';
+            sessionId: string;
+            deepLink: string;
+            expiresAt: string;
+            ttl: number;
+          };
+
+      if (body.method === 'telegram') {
+        // Start the Telegram verification flow: hand the deep link to the
+        // user and poll the session status until verified or expired.
+        telegramPhone = trimmedPhone;
+        telegramCountry = trimmedCountry;
+        telegramSession = {
+          sessionId: body.sessionId,
+          deepLink: body.deepLink,
+          expiresAt: body.expiresAt,
+          ttl: body.ttl
+        };
+        startTelegramPolling(telegramSession);
+      } else {
+        codeSent = true;
+      }
       startCooldown(60);
     } catch {
       toast(m.phone_settings_error(), { type: 'error' });
@@ -414,8 +541,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: phoneNumber.trim(),
-          countryCode: countryCode.trim(),
-          code: trimmedCode
+          dialCode: countryCode.trim(),
+          code: trimmedCode,
+          locale: getLocale()
         })
       });
 
@@ -455,7 +583,9 @@
       }
 
       toast(m.phone_settings_unbind_success(), { type: 'success' });
+      stopTelegramPolling();
       codeSent = false;
+      telegramSession = null;
       phoneNumber = '';
       countryCode = '';
       code = '';
@@ -538,8 +668,8 @@
             autocomplete="tel-country-code"
           >
             <option value="" disabled>{m.phone_settings_country_code_placeholder()}</option>
-            {#each data.countries as country (country.isoCode)}
-              <option value={country.dialCode}>+{country.dialCode} {country.name}</option>
+            {#each data.regions as region (region.regionId)}
+              <option value={region.dialCode}>+{region.dialCode} {regionName(region)}</option>
             {/each}
           </select>
         </label>
@@ -557,7 +687,9 @@
 
         <button
           type="button"
-          class="btn btn-primary btn-soft not-sm:btn-circle"
+          class="btn {selectedMethod === 'telegram'
+            ? 'btn-telegram'
+            : 'btn-primary'} btn-soft not-sm:btn-circle"
           onclick={handleSendCode}
           disabled={isSending || cooldownSeconds > 0}
         >
@@ -569,12 +701,16 @@
           {#if cooldownSeconds > 0}
             {cooldownSeconds}s
           {:else}
-            <span class="not-sm:hidden">{m.phone_settings_send_code()}</span>
+            <span class="not-sm:hidden">
+              {selectedMethod === 'telegram'
+                ? m.phone_settings_telegram_verify()
+                : m.phone_settings_send_code()}
+            </span>
           {/if}
         </button>
       </div>
 
-      {#if activeCaptchaProvider && !codeSent}
+      {#if activeCaptchaProvider && !codeSent && !telegramSession}
         <div class="flex items-center gap-2">
           <div class="min-w-0">
             {#key activeCaptchaProvider}
@@ -598,6 +734,24 @@
               <i class="fa-solid fa-rotate-right"></i>
             </button>
           {/if}
+        </div>
+      {/if}
+
+      {#if telegramSession}
+        <div class="border-primary/20 bg-primary/5 mt-4 rounded-xl border p-4" transition:slide>
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="loading loading-spinner loading-sm text-primary"></span>
+            <p class="flex-1 text-sm">{m.phone_settings_telegram_waiting()}</p>
+            <a
+              class="btn btn-primary btn-sm"
+              href={telegramSession.deepLink}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i class="fa-brands fa-telegram"></i>
+              {m.phone_settings_telegram_open()}
+            </a>
+          </div>
         </div>
       {/if}
 
@@ -629,3 +783,9 @@
     </div>
   </section>
 </div>
+
+<style>
+  .btn-telegram {
+    --btn-color: #24a1de;
+  }
+</style>
