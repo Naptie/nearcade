@@ -148,7 +148,7 @@
           {/each}
         </div>
 
-        <div class="divider my-6">OR</div>
+        <div class="divider my-6">{m.or()}</div>
 
         <div class="space-y-3 px-4 text-left">
           <div>
