@@ -4,6 +4,8 @@ import { cacheOAuthProfile } from './profile-cache';
 import { getCallbackURI, resolveRedirectURI } from '$lib/utils/index.server';
 
 export interface QQProfile {
+  ret?: number;
+  msg?: string;
   is_lost: number;
   nickname: string;
   figureurl: string;
@@ -23,8 +25,12 @@ export interface QQProfile {
 }
 
 export function qqProvider(): GenericOAuthConfig {
-  const clientId = env.AUTH_QQ_ID!;
-  const clientSecret = env.AUTH_QQ_SECRET!;
+  const clientId = env.AUTH_QQ_ID?.trim();
+  const clientSecret = env.AUTH_QQ_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
+    throw new Error('QQ OAuth requires AUTH_QQ_ID and AUTH_QQ_SECRET.');
+  }
 
   return {
     providerId: 'qq',
@@ -47,11 +53,38 @@ export function qqProvider(): GenericOAuthConfig {
       url.searchParams.set('fmt', 'json');
       url.searchParams.set('need_openid', '1');
 
-      const response = await fetch(url);
-      const data = (await response.json()) as Record<string, unknown>;
+      let response: Response;
+      try {
+        response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      } catch (cause) {
+        throw new Error('QQ OAuth token request failed.', { cause });
+      }
+
+      if (!response.ok) {
+        throw new Error(`QQ OAuth token request failed with HTTP ${response.status}.`);
+      }
+
+      let data: Record<string, unknown>;
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch (cause) {
+        throw new Error('QQ OAuth token response was not valid JSON.', { cause });
+      }
+
+      const accessToken = typeof data.access_token === 'string' ? data.access_token : undefined;
+      const openid = typeof data.openid === 'string' ? data.openid : undefined;
+      if (!accessToken || !openid) {
+        const description =
+          typeof data.error_description === 'string'
+            ? data.error_description
+            : typeof data.error === 'string'
+              ? data.error
+              : 'missing access token or openid';
+        throw new Error(`QQ OAuth token response was rejected: ${description}.`);
+      }
 
       return {
-        accessToken: data.access_token as string,
+        accessToken,
         tokenType: 'bearer',
         refreshToken: data.refresh_token as string | undefined,
         accessTokenExpiresAt: data.expires_in
@@ -61,14 +94,40 @@ export function qqProvider(): GenericOAuthConfig {
       };
     },
     async getUserInfo(tokens) {
-      const openid = (tokens.raw?.openid as string) ?? '';
+      const openid = typeof tokens.raw?.openid === 'string' ? tokens.raw.openid : undefined;
+      if (!tokens.accessToken || !openid) {
+        throw new Error('QQ OAuth profile request is missing credentials.');
+      }
+
       const url = new URL('https://graph.qq.com/user/get_user_info');
-      url.searchParams.set('access_token', tokens.accessToken!);
+      url.searchParams.set('access_token', tokens.accessToken);
       url.searchParams.set('openid', openid);
       url.searchParams.set('oauth_consumer_key', clientId);
 
-      const response = await fetch(url);
-      const profile = (await response.json()) as QQProfile;
+      let response: Response;
+      try {
+        response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      } catch (cause) {
+        throw new Error('QQ OAuth profile request failed.', { cause });
+      }
+
+      if (!response.ok) {
+        throw new Error(`QQ OAuth profile request failed with HTTP ${response.status}.`);
+      }
+
+      let profile: QQProfile;
+      try {
+        profile = (await response.json()) as QQProfile;
+      } catch (cause) {
+        throw new Error('QQ OAuth profile response was not valid JSON.', { cause });
+      }
+
+      if (profile.ret !== undefined && profile.ret !== 0) {
+        throw new Error(`QQ OAuth profile response was rejected: ${profile.msg || profile.ret}.`);
+      }
+      if (!profile.nickname) {
+        throw new Error('QQ OAuth profile response did not include a nickname.');
+      }
 
       const result = {
         id: openid,

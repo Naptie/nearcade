@@ -1032,6 +1032,8 @@
   "oauth_scope_write_shops": "ゲームセンター・店舗データを作成・編集する",
   "oauth_scope_write_universities": "大学情報を編集する",
   "oauth_scope_write_users": "自分のプロフィールを編集する",
+  "oauth_link_failed": "{provider} のアカウント連携を開始できませんでした。接続を確認して、もう一度お試しください。",
+  "oauth_sign_in_failed": "{provider} でログインを開始できませんでした。接続を確認して、もう一度お試しください。",
   "oauth_sign_in_prompt": "アプリケーションを続行するにはサインインしてください",
   "official_website": "公式サイト",
   "ongeki": "オンゲキ",

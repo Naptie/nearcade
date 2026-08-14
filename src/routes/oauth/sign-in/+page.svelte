@@ -5,6 +5,7 @@
   import { withPostLoginMarker } from '$lib/auth/email';
   import { base, resolve } from '$app/paths';
   import { getProviders, pageTitle } from '$lib/utils';
+  import { toastErrorWithCopy } from '$lib/notifications/toast.svelte';
 
   // Preserve the OAuth query string so that after sign-in the plugin
   // can continue the authorization flow automatically.
@@ -13,20 +14,35 @@
   let handoffCode = $state('');
   let redeemError = $state<string | null>(null);
   let isRedeemingCode = $state(false);
+  let signingInProvider = $state<string | null>(null);
 
-  const handleProviderSignIn = (providerId: string) => {
-    if (providerId === 'qq') {
-      const marker = crypto.randomUUID();
-      sessionStorage.setItem('nearcade-browser-marker', marker);
-      authClient.signIn.oauth2({
-        providerId: 'qq',
-        callbackURL: `${resolve('/auth/handoff')}?marker=${marker}`
-      });
-    } else {
-      authClient.signIn.oauth2({
-        providerId,
-        callbackURL
-      });
+  const handleProviderSignIn = async (providerId: string) => {
+    if (signingInProvider) return;
+
+    signingInProvider = providerId;
+
+    try {
+      if (providerId === 'qq') {
+        const marker = crypto.randomUUID();
+        sessionStorage.setItem('nearcade-browser-marker', marker);
+        const result = await authClient.signIn.oauth2({
+          providerId: 'qq',
+          callbackURL: `${resolve('/auth/handoff')}?marker=${marker}`
+        });
+        if (result.error) throw result.error;
+      } else {
+        const result = await authClient.signIn.oauth2({ providerId, callbackURL });
+        if (result.error) throw result.error;
+      }
+    } catch (error) {
+      console.error(`Failed to start ${providerId} sign-in:`, error);
+      toastErrorWithCopy(
+        m.oauth_sign_in_failed({ provider: providerId }),
+        error,
+        `Failed to start ${providerId} sign-in.`
+      );
+    } finally {
+      signingInProvider = null;
     }
   };
 
@@ -70,9 +86,13 @@
           <button
             type="button"
             onclick={() => handleProviderSignIn(provider.id)}
+            disabled={signingInProvider !== null}
+            aria-busy={signingInProvider === provider.id}
             class="btn btn-outline btn-t w-full items-center gap-2 py-5 {provider.class}"
           >
-            {#if provider.icon.startsWith('fa-')}
+            {#if signingInProvider === provider.id}
+              <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
+            {:else if provider.icon.startsWith('fa-')}
               <i class="fa-brands fa-lg {provider.icon}"></i>
             {:else}
               <img

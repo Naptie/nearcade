@@ -1040,6 +1040,8 @@
   "oauth_scope_write_shops": "Create or edit arcades and shops",
   "oauth_scope_write_universities": "Edit university information",
   "oauth_scope_write_users": "Edit your own profile",
+  "oauth_link_failed": "Could not start linking {provider}. Check your connection and try again.",
+  "oauth_sign_in_failed": "Could not start sign-in with {provider}. Check your connection and try again.",
   "oauth_sign_in_prompt": "Sign in to continue to the application",
   "official_website": "Official Website",
   "ongeki": "O.N.G.E.K.I.",

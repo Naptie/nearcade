@@ -7,7 +7,7 @@
   import { m } from '$lib/paraglide/messages';
   import { formatDate, getProviders, getUserTypeLabel, pageTitle } from '$lib/utils';
   import { authClient } from '$lib/auth/client';
-  import { toast } from '$lib/notifications/toast.svelte';
+  import { toast, toastErrorWithCopy } from '$lib/notifications/toast.svelte';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
   import type { PageData } from './$types';
 
@@ -20,6 +20,7 @@
   let leavingUniversityId = $state('');
   let leavingClubId = $state('');
   let isDeletingAccount = $state(false);
+  let bindingProvider = $state<string | null>(null);
   let currentEmailIsBound = $derived(hasBoundEmail(data.userProfile?.email));
 
   // Store WeChat bind result in local state to prevent it from disappearing when URL changes
@@ -37,6 +38,8 @@
 
   // Handle binding a new platform via OAuth
   const handleBindPlatform = async (provider: string) => {
+    if (bindingProvider) return;
+
     // Special handling for WeChat - show QR code modal
     if (provider === 'wechat') {
       showWeChatBindModal = true;
@@ -44,10 +47,24 @@
     }
 
     // For other providers, use OAuth sign-in flow (Better Auth will auto-link when logged in)
-    await authClient.oauth2.link({
-      providerId: provider,
-      callbackURL: page.url.pathname
-    });
+    bindingProvider = provider;
+    try {
+      const result = await authClient.oauth2.link({
+        providerId: provider,
+        callbackURL: page.url.pathname,
+        errorCallbackURL: page.url.pathname
+      });
+      if (result.error) throw result.error;
+    } catch (error) {
+      console.error(`Failed to start ${provider} account linking:`, error);
+      toastErrorWithCopy(
+        m.oauth_link_failed({ provider }),
+        error,
+        `Failed to start ${provider} account linking.`
+      );
+    } finally {
+      bindingProvider = null;
+    }
   };
 
   // Function to dismiss the WeChat bind alert
@@ -352,11 +369,15 @@
             <button
               class="bg-base-100 group flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors {provider.class}"
               onclick={() => handleBindPlatform(provider.id)}
+              disabled={bindingProvider !== null}
+              aria-busy={bindingProvider === provider.id}
             >
               <div
                 class="not-group-hover:bg-base-300 flex h-10 w-10 items-center justify-center rounded-full transition-colors"
               >
-                {#if provider.icon.startsWith('fa-')}
+                {#if bindingProvider === provider.id}
+                  <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
+                {:else if provider.icon.startsWith('fa-')}
                   <i class="fa-brands fa-lg {provider.icon}"></i>
                 {:else}
                   <img

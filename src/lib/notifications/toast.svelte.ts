@@ -1,5 +1,6 @@
 import { untrack } from 'svelte';
 import { browser } from '$app/environment';
+import { m } from '$lib/paraglide/messages';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -93,3 +94,37 @@ export const toastInfo = (message: string, options?: Omit<ToastInput, 'message' 
   toastStore.show({ message, type: 'info', ...options });
 
 export const dismissToast = (id: number) => toastStore.dismiss(id);
+
+const formatErrorDetails = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.stack || `${error.name}: ${error.message}`;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(error, null, 2);
+  } catch {
+    return String(error);
+  }
+};
+
+export const toastErrorWithCopy = (message: string, error: unknown, context?: string) => {
+  const details = [context, formatErrorDetails(error)].filter(Boolean).join('\n\n');
+
+  return toastError(message, {
+    duration: 10_000,
+    action: {
+      label: m.copy(),
+      onClick: async () => {
+        try {
+          await navigator.clipboard.writeText(details);
+        } catch (copyError) {
+          console.error('Failed to copy error details:', copyError);
+        }
+      }
+    }
+  });
+};
