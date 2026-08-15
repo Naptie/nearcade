@@ -1175,6 +1175,7 @@
   "region_level_country": "Country",
   "region_level_county": "County/District",
   "region_level_province": "Province/State",
+  "region_level_street": "Town/Subdistrict",
   "region_location": "Location",
   "region_name_locale": "Name ({locale})",
   "region_names": "Region names",

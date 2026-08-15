@@ -96,7 +96,8 @@ export const REGION_LEVELS = [
   { key: 'country', label: 'country' },
   { key: 'province', label: 'province' },
   { key: 'city', label: 'city' },
-  { key: 'county', label: 'county' }
+  { key: 'county', label: 'county' },
+  { key: 'street', label: 'street' }
 ] as const;
 
 export const ROUTE_CACHE_STORE = 'route-cache';

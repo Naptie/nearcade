@@ -95,7 +95,7 @@ export interface RankingsTableItem {
   rankings: RankingMetrics[];
 }
 
-export type RegionLevel = 'country' | 'province' | 'city' | 'county';
+export type RegionLevel = 'country' | 'province' | 'city' | 'county' | 'street';
 export interface RegionRankingData {
   id: string; // region ID from globe-cn hierarchy
   level: RegionLevel;

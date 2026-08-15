@@ -66,7 +66,8 @@
       country: 6,
       province: 8,
       city: 10,
-      county: 12
+      county: 12,
+      street: 14
     };
     let lng: number | null = null;
     let lat: number | null = null;

@@ -21,7 +21,13 @@ interface CachedRegionRanking extends RegionRankingData {
 }
 
 const isValidRegionLevel = (value: string | null): value is RegionLevel => {
-  return value === 'country' || value === 'province' || value === 'city' || value === 'county';
+  return (
+    value === 'country' ||
+    value === 'province' ||
+    value === 'city' ||
+    value === 'county' ||
+    value === 'street'
+  );
 };
 
 export const GET: RequestHandler = async ({ url }) => {

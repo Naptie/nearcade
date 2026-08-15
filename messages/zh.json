@@ -1167,6 +1167,7 @@
   "region_level_country": "国家",
   "region_level_county": "区县",
   "region_level_province": "省/州",
+  "region_level_street": "乡镇/街道",
   "region_location": "位置",
   "region_name_locale": "名称（{locale}）",
   "region_names": "地区名称",

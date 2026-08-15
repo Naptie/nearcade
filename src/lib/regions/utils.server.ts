@@ -95,7 +95,8 @@ function compareRegions(a: Region, b: Region, collator: Intl.Collator, locale: s
     country: 0,
     province: 1,
     city: 2,
-    county: 3
+    county: 3,
+    street: 4
   };
   const d = order[a.level] - order[b.level];
   if (d !== 0) return d;
@@ -116,7 +117,8 @@ function selectRegions(candidates: Region[], locale: string): Region[] {
         r.level === 'country' ||
         r.level === 'province' ||
         r.level === 'city' ||
-        r.level === 'county'
+        r.level === 'county' ||
+        r.level === 'street'
     )
     .sort((a, b) => compareRegions(a, b, collator, locale));
 }
@@ -179,7 +181,7 @@ export async function isTerminalRegion(id: string): Promise<boolean> {
 export function resolveRegionFromGeneral(general: string[]): string[] | null {
   if (!byName || general.length === 0) return null;
 
-  const levels: Region['level'][] = ['country', 'province', 'city', 'county'];
+  const levels: Region['level'][] = ['country', 'province', 'city', 'county', 'street'];
 
   const resolved: string[] = [];
   let parentId: string | null = null;
