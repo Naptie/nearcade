@@ -108,6 +108,10 @@
   };
 
   const getLevelLabel = (levelKey: RegionLevel): string => {
+    // The county tab covers both counties and towns (streets).
+    if (levelKey === 'county') {
+      return `${m.region_level_county()} · ${m.region_level_street()}`;
+    }
     const f = m[`region_level_${levelKey}`];
     return typeof f === 'function' ? f() : levelKey;
   };

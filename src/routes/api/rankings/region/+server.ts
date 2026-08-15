@@ -64,7 +64,10 @@ export const GET: RequestHandler = async ({ url }) => {
 
     if (metadata.totalCount > 0) {
       const sortKey = sortBy;
-      const query: Record<string, unknown> = { _id: { $ne: 'metadata' }, level };
+      // Street-level towns are grouped under the county tab: the county level
+      // query includes street documents too.
+      const query: Record<string, unknown> = { _id: { $ne: 'metadata' } };
+      query.level = level === 'county' ? { $in: ['county', 'street'] } : level;
 
       if (after) {
         const afterRank = parseInt(after);
