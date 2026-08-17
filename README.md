@@ -310,8 +310,9 @@ docker-compose down
 ## ⭐ 星标历史
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Naptie/nearcade/star-tracker-data/charts/star-history.svg">
-  <img alt="星标历史" src="https://raw.githubusercontent.com/Naptie/nearcade/star-tracker-data/charts/star-history.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="static/star-history/Naptie/nearcade-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="static/star-history/Naptie/nearcade-light.svg">
+  <img alt="星标历史" src="static/star-history/Naptie/nearcade-light.svg">
 </picture>
 
 ## 📄 开源许可
