@@ -1,7 +1,7 @@
-import { env } from '$env/dynamic/private';
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
 import { cacheOAuthProfile } from './profile-cache';
 import { getCallbackURI, resolveRedirectURI } from '$lib/utils/index.server';
+import type { QqProviderConfig } from './providers';
 
 export interface QQProfile {
   ret?: number;
@@ -24,14 +24,7 @@ export interface QQProfile {
   is_yellow_year_vip: number;
 }
 
-export function qqProvider(): GenericOAuthConfig {
-  const clientId = env.AUTH_QQ_ID?.trim();
-  const clientSecret = env.AUTH_QQ_SECRET?.trim();
-
-  if (!clientId || !clientSecret) {
-    throw new Error('QQ OAuth requires AUTH_QQ_ID and AUTH_QQ_SECRET.');
-  }
-
+export function qqProvider({ clientId, clientSecret, proxy }: QqProviderConfig): GenericOAuthConfig {
   return {
     providerId: 'qq',
     clientId,
@@ -40,10 +33,10 @@ export function qqProvider(): GenericOAuthConfig {
     tokenUrl: 'https://graph.qq.com/oauth2.0/token',
     userInfoUrl: 'https://graph.qq.com/user/get_user_info',
     authorizationUrlParams: (ctx) => ({
-      redirect_uri: resolveRedirectURI(getCallbackURI(ctx.context.baseURL, 'qq'), env.AUTH_QQ_PROXY)
+      redirect_uri: resolveRedirectURI(getCallbackURI(ctx.context.baseURL, 'qq'), proxy)
     }),
     async getToken({ code, redirectURI }) {
-      const qqRedirectURI = resolveRedirectURI(redirectURI, env.AUTH_QQ_PROXY);
+      const qqRedirectURI = resolveRedirectURI(redirectURI, proxy);
       const url = new URL('https://graph.qq.com/oauth2.0/token');
       url.searchParams.set('client_id', clientId);
       url.searchParams.set('client_secret', clientSecret);

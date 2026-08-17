@@ -1,6 +1,6 @@
-import { env } from '$env/dynamic/private';
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
 import { cacheOAuthProfile } from './profile-cache';
+import type { ProviderCredentials } from './providers';
 
 export interface PhiraProfile {
   id: number;
@@ -9,10 +9,7 @@ export interface PhiraProfile {
   avatar: string | null;
 }
 
-export function phiraProvider(): GenericOAuthConfig {
-  const clientId = env.AUTH_PHIRA_ID!;
-  const clientSecret = env.AUTH_PHIRA_SECRET!;
-
+export function phiraProvider({ clientId, clientSecret }: ProviderCredentials): GenericOAuthConfig {
   return {
     providerId: 'phira',
     clientId,

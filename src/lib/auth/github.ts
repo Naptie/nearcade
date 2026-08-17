@@ -1,7 +1,7 @@
-import { env } from '$env/dynamic/private';
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
 import { cacheOAuthProfile } from './profile-cache';
 import { resolveRedirectURI, getCallbackURI } from '$lib/utils/index.server';
+import type { GithubProviderConfig } from './providers';
 
 interface GitHubEmail {
   email: string;
@@ -18,12 +18,13 @@ interface GitHubProfile {
   avatar_url: string;
 }
 
-export function githubProvider(): GenericOAuthConfig {
-  const baseUrl = env.GITHUB_PROXY?.replace(/\/$/, '') ?? 'https://github.com';
-  const apiBaseUrl = env.GITHUB_API_PROXY?.replace(/\/$/, '') ?? 'https://api.github.com';
-  const clientId = env.AUTH_GITHUB_ID!;
-  const clientSecret = env.AUTH_GITHUB_SECRET!;
-
+export function githubProvider({
+  clientId,
+  clientSecret,
+  proxy,
+  baseUrl,
+  apiBaseUrl
+}: GithubProviderConfig): GenericOAuthConfig {
   return {
     providerId: 'github',
     clientId,
@@ -33,13 +34,10 @@ export function githubProvider(): GenericOAuthConfig {
     userInfoUrl: `${apiBaseUrl}/user`,
     scopes: ['read:user', 'user:email'],
     authorizationUrlParams: (ctx) => ({
-      redirect_uri: resolveRedirectURI(
-        getCallbackURI(ctx.context.baseURL, 'github'),
-        env.AUTH_GITHUB_PROXY
-      )
+      redirect_uri: resolveRedirectURI(getCallbackURI(ctx.context.baseURL, 'github'), proxy)
     }),
     async getToken({ code, redirectURI }) {
-      const githubRedirectURI = resolveRedirectURI(redirectURI, env.AUTH_GITHUB_PROXY);
+      const githubRedirectURI = resolveRedirectURI(redirectURI, proxy);
 
       const response = await fetch(`${baseUrl}/login/oauth/access_token`, {
         method: 'POST',

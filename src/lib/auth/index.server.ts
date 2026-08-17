@@ -18,13 +18,11 @@ import {
   countUnreadNotifications,
   countPendingJoinRequests
 } from '$lib/notifications/index.server';
-import { qqProvider } from './qq';
-import { githubProvider } from './github';
-import { phiraProvider } from './phira';
 import { syncVerifiedSocialLinkFromAccount } from './social-verify.server';
 import type { User } from './types';
 import { syncUserAvatarToOSSIfNeeded } from '$lib/images/avatar-sync.server';
-import { cacheOAuthProfile, getCachedOAuthProfile } from './profile-cache';
+import { getCachedOAuthProfile } from './profile-cache';
+import { registerOAuthProviders, getTrustedOAuthProviders } from './providers';
 import { OAUTH_SCOPES } from './oauth/scopes';
 
 const lastActiveUpdates = new Map<string, number>();
@@ -62,99 +60,6 @@ function resolveId(id: string): ObjectId {
   } catch {
     return id as unknown as ObjectId;
   }
-}
-
-function withProfileCache<T extends Record<string, unknown>>(
-  providerId: string,
-  mapFn: (profile: T) => { email: string; image?: string; [key: string]: unknown }
-) {
-  return async (profile: T) => {
-    const mapped = mapFn(profile);
-    const accountId = String((profile as Record<string, unknown>).id ?? '');
-    if (accountId) {
-      await cacheOAuthProfile(providerId, accountId, {
-        email: mapped.email,
-        image: mapped.image,
-        username: (mapped.username as string | undefined) || undefined
-      });
-    }
-    return mapped;
-  };
-}
-
-function discordProvider() {
-  const discordUrl = 'https://discord.com';
-  const proxy = env.DISCORD_PROXY?.replace(/\/$/, '');
-  const baseUrl = proxy ?? discordUrl;
-
-  return {
-    providerId: 'discord',
-    clientId: env.AUTH_DISCORD_ID!,
-    clientSecret: env.AUTH_DISCORD_SECRET!,
-    authorizationUrl: `${discordUrl}/oauth2/authorize`,
-    tokenUrl: `${baseUrl}/api/oauth2/token`,
-    userInfoUrl: `${baseUrl}/api/users/@me`,
-    scopes: ['identify', 'email'],
-    mapProfileToUser: withProfileCache('discord', (profile: Record<string, unknown>) => {
-      const p = profile as {
-        id: string;
-        global_name: string | null;
-        username: string;
-        avatar: string | null;
-        email?: string;
-      };
-      const image = p.avatar
-        ? `https://cdn.discordapp.com/avatars/${p.id}/${p.avatar}.webp`
-        : undefined;
-      return {
-        name: p.global_name ?? p.username,
-        email: p.email ?? `${p.id}@discord.nearcade`,
-        image,
-        emailVerified: !!p.email,
-        username: p.username
-      };
-    })
-  };
-}
-
-function microsoftEntraIdProvider() {
-  const issuer = env.AUTH_MICROSOFT_ENTRA_ID_ISSUER!;
-  return {
-    providerId: 'microsoft-entra-id',
-    clientId: env.AUTH_MICROSOFT_ENTRA_ID_ID!,
-    clientSecret: env.AUTH_MICROSOFT_ENTRA_ID_SECRET!,
-    discoveryUrl: `${issuer}/.well-known/openid-configuration`,
-    scopes: ['openid', 'profile', 'email'],
-    mapProfileToUser: withProfileCache('microsoft-entra-id', (profile: Record<string, unknown>) => {
-      return {
-        name: (profile.name as string) ?? undefined,
-        email: profile.email as string,
-        image: (profile.picture as string) ?? undefined,
-        emailVerified: !!profile.email
-      };
-    })
-  };
-}
-
-function osuProvider() {
-  return {
-    providerId: 'osu',
-    clientId: env.AUTH_OSU_ID!,
-    clientSecret: env.AUTH_OSU_SECRET!,
-    authorizationUrl: 'https://osu.ppy.sh/oauth/authorize',
-    tokenUrl: 'https://osu.ppy.sh/oauth/token',
-    userInfoUrl: 'https://osu.ppy.sh/api/v2/me',
-    scopes: ['identify'],
-    mapProfileToUser: withProfileCache('osu', (profile: Record<string, unknown>) => {
-      const p = profile as { id: number; username: string; avatar_url: string };
-      return {
-        name: p.username,
-        email: `${p.id}@osu.nearcade`,
-        image: p.avatar_url,
-        emailVerified: false
-      };
-    })
-  };
 }
 
 function createAuth() {
@@ -211,7 +116,7 @@ function createAuth() {
       accountLinking: {
         enabled: true,
         allowDifferentEmails: true,
-        trustedProviders: ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord']
+        trustedProviders: getTrustedOAuthProviders()
       }
     },
     user: {
@@ -278,14 +183,7 @@ function createAuth() {
     },
     plugins: [
       genericOAuth({
-        config: [
-          qqProvider(),
-          githubProvider(),
-          microsoftEntraIdProvider(),
-          phiraProvider(),
-          osuProvider(),
-          discordProvider()
-        ]
+        config: registerOAuthProviders()
       }),
       oneTimeToken({
         expiresIn: 2,
