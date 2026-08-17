@@ -1,0 +1,18 @@
+name: Star History Chart Generation
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  track-stars:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Track stars and generate charts
+        uses: fbuireu/github-star-tracker@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

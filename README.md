@@ -309,7 +309,10 @@ docker-compose down
 
 ## ⭐ 星标历史
 
-[![Stargazers over time](https://starchart.cc/Naptie/nearcade.svg?variant=adaptive)](https://starchart.cc/Naptie/nearcade)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Naptie/nearcade/star-tracker-data/charts/star-history.svg">
+  <img alt="星标历史" src="https://raw.githubusercontent.com/Naptie/nearcade/star-tracker-data/charts/star-history.svg">
+</picture>
 
 ## 📄 开源许可
 

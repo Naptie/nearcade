@@ -310,7 +310,10 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 
 ## ⭐ Stargazers Over Time
 
-[![Stargazers over time](https://starchart.cc/Naptie/nearcade.svg?variant=adaptive)](https://starchart.cc/Naptie/nearcade)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Naptie/nearcade/star-tracker-data/charts/star-history.svg">
+  <img alt="Stargazers over time" src="https://raw.githubusercontent.com/Naptie/nearcade/star-tracker-data/charts/star-history.svg">
+</picture>
 
 ## 📄 License
 
