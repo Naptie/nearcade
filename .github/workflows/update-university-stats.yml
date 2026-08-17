@@ -15,6 +15,7 @@ defaults:
 
 jobs:
   update-university-stats:
+    name: Trigger university stats update
     runs-on: ubuntu-latest
 
     steps:
