@@ -310,8 +310,8 @@ docker-compose down
 ## ⭐ 星标历史
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="static/star-history/Naptie/star-history-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="static/star-history/Naptie/star-history-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="static/star-history/star-history-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="static/star-history/star-history-light.svg">
   <img alt="星标历史" src="static/star-history/star-history.png">
 </picture>
 

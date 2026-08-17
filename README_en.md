@@ -311,9 +311,9 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 ## ⭐ Stargazers Over Time
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="static/star-history/Naptie/nearcade-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="static/star-history/Naptie/nearcade-light.svg">
-  <img alt="Stargazers over time" src="static/star-history/Naptie/nearcade-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="static/star-history/star-history-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="static/star-history/star-history-light.svg">
+  <img alt="Stargazers over time" src="static/star-history/star-history.png">
 </picture>
 
 ## 📄 License
