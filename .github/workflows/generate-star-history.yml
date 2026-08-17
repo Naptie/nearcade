@@ -17,7 +17,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Track stars and generate charts
-        uses: fbuireu/github-star-tracker@v1
+      - name: Generate star history chart
+        uses: narayann7/star-history-action@v1
         with:
-          github-token: ${{ secrets.STAR_TRACKER_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repos: ${{ github.repository }}
+          output-dir: static/star-history
+          themes: light,dark
