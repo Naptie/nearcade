@@ -154,9 +154,9 @@
               aria-busy={signingInProvider === provider.id}
               class="btn btn-outline not-2xs:btn-circle btn-t w-full items-center gap-2 py-5 sm:px-6 {provider.class}"
             >
-                {#if signingInProvider === provider.id}
-                  <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
-                {:else if provider.icon.startsWith('fa-')}
+              {#if signingInProvider === provider.id}
+                <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
+              {:else if provider.icon.startsWith('fa-')}
                 <i class="fa-brands fa-lg {provider.icon}"></i>
               {:else}
                 <img
