@@ -13,6 +13,10 @@ jobs:
     name: Generate star history chart
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Track stars and generate charts
         uses: fbuireu/github-star-tracker@v1
         with:
