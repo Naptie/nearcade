@@ -9,7 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  track-stars:
+  gen-star-history:
+    name: Generate star history chart
     runs-on: ubuntu-latest
     steps:
       - name: Track stars and generate charts
