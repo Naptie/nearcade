@@ -2,7 +2,11 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
 import { cacheOAuthProfile } from './profile-cache';
 import type { DiscordProviderConfig } from './providers';
 
-export function discordProvider({ clientId, clientSecret, proxy }: DiscordProviderConfig): GenericOAuthConfig {
+export function discordProvider({
+  clientId,
+  clientSecret,
+  proxy
+}: DiscordProviderConfig): GenericOAuthConfig {
   const discordUrl = 'https://discord.com';
   const baseUrl = proxy?.replace(/\/$/, '') ?? discordUrl;
 

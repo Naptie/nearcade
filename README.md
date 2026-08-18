@@ -109,154 +109,171 @@
 
 ## 🚀 开始使用
 
+nearcade 的本地开发环境完全基于 Docker Compose：应用本身与 MongoDB、Redis、
+Meilisearch、MinIO 都在容器中运行，应用容器只通过内部 Compose 网络访问这些服务
+（如 `mongo`、`redis`），**仅应用自身的开发服务器端口会暴露到宿主机**。
+
 ### 环境要求
 
-- Node.js 18+
-- pnpm (推荐) 或 npm
-- MongoDB 实例
-- 高德地图 JS API 密钥和秘密
-- 腾讯地图 API 密钥
-- OAuth 提供商的凭据 (包括 GitHub, Microsoft Entra ID, Discord, osu!, Phira, QQ)
+- **Docker** 与 **Docker Compose**（唯一必需项——应用本身也在容器中运行）
+- Node.js 18+ 与 pnpm（可选，仅用于在宿主机上直接运行 `pnpm dev:setup`/`pnpm seed:*`
+  等辅助脚本；也可以不安装，直接运行 `bash scripts/dev-setup.sh`）
 
-### 安装步骤
+### 一键启动（推荐）
 
-1.  **克隆仓库:**
+```bash
+git clone https://github.com/Naptie/nearcade.git
+cd nearcade
 
-    ```bash
-    git clone https://github.com/Naptie/nearcade.git
-    cd nearcade
-    ```
+# 启动应用与全部本地服务，并自动生成 .env
+pnpm dev:setup
+# 或不依赖 Node/pnpm：bash scripts/dev-setup.sh
 
-2.  **安装依赖:**
+# 可选：恢复脱敏的种子数据（店铺、高校、地区等公开数据）
+pnpm dev:setup --seed
+```
 
-    ```bash
-    pnpm install
-    ```
+启动完成后访问 `http://localhost:5173` 即可——无需在宿主机运行 `pnpm install`
+或 `pnpm dev`，应用容器已自动完成安装并启动开发服务器（支持热更新，本地源码通过
+bind mount 挂载到容器内）。
 
-3.  **设置环境变量:**
+`pnpm dev:setup` 会：
 
-    在项目根目录创建一个 `.env` 文件。
+1.  基于 `.env.example` 生成本地 `.env`，自动填入**随机生成的 `SSC_SECRET` 与
+    `AUTH_SECRET`**，并根据 MinIO 配置**自动计算 `OSS_S3_BASE64`**；
+2.  通过 `docker compose up -d --build --wait` 启动 **应用本身、MongoDB、Redis、
+    Meilisearch、MinIO**（含自动建桶），并等待应用容器就绪。
 
-    **核心配置:**
+> 已有 `.env` 中的值会被保留，仅填充缺失项与占位符。需要地图、Firebase 推送、SMTP 等功能时，按需在 `.env` 中填入真实密钥即可。
 
-    ```env
-    # 地图服务
-    PUBLIC_AMAP_KEY="your_amap_key"
-    PUBLIC_TENCENT_MAPS_KEY="your_tencent_maps_key"
-    PUBLIC_GOOGLE_MAPS_MAP_ID = "your_google_maps_map_id"
-    PUBLIC_GOOGLE_MAPS_API_KEY = "your_google_maps_api_key"
-    AMAP_SECRET="your_amap_secret"
+### 种子数据
 
-    # 服务器间通讯密钥 (生成一个随机字符串)
-    SSC_SECRET="your_ssc_secret"
+公开数据（`regions`、`counters`、`universities`、`shops`）可以从开发数据库导出为脱敏种子数据，再恢复到本地 MongoDB：
 
-    # 数据库
-    MONGODB_URI="mongodb://localhost:27017/?dbName=nearcade"
+```bash
+# 从某个开发数据库导出（在宿主机运行，该地址是外部数据源，与本地 Compose 网络无关）
+# 通过 SEED_SOURCE 环境变量或 --source 参数指定数据源
+SEED_SOURCE=mongodb://host:27017/?dbName=nearcade pnpm seed:dump
+# 或
+pnpm seed:dump -- --source mongodb://host:27017/?dbName=nearcade
 
-    # Auth 密钥 (生成一个随机字符串)
-    AUTH_SECRET="your_random_auth_secret"
-    ```
+# 恢复到本地 MongoDB / 清空本地种子集合
+# 必须在应用容器内执行，因为本地 MongoDB 默认不对宿主机暴露端口：
+docker compose exec app pnpm seed:restore
+docker compose exec app pnpm seed:clear
+```
 
-    **认证提供商:**
+`pnpm dev:setup --seed` 已自动完成 `docker compose exec app pnpm seed:restore` 这一步。
 
-    ```env
-    # GitHub
-    AUTH_GITHUB_ID="your_github_oauth_id"
-    AUTH_GITHUB_SECRET="your_github_oauth_secret"
+`seed:dump` 的脱敏处理非常克制，仅剔除以下字段：
 
-    # Microsoft
-    AUTH_MICROSOFT_ENTRA_ID_ID = "your_microsoft_entra_id_id"
-    AUTH_MICROSOFT_ENTRA_ID_SECRET = "your_microsoft_entra_id_secret"
-    AUTH_MICROSOFT_ENTRA_ID_ISSUER = "your_microsoft_entra_id_issuer"
+- **图片引用**：`universities.avatarUrl`、`universities.avatarImageId`（指向本地不可用的 OSS）；
+- **所有权/环境相关字段**：`shops.isClaimed`（关联本地不存在的用户账号）；
+- 各集合的 `_id`（由 MongoDB 在插入时重新生成）。
 
-    # Discord
-    AUTH_DISCORD_ID="your_discord_oauth_id"
-    AUTH_DISCORD_SECRET="your_discord_oauth_secret"
+`createdAt`/`updatedAt` 等时间戳会**原样保留**；`counters.seq`（下一个店铺 ID）也会**原样保留**，确保新建店铺的 ID 不会与种子数据冲突。
 
-    # osu!
-    AUTH_OSU_ID = "your_osu_oauth_id"
-    AUTH_OSU_SECRET = "your_osu_oauth_secret"
+种子文件输出到 `data/seed/`（已被 gitignore，不提交到仓库）。
 
-    # Phira
-    AUTH_PHIRA_ID = "your_phira_oauth_id"
-    AUTH_PHIRA_SECRET = "your_phira_oauth_secret"
+### 手动配置环境变量（可选）
 
-    # QQ
-    AUTH_QQ_ID="your_qq_oauth_id"
-    AUTH_QQ_SECRET="your_qq_oauth_secret"
-    AUTH_QQ_PROXY="https://your_qq_redirect_proxy.com/redirect?uri={CALLBACK_URI}" # 可选的 QQ 重定向代理模板；支持 {PUBLIC_HOST}、{PUBLIC_ORIGIN}、{CALLBACK_URI}、{CALLBACK_URI_ENCODED}
-    ```
+如果不想使用 `pnpm dev:setup`，可参考 `.env.example` 手动创建 `.env`。核心配置如下：
 
-    **Redis 配置:**
+```env
+# 数据库——应用容器通过内部 Compose 网络访问，使用服务名而非 localhost
+MONGODB_URI="mongodb://mongo:27017/?dbName=nearcade"
 
-    ```env
-    REDIS_URI = "redis://username:password@127.0.0.1:6379"
-    ```
+# 服务器间通讯密钥 (生成一个随机字符串)
+SSC_SECRET="your_ssc_secret"
 
-    **SMTP 配置 (用于邮箱地址与在校生资格验证邮件):**
+# Auth 密钥 (生成一个随机字符串)
+AUTH_SECRET="your_random_auth_secret"
 
-    ```env
-    SMTP_HOST = "smtp.example.com"
-    SMTP_PORT = "587"
-    SMTP_USER = "your_smtp_user@example.com"
-    SMTP_PASSWORD = "your_smtp_password"
-    SMTP_SECURE = "false" # 465 端口通常为 true，587 端口通常为 false
-    SMTP_FROM = "nearcade <no-reply@example.com>" # 可选，默认使用 SMTP_USER
-    ```
+# Redis
+REDIS_URI = "redis://redis:6379"
 
-    **Meilisearch 配置:**
+# Meilisearch
+MEILISEARCH_HOST = "http://meilisearch:7700"
+MEILISEARCH_API_KEY = "dev-master-key"
+```
 
-    ```env
-    MEILISEARCH_HOST = "http://localhost:7700"
-    MEILISEARCH_API_KEY = "your_api_key"
-    ```
+> MongoDB、Redis、Meilisearch、MinIO 默认**不会**对宿主机暴露端口——应用容器与它们
+> 同属一个 Compose 网络，通过服务名互相访问，与宿主机上是否已安装同名服务完全无关。
+> 如需在宿主机用 mongosh / RedisInsight / MinIO 控制台等工具直接查看数据，取消
+> `docker-compose.yml` 中对应服务 `ports:` 段落的注释后重新 `docker compose up -d` 即可。
 
-    **OSS 配置:**
+**OAuth 提供商（GitHub 必填，其余可选）:**
 
-    ```env
-    # LeanCloud 与 S3 二选一，二者均提供时优先选择 S3
+```env
+# GitHub
+AUTH_GITHUB_ID="your_github_oauth_id"
+AUTH_GITHUB_SECRET="your_github_oauth_secret"
 
-    # LeanCloud 配置
-    OSS_LEANCLOUD_APP_ID = "your_leancloud_app_id"
-    OSS_LEANCLOUD_APP_KEY = "your_leancloud_app_key"
-    OSS_LEANCLOUD_SERVER_URL = "https://oss.example.com"
+# 可选：Microsoft / Discord / osu! / Phira / QQ
+# AUTH_MICROSOFT_ENTRA_ID_ID = "..."
+# AUTH_MICROSOFT_ENTRA_ID_SECRET = "..."
+# AUTH_MICROSOFT_ENTRA_ID_ISSUER = "..."
+# AUTH_DISCORD_ID = "..."
+# AUTH_DISCORD_SECRET = "..."
+# AUTH_OSU_ID = "..."
+# AUTH_OSU_SECRET = "..."
+# AUTH_PHIRA_ID = "..."
+# AUTH_PHIRA_SECRET = "..."
+# AUTH_QQ_ID = "..."
+# AUTH_QQ_SECRET = "..."
+```
 
-    # S3 配置 JSON (使用 Base64 编码)
-    # 示例:
-    # {
-    #   "endpoint": "https://s3.example.amazonaws.com",
-    #   "region": "cn-example-2",
-    #   "bucket": "your-bucket-name-or-endpoint", // 如果 bucketEndpoint 为 true，该项应为完整的 URL
-    #   "accessKeyId": "your-access-key-id",
-    #   "secretAccessKey": "your-secret-access-key",
-    #   "bucketEndpoint": false,
-    #   "forcePathStyle": true
-    # }
-    OSS_S3_BASE64 = "your_base64_content"
-    ```
+未配置的 OAuth 提供商不会注册，登录界面不会出现对应按钮，也不会影响启动。
 
-    **Firebase Cloud Messaging 配置:**
+**SMTP 配置（可选，用于邮箱地址与在校生资格验证邮件）:**
 
-    ```env
-    # 以下变量二选一
+```env
+SMTP_HOST = "smtp.example.com"
+SMTP_PORT = "587"
+SMTP_USER = "your_smtp_user@example.com"
+SMTP_PASSWORD = "your_smtp_password"
+SMTP_SECURE = "false" # 465 端口通常为 true，587 端口通常为 false
+SMTP_FROM = "nearcade <no-reply@example.com>" # 可选，默认使用 SMTP_USER
+```
 
-    # Google 服务账号 JSON (使用 Base64 编码)
-    GSAK_BASE64="your_base64_content"
+**OSS 配置（可选，MinIO 本地已自动配置）:**
 
-    # Firebase Cloud Messaging 代理
-    FCM_PROXY="https://example.com/api/notifications/fcm/send"
-    ```
+```env
+# LeanCloud 与 S3 二选一，二者均提供时优先选择 S3
 
-    其中，有关 Firebase Cloud Messaging 代理，请参考[该终结点](src/routes/api/notifications/fcm/send/+server.ts)。
+# LeanCloud 配置
+OSS_LEANCLOUD_APP_ID = "your_leancloud_app_id"
+OSS_LEANCLOUD_APP_KEY = "your_leancloud_app_key"
+OSS_LEANCLOUD_SERVER_URL = "https://oss.example.com"
 
-4.  **启动开发服务器:**
+# S3 配置 JSON (使用 Base64 编码)
+# 示例（本地 Docker 环境使用内部服务名 minio）:
+# {
+#   "endpoint": "http://minio:9000",
+#   "region": "us-east-1",
+#   "bucket": "nearcade",
+#   "accessKeyId": "minioadmin",
+#   "secretAccessKey": "minioadmin",
+#   "bucketEndpoint": false,
+#   "forcePathStyle": true
+# }
+OSS_S3_BASE64 = "your_base64_content"
+```
 
-    ```bash
-    pnpm dev
-    ```
+**Firebase Cloud Messaging 配置（可选）:**
 
-5.  **打开浏览器:**
-    访问 `http://localhost:5173`
+```env
+# Google 服务账号 JSON (使用 Base64 编码)
+GSAK_BASE64="your_base64_content"
+
+# Firebase Cloud Messaging 代理
+FCM_PROXY="https://example.com/api/notifications/fcm/send"
+```
+
+其中，有关 Firebase Cloud Messaging 代理，请参考[该终结点](src/routes/api/notifications/fcm/send/+server.ts)。
+
+完成 `.env` 配置后，运行 `docker compose up -d --build --wait`，然后访问
+`http://localhost:5173`。
 
 ### 构建生产版本
 
@@ -268,33 +285,16 @@ pnpm build
 pnpm preview
 ```
 
-## 🚢 使用 Docker 运行
+## 🐳 Docker 常用操作
 
-### 环境要求
-
-- 已安装 **Docker** 和 **Docker Compose**。
-
-### 操作指南
-
-1.  **克隆仓库并进入项目目录。**
-
-2.  **设置环境变量:**
-    按照“开始使用”部分的说明创建 `.env` 文件。
-
-3.  **构建并启动服务:**
-
-    ```bash
-    docker-compose up --build
-    ```
-
-4.  **访问应用:**
-    容器启动后，在浏览器中访问 `http://localhost:3000`。
-
-### 停止 Docker 容器
-
-```bash
-docker-compose down
-```
+- **查看应用日志（含热更新输出）：** `docker compose logs -f app`
+- **依赖变更后重新安装：** 应用容器每次启动都会执行 `pnpm install`，重启容器
+  （`docker compose restart app`）即可同步新依赖；修改了 `Dockerfile` 本身则需要
+  `docker compose up -d --build app`。
+- **进入应用容器执行任意命令：** `docker compose exec app <command>`（如
+  `pnpm check`、`pnpm seed:restore`）。
+- **停止容器：** `docker compose down`
+- **停止容器并删除数据卷（将清空本地数据）：** `docker compose down -v`
 
 ## 🤝 参与贡献
 

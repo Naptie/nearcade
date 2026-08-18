@@ -24,7 +24,11 @@ export interface QQProfile {
   is_yellow_year_vip: number;
 }
 
-export function qqProvider({ clientId, clientSecret, proxy }: QqProviderConfig): GenericOAuthConfig {
+export function qqProvider({
+  clientId,
+  clientSecret,
+  proxy
+}: QqProviderConfig): GenericOAuthConfig {
   return {
     providerId: 'qq',
     clientId,

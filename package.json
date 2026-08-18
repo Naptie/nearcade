@@ -18,6 +18,10 @@
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
     "maintain": "tsx ./scripts/redis-maintainer.ts",
+    "dev:setup": "bash ./scripts/dev-setup.sh",
+    "seed:dump": "tsx ./scripts/seed.ts dump",
+    "seed:restore": "tsx ./scripts/seed.ts restore",
+    "seed:clear": "tsx ./scripts/seed.ts clear",
     "cf-deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
   },

@@ -1,19 +1,130 @@
+name: nearcade-dev
+
+# Only the app's own dev server is published to the host. Backing services
+# communicate with the app over the internal Compose network only.
+#
+# To inspect data directly from the host (mongosh, RedisInsight, MinIO
+# console, etc.), uncomment the relevant `ports:` block below for that one
+# service and re-run `docker compose up -d`.
+
 services:
-  nearcade:
+  app:
     build: .
+    container_name: nearcade-app
     ports:
-      - '3000:3000'
+      - '5173:5173'
     env_file:
       - .env
+    volumes:
+      # Bind-mount source for hot reload, but keep node_modules and the
+      # generated .svelte-kit inside the container (from the image build).
+      # Bind-mounting a host node_modules that was installed against a
+      # different pnpm store breaks the symlinks and hangs Vite's optimizer.
+      - .:/app
+      - /app/node_modules
+      - /app/.svelte-kit
+    command: sh -c "pnpm dev --host 0.0.0.0 --port 5173"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:5173']
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 180s
 
   mongo:
-    image: mongo
-    restart: always
-    container_name: mongo
+    image: mongo:7
+    restart: unless-stopped
+    container_name: nearcade-mongo
+    # ports:
+    #   - '127.0.0.1:37017:27017'
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping").ok']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    container_name: nearcade-redis
+    # ports:
+    #   - '127.0.0.1:16379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1
+    restart: unless-stopped
+    container_name: nearcade-meilisearch
+    # ports:
+    #   - '127.0.0.1:17700:7700'
+    environment:
+      MEILI_MASTER_KEY: '${MEILISEARCH_API_KEY:-dev-master-key}'
+      MEILI_NO_ANALYTICS: 'true'
+      MEILI_ENV: 'development'
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:7700/health']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    container_name: nearcade-minio
+    command: server /data --console-address ':9001'
+    # ports:
+    #   - '127.0.0.1:19000:9000' # S3 API
+    #   - '127.0.0.1:19001:9001' # Web console
+    environment:
+      MINIO_ROOT_USER: '${MINIO_ROOT_USER:-minioadmin}'
+      MINIO_ROOT_PASSWORD: '${MINIO_ROOT_PASSWORD:-minioadmin}'
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Creates the S3 bucket on MinIO so OSS works out of the box.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: '${MINIO_ROOT_USER:-minioadmin}'
+      MINIO_ROOT_PASSWORD: '${MINIO_ROOT_PASSWORD:-minioadmin}'
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/nearcade &&
+        mc anonymous set none local/nearcade &&
+        echo "MinIO bucket 'nearcade' ready"
 
 volumes:
   mongo_data:
+  redis_data:
+  meili_data:
+  minio_data:

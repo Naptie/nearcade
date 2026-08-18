@@ -9,3 +9,6 @@ static/**
 !static/openapi.json
 
 .venv
+
+# Seed data (minified)
+data/seed
