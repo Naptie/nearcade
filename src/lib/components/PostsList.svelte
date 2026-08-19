@@ -1,22 +1,18 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { PostReadability, type PostWithAuthor } from '$lib/types';
-  import type { User } from '$lib/auth/types';
+  import { type PostWithAuthor } from '$lib/types';
   import PostCard from './PostCard.svelte';
-  import PostCreateModal from './PostCreateModal.svelte';
   import { PAGINATION } from '$lib/constants';
   import { onMount } from 'svelte';
   import { fromPath } from '$lib/utils/scoped';
+  import { resolve } from '$app/paths';
 
   interface Props {
     organizationType: 'university' | 'club';
     organizationId: string;
     organizationName: string;
     organizationSlug?: string;
-    organizationReadability?: PostReadability;
     currentUserId?: string;
-    currentUser?: User | undefined;
-    canManage: boolean;
     canCreatePost: boolean;
     initialPosts?: PostWithAuthor[];
   }
@@ -26,10 +22,7 @@
     organizationId,
     organizationName,
     organizationSlug,
-    organizationReadability,
     currentUserId,
-    currentUser = undefined,
-    canManage,
     canCreatePost,
     initialPosts = []
   }: Props = $props();
@@ -38,8 +31,17 @@
   let isLoading = $state(true);
   let hasMore = $derived(initialPosts.length >= PAGINATION.PAGE_SIZE);
   let currentPage = $state(1);
-  let showCreateModal = $state(false);
   let error = $state('');
+
+  let createPostUrl = $derived(
+    organizationType === 'university'
+      ? resolve('/(main)/universities/[id]/posts/new', {
+          id: organizationSlug || organizationId
+        })
+      : resolve('/(main)/clubs/[id]/posts/new', {
+          id: organizationSlug || organizationId
+        })
+  );
 
   const loadMorePosts = async () => {
     if (isLoading || !hasMore) return;
@@ -66,10 +68,6 @@
     } finally {
       isLoading = false;
     }
-  };
-
-  const handlePostCreated = () => {
-    refreshPosts();
   };
 
   const refreshPosts = async () => {
@@ -107,13 +105,10 @@
       {m.posts()}
     </h3>
     {#if currentUserId && canCreatePost}
-      <button
-        class="btn btn-primary not-xs:btn-circle btn-sm btn-soft"
-        onclick={() => (showCreateModal = true)}
-      >
+      <a href={createPostUrl} class="btn btn-primary not-xs:btn-circle btn-sm btn-soft">
         <i class="fa-solid fa-plus"></i>
         <span class="not-xs:hidden">{m.new_post()}</span>
-      </button>
+      </a>
     {/if}
   </div>
 
@@ -169,10 +164,10 @@
           <p class="text-base-content/60 mb-4">
             {m.create_first_post()}
           </p>
-          <button class="btn btn-primary btn-sm btn-soft" onclick={() => (showCreateModal = true)}>
+          <a href={createPostUrl} class="btn btn-primary btn-sm btn-soft">
             <i class="fa-solid fa-plus"></i>
             {m.create_post()}
-          </button>
+          </a>
         {:else}
           <p class="text-base-content/60">
             {m.no_posts_created_yet()}
@@ -182,16 +177,3 @@
     {/if}
   </div>
 </div>
-
-<!-- Create Post Modal -->
-<PostCreateModal
-  isOpen={showCreateModal}
-  {organizationType}
-  {organizationId}
-  {organizationName}
-  organizationReadability={organizationReadability || PostReadability.PUBLIC}
-  {canManage}
-  {currentUser}
-  onClose={() => (showCreateModal = false)}
-  onSuccess={handlePostCreated}
-/>

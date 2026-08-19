@@ -682,10 +682,7 @@
               organizationId={clubDataResolved.club.id}
               organizationName={clubDataResolved.club.name}
               organizationSlug={clubDataResolved.club.slug}
-              organizationReadability={clubDataResolved.club.postReadability}
-              canManage={userPrivileges.canManage}
               currentUserId={data.user?.id}
-              currentUser={data.user ?? undefined}
               canCreatePost={clubDataResolved.canWritePosts}
               initialPosts={[]}
             />

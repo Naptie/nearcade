@@ -94,6 +94,7 @@
   let editImageIds = $state<string[]>([]);
   let editAttachments = $state<ImageAsset[]>([]);
   let editReadability = $state(PostReadability.PUBLIC);
+  let editWideMode = $state(false);
   let isSavingPost = $state(false);
   let showDeletePostConfirm = $state(false);
   let isPostRendered = $state(false);
@@ -546,9 +547,14 @@
 <BackToTopButton />
 
 {#if componentMounted}
-  <div class="mx-auto {isEditingPost ? 'max-w-full' : 'max-w-6xl'} pt-20 pb-5 sm:px-4">
-    <!-- Back link -->
-    <div class="mb-6 not-sm:px-4">
+  <div
+    class="mx-auto pt-20 pb-5 transition-[max-width] duration-500 ease-in-out sm:px-4 {isEditingPost
+      ? editWideMode
+        ? 'max-w-full'
+        : 'max-w-6xl'
+      : 'max-w-6xl'}"
+  >
+    <div class="mb-6 flex items-center justify-between gap-2 not-sm:px-4">
       <a
         href={backUrl}
         class="hover:text-primary flex items-center gap-2 text-sm transition-colors"
@@ -556,6 +562,17 @@
         <i class="fa-solid fa-arrow-left"></i>
         {m.back_to_posts()}
       </a>
+      {#if isEditingPost}
+        <!-- Wide mode toggle -->
+        <label class="flex cursor-pointer items-end gap-2 pb-1 not-xl:hidden" title={m.wide_mode()}>
+          <span class="text-base-content/60 text-sm">{m.wide_mode()}</span>
+          <input
+            type="checkbox"
+            class="toggle toggle-primary toggle-sm"
+            bind:checked={editWideMode}
+          />
+        </label>
+      {/if}
     </div>
 
     <!-- Post -->
@@ -644,7 +661,7 @@
 
         <!-- Post title -->
         {#if isEditingPost}
-          <div class="mb-4 flex gap-3">
+          <div class="mb-4 flex gap-3 not-md:flex-col">
             <div class="form-control flex-1">
               <label class="label" for="edit-post-title">
                 <span class="label-text">{m.post_title()}</span>
@@ -666,7 +683,7 @@
               </label>
               <select
                 id="edit-post-readability"
-                class="select select-bordered"
+                class="select select-bordered w-full"
                 bind:value={editReadability}
                 disabled={isSavingPost}
               >

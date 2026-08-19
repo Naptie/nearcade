@@ -646,10 +646,7 @@
               organizationId={universityDataResolved?.university.id}
               organizationName={universityDataResolved?.university.name}
               organizationSlug={universityDataResolved?.university.slug}
-              organizationReadability={universityDataResolved?.university.postReadability}
               currentUserId={data.user?.id}
-              currentUser={data.user ?? undefined}
-              canManage={userPrivileges.canManage}
               canCreatePost={canWritePosts}
               initialPosts={[]}
             />
