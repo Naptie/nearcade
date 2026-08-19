@@ -129,7 +129,7 @@ cd nearcade
 pnpm dev:setup
 # 或不依赖 Node/pnpm：bash scripts/dev-setup.sh
 
-# 可选：恢复脱敏的种子数据（店铺、高校、地区等公开数据）
+# 可选：导入种子数据
 pnpm dev:setup --seed
 ```
 
@@ -148,10 +148,9 @@ bind mount 挂载到容器内）。
 
 ### 种子数据
 
-公开数据（`regions`、`counters`、`universities`、`shops`）可以从开发数据库导出为脱敏种子数据，再恢复到本地 MongoDB：
+公开数据（`regions`、`counters`、`universities`、`shops`）可以导出为脱敏种子数据，再恢复到容器内 MongoDB：
 
 ```bash
-# 从某个开发数据库导出（在宿主机运行，该地址是外部数据源，与本地 Compose 网络无关）
 # 通过 SEED_SOURCE 环境变量或 --source 参数指定数据源
 SEED_SOURCE=mongodb://host:27017/?dbName=nearcade pnpm seed:dump
 # 或
@@ -164,16 +163,6 @@ docker compose exec app pnpm seed:clear
 ```
 
 `pnpm dev:setup --seed` 已自动完成 `docker compose exec app pnpm seed:restore` 这一步。
-
-`seed:dump` 的脱敏处理非常克制，仅剔除以下字段：
-
-- **图片引用**：`universities.avatarUrl`、`universities.avatarImageId`（指向本地不可用的 OSS）；
-- **所有权/环境相关字段**：`shops.isClaimed`（关联本地不存在的用户账号）；
-- 各集合的 `_id`（由 MongoDB 在插入时重新生成）。
-
-`createdAt`/`updatedAt` 等时间戳会**原样保留**；`counters.seq`（下一个店铺 ID）也会**原样保留**，确保新建店铺的 ID 不会与种子数据冲突。
-
-种子文件输出到 `data/seed/`（已被 gitignore，不提交到仓库）。
 
 ### 手动配置环境变量（可选）
 
