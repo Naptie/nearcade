@@ -218,7 +218,7 @@ export const universityChangelogResponseSchema = z.object({
     .describe(bilingual('变更记录列表。', 'Changelog entries.')),
   total: z.int().min(0).describe(bilingual('总条目数。', 'Total entries.')),
   page: z.int().min(1).describe(bilingual('当前页。', 'Current page.')),
-  limit: z.int().min(1).max(100).describe(bilingual('每页条目数。', 'Items per page.')),
+  limit: z.int().min(1).describe(bilingual('每页条目数。', 'Items per page.')),
   hasMore: z.boolean().describe(bilingual('是否还有更多记录。', 'Whether more entries exist.')),
   totalPages: z.int().min(0).describe(bilingual('总页数。', 'Total pages.'))
 });
