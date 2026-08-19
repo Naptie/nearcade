@@ -1,7 +1,8 @@
 import type { ObjectId } from 'mongodb';
+import type { ZodOpenApiOverrideMetaContext } from 'zod-openapi';
 import { z } from 'zod';
 
-import { SOCIAL_PLATFORMS, USER_TYPES } from '../constants';
+import { PAGINATION, SOCIAL_PLATFORMS, USER_TYPES } from '../constants';
 
 export const bilingual = (chinese: string, english: string, singleLine = false) =>
   singleLine ? `${chinese} / ${english}` : [chinese, english].join('\n\n');
@@ -14,6 +15,31 @@ export const numericString = z
 export const integerString = numericString.pipe(z.int());
 
 export const positiveIntegerString = integerString.pipe(z.int().positive());
+
+export const positiveIntegerQueryParamSchema = (
+  description: string,
+  defaultValue: number,
+  maximum = Number.MAX_SAFE_INTEGER
+) =>
+  z
+    .union([z.string(), z.number(), z.null(), z.undefined()])
+    .optional()
+    .transform((value) =>
+      value === null || value === undefined || value === '' ? defaultValue : Number(value)
+    )
+    .pipe(z.number().int().min(1).max(maximum))
+    .describe(description)
+    .meta({
+      override: (ctx: ZodOpenApiOverrideMetaContext) => {
+        delete ctx.jsonSchema.anyOf;
+        Object.assign(ctx.jsonSchema, {
+          type: 'integer',
+          minimum: 1,
+          maximum,
+          default: defaultValue
+        });
+      }
+    });
 
 export const shopIdParamSchema = z.object({
   id: positiveIntegerString.describe(bilingual('店铺 ID。', 'Shop ID.'))
@@ -31,27 +57,18 @@ export const optionalBooleanString = z
   .pipe(z.union([z.boolean(), z.undefined()]));
 
 export const paginationQuerySchema = z.object({
-  page: z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .optional()
-    .transform((value) => {
-      const parsed = value === null || value === undefined || value === '' ? 1 : Number(value);
-      return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
-    })
-    .describe(bilingual('页数。默认为 1。', 'Page number. Defaults to 1.')),
-  limit: z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .optional()
-    .transform((value) => {
-      const parsed = value === null || value === undefined || value === '' ? 0 : Number(value);
-      return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
-    })
-    .describe(
-      bilingual(
-        '每页条目数。默认为站点分页大小。',
-        'Items per page. Defaults to the site page size.'
-      )
-    )
+  page: positiveIntegerQueryParamSchema(
+    bilingual('页数。默认为 1。', 'Page number. Defaults to 1.'),
+    1
+  ),
+  limit: positiveIntegerQueryParamSchema(
+    bilingual(
+      '每页条目数。默认为站点分页大小，最大为 100。',
+      'Items per page. Defaults to the site page size, up to 100.'
+    ),
+    PAGINATION.PAGE_SIZE,
+    100
+  )
 });
 
 export const openingHourTimeSchema = z.object({

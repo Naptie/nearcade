@@ -5,6 +5,7 @@ import {
   bilingual,
   dateTimeSchema,
   objectIdSchema,
+  positiveIntegerQueryParamSchema,
   successResponseSchema,
   userIdSchema,
   userPublicSchema
@@ -92,14 +93,10 @@ export const postWithAuthorSchema = postSchema.extend({
 });
 
 export const organizationPostsQuerySchema = z.object({
-  page: z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .optional()
-    .transform((value) => {
-      const parsed = value === null || value === undefined || value === '' ? 1 : Number(value);
-      return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
-    })
-    .describe(bilingual('页数。默认为 1。', 'Page number. Defaults to 1.'))
+  page: positiveIntegerQueryParamSchema(
+    bilingual('页数。默认为 1。', 'Page number. Defaults to 1.'),
+    1
+  )
 });
 
 export const organizationPostsResponseSchema = z.object({

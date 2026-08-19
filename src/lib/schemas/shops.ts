@@ -7,6 +7,7 @@ import {
   openingHoursSchema,
   optionalBooleanString,
   paginationQuerySchema,
+  positiveIntegerQueryParamSchema,
   shopIdParamSchema,
   successResponseSchema,
   userIdSchema,
@@ -395,20 +396,6 @@ export const queueReportResponseSchema = successResponseSchema.extend({
       bilingual('本次更新加入通知队列的数量。', 'Number of notifications queued by the update.')
     )
 });
-
-const positiveIntegerQueryParamSchema = (
-  description: string,
-  defaultValue: number,
-  maximum = Number.MAX_SAFE_INTEGER
-) =>
-  z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .optional()
-    .transform((value) =>
-      value === null || value === undefined || value === '' ? defaultValue : Number(value)
-    )
-    .pipe(z.number().int().min(1).max(maximum))
-    .describe(description);
 
 export const shopChangelogQuerySchema = z.object({
   page: positiveIntegerQueryParamSchema(

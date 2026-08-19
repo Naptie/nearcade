@@ -7,6 +7,7 @@ import {
   bilingual,
   dateTimeSchema,
   objectIdSchema,
+  positiveIntegerQueryParamSchema,
   positiveIntegerString,
   socialLinkSchema,
   successResponseSchema,
@@ -16,20 +17,6 @@ import {
 } from './common';
 import { commentVoteTypeSchema } from './comments';
 import { imageUploadEventSchema, imageUploadRequestSchema } from './images';
-
-const positiveIntegerQueryParamSchema = (
-  description: string,
-  defaultValue: number,
-  maximum = Number.MAX_SAFE_INTEGER
-) =>
-  z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .optional()
-    .transform((value) =>
-      value === null || value === undefined || value === '' ? defaultValue : Number(value)
-    )
-    .pipe(z.number().int().min(1).max(maximum))
-    .describe(description);
 
 export const userRouteIdSchema = z
   .string()

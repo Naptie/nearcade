@@ -7,22 +7,10 @@ import {
   dateTimeSchema,
   locationSchema,
   objectIdSchema,
+  positiveIntegerQueryParamSchema,
   userSummarySchema
 } from './common';
-
-const positiveIntegerQueryParamSchema = (
-  description: string,
-  defaultValue: number,
-  maximum = Number.MAX_SAFE_INTEGER
-) =>
-  z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .optional()
-    .transform((value) =>
-      value === null || value === undefined || value === '' ? defaultValue : Number(value)
-    )
-    .pipe(z.number().int().min(1).max(maximum))
-    .describe(description);
+import { PAGINATION } from '$lib/constants';
 
 export const universityRouteIdSchema = z
   .string()
@@ -207,7 +195,7 @@ export const universityChangelogQuerySchema = z.object({
       '每页条目数。默认为站点分页大小，最大为 100。',
       'Items per page. Defaults to the site page size, up to 100.'
     ),
-    20,
+    PAGINATION.PAGE_SIZE,
     100
   )
 });

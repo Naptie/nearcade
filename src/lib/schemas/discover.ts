@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { bilingual, optionalBooleanString } from './common';
+import { bilingual, optionalBooleanString, positiveIntegerQueryParamSchema } from './common';
 import {
   attendanceReportCommentSchema,
   gameAttendanceTotalSchema,
@@ -60,20 +60,14 @@ export const discoverQuerySchema = z.object({
         'Search radius in kilometers; 0 means unlimited. Defaults to 10.'
       )
     ),
-  limit: z
-    .union([z.string(), z.number(), z.undefined()])
-    .optional()
-    .transform((value) =>
-      value === undefined || value === '' ? MAX_DISCOVER_RESULTS : Number(value)
-    )
-    .pipe(z.number())
-    .transform((value) => Math.max(1, Math.min(MAX_DISCOVER_RESULTS, Math.floor(value))))
-    .describe(
-      bilingual(
-        `结果数量限制；最小为 1，最大为 ${MAX_DISCOVER_RESULTS}。默认为 ${MAX_DISCOVER_RESULTS}。`,
-        `Result count limit; minimum is 1, maximum is ${MAX_DISCOVER_RESULTS}. Defaults to ${MAX_DISCOVER_RESULTS}.`
-      )
+  limit: positiveIntegerQueryParamSchema(
+    bilingual(
+      `结果数量限制；最小为 1，最大为 ${MAX_DISCOVER_RESULTS}。默认为 ${MAX_DISCOVER_RESULTS}。`,
+      `Result count limit; minimum is 1, maximum is ${MAX_DISCOVER_RESULTS}. Defaults to ${MAX_DISCOVER_RESULTS}.`
     ),
+    MAX_DISCOVER_RESULTS,
+    MAX_DISCOVER_RESULTS
+  ),
   gameTitleIds: z
     .union([z.string(), z.array(z.number()), z.undefined()])
     .optional()

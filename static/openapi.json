@@ -34,22 +34,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
@@ -996,22 +984,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
@@ -1494,22 +1470,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
@@ -1640,22 +1604,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
@@ -2473,17 +2425,10 @@
             "name": "limit",
             "schema": {
               "description": "结果数量限制；最小为 1，最大为 150。默认为 150。\n\nResult count limit; minimum is 1, maximum is 150. Defaults to 150.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 150,
+              "default": 150
             },
             "description": "结果数量限制；最小为 1，最大为 150。默认为 150。\n\nResult count limit; minimum is 1, maximum is 150. Defaults to 150."
           },
@@ -4427,22 +4372,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
@@ -4450,25 +4383,13 @@
             "in": "query",
             "name": "limit",
             "schema": {
-              "description": "每页条目数。默认为站点分页大小。\n\nItems per page. Defaults to the site page size.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "description": "每页条目数。默认为站点分页大小，最大为 100。\n\nItems per page. Defaults to the site page size, up to 100.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 48
             },
-            "description": "每页条目数。默认为站点分页大小。\n\nItems per page. Defaults to the site page size."
+            "description": "每页条目数。默认为站点分页大小，最大为 100。\n\nItems per page. Defaults to the site page size, up to 100."
           },
           {
             "in": "query",
@@ -7423,22 +7344,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
@@ -7447,22 +7356,10 @@
             "name": "limit",
             "schema": {
               "description": "每页返回的更新记录数量。默认为站点分页大小，最大为 100。\n\nNumber of changelog entries per page. Defaults to the site page size, up to 100.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 48
             },
             "description": "每页返回的更新记录数量。默认为站点分页大小，最大为 100。\n\nNumber of changelog entries per page. Defaults to the site page size, up to 100."
           }
@@ -8381,22 +8278,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
@@ -8405,22 +8290,10 @@
             "name": "limit",
             "schema": {
               "description": "每页返回的在勤历史条目数量。默认为 10，最大为 100。\n\nNumber of attendance history entries per page. Defaults to 10, up to 100.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
             },
             "description": "每页返回的在勤历史条目数量。默认为 10，最大为 100。\n\nNumber of attendance history entries per page. Defaults to 10, up to 100."
           }
@@ -11898,22 +11771,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
@@ -11922,22 +11783,10 @@
             "name": "limit",
             "schema": {
               "description": "每页条目数。默认为站点分页大小，最大为 100。\n\nItems per page. Defaults to the site page size, up to 100.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 48
             },
             "description": "每页条目数。默认为站点分页大小，最大为 100。\n\nItems per page. Defaults to the site page size, up to 100."
           }
@@ -12104,7 +11953,7 @@
                     "limit": {
                       "type": "integer",
                       "minimum": 1,
-                      "maximum": 100,
+                      "maximum": 9007199254740991,
                       "description": "每页条目数。\n\nItems per page."
                     },
                     "hasMore": {
@@ -12156,22 +12005,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
@@ -12296,22 +12133,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
@@ -12442,22 +12267,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           }
@@ -13973,22 +13786,10 @@
             "name": "page",
             "schema": {
               "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
             },
             "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
           },
@@ -13997,22 +13798,10 @@
             "name": "limit",
             "schema": {
               "description": "每页返回的活动条目数量。默认为站点分页大小，最大为 100。\n\nNumber of activities per page. Defaults to the site page size, up to 100.",
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "string",
-                  "nullable": true,
-                  "enum": [null]
-                },
-                {
-                  "not": {}
-                }
-              ]
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 48
             },
             "description": "每页返回的活动条目数量。默认为站点分页大小，最大为 100。\n\nNumber of activities per page. Defaults to the site page size, up to 100."
           }
