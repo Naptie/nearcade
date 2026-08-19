@@ -68,7 +68,7 @@ const unset = (doc: Document, fields: string[]) => {
  *  - counters: `seq` is the actual next-slot id and MUST be preserved verbatim.
  */
 const sanitizeShops = (doc: Document) => {
-  unset(doc, ['_id', "comment", 'isClaimed']);
+  unset(doc, ['_id', 'comment', 'isClaimed']);
   return doc;
 };
 
