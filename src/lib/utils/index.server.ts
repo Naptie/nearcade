@@ -5,7 +5,7 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
 import type { Shop } from '$lib/types';
 import { error } from 'console';
-import { ObjectId } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { hasBoundPhone } from '.';
 
 export const getOrigin = (request: Request) => {
@@ -49,6 +49,75 @@ export const resolveRedirectURI = (callbackURI: string, template: string) => {
   }
 
   return resolved;
+};
+
+export const initDatabase = async (mongo: MongoClient) => {
+  const db = mongo.db();
+
+  await Promise.all([
+    // users
+    db.collection('users').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+
+    // shops
+    db.collection('shops').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    db.collection('shops').createIndex({ location: '2dsphere' }, { name: 'location_2dsphere' }),
+
+    // machines
+    db.collection('machines').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    db.collection('machines').createIndex({ apiSecret: 1 }, { name: 'apiSecret_1' }),
+
+    // queues
+    db
+      .collection('queues')
+      .createIndex({ updatedAt: 1 }, { name: 'updatedAt_ttl', expireAfterSeconds: 86400 }),
+
+    // accounts
+    db
+      .collection('accounts')
+      .createIndex({ userId: 1, providerId: 1 }, { name: 'userId_1_providerId_1' }),
+
+    // notifications
+    db
+      .collection('notifications')
+      .createIndex({ targetUserId: 1, readAt: 1 }, { name: 'targetUserId_1_readAt_1' }),
+
+    // club_members
+    db
+      .collection('club_members')
+      .createIndex({ userId: 1, clubId: 1 }, { name: 'userId_1_clubId_1' }),
+
+    // university_members
+    db
+      .collection('university_members')
+      .createIndex({ userId: 1, universityId: 1 }, { name: 'userId_1_universityId_1' }),
+
+    // posts
+    db.collection('posts').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+
+    // comments
+    db.collection('comments').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+
+    // clubs
+    db.collection('clubs').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    db.collection('clubs').createIndex({ slug: 1 }, { name: 'slug_1' }),
+
+    // images
+    db.collection('images').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+
+    // universities
+    db.collection('universities').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    db
+      .collection('universities')
+      .createIndex(
+        { _id: 1, 'campuses.latitude': 1, 'campuses.longitude': 1 },
+        { name: 'campus_index', unique: true }
+      ),
+
+    // regions
+    db.collection('regions').createIndex({ id: 1 }, { name: 'id_1' }),
+    db.collection('regions').createIndex({ level: 1 }, { name: 'level_1' }),
+    db.collection('regions').createIndex({ parentId: 1 }, { name: 'parentId_1' })
+  ]);
 };
 
 export const getCurrentAttendance = async (userId: string) => {

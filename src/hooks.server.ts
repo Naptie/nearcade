@@ -35,6 +35,7 @@ import { SSC_SECRET } from '$env/static/private';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import { handleWellKnown } from '$lib/endpoints/well-known.server';
 import { getClientIp } from '$lib/utils/ip.server';
+import { initDatabase } from '$lib/utils/index.server';
 
 const reportError: HandleServerError = ({ status, error }) => {
   if (isHttpError(error)) {
@@ -343,6 +344,7 @@ export const init: ServerInit = async () => {
     const mongo = (await import('$lib/db/index.server')).default;
     const meili = await import('$lib/db/meili.server');
     await meili.init(mongo);
+    await initDatabase(mongo);
     await initRegionCache(mongo);
     const sms = await import('$lib/sms/index.server');
     await sms.initSmsRegions();
