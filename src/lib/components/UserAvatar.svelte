@@ -6,6 +6,7 @@
   interface Props {
     user:
       | {
+          id?: string;
           image?: string | null;
           displayName?: string | null;
           name?: string | null;
@@ -145,7 +146,7 @@
             @{user.name}
           </div>
         {/if}
-      {:else if user?.name}
+      {:else if user?.name && user.name !== user?.id}
         <div class="truncate font-medium">
           @{user.name}
         </div>
