@@ -79,6 +79,10 @@
     if (!name) return '?';
     return name.trim()[0].toUpperCase();
   };
+
+  $effect(() => {
+    if (showName) console.log(user?.displayName, user?.name, user?.id, user?.name === user?.id);
+  })
 </script>
 
 {#snippet content()}
@@ -141,12 +145,12 @@
         <div class="truncate font-medium">
           {user.displayName}
         </div>
-        {#if user.displayName !== user.name && user.name}
+        {#if user.displayName !== user.name && user.name && user.name !== user?.id}
           <div class="truncate text-sm opacity-60">
             @{user.name}
           </div>
         {/if}
-      {:else if user?.name && user.name !== user?.id}
+      {:else if user?.name}
         <div class="truncate font-medium">
           @{user.name}
         </div>
