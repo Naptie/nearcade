@@ -1,0 +1,73 @@
+name: Apifox Sync
+run-name: Synchronize Apifox API docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'static/openapi.json'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: apifox-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-apifox:
+    name: Import OpenAPI into Apifox
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Import OpenAPI document into Apifox
+        env:
+          APIFOX_ACCESS_TOKEN: ${{ secrets.APIFOX_ACCESS_TOKEN }}
+          APIFOX_PROJECT_ID: ${{ vars.APIFOX_PROJECT_ID }}
+          APIFOX_MODULE_ID: ${{ vars.APIFOX_MODULE_ID }}
+        run: |
+          jq -n --rawfile spec static/openapi.json --arg module_id "${APIFOX_MODULE_ID}" '{
+            input: $spec,
+            options: ({
+              endpointOverwriteBehavior: "OVERWRITE_EXISTING",
+              schemaOverwriteBehavior: "OVERWRITE_EXISTING",
+              prependBasePath: false,
+              deleteUnmatchedResources: true
+            } + (if $module_id != "" then { moduleId: ($module_id | tonumber) } else {} end))
+          }' > payload.json
+
+          http_code=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Apifox-Api-Version: 2024-03-28" \
+            -H "Authorization: Bearer ${APIFOX_ACCESS_TOKEN}" \
+            --data-binary @payload.json \
+            "https://api.apifox.com/v1/projects/${APIFOX_PROJECT_ID}/import-openapi")
+
+          cat response.json
+
+          if [ "${http_code}" != "200" ]; then
+            echo "::error::Apifox import request failed with HTTP ${http_code}"
+            exit 1
+          fi
+
+          ok=$(jq -e '
+            (.data.errors | length) == 0 and
+            ([.data.counters.endpointFailed, .data.counters.schemaFailed,
+              .data.counters.endpointFolderFailed, .data.counters.schemaFolderFailed] | add) == 0
+          ' response.json >/dev/null && echo yes || echo no)
+
+          if [ "${ok}" != "yes" ]; then
+            echo "::error::Apifox import reported errors"
+            exit 1
+          fi
+
+          jq -r '.data.counters |
+            "Endpoints created: \(.endpointCreated), updated: \(.endpointUpdated), ignored: \(.endpointIgnored)\n" +
+            "Data models created: \(.schemaCreated), updated: \(.schemaUpdated), ignored: \(.schemaIgnored)"' \
+            response.json >> "${GITHUB_STEP_SUMMARY}"
