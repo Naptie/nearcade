@@ -1,7 +1,12 @@
 import { m } from '$lib/paraglide/messages';
 import { getLocale } from '$lib/paraglide/runtime';
 import { Database } from '$lib/db/index.client';
-import { GAME_TITLES, OAUTH_PROVIDERS, type SocialPlatform } from '$lib/constants';
+import {
+  GAME_TITLES,
+  OAUTH_PROVIDERS,
+  type SocialLinkRef,
+  type SocialPlatform
+} from '$lib/constants';
 import { userPrivateFieldNames } from '$lib/schemas/common';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
@@ -92,9 +97,9 @@ export function getProviders(
   return opts.profile ? (resolved as ResolvedProvider<SocialPlatform>[]) : resolved;
 }
 
-export const getProfileUrl = (platform: SocialPlatform, username: string): string | null => {
+export const getProfileUrl = (platform: SocialPlatform, link: SocialLinkRef): string | null => {
   const profile = OAUTH_PROVIDERS.find((p) => p.id === platform)?.profile;
-  return typeof profile === 'function' ? profile?.(username) : null;
+  return typeof profile === 'function' ? profile(link) : null;
 };
 
 /**

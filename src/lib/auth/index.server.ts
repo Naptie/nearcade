@@ -281,11 +281,14 @@ function createAuth() {
             // binding one side always produces the other (github/discord only).
             // The canonical username comes straight from the cached OAuth
             // profile when present, avoiding an extra provider API call.
+            // The provider-side account id is kept on the link so profile
+            // URLs can be built without relying on mutable usernames.
             await syncVerifiedSocialLinkFromAccount(
               account.userId,
               account.providerId,
               account.accessToken as string | undefined,
-              profile?.username
+              profile?.username,
+              account.accountId ? String(account.accountId) : undefined
             );
           }
         }

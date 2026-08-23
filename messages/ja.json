@@ -1456,6 +1456,7 @@
   "social_modal_pick_platform": "プラットフォームを選択",
   "social_modal_username_required": "ユーザー名を入力してください",
   "social_modal_verify_hint": "実際のアカウントを認証すると、プロフィールに認証バッジが表示されます。",
+  "social_open_profile": "{platform} のプロフィールを開く",
   "social_placeholder": [
     {
       "declarations": ["input platform", "input isNumber"],

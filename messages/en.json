@@ -1466,6 +1466,7 @@
   "social_modal_pick_platform": "Choose a Platform",
   "social_modal_username_required": "Please enter your username",
   "social_modal_verify_hint": "Verify your real account to get a verified badge on your profile.",
+  "social_open_profile": "Open your {platform} profile",
   "social_placeholder": [
     {
       "declarations": ["input platform", "input isNumber"],

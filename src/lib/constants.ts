@@ -43,6 +43,11 @@ export const USER_TYPES = [
   'regular'
 ] as const;
 
+export interface SocialLinkRef {
+  username: string;
+  userId?: string;
+}
+
 export const OAUTH_PROVIDERS = [
   {
     id: 'qq',
@@ -50,7 +55,7 @@ export const OAUTH_PROVIDERS = [
     icon: 'fa-qq',
     login: true,
     bind: true,
-    profile: (username: string) => `https://user.qzone.qq.com/${username}`
+    profile: ({ username }: SocialLinkRef) => `https://user.qzone.qq.com/${username}`
   },
   {
     id: 'wechat',
@@ -75,7 +80,7 @@ export const OAUTH_PROVIDERS = [
     icon: 'fa-github',
     login: true,
     bind: true,
-    profile: (username: string) => `https://github.com/${username}`
+    profile: ({ username }: SocialLinkRef) => `https://github.com/${username}`
   },
   {
     id: 'discord',
@@ -93,7 +98,8 @@ export const OAUTH_PROVIDERS = [
     class: 'hover:bg-[#DA5892] hover:text-white',
     login: true,
     bind: true,
-    profile: (username: string) => `https://osu.ppy.sh/users/${username}`
+    profile: ({ username, userId }: SocialLinkRef) =>
+      `https://osu.ppy.sh/users/${userId ?? username}`
   },
   {
     id: 'diving-fish',
@@ -112,7 +118,7 @@ export const OAUTH_PROVIDERS = [
       'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black',
     login: true,
     bind: true,
-    profile: (id: string) => `https://phira.moe/user/${id}`
+    profile: ({ userId }: SocialLinkRef) => (userId ? `https://phira.moe/user/${userId}` : null)
   }
 ] as const;
 

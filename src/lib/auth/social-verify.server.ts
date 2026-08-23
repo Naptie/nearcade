@@ -61,7 +61,8 @@ export const parseQbindGroups = (raw: string | undefined): QbindGroup[] => {
 export async function upsertVerifiedSocialLink(
   userId: string,
   platform: SocialPlatform,
-  username: string
+  username: string,
+  platformUserId?: string
 ) {
   const db = mongo.db();
   const usersCollection = db.collection('users');
@@ -75,14 +76,24 @@ export async function upsertVerifiedSocialLink(
         platform: SocialPlatform;
         username: string;
         verified?: boolean;
+        userId?: string;
       }>)
     : [];
 
   const index = socialLinks.findIndex((link) => link.platform === platform);
-  const verifiedLink: { platform: SocialPlatform; username: string; verified: boolean } = {
+  const existing = index >= 0 ? socialLinks[index] : undefined;
+  const verifiedLink: {
+    platform: SocialPlatform;
+    username: string;
+    verified: boolean;
+    userId?: string;
+  } = {
     platform,
     username,
-    verified: true
+    verified: true,
+    ...(existing?.userId || platformUserId
+      ? { userId: platformUserId ?? existing?.userId }
+      : {})
   };
   if (index >= 0) {
     socialLinks[index] = verifiedLink;
@@ -126,13 +137,19 @@ export async function syncVerifiedSocialLinkFromAccount(
   userId: string,
   providerId: string,
   accessToken?: string | null,
-  cachedUsername?: string | null
+  cachedUsername?: string | null,
+  platformAccountId?: string | null
 ): Promise<boolean> {
   if (!isAccountBindableSocialPlatform(providerId)) return false;
   const username =
     cachedUsername ||
     (accessToken ? await resolveCanonicalOAuthUsername(providerId, accessToken) : null);
   if (!username) return false;
-  await upsertVerifiedSocialLink(userId, providerId as SocialPlatform, username);
+  await upsertVerifiedSocialLink(
+    userId,
+    providerId as SocialPlatform,
+    username,
+    platformAccountId ?? undefined
+  );
   return true;
 }

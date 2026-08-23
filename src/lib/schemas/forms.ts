@@ -44,7 +44,8 @@ export const profileSettingsFormSchema = z.object({
     z.object({
       platform: z.enum(SOCIAL_PLATFORMS),
       username: z.string().trim().min(1),
-      verified: z.boolean().optional()
+      verified: z.boolean().optional(),
+      userId: z.string().optional()
     })
   )
 });

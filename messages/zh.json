@@ -1456,6 +1456,7 @@
   "social_modal_pick_platform": "选择平台",
   "social_modal_username_required": "请输入您的用户名",
   "social_modal_verify_hint": "验证您的真实账号，即可在个人资料上获得认证徽章。",
+  "social_open_profile": "打开您的 {platform} 主页",
   "social_placeholder": [
     {
       "declarations": ["input platform", "input isNumber"],

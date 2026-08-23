@@ -21,6 +21,7 @@
     platform: SocialPlatform;
     username: string;
     verified?: boolean;
+    userId?: string;
   }
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -302,7 +303,14 @@
   );
 
   const editingVerifiedHref = $derived(
-    getProfileUrl(socialModalPlatform, socialModalUsername) ?? ''
+    getProfileUrl(socialModalPlatform, {
+      username: socialModalUsername,
+      userId: (data.userProfile?.socialLinks || []).find(
+        (savedLink) =>
+          savedLink.platform === socialModalPlatform &&
+          savedLink.username === socialModalUsername
+      )?.userId
+    }) ?? ''
   );
 
   // --- Social link verification ---
@@ -696,9 +704,11 @@
         <div id="social-links-section" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {#each socialLinks as link, index (index)}
             {@const provider = platforms.find((p) => p.id === link.platform)}
-            {@const verifiedHref = link.verified
-              ? (getProfileUrl(link.platform, link.username) ?? '')
-              : ''}
+            {@const platformName = m[
+              `social_platform_${socialPlatformMessageKey(link.platform)}`
+            ]()}
+            {@const profileHref = getProfileUrl(link.platform, link)}
+            {@const verifiedHref = isLinkVerified(link) ? (profileHref ?? '') : ''}
             <div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
               <div
                 class="bg-base-100 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -711,9 +721,7 @@
                 />
               </div>
               <div class="min-w-0 flex-1">
-                <p class="text-base-content/60 truncate text-xs">
-                  {m[`social_platform_${socialPlatformMessageKey(link.platform)}`]()}
-                </p>
+                <p class="text-base-content/60 truncate text-xs">{platformName}</p>
                 <div class="flex items-center gap-1.5">
                   <span class="font-medium break-all">{link.username}</span>
                   {#if isLinkVerified(link)}
@@ -722,6 +730,18 @@
                 </div>
               </div>
               <div class="flex items-center">
+                {#if profileHref}
+                  <a
+                    class="btn btn-circle btn-ghost btn-sm"
+                    href={profileHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={m.social_open_profile({ platform: platformName })}
+                    aria-label={m.social_open_profile({ platform: platformName })}
+                  >
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                  </a>
+                {/if}
                 <button
                   type="button"
                   class="btn btn-circle btn-ghost btn-sm"

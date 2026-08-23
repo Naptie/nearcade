@@ -529,7 +529,7 @@
                   {@const provider = providers.find((p) => p.id === link.platform)}
                   {@const linkUrl = !link.verified
                     ? null
-                    : getProfileUrl(link.platform, link.username)}
+                    : getProfileUrl(link.platform, link)}
                   <div class="flex items-center gap-2 text-sm">
                     <div
                       class="flex w-4 justify-center"

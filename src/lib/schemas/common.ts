@@ -159,6 +159,15 @@ export const socialLinkSchema = z.object({
         '是否已通过平台验证（验证后自行修改用户名会清除该标记）。',
         'Whether the username has been verified via the platform (editing the username clears it).'
       )
+    ),
+  userId: z
+    .string()
+    .optional()
+    .describe(
+      bilingual(
+        '平台侧账号 ID（验证时捕获）。',
+        'Provider-side account id captured at verification time.'
+      )
     )
 });
 

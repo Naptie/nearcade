@@ -19,6 +19,7 @@ export interface SocialLinkInput {
   platform: SocialPlatform;
   username: string;
   verified?: boolean;
+  userId?: string;
 }
 
 export interface SocialVerifyResult {
@@ -50,7 +51,8 @@ async function handleOAuthVerification(
       userId,
       platform,
       account.accessToken,
-      profile?.username
+      profile?.username,
+      account.accountId ? String(account.accountId) : undefined
     );
     if (!synced) {
       return { platform, success: false, error: 'resolve_failed' };
@@ -166,6 +168,7 @@ export const actions: Actions = {
       let socialLinks: Array<{
         platform: SocialPlatform;
         username: string;
+        userId?: string;
       }> = [];
       try {
         const raw: unknown = JSON.parse(String(formData.get('socialLinks') ?? '[]'));
@@ -173,10 +176,11 @@ export const actions: Actions = {
           socialLinks = raw.flatMap((item) => {
             const platform = String(item?.platform ?? '') as SocialPlatform;
             const username = typeof item?.username === 'string' ? item.username.trim() : '';
+            const userId = typeof item?.userId === 'string' ? item.userId.trim() : '';
             if (!(SOCIAL_PLATFORMS as readonly string[]).includes(platform) || username === '') {
               return [];
             }
-            return [{ platform, username }];
+            return [{ platform, username, ...(userId ? { userId } : {}) }];
           });
         }
       } catch {
@@ -276,10 +280,14 @@ export const actions: Actions = {
       const currentByKey = new Map(
         currentLinks.map((link) => [`${link.platform}:${link.username}`, link])
       );
-      const socialLinksWithVerified: SocialLinkInput[] = validSocialLinks.map((link) => ({
-        ...link,
-        verified: currentByKey.get(`${link.platform}:${link.username}`)?.verified === true
-      }));
+      const socialLinksWithVerified: SocialLinkInput[] = validSocialLinks.map((link) => {
+        const current = currentByKey.get(`${link.platform}:${link.username}`);
+        return {
+          ...link,
+          verified: current?.verified === true,
+          userId: current?.verified === true ? current.userId : undefined
+        };
+      });
 
       const updateData: {
         displayName?: string;

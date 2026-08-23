@@ -1956,6 +1956,10 @@
                                     "verified": {
                                       "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                       "type": "boolean"
+                                    },
+                                    "userId": {
+                                      "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                      "type": "string"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -3569,6 +3573,10 @@
                                   "verified": {
                                     "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                     "type": "boolean"
+                                  },
+                                  "userId": {
+                                    "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                    "type": "string"
                                   }
                                 },
                                 "required": ["platform", "username"],
@@ -3925,6 +3933,10 @@
                                     "verified": {
                                       "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                       "type": "boolean"
+                                    },
+                                    "userId": {
+                                      "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                      "type": "string"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -7212,6 +7224,10 @@
                                   "verified": {
                                     "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                     "type": "boolean"
+                                  },
+                                  "userId": {
+                                    "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                    "type": "string"
                                   }
                                 },
                                 "required": ["platform", "username"],
@@ -7997,6 +8013,10 @@
                                 "verified": {
                                   "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                   "type": "boolean"
+                                },
+                                "userId": {
+                                  "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                  "type": "string"
                                 }
                               },
                               "required": ["platform", "username"],
@@ -9486,6 +9506,10 @@
                                     "verified": {
                                       "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                       "type": "boolean"
+                                    },
+                                    "userId": {
+                                      "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                      "type": "string"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -9649,6 +9673,10 @@
                                     "verified": {
                                       "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                       "type": "boolean"
+                                    },
+                                    "userId": {
+                                      "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                      "type": "string"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -10026,6 +10054,10 @@
                                   "verified": {
                                     "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                     "type": "boolean"
+                                  },
+                                  "userId": {
+                                    "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                    "type": "string"
                                   }
                                 },
                                 "required": ["platform", "username"],
@@ -10189,6 +10221,10 @@
                                   "verified": {
                                     "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                     "type": "boolean"
+                                  },
+                                  "userId": {
+                                    "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                    "type": "string"
                                   }
                                 },
                                 "required": ["platform", "username"],
@@ -10733,6 +10769,10 @@
                                 "verified": {
                                   "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                   "type": "boolean"
+                                },
+                                "userId": {
+                                  "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                  "type": "string"
                                 }
                               },
                               "required": ["platform", "username"],
@@ -12699,6 +12739,10 @@
                                     "verified": {
                                       "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                       "type": "boolean"
+                                    },
+                                    "userId": {
+                                      "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                      "type": "string"
                                     }
                                   },
                                   "required": ["platform", "username"],
@@ -13039,6 +13083,10 @@
                                 "verified": {
                                   "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                   "type": "boolean"
+                                },
+                                "userId": {
+                                  "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                  "type": "string"
                                 }
                               },
                               "required": ["platform", "username"],
@@ -13754,6 +13802,10 @@
                               "verified": {
                                 "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                 "type": "boolean"
+                              },
+                              "userId": {
+                                "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                "type": "string"
                               }
                             },
                             "required": ["platform", "username"],
@@ -15231,6 +15283,10 @@
                               "verified": {
                                 "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
                                 "type": "boolean"
+                              },
+                              "userId": {
+                                "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                "type": "string"
                               }
                             },
                             "required": ["platform", "username"],
