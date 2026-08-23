@@ -307,8 +307,7 @@
       username: socialModalUsername,
       userId: (data.userProfile?.socialLinks || []).find(
         (savedLink) =>
-          savedLink.platform === socialModalPlatform &&
-          savedLink.username === socialModalUsername
+          savedLink.platform === socialModalPlatform && savedLink.username === socialModalUsername
       )?.userId
     }) ?? ''
   );
@@ -704,9 +703,8 @@
         <div id="social-links-section" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {#each socialLinks as link, index (index)}
             {@const provider = platforms.find((p) => p.id === link.platform)}
-            {@const platformName = m[
-              `social_platform_${socialPlatformMessageKey(link.platform)}`
-            ]()}
+            {@const platformName =
+              m[`social_platform_${socialPlatformMessageKey(link.platform)}`]()}
             {@const profileHref = getProfileUrl(link.platform, link)}
             {@const verifiedHref = isLinkVerified(link) ? (profileHref ?? '') : ''}
             <div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">

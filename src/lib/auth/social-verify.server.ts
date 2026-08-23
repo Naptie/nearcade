@@ -91,9 +91,7 @@ export async function upsertVerifiedSocialLink(
     platform,
     username,
     verified: true,
-    ...(existing?.userId || platformUserId
-      ? { userId: platformUserId ?? existing?.userId }
-      : {})
+    ...(existing?.userId || platformUserId ? { userId: platformUserId ?? existing?.userId } : {})
   };
   if (index >= 0) {
     socialLinks[index] = verifiedLink;
