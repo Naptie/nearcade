@@ -6,6 +6,7 @@ import { phiraProvider } from './phira';
 import { discordProvider } from './discord';
 import { microsoftEntraIdProvider } from './microsoft-entra-id';
 import { osuProvider } from './osu';
+import { divingFishProvider } from './diving-fish';
 
 /**
  * OAuth provider configuration, read once from the environment.
@@ -103,6 +104,14 @@ export function registerOAuthProviders(): GenericOAuthConfig[] {
   };
   if (hasCredentials(qq.clientId, qq.clientSecret)) {
     providers.push(qqProvider(qq));
+  }
+
+  const divingFish: ProviderCredentials = {
+    clientId: env.AUTH_DIVING_FISH_ID ?? '',
+    clientSecret: env.AUTH_DIVING_FISH_SECRET ?? ''
+  };
+  if (hasCredentials(divingFish.clientId, divingFish.clientSecret)) {
+    providers.push(divingFishProvider(divingFish));
   }
 
   return providers;

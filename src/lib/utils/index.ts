@@ -1,7 +1,7 @@
 import { m } from '$lib/paraglide/messages';
 import { getLocale } from '$lib/paraglide/runtime';
 import { Database } from '$lib/db/index.client';
-import { GAME_TITLES } from '$lib/constants';
+import { GAME_TITLES, OAUTH_PROVIDERS, type SocialPlatform } from '$lib/constants';
 import { userPrivateFieldNames } from '$lib/schemas/common';
 import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
@@ -32,44 +32,6 @@ import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
 import { enUS, ja, zhCN } from 'date-fns/locale';
 
-export const getProviders = (bind = false) =>
-  [
-    { name: 'QQ', icon: 'fa-qq' },
-    ...(bind
-      ? [
-          // {
-          //   id: 'wechat',
-          //   name: m.social_platform_wechat(),
-          //   icon: 'fa-weixin',
-          //   class: 'hover:bg-[#07C160] hover:text-white'
-          // }
-        ]
-      : []),
-    { name: 'Microsoft', id: 'microsoft-entra-id', icon: 'fa-microsoft' },
-    { name: 'GitHub', icon: 'fa-github' },
-    {
-      name: 'Discord',
-      icon: 'fa-discord',
-      class: 'hover:bg-[#5865F2] hover:text-white'
-    },
-    {
-      name: 'osu!',
-      icon: 'osu.svg',
-      class: 'hover:bg-[#DA5892] hover:text-white'
-    },
-    {
-      name: 'Phira',
-      icon: 'phira.webp',
-      class:
-        'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black'
-    }
-  ].map((provider) => ({
-    ...provider,
-    id: provider.id || provider.name.toLowerCase().replace(/[^a-z]/g, ''),
-    class:
-      provider.class || 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'
-  }));
-
 export const alphabetUppercase = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const alphabet = alphabetUppercase + 'abcdefghijklmnopqrstuvwxyz';
 
@@ -83,6 +45,56 @@ export const commentId = () => {
 
 export const serialNumber = (): string => {
   return customAlphabet(alphabetUppercase, 12)();
+};
+
+type ProviderId = (typeof OAUTH_PROVIDERS)[number]['id'];
+
+type ResolvedProvider<Id extends ProviderId = ProviderId> = Omit<
+  (typeof OAUTH_PROVIDERS)[number],
+  'id' | 'class'
+> & {
+  id: Id;
+  class: string;
+};
+
+/**
+ * Returns OAuth providers matching the given capability flags. The runtime
+ * filter always yields a subset, but TypeScript can't narrow map/filter
+ * results, so the `profile: true` overload is the only place where the id
+ * union gets narrowed — that's the one call shape where the filter actually
+ * guarantees Microsoft (the sole `profile: false` provider) is excluded.
+ */
+export function getProviders(opts: {
+  login?: false;
+  bind?: false;
+  profile: true;
+}): ResolvedProvider<SocialPlatform>[];
+export function getProviders(opts?: {
+  login?: boolean;
+  bind?: boolean;
+  profile?: boolean;
+}): ResolvedProvider[];
+export function getProviders(
+  opts: { login?: boolean; bind?: boolean; profile?: boolean } = { login: true }
+): ResolvedProvider[] {
+  const resolved = OAUTH_PROVIDERS.filter(
+    (provider) =>
+      (!opts.login || provider.login) &&
+      (!opts.bind || provider.bind) &&
+      (!opts.profile || !!provider.profile)
+  ).map((provider) => ({
+    ...provider,
+    class:
+      'class' in provider
+        ? provider.class
+        : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'
+  }));
+  return opts.profile ? (resolved as ResolvedProvider<SocialPlatform>[]) : resolved;
+}
+
+export const getProfileUrl = (platform: SocialPlatform, username: string): string | null => {
+  const profile = OAUTH_PROVIDERS.find((p) => p.id === platform)?.profile;
+  return typeof profile === 'function' ? profile?.(username) : null;
 };
 
 /**

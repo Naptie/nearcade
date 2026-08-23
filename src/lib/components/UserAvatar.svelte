@@ -70,7 +70,7 @@
     sm: 'text-xs',
     md: 'text-sm',
     lg: 'text-lg',
-    xl: 'text-xl sm:text-2xl'
+    xl: 'text-3xl sm:text-4xl'
   };
 
   // Get initials from display name or username
@@ -79,10 +79,6 @@
     if (!name) return '?';
     return name.trim()[0].toUpperCase();
   };
-
-  $effect(() => {
-    if (showName) console.log(user?.displayName, user?.name, user?.id, user?.name === user?.id);
-  })
 </script>
 
 {#snippet content()}
@@ -99,7 +95,7 @@
             <img src={user.image} alt={getDisplayName(user)} />
           {:else}
             <span
-              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform {textSizeClasses[
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform font-black {textSizeClasses[
                 size
               ]}"
             >

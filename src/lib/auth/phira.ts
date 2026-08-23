@@ -51,7 +51,11 @@ export function phiraProvider({ clientId, clientSecret }: ProviderCredentials): 
         image: p.avatar ?? undefined,
         emailVerified: !!p.email
       };
-      await cacheOAuthProfile('phira', String(p.id), { email: mapped.email, image: mapped.image });
+      await cacheOAuthProfile('phira', String(p.id), {
+        email: mapped.email,
+        image: mapped.image,
+        username: p.name
+      });
       return mapped;
     }
   };

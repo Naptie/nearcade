@@ -57,7 +57,7 @@
         type: 'info',
         icon: 'fa-envelope-circle-check',
         action: {
-          label: m.email_settings_continue(),
+          label: m.email_settings_not_now(),
           onClick: handleContinue
         }
       });

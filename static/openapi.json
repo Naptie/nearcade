@@ -1938,7 +1938,15 @@
                                   "properties": {
                                     "platform": {
                                       "type": "string",
-                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "enum": [
+                                        "qq",
+                                        "wechat",
+                                        "github",
+                                        "discord",
+                                        "osu",
+                                        "diving-fish",
+                                        "phira"
+                                      ],
                                       "description": "社交平台。\n\nSocial platform."
                                     },
                                     "username": {
@@ -3543,7 +3551,15 @@
                                 "properties": {
                                   "platform": {
                                     "type": "string",
-                                    "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                    "enum": [
+                                      "qq",
+                                      "wechat",
+                                      "github",
+                                      "discord",
+                                      "osu",
+                                      "diving-fish",
+                                      "phira"
+                                    ],
                                     "description": "社交平台。\n\nSocial platform."
                                   },
                                   "username": {
@@ -3891,7 +3907,15 @@
                                   "properties": {
                                     "platform": {
                                       "type": "string",
-                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "enum": [
+                                        "qq",
+                                        "wechat",
+                                        "github",
+                                        "discord",
+                                        "osu",
+                                        "diving-fish",
+                                        "phira"
+                                      ],
                                       "description": "社交平台。\n\nSocial platform."
                                     },
                                     "username": {
@@ -7170,7 +7194,15 @@
                                 "properties": {
                                   "platform": {
                                     "type": "string",
-                                    "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                    "enum": [
+                                      "qq",
+                                      "wechat",
+                                      "github",
+                                      "discord",
+                                      "osu",
+                                      "diving-fish",
+                                      "phira"
+                                    ],
                                     "description": "社交平台。\n\nSocial platform."
                                   },
                                   "username": {
@@ -7947,7 +7979,15 @@
                               "properties": {
                                 "platform": {
                                   "type": "string",
-                                  "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                  "enum": [
+                                    "qq",
+                                    "wechat",
+                                    "github",
+                                    "discord",
+                                    "osu",
+                                    "diving-fish",
+                                    "phira"
+                                  ],
                                   "description": "社交平台。\n\nSocial platform."
                                 },
                                 "username": {
@@ -9428,7 +9468,15 @@
                                   "properties": {
                                     "platform": {
                                       "type": "string",
-                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "enum": [
+                                        "qq",
+                                        "wechat",
+                                        "github",
+                                        "discord",
+                                        "osu",
+                                        "diving-fish",
+                                        "phira"
+                                      ],
                                       "description": "社交平台。\n\nSocial platform."
                                     },
                                     "username": {
@@ -9583,7 +9631,15 @@
                                   "properties": {
                                     "platform": {
                                       "type": "string",
-                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "enum": [
+                                        "qq",
+                                        "wechat",
+                                        "github",
+                                        "discord",
+                                        "osu",
+                                        "diving-fish",
+                                        "phira"
+                                      ],
                                       "description": "社交平台。\n\nSocial platform."
                                     },
                                     "username": {
@@ -9952,7 +10008,15 @@
                                 "properties": {
                                   "platform": {
                                     "type": "string",
-                                    "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                    "enum": [
+                                      "qq",
+                                      "wechat",
+                                      "github",
+                                      "discord",
+                                      "osu",
+                                      "diving-fish",
+                                      "phira"
+                                    ],
                                     "description": "社交平台。\n\nSocial platform."
                                   },
                                   "username": {
@@ -10107,7 +10171,15 @@
                                 "properties": {
                                   "platform": {
                                     "type": "string",
-                                    "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                    "enum": [
+                                      "qq",
+                                      "wechat",
+                                      "github",
+                                      "discord",
+                                      "osu",
+                                      "diving-fish",
+                                      "phira"
+                                    ],
                                     "description": "社交平台。\n\nSocial platform."
                                   },
                                   "username": {
@@ -10643,7 +10715,15 @@
                               "properties": {
                                 "platform": {
                                   "type": "string",
-                                  "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                  "enum": [
+                                    "qq",
+                                    "wechat",
+                                    "github",
+                                    "discord",
+                                    "osu",
+                                    "diving-fish",
+                                    "phira"
+                                  ],
                                   "description": "社交平台。\n\nSocial platform."
                                 },
                                 "username": {
@@ -12601,7 +12681,15 @@
                                   "properties": {
                                     "platform": {
                                       "type": "string",
-                                      "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                      "enum": [
+                                        "qq",
+                                        "wechat",
+                                        "github",
+                                        "discord",
+                                        "osu",
+                                        "diving-fish",
+                                        "phira"
+                                      ],
                                       "description": "社交平台。\n\nSocial platform."
                                     },
                                     "username": {
@@ -12933,7 +13021,15 @@
                               "properties": {
                                 "platform": {
                                   "type": "string",
-                                  "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                  "enum": [
+                                    "qq",
+                                    "wechat",
+                                    "github",
+                                    "discord",
+                                    "osu",
+                                    "diving-fish",
+                                    "phira"
+                                  ],
                                   "description": "社交平台。\n\nSocial platform."
                                 },
                                 "username": {
@@ -13640,7 +13736,15 @@
                             "properties": {
                               "platform": {
                                 "type": "string",
-                                "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                "enum": [
+                                  "qq",
+                                  "wechat",
+                                  "github",
+                                  "discord",
+                                  "osu",
+                                  "diving-fish",
+                                  "phira"
+                                ],
                                 "description": "社交平台。\n\nSocial platform."
                               },
                               "username": {
@@ -15109,7 +15213,15 @@
                             "properties": {
                               "platform": {
                                 "type": "string",
-                                "enum": ["qq", "wechat", "github", "discord", "divingfish"],
+                                "enum": [
+                                  "qq",
+                                  "wechat",
+                                  "github",
+                                  "discord",
+                                  "osu",
+                                  "diving-fish",
+                                  "phira"
+                                ],
                                 "description": "社交平台。\n\nSocial platform."
                               },
                               "username": {

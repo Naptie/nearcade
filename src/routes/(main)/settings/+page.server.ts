@@ -5,7 +5,7 @@ import mongo from '$lib/db/index.server';
 import type { NotificationType } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import type { SocialPlatform } from '$lib/constants';
-import { VERIFIABLE_SOCIAL_PLATFORMS } from '$lib/constants';
+import { SOCIAL_PLATFORMS } from '$lib/constants';
 import { profileSettingsFormSchema } from '$lib/schemas/forms';
 import { env } from '$env/dynamic/private';
 import { getCachedOAuthProfile } from '$lib/auth/profile-cache';
@@ -13,6 +13,7 @@ import {
   parseQbindGroups,
   syncVerifiedSocialLinkFromAccount
 } from '$lib/auth/social-verify.server';
+import { getProviders } from '$lib/utils';
 
 export interface SocialLinkInput {
   platform: SocialPlatform;
@@ -83,7 +84,7 @@ export const load: PageServerLoad = async ({ parent, url }) => {
   const verifyPlatform = url.searchParams.get('verify');
   if (
     verifyPlatform &&
-    (VERIFIABLE_SOCIAL_PLATFORMS as readonly string[]).includes(verifyPlatform)
+    getProviders({ bind: true, profile: true }).find((p) => p.id === verifyPlatform)
   ) {
     verifyResult = await handleOAuthVerification(user.id, verifyPlatform);
   } else {
@@ -159,36 +160,29 @@ export const actions: Actions = {
       if (formData.get('notificationTypeJoinRequests') === 'on')
         notificationTypes.push('JOIN_REQUESTS');
 
-      // Parse social links
-      const socialLinks: Array<{
+      // Parse social links from the single JSON payload the client submits.
+      // Rows with an unknown platform or empty username are dropped outright —
+      // never coerced to a default platform.
+      let socialLinks: Array<{
         platform: SocialPlatform;
         username: string;
       }> = [];
-      const platforms = ['qq', 'wechat', 'github', 'discord', 'divingfish'] as const;
-
-      // Extract social links from form data
-      for (const entry of formData.entries()) {
-        const [key, value] = entry;
-        const match = key.match(/^socialLinks\[(\d+)\]\.(platform|username)$/);
-        if (match) {
-          const index = parseInt(match[1]);
-          const field = match[2] as 'platform' | 'username';
-
-          // Ensure the socialLinks array is large enough
-          while (socialLinks.length <= index) {
-            socialLinks.push({ platform: 'qq', username: '' });
-          }
-
-          if (field === 'platform' && platforms.includes(value as (typeof platforms)[number])) {
-            socialLinks[index].platform = value as (typeof platforms)[number];
-          } else if (field === 'username' && typeof value === 'string') {
-            socialLinks[index].username = value.trim();
-          }
+      try {
+        const raw: unknown = JSON.parse(String(formData.get('socialLinks') ?? '[]'));
+        if (Array.isArray(raw)) {
+          socialLinks = raw.flatMap((item) => {
+            const platform = String(item?.platform ?? '') as SocialPlatform;
+            const username = typeof item?.username === 'string' ? item.username.trim() : '';
+            if (!(SOCIAL_PLATFORMS as readonly string[]).includes(platform) || username === '') {
+              return [];
+            }
+            return [{ platform, username }];
+          });
         }
+      } catch {
+        // Malformed payload → treated as no links
       }
-
-      // Filter out empty social links
-      const validSocialLinks = socialLinks.filter((link) => link.username.trim() !== '');
+      const validSocialLinks = socialLinks;
 
       const parsedForm = profileSettingsFormSchema.safeParse({
         displayName,

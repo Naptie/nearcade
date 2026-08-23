@@ -8,6 +8,8 @@
     formatDate,
     getDisplayName,
     getFnsLocale,
+    getProfileUrl,
+    getProviders,
     getUserTypeBadgeClass,
     getUserTypeLabel,
     pageTitle
@@ -21,9 +23,10 @@
   import { onMount } from 'svelte';
   import type { Shop } from '$lib/types';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
+  import ProviderIcon from '$lib/components/ProviderIcon.svelte';
   import Hover3D from '$lib/components/Hover3D.svelte';
   import FullscreenFrame from '$lib/components/FullscreenFrame.svelte';
-  import { SOCIAL_PLATFORM_PROFILE_URLS } from '$lib/constants';
+  import { socialPlatformMessageKey } from '$lib/constants';
   import { showBanner, dismissBanner } from '$lib/notifications/banner.svelte';
 
   let { data }: { data: PageData } = $props();
@@ -60,7 +63,7 @@
   let activitiesError = $state<string | null>(null);
 
   let dxRating = $derived.by(() => {
-    const divingfishLink = data.user.socialLinks.find((link) => link.platform === 'divingfish');
+    const divingfishLink = data.user.socialLinks.find((link) => link.platform === 'diving-fish');
     if (divingfishLink && divingfishLink.username) {
       return `https://dxrating.phizone.cn/api/genImage/${divingfishLink.username}`;
     }
@@ -521,39 +524,23 @@
             </h3>
             <div class="space-y-2">
               {#if data.user.socialLinks && data.user.socialLinks.length > 0}
+                {@const providers = getProviders({ profile: true })}
                 {#each data.user.socialLinks as link, index (index)}
-                  {@const iconClass =
-                    link.platform === 'qq'
-                      ? 'fa-brands fa-qq'
-                      : link.platform === 'wechat'
-                        ? 'fa-brands fa-weixin'
-                        : link.platform === 'github'
-                          ? 'fa-brands fa-github'
-                          : link.platform === 'discord'
-                            ? 'fa-brands fa-discord'
-                            : link.platform === 'divingfish'
-                              ? 'fa-solid fa-fish-fins'
-                              : 'fa-solid fa-link'}
-                  {@const linkUrl =
-                    link.platform === 'qq' && !link.verified
-                      ? null
-                      : (SOCIAL_PLATFORM_PROFILE_URLS[link.platform]?.(link.username) ?? null)}
+                  {@const provider = providers.find((p) => p.id === link.platform)}
+                  {@const linkUrl = !link.verified
+                    ? null
+                    : getProfileUrl(link.platform, link.username)}
                   <div class="flex items-center gap-2 text-sm">
                     <div
                       class="flex w-4 justify-center"
-                      title={link.platform === 'qq'
-                        ? m.social_platform_qq()
-                        : link.platform === 'wechat'
-                          ? m.social_platform_wechat()
-                          : link.platform === 'github'
-                            ? m.social_platform_github()
-                            : link.platform === 'discord'
-                              ? m.social_platform_discord()
-                              : link.platform === 'divingfish'
-                                ? m.social_platform_divingfish()
-                                : link.platform}
+                      title={m[`social_platform_${socialPlatformMessageKey(link.platform)}`]()}
                     >
-                      <i class="{iconClass} text-base-content/50"></i>
+                      <ProviderIcon
+                        icon={provider?.icon ?? 'fa-link'}
+                        name={provider?.name ?? link.platform}
+                        class="text-base-content/50"
+                        imgClass="rounded-full"
+                      />
                     </div>
                     {#if linkUrl}
                       <a

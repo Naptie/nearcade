@@ -21,7 +21,8 @@ export function osuProvider({ clientId, clientSecret }: ProviderCredentials): Ge
       };
       await cacheOAuthProfile('osu', String(p.id), {
         email: mapped.email,
-        image: mapped.image
+        image: mapped.image,
+        username: p.username
       });
       return mapped;
     }

@@ -1,3 +1,5 @@
+import { m } from '$lib/paraglide/messages';
+
 // Game constants for arcade machine types
 export const GAME_TITLES = [
   { id: 1, key: 'maimai_dx', seats: 2 },
@@ -41,19 +43,78 @@ export const USER_TYPES = [
   'regular'
 ] as const;
 
-export const SOCIAL_PLATFORMS = ['qq', 'wechat', 'github', 'discord', 'divingfish'] as const;
-
-// Platforms whose usernames can be verified (OAuth link or qbind/Redis flow)
-export const VERIFIABLE_SOCIAL_PLATFORMS = ['qq', 'github', 'discord'] as const;
-
-// Public profile URLs per platform. `qq` is only linkable when verified
-// (the username is the QQ number), `github` is always linkable.
-export const SOCIAL_PLATFORM_PROFILE_URLS: Partial<
-  Record<SocialPlatform, (username: string) => string>
-> = {
-  qq: (username) => `https://user.qzone.qq.com/${username}`,
-  github: (username) => `https://github.com/${username}`
-};
+export const OAUTH_PROVIDERS = [
+  {
+    id: 'qq',
+    name: 'QQ',
+    icon: 'fa-qq',
+    login: true,
+    bind: true,
+    profile: (username: string) => `https://user.qzone.qq.com/${username}`
+  },
+  {
+    id: 'wechat',
+    name: m.social_platform_wechat(),
+    icon: 'fa-weixin',
+    class: 'hover:bg-[#07C160] hover:text-white',
+    login: false,
+    bind: false,
+    profile: true
+  },
+  {
+    id: 'microsoft-entra-id',
+    name: 'Microsoft',
+    icon: 'fa-microsoft',
+    login: true,
+    bind: true,
+    profile: false
+  },
+  {
+    id: 'github',
+    name: 'GitHub',
+    icon: 'fa-github',
+    login: true,
+    bind: true,
+    profile: (username: string) => `https://github.com/${username}`
+  },
+  {
+    id: 'discord',
+    name: 'Discord',
+    icon: 'fa-discord',
+    class: 'hover:bg-[#5865F2] hover:text-white',
+    login: true,
+    bind: true,
+    profile: true
+  },
+  {
+    id: 'osu',
+    name: 'osu!',
+    icon: 'osu.svg',
+    class: 'hover:bg-[#DA5892] hover:text-white',
+    login: true,
+    bind: true,
+    profile: (username: string) => `https://osu.ppy.sh/users/${username}`
+  },
+  {
+    id: 'diving-fish',
+    name: m.social_platform_divingfish(),
+    icon: 'diving-fish.ico',
+    class: 'hover:bg-[#0FA3A3] hover:text-white',
+    login: true,
+    bind: true,
+    profile: true
+  },
+  {
+    id: 'phira',
+    name: 'Phira',
+    icon: 'phira.webp',
+    class:
+      'bg-linear-to-r from-transparent to-transparent hover:from-[#68C3C9] hover:to-[#3C80F6] hover:text-black',
+    login: true,
+    bind: true,
+    profile: (id: string) => `https://phira.moe/user/${id}`
+  }
+] as const;
 
 // Radius constants for search distances
 export const RADIUS_OPTIONS = [1, 2, 5, 10, 20, 30] as const;
@@ -122,4 +183,28 @@ export const SHOP_ID_OFFSET_ZIV = 20000;
 
 export type GameKey = (typeof GAME_TITLES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];
-export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+export type SocialPlatform = Exclude<(typeof OAUTH_PROVIDERS)[number]['id'], 'microsoft-entra-id'>;
+
+export const SOCIAL_PLATFORMS = OAUTH_PROVIDERS.filter((provider) => provider.profile).map(
+  (provider) => provider.id
+) as readonly SocialPlatform[];
+
+/**
+ * Recursively strips dashes from a string literal type so a hyphenated
+ * platform id like `diving-fish` maps to the `divingfish` identifier used in
+ * i18n message keys.
+ */
+export type RemoveDashes<S extends string> = S extends `${infer Head}-${infer Tail}`
+  ? `${Head}${RemoveDashes<Tail>}`
+  : S;
+
+/**
+ * The i18n message-key suffix for a platform. Paraglide turns message ids into
+ * JS identifiers, so dashes are not allowed — the generic rule is to simply
+ * drop them (e.g. `diving-fish` → `divingfish`).
+ */
+export type SocialPlatformMessageKey = RemoveDashes<SocialPlatform>;
+
+export function socialPlatformMessageKey<S extends SocialPlatform>(platform: S): RemoveDashes<S> {
+  return platform.replaceAll('-', '') as RemoveDashes<S>;
+}

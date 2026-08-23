@@ -16,7 +16,15 @@ interface LinkedAccount {
 }
 
 // Define the supported providers for binding
-const SUPPORTED_PROVIDERS = ['qq', 'github', 'microsoft-entra-id', 'phira', 'osu', 'discord'];
+const SUPPORTED_PROVIDERS = [
+  'qq',
+  'github',
+  'microsoft-entra-id',
+  'phira',
+  'osu',
+  'discord',
+  'diving-fish'
+];
 
 export const load: PageServerLoad = async ({ parent, url, request }) => {
   const { user } = await parent();

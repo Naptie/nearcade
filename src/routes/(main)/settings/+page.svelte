@@ -3,13 +3,9 @@
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import type { SocialPlatform } from '$lib/constants';
-  import {
-    SOCIAL_PLATFORMS,
-    SOCIAL_PLATFORM_PROFILE_URLS,
-    VERIFIABLE_SOCIAL_PLATFORMS
-  } from '$lib/constants';
+  import { socialPlatformMessageKey } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
-  import { getDisplayName } from '$lib/utils';
+  import { getDisplayName, getProfileUrl, getProviders } from '$lib/utils';
   import { authClient } from '$lib/auth/client';
   import { toast } from '$lib/notifications/toast.svelte';
   import { resolveStatusMessage } from '$lib/notifications/messages';
@@ -18,6 +14,8 @@
   import type { PageData, ActionData } from './$types';
   import UploadModal from '$lib/components/UploadModal.svelte';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
+  import ProviderIcon from '$lib/components/ProviderIcon.svelte';
+  import ProviderCard from '$lib/components/ProviderCard.svelte';
 
   interface SocialLinkItem {
     platform: SocialPlatform;
@@ -40,6 +38,8 @@
   let isUniversityPublic = $derived(data.userProfile?.isUniversityPublic !== false);
   let isFrequentingArcadePublic = $derived(data.userProfile?.isFrequentingArcadePublic !== false);
   let isStarredArcadePublic = $derived(data.userProfile?.isStarredArcadePublic !== false);
+
+  const platforms = getProviders({ profile: true });
 
   // Social links (writable derived: edits override the server value, and the
   // override is dropped whenever fresh data arrives, e.g. after saving)
@@ -235,23 +235,6 @@
   let socialModalUsername = $state('');
   let socialModalError = $state('');
 
-  const platformIcon = (platform: string): string => {
-    switch (platform) {
-      case 'qq':
-        return 'fa-brands fa-qq';
-      case 'wechat':
-        return 'fa-brands fa-weixin';
-      case 'github':
-        return 'fa-brands fa-github';
-      case 'discord':
-        return 'fa-brands fa-discord';
-      case 'divingfish':
-        return 'fa-solid fa-fish-fins';
-      default:
-        return 'fa-solid fa-link';
-    }
-  };
-
   const openAddSocialModal = () => {
     socialModalEditingIndex = null;
     socialModalPlatform = 'qq';
@@ -319,13 +302,13 @@
   );
 
   const editingVerifiedHref = $derived(
-    SOCIAL_PLATFORM_PROFILE_URLS[socialModalPlatform]?.(socialModalUsername) ?? ''
+    getProfileUrl(socialModalPlatform, socialModalUsername) ?? ''
   );
 
   // --- Social link verification ---
 
   const isVerifiablePlatform = (platform: string): boolean =>
-    (VERIFIABLE_SOCIAL_PLATFORMS as readonly string[]).includes(platform);
+    !!platforms.find((p) => p.id === platform && p.bind);
 
   // A link is only shown as verified while its value still matches the verified
   // value persisted on the server; touching the input hides the badge immediately.
@@ -362,7 +345,10 @@
     if (verifyResultLocal && !verifyResultDismissed) {
       const message = verifyResultLocal.success
         ? m.social_verify_oauth_success({
-            platform: m[`social_platform_${verifyResultLocal.platform as SocialPlatform}`](),
+            platform:
+              m[
+                `social_platform_${socialPlatformMessageKey(verifyResultLocal.platform as SocialPlatform)}`
+              ](),
             username: verifyResultLocal.username || ''
           })
         : verifyResultLocal.error === 'no_account'
@@ -509,7 +495,9 @@
                 <div
                   class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-2xl font-bold"
                 >
-                  {data.userProfile.name?.charAt(0)?.toUpperCase() || '?'}
+                  {(data.userProfile.displayName ?? data.userProfile.name)
+                    ?.charAt(0)
+                    ?.toUpperCase() || '?'}
                 </div>
               {/if}
             </div>
@@ -707,18 +695,24 @@
       {:else}
         <div id="social-links-section" class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {#each socialLinks as link, index (index)}
+            {@const provider = platforms.find((p) => p.id === link.platform)}
             {@const verifiedHref = link.verified
-              ? (SOCIAL_PLATFORM_PROFILE_URLS[link.platform]?.(link.username) ?? '')
+              ? (getProfileUrl(link.platform, link.username) ?? '')
               : ''}
             <div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
               <div
                 class="bg-base-100 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
               >
-                <i class="{platformIcon(link.platform)} text-base-content/70"></i>
+                <ProviderIcon
+                  icon={provider?.icon}
+                  name={provider?.name ?? link.platform}
+                  class="text-base-content/70"
+                  imgClass="h-6 w-6 rounded-full"
+                />
               </div>
               <div class="min-w-0 flex-1">
                 <p class="text-base-content/60 truncate text-xs">
-                  {m[`social_platform_${link.platform}`]()}
+                  {m[`social_platform_${socialPlatformMessageKey(link.platform)}`]()}
                 </p>
                 <div class="flex items-center gap-1.5">
                   <span class="font-medium break-all">{link.username}</span>
@@ -752,11 +746,12 @@
         </div>
       {/if}
 
-      <!-- Hidden fields so the draft social links are submitted with the form -->
-      {#each socialLinks as link, index (index)}
-        <input type="hidden" name="socialLinks[{index}].platform" value={link.platform} />
-        <input type="hidden" name="socialLinks[{index}].username" value={link.username} />
-      {/each}
+      <!-- Draft social links are submitted as a single JSON payload -->
+      <input
+        type="hidden"
+        name="socialLinks"
+        value={JSON.stringify($state.snapshot(socialLinks))}
+      />
     </div>
 
     <div class="divider">{m.notification_settings()}</div>
@@ -1090,11 +1085,12 @@
 
       {#if socialModalStep === 'platform'}
         <div class="grid grid-cols-1 gap-2 py-4 sm:grid-cols-2">
-          {#each SOCIAL_PLATFORMS as platform (platform)}
+          {#each platforms as provider (provider.id)}
+            {@const platform = provider.id}
             {@const boundLink = getBoundLink(platform)}
-            <button
-              type="button"
-              class="bg-base-200 hover:bg-base-300 flex items-center gap-3 rounded-lg p-3 text-left transition-colors"
+            <ProviderCard
+              {provider}
+              variant="pick"
               onclick={() => {
                 if (boundLink) {
                   const index = socialLinks.findIndex((l) => l.platform === platform);
@@ -1104,25 +1100,19 @@
                 }
               }}
             >
-              <div
-                class="bg-base-100 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-              >
-                <i class="{platformIcon(platform)} text-lg"></i>
-              </div>
-              <span class="min-w-0 flex-1">
-                <span class="block font-medium">{m[`social_platform_${platform}`]()}</span>
+              {#snippet subtitle()}
                 {#if boundLink}
-                  <span class="text-success block truncate text-xs">
+                  <span class="text-success block truncate text-xs mix-blend-difference">
                     <i class="fa-solid fa-circle-check mr-1"></i>{boundLink.username}
                   </span>
                 {:else if isVerifiablePlatform(platform)}
-                  <span class="text-success block text-xs">
+                  <span class="text-success block text-xs mix-blend-difference">
                     <i class="fa-solid fa-circle-check"></i>
                     {m.social_link_verify()}
                   </span>
                 {/if}
-              </span>
-            </button>
+              {/snippet}
+            </ProviderCard>
           {/each}
         </div>
       {:else}
@@ -1138,8 +1128,15 @@
                 <i class="fa-solid fa-arrow-left"></i>
               </button>
             {/if}
-            <i class="{platformIcon(socialModalPlatform)} text-xl"></i>
-            <span class="font-semibold">{m[`social_platform_${socialModalPlatform}`]()}</span>
+            <ProviderIcon
+              icon={platforms.find((p) => p.id === socialModalPlatform)?.icon}
+              name={platforms.find((p) => p.id === socialModalPlatform)?.name ??
+                socialModalPlatform}
+              class="text-xl"
+            />
+            <span class="font-semibold">
+              {m[`social_platform_${socialPlatformMessageKey(socialModalPlatform)}`]()}
+            </span>
           </div>
 
           {#if isVerifiablePlatform(socialModalPlatform)}
@@ -1164,7 +1161,7 @@
               <button type="button" class="btn btn-primary btn-block" onclick={verifyFromModal}>
                 <i class="fa-solid fa-circle-check"></i>
                 {m.social_verify_with_platform({
-                  platform: m[`social_platform_${socialModalPlatform}`]()
+                  platform: m[`social_platform_${socialPlatformMessageKey(socialModalPlatform)}`]()
                 })}
               </button>
               <p class="text-base-content/60 text-center text-xs">
@@ -1179,7 +1176,10 @@
               type="text"
               bind:value={socialModalUsername}
               oninput={() => (socialModalError = '')}
-              placeholder={m[`social_${socialModalPlatform}_placeholder`]()}
+              placeholder={m.social_placeholder({
+                platform: m[`social_platform_${socialPlatformMessageKey(socialModalPlatform)}`](),
+                isNumber: socialModalPlatform === 'qq' ? 'true' : 'false'
+              })}
               class="input input-bordered w-full"
               class:input-error={!!socialModalError}
             />

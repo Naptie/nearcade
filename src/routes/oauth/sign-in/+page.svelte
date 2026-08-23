@@ -37,8 +37,8 @@
     } catch (error) {
       console.error(`Failed to start ${providerId} sign-in:`, error);
       toastErrorWithCopy(
-        m.oauth_sign_in_failed({ provider: providerId }),
-        error,
+        m.oauth_sign_in_failed({ provider: providerId.toUpperCase() }),
+        String(error),
         `Failed to start ${providerId} sign-in.`
       );
     } finally {
@@ -93,13 +93,9 @@
             {#if signingInProvider === provider.id}
               <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
             {:else if provider.icon.startsWith('fa-')}
-              <i class="fa-brands fa-lg {provider.icon}"></i>
+              <i class="fa-lg fa-brands {provider.icon}"></i>
             {:else}
-              <img
-                src="{base}/{provider.icon}"
-                alt="{provider.name} {m.provider_logo()}"
-                class="h-5 w-5 rounded-full"
-              />
+              <img src="{base}/{provider.icon}" alt={provider.name} class="h-5 w-5 rounded-full" />
             {/if}
             <span>{m.sign_in_with({ provider: provider.name })}</span>
           </button>

@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import { ObjectId } from 'mongodb';
 import mongo from '$lib/db/index.server';
 import type { SocialPlatform } from '$lib/constants';
+import { getUsernameResolver, getUsernameResolverProviderIds } from './username-resolvers.server';
 
 export const QBIND_DEFAULT_PREFIX = 'nearcade';
 
@@ -9,8 +10,9 @@ export const QBIND_DEFAULT_PREFIX = 'nearcade';
  * Platforms that support both an OAuth account binding and a verified social
  * profile link. Binding either side keeps the other in sync (see
  * `syncVerifiedSocialLinkFromAccount`), so the two are interchangeable.
+ * Membership follows the resolution strategies in `username-resolvers.server`.
  */
-export const ACCOUNT_BINDABLE_SOCIAL_PLATFORMS = ['github', 'discord'] as const;
+export const ACCOUNT_BINDABLE_SOCIAL_PLATFORMS = getUsernameResolverProviderIds();
 
 export function isAccountBindableSocialPlatform(providerId: string): boolean {
   return (ACCOUNT_BINDABLE_SOCIAL_PLATFORMS as readonly string[]).includes(providerId);
@@ -102,31 +104,9 @@ export async function resolveCanonicalOAuthUsername(
   providerId: string,
   accessToken: string
 ): Promise<string | null> {
-  try {
-    if (providerId === 'github') {
-      const apiBaseUrl = env.GITHUB_API_PROXY?.replace(/\/$/, '') ?? 'https://api.github.com';
-      const res = await fetch(`${apiBaseUrl}/user`, {
-        headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'nearcade' }
-      });
-      if (!res.ok) return null;
-      const profile = (await res.json()) as { login?: string };
-      return profile.login ?? null;
-    }
-
-    if (providerId === 'discord') {
-      const proxy = env.DISCORD_PROXY?.replace(/\/$/, '');
-      const baseUrl = proxy ?? 'https://discord.com';
-      const res = await fetch(`${baseUrl}/api/users/@me`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      if (!res.ok) return null;
-      const profile = (await res.json()) as { username?: string };
-      return profile.username ?? null;
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  const resolver = getUsernameResolver(providerId);
+  if (!resolver) return null;
+  return resolver(accessToken);
 }
 
 /**

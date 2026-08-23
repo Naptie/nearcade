@@ -9,6 +9,7 @@
   import { authClient } from '$lib/auth/client';
   import { toast, toastErrorWithCopy } from '$lib/notifications/toast.svelte';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import ProviderCard from '$lib/components/ProviderCard.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -58,8 +59,8 @@
     } catch (error) {
       console.error(`Failed to start ${provider} account linking:`, error);
       toastErrorWithCopy(
-        m.oauth_link_failed({ provider }),
-        error,
+        m.oauth_link_failed({ provider: provider.toUpperCase() }),
+        String(error),
         `Failed to start ${provider} account linking.`
       );
     } finally {
@@ -111,9 +112,9 @@
                 <img src={profile.image} alt={profile.name} />
               {:else}
                 <div
-                  class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-xl"
+                  class="bg-neutral text-neutral-content flex h-full w-full items-center justify-center text-2xl font-bold"
                 >
-                  {profile.name?.charAt(0)?.toUpperCase() || '?'}
+                  {(profile.displayName ?? profile.name)?.charAt(0)?.toUpperCase() || '?'}
                 </div>
               {/if}
             </div>
@@ -311,50 +312,22 @@
 
     <!-- Currently Bound Accounts -->
     {#if data.boundProviders && data.boundProviders.length > 0}
-      {@const boundProviders = getProviders(true).filter((p) => data.boundProviders.includes(p.id))}
+      {@const boundProviders = getProviders({ bind: true }).filter((p) =>
+        data.boundProviders.includes(p.id)
+      )}
       <div class="space-y-1">
         <h3 class="text-base-content/70 text-sm font-medium">{m.bound_platforms()}</h3>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {#each boundProviders as provider (provider)}
-            <button
-              class="bg-base-100 group hover:bg-error flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors"
-              class:pointer-events-none={boundProviders.length === 1}
+            <ProviderCard
+              {provider}
+              variant="bound"
+              disabled={boundProviders.length === 1}
               onclick={async () => {
                 await authClient.unlinkAccount({ providerId: provider.id });
                 await invalidateAll();
               }}
-            >
-              <div
-                class="flex h-10 w-10 items-center justify-center rounded-full not-group-hover:bg-green-500/20"
-              >
-                {#if provider.icon.startsWith('fa-')}
-                  <i
-                    class="fa-brands fa-lg transition-colors group-hover:text-white {provider.icon}"
-                  ></i>
-                {:else}
-                  <img
-                    src="{base}/{provider.icon}"
-                    alt="{provider.name} {m.provider_logo()}"
-                    class="h-7 w-7 rounded-full"
-                  />
-                {/if}
-              </div>
-              <div class="flex-1 text-left">
-                <span class="font-medium transition-colors group-hover:text-white"
-                  >{provider.name}</span
-                >
-                <p class="text-success text-xs group-hover:hidden">{m.bound()}</p>
-                <p class="text-xs text-current/60 not-group-hover:hidden">{m.click_to_unbind()}</p>
-              </div>
-              <div class="grid place-items-center">
-                <i
-                  class="fa-solid fa-check text-success col-start-1 row-start-1 transition-opacity group-hover:opacity-0"
-                ></i>
-                <i
-                  class="fa-solid fa-minus text-error col-start-1 row-start-1 opacity-0 mix-blend-difference transition-opacity group-hover:opacity-100"
-                ></i>
-              </div>
-            </button>
+            />
           {/each}
         </div>
       </div>
@@ -365,34 +338,14 @@
       <div class="mt-4 space-y-1">
         <h3 class="text-base-content/70 text-sm font-medium">{m.available_to_bind()}</h3>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {#each getProviders(true).filter((p) => data.availableProviders.includes(p.id) || (data.canBindWechat && p.id === 'wechat')) || [] as provider (provider)}
-            <button
-              class="bg-base-100 group flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors {provider.class}"
-              onclick={() => handleBindPlatform(provider.id)}
+          {#each getProviders( { bind: true } ).filter((p) => data.availableProviders.includes(p.id) || (data.canBindWechat && p.id === 'wechat')) || [] as provider (provider)}
+            <ProviderCard
+              {provider}
+              variant="bind"
+              busy={bindingProvider === provider.id}
               disabled={bindingProvider !== null}
-              aria-busy={bindingProvider === provider.id}
-            >
-              <div
-                class="not-group-hover:bg-base-300 flex h-10 w-10 items-center justify-center rounded-full transition-colors"
-              >
-                {#if bindingProvider === provider.id}
-                  <i class="fa-solid fa-spinner fa-spin fa-lg"></i>
-                {:else if provider.icon.startsWith('fa-')}
-                  <i class="fa-brands fa-lg {provider.icon}"></i>
-                {:else}
-                  <img
-                    src="{base}/{provider.icon}"
-                    alt="{provider.name} {m.provider_logo()}"
-                    class="h-7 w-7 rounded-full"
-                  />
-                {/if}
-              </div>
-              <div class="flex-1 text-left">
-                <span class="font-medium">{provider.name}</span>
-                <p class="text-xs text-current/60">{m.click_to_bind()}</p>
-              </div>
-              <i class="fa-solid fa-plus text-primary mix-blend-difference"></i>
-            </button>
+              onclick={() => handleBindPlatform(provider.id)}
+            />
           {/each}
         </div>
       </div>

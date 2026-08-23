@@ -68,8 +68,8 @@
     } catch (error) {
       console.error(`Failed to start ${providerId} sign-in:`, error);
       toastErrorWithCopy(
-        m.oauth_sign_in_failed({ provider: providerId }),
-        error,
+        m.oauth_sign_in_failed({ provider: providerId.toUpperCase() }),
+        String(error),
         `Failed to start ${providerId} sign-in.`
       );
     } finally {
@@ -161,7 +161,7 @@
               {:else}
                 <img
                   src="{base}/{provider.icon}"
-                  alt="{provider.name} {m.provider_logo()}"
+                  alt={provider.name}
                   class="h-5 w-5 rounded-full"
                 />
               {/if}
