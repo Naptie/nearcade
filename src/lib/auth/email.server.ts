@@ -1,5 +1,4 @@
-import nodemailer from 'nodemailer';
-import { env } from '$env/dynamic/private';
+import { sendMail } from '$lib/mail/index.server';
 import { m } from '$lib/paraglide/messages';
 import { extractLocaleFromRequest } from '$lib/paraglide/runtime';
 
@@ -38,8 +37,6 @@ const EMAIL_THEME = {
   infoBackground: '#f7faf8'
 } as const;
 
-let transporter: nodemailer.Transporter | null = null;
-
 function getLocale(request?: Request): SupportedLocale {
   if (!request) {
     return 'en';
@@ -47,33 +44,6 @@ function getLocale(request?: Request): SupportedLocale {
 
   const locale = extractLocaleFromRequest(request);
   return locale === 'zh' || locale === 'ja' ? locale : 'en';
-}
-
-function getTransporter() {
-  if (transporter) {
-    return transporter;
-  }
-
-  const host = env.SMTP_HOST?.trim();
-  const port = Number(env.SMTP_PORT ?? '');
-  const user = env.SMTP_USER?.trim();
-  const password = env.SMTP_PASSWORD?.trim();
-
-  if (!host || !Number.isFinite(port) || !user || !password) {
-    throw new Error('SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASSWORD are required');
-  }
-
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: env.SMTP_SECURE ? env.SMTP_SECURE === 'true' : port === 465,
-    auth: {
-      user,
-      pass: password
-    }
-  });
-
-  return transporter;
 }
 
 function escapeHtml(value: string): string {
@@ -172,13 +142,10 @@ export async function sendVerificationLinkEmail({ user, url, request }: Verifica
       </div>
     </div>`;
 
-  await getTransporter().sendMail({
-    from: env.SMTP_FROM?.trim() || env.SMTP_USER,
-    to: user.email,
-    subject,
-    text,
-    html
-  });
+  const result = await sendMail(user.email, subject, { text, html });
+  if (!result.success) {
+    throw new Error(`Failed to send verification email: ${result.error}`);
+  }
 }
 
 export async function sendStudentVerificationLinkEmail({
@@ -262,11 +229,8 @@ export async function sendStudentVerificationLinkEmail({
       </div>
     </div>`;
 
-  await getTransporter().sendMail({
-    from: env.SMTP_FROM?.trim() || env.SMTP_USER,
-    to: email,
-    subject,
-    text,
-    html
-  });
+  const result = await sendMail(email, subject, { text, html });
+  if (!result.success) {
+    throw new Error(`Failed to send student verification email: ${result.error}`);
+  }
 }

@@ -144,7 +144,7 @@ bind mount 挂载到容器内）。
 2.  通过 `docker compose up -d --build --wait` 启动 **应用本身、MongoDB、Redis、
     Meilisearch、MinIO**（含自动建桶），并等待应用容器就绪。
 
-> 已有 `.env` 中的值会被保留，仅填充缺失项与占位符。需要地图、Firebase 推送、SMTP 等功能时，按需在 `.env` 中填入真实密钥即可。
+> 已有 `.env` 中的值会被保留，仅填充缺失项与占位符。需要地图、Firebase 推送、邮件发送等功能时，按需在 `.env` 中填入真实密钥即可。
 
 ### 种子数据
 
@@ -213,17 +213,6 @@ AUTH_GITHUB_SECRET="your_github_oauth_secret"
 ```
 
 未配置的 OAuth 提供商不会注册，登录界面不会出现对应按钮，也不会影响启动。
-
-**SMTP 配置（可选，用于邮箱地址与在校生资格验证邮件）:**
-
-```env
-SMTP_HOST = "smtp.example.com"
-SMTP_PORT = "587"
-SMTP_USER = "your_smtp_user@example.com"
-SMTP_PASSWORD = "your_smtp_password"
-SMTP_SECURE = "false" # 465 端口通常为 true，587 端口通常为 false
-SMTP_FROM = "nearcade <no-reply@example.com>" # 可选，默认使用 SMTP_USER
-```
 
 **OSS 配置（可选，MinIO 本地已自动配置）:**
 

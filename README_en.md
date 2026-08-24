@@ -151,7 +151,7 @@ source is bind-mounted into the container).
     creation), and wait until the app container is ready.
 
 > Existing values in `.env` are preserved; only missing/placeholder values are
-> filled in. Add real keys for maps, Firebase push, SMTP, etc. as needed.
+> filled in. Add real keys for maps, Firebase push, mail delivery, etc. as needed.
 
 ### Seed data
 
@@ -228,17 +228,6 @@ AUTH_GITHUB_SECRET="your_github_oauth_secret"
 
 Unconfigured OAuth providers are simply not registered — no button appears and
 startup is unaffected.
-
-**SMTP (For Account and Student Verification Mail):**
-
-```env
-SMTP_HOST = "smtp.example.com"
-SMTP_PORT = "587"
-SMTP_USER = "your_smtp_user@example.com"
-SMTP_PASSWORD = "your_smtp_password"
-SMTP_SECURE = "false" # usually true for port 465 and false for port 587
-SMTP_FROM = "nearcade <no-reply@example.com>" # optional, defaults to SMTP_USER
-```
 
 **Object Storage Service (optional; MinIO is configured automatically):**
 
