@@ -76,6 +76,7 @@ jobs:
           GLOAUTH2_PROXY_HOST: ${{ vars.GLOAUTH2_PROXY_HOST }}
           GSAK_BASE64: ${{ secrets.GSAK_BASE64 }}
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
           AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
           WECHAT_TEMPLATE_BIND_RESULT: ${{ secrets.WECHAT_TEMPLATE_BIND_RESULT }}
           WECHAT_TEMPLATE_QUEUE_NOTIFICATION: ${{ secrets.WECHAT_TEMPLATE_QUEUE_NOTIFICATION }}

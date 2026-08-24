@@ -31,7 +31,7 @@ import {
 } from '$lib/auth/email';
 import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
-import { SSC_SECRET } from '$env/static/private';
+import { SSC_SECRET, CORS_ALLOWED_ORIGINS } from '$env/static/private';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import { handleWellKnown } from '$lib/endpoints/well-known.server';
 import { getClientIp } from '$lib/utils/ip.server';
@@ -79,18 +79,40 @@ const resolveOAuthScopeRequirement = (event: RequestEvent) => {
   return resolveRequiredScopes(apiPath, event.request.method);
 };
 
+// Origins allowed to make credentialed cross-origin API requests, configured at
+// build time as a comma-separated list (e.g. "https://naptie.github.io").
+const CORS_ALLOWED_ORIGIN_SET = new Set(
+  CORS_ALLOWED_ORIGINS.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
+// Loopback origins are always allowed for local development.
+const LOCAL_DEV_CORS_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+const resolveCorsOrigin = (origin: string | null): string => {
+  if (!origin) return '*';
+  return CORS_ALLOWED_ORIGIN_SET.has(origin) || LOCAL_DEV_CORS_ORIGIN_PATTERN.test(origin)
+    ? origin
+    : '*';
+};
+
 const handleOptions: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
 
   if (event.request.method === 'OPTIONS' && pathname.startsWith(`${base}/api/`)) {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': '*'
-      }
-    });
+    const corsOrigin = resolveCorsOrigin(event.request.headers.get('origin'));
+    const headers: Record<string, string> = {
+      'Access-Control-Allow-Origin': corsOrigin,
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers':
+        event.request.headers.get('access-control-request-headers') || '*'
+    };
+    if (corsOrigin !== '*') {
+      headers['Access-Control-Allow-Credentials'] = 'true';
+      headers['Vary'] = 'Origin';
+    }
+    return new Response(null, { status: 200, headers });
   }
   return resolve(event);
 };
@@ -115,9 +137,14 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
   const { pathname } = event.url;
   if (pathname.startsWith(`${base}/api/`)) {
     try {
-      response.headers.set('Access-Control-Allow-Origin', '*');
+      const corsOrigin = resolveCorsOrigin(event.request.headers.get('origin'));
+      response.headers.set('Access-Control-Allow-Origin', corsOrigin);
       response.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', '*');
+      if (corsOrigin !== '*') {
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+        response.headers.append('Vary', 'Origin');
+      }
     } catch {
       // Intentionally ignore errors when setting headers
     }
