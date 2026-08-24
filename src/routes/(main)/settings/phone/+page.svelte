@@ -426,7 +426,7 @@
     // Captcha is only required for the first send of a flow — re-requesting
     // a Telegram session while one is in flight doesn't need a fresh token.
     if (activeCaptchaProvider && !activeCaptchaToken && !telegramSession) {
-      toast(m.phone_settings_turnstile_failed(), { type: 'error' });
+      toast(m.phone_settings_captcha_failed(), { type: 'error' });
       return;
     }
 
@@ -481,7 +481,7 @@
           body.error === 'captcha_missing' ||
           body.error === 'captcha_provider_invalid'
         ) {
-          toast(m.phone_settings_turnstile_failed(), { type: 'error' });
+          toast(m.phone_settings_captcha_failed(), { type: 'error' });
           resetActiveCaptcha();
           return;
         }
