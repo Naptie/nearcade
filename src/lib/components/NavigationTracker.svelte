@@ -45,7 +45,10 @@
     }
 
     if (
-      (count === 1 && Math.random() < 0.3 && page.url.pathname === resolve('/')) ||
+      (count === 1 &&
+        Math.random() < 0.3 &&
+        page.url.pathname === resolve('/') &&
+        page.url.searchParams.size === 0) ||
       count === INITIAL_THRESHOLD
     )
       return true;
