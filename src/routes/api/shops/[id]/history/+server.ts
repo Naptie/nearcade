@@ -8,13 +8,17 @@ import {
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
-import { toPlainArray } from '$lib/utils';
+import { isAdminOrModerator, toPlainArray } from '$lib/utils';
 import type { Shop } from '$lib/types';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+const HISTORY_VISIBILITY_DAYS = 7;
+
+export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
     const { id } = parseParamsOrError(shopIdParamSchema, params);
     const { page, limit } = parseQueryOrError(shopHistoryQuerySchema, url);
+
+    const isAdmin = isAdminOrModerator(locals.session?.user);
 
     const db = mongo.db();
 
@@ -28,20 +32,24 @@ export const GET: RequestHandler = async ({ params, url }) => {
     // Fetch attendance report history
     const attendanceReportsCollection = db.collection('attendance_reports');
 
+    // Non-admin users can only see reports from the last 7 days
+    const filter: Record<string, unknown> = { shopId: id };
+    if (!isAdmin) {
+      filter.reportedAt = {
+        $gte: new Date(Date.now() - HISTORY_VISIBILITY_DAYS * 24 * 60 * 60 * 1000)
+      };
+    }
+
     const skip = (page - 1) * limit;
 
     // Get total count
-    const totalCount = await attendanceReportsCollection.countDocuments({
-      shopId: id
-    });
+    const totalCount = await attendanceReportsCollection.countDocuments(filter);
 
     // Get paginated reports with user data
     const reports = await attendanceReportsCollection
       .aggregate([
         {
-          $match: {
-            shopId: id
-          }
+          $match: filter
         },
         {
           $sort: { reportedAt: -1 }
