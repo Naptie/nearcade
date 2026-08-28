@@ -1419,6 +1419,18 @@ export const getShopOpeningHours = (
 const LOCATION_CACHE_KEY = 'nearcade-cached-location';
 const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// High-accuracy GPS fix budget. We stop waiting for a GPS lock after this and
+// fall back to the (already-running) degraded network/cell fix.
+const HIGH_ACCURACY_TIMEOUT_MS = 10_000; // 10 seconds
+// How long we wait before starting a degraded (low-accuracy) request in
+// parallel, so a fallback fix is already in flight if the GPS lock misses.
+const DEGRADED_START_DELAY_MS = 5_000; // 5 seconds
+// Budget for the degraded network/cell fix, counted from when it starts.
+// Set to the remaining high-accuracy budget (10s - 5s delay = 5s) so both
+// lookups conclude at the same time and the total wait stays at 10s. A
+// low-accuracy network/cell fix needs far less than this anyway.
+const DEGRADED_TIMEOUT_MS = 5_000; // 5 seconds
+
 interface CachedLocation {
   latitude: number;
   longitude: number;
@@ -1448,28 +1460,28 @@ const setCachedLocation = (latitude: number, longitude: number): void => {
   }
 };
 
-export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> => {
-  if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    return Promise.reject(m.location_not_supported());
-  }
+type LocationResult =
+  | { loc: { latitude: number; longitude: number } }
+  | { error: string; code: number };
 
-  const cached = getCachedLocation();
-  if (cached) return Promise.resolve(cached);
-
-  const { promise, resolve, reject } = Promise.withResolvers<{
-    latitude: number;
-    longitude: number;
-  }>();
-
-  const requestLocation = () => {
+/**
+ * Wraps a single `getCurrentPosition` call. Never rejects — always resolves
+ * with either a position or a localized error message plus the raw error code,
+ * which keeps the concurrent fallback logic below free of unhandled rejections.
+ */
+const requestPosition = (
+  enableHighAccuracy: boolean,
+  timeout: number
+): Promise<LocationResult> => {
+  return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const loc = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        };
-        setCachedLocation(loc.latitude, loc.longitude);
-        resolve(loc);
+        resolve({
+          loc: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }
+        });
       },
       (error) => {
         let msg = m.location_unknown_error();
@@ -1485,13 +1497,87 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
             break;
         }
         console.error('Geolocation error:', error);
-        reject(msg);
+        resolve({ error: msg, code: error?.code ?? 0 });
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000
-      }
+      { enableHighAccuracy, timeout }
     );
+  });
+};
+
+/**
+ * Gets the user's current location, preferring a high-accuracy GPS fix but
+ * degrading gracefully when the GPS lock is slow or unavailable.
+ *
+ * A degraded (low-accuracy, network/cell) request is started in parallel 5s
+ * into the high-accuracy lookup. If the GPS fix succeeds, its result is used
+ * and the degraded attempt is discarded. If the GPS fix fails (10s budget),
+ * the degraded result — which shares the same 10s deadline — is used instead,
+ * keeping the total wait bounded at 10s.
+ */
+export const getMyLocation = (): Promise<{ latitude: number; longitude: number }> => {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    return Promise.reject(m.location_not_supported());
+  }
+
+  const cached = getCachedLocation();
+  if (cached) return Promise.resolve(cached);
+
+  const { promise, resolve, reject } = Promise.withResolvers<{
+    latitude: number;
+    longitude: number;
+  }>();
+
+  const finish = (loc: { latitude: number; longitude: number }) => {
+    setCachedLocation(loc.latitude, loc.longitude);
+    resolve(loc);
+  };
+
+  const requestLocation = () => {
+    // Guard so only the first settled outcome wins (high accuracy preferred).
+    let settled = false;
+    let degraded: Promise<LocationResult> | null = null;
+
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+
+    const startDegraded = (): Promise<LocationResult> => {
+      if (!degraded) degraded = requestPosition(false, DEGRADED_TIMEOUT_MS);
+      return degraded;
+    };
+
+    // Start the degraded lookup after 5s if the GPS fix hasn't settled yet.
+    const degradedTimer = setTimeout(() => {
+      startDegraded();
+    }, DEGRADED_START_DELAY_MS);
+
+    requestPosition(true, HIGH_ACCURACY_TIMEOUT_MS).then((highResult) => {
+      clearTimeout(degradedTimer);
+
+      if ('loc' in highResult) {
+        // GPS fix won (or degraded never started) — use the accurate result.
+        settle(() => finish(highResult.loc));
+        return;
+      }
+
+      // High accuracy failed. If permission was denied, the degraded attempt
+      // would be denied too, so surface the error immediately.
+      if (highResult.code === 1) {
+        settle(() => reject(highResult.error));
+        return;
+      }
+
+      // Ensure a degraded request is running, then use its outcome.
+      startDegraded().then((fallbackResult) => {
+        if ('loc' in fallbackResult) {
+          settle(() => finish(fallbackResult.loc));
+        } else {
+          settle(() => reject(fallbackResult.error));
+        }
+      });
+    });
   };
 
   if ('permissions' in navigator) {

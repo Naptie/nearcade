@@ -3,7 +3,7 @@
   import { PUBLIC_TENCENT_MAPS_KEY } from '$env/static/public';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext } from '$lib/types';
-  import { convertCoordinates } from '$lib/utils';
+  import { convertCoordinates, getMyLocation } from '$lib/utils';
   import { isDarkMode } from '$lib/utils/scoped';
   import { getContext, onMount, untrack } from 'svelte';
 
@@ -145,18 +145,13 @@
             streetViewControl: false
           });
           mapInstance = map;
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const userLocation = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-              };
-              map!.setCenter(userLocation);
-            },
-            () => {
+          getMyLocation()
+            .then((loc) => {
+              map!.setCenter({ lat: loc.latitude, lng: loc.longitude });
+            })
+            .catch(() => {
               map!.setCenter({ lat: 39.9042, lng: 116.4074 });
-            }
-          );
+            });
           google.maps.event.addListener(map, 'idle', async () => {
             const center = map!.getCenter();
             if (!center) return;
