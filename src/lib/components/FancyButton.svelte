@@ -65,8 +65,6 @@
       return;
     }
 
-    const radiusSquared = POINTER_APPROACH_RADIUS * POINTER_APPROACH_RADIUS;
-
     for (const registration of pointerApproachRegistrations) {
       if (!registration.isEnabled()) {
         setPointerApproachState(registration, false);
@@ -83,12 +81,6 @@
         continue;
       }
 
-      const dx =
-        pointerApproachX < rect.left
-          ? rect.left - pointerApproachX
-          : pointerApproachX > rect.right
-            ? pointerApproachX - rect.right
-            : 0;
       const dy =
         pointerApproachY < rect.top
           ? rect.top - pointerApproachY
@@ -96,7 +88,12 @@
             ? pointerApproachY - rect.bottom
             : 0;
 
-      setPointerApproachState(registration, dx * dx + dy * dy <= radiusSquared);
+      setPointerApproachState(
+        registration,
+        pointerApproachX >= rect.left &&
+          pointerApproachX <= rect.right &&
+          dy <= POINTER_APPROACH_RADIUS
+      );
     }
   };
 
