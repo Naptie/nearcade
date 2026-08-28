@@ -90,7 +90,7 @@
       url.searchParams.delete('search');
     }
     url.searchParams.delete('page');
-    goto(url.toString());
+    goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
   };
 
   const openCreateModal = () => {

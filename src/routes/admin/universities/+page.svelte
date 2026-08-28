@@ -27,7 +27,7 @@
       url.searchParams.delete('search');
     }
     url.searchParams.delete('page'); // Reset to first page
-    goto(url.toString());
+    goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
   };
 </script>
 
