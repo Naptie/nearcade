@@ -1461,18 +1461,14 @@ const setCachedLocation = (latitude: number, longitude: number): void => {
 };
 
 type LocationResult =
-  | { loc: { latitude: number; longitude: number } }
-  | { error: string; code: number };
+  { loc: { latitude: number; longitude: number } } | { error: string; code: number };
 
 /**
  * Wraps a single `getCurrentPosition` call. Never rejects — always resolves
  * with either a position or a localized error message plus the raw error code,
  * which keeps the concurrent fallback logic below free of unhandled rejections.
  */
-const requestPosition = (
-  enableHighAccuracy: boolean,
-  timeout: number
-): Promise<LocationResult> => {
+const requestPosition = (enableHighAccuracy: boolean, timeout: number): Promise<LocationResult> => {
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
