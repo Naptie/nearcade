@@ -176,6 +176,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
       await db.collection('images').deleteOne({ id: deleteRequest.photoId });
     } else {
       const shop = await db.collection('shops').findOne({ id: deleteRequest.shopId });
+
       if (shop) {
         await db.collection('deleted_shops').insertOne({
           ...shop,
@@ -184,6 +185,25 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
           deleteRequestId: deleteRequest.id
         });
         await db.collection('shops').deleteOne({ id: deleteRequest.shopId });
+      } else {
+        // The shop is no longer in `shops` — it was already moved to
+        // `deleted_shops`, typically by an external sync process rather than
+        // through this endpoint.
+        const existingDeletedShop = await db
+          .collection('deleted_shops')
+          .findOne({ id: deleteRequest.shopId });
+        if (existingDeletedShop) {
+          if (!existingDeletedShop.deleteRequestId) {
+            await db
+              .collection('deleted_shops')
+              .updateOne(
+                { id: deleteRequest.shopId },
+                { $set: { deleteRequestId: deleteRequest.id } }
+              );
+          }
+        }
+        // If the shop is in neither collection, there is nothing to move —
+        // the request is still marked approved below.
       }
     }
   }
