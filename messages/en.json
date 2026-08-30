@@ -79,6 +79,21 @@
   "admin_data_update_campus_rankings": "Campus rankings update",
   "admin_data_update_campus_rankings_description": "Rebuild cached campus rankings and ranking positions for every campus.",
   "admin_data_update_duration": "Duration",
+  "admin_data_update_duration_value": [
+    {
+      "declarations": ["input hours", "input minutes", "input seconds"],
+      "selectors": ["hours", "minutes", "seconds"],
+      "match": {
+        "hours=0,minutes=0,seconds=*": "{seconds}s",
+        "hours=0,minutes=*,seconds=0": "{minutes}m",
+        "hours=0,minutes=*,seconds=*": "{minutes}m {seconds}s",
+        "hours=*,minutes=0,seconds=0": "{hours}h",
+        "hours=*,minutes=0,seconds=*": "{hours}h {seconds}s",
+        "hours=*,minutes=*,seconds=0": "{hours}h {minutes}m",
+        "hours=*,minutes=*,seconds=*": "{hours}h {minutes}m {seconds}s"
+      }
+    }
+  ],
   "admin_data_update_last_finished": "Last finished",
   "admin_data_update_last_started": "Last started",
   "admin_data_update_last_successful": "Last successful run",

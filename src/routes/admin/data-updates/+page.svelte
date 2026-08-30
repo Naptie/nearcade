@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import { pageTitle, formatDateTime, formatDuration } from '$lib/utils';
+  import { pageTitle, formatDateTime } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { m } from '$lib/paraglide/messages';
   import type { PageData } from './$types';
@@ -174,6 +174,21 @@
     return String(value);
   };
 
+  const formatTaskDuration = (durationMs: number | null | undefined) => {
+    if (durationMs === null || durationMs === undefined) {
+      return m.unknown();
+    }
+    const totalSeconds = Math.round(durationMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return m.admin_data_update_duration_value({
+      hours: hours.toString(),
+      minutes: minutes.toString(),
+      seconds: seconds.toString()
+    });
+  };
+
   $effect(() => {
     if (hasRunningTasks) {
       if (!pollHandle) {
@@ -285,11 +300,7 @@
             </div>
             <div class="bg-base-200 rounded-lg p-4">
               <div class="text-base-content/60 text-sm">{m.admin_data_update_duration()}</div>
-              <div class="mt-1 font-medium">
-                {task.durationMs !== null && task.durationMs !== undefined
-                  ? formatDuration(Math.round(task.durationMs / 1000))
-                  : m.unknown()}
-              </div>
+              <div class="mt-1 font-medium">{formatTaskDuration(task.durationMs)}</div>
             </div>
           </div>
 

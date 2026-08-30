@@ -78,6 +78,21 @@
   "admin_data_update_campus_rankings": "大学ランキング更新",
   "admin_data_update_campus_rankings_description": "全キャンパスのキャッシュ済みランキングと順位情報を再構築します。",
   "admin_data_update_duration": "所要時間",
+  "admin_data_update_duration_value": [
+    {
+      "declarations": ["input hours", "input minutes", "input seconds"],
+      "selectors": ["hours", "minutes", "seconds"],
+      "match": {
+        "hours=0,minutes=0,seconds=*": "{seconds} 秒",
+        "hours=0,minutes=*,seconds=0": "{minutes} 分",
+        "hours=0,minutes=*,seconds=*": "{minutes} 分 {seconds} 秒",
+        "hours=*,minutes=0,seconds=0": "{hours} 時間",
+        "hours=*,minutes=0,seconds=*": "{hours} 時間 {seconds} 秒",
+        "hours=*,minutes=*,seconds=0": "{hours} 時間 {minutes} 分",
+        "hours=*,minutes=*,seconds=*": "{hours} 時間 {minutes} 分 {seconds} 秒"
+      }
+    }
+  ],
   "admin_data_update_last_finished": "前回完了",
   "admin_data_update_last_started": "前回開始",
   "admin_data_update_last_successful": "前回成功",
