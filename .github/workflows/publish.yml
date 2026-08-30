@@ -97,7 +97,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: r2 object put nearcade/${{ github.run_id }}/build.zip --file=build.zip --bucket=${{ secrets.R2_BUCKET }}
+          command: r2 object put ${{ secrets.R2_BUCKET }}/nearcade/${{ github.run_id }}/build.zip --file=build.zip
 
 
   webhook-publish:
