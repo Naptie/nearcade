@@ -81,19 +81,24 @@ jobs:
           WECHAT_TEMPLATE_BIND_RESULT: ${{ secrets.WECHAT_TEMPLATE_BIND_RESULT }}
           WECHAT_TEMPLATE_QUEUE_NOTIFICATION: ${{ secrets.WECHAT_TEMPLATE_QUEUE_NOTIFICATION }}
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: build
-          path: |
-            build/
-            data/
-            patches/
-            scripts/
-            package.json
-            pnpm-lock.yaml
+      - name: Package build
+        run: |
+          zip -r build.zip \
+            build/ \
+            data/ \
+            patches/ \
+            scripts/ \
+            package.json \
+            pnpm-lock.yaml \
             pnpm-workspace.yaml
-          retention-days: 1
+
+      - name: Upload build to R2
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: r2 object put nearcade/${{ github.run_id }}/build.zip --file=build.zip --bucket=${{ secrets.R2_BUCKET }}
+
 
   webhook-publish:
     name: Publish via webhook
@@ -108,5 +113,5 @@ jobs:
         run: |
           curl -X POST -H "Content-Type: application/json" \
           -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
-          -d "{\"run_id\":\"${RUN_ID}\"}" \
+          -d "{\"run_id\":\"${RUN_ID}\",\"source\":\"r2\",\"object_key\":\"nearcade/${RUN_ID}/build.zip\"}" \
           "${WEBHOOK_URL}"
