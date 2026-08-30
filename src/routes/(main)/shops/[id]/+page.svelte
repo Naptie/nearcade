@@ -1668,7 +1668,7 @@
                 <div class="space-y-2 text-sm">
                   <div>
                     <span class="text-base-content/60">{m.shop_delete_request_reason()}:</span>
-                    <p class="mt-1 font-medium">{pendingDeleteRequest.reason}</p>
+                    <p class="mt-1 font-medium break-all">{pendingDeleteRequest.reason}</p>
                   </div>
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-base-content/60">{m.request_by()}:</span>

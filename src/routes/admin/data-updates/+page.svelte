@@ -296,7 +296,7 @@
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="bg-base-200 rounded-lg p-4">
               <div class="text-base-content/60 text-sm">{m.admin_data_update_triggered_by()}</div>
-              <div class="mt-1 font-medium">
+              <div class="mt-1 font-medium break-all">
                 {task.triggerUserName || m.admin_data_update_system_trigger()}
               </div>
             </div>
