@@ -468,7 +468,7 @@
     const showCloseDay = close.getDay() !== expectedCloseDay || showOpenDay;
     const labels = JS_DAY_LABELS();
     const openLabel = `${showOpenDay ? `${labels[open.getDay()]} ` : ''}${formatTime(open)}`;
-    const closeLabel = `${showCloseDay ? `${closesNextShopDay ? formatTime(close) + ' (' + m.tomorrow() + ')' : labels[close.getDay()] + ' ' + formatTime(close)}` : formatTime(close)}`;
+    const closeLabel = `${showCloseDay ? `${labels[close.getDay()]} ${formatTime(close)}` : formatTime(close)}`;
 
     return `${openLabel} – ${closeLabel}`;
   };
