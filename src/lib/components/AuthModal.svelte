@@ -132,7 +132,7 @@
     onclick={handleDialogClick}
     onkeydown={handleKeydown}
   >
-    <div class="text-base-content modal-box relative max-h-[90vh] max-w-xl">
+    <div class="text-base-content modal-box relative max-h-[90vh] max-w-176">
       <button
         class="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
         onclick={() => {
