@@ -102,7 +102,7 @@
     "leancloud-storage": "^4.15.2",
     "meilisearch": "^0.58.0",
     "mongodb": "^7.5.0",
-    "nanoid": "^6.0.0",
+    "nanoid": "^6.0.1",
     "picocolors": "^1.1.1",
     "qrcode": "^1.5.4",
     "redis": "^5.12.1",
