@@ -96,6 +96,18 @@
   // NavigationBar. The heavy navbar is only mounted when needed.
   let showScrolledNavbar = $state(false);
 
+  // Mobile "three dots" menu (find universities / find clubs). It is fully
+  // unmounted when closed so its links can never be clicked while hidden.
+  let isMoreMenuOpen = $state(false);
+  let moreMenuWrap: HTMLDivElement | undefined;
+
+  $effect(() => {
+    // The menu is only rendered below the `sm` breakpoint. If the viewport
+    // grows past it while the menu is open, close it so the hidden links
+    // are unmounted and can no longer be clicked.
+    if (viewport.sm && isMoreMenuOpen) isMoreMenuOpen = false;
+  });
+
   const searchUniversities = async (query: string, requestId: number) => {
     if (query.trim().length === 0) {
       universities = [];
@@ -245,10 +257,24 @@
     document.documentElement.classList.remove('globe-exiting-to-landing');
     document.getElementById('globe-root')?.classList.remove('globe-exiting-landing');
 
+    // Close the mobile "three dots" menu on outside clicks or Escape.
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (!isMoreMenuOpen) return;
+      if (moreMenuWrap && moreMenuWrap.contains(event.target as Node)) return;
+      isMoreMenuOpen = false;
+    };
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isMoreMenuOpen) isMoreMenuOpen = false;
+    };
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
+    document.addEventListener('keydown', handleKeydown);
+
     return () => {
       window.removeEventListener('amap-loaded', assignAMap);
       window.removeEventListener('scroll', handleNavbarScroll);
       if (navbarScrollRaf !== null) cancelAnimationFrame(navbarScrollRaf);
+      document.removeEventListener('pointerdown', handleDocumentPointerDown);
+      document.removeEventListener('keydown', handleKeydown);
       clearInterval(interval);
       clearTimeout(starredTimer);
     };
@@ -375,19 +401,29 @@
                 />
               {:else}
                 <!-- Mobile: three-dots dropdown for universities + clubs -->
-                <div class="relative">
-                  <div class="dropdown dropdown-end">
-                    <div
-                      tabindex="0"
-                      role="button"
-                      class="join-item btn btn-soft hover:bg-primary hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
-                      aria-label={m.more_actions()}
-                    >
-                      <i class="fa-solid fa-ellipsis fa-lg"></i>
-                    </div>
+                <div class="relative" bind:this={moreMenuWrap}>
+                  <div
+                    tabindex="0"
+                    role="button"
+                    class="join-item btn btn-soft hover:bg-primary hover:text-primary-content flex items-center gap-2 py-5 text-nowrap not-sm:flex-1 sm:gap-2 dark:hover:bg-white dark:hover:text-black"
+                    aria-label={m.more_actions()}
+                    aria-haspopup="menu"
+                    aria-expanded={isMoreMenuOpen}
+                    onclick={() => (isMoreMenuOpen = !isMoreMenuOpen)}
+                    onkeydown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        isMoreMenuOpen = !isMoreMenuOpen;
+                      }
+                    }}
+                  >
+                    <i class="fa-solid fa-ellipsis fa-lg"></i>
+                  </div>
+                  {#if isMoreMenuOpen}
                     <ul
                       tabindex="-1"
-                      class="dropdown-content menu bg-base-100 border-base-300 join join-vertical rounded-3xl hover:shadow-lg"
+                      class="menu bg-base-100 border-base-300 join join-vertical absolute top-full right-0 z-50 mt-2 rounded-3xl hover:shadow-lg"
+                      transition:fade={{ duration: 150 }}
                     >
                       <a
                         href={resolve('/(main)/universities')}
@@ -404,7 +440,7 @@
                         {m.find_clubs()}
                       </a>
                     </ul>
-                  </div>
+                  {/if}
                 </div>
               {/if}
             </div>
@@ -849,45 +885,46 @@
       </div>
     </div>
 
-    <div
-      class="hero-bottom-bar pointer-events-none fixed inset-x-0 bottom-4 z-20 px-3 transition-opacity duration-300 md:px-4 lg:px-6"
-      class:opacity-0={showScrolledNavbar}
-      in:fade={{ delay: 500, duration: 400 }}
-      out:fade={{ duration: 300 }}
-    >
+    {#if !showScrolledNavbar}
       <div
-        class="pointer-events-auto flex w-full flex-row-reverse items-center justify-between gap-0.5 md:gap-1 lg:gap-2"
+        class="hero-bottom-bar pointer-events-none fixed inset-x-0 bottom-4 z-20 px-3 md:px-4 lg:px-6"
+        in:fade={{ delay: 500, duration: 400 }}
+        out:fade={{ duration: 300 }}
       >
-        <!-- Capsule background matching the hero top bar -->
         <div
-          class="bg-base-100/50 flex items-center gap-0.5 rounded-full px-1 backdrop-blur-lg md:gap-1 lg:gap-2"
+          class="pointer-events-auto flex w-full flex-row-reverse items-center justify-between gap-0.5 md:gap-1 lg:gap-2"
         >
-          <a
-            href={GITHUB_LINK}
-            target="_blank"
-            class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+          <!-- Capsule background matching the hero top bar -->
+          <div
+            class="bg-base-100/50 flex items-center gap-0.5 rounded-full px-1 backdrop-blur-lg md:gap-1 lg:gap-2"
           >
-            <i class="fa-brands fa-github fa-lg"></i>
-            <span class="hidden lg:inline">GitHub</span>
-          </a>
-          <SocialMediaModal
-            name="QQ"
-            class="fa-brands fa-qq fa-lg"
-            description={m.qq_description()}
-            image="{base}/group-chat-qq.webp"
-          />
-          <ThemeSwitch />
+            <a
+              href={GITHUB_LINK}
+              target="_blank"
+              class="btn btn-ghost btn-sm lg:btn-md flex items-center gap-2"
+            >
+              <i class="fa-brands fa-github fa-lg"></i>
+              <span class="hidden lg:inline">GitHub</span>
+            </a>
+            <SocialMediaModal
+              name="QQ"
+              class="fa-brands fa-qq fa-lg"
+              description={m.qq_description()}
+              image="{base}/group-chat-qq.webp"
+            />
+            <ThemeSwitch />
+          </div>
+          {#if showIcpLicense}
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              class="text-base-content/60 hover:text-base-content text-xs transition sm:text-sm md:text-base"
+              >{env.PUBLIC_ICP_LICENSE}</a
+            >
+          {/if}
         </div>
-        {#if showIcpLicense}
-          <a
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            class="text-base-content/60 hover:text-base-content text-xs transition sm:text-sm md:text-base"
-            >{env.PUBLIC_ICP_LICENSE}</a
-          >
-        {/if}
       </div>
-    </div>
+    {/if}
   </div>
 
   <!-- Below-the-fold content: stats, leaderboards, recent changelog.
