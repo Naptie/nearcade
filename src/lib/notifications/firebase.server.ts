@@ -9,9 +9,16 @@ const originalHttp2Connect = http2.connect;
   authority: string | URL,
   options?: http2.ClientSessionOptions | http2.SecureClientSessionOptions
 ) => {
-  if (typeof authority === 'string' && authority.includes('fcm.googleapis.com')) {
-    const redirected = authority.replace('fcm.googleapis.com', FCM_PROXY_HOST);
-    return originalHttp2Connect(redirected, options);
+  if (typeof authority === 'string') {
+    try {
+      const parsed = new URL(authority);
+      if (parsed.hostname === 'fcm.googleapis.com') {
+        parsed.hostname = FCM_PROXY_HOST;
+        return originalHttp2Connect(parsed, options);
+      }
+    } catch {
+      // Invalid authority string — let node:http2 handle it as-is.
+    }
   }
   return originalHttp2Connect(authority, options);
 };
