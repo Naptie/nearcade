@@ -382,7 +382,7 @@ const DARK_COLOR_ENTRIES = Object.entries(DARK_COLOR_MAP).sort((a, b) => b[0].le
 export function applyBingDarkMode(style: StyleSpecification): StyleSpecification {
   let json = JSON.stringify(style);
   for (const [from, to] of DARK_COLOR_ENTRIES) {
-    const regex = new RegExp(from.replace('#', '#').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const regex = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     json = json.replace(regex, to);
   }
   const result = JSON.parse(json) as StyleSpecification;
