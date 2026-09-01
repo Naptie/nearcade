@@ -94,20 +94,26 @@ export function bingTransformRequest(
 
   // Handle glyph requests
   if (resourceType === 'Glyphs') {
+    let glyphUrl: URL | undefined;
+    try {
+      glyphUrl = new URL(url, 'https://dynamic.t0.tiles.ditu.live.com');
+    } catch {
+      // Invalid URL — leave it untouched for mapbox to handle.
+    }
+    const isBing = glyphUrl?.hostname.endsWith('.ditu.live.com') ?? false;
     // For Bing CDN URLs: convert spaces to hyphens for Bing's font naming convention
-    if (url.includes('ditu.live.com') && url.includes('glyphs=') && url.includes(' ')) {
+    if (isBing && glyphUrl?.searchParams.get('glyphs')?.includes(' ')) {
       url = url.replace(/%20/g, '-').replace(/ /g, '-');
     }
     // For local fonts (Sora/Noto): redirect to local path
-    else if (url.includes('glyphs=') && (url.includes('Sora') || url.includes('Noto'))) {
-      const base = import.meta.env.BASE_URL || '/';
-      const fontstackMatch = url.match(/glyphs=([^&]+)/);
-      if (fontstackMatch) {
-        const fontstack = decodeURIComponent(fontstackMatch[1]);
-        const rangeMatch = url.match(/range=(\d+-\d+)/);
-        const range = rangeMatch ? rangeMatch[1] : '0-255';
-        url = `${base}fonts/${fontstack}/${range}.pbf`;
-      }
+    else if (
+      glyphUrl?.searchParams.has('glyphs') &&
+      (url.includes('Sora') || url.includes('Noto'))
+    ) {
+      const baseUrl = import.meta.env.BASE_URL || '/';
+      const fontstack = decodeURIComponent(glyphUrl.searchParams.get('glyphs') ?? '');
+      const range = glyphUrl.searchParams.get('range') ?? '0-255';
+      url = `${baseUrl}fonts/${fontstack}/${range}.pbf`;
     }
   }
 
