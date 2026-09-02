@@ -1416,7 +1416,6 @@ export const getShopOpeningHours = (
   return result;
 };
 
-const LOCATION_CACHE_KEY = 'nearcade-cached-location';
 const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // High-accuracy GPS fix budget. We stop waiting for a GPS lock after this and
@@ -1437,27 +1436,20 @@ interface CachedLocation {
   timestamp: number;
 }
 
+// Keep the cached position in memory only. Geolocation coordinates are
+// sensitive, so we avoid persisting them in clear text (e.g. sessionStorage).
+let cachedLocation: CachedLocation | null = null;
+
 export const getCachedLocation = (
   respectsTTL = true
 ): { latitude: number; longitude: number } | null => {
-  try {
-    const raw = sessionStorage.getItem(LOCATION_CACHE_KEY);
-    if (!raw) return null;
-    const cached: CachedLocation = JSON.parse(raw);
-    if (respectsTTL && Date.now() - cached.timestamp > LOCATION_CACHE_TTL_MS) return null;
-    return { latitude: cached.latitude, longitude: cached.longitude };
-  } catch {
-    return null;
-  }
+  if (!cachedLocation) return null;
+  if (respectsTTL && Date.now() - cachedLocation.timestamp > LOCATION_CACHE_TTL_MS) return null;
+  return { latitude: cachedLocation.latitude, longitude: cachedLocation.longitude };
 };
 
 const setCachedLocation = (latitude: number, longitude: number): void => {
-  try {
-    const entry: CachedLocation = { latitude, longitude, timestamp: Date.now() };
-    sessionStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(entry));
-  } catch {
-    // sessionStorage unavailable (e.g. private browsing, quota exceeded)
-  }
+  cachedLocation = { latitude, longitude, timestamp: Date.now() };
 };
 
 type LocationResult =
