@@ -157,15 +157,32 @@ export async function verifyOAuthAccessToken(
       error(401, 'Untrusted token issuer');
     }
 
+    // Resource-server audience guard (mitigates cross-audience selection in
+    // @better-auth/oauth-provider < 1.7.0). The nearcade API is the resource
+    // server; its own identifier is the issuer/baseURL that tokens are issued
+    // for. `jwtVerify` accepts an `aud` array as long as it CONTAINS the
+    // expected audience, so we additionally reject any token whose `aud` is an
+    // array or names a different audience. This keeps a token authorized for
+    // another resource from being accepted here.
+    const resourceAudience = issuer;
+    const rawAud = unverified.aud;
+    if (rawAud != null) {
+      const audValues = Array.isArray(rawAud) ? rawAud.map((a) => String(a)) : [String(rawAud)];
+      const isSingleExpectedAudience = audValues.length === 1 && audValues[0] === resourceAudience;
+      if (!isSingleExpectedAudience) {
+        error(401, 'Invalid token audience');
+      }
+    }
+
     try {
       const result = await verifyJwsAccessToken(token, {
         // In-process fetch: no HTTP round-trip, no TCP socket.
         jwksFetch: () => inProcessJwksFetch(issuer),
         verifyOptions: {
           issuer,
-          // `aud` is the `resource` parameter from the authorization request.
-          // Falls back to the issuer (ctx.context.baseURL) when absent.
-          audience: (unverified.aud as string | string[] | undefined) ?? issuer
+          // Expect the resource server's own identifier (the issuer/baseURL),
+          // never a value supplied by the token, so cross-audience tokens fail.
+          audience: resourceAudience
         }
       });
       payload = result as OAuthTokenPayload;

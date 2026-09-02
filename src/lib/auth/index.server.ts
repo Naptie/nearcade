@@ -193,6 +193,12 @@ function createAuth() {
       oauthProvider({
         loginPage: '/oauth/sign-in',
         consentPage: '/oauth/consent',
+        // `validAudiences` is intentionally left unset: for a dynamic baseURL
+        // (allowedHosts) better-auth defaults it to the single per-request base
+        // URL, which rejects any other requested resource. This removes
+        // cross-audience selection (advisory in @better-auth/oauth-provider
+        // before 1.7.0). Resource servers additionally enforce a single
+        // audience in verify.server.ts.
         scopes: [...OAUTH_SCOPES],
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
