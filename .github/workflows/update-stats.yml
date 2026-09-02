@@ -8,6 +8,9 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   trigger-university-stats-update:
     uses: ./.github/workflows/update-university-stats.yml
