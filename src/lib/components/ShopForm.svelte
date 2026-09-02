@@ -7,6 +7,13 @@
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
   import { unsavedChanges } from '$lib/actions/unsaved-changes';
+  import {
+    clearShopDraft,
+    flushShopDraftSave,
+    isShopDraftEmpty,
+    scheduleShopDraftSave,
+    type ShopCreateDraft
+  } from '$lib/actions/shop-draft';
   import type { OpeningHourTime } from '$lib/types';
   import type { GameFormData, ShopFormData } from '$lib/schemas/forms';
 
@@ -17,6 +24,12 @@
     submitLabel?: string;
     /** When set, attach the "unsaved changes" warning banner with this dedupe id. */
     unsavedChangesId?: string;
+    /** When set, enable local-storage draft autosave for the shop creation form. */
+    draftStorageKey?: string;
+    /** Display name for a location restored from a draft (cosmetic). */
+    initialLocationName?: string;
+    /** Called once after the user makes their first edit to the form. */
+    onFirstEdit?: () => void;
   };
 
   let {
@@ -24,7 +37,10 @@
     onSubmit,
     onCancel,
     submitLabel = m.save(),
-    unsavedChangesId
+    unsavedChangesId,
+    draftStorageKey,
+    initialLocationName = '',
+    onFirstEdit
   }: Props = $props();
 
   // ---- Form state ----
@@ -35,7 +51,7 @@
   let location = $state<ShopFormData['location'] | null>(
     untrack(() => initialData.location ?? null)
   );
-  let locationName = $state<string>('');
+  let locationName = $state<string>(untrack(() => initialLocationName ?? ''));
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let showLocationModal = $state(false);
@@ -175,6 +191,96 @@
     }
   }
 
+  // ---- Draft autosave ----
+
+  // Becomes true once the user actually edits the form. Autosaving is gated on
+  // this so a pre-populated form (e.g. a restored draft or a location picked on
+  // the globe) never clobbers an existing persisted draft before the user acts.
+  let hasUserEdited = $state(false);
+
+  // Build the serializable draft snapshot from the current form state.
+  const buildDraft = (): ShopCreateDraft => ({
+    updatedAt: new Date().toISOString(),
+    name,
+    comment,
+    detailedAddress,
+    location,
+    locationName,
+    regionIds,
+    isConstant,
+    slots,
+    games
+  });
+
+  // Debounce-save the draft on every form-state change. Guards against persisting
+  // an empty/default form just from mounting.
+  $effect(() => {
+    if (!draftStorageKey) return;
+    // Force reactive tracking of every form field so edits schedule a save.
+    void name;
+    void comment;
+    void detailedAddress;
+    void location;
+    void locationName;
+    void regionIds;
+    void isConstant;
+    void slots;
+    void games;
+    // Only start autosaving after a genuine user edit; mounting/restoring must
+    // not overwrite a draft that the page may still be offering to restore.
+    if (!hasUserEdited) return;
+    const empty = isShopDraftEmpty(buildDraft());
+    if (empty) {
+      clearShopDraft(draftStorageKey);
+      return;
+    }
+    scheduleShopDraftSave(buildDraft(), draftStorageKey);
+  });
+
+  // Svelte action: notify the parent once after the user's very first edit, so
+  // a stale "restore this draft?" prompt can be dismissed without clobbering
+  // fresh input. Covers typing, selects, toggles and add/remove buttons.
+  function trackFirstEdit(node: HTMLFormElement) {
+    if (!onFirstEdit) return { destroy() {} };
+    let fired = false;
+    const handler = () => {
+      if (fired) return;
+      fired = true;
+      hasUserEdited = true;
+      onFirstEdit();
+    };
+    node.addEventListener('input', handler, { once: true });
+    node.addEventListener('change', handler, { once: true });
+    node.addEventListener('click', handler, { once: true });
+    return {
+      destroy() {
+        node.removeEventListener('input', handler);
+        node.removeEventListener('change', handler);
+        node.removeEventListener('click', handler);
+      }
+    };
+  }
+
+  // Flush any pending debounced write if the tab/page is being hidden or closed
+  // so the latest keystrokes are never lost.
+  $effect(() => {
+    if (!draftStorageKey) return;
+    const flush = () => flushShopDraftSave();
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+    };
+  });
+
+  // Flush a pending debounced write when this component is destroyed (e.g. the
+  // user cancels/navigates away between keystrokes) so the draft is never lost.
+  $effect(() => {
+    if (!draftStorageKey) return;
+    return () => flushShopDraftSave();
+  });
+
   // ---- Submit ----
 
   async function handleSubmit(e: SubmitEvent) {
@@ -213,6 +319,11 @@
         location,
         games
       });
+      // Success: the parent handles navigation; clear the persisted draft so the
+      // "restore?" prompt doesn't reappear next time the user opens this page.
+      if (draftStorageKey) {
+        clearShopDraft(draftStorageKey);
+      }
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : 'An error occurred';
     } finally {
@@ -226,6 +337,7 @@
   use:unsavedChanges={unsavedChangesId
     ? { id: unsavedChangesId, actionLabel: submitLabel }
     : undefined}
+  use:trackFirstEdit
   class="flex flex-col gap-8"
 >
   {#if errorMessage}
@@ -518,6 +630,8 @@
     name: string;
     address: string;
   }) => {
+    hasUserEdited = true;
+    onFirstEdit?.();
     location = {
       type: 'Point',
       coordinates: [loc.longitude, loc.latitude]

@@ -11,6 +11,8 @@
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
+  import { hasBoundPhone } from '$lib/utils';
+  import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import Drawer from '$lib/components/Drawer.svelte';
   import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
@@ -800,6 +802,15 @@
   };
 
   const enterShopLocationPickMode = () => {
+    const user = page.data.session?.user;
+    if (!user) {
+      window.dispatchEvent(new CustomEvent('nearcade-login'));
+      return;
+    }
+    if (!(hasBoundPhone(user) || user.userType === 'site_admin')) {
+      phoneRequiredToast();
+      return;
+    }
     shopLocationPickMode = true;
     pendingShopCoords = null;
     // Reset cursor

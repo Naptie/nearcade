@@ -6,6 +6,8 @@
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
   import { aggregateGames, formatShopAddress, getGameName, pageTitle } from '$lib/utils';
+  import { hasBoundPhone } from '$lib/utils';
+  import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import { PAGINATION, GAME_TITLES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type { Shop } from '$lib/types';
@@ -25,6 +27,21 @@
   let regionDropdownOpen = $state(false);
   let regionDropdownEl = $state<HTMLElement>();
   let gameFilterOpen = $state(false);
+
+  const hasPhone = $derived(hasBoundPhone(data.user) || data.user?.userType === 'site_admin');
+  const canCreateShop = $derived(!!data.user && hasPhone);
+
+  const handleCreateShop = () => {
+    if (!data.user) {
+      window.dispatchEvent(new CustomEvent('nearcade-login'));
+      return;
+    }
+    if (!canCreateShop) {
+      phoneRequiredToast();
+      return;
+    }
+    goto(resolve('/(main)/shops/new'));
+  };
 
   $effect(() => {
     const open = regionDropdownOpen;
@@ -138,10 +155,10 @@
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-56 p-2 shadow">
         <li>
-          <a href={resolve('/(main)/shops/new')}>
+          <button type="button" onclick={handleCreateShop}>
             <i class="fa-solid fa-plus"></i>
             {m.create_shop()}
-          </a>
+          </button>
         </li>
         <li>
           <a href={resolve('/(main)/shops/delete-requests')}>
