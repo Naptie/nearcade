@@ -14,6 +14,8 @@ import {
   parsePostReadability,
   parsePostWritability
 } from '$lib/utils/organizations.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const session = locals.session;
@@ -129,12 +131,25 @@ export const actions: Actions = {
         })
       };
 
+      // Tier-0 moderation gate on the club introduction.
+      const blocked = await auditUgc('organization', clubId, {
+        description: club.description ?? ''
+      });
+      if (blocked) {
+        return fail(400, { message: m.content_not_allowed() });
+      }
+
       const result = await clubsCollection.insertOne(club);
       await meili
         .index<Club>('clubs')
         .addDocuments([normalizeClubDocument(toPlainObject({ _id: result.insertedId, ...club }))], {
           primaryKey: 'id'
         });
+
+      // Register entry + queue background pre-translation for the description.
+      submitUgc('organization', clubId, session.user, {
+        description: club.description ?? ''
+      });
 
       // Add creator as admin member
       const clubMembersCollection = db.collection('club_members');

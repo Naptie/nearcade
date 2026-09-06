@@ -8,6 +8,8 @@ import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { normalizeClubDocument } from '$lib/utils/organizations.server';
 import { postReadabilitySchema, postWritabilitySchema } from '$lib/schemas/posts';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -240,6 +242,12 @@ export const actions: Actions = {
         ...(Object.keys(clubUnsetFields).length > 0 ? { $unset: clubUnsetFields } : {})
       };
 
+      // Tier-0 moderation gate on the updated introduction.
+      const blocked = await auditUgc('organization', id, { description: descriptionValue ?? '' });
+      if (blocked) {
+        return fail(400, { message: m.content_not_allowed() });
+      }
+
       await clubsCollection.updateOne(
         { id },
         updateOperation as Parameters<typeof clubsCollection.updateOne>[1]
@@ -254,6 +262,11 @@ export const actions: Actions = {
       await meili
         .index<Club>('clubs')
         .updateDocuments([normalizeClubDocument(toPlainObject(nextClub))], { primaryKey: 'id' });
+
+      // Register entry + queue background pre-translation for the description.
+      submitUgc('organization', id, session.user, {
+        description: descriptionValue ?? ''
+      });
 
       return {
         success: true,

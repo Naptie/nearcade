@@ -334,7 +334,7 @@
       </form>
     </div>
     <form method="dialog" class="modal-backdrop">
-      <button type="button" onclick={() => (showCreateModal = false)}>close</button>
+      <button type="button" onclick={() => (showCreateModal = false)}>{m.close()}</button>
     </form>
   </dialog>
 {/if}
@@ -521,7 +521,7 @@
         onclick={() => {
           showEditModal = false;
           editTarget = null;
-        }}>close</button
+        }}>{m.close()}</button
       >
     </form>
   </dialog>
@@ -563,7 +563,7 @@
       </div>
     </div>
     <form method="dialog" class="modal-backdrop">
-      <button type="button" onclick={() => (showDeleteModal = false)}>close</button>
+      <button type="button" onclick={() => (showDeleteModal = false)}>{m.close()}</button>
     </form>
   </dialog>
 {/if}

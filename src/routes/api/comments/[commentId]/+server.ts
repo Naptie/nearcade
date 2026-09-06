@@ -14,6 +14,8 @@ import {
 } from '$lib/schemas/comments';
 import { successResponseSchema } from '$lib/schemas/common';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 const commentUpdateRequestWithExistingImagesSchema = withExistingImages(commentUpdateRequestSchema);
 
@@ -59,6 +61,12 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       error(400, err instanceof Error ? String(err.message) : m.error_occurred());
     }
 
+    // Tier-0 moderation gate: reject the edit before persisting it.
+    const blocked = await auditUgc('comment', commentId, trimmedContent ?? '');
+    if (blocked) {
+      error(400, m.content_not_allowed());
+    }
+
     // Update comment
     await commentsCollection.updateOne(
       { id: commentId },
@@ -70,6 +78,9 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         }
       }
     );
+
+    // New text → new content hashes; refresh registry + pre-translation.
+    submitUgc('comment', commentId, session.user, { content: trimmedContent });
 
     return json(commentUpdateResponseSchema.parse({ success: true }));
   } catch (err) {

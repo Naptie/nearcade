@@ -17,6 +17,8 @@ import { m } from '$lib/paraglide/messages';
 import { buildSearchPattern } from '$lib/utils/search';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { getNextShopId } from '$lib/utils/shops/id.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 import {
   IncompleteShopRegionError,
   resolveShopAddress,
@@ -345,7 +347,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       updatedAt: now
     };
 
+    const shopUgcTexts: Record<string, string> = {
+      shop_name: newShop.name,
+      shop_description: newShop.comment ?? '',
+      shop_address: newShop.address?.detailed ?? '',
+      ...Object.fromEntries(
+        (newShop.games ?? []).flatMap((game) => [
+          [`game_name:${game.gameId}`, game.name],
+          [`game_version:${game.gameId}`, game.version ?? ''],
+          [`game_cost:${game.gameId}`, game.cost ?? ''],
+          [`game_description:${game.gameId}`, game.comment ?? '']
+        ])
+      )
+    };
+
+    // Tier-0 moderation gate: reject before anything is persisted.
+    const blocked = await auditUgc('shop', newShop.id, shopUgcTexts);
+    if (blocked) {
+      error(400, m.content_not_allowed());
+    }
+
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);
+
+    // Register entry + background pre-translation + LLM audit for the text.
+    submitUgc('shop', newShop.id, session.user, shopUgcTexts);
 
     try {
       await logShopChange(mongo, {

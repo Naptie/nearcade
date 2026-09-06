@@ -10,6 +10,7 @@
   import { onMount } from 'svelte';
   import { strip } from '$lib/utils/markdown';
   import { getNotificationLink, getNotificationTargetName } from '$lib/notifications/index.client';
+  import { ugcRemovalNoun } from '$lib/ugc/labels';
 
   interface Props {
     notification: Notification;
@@ -71,6 +72,19 @@
           userName: actorName,
           targetName
         });
+      case 'SYSTEM': {
+        const noun = ugcRemovalNoun(notification.contentType, notification.kind);
+        if (notification.reviewedBy) {
+          return m.notification_system_content_removed_manual({
+            type: noun,
+            reason: notification.reason ?? ''
+          });
+        }
+        return m.notification_system_content_removed({
+          type: noun,
+          reason: notification.reason ?? ''
+        });
+      }
       default:
         return '';
     }
@@ -101,6 +115,8 @@
           return 'fa-solid fa-trash-can text-warning';
         }
         return 'fa-solid fa-trash-can text-error';
+      case 'SYSTEM':
+        return 'fa-solid fa-shield-halved text-error';
       default:
         return 'fa-solid fa-bell';
     }
@@ -136,8 +152,9 @@
         {@html text}
       </div>
 
-      <!-- Preview for Comments/Replies/Shop Delete Requests -->
-      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES' || notification.type === 'SHOP_DELETE_REQUESTS') && content}
+      <!-- Secondary line: quoted source for Comments/Replies/Delete Requests,
+           masked removed text for SYSTEM removal notices -->
+      {#if (notification.type === 'COMMENTS' || notification.type === 'REPLIES' || notification.type === 'SHOP_DELETE_REQUESTS' || notification.type === 'SYSTEM') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
         </div>

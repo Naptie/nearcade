@@ -1216,6 +1216,8 @@ export const formatShopAddress = (
       detailed?: string;
       region?: string[] | { id: string; name: Record<string, string> }[];
     };
+    /** AI-translated detailed address, attached by the shops loaders. */
+    _t?: { shop_address?: Partial<Record<'en' | 'zh' | 'ja', string>> };
   },
   detailed = false,
   locale: string = getLocale()
@@ -1227,7 +1229,8 @@ export const formatShopAddress = (
     region?.length && typeof region[0] === 'object'
       ? getDisplayAddressParts({ general, region }, locale)
       : getAddressParts(general);
-  const detailedAddress = address.detailed ?? '';
+  const detailedAddress =
+    shop._t?.shop_address?.[locale as 'en' | 'zh' | 'ja'] ?? address.detailed ?? '';
 
   if (addressParts.length === 0) return '';
   const formatted = formatAddressParts(addressParts, locale);

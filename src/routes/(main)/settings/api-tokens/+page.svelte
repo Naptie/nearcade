@@ -7,7 +7,7 @@
   import type { PageData, ActionData as RouteActionData } from './$types';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
   import CopyField from '$lib/components/CopyField.svelte';
-  import { getFnsLocale } from '$lib/utils';
+  import { getFnsLocale, pageTitle } from '$lib/utils';
   import { toast } from '$lib/notifications/toast.svelte';
   import { resolveStatusMessage } from '$lib/notifications/messages';
 
@@ -236,6 +236,10 @@
   oneYearDate.setFullYear(oneYearDate.getFullYear() + 1);
   const maxDate = oneYearDate.toISOString().split('T')[0];
 </script>
+
+<svelte:head>
+  <title>{pageTitle(m.api_tokens())}</title>
+</svelte:head>
 
 <div class="space-y-6 md:space-y-10 md:p-5">
   <!-- Header -->

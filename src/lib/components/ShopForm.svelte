@@ -359,10 +359,10 @@
     />
   </div>
 
-  <!-- Comment -->
+  <!-- Description -->
   <div class="form-control gap-1.5 pb-5">
-    <span class="label-text font-medium">{m.shop_comment()}</span>
-    <MarkdownEditor bind:value={comment} placeholder={m.shop_comment()} />
+    <span class="label-text font-medium">{m.shop_description()}</span>
+    <MarkdownEditor bind:value={comment} placeholder={m.shop_description()} />
   </div>
 
   <!-- Address -->
@@ -590,12 +590,12 @@
           </div>
         </div>
 
-        <!-- Comment -->
+        <!-- Description -->
         <div class="form-control mb-6 gap-1">
-          <span class="label-text text-sm">{m.shop_game_comment()}</span>
+          <span class="label-text text-sm">{m.shop_game_description()}</span>
           <MarkdownEditor
             bind:value={game.comment}
-            placeholder={m.shop_game_comment()}
+            placeholder={m.shop_game_description()}
             minHeight="min-h-20"
           />
         </div>

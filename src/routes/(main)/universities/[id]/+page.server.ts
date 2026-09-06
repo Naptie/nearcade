@@ -15,6 +15,8 @@ import mongo from '$lib/db/index.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { omitUndefinedFields } from '$lib/utils/organizations.server';
+import { ugcFieldsForUser, withUgcTranslations } from '$lib/ugc/translate.server';
+import { getLocale } from '$lib/paraglide/runtime';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -40,6 +42,13 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   if (!university) {
     error(404, m.university_not_found());
   }
+
+  // Attach cached description translation for the request locale (opt-in).
+  await withUgcTranslations(
+    [university],
+    ugcFieldsForUser(user, ['organization_description']),
+    getLocale()
+  );
 
   // Stream heavier/secondary data for fast first paint
   const universityData = (async () => {

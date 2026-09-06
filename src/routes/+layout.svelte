@@ -29,6 +29,7 @@
   import MetaRobots from '$lib/components/MetaRobots.svelte';
   import ToastRegion from '$lib/components/ToastRegion.svelte';
   import BannerRegion from '$lib/components/BannerRegion.svelte';
+  import { resetUgcClientState } from '$lib/ugc/client';
 
   const noindexPaths = ['/admin', '/settings', '/auth', '/oauth'];
   const shouldNoIndex = $derived(
@@ -96,6 +97,9 @@
         getDisplayName(data.session.user)
       );
     }
+    // Pending "translating…" state is page-scoped; drop it on navigation so
+    // the info toast dismisses instead of lingering across routes.
+    resetUgcClientState();
   });
 
   onMount(() => {

@@ -39,6 +39,10 @@
   };
 
   const shouldShowModal = (count: number): boolean => {
+    if (page.url.pathname === resolve('/admin')) {
+      return false;
+    }
+
     const dismissedUntil = getDismissedUntil();
     if (Date.now() < dismissedUntil) {
       return false;

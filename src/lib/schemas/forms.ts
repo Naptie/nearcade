@@ -37,7 +37,8 @@ export const profileSettingsFormSchema = z.object({
       'POST_VOTES',
       'COMMENT_VOTES',
       'JOIN_REQUESTS',
-      'SHOP_DELETE_REQUESTS'
+      'SHOP_DELETE_REQUESTS',
+      'SYSTEM'
     ])
   ),
   socialLinks: z.array(

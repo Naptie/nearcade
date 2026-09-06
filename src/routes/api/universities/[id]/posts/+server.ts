@@ -28,6 +28,8 @@ import {
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 const postCreateRequestWithExistingImagesSchema = withExistingImages(postCreateRequestSchema);
 
@@ -189,6 +191,14 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       readability: postReadability
     };
 
+    const blocked = await auditUgc('post', newPost.id, {
+      title: newPost.title,
+      content: newPost.content ?? ''
+    });
+    if (blocked) {
+      error(400, m.content_not_allowed());
+    }
+
     await postsCollection.insertOne(newPost);
 
     try {
@@ -204,6 +214,12 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       await postsCollection.deleteOne({ id: newPost.id });
       throw attachmentError;
     }
+
+    // Register entry + queue background pre-translation for the post.
+    submitUgc('post', newPost.id, session.user, {
+      title: newPost.title,
+      content: newPost.content ?? ''
+    });
 
     return json(postCreateResponseSchema.parse({ success: true, postId: newPost.id }), {
       status: 201

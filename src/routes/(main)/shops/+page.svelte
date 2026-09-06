@@ -1,6 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import type { PageData } from './$types';
@@ -14,8 +15,11 @@
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
+  import T from '$lib/ugc/components/T.svelte';
 
   let { data }: { data: PageData } = $props();
+
+  const pageLocale = $derived(getLocale());
 
   let searchQuery = $derived(data.query);
   let isSearching = $state(false);
@@ -342,9 +346,19 @@
                 <div class="mb-2 flex flex-col">
                   <div class="flex items-center justify-between gap-2">
                     <div class="min-w-0 flex-1">
-                      <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                        {@html shop.nameHl || shop.name}
-                      </h3>
+                      {#if shop.nameHl}
+                        <h3 class="truncate text-lg font-semibold" title={shop.name}>
+                          {@html shop.nameHl}
+                        </h3>
+                      {:else}
+                        <h3 class="truncate text-lg font-semibold" title={shop.name}>
+                          <T
+                            text={shop.name}
+                            field="shop_name"
+                            translation={shop._t?.shop_name?.[pageLocale]}
+                          />
+                        </h3>
+                      {/if}
                     </div>
                   </div>
 

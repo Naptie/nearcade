@@ -15,7 +15,9 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { getLocale } from '$lib/paraglide/runtime';
-
+  import { onUgcTranslated, resolveUgcTextState, type UgcTranslationStatus } from '$lib/ugc/client';
+  import { translationCacheKey } from '$lib/ugc/hash';
+  import { fade } from 'svelte/transition';
   interface Props {
     comment: CommentWithAuthorAndVote;
     currentUserId?: string;
@@ -47,6 +49,7 @@
   }: Props = $props();
 
   let content = $state('');
+  let isShowingTranslation = $state(false);
   let showMenu = $state(false);
   let isEditing = $state(false);
   let editContent = $state('');
@@ -149,9 +152,39 @@
   };
 
   $effect(() => {
-    render(comment.content).then((html) => {
-      content = html;
-    });
+    let unsubscribe: (() => void) | null = null;
+    void (async () => {
+      // Prefer a server-attached translation when the reader's locale differs;
+      // the original text renders immediately while the lookup is in flight.
+      const attached = comment._t?.content?.[getLocale()];
+      if (attached) {
+        content = await render(attached);
+        isShowingTranslation = attached !== comment.content;
+        return;
+      }
+      content = comment.content ? await render(comment.content) : '';
+      isShowingTranslation = false;
+      if (!comment.content) return;
+
+      // Ask for the state; 'pending' means a job was issued and the SSE
+      // stream will fade the translation in when it lands.
+      const status: UgcTranslationStatus = await resolveUgcTextState(comment.content, 'comment');
+      if (status.state === 'cached') {
+        content = await render(status.text);
+        isShowingTranslation = status.text !== comment.content;
+      } else if (status.state === 'pending') {
+        const key = translationCacheKey(status.hash, status.locale);
+        unsubscribe = onUgcTranslated(key, (result) => {
+          void render(result).then((html) => {
+            content = html;
+            isShowingTranslation = result !== comment.content;
+          });
+        });
+      }
+    })();
+    return () => {
+      unsubscribe?.();
+    };
   });
 
   $effect(() => {
@@ -212,6 +245,15 @@
           {#if comment.updatedAt && comment.updatedAt !== comment.createdAt}
             <span class="text-base-content/40 text-xs">
               ({m.edited()})
+            </span>
+          {/if}
+          {#if isShowingTranslation}
+            <span
+              class="badge badge-ghost badge-xs gap-0.5 font-normal"
+              title={m.ai_translated_disclosure()}
+            >
+              <i class="fa-solid fa-language text-xs" aria-hidden="true"></i>
+              <span class="hidden sm:inline">{m.ai_translation_badge()}</span>
             </span>
           {/if}
         </div>
@@ -292,7 +334,11 @@
         <div class="space-y-3">
           {#if comment.content}
             <div class="prose not-md:prose-xs md:prose-sm max-w-none overflow-x-auto break-all">
-              {@html content}
+              {#key isShowingTranslation}
+                <div transition:fade={{ duration: 250 }}>
+                  {@html content}
+                </div>
+              {/key}
             </div>
           {/if}
 

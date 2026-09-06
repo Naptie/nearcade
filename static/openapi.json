@@ -11104,6 +11104,229 @@
         }
       }
     },
+    "/ugc/preferences": {
+      "get": {
+        "tags": ["ugc"],
+        "summary": "查询 AI 自动翻译偏好 / Get AI auto-translation preferences",
+        "description": "返回当前用户开启 AI 翻译的内容类型与首次使用提示状态。未登录时返回 loggedIn=false 且不翻译任何内容。\n\nReturns the caller's opted-in translation content types and first-use prompt state. For anonymous callers, loggedIn=false and nothing is translated.",
+        "security": [
+          {},
+          {
+            "oauth2": ["read:users"]
+          }
+        ],
+        "operationId": "getUgcPreferences",
+        "responses": {
+          "200": {
+            "description": "翻译偏好 / Translation preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "loggedIn": {
+                      "type": "boolean",
+                      "description": "是否已登录。\n\nWhether the caller is signed in."
+                    },
+                    "configured": {
+                      "type": "boolean",
+                      "description": "是否已保存过翻译设置。\n\nWhether translation settings have ever been saved."
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "shop_name",
+                          "shop_address",
+                          "shop_description",
+                          "game_name",
+                          "game_version",
+                          "game_cost",
+                          "game_description",
+                          "organization_description",
+                          "post",
+                          "comment",
+                          "delete_request",
+                          "attendance_report",
+                          "bio"
+                        ],
+                        "description": "可开启 AI 翻译的 UGC 内容类型。\n\nUGC content types that can be opted into for AI translation."
+                      },
+                      "description": "已开启 AI 翻译的内容类型。\n\nContent types opted into AI translation."
+                    },
+                    "promptDismissed": {
+                      "type": "boolean",
+                      "description": "是否已永久关闭首次使用提示。\n\nWhether the first-use prompt was dismissed."
+                    }
+                  },
+                  "required": ["loggedIn", "configured", "fields", "promptDismissed"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["ugc"],
+        "summary": "更新 AI 自动翻译偏好 / Update AI auto-translation preferences",
+        "description": "部分更新当前用户的 AI 自动翻译偏好：可勾选的内容类型，或永久关闭首次使用提示。需要登录。\n\nPartially updates the caller's AI auto-translation preferences: opted-in content types, or permanently dismissing the first-use prompt. Requires sign-in.",
+        "security": [
+          {},
+          {
+            "oauth2": ["write:users"]
+          }
+        ],
+        "operationId": "postUgcPreferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "shop_name",
+                        "shop_address",
+                        "shop_description",
+                        "game_name",
+                        "game_version",
+                        "game_cost",
+                        "game_description",
+                        "organization_description",
+                        "post",
+                        "comment",
+                        "delete_request",
+                        "attendance_report",
+                        "bio"
+                      ],
+                      "description": "可开启 AI 翻译的 UGC 内容类型。\n\nUGC content types that can be opted into for AI translation."
+                    }
+                  },
+                  "promptDismissed": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功\n\nSuccess",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    }
+                  },
+                  "required": ["success"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "404": {
+            "description": "用户不存在 / User not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/ugc/translations": {
+      "post": {
+        "tags": ["ugc"],
+        "summary": "批量查询 UGC 译文缓存 / Batch-look up cached UGC translations",
+        "description": "按文本内容哈希查询已缓存的译文。仅返回缓存命中的条目；未命中的哈希不会出现在响应中，调用方应继续展示原文。可附带 `sources`（哈希→源文本），缺失的条目将被加入后台翻译队列，客户端轮询本接口即可取回结果。\n\nLook up cached translations by content hash. Only cache hits are returned — for missing hashes keep rendering the original text. Optionally include `sources` (hash → source text); missing entries are enqueued for background translation, and clients poll this endpoint to pick up the result.",
+        "operationId": "postUgcTranslations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hashes": {
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$",
+                      "description": "UGC 文本的 SHA-256 内容哈希（规范化后：NFC + 空白折叠）。\n\nSHA-256 content hash of the UGC text (after normalization: NFC, whitespace-collapsed)."
+                    },
+                    "description": "要查询的文本哈希，单次最多 64 个。\n\nText hashes to look up, up to 64 per call."
+                  },
+                  "lang": {
+                    "type": "string",
+                    "enum": ["en", "zh", "ja"],
+                    "description": "站点语言。\n\nSite locale."
+                  },
+                  "sources": {
+                    "description": "哈希对应的源文本，用于缺失时后台补翻。\n\nSource text per hash, used to backfill missing translations.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 4000
+                    }
+                  }
+                },
+                "required": ["hashes", "lang"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "命中缓存的译文 / Cached translations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "translations": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "命中缓存的译文，按请求中的哈希索引；缺失的哈希不会出现，调用方应继续展示原文。\n\nCached translations keyed by the requested hashes. Missing hashes are omitted — keep rendering the original text for those."
+                    }
+                  },
+                  "required": ["translations"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
     "/universities": {
       "get": {
         "tags": ["universities"],

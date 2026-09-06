@@ -5,7 +5,7 @@
   import type { SocialPlatform } from '$lib/constants';
   import { socialPlatformMessageKey } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
-  import { getDisplayName, getProfileUrl, getProviders } from '$lib/utils';
+  import { getDisplayName, getProfileUrl, getProviders, pageTitle } from '$lib/utils';
   import { authClient } from '$lib/auth/client';
   import { toast } from '$lib/notifications/toast.svelte';
   import { resolveStatusMessage } from '$lib/notifications/messages';
@@ -479,6 +479,10 @@
     invalidateAll();
   };
 </script>
+
+<svelte:head>
+  <title>{pageTitle(m.personal_settings())}</title>
+</svelte:head>
 
 <div class="space-y-6 md:space-y-10 md:p-5">
   <!-- Header -->

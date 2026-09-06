@@ -1,5 +1,6 @@
 import { m } from '$lib/paraglide/messages';
 import type { Notification } from '$lib/types';
+import { ugcRemovalNoun } from '$lib/ugc/labels';
 
 const getDisplayName = (user?: { displayName?: string | null; name?: string | null }) => {
   return !user
@@ -82,6 +83,19 @@ export const getNotificationTitle = (notification: Notification) => {
         userName: actorName,
         targetName
       });
+    case 'SYSTEM': {
+      const noun = ugcRemovalNoun(notification.contentType, notification.kind);
+      if (notification.reviewedBy) {
+        return m.notification_system_content_removed_manual({
+          type: noun,
+          reason: notification.reason ?? ''
+        });
+      }
+      return m.notification_system_content_removed({
+        type: noun,
+        reason: notification.reason ?? ''
+      });
+    }
     default:
       return '';
   }
@@ -117,6 +131,32 @@ export const getNotificationLink = (notification: Notification, base = '', fallb
       }
       if (notification.shopDeleteRequestId) {
         return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}`;
+      }
+      return fallback;
+
+    case 'SYSTEM':
+      // Deep-link to the moderated content when a live route exists.
+      if (notification.kind === 'shop' && notification.shopId) {
+        return `${base}/shops/${notification.shopId}`;
+      }
+      if (notification.kind === 'delete_request' && notification.shopDeleteRequestId) {
+        return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}`;
+      }
+      if (notification.kind === 'comment' && notification.commentId) {
+        if (notification.shopDeleteRequestId) {
+          return `${base}/shops/delete-requests/${notification.shopDeleteRequestId}?comment=${notification.commentId}`;
+        }
+        if (notification.shopId) {
+          return `${base}/shops/${notification.shopId}?comment=${notification.commentId}`;
+        }
+      }
+      if (notification.kind === 'post' && notification.postId) {
+        if (notification.universityId) {
+          return `${base}/universities/${notification.universityId}/posts/${notification.postId}`;
+        }
+        if (notification.clubId) {
+          return `${base}/clubs/${notification.clubId}/posts/${notification.postId}`;
+        }
       }
       return fallback;
 

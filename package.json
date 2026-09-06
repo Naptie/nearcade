@@ -18,12 +18,14 @@
     "mw": "tsx ./scripts/manage-messages.js --write && prettier --write ./messages",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts",
     "maintain": "tsx ./scripts/redis-maintainer.ts",
+    "backfill:ugc-registry": "tsx ./scripts/backfill-ugc-registry.ts",
     "dev:setup": "bash ./scripts/dev-setup.sh",
     "seed:dump": "tsx ./scripts/seed.ts dump",
     "seed:restore": "tsx ./scripts/seed.ts restore",
     "seed:clear": "tsx ./scripts/seed.ts clear",
     "cf-deploy": "pnpm run build && wrangler deploy",
-    "cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
+    "cf-typegen": "wrangler types ./src/worker-configuration.d.ts",
+    "migrate:ugc-entries-types": "tsx ./scripts/migrate-ugc-entries-types.ts"
   },
   "devDependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",

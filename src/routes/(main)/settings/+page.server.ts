@@ -14,6 +14,8 @@ import {
   syncVerifiedSocialLinkFromAccount
 } from '$lib/auth/social-verify.server';
 import { getProviders } from '$lib/utils';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 export interface SocialLinkInput {
   platform: SocialPlatform;
@@ -322,6 +324,18 @@ export const actions: Actions = {
       }
 
       await usersCollection.updateOne({ _id: new ObjectId(user.id) }, { $set: updateData });
+
+      // Register the profile bio as UGC (type `bio`). Registration is
+      // fire-and-forget; a background audit (no submit gate — profile edits
+      // must never hard-block) catches problems after the fact, and any
+      // cached block for an identical bio is enforced on registration.
+      const finalBio = (bio?.trim() || '').slice(0, 2000);
+      submitUgc('user', user.id, session.user, { bio: finalBio });
+      if (finalBio) {
+        void auditUgc('user', user.id, finalBio).catch((err: unknown) =>
+          console.error('Failed to audit profile bio:', err)
+        );
+      }
 
       return { success: true };
     } catch (err) {

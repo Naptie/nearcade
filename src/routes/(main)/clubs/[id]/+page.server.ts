@@ -19,6 +19,8 @@ import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
+import { ugcFieldsForUser, withUgcTranslations } from '$lib/ugc/translate.server';
+import { getLocale } from '$lib/paraglide/runtime';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const { id } = params;
@@ -46,6 +48,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   const university = await universitiesCollection.findOne({
     id: club.universityId
   });
+
+  // Attach cached description translation for the request locale (opt-in).
+  await withUgcTranslations(
+    [club],
+    ugcFieldsForUser(session?.user, ['organization_description']),
+    getLocale()
+  );
 
   // Stream heavier/secondary data for fast first paint
   const clubData = (async () => {

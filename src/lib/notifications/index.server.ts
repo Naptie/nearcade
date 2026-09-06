@@ -6,6 +6,7 @@ import { sendFCMNotification } from './fcm.server';
 import { SSC_SECRET } from '$env/static/private';
 import { env } from '$env/dynamic/private';
 import mongo from '$lib/db/index.server';
+import { getOfficialUser } from '$lib/utils/index.server';
 
 /**
  * Sends an active notification to a user
@@ -15,6 +16,23 @@ import mongo from '$lib/db/index.server';
 export const notify = async (
   notification: Omit<Notification, 'id' | 'createdAt'>
 ): Promise<void> => {
+  // SYSTEM notices always speak as the official nearcade account — the id,
+  // username, display name and avatar are snapshotted once at app init from
+  // NEARCADE_OFFICIAL_USER_ID (see initDatabase). Caller-provided actor
+  // fields are replaced so removal notices look like any other notification.
+  if (notification.type === 'SYSTEM') {
+    const official = getOfficialUser();
+    if (official) {
+      notification = {
+        ...notification,
+        actorUserId: official.userId,
+        actorName: official.name || 'nearcade',
+        ...(official.displayName ? { actorDisplayName: official.displayName } : {}),
+        ...(official.image ? { actorImage: official.image } : {})
+      };
+    }
+  }
+
   const db = mongo.db();
   const notificationsCollection = db.collection<Notification>('notifications');
 
@@ -36,9 +54,11 @@ export const notify = async (
 
   if (
     notification.type !== 'SHOP_DELETE_REQUESTS' &&
+    notification.type !== 'SYSTEM' &&
     !userNotificationTypes.includes(notification.type)
   ) {
-    // User has disabled this type of notification
+    // User has disabled this type of notification (SYSTEM notices are
+    // platform-generated and always delivered).
     return;
   }
 
