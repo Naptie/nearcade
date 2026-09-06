@@ -16,6 +16,11 @@
       exact: true
     },
     {
+      href: resolve('/(main)/settings/localization'),
+      label: m.localization_settings(),
+      icon: 'fa-language'
+    },
+    {
       href: resolve('/(main)/settings/starred-arcades'),
       label: m.starred_arcades(),
       icon: 'fa-star'

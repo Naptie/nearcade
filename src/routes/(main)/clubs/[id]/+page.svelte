@@ -15,6 +15,7 @@
   import { adaptiveNewTab, aggregateGames, formatDate, pageTitle } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { invalidateAll } from '$app/navigation';
+  import { getLocale } from '$lib/paraglide/runtime';
   import JsonLd from '$lib/components/JsonLd.svelte';
   import {
     buildClubSchema,
@@ -23,6 +24,7 @@
     getCanonicalUrl,
     toAbsoluteUrl
   } from '$lib/utils/seo';
+  import T from '$lib/ugc/components/T.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -561,7 +563,17 @@
                   {m.club_introduction()}
                 </div>
                 <div class="text-sm leading-relaxed wrap-break-word">
-                  {clubDataResolved.club.description}
+                  {#if clubDataResolved?.club._t?.organization_description?.[getLocale()]}
+                    <T
+                      text={clubDataResolved.club.description}
+                      field="organization_description"
+                      translation={clubDataResolved.club._t?.organization_description?.[
+                        getLocale()
+                      ]}
+                    />
+                  {:else}
+                    {clubDataResolved.club.description}
+                  {/if}
                 </div>
               </div>
               <div class="divider my-2"></div>

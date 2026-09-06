@@ -3,6 +3,7 @@ import type { ZodOpenApiOverrideMetaContext } from 'zod-openapi';
 import { z } from 'zod';
 
 import { PAGINATION, SOCIAL_PLATFORMS, USER_TYPES } from '../constants';
+import { UGC_TRANSLATION_FIELDS } from '../ugc/types';
 
 export const bilingual = (chinese: string, english: string, singleLine = false) =>
   singleLine ? `${chinese} / ${english}` : [chinese, english].join('\n\n');
@@ -126,7 +127,8 @@ const NOTIFICATION_TYPES = [
   'POST_VOTES',
   'COMMENT_VOTES',
   'JOIN_REQUESTS',
-  'SHOP_DELETE_REQUESTS'
+  'SHOP_DELETE_REQUESTS',
+  'SYSTEM'
 ] as const;
 
 export const objectIdSchema = z
@@ -309,6 +311,35 @@ export const userSchema = userPublicSchema.extend({
     .array(z.enum(NOTIFICATION_TYPES))
     .optional()
     .describe(bilingual('通知类型。', 'Notification types.')),
+  locale: z
+    .enum(['en', 'zh', 'ja'])
+    .optional()
+    .describe(
+      bilingual(
+        '界面语言，登录后跨设备一致（匿名用户沿用浏览器 Cookie）。',
+        'Interface locale, consistent across devices while signed in (anonymous users keep using the browser cookie).'
+      )
+    ),
+  autoTranslation: z
+    .object({
+      fields: z
+        .array(z.enum(UGC_TRANSLATION_FIELDS))
+        .describe(
+          bilingual('已开启 AI 翻译的内容类型。', 'Content types opted into AI translation.')
+        ),
+      promptDismissed: z
+        .boolean()
+        .describe(
+          bilingual('是否已关闭首次使用提示。', 'Whether the first-use prompt was dismissed.')
+        )
+    })
+    .optional()
+    .describe(
+      bilingual(
+        'AI 自动翻译偏好；缺省表示从未调整过（不翻译任何内容）。',
+        'AI auto-translation preferences; absent means never adjusted (nothing is translated).'
+      )
+    ),
   fcmTokens: z.array(z.string()).optional().describe(bilingual('FCM 令牌。', 'FCM tokens.')),
   fcmTokenUpdatedAt: dateTimeSchema(
     bilingual('FCM 令牌更新时间。', 'FCM token update time.')

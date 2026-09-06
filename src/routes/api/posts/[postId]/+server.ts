@@ -37,6 +37,8 @@ import {
   postUpdateResponseSchema
 } from '$lib/schemas/posts';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 const postUpdateRequestWithExistingImagesSchema = withExistingImages(postUpdateRequestSchema);
 
@@ -321,8 +323,28 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
       updateData.updatedAt = new Date();
     }
 
+    // Tier-0 moderation gate: reject content edits before persisting.
+    if (isContentUpdate) {
+      const blocked = await auditUgc('post', postId, {
+        title: nextTitle,
+        content: nextContent ?? ''
+      });
+      if (blocked) {
+        error(400, m.content_not_allowed());
+      }
+    }
+
     // Update the post
     await postsCollection.updateOne({ id: postId }, { $set: updateData });
+
+    // New text → new content hashes; queue background pre-translation.
+    if (isContentUpdate) {
+      // Register entry + queue background pre-translation for the new text.
+      submitUgc('post', postId, session.user, {
+        title: nextTitle,
+        content: nextContent ?? ''
+      });
+    }
 
     return json(postUpdateResponseSchema.parse({ success: true }));
   } catch (err) {

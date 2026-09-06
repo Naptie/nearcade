@@ -16,6 +16,8 @@
   import { onMount } from 'svelte';
   import { adaptiveNewTab, canWriteUnivPosts, pageTitle, aggregateGames } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
+  import { getLocale } from '$lib/paraglide/runtime';
+  import T from '$lib/ugc/components/T.svelte';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
   import { invalidateAll } from '$app/navigation';
   import JsonLd from '$lib/components/JsonLd.svelte';
@@ -513,7 +515,17 @@
                   {m.school_introduction()}
                 </div>
                 <div class="text-sm leading-relaxed wrap-break-word">
-                  {universityDataResolved?.university.description}
+                  {#if universityDataResolved?.university._t?.organization_description?.[getLocale()]}
+                    <T
+                      text={universityDataResolved.university.description}
+                      field="organization_description"
+                      translation={universityDataResolved.university._t?.organization_description?.[
+                        getLocale()
+                      ]}
+                    />
+                  {:else}
+                    {universityDataResolved?.university.description}
+                  {/if}
                 </div>
               </div>
               <div class="divider my-2"></div>

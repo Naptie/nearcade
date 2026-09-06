@@ -10,6 +10,8 @@ import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { postReadabilitySchema, postWritabilitySchema } from '$lib/schemas/posts';
 import { normalizeUniversityDocument } from '$lib/utils/organizations.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
   const { id } = params;
@@ -280,6 +282,12 @@ export const actions: Actions = {
         image: user.image
       });
 
+      // Tier-0 moderation gate on the updated introduction.
+      const blocked = await auditUgc('organization', id, { description: descriptionValue ?? '' });
+      if (blocked) {
+        return fail(400, { message: m.content_not_allowed() });
+      }
+
       await universitiesCollection.updateOne(
         { id },
         {
@@ -301,6 +309,11 @@ export const actions: Actions = {
         .updateDocuments([normalizeUniversityDocument(toPlainObject(nextUniversity))], {
           primaryKey: 'id'
         });
+
+      // Register entry + queue background pre-translation for the description.
+      submitUgc('organization', id, session.user, {
+        description: descriptionValue ?? ''
+      });
 
       redirect(302, resolve('/(main)/universities/[id]', { id }));
     } catch (err) {

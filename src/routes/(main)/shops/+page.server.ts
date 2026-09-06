@@ -16,6 +16,8 @@ import {
   expandHighlightedBracketsRecursive,
   highlightRegionEntries
 } from '$lib/utils/search';
+import { withUgcTranslations, ugcFieldsForUser } from '$lib/ugc/translate.server';
+import { getLocale } from '$lib/paraglide/runtime';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
   const query = url.searchParams.get('q') || '';
@@ -261,6 +263,14 @@ export const load: PageServerLoad = async ({ url, parent }) => {
           })
         );
       }
+
+      // Attach cached shop-name translations for the request locale, for
+      // signed-in users who opted into AI translation of shop names.
+      await withUgcTranslations(
+        shopsWithAttendance,
+        ugcFieldsForUser(session?.user, ['shop_name']),
+        getLocale()
+      );
 
       return {
         shops: toPlainArray(shopsWithAttendance),

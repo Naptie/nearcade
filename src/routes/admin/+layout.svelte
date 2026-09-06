@@ -78,6 +78,14 @@
       developerVisible: false
     },
     {
+      id: 'ugc',
+      label: m.admin_ugc(),
+      icon: 'fa-shield-halved',
+      href: resolve('/admin/ugc'),
+      requiresSiteAdmin: false,
+      developerVisible: false
+    },
+    {
       id: 'shops',
       label: m.admin_shops(),
       icon: 'fa-gamepad',

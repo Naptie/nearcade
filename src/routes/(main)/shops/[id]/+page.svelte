@@ -62,6 +62,8 @@
   import ShopChangelogView from '$lib/components/ShopChangelogView.svelte';
   import type { ShopPhoto } from '$lib/types';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
+  import { maybeShowUgcTranslationPrompt } from '$lib/ugc/client';
+  import T from '$lib/ugc/components/T.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -86,6 +88,7 @@
 
   // SEO-critical shop data is available immediately from the server load
   let shop = $derived(data.shop);
+  let pageLocale = $derived(getLocale());
   let firstPhoto = $derived(data.firstPhoto);
   let canonicalUrl = $derived(getCanonicalUrl(page.url));
   let ogImage = $derived(firstPhoto?.url ? toAbsoluteUrl(firstPhoto.url, page.url.origin) : null);
@@ -266,19 +269,24 @@
 
   $effect(() => {
     if (shop) {
+      // First-visit AI translation invitation (shop name/description/address
+      // render server-attached translations directly, so trigger it here).
+      maybeShowUgcTranslationPrompt();
+
       // For claimed shops, fetch queue data; otherwise fetch attendance data
       if (shop.isClaimed) {
         getQueueData();
       } else {
         getAttendanceData();
       }
-      render(shop.comment).then((content) => {
+      render(shop._t?.shop_description?.[pageLocale] ?? shop.comment).then((content) => {
         shopComment = { rendered: true, content };
       });
 
       Promise.all(
         shop.games.map(async (game) => {
-          gameComments[game.gameId] = await render(game.comment);
+          const translatedComment = game._t?.game_description?.[pageLocale] ?? game.comment;
+          gameComments[game.gameId] = await render(translatedComment);
           costs[game.gameId] = await sanitizeHTML(game.cost);
         })
       );
@@ -1159,7 +1167,16 @@
         <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
           <div class="mb-4 flex min-w-0 items-center justify-between gap-2">
             <h1 class="text-3xl font-bold wrap-break-word">
-              {shop.name}
+              {shop._t?.shop_name?.[pageLocale] ?? shop.name}
+              {#if shop._t?.shop_name?.[pageLocale]}
+                <span
+                  class="badge badge-ghost badge-sm align-middle font-normal"
+                  title={m.ai_translated_disclosure()}
+                >
+                  <i class="fa-solid fa-language text-xs"></i>
+                  <span class="hidden sm:inline">{m.ai_translation_badge()}</span>
+                </span>
+              {/if}
               {#if shop.isClaimed}
                 {#snippet badge()}
                   <span class="badge badge-success badge-soft">
@@ -1795,7 +1812,11 @@
                 <div class="card-body p-6">
                   <div class="flex items-center justify-between gap-2">
                     <h3 class="truncate text-xl font-semibold">
-                      {game.name}
+                      <T
+                        text={game.name}
+                        field="game_name"
+                        translation={game._t?.game_name?.[pageLocale]}
+                      />
                     </h3>
                     <div class="flex items-center gap-1">
                       {#if data.user && !shop.isClaimed}
@@ -1839,7 +1860,14 @@
                     <div class="group-hover:text-accent flex items-center gap-2 transition-colors">
                       <i class="fa-solid fa-gamepad"></i>
                       {#if game.version}
-                        <span>{getGameName(gameInfo?.key) || game.name} · {game.version}</span>
+                        <span>
+                          {getGameName(gameInfo?.key) || game.name} ·
+                          <T
+                            text={game.version}
+                            field="game_version"
+                            translation={game._t?.game_version?.[pageLocale]}
+                          />
+                        </span>
                       {:else}
                         <span>{getGameName(gameInfo?.key) || game.name}</span>
                       {/if}

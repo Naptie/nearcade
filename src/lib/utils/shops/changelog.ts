@@ -29,7 +29,7 @@ export const getShopChangelogActionName = (
 export const getShopChangelogFieldName = (field: string, m: typeof mFunc): string => {
   const fieldMap: Record<string, string> = {
     name: m.shop_name(),
-    comment: m.shop_comment(),
+    comment: m.shop_description(),
     address: m.shop_address(),
     openingHours: m.shop_opening_hours(),
     location: m.shop_location(),
@@ -37,7 +37,7 @@ export const getShopChangelogFieldName = (field: string, m: typeof mFunc): strin
     'game.titleId': m.shop_game_title(),
     'game.name': m.shop_game_name(),
     'game.version': m.shop_game_version(),
-    'game.comment': m.shop_game_comment(),
+    'game.comment': m.shop_game_description(),
     'game.quantity': m.shop_game_quantity(),
     'game.cost': m.shop_game_cost(),
     photo: m.shop_photos(),

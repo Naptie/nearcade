@@ -9,6 +9,7 @@
   import { goto } from '$app/navigation';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
   import { getLocale } from '$lib/paraglide/runtime';
+  import T from '$lib/ugc/components/T.svelte';
 
   interface Props {
     post: PostWithAuthor;
@@ -111,7 +112,7 @@
     <!-- Post Content -->
     <div>
       <h3 class="mb-2 line-clamp-2 text-lg font-semibold">
-        {post.title}
+        <T text={post.title} field="post" translation={post._t?.post?.[getLocale()]} />
       </h3>
       <div class="mb-3 line-clamp-3 max-w-none text-sm opacity-70">
         {content}

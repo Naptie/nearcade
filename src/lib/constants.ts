@@ -214,3 +214,19 @@ export type SocialPlatformMessageKey = RemoveDashes<SocialPlatform>;
 export function socialPlatformMessageKey<S extends SocialPlatform>(platform: S): RemoveDashes<S> {
   return platform.replaceAll('-', '') as RemoveDashes<S>;
 }
+
+/**
+ * Temporary kill switch for the UGC translation pipeline.
+ *
+ * When `false` (current state):
+ *  - the write-time pipeline never enqueues translation jobs,
+ *  - the on-demand reader backfill rejects every request,
+ *  - the API endpoint serves the cache but never enqueues on a miss,
+ *  - the client never fetches/requests translations (original text only),
+ *  - the job loop still *drains and completes* whatever jobs are already
+ *    sitting in Redis, so nothing rots while the feature is off.
+ *
+ * Translation infrastructure (cache, queues, SSE, admin UI) is fully
+ * preserved — flip this to `true` to re-enable the whole pipeline.
+ */
+export const UGC_TRANSLATION_ENABLED = false;

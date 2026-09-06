@@ -16,6 +16,8 @@ import {
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 import type { Shop } from '$lib/types';
 
 type ShopCommentEntry = z.infer<typeof shopCommentEntrySchema>;
@@ -157,6 +159,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       ...newComment
     };
 
+    const blocked = await auditUgc('comment', newComment.id, newComment.content);
+    if (blocked) {
+      error(400, m.content_not_allowed());
+    }
+
     await commentsCollection.insertOne(commentDocument);
 
     try {
@@ -172,6 +179,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       await commentsCollection.deleteOne({ id: commentDocument.id });
       throw attachmentError;
     }
+
+    // Register entry + queue background pre-translation for the comment.
+    submitUgc('comment', newComment.id, session.user, { content: newComment.content });
 
     try {
       if (parentComment?.createdBy && parentComment.createdBy !== session.user.id) {

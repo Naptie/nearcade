@@ -101,7 +101,6 @@ jobs:
           aws s3 cp build.zip s3://${{ secrets.R2_BUCKET }}/nearcade/${{ github.run_id }}/build.zip \
             --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
 
-
   webhook-publish:
     name: Publish via webhook
     runs-on: ubuntu-latest

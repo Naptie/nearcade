@@ -32,6 +32,7 @@ import {
 import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
 import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
 import { SSC_SECRET, CORS_ALLOWED_ORIGINS } from '$env/static/private';
+import { setRequestCookie } from '$lib/utils/cookie';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import { handleWellKnown } from '$lib/endpoints/well-known.server';
 import { getClientIp } from '$lib/utils/ip.server';
@@ -120,6 +121,20 @@ const handleOptions: Handle = async ({ event, resolve }) => {
 const handleSeo = createSeoHandler(locales);
 
 const handleParaglide: Handle = async ({ event, resolve }) => {
+  // Signed-in users get their locale from the database so it stays
+  // consistent across devices; the cookie is still written so client-side
+  // paraglide runtime calls (getLocale/setLocale paths) agree with it.
+  const dbLocale = event.locals.user?.locale;
+  if (dbLocale && (locales as readonly string[]).includes(dbLocale)) {
+    event.cookies.set('PARAGLIDE_LOCALE', dbLocale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 400, // ~1 year, matching Paraglide default
+      sameSite: 'lax',
+      httpOnly: false
+    });
+    event.request = setRequestCookie(event.request, 'PARAGLIDE_LOCALE', dbLocale);
+  }
+
   return paraglideMiddleware(event.request, async ({ request, locale }) => {
     event.request = request;
 
@@ -352,6 +367,9 @@ const handleRequestLogging: Handle = async ({ event, resolve }) => {
 export const handle: Handle = sequence(
   handleOptions,
   handleSeo,
+  // Auth runs before the locale handlers so the signed-in user's stored
+  // locale (handleParaglide) and API scope resolution see `locals.user`.
+  handleAuth,
   handleLocaleQuery,
   handleParaglide,
   handleWellKnown,
@@ -360,7 +378,6 @@ export const handle: Handle = sequence(
   handleUserShortcut,
   handleLegacyShopPaths,
   handleHeaders,
-  handleAuth,
   handleRequestLogging
 );
 
@@ -399,5 +416,8 @@ export const init: ServerInit = async () => {
       oss ? `${oss.name || 'unknown'} @ ${oss.url || 'unknown'}` : 'Not connected'
     );
     console.log('|\n=============================================');
+
+    const { startUgcBackgroundJobs } = await import('$lib/ugc/jobs.server');
+    startUgcBackgroundJobs();
   }
 };

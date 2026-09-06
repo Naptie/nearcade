@@ -23,6 +23,8 @@ export interface BannerInput {
   icon?: string;
   /** Optional action button rendered on the right side of the banner. */
   action?: BannerAction;
+  /** Additional action buttons (rendered after `action`). */
+  actions?: BannerAction[];
   /** Whether the banner has a close button. Defaults to true. */
   dismissible?: boolean;
   /** Invoked when the banner is dismissed (either via the close button or programmatically). */
@@ -36,6 +38,7 @@ export interface BannerItem {
   type: ToastType;
   icon?: string;
   action?: BannerAction;
+  actions: BannerAction[];
   dismissible: boolean;
   onDismiss?: () => void;
 }
@@ -61,10 +64,21 @@ class BannerStore {
     type = 'warning',
     icon,
     action,
+    actions = [],
     dismissible = true,
     onDismiss
   }: BannerInput): void {
-    const banner: BannerItem = { id, message, title, type, icon, action, dismissible, onDismiss };
+    const banner: BannerItem = {
+      id,
+      message,
+      title,
+      type,
+      icon,
+      action,
+      actions,
+      dismissible,
+      onDismiss
+    };
     untrack(() => {
       const index = this.banners.findIndex((b) => b.id === id);
       if (index !== -1) {

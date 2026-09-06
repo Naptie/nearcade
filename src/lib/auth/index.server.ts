@@ -140,6 +140,8 @@ function createAuth() {
         isFrequentingArcadePublic: { type: 'boolean', required: false },
         isStarredArcadePublic: { type: 'boolean', required: false },
         notificationTypes: { type: 'json', required: false, input: false },
+        locale: { type: 'string', required: false, input: false },
+        autoTranslation: { type: 'json', required: false, input: false },
         fcmTokens: { type: 'json', required: false, input: false },
         fcmTokenUpdatedAt: { type: 'date', required: false, input: false },
         socialLinks: { type: 'json', required: false, input: false },

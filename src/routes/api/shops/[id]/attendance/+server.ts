@@ -22,6 +22,8 @@ import {
   parseQueryOrError
 } from '$lib/utils/validation.server';
 import { successResponseSchema } from '$lib/schemas/common';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 const attend = async (
   user: User,
@@ -239,6 +241,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
       }
     } else if (games.some((g) => g.currentAttendances !== undefined)) {
+      // Tier-0 moderation gate on the attendance note.
+      const blocked = await auditUgc('attendance_report', id, comment ?? '');
+      if (blocked) {
+        error(400, m.content_not_allowed());
+      }
+
       for (const game of games) {
         if (
           game.currentAttendances === undefined ||
@@ -281,7 +289,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
       const attendanceReportsCollection =
         db.collection<AttendanceReportRecord>('attendance_reports');
-      await attendanceReportsCollection.insertOne({
+      const inserted = await attendanceReportsCollection.insertOne({
         shopId: shop.id,
         games: games.map((game) => {
           const shopGame = shop.games.find((g) => g.gameId === game.id);
@@ -295,6 +303,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         comment: comment || null,
         reportedBy: user.id!,
         reportedAt: new Date()
+      });
+
+      // Register the note as a content occurrence (the report is its own
+      // content unit, so refId is the report id).
+      submitUgc('attendance_report', String(inserted.insertedId), user, {
+        comment: comment || ''
       });
     }
 

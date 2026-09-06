@@ -28,6 +28,16 @@ import type {
   shopSchema
 } from '$lib/schemas/shops';
 import { shopChangelogActionSchema, shopChangelogEntrySchema } from '$lib/schemas/shops';
+import type { UgcContentType, UgcKind, UgcTranslationMap } from '$lib/ugc/types';
+
+/**
+ * Server loaders attach cached UGC translations to entities as
+ * `_t[field][locale]` (see `$lib/ugc/translate.server.ts`). Runtime-only:
+ * never persisted and never part of API schemas.
+ */
+export type UgcAttachable = {
+  _t?: UgcTranslationMap;
+};
 
 export interface Location {
   type: 'Point';
@@ -39,13 +49,19 @@ export interface OpeningHourTime {
   minute: number;
 }
 
-export type Shop = z.infer<typeof shopSchema>;
+type ShopBase = z.infer<typeof shopSchema>;
 
-export type Game = z.infer<typeof gameSchema>;
+export type Shop = UgcAttachable &
+  Omit<ShopBase, 'games'> & {
+    /** Per-game entries may carry their own cached translations (`_t`). */
+    games: Array<z.infer<typeof gameSchema> & UgcAttachable>;
+  };
+
+export type Game = z.infer<typeof gameSchema> & UgcAttachable;
 
 export type Campus = z.infer<typeof campusSchema>;
 
-export type University = z.infer<typeof universitySchema>;
+export type University = UgcAttachable & z.infer<typeof universitySchema>;
 
 export interface UniversityRankingResponse {
   data: UniversityRankingData[];
@@ -174,9 +190,10 @@ export type NotificationType =
   | 'POST_VOTES'
   | 'COMMENT_VOTES'
   | 'JOIN_REQUESTS'
-  | 'SHOP_DELETE_REQUESTS';
+  | 'SHOP_DELETE_REQUESTS'
+  | 'SYSTEM';
 
-export type Club = z.infer<typeof clubSchema>;
+export type Club = UgcAttachable & z.infer<typeof clubSchema>;
 
 export type ClubMember = z.infer<typeof clubMemberSchema>;
 
@@ -269,13 +286,13 @@ export interface ChangelogEntryWithUser extends ChangelogEntry {
 }
 
 // Posts feature types
-export type Post = z.infer<typeof postSchema>;
+export type Post = z.infer<typeof postSchema> & UgcAttachable;
 
-export type PostWithAuthor = z.infer<typeof postWithAuthorSchema>;
+export type PostWithAuthor = z.infer<typeof postWithAuthorSchema> & UgcAttachable;
 
 export type PostVote = z.infer<typeof postVoteSchema>;
 
-export type Comment = z.infer<typeof commentSchema>;
+export type Comment = z.infer<typeof commentSchema> & UgcAttachable;
 
 // Composite type with author data joined
 export interface CommentWithAuthorAndVote extends Comment {
@@ -300,7 +317,8 @@ export interface Notification {
     | 'POST_VOTES'
     | 'COMMENT_VOTES'
     | 'JOIN_REQUESTS'
-    | 'SHOP_DELETE_REQUESTS';
+    | 'SHOP_DELETE_REQUESTS'
+    | 'SYSTEM';
   actorUserId: string;
   actorName: string;
   actorDisplayName?: string;
@@ -327,6 +345,20 @@ export interface Notification {
   shopDeleteRequestStatus?: 'approved' | 'rejected' | 'deleted';
   shopDeleteRequestType?: 'shop' | 'photo';
   shopName?: string;
+
+  // System (moderation) notification details
+  /** Coarse entity family (shop / comment / post / ...) — drives deep links. */
+  kind?: UgcKind;
+  /**
+   * Precise per-field content type that was moderated (e.g. `game_cost`,
+   * `bio`). Rendered as the noun in system removal messages when present;
+   * falls back to `kind` for legacy rows. `content` holds the (masked)
+   * source text for these notifications.
+   */
+  contentType?: UgcContentType;
+  refId?: string;
+  reason?: string;
+  reviewedBy?: string;
 
   // Navigation
   universityId?: string;

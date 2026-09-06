@@ -19,6 +19,8 @@ import {
   postIdParamSchema
 } from '$lib/schemas/posts';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 
 const postCommentCreateRequestWithExistingImagesSchema = withExistingImages(
   postCommentCreateRequestSchema
@@ -118,6 +120,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       downvotes: 0
     };
 
+    const blocked = await auditUgc('comment', newComment.id, newComment.content);
+    if (blocked) {
+      error(400, m.content_not_allowed());
+    }
+
     await commentsCollection.insertOne(newComment);
 
     try {
@@ -133,6 +140,9 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       await commentsCollection.deleteOne({ id: newComment.id });
       throw attachmentError;
     }
+
+    // Register entry + queue background pre-translation for the comment.
+    submitUgc('comment', newComment.id, session.user, { content: newComment.content });
 
     // Update post comment count
     await postsCollection.updateOne(

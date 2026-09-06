@@ -14,6 +14,8 @@ import {
   shopIdParamSchema
 } from '$lib/schemas/shops';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
 import { toPlainObject } from '$lib/utils';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
 import type { Shop } from '$lib/types';
@@ -101,6 +103,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     ...deleteRequest
   };
 
+  // Tier-0 moderation gate: reject the request before persisting it.
+  const blocked = await auditUgc('delete_request', deleteRequest.id, reason);
+  if (blocked) {
+    error(400, m.content_not_allowed());
+  }
+
   await db.collection('shop_delete_requests').insertOne(deleteRequestDocument);
 
   try {
@@ -116,6 +124,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     await db.collection('shop_delete_requests').deleteOne({ id: deleteRequest.id });
     throw attachmentError;
   }
+
+  // Register entry + queue background pre-translation for the reason text.
+  submitUgc('delete_request', deleteRequest.id, user, { reason });
 
   // Log to shop changelog (non-fatal)
   try {

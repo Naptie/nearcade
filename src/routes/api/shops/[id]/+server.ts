@@ -25,6 +25,22 @@ import {
   localizeAddressGeneral
 } from '$lib/utils/region.server';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
+import { auditUgc } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
+
+const shopUgcTexts = (shop: Shop): Record<string, string> => ({
+  shop_name: shop.name,
+  shop_description: shop.comment ?? '',
+  shop_address: shop.address?.detailed ?? '',
+  ...Object.fromEntries(
+    (shop.games ?? []).flatMap((game) => [
+      [`game_name:${game.gameId}`, game.name],
+      [`game_version:${game.gameId}`, game.version ?? ''],
+      [`game_cost:${game.gameId}`, game.cost ?? ''],
+      [`game_description:${game.gameId}`, game.comment ?? '']
+    ])
+  )
+});
 
 const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
@@ -430,6 +446,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       updateFields.games = normalizedGames;
     }
 
+    // Tier-0 moderation gate on the merged final text, before persisting.
+    const blocked = await auditUgc('shop', shopId, shopUgcTexts({ ...existing, ...updateFields }));
+    if (blocked) {
+      error(400, m.content_not_allowed());
+    }
+
     await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
 
     // Log changes to shop changelog (non-fatal)
@@ -466,6 +488,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const updated = await shopsCollection.findOne({ id: shopId });
+
+    // Refresh registry + background pre-translation for stored text.
+    if (updated) {
+      submitUgc('shop', shopId, session.user, shopUgcTexts(updated));
+    }
+
     const rawRegion = updated!.address?.region;
     const regionIds =
       Array.isArray(rawRegion) && rawRegion.length > 0 && typeof rawRegion[0] === 'string'

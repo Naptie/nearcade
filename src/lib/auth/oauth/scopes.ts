@@ -117,6 +117,9 @@ const PATH_RESOURCE_RULES: {
   // Users
   { prefix: '/api/users/', resource: 'users' },
 
+  // UGC self preferences (translation opt-in) — user-scoped settings
+  { prefix: '/api/ugc/preferences', resource: 'users' },
+
   // Images
   { prefix: '/api/images/', resource: 'images' },
 

@@ -15,6 +15,8 @@ import { m } from '$lib/paraglide/messages';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import { attachDeleteRequestUsers } from '$lib/utils/shops/delete-request.server';
 import type { User } from '$lib/auth/types';
+import { ugcFieldsForUser, withUgcTranslations } from '$lib/ugc/translate.server';
+import { getLocale } from '$lib/paraglide/runtime';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { id } = params;
@@ -36,6 +38,25 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   if (!shop) {
     error(404, m.shop_not_found());
   }
+
+  // Attach cached translations for the request locale, for signed-in users
+  // who opted into AI translation — cache lookups only, safe on this
+  // synchronous path.
+  const locale = getLocale();
+  const shopFields = ugcFieldsForUser(session?.user, [
+    'shop_name',
+    'shop_description',
+    'shop_address'
+  ]);
+  const gameFields = ugcFieldsForUser(session?.user, [
+    'game_name',
+    'game_version',
+    'game_description'
+  ]);
+  await Promise.all([
+    withUgcTranslations([shop], shopFields, locale),
+    withUgcTranslations(shop.games ?? [], gameFields, locale)
+  ]);
 
   const firstPhoto = await db
     .collection<ShopPhoto>('images')

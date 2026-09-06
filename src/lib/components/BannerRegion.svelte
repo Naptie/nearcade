@@ -1,7 +1,11 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { m } from '$lib/paraglide/messages';
-  import { bannerStore, type BannerItem } from '$lib/notifications/banner.svelte';
+  import {
+    bannerStore,
+    type BannerAction,
+    type BannerItem
+  } from '$lib/notifications/banner.svelte';
   import type { ToastType } from '$lib/notifications/toast.svelte';
 
   const TYPE_ICONS: Record<ToastType, string> = {
@@ -11,10 +15,15 @@
     info: 'fa-circle-info'
   };
 
-  const handleAction = (banner: BannerItem) => {
+  const handleAction = (banner: BannerItem, action?: BannerAction) => {
     bannerStore.dismiss(banner.id, true);
-    banner.action?.onClick?.();
+    action?.onClick?.();
   };
+
+  const renderableActions = (banner: BannerItem): BannerAction[] => [
+    ...(banner.action ? [banner.action] : []),
+    ...(banner.actions ?? [])
+  ];
 </script>
 
 <div
@@ -35,21 +44,25 @@
         <span class="block text-left wrap-break-word">{banner.message}</span>
       </div>
 
-      {#if banner.action}
-        {#if banner.action.href}
-          <a href={banner.action.href} class="btn btn-{banner.type} btn-sm shrink-0">
-            {banner.action.label}
+      {#each renderableActions(banner) as action, index (action.label)}
+        {#if action.href}
+          <a
+            href={action.href}
+            class="btn btn-{banner.type} btn-sm shrink-0 {index > 0 ? 'btn-ghost' : ''}"
+            onclick={() => bannerStore.dismiss(banner.id, false)}
+          >
+            {action.label}
           </a>
         {:else}
           <button
             type="button"
-            class="btn btn-{banner.type} btn-sm shrink-0"
-            onclick={() => handleAction(banner)}
+            class="btn btn-{banner.type} btn-sm shrink-0 {index > 0 ? 'btn-ghost' : ''}"
+            onclick={() => handleAction(banner, action)}
           >
-            {banner.action.label}
+            {action.label}
           </button>
         {/if}
-      {/if}
+      {/each}
 
       {#if banner.dismissible}
         <button

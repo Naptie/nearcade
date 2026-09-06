@@ -27,6 +27,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { page } from '$app/state';
   import JsonLd from './JsonLd.svelte';
+  import T from '$lib/ugc/components/T.svelte';
   import {
     buildPostSchema,
     buildKeywords,
@@ -696,7 +697,13 @@
             </div>
           </div>
         {:else}
-          <h1 class="mb-4 text-3xl font-bold md:text-4xl">{localPost.title}</h1>
+          <h1 class="mb-4 text-3xl font-bold md:text-4xl">
+            <T
+              text={localPost.title}
+              field="post"
+              translation={localPost._t?.post?.[getLocale()]}
+            />
+          </h1>
         {/if}
       </header>
 
