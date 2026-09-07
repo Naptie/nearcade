@@ -22,7 +22,7 @@ import {
   parseQueryOrError
 } from '$lib/utils/validation.server';
 import { successResponseSchema } from '$lib/schemas/common';
-import { auditUgc } from '$lib/ugc/audit.server';
+import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 
 const attend = async (
@@ -244,7 +244,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       // Tier-0 moderation gate on the attendance note.
       const blocked = await auditUgc('attendance_report', id, comment ?? '');
       if (blocked) {
-        error(400, m.content_not_allowed());
+        error(400, blockedUgcMessage(blocked));
       }
 
       for (const game of games) {

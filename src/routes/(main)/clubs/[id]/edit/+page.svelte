@@ -5,12 +5,12 @@
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
-  import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import { toast, toastError } from '$lib/notifications/toast.svelte';
   import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import type { PageData, ActionData } from './$types';
   import UploadModal from '$lib/components/UploadModal.svelte';
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+  let { data }: { data: PageData } = $props();
 
   let isSubmitting = $state(false);
   let errors = $state<string[]>([]);
@@ -46,30 +46,6 @@
     </p>
   </div>
 
-  <!-- Success Alert -->
-  {#if form?.success}
-    <InlineAlert type="success" class="mb-6">{form.message}</InlineAlert>
-  {/if}
-
-  <!-- Error Alert -->
-  {#if (form?.message && !form.success) || errors.length > 0}
-    <InlineAlert type="error" class="mb-6">
-      {#if form?.message && !form.success}
-        <div class="font-medium">{form.message}</div>
-      {/if}
-      {#if errors.length > 0}
-        <div class="mt-2">
-          <div class="text-sm font-medium">{m.form_errors_found()}</div>
-          <ul class="mt-1 list-inside list-disc text-sm">
-            {#each errors as error (error)}
-              <li>{error}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-    </InlineAlert>
-  {/if}
-
   <!-- Edit Club Form -->
   <form
     method="POST"
@@ -79,9 +55,19 @@
       return async ({ result }) => {
         isSubmitting = false;
         if (result.type === 'success') {
+          const message = (result.data?.message as string) || '';
+          if (message) toast(message, { type: 'success' });
           goto(resolve('/(main)/clubs/[id]', { id: slug }));
         } else if (result.type === 'failure') {
           errors = (result.data?.errors as string[]) || [];
+          const message = (result.data?.message as string) || '';
+          if (message) {
+            toastError(message);
+          } else if (errors.length > 0) {
+            toastError(errors.join(' · '));
+          } else {
+            toastError(m.validation_error());
+          }
 
           // Restore form data if available
           if (result.data?.formData) {

@@ -210,21 +210,26 @@ export interface UgcAuditRecord extends UgcAuditOutcome {
   updatedAt: Date;
 }
 
-/** Registry-level moderation state. `block` is transient — enforcement flips it to `removed`. */
-export type UgcEntryAuditStatus = 'pending' | 'pass' | 'review' | 'block' | 'removed';
+/**
+ * Registry-level moderation state. `queued` means the text was handed to the
+ * background audit queue but no verdict has landed yet; `block` is NOT an
+ * entry status — a block verdict is enforced immediately (rows become
+ * `removed`), so it only exists as an audit verdict, never as stored state.
+ */
+export type UgcEntryAuditStatus = 'pending' | 'queued' | 'pass' | 'review' | 'removed';
 
 export type UgcEntryAuditSource = 'llm' | 'prefilter' | 'manual';
 
 /**
  * Severity ordering for aggregated (hash-level) statuses: a content hash is
- * shown at its most severe state. `removed` is terminal; `block` outranks an
- * older `review`/`pass` that a later occurrence may still carry, etc.
+ * shown at its most severe state. `removed` is terminal; `review` outranks
+ * an older `pass` that a later occurrence may still carry, etc.
  */
 export const UGC_AUDIT_STATUS_ORDER: Record<UgcEntryAuditStatus, number> = {
   pending: 0,
-  pass: 1,
-  review: 2,
-  block: 3,
+  queued: 1,
+  pass: 2,
+  review: 3,
   removed: 4
 };
 

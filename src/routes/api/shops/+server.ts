@@ -17,7 +17,7 @@ import { m } from '$lib/paraglide/messages';
 import { buildSearchPattern } from '$lib/utils/search';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { getNextShopId } from '$lib/utils/shops/id.server';
-import { auditUgc } from '$lib/ugc/audit.server';
+import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 import {
   IncompleteShopRegionError,
@@ -364,7 +364,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     // Tier-0 moderation gate: reject before anything is persisted.
     const blocked = await auditUgc('shop', newShop.id, shopUgcTexts);
     if (blocked) {
-      error(400, m.content_not_allowed());
+      error(400, blockedUgcMessage(blocked));
     }
 
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);

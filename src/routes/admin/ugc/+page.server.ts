@@ -14,9 +14,9 @@ const PAGE_SIZE = 20;
 const STATUSES = [
   'all',
   'pending',
+  'queued',
   'pass',
   'review',
-  'block',
   'removed'
 ] as const satisfies readonly (UgcEntryAuditStatus | 'all')[];
 

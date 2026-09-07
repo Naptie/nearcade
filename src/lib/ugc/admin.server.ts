@@ -102,17 +102,17 @@ export const buildUgcHref = async (
 
 const STATUS_FIELDS: { status: UgcEntryAuditStatus; field: string }[] = [
   { status: 'pending', field: 'pending' },
+  { status: 'queued', field: 'queued' },
   { status: 'pass', field: 'pass' },
   { status: 'review', field: 'review' },
-  { status: 'block', field: 'block' },
   { status: 'removed', field: 'removed' }
 ];
 
 const emptyStatusCounts = (): Record<UgcEntryAuditStatus, number> => ({
   pending: 0,
+  queued: 0,
   pass: 0,
   review: 0,
-  block: 0,
   removed: 0
 });
 

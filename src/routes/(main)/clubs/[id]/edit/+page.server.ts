@@ -8,7 +8,7 @@ import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { normalizeClubDocument } from '$lib/utils/organizations.server';
 import { postReadabilitySchema, postWritabilitySchema } from '$lib/schemas/posts';
-import { auditUgc } from '$lib/ugc/audit.server';
+import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
@@ -245,7 +245,7 @@ export const actions: Actions = {
       // Tier-0 moderation gate on the updated introduction.
       const blocked = await auditUgc('organization', id, { description: descriptionValue ?? '' });
       if (blocked) {
-        return fail(400, { message: m.content_not_allowed() });
+        return fail(400, { message: blockedUgcMessage(blocked) });
       }
 
       await clubsCollection.updateOne(

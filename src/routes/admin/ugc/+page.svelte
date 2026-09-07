@@ -156,16 +156,22 @@
     return body.affected ?? 0;
   };
 
-  const dispatch = async (action: 'dispatch_audit' | 'mark_pass' | 'remove_all') => {
+  const dispatch = async (
+    action: 'dispatch_audit' | 'mark_pass' | 'remove_all' | 'restore',
+    hashes?: string[]
+  ) => {
     if (
       action === 'remove_all' &&
       !confirm(m.admin_ugc_confirm_remove_all_hash({ count: String(selectionCount) }))
     ) {
       return;
     }
+    if (action === 'restore' && !confirm(m.admin_ugc_restore_confirm())) {
+      return;
+    }
     busy = true;
     try {
-      const affected = await runAction(action, [...selected]);
+      const affected = await runAction(action, hashes ?? [...selected]);
       toast(m.admin_ugc_action_done({ count: String(affected) }), { type: 'success' });
       selected.clear();
       selectAllMatching = false;
@@ -176,6 +182,25 @@
       busy = false;
     }
   };
+
+  // Live list ---------------------------------------------------------------
+
+  // Keep the entries list fresh: re-run the load every 5s (page visible) and
+  // pause while a batch action request is in flight so results never race.
+  let documentVisible = $state(true);
+  $effect(() => {
+    documentVisible = !document.hidden;
+    const onVisibility = () => (documentVisible = !document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  });
+  $effect(() => {
+    if (!documentVisible || busy) return;
+    const interval = setInterval(async () => {
+      if (!busy) await goto(page.url.toString(), { replaceState: true, noScroll: true });
+    }, 5000);
+    return () => clearInterval(interval);
+  });
 
   // Active jobs -----------------------------------------------------------
 
@@ -364,6 +389,15 @@
       >
         <i class="fa-solid fa-check"></i>
         {m.admin_ugc_mark_pass()}
+      </button>
+      <button
+        class="btn btn-soft btn-sm"
+        disabled={busy || selectionCount === 0}
+        title={m.admin_ugc_restore_hint()}
+        onclick={() => dispatch('restore')}
+      >
+        <i class="fa-solid fa-rotate-left"></i>
+        {m.admin_ugc_restore()}
       </button>
       <button
         class="btn btn-error btn-soft btn-sm"

@@ -3,6 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
+  import { toastError } from '$lib/notifications/toast.svelte';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { getDisplayName, pageTitle } from '$lib/utils';
@@ -40,7 +41,6 @@
   let newCommentImageIds = $state<string[]>([]);
   let newCommentAttachments = $state<ImageAsset[]>([]);
   let isSubmittingComment = $state(false);
-  let commentError = $state('');
   let replyingTo = $state<string | null>(null);
   let replyContent = $state('');
   let replyImageIds = $state<string[]>([]);
@@ -119,7 +119,6 @@
       return;
 
     isSubmittingComment = true;
-    commentError = '';
 
     try {
       const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
@@ -133,10 +132,10 @@
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message?: string };
-        commentError = errorData.message || m.failed_to_post_comment();
+        toastError(errorData.message || m.failed_to_post_comment());
       }
     } catch {
-      commentError = m.network_error_try_again();
+      toastError(m.network_error_try_again());
     } finally {
       isSubmittingComment = false;
     }
@@ -183,7 +182,6 @@
       return;
 
     isSubmittingReply = true;
-    commentError = '';
 
     try {
       const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
@@ -201,10 +199,10 @@
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message?: string };
-        commentError = errorData.message || m.failed_to_post_comment();
+        toastError(errorData.message || m.failed_to_post_comment());
       }
     } catch {
-      commentError = m.network_error_try_again();
+      toastError(m.network_error_try_again());
     } finally {
       isSubmittingReply = false;
     }
@@ -644,13 +642,6 @@
 
     {#if canParticipate}
       <div class="bg-base-200 mb-6 rounded-xl p-4">
-        {#if commentError}
-          <div class="alert alert-error mb-4">
-            <i class="fa-solid fa-exclamation-triangle"></i>
-            <span>{commentError}</span>
-          </div>
-        {/if}
-
         <MarkdownEditor
           bind:value={newCommentContent}
           bind:attachments={newCommentAttachments}
@@ -720,13 +711,6 @@
 
             {#if replyingTo === comment.id && canParticipate}
               <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
-                {#if commentError}
-                  <div class="alert alert-error mb-4">
-                    <i class="fa-solid fa-exclamation-triangle"></i>
-                    <span>{commentError}</span>
-                  </div>
-                {/if}
-
                 <MarkdownEditor
                   bind:value={replyContent}
                   bind:attachments={replyAttachments}

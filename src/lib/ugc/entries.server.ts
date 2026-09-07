@@ -90,8 +90,13 @@ export const resolveUgcOccurrence = (kind: UgcKind, fieldKey: string): UgcOccurr
 const occurrenceIdentity = (type: UgcContentType, key?: string): string =>
   key ? `${type}:${key}` : type;
 
+/**
+ * Map an audit outcome onto an entry status. A `block` verdict never becomes
+ * a stored 'block' status — the caller enforces immediately, which marks the
+ * rows `removed` directly.
+ */
 export const statusFromOutcome = (outcome: UgcAuditOutcome): UgcEntryAuditStatus =>
-  outcome.verdict === 'block' ? 'block' : outcome.verdict === 'review' ? 'review' : 'pass';
+  outcome.verdict === 'block' ? 'removed' : outcome.verdict === 'review' ? 'review' : 'pass';
 
 /** Audit metadata attached to an occurrence whenever its verdict is applied. */
 const auditSet = (outcome: UgcAuditOutcome, source: UgcEntryAuditSource, now: Date) => ({
@@ -106,9 +111,10 @@ const auditSet = (outcome: UgcAuditOutcome, source: UgcEntryAuditSource, now: Da
 /**
  * Apply a verdict (content-addressed by `hash`) to every registry occurrence
  * carrying that text. Severity only ever moves a row up:
- *   pass   → fills `pending` rows only (never demotes review/block/removed)
- *   review → escalates pending/pass
- *   block  → escalates pending/pass/review; enforcement flips it to `removed`
+ *   pass    → fills `pending`/`queued` rows only (never demotes review/removed)
+ *   review  → escalates pending/pass/queued
+ *   block   → escalates everything non-removed; enforcement (separate step)
+ *             deletes/clears the live content while the rows land `removed`
  */
 export const applyVerdictToEntries = async (
   hash: string,
@@ -122,16 +128,20 @@ export const applyVerdictToEntries = async (
     const collection = ugcEntriesCollection();
     let result;
     if (status === 'pass') {
-      result = await collection.updateMany({ hash, auditStatus: 'pending' }, { $set: set });
+      result = await collection.updateMany(
+        { hash, auditStatus: { $in: ['pending', 'queued'] } },
+        { $set: set }
+      );
     } else if (status === 'review') {
       result = await collection.updateMany(
-        { hash, auditStatus: { $in: ['pending', 'pass'] } },
+        { hash, auditStatus: { $in: ['pending', 'pass', 'queued'] } },
         { $set: set }
       );
     } else {
-      // block — removed rows stay terminal.
+      // block — removed rows stay terminal; a later enforceUgcHash call
+      // deletes the live content behind these rows.
       result = await collection.updateMany(
-        { hash, auditStatus: { $in: ['pending', 'pass', 'review'] } },
+        { hash, auditStatus: { $ne: 'removed' } },
         { $set: set }
       );
     }
@@ -139,6 +149,24 @@ export const applyVerdictToEntries = async (
   } catch (err) {
     console.error('[UGCEntries] Failed to apply verdict to entries:', err);
     return 0;
+  }
+};
+
+/**
+ * Mark live entries carrying the given hashes as `queued` — the text has
+ * been handed to the background audit queue and awaits a verdict. Shared by
+ * the submit-time gate (auditUgc) and admin re-audit dispatch so both
+ * enqueue points keep the registry state in lockstep with the job queue.
+ */
+export const markEntriesQueued = async (hashes: string[]): Promise<void> => {
+  if (hashes.length === 0) return;
+  try {
+    await ugcEntriesCollection().updateMany(
+      { hash: { $in: hashes }, auditStatus: { $ne: 'removed' } },
+      { $set: { auditStatus: 'queued' as UgcEntryAuditStatus, updatedAt: new Date() } }
+    );
+  } catch (err) {
+    console.error('[UGCEntries] Failed to mark entries queued:', err);
   }
 };
 

@@ -28,7 +28,7 @@ import {
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
-import { auditUgc } from '$lib/ugc/audit.server';
+import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 
 const postCreateRequestWithExistingImagesSchema = withExistingImages(postCreateRequestSchema);
@@ -206,7 +206,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
       content: newPost.content ?? ''
     });
     if (blocked) {
-      error(400, m.content_not_allowed());
+      error(400, blockedUgcMessage(blocked));
     }
 
     await postsCollection.insertOne(newPost);
