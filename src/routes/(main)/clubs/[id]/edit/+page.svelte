@@ -7,7 +7,7 @@
   import { pageTitle } from '$lib/utils';
   import { toast, toastError } from '$lib/notifications/toast.svelte';
   import { unsavedChanges } from '$lib/actions/unsaved-changes';
-  import type { PageData, ActionData } from './$types';
+  import type { PageData } from './$types';
   import UploadModal from '$lib/components/UploadModal.svelte';
 
   let { data }: { data: PageData } = $props();
