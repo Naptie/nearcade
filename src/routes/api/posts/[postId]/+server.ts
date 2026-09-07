@@ -37,7 +37,7 @@ import {
   postUpdateResponseSchema
 } from '$lib/schemas/posts';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
-import { auditUgc } from '$lib/ugc/audit.server';
+import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 
 const postUpdateRequestWithExistingImagesSchema = withExistingImages(postUpdateRequestSchema);
@@ -330,7 +330,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
         content: nextContent ?? ''
       });
       if (blocked) {
-        error(400, m.content_not_allowed());
+        error(400, blockedUgcMessage(blocked));
       }
     }
 

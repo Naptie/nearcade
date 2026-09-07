@@ -65,9 +65,9 @@ export const UGC_TYPE_ICONS: Record<UgcContentType, string> = {
 export const AUDIT_STATUSES: { value: string; label: string; color: string }[] = [
   { value: 'all', label: m.all_statuses(), color: '' },
   { value: 'pending', label: m.admin_ugc_status_pending(), color: 'info' },
+  { value: 'queued', label: m.admin_ugc_status_queued(), color: 'secondary' },
   { value: 'pass', label: m.admin_ugc_status_pass(), color: 'success' },
   { value: 'review', label: m.admin_ugc_status_review(), color: 'warning' },
-  { value: 'block', label: m.admin_ugc_status_block(), color: 'error' },
   { value: 'removed', label: m.admin_ugc_status_removed(), color: 'ghost' }
 ];
 

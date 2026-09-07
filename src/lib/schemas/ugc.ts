@@ -63,11 +63,19 @@ export const ugcTranslationsResponseSchema = z.object({
 });
 
 export const ugcEntryActionSchema = z
-  .enum(['dispatch_audit', 'mark_pass', 'flag_review', 'remove', 'remove_all'])
+  .enum([
+    'dispatch_audit',
+    'mark_pass',
+    'flag_review',
+    'remove',
+    'remove_all',
+    'edit_meta',
+    'restore'
+  ])
   .describe(
     bilingual(
-      '批量操作：dispatch_audit 重新送审，mark_pass 将该内容哈希对应的全部条目人工通过，flag_review 标记待复核，remove 删除所选单个条目（含其所属内容），remove_all 删除与所选内容哈希相同的全部条目。',
-      'Batch action: dispatch_audit re-queues an LLM audit, mark_pass manually passes every occurrence carrying the selected content hashes, flag_review marks them for review, remove removes the selected occurrence(s) only, remove_all removes every occurrence carrying the selected content hashes.'
+      '批量操作：dispatch_audit 重新送审，mark_pass 将该内容哈希对应的全部条目人工通过，flag_review 标记待复核，remove 删除所选单个条目（含其所属内容），remove_all 删除与所选内容哈希相同的全部条目，edit_meta 编辑人工复核原因/评分（独立于审核动作），restore 恢复被移除的内容（清除缓存判词并回写未被后续编辑覆盖的字段）。',
+      'Batch action: dispatch_audit re-queues an LLM audit, mark_pass manually passes every occurrence carrying the selected content hashes, flag_review marks them for review, remove removes the selected occurrence(s) only, remove_all removes every occurrence carrying the selected content hashes, edit_meta edits the manual review reason/score (independent of audit actions), restore un-removes content (clears the cached verdict and re-writes fields not overwritten by later edits).'
     )
   );
 
@@ -75,8 +83,8 @@ export const ugcEntryActionRequestSchema = z.object({
   action: ugcEntryActionSchema,
   /**
    * Content hashes — the hash-centered scope. mark_pass / flag_review /
-   * dispatch_audit / remove_all act on EVERY occurrence carrying these
-   * hashes. Mutually exclusive with `ids` / `all`.
+   * dispatch_audit / remove_all / edit_meta act on EVERY occurrence carrying
+   * these hashes. Mutually exclusive with `ids` / `all`.
    */
   hashes: z.array(ugcTranslationHashSchema).max(500).optional(),
   /** Occurrence ids (`${type}:${refId}[:${key}]`) — for `remove` (this row). */
@@ -90,7 +98,16 @@ export const ugcEntryActionRequestSchema = z.object({
       search: z.string().optional()
     })
     .optional()
-    .describe(bilingual('与列表页一致的筛选条件。', 'Filters mirroring the list page.'))
+    .describe(bilingual('与列表页一致的筛选条件。', 'Filters mirroring the list page.')),
+  /**
+   * Manual review reason — used by `edit_meta` (set; omit `unset` to clear)
+   * and as the notification reason override for `remove` / `remove_all`.
+   */
+  reason: z.string().max(500).optional(),
+  /** Audit score for `edit_meta` (0–1); omit to keep, `unset` to clear. */
+  score: z.number().min(0).max(1).optional(),
+  /** With `edit_meta`: clear the stored reason/score instead of setting them. */
+  unset: z.boolean().optional()
 });
 
 export const ugcEntryActionResponseSchema = z.object({

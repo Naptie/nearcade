@@ -37,11 +37,15 @@
     return `?${params.toString()}`;
   };
 
-  // Occurrence selection (this page) for batch removal.
+  // Occurrence selection (this page) for batch removal/restoration.
   let selectedOccurrences = new SvelteSet<string>();
 
-  const currentPageIds = $derived(
-    (data.occurrences ?? []).filter((o) => o.auditStatus !== 'removed').map((o) => o._id)
+  const currentPageIds = $derived((data.occurrences ?? []).map((o) => o._id));
+  /** Removed occurrences on this page — the only ones restorable. */
+  const selectedRemovedIds = $derived(
+    (data.occurrences ?? [])
+      .filter((o) => o.auditStatus === 'removed' && selectedOccurrences.has(o._id))
+      .map((o) => o._id)
   );
 
   const toggleSelect = (id: string) => {
@@ -86,17 +90,89 @@
     await invalidateAll();
   };
 
-  const runHashAction = async (action: 'dispatch_audit' | 'mark_pass' | 'remove_all') => {
+  const runHashAction = async (
+    action: 'dispatch_audit' | 'mark_pass' | 'remove_all' | 'restore',
+    extra: Record<string, unknown> = {}
+  ) => {
     if (
       action === 'remove_all' &&
-      !confirm(m.admin_ugc_confirm_remove_all_hash({ count: String(nonRemovedTotal) }))
+      !confirm(m.admin_ugc_confirm_remove_with_reason({ count: String(nonRemovedTotal) }))
     ) {
+      return;
+    }
+    if (action === 'restore' && !confirm(m.admin_ugc_restore_confirm())) {
       return;
     }
     busy = true;
     try {
-      const affected = await postAction({ action, hashes: [data.hash] });
+      const payload: Record<string, unknown> = { action, hashes: [data.hash], ...extra };
+      if (
+        (action === 'remove_all' || action === 'mark_pass') &&
+        reasonDraft.trim() &&
+        reasonDraft.trim() !== (data.summary?.auditReason ?? '')
+      ) {
+        payload.reason = reasonDraft.trim();
+      }
+      const affected = await postAction(payload);
       toast(m.admin_ugc_action_done({ count: String(affected) }), { type: 'success' });
+      await refresh();
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : m.internal_server_error());
+    } finally {
+      busy = false;
+    }
+  };
+
+  // Review metadata (reason/score) editing — independent of audit actions.
+  // Score is edited as a 0–100 percentage; stored as 0–1 (auditScore).
+  let reasonDraft = $state('');
+  let scoreDraft = $state<number | null>(null);
+  let metaEdited = $state(false);
+  const storedScorePercent = $derived(
+    typeof data.summary?.auditScore === 'number' ? Math.round(data.summary.auditScore * 100) : null
+  );
+  const metaDirty = $derived(
+    reasonDraft !== (data.summary?.auditReason ?? '') || scoreDraft !== storedScorePercent
+  );
+  // Load (and re-load after polling/actions) the stored values into the
+  // inputs until the admin actually edits them — a plain dirty-comparison
+  // sync would never fire on first render because the empty drafts always
+  // differ from a populated summary.
+  $effect(() => {
+    const reason = data.summary?.auditReason ?? '';
+    const percent = storedScorePercent;
+    if (!metaEdited) {
+      reasonDraft = reason;
+      scoreDraft = percent;
+    }
+  });
+
+  const saveMeta = async () => {
+    busy = true;
+    try {
+      const payload: Record<string, unknown> = { action: 'edit_meta', hashes: [data.hash] };
+      const currentReason = data.summary?.auditReason ?? '';
+      const nextReason = reasonDraft.trim();
+      if (nextReason !== currentReason) {
+        if (nextReason === '') {
+          payload.unset = true;
+        } else {
+          payload.reason = nextReason;
+        }
+      }
+      if (scoreDraft !== storedScorePercent) {
+        if (scoreDraft === null) {
+          payload.unset = true;
+        } else {
+          payload.score = scoreDraft / 100;
+        }
+      }
+      if (payload.reason === undefined && payload.score === undefined && !payload.unset) {
+        return;
+      }
+      await postAction(payload);
+      metaEdited = false;
+      toast(m.admin_ugc_meta_saved(), { type: 'success' });
       await refresh();
     } catch (err) {
       toastError(err instanceof Error ? err.message : m.internal_server_error());
@@ -111,6 +187,36 @@
     try {
       const affected = await postAction({ action: 'remove', ids: [entry._id] });
       toast(m.admin_ugc_action_done({ count: String(affected) }), { type: 'success' });
+      await refresh();
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : m.internal_server_error());
+    } finally {
+      busy = false;
+    }
+  };
+
+  const runOccurrenceRestore = async (entry: UgcOccurrenceItem) => {
+    if (!confirm(m.admin_ugc_restore_confirm())) return;
+    busy = true;
+    try {
+      const affected = await postAction({ action: 'restore', ids: [entry._id] });
+      toast(m.admin_ugc_action_done({ count: String(affected) }), { type: 'success' });
+      await refresh();
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : m.internal_server_error());
+    } finally {
+      busy = false;
+    }
+  };
+
+  const runBatchRestore = async () => {
+    if (selectedRemovedIds.length === 0) return;
+    if (!confirm(m.admin_ugc_restore_confirm())) return;
+    busy = true;
+    try {
+      const affected = await postAction({ action: 'restore', ids: selectedRemovedIds });
+      toast(m.admin_ugc_action_done({ count: String(affected) }), { type: 'success' });
+      selectedOccurrences.clear();
       await refresh();
     } catch (err) {
       toastError(err instanceof Error ? err.message : m.internal_server_error());
@@ -135,6 +241,24 @@
       busy = false;
     }
   };
+
+  const removedTotal = $derived(data.summary?.statusCounts.removed ?? 0);
+
+  // Live detail view: refresh every 5s while visible, paused during actions.
+  let documentVisible = $state(true);
+  $effect(() => {
+    documentVisible = !document.hidden;
+    const onVisibility = () => (documentVisible = !document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  });
+  $effect(() => {
+    if (!documentVisible || busy) return;
+    const interval = setInterval(async () => {
+      if (!busy) await refresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  });
 
   const typeLabel = (type: UgcContentType): string => ugcTypeLabel(type);
 </script>
@@ -181,6 +305,17 @@
         <i class="fa-solid fa-broom"></i>
         {m.admin_ugc_remove_all_hash()}
       </button>
+      {#if removedTotal > 0}
+        <button
+          class="btn btn-warning btn-soft btn-sm"
+          disabled={busy}
+          title={m.admin_ugc_restore_hint()}
+          onclick={() => runHashAction('restore')}
+        >
+          <i class="fa-solid fa-rotate-left"></i>
+          {m.admin_ugc_restore()}
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -199,9 +334,6 @@
         {/each}
       </div>
 
-      {#if data.summary.auditReason}
-        <p class="text-base-content/80 mt-3 text-sm break-all">{data.summary.auditReason}</p>
-      {/if}
       {#if data.summary.text}
         <p class="text-base-content/70 mt-2 text-sm break-all whitespace-pre-wrap">
           {data.summary.text}
@@ -210,6 +342,67 @@
 
       <div class="mt-3 flex flex-wrap gap-1.5">
         <AuditStatuses item={data.summary} />
+      </div>
+
+      <!-- Review metadata editor (reason/score) — independent of audit actions -->
+      <div class="border-base-200 mt-4 border-t pt-4">
+        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <label class="form-control">
+            <span class="label-text mb-1 text-xs font-medium">{m.admin_ugc_reason()}</span>
+            <input
+              type="text"
+              class="input input-bordered input-sm w-full"
+              placeholder={data.summary.auditReason === 'keyword_filter'
+                ? m.admin_ugc_reason_keyword_filter()
+                : m.admin_ugc_reason_placeholder()}
+              bind:value={reasonDraft}
+              oninput={() => (metaEdited = true)}
+              disabled={busy}
+            />
+          </label>
+          <label class="form-control">
+            <span class="label-text mb-1 text-xs font-medium">{m.admin_ugc_score()}</span>
+            <label class="input input-bordered input-sm w-full">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                class="grow"
+                bind:value={scoreDraft}
+                oninput={() => (metaEdited = true)}
+                disabled={busy}
+              />
+              <span class="text-current/70">%</span>
+            </label>
+          </label>
+        </div>
+        {#if reasonDraft.trim() === 'keyword_filter'}
+          <p class="text-warning mt-1 text-xs">{m.admin_ugc_reason_keyword_filter()}</p>
+        {/if}
+        <div class="mt-2 flex items-center gap-2">
+          <button
+            class="btn btn-primary btn-soft btn-sm"
+            disabled={busy || !metaDirty}
+            onclick={saveMeta}
+          >
+            <i class="fa-solid fa-floppy-disk"></i>
+            {m.admin_ugc_edit_meta()}
+          </button>
+          {#if metaDirty}
+            <button
+              class="btn btn-ghost btn-sm"
+              disabled={busy}
+              onclick={() => {
+                metaEdited = false;
+                reasonDraft = data.summary?.auditReason ?? '';
+                scoreDraft = storedScorePercent;
+              }}
+            >
+              {m.cancel()}
+            </button>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}
@@ -249,6 +442,17 @@
           <i class="fa-solid fa-trash"></i>
           {m.admin_ugc_remove()}
         </button>
+        {#if selectedRemovedIds.length > 0}
+          <button
+            class="btn btn-warning btn-soft btn-sm"
+            disabled={busy}
+            title={m.admin_ugc_restore_hint()}
+            onclick={() => runBatchRestore()}
+          >
+            <i class="fa-solid fa-rotate-left"></i>
+            {m.admin_ugc_restore()} ({selectedRemovedIds.length})
+          </button>
+        {/if}
       </div>
     </div>
 
@@ -267,7 +471,7 @@
                 type="checkbox"
                 class="checkbox checkbox-sm"
                 checked={selectedOccurrences.has(item._id)}
-                disabled={busy || item.auditStatus === 'removed'}
+                disabled={busy}
                 onchange={() => toggleSelect(item._id)}
               />
             </div>
@@ -304,7 +508,9 @@
 
               {#if item.auditReason}
                 <p class="text-base-content/80 mt-2 line-clamp-2 text-sm break-all">
-                  {item.auditReason}
+                  {item.auditReason === 'keyword_filter'
+                    ? m.admin_ugc_reason_keyword_filter()
+                    : item.auditReason}
                 </p>
               {/if}
               {#if item.preview}
@@ -344,7 +550,15 @@
                   {m.admin_ugc_remove()}
                 </button>
               {:else}
-                <span class="text-base-content/40 text-xs">{m.admin_ugc_removed_note()}</span>
+                <button
+                  class="btn btn-warning btn-soft btn-xs"
+                  disabled={busy}
+                  title={m.admin_ugc_restore_hint()}
+                  onclick={() => runOccurrenceRestore(item)}
+                >
+                  <i class="fa-solid fa-rotate-left"></i>
+                  {m.admin_ugc_restore()}
+                </button>
               {/if}
             </div>
           </div>

@@ -6,14 +6,13 @@
   import { resolve } from '$app/paths';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
-  import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import { toastError } from '$lib/notifications/toast.svelte';
   import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import UploadModal from '$lib/components/UploadModal.svelte';
 
   let { data }: { data: PageData } = $props();
 
   let isSubmitting = $state(false);
-  let errorMessage = $state('');
   let errors = $state<string[]>([]);
   let isAvatarUploadOpen = $state(false);
 
@@ -59,25 +58,6 @@
     </div>
   </div>
 
-  <!-- Error Alert -->
-  {#if errorMessage || errors.length > 0}
-    <InlineAlert type="error" class="mb-6">
-      {#if errorMessage}
-        <div class="font-medium">{errorMessage}</div>
-      {/if}
-      {#if errors.length > 0}
-        <div class="mt-2">
-          <div class="text-sm font-medium">{m.form_errors_found()}</div>
-          <ul class="mt-1 list-inside list-disc text-sm">
-            {#each errors as error, index (index)}
-              <li>{error}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-    </InlineAlert>
-  {/if}
-
   <!-- Form -->
   <form
     method="POST"
@@ -91,8 +71,15 @@
           await invalidateAll();
           goto(result.location);
         } else if (result.type === 'failure') {
-          errorMessage = (result.data?.message as string) || m.form_validation_error();
           errors = (result.data?.errors as string[]) || [];
+          const message = (result.data?.message as string) || '';
+          if (message) {
+            toastError(message);
+          } else if (errors.length > 0) {
+            toastError(errors.join(' · '));
+          } else {
+            toastError(m.form_validation_error());
+          }
 
           // Restore form data if available
           if (result.data?.formData) {
@@ -105,7 +92,7 @@
               ).useCustomBackgroundColor ?? useCustomBackgroundColor;
           }
         } else if (result.type === 'error') {
-          errorMessage = m.failed_to_update();
+          toastError(m.failed_to_update());
           errors = [];
         }
       };

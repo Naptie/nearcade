@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { m } from '$lib/paraglide/messages';
+  import { toastError } from '$lib/notifications/toast.svelte';
   import { GAME_TITLES } from '$lib/constants';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
@@ -53,7 +54,6 @@
   );
   let locationName = $state<string>(untrack(() => initialLocationName ?? ''));
   let isSubmitting = $state(false);
-  let errorMessage = $state('');
   let showLocationModal = $state(false);
 
   // ---- Opening hours ----
@@ -285,18 +285,17 @@
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
-    errorMessage = '';
 
     if (!name.trim()) {
-      errorMessage = 'Shop name is required';
+      toastError('Shop name is required');
       return;
     }
     if (!location) {
-      errorMessage = 'Location is required';
+      toastError('Location is required');
       return;
     }
     if (!regionComplete) {
-      errorMessage = m.shop_region_incomplete();
+      toastError(m.shop_region_incomplete());
       return;
     }
 
@@ -325,7 +324,7 @@
         clearShopDraft(draftStorageKey);
       }
     } catch (err) {
-      errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      toastError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       isSubmitting = false;
     }
@@ -340,13 +339,6 @@
   use:trackFirstEdit
   class="flex flex-col gap-8"
 >
-  {#if errorMessage}
-    <div class="alert alert-error">
-      <i class="fa-solid fa-exclamation-triangle"></i>
-      <span>{errorMessage}</span>
-    </div>
-  {/if}
-
   <!-- Name -->
   <div class="form-control gap-1.5">
     <span class="label-text font-medium">{m.shop_name()}</span>

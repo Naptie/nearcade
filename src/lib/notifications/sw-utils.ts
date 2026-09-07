@@ -61,10 +61,13 @@ export const getNotificationTitle = (notification: Notification) => {
     case 'SYSTEM': {
       const noun = ugcRemovalNoun(notification.contentType, notification.kind);
       if (notification.reviewedBy) {
-        return m.notification_system_content_removed_manual({
-          type: noun,
-          reason: notification.reason ?? ''
-        });
+        if (notification.reason) {
+          return m.notification_system_content_removed_manual({
+            type: noun,
+            reason: notification.reason
+          });
+        }
+        return m.notification_system_content_removed_manual_noreason({ type: noun });
       }
       return m.notification_system_content_removed({
         type: noun,

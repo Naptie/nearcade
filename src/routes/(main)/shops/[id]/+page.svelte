@@ -36,6 +36,7 @@
   import { fromZonedTime } from 'date-fns-tz';
   import { getLocale } from '$lib/paraglide/runtime';
   import { hasBoundPhone } from '$lib/utils';
+  import { toastError } from '$lib/notifications/toast.svelte';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
@@ -675,7 +676,6 @@
   let newCommentImageIds = $state<string[]>([]);
   let newCommentAttachments = $state<ImageAsset[]>([]);
   let isSubmittingComment = $state(false);
-  let commentError = $state('');
   let replyingTo = $state<string | null>(null);
   let replyContent = $state('');
   let replyImageIds = $state<string[]>([]);
@@ -769,7 +769,6 @@
       return;
 
     isSubmittingComment = true;
-    commentError = '';
 
     try {
       const response = await fetch(fromPath(`/api/shops/${shop.id}/comments`), {
@@ -783,10 +782,10 @@
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message: string };
-        commentError = errorData.message || m.failed_to_post_comment();
+        toastError(errorData.message || m.failed_to_post_comment());
       }
     } catch {
-      commentError = m.network_error_try_again();
+      toastError(m.network_error_try_again());
     } finally {
       isSubmittingComment = false;
     }
@@ -834,7 +833,6 @@
       return;
 
     isSubmittingReply = true;
-    commentError = '';
 
     try {
       const response = await fetch(fromPath(`/api/shops/${shop.id}/comments`), {
@@ -852,10 +850,10 @@
         invalidateAll();
       } else {
         const errorData = (await response.json()) as { message: string };
-        commentError = errorData.message || m.failed_to_post_comment();
+        toastError(errorData.message || m.failed_to_post_comment());
       }
     } catch {
-      commentError = m.network_error_try_again();
+      toastError(m.network_error_try_again());
     } finally {
       isSubmittingReply = false;
     }
@@ -2042,13 +2040,6 @@
           <!-- Add comment form -->
           {#if canProtectedShopAction}
             <div class="bg-base-100 mb-6 rounded-xl p-4">
-              {#if commentError}
-                <div class="alert alert-error mb-4">
-                  <i class="fa-solid fa-exclamation-triangle"></i>
-                  <span>{commentError}</span>
-                </div>
-              {/if}
-
               <MarkdownEditor
                 bind:value={newCommentContent}
                 bind:attachments={newCommentAttachments}
@@ -2111,13 +2102,6 @@
                   <!-- Reply form -->
                   {#if replyingTo === comment.id && canProtectedShopAction}
                     <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
-                      {#if commentError}
-                        <div class="alert alert-error mb-4">
-                          <i class="fa-solid fa-exclamation-triangle"></i>
-                          <span>{commentError}</span>
-                        </div>
-                      {/if}
-
                       <MarkdownEditor
                         bind:value={replyContent}
                         bind:attachments={replyAttachments}

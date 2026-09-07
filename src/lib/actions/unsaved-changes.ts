@@ -18,12 +18,17 @@ export interface UnsavedChangesOptions {
  * Programmatically mark a form as having unsaved changes and show the warning
  * banner. Use this for edits that update form state directly instead of firing
  * DOM `input`/`change` events (e.g. social links edited through a modal).
+ *
+ * Safe to call repeatedly: `showBanner` is idempotent per id, so a form that
+ * was saved (banner dismissed) but whose submit FAILED re-shows the banner on
+ * the very next edit — dirty state is never silently consumed by a failed
+ * submission.
  */
 export const markUnsavedChanges = (
   node: HTMLFormElement | null | undefined,
   options: UnsavedChangesOptions
 ): void => {
-  if (!node || !options.id || node.dataset.dirty === '1') return;
+  if (!node || !options.id) return;
   node.dataset.dirty = '1';
   showBanner({
     id: options.id,
@@ -36,6 +41,15 @@ export const markUnsavedChanges = (
       onClick: options.onSubmit ?? (() => node.requestSubmit())
     }
   });
+};
+
+/**
+ * Clear the dirty flag after a successful submit. The banner action button
+ * already dismisses the banner when clicked, so this only matters for callers
+ * that reset form state programmatically (e.g. an update() callback).
+ */
+export const resetUnsavedChanges = (node: HTMLFormElement | null | undefined): void => {
+  if (node) delete node.dataset.dirty;
 };
 
 /**

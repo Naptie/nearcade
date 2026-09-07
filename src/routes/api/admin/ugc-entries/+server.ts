@@ -1,8 +1,8 @@
 import { error, isHttpError, isRedirect, json, type RequestHandler } from '@sveltejs/kit';
 import { m } from '$lib/paraglide/messages';
 import { ugcEntriesCollection, ugcAdminFilter } from '$lib/ugc/entries.server';
-import { dispatchUgcAuditJobs } from '$lib/ugc/audit.server';
-import { enforceUgcEntry, enforceUgcHash } from '$lib/ugc/enforcement.server';
+import { clearCachedVerdict, dispatchUgcAuditJobs } from '$lib/ugc/audit.server';
+import { enforceUgcEntry, enforceUgcHash, restoreUgcEntries } from '$lib/ugc/enforcement.server';
 import { parseJsonOrError } from '$lib/utils/validation.server';
 import { ugcEntryActionRequestSchema, ugcEntryActionResponseSchema } from '$lib/schemas/ugc';
 import { ugcTypeKind, type UgcEntryRecord, type UgcKind } from '$lib/ugc/types';
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       error(403, m.access_denied());
     }
 
-    const { action, hashes, ids, all, query } = await parseJsonOrError(
+    const { action, hashes, ids, all, query, reason, score, unset } = await parseJsonOrError(
       request,
       ugcEntryActionRequestSchema
     );
@@ -154,10 +154,15 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
       // Remove the selected occurrence row(s) only — whole-content kinds
       // take their entity (and its sibling rows) with them. `affected` =
-      // rows actually flipped to `removed`.
+      // rows actually flipped to `removed`. An explicit `reason` (edited on
+      // the hash detail page) overrides the stored audit reason in the
+      // removal notification.
       case 'remove': {
         for (const id of new Set(ids)) {
-          affected += await enforceUgcEntry(id, { reviewedBy: session.user.id });
+          affected += await enforceUgcEntry(id, {
+            reviewedBy: session.user.id,
+            ...(reason !== undefined ? { reason } : {})
+          });
         }
         break;
       }
@@ -166,7 +171,67 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       // selected hashes. `affected` = rows actually removed.
       case 'remove_all': {
         for (const hash of scopeHashes) {
-          affected += await enforceUgcHash(hash, { reviewedBy: session.user.id });
+          affected += await enforceUgcHash(hash, {
+            reviewedBy: session.user.id,
+            ...(reason !== undefined ? { reason } : {})
+          });
+        }
+        break;
+      }
+
+      // Edit the manual review reason/score — independent of any audit
+      // status change. Unsetting clears the fields entirely (matching the
+      // schema's optional auditReason/auditScore shape).
+      case 'edit_meta': {
+        if (!unset && reason === undefined && score === undefined) {
+          error(400, m.invalid_request_body());
+        }
+        const scope = all
+          ? ugcAdminFilter({ type: query?.type, status: query?.status, search: query?.search })
+          : hashes?.length
+            ? { hash: { $in: hashes } }
+            : ids?.length
+              ? { _id: { $in: ids } }
+              : null;
+        if (!scope) error(400, m.invalid_request_body());
+        const set: Record<string, unknown> = { updatedAt: now };
+        const update: Record<string, unknown> = { $set: set };
+        if (unset) {
+          update.$unset = { auditReason: '', auditScore: '' };
+        } else {
+          if (reason !== undefined) set.auditReason = reason;
+          if (score !== undefined) set.auditScore = score;
+        }
+        const result = await collection.updateMany(scope as never, update as never);
+        affected = result.modifiedCount;
+        break;
+      }
+
+      // Restore removed content (false-positive intervention): clear the
+      // cached block verdict, re-write fields that enforcement cleared
+      // (never overwriting later edits), flip rows back to `pass`.
+      // `ids` scopes the restoration to specific occurrences; otherwise it
+      // restores every removed row in the hash/query scope.
+      case 'restore': {
+        const restoreHashes = [
+          ...new Set(rows.filter((row) => row.auditStatus === 'removed').map((row) => row.hash))
+        ];
+        for (const hash of restoreHashes) {
+          await clearCachedVerdict(hash);
+        }
+        if (ids?.length) {
+          const targets = rows.filter(
+            (row) => row.auditStatus === 'removed' && ids.includes(row._id)
+          );
+          affected += await restoreUgcEntries(targets, session.user.id);
+        } else {
+          for (const hash of restoreHashes) {
+            const targets = await collection
+              .find({ hash, auditStatus: 'removed' })
+              .limit(5000)
+              .toArray();
+            affected += await restoreUgcEntries(targets, session.user.id);
+          }
         }
         break;
       }

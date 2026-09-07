@@ -5,6 +5,7 @@ import { normalizeUgcText, ugcTextHash } from './hash';
 import {
   applyVerdictToEntries,
   AUDITS_COLLECTION,
+  markEntriesQueued,
   MAX_AUDITED_TEXT_LENGTH,
   resolveUgcOccurrence
 } from './entries.server';
@@ -50,6 +51,24 @@ export const AUDIT_JOB_LIST_KEY = 'nearcade:ugc:audit:jobs';
 const PREFILTER_BATCH = 32;
 
 /**
+ * Localized rejection message for a submit-time block. Keyword-prefilter
+ * blocks get their own wording so users understand the deterministic filter
+ * (not AI moderation) rejected them; cached LLM blocks keep the generic one.
+ */
+export const blockedUgcMessage = (block: UgcAuditBlock): string =>
+  block.source === 'prefilter'
+    ? // Imported lazily via paraglide at call sites — this helper lives in a
+      // server-only module, so the direct paraglide import is safe here.
+      mPrefilter()
+    : mGeneric();
+
+// Late-bound paraglide accessors keep this module importable from any server
+// context without worrying about initialization order.
+import { m } from '$lib/paraglide/messages';
+const mPrefilter = () => m.content_not_allowed_prefilter();
+const mGeneric = () => m.content_not_allowed();
+
+/**
  * Kinds that carry exactly one canonical auditable field: a job for them can
  * always be tagged with that single precise content type (bio under `user`,
  * etc.). `shop` is deliberately absent — it needs the per-key resolution in
@@ -91,6 +110,14 @@ interface PrefilterItemResult {
 
 interface PrefilterResponse {
   results?: PrefilterItemResult[];
+}
+
+/** Blocking result returned by the submit-time gate. `source` tells callers
+ * whether the rejection came from the deterministic keyword prefilter (so
+ * they can show the dedicated prefilter message) or a cached LLM verdict. */
+export interface UgcAuditBlock {
+  outcome: UgcAuditOutcome;
+  source: 'prefilter' | 'cached';
 }
 
 interface AuditWorkerResponse extends UgcAuditOutcome {
@@ -159,7 +186,7 @@ const enqueueAuditJob = async (job: UgcAuditJob): Promise<void> => {
  * verdicts reject the submission. Everything the gate lets through is
  * registered as a durable audit job for the background LLM judge.
  *
- * Returns a blocking `UgcAuditOutcome` when any text hard-fails — callers
+ * Returns a blocking `UgcAuditBlock` when any text hard-fails — callers
  * should reject the submission — or `null` so publishing proceeds. No-op
  * when UGC AI is unconfigured — both tiers live on the Worker.
  */
@@ -167,7 +194,7 @@ export const auditUgc = async (
   kind: UgcKind,
   refId: string | number,
   texts: string | Record<string, string | undefined | null>
-): Promise<UgcAuditOutcome | null> => {
+): Promise<UgcAuditBlock | null> => {
   // Pin the precise content type per text where the caller's field key (or
   // a singleton kind) makes it unambiguous, so the Worker's judge gets the
   // exact field as context. `undefined` falls back to the coarse kind.
@@ -191,13 +218,14 @@ export const auditUgc = async (
   }
   if (candidates.length === 0 || !isUgcAiConfigured()) return null;
 
-  let blocking: UgcAuditOutcome | null = null;
-  const mergeBlocking = (outcome: UgcAuditOutcome) => {
+  let blocking: UgcAuditBlock | null = null;
+  const mergeBlocking = (outcome: UgcAuditOutcome, source: UgcAuditBlock['source']) => {
     if (!blocking) {
-      blocking = outcome;
+      blocking = { outcome, source };
     } else {
       for (const category of outcome.categories) {
-        if (!blocking.categories.includes(category)) blocking.categories.push(category);
+        if (!blocking.outcome.categories.includes(category))
+          blocking.outcome.categories.push(category);
       }
     }
   };
@@ -229,7 +257,7 @@ export const auditUgc = async (
         score: cachedBlock.score ?? 1,
         reason: cachedBlock.reason || 'cached_verdict'
       };
-      mergeBlocking(outcome);
+      mergeBlocking(outcome, 'cached');
       await applyVerdictToEntries(candidate.hash, outcome, 'prefilter');
       void enforceUgcHash(candidate.hash).catch((err: unknown) =>
         console.error(`[UGCAudit] Cached-block enforcement failed (${candidate.hash}):`, err)
@@ -264,7 +292,7 @@ export const auditUgc = async (
 
       blockedHashes.add(candidate.hash);
       const outcome = keywordBlockOutcome(result);
-      mergeBlocking(outcome);
+      mergeBlocking(outcome, 'prefilter');
       await persistVerdict(candidate.hash, outcome, 'prefilter');
       void enforceUgcHash(candidate.hash).catch((err: unknown) =>
         console.error(`[UGCAudit] Prefilter enforcement failed (${candidate.hash}):`, err)
@@ -273,6 +301,7 @@ export const auditUgc = async (
   }
 
   // Tier-1: durable LLM judgement queue for everything the gate let through.
+  const queuedHashes: string[] = [];
   for (const candidate of forJudgement) {
     if (blockedHashes.has(candidate.hash)) continue;
     await enqueueAuditJob({
@@ -282,7 +311,10 @@ export const auditUgc = async (
       text: candidate.text,
       ...(candidate.type ? { type: candidate.type } : {})
     });
+    queuedHashes.push(candidate.hash);
   }
+  // The registry mirrors the queue: queued text is awaiting a verdict.
+  void markEntriesQueued(queuedHashes);
 
   return blocking;
 };
@@ -341,6 +373,20 @@ export const runUgcAuditJob = async (job: UgcAuditJob): Promise<void> => {
 };
 
 /**
+ * Drop the cached verdict for a hash (admin restoration of false-positive
+ * blocks). Without this, re-submitting the same text would be instantly
+ * rejected by the cached-block fast path. The verdict cache is rebuilt on
+ * the next audit of that text.
+ */
+export const clearCachedVerdict = async (hash: string): Promise<void> => {
+  try {
+    await auditsCollection().deleteOne({ _id: hash });
+  } catch (err) {
+    console.error('[UGCAudit] Failed to clear cached verdict:', err);
+  }
+};
+
+/**
  * Admin re-audit dispatch: queue a fresh judge run for a text already held
  * by the registry (text is re-verified against its registered hash).
  */
@@ -349,6 +395,7 @@ export const dispatchUgcAuditJobs = async (
 ): Promise<number> => {
   if (!isUgcAiConfigured() || jobs.length === 0) return 0;
   let queued = 0;
+  const queuedHashes: string[] = [];
   for (const job of jobs) {
     const normalized = normalizeUgcText(job.text);
     if (!normalized || normalized.length > MAX_AUDITED_TEXT_LENGTH) continue;
@@ -360,7 +407,9 @@ export const dispatchUgcAuditJobs = async (
       text: normalized,
       ...(job.type ? { type: job.type } : {})
     });
+    queuedHashes.push(job.hash);
     queued++;
   }
+  void markEntriesQueued(queuedHashes);
   return queued;
 };

@@ -25,7 +25,7 @@ import {
   localizeAddressGeneral
 } from '$lib/utils/region.server';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
-import { auditUgc } from '$lib/ugc/audit.server';
+import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 
 const shopUgcTexts = (shop: Shop): Record<string, string> => ({
@@ -449,7 +449,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     // Tier-0 moderation gate on the merged final text, before persisting.
     const blocked = await auditUgc('shop', shopId, shopUgcTexts({ ...existing, ...updateFields }));
     if (blocked) {
-      error(400, m.content_not_allowed());
+      error(400, blockedUgcMessage(blocked));
     }
 
     await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });

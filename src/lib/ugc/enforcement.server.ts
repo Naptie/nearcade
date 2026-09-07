@@ -29,6 +29,99 @@ import {
 /** System actor used for moderation-initiated deletions and notifications. */
 const SYSTEM_ACTOR = { userId: 'system', userType: 'site_admin' as const };
 
+/**
+ * Moderation-deletion archive (`ugc_deleted_docs`). Whole-content removals
+ * (comments/posts/delete requests/attendance reports) delete the live
+ * document outright; this archive keeps a verbatim snapshot so a moderator
+ * can restore false-positive removals. One document per removal — keyed by
+ * the live entity id, latest snapshot wins (re-archiving on every removal).
+ */
+const ARCHIVE_COLLECTION = 'ugc_deleted_docs';
+
+interface UgcDeletedDocRecord {
+  /** Live entity id (`comment:abc`, `post:def`, ...). */
+  _id: string;
+  kind: UgcKind;
+  refId: string;
+  /** The archived live document(s) verbatim. */
+  docs: Record<string, unknown>[];
+  /** Votes + thread siblings snapshotted alongside the main document. */
+  related: Record<string, unknown>[];
+  relatedCollection: 'comment_votes' | 'post_votes';
+  archivedAt: Date;
+}
+
+const archiveCollection = () => mongo.db().collection<UgcDeletedDocRecord>(ARCHIVE_COLLECTION);
+
+/**
+ * Snapshot a whole-content entity (and its votes/thread siblings) before it
+ * is hard-deleted, so `restoreUgcEntries` can put it back verbatim. Best-
+ * effort: a snapshot failure must never block the removal itself.
+ */
+const archiveWholeContent = async (kind: UgcKind, refId: string): Promise<void> => {
+  try {
+    const db = mongo.db();
+    const docs: Record<string, unknown>[] = [];
+    let related: Record<string, unknown>[] = [];
+    let relatedCollection: UgcDeletedDocRecord['relatedCollection'] = 'comment_votes';
+
+    if (kind === 'comment') {
+      const thread = await db
+        .collection<Comment>('comments')
+        .find({ $or: [{ id: refId }, { parentCommentId: refId }] })
+        .toArray();
+      docs.push(...thread);
+      related = await db
+        .collection<CommentVote>('comment_votes')
+        .find({ commentId: { $in: thread.map((c) => c.id) } })
+        .toArray();
+    } else if (kind === 'post') {
+      const post = await db.collection<Post>('posts').findOne({ id: refId });
+      if (post) docs.push(post);
+      const thread = await db.collection<Comment>('comments').find({ postId: refId }).toArray();
+      docs.push(...thread);
+      related = await db.collection<PostVote>('post_votes').find({ postId: refId }).toArray();
+      relatedCollection = 'post_votes';
+    } else if (kind === 'delete_request') {
+      const request = await db.collection('shop_delete_requests').findOne({ id: refId });
+      if (request) docs.push(request);
+      related = await db
+        .collection<Comment>('comments')
+        .find({ shopDeleteRequestId: refId })
+        .toArray();
+    } else if (kind === 'attendance_report') {
+      try {
+        const report = await db
+          .collection('attendance_reports')
+          .findOne({ _id: new ObjectId(refId) });
+        if (report) docs.push(report);
+      } catch {
+        // Invalid refId — nothing to archive.
+      }
+    } else {
+      return; // Data-bearing kinds never archive — fields are just cleared.
+    }
+
+    if (docs.length === 0) return;
+    await archiveCollection().updateOne(
+      { _id: `${kind}:${refId}` },
+      {
+        $set: {
+          kind,
+          refId,
+          docs,
+          related,
+          relatedCollection,
+          archivedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error(`[UGCEnforce] Failed to archive ${kind}/${refId}:`, err);
+  }
+};
+
 export interface EnforceOptions {
   reviewedBy?: string | null;
   reason?: string;
@@ -310,16 +403,19 @@ const enforceRows = async (
 
     if (kind === 'comment') {
       if (stillLive.length > 0) {
+        await archiveWholeContent(kind, refId);
         await deleteCommentThread(refId);
         removedSomething = true;
       }
     } else if (kind === 'post') {
       if (stillLive.length > 0) {
+        await archiveWholeContent(kind, refId);
         await deletePostThread(refId);
         removedSomething = true;
       }
     } else if (kind === 'delete_request') {
       if (stillLive.length > 0) {
+        await archiveWholeContent(kind, refId);
         await db.collection('shop_delete_requests').deleteOne({ id: refId });
         removedSomething = true;
       }
@@ -328,6 +424,7 @@ const enforceRows = async (
         const report = live as { shopId?: unknown } | null;
         if (typeof report?.shopId === 'number') shopId = report.shopId;
         try {
+          await archiveWholeContent(kind, refId);
           await db.collection('attendance_reports').deleteOne({ _id: new ObjectId(refId) });
           removedSomething = true;
         } catch {
@@ -458,4 +555,236 @@ export const enforceUgcEntry = async (
   const row = await ugcEntriesCollection().findOne({ _id: occurrenceId });
   if (!row) return 0;
   return enforceRows([row], options);
+};
+
+/** Write one occurrence's text back onto its live entity. Inverse of the
+ * field-clearing side of enforcement; returns true when something was
+ * written. Whole-content kinds (comments/posts/...) cannot be resurrected —
+ * the entity is gone — so they restore nothing. */
+const writeBackField = async (
+  kind: UgcKind,
+  refId: string,
+  type: UgcContentType,
+  key: string | undefined,
+  text: string
+): Promise<boolean> => {
+  const db = mongo.db();
+  if (kind === 'shop') {
+    const shop = await db.collection('shops').findOne({ id: Number(refId) || refId });
+    if (!shop) return false;
+    if (type === 'shop_name') {
+      await db.collection('shops').updateOne({ id: shop.id }, { $set: { name: text } });
+    } else if (type === 'shop_description') {
+      await db.collection('shops').updateOne({ id: shop.id }, { $set: { comment: text } });
+    } else if (type === 'shop_address') {
+      await db
+        .collection('shops')
+        .updateOne({ id: shop.id }, { $set: { 'address.detailed': text } });
+    } else {
+      const attribute = GAME_FIELD_BY_TYPE[type];
+      const parsedId = Number(key);
+      if (!attribute || !key || !Number.isFinite(parsedId)) return false;
+      await db
+        .collection('shops')
+        .updateOne(
+          { id: shop.id, games: { $elemMatch: { gameId: parsedId } } },
+          { $set: { [`games.$[g].${attribute}`]: text } } as never,
+          [{ 'g.gameId': parsedId }] as never
+        );
+    }
+    return true;
+  }
+  if (kind === 'organization') {
+    const isClub = await db
+      .collection<Club>('clubs')
+      .findOne({ id: refId }, { projection: { _id: 1 } });
+    const result = isClub
+      ? await db
+          .collection<Club>('clubs')
+          .updateOne(
+            { id: refId, description: { $in: ['', null] } as never },
+            { $set: { description: text } }
+          )
+      : await db
+          .collection<University>('universities')
+          .updateOne(
+            { id: refId, description: { $in: ['', null] } as never },
+            { $set: { description: text } }
+          );
+    return result.modifiedCount > 0;
+  }
+  if (kind === 'user') {
+    let filter: Record<string, unknown>;
+    try {
+      filter = { _id: new ObjectId(refId) };
+    } catch {
+      filter = { id: refId };
+    }
+    const result = await db
+      .collection('users')
+      .updateOne({ ...filter, bio: { $in: ['', null] } as never }, { $set: { bio: text } });
+    return result.modifiedCount > 0;
+  }
+  // Whole-content kinds: entity was deleted outright — nothing to write back.
+  return false;
+};
+
+/**
+ * Re-insert an archived whole-content entity (comment/post/delete request/
+ * attendance report) after a false-positive removal. The archive snapshot is
+ * consumed (deleted) on success; nothing is resurrected when the entity was
+ * re-created in the meantime — the author's newer content always wins.
+ */
+const resurrectWholeContent = async (kind: UgcKind, refId: string): Promise<boolean> => {
+  const db = mongo.db();
+  const archiveId = `${kind}:${refId}`;
+  const archived = await archiveCollection().findOne({ _id: archiveId });
+  if (!archived || archived.docs.length === 0) return false;
+
+  const now = new Date();
+  try {
+    if (kind === 'comment') {
+      // Already re-created (or never deleted) — never clobber.
+      const existing = await db
+        .collection<Comment>('comments')
+        .findOne({ id: refId }, { projection: { _id: 1 } });
+      if (existing) return false;
+      // Skip siblings that already exist (partial re-creation).
+      const main = archived.docs.find((d) => d.id === refId);
+      if (!main) return false;
+      await db.collection<Comment>('comments').insertOne(main as never);
+      const siblings = archived.docs.filter((d) => d.id !== refId);
+      if (siblings.length > 0) {
+        const siblingIds = siblings.map((d) => String(d.id));
+        const existingSiblings = await db
+          .collection<Comment>('comments')
+          .find({ id: { $in: siblingIds } }, { projection: { id: 1 } })
+          .toArray();
+        const existingSiblingIds = new Set(existingSiblings.map((c) => c.id));
+        const toInsert = siblings.filter((d) => !existingSiblingIds.has(String(d.id)));
+        if (toInsert.length > 0) {
+          await db.collection<Comment>('comments').insertMany(toInsert as never[]);
+        }
+        // Restore the parent post's comment count.
+        const postId = typeof main.postId === 'string' ? main.postId : null;
+        if (postId) {
+          await db
+            .collection<Post>('posts')
+            .updateOne(
+              { id: postId },
+              { $inc: { commentCount: 1 + toInsert.length }, $set: { updatedAt: now } }
+            );
+        }
+      }
+      if (archived.related.length > 0 && archived.relatedCollection === 'comment_votes') {
+        await db.collection<CommentVote>('comment_votes').insertMany(archived.related as never[]);
+      }
+    } else if (kind === 'post') {
+      const existing = await db
+        .collection<Post>('posts')
+        .findOne({ id: refId }, { projection: { _id: 1 } });
+      if (existing) return false;
+      const main = archived.docs.find((d) => d.id === refId);
+      if (!main) return false;
+      await db.collection<Post>('posts').insertOne(main as never);
+      const thread = archived.docs.filter((d) => d.id !== refId);
+      if (thread.length > 0) {
+        await db.collection<Comment>('comments').insertMany(thread as never[]);
+      }
+      if (archived.related.length > 0 && archived.relatedCollection === 'post_votes') {
+        await db.collection<PostVote>('post_votes').insertMany(archived.related as never[]);
+      }
+    } else if (kind === 'delete_request') {
+      const existing = await db
+        .collection('shop_delete_requests')
+        .findOne({ id: refId }, { projection: { _id: 1 } });
+      if (existing) return false;
+      const main = archived.docs[0];
+      if (!main) return false;
+      await db.collection('shop_delete_requests').insertOne(main as never);
+      // Thread comments archived under `related` — restore any missing ones.
+      for (const comment of archived.related) {
+        const commentId = String(comment.id ?? '');
+        if (!commentId) continue;
+        const existingComment = await db
+          .collection<Comment>('comments')
+          .findOne({ id: commentId }, { projection: { _id: 1 } });
+        if (!existingComment) {
+          await db.collection<Comment>('comments').insertOne(comment as never);
+        }
+      }
+    } else if (kind === 'attendance_report') {
+      const existing = await db
+        .collection('attendance_reports')
+        .findOne({ _id: new ObjectId(refId) });
+      if (existing) return false;
+      const main = archived.docs[0];
+      if (!main) return false;
+      await db.collection('attendance_reports').insertOne(main as never);
+    } else {
+      return false;
+    }
+  } catch (err) {
+    console.error(`[UGCEnforce] Failed to resurrect ${kind}/${refId}:`, err);
+    return false;
+  }
+  await archiveCollection().deleteOne({ _id: archiveId });
+  return true;
+};
+
+/**
+ * Manual restoration of removed content (false-positive intervention):
+ *  1. whole-content kinds (comment/post/delete request/attendance report)
+ *     are re-inserted verbatim from the removal archive — never when the
+ *     entity was re-created in the meantime;
+ *  2. data-bearing kinds re-write the removed text back onto live fields,
+ *     but ONLY when the live field is empty/absent (i.e. it was merely
+ *     cleared by enforcement and never legitimately edited afterwards) —
+ *     this never overwrites newer content;
+ *  3. flip the removed rows back to `pass` with manual review metadata
+ *     (auditReason/categories/score are left untouched — no redundant
+ *     overwrite).
+ * Returns the number of registry rows restored. Clearing the cached verdict
+ * for the hash is the caller's responsibility (see `clearCachedVerdict` in
+ * audit.server.ts).
+ */
+export const restoreUgcEntries = async (
+  rows: UgcEntryRecord[],
+  reviewedBy: string | null
+): Promise<number> => {
+  if (rows.length === 0) return 0;
+  let restored = 0;
+  for (const row of rows) {
+    const kind = ugcTypeKind(row.type);
+    if (WHOLE_CONTENT_KINDS.has(kind)) {
+      await resurrectWholeContent(kind, row.refId);
+    } else {
+      const live = await loadLiveEntity(kind, row.refId);
+      if (live) {
+        const raw = liveFieldText(row.type, live, row.key);
+        const normalized = typeof raw === 'string' && raw ? normalizeUgcText(raw) : '';
+        // Only write back when the live field is empty/absent — a field that
+        // still holds (different) text was legitimately edited after removal
+        // and must never be clobbered.
+        if (!normalized) {
+          await writeBackField(kind, row.refId, row.type, row.key, row.text);
+        }
+      }
+    }
+    restored++;
+  }
+  const now = new Date();
+  await ugcEntriesCollection().updateMany(
+    { _id: { $in: rows.map((row) => row._id) }, auditStatus: 'removed' },
+    {
+      $set: {
+        auditStatus: 'pass' as const,
+        auditSource: 'manual' as const,
+        reviewedBy,
+        reviewedAt: now,
+        updatedAt: now
+      }
+    }
+  );
+  return restored;
 };
