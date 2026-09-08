@@ -39,7 +39,7 @@
   };
 
   const shouldShowModal = (count: number): boolean => {
-    if (page.url.pathname === resolve('/admin')) {
+    if (page.url.pathname.startsWith(resolve('/admin'))) {
       return false;
     }
 
