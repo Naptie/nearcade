@@ -100,6 +100,13 @@ export interface UgcAuditJob {
    * and coarse-only jobs omit it and the Worker falls back to `kind`.
    */
   type?: UgcContentType;
+  /**
+   * Force a fresh judge run even when a cached verdict exists. Set by admin
+   * re-audit (`dispatch_audit`) so a moderator can re-judge text that was
+   * previously degraded to `review`/`model_unavailable` without the
+   * cached-verdict fast path short-circuiting the call.
+   */
+  force?: boolean;
 }
 
 interface PrefilterItemResult {
@@ -120,8 +127,14 @@ export interface UgcAuditBlock {
   source: 'prefilter' | 'cached';
 }
 
-interface AuditWorkerResponse extends UgcAuditOutcome {
+interface AuditWorkerResponse extends Omit<UgcAuditOutcome, 'score'> {
   verdict: UgcAuditVerdict;
+  /**
+   * `null` marks a *failed* judgement (e.g. model unavailable) rather than a
+   * genuine verdict — the app must NOT cache it, only degrade to review and
+   * retry the job.
+   */
+  score: number | null;
   /** Rough Neuron spend reported by the Worker (0 for keyword blocks). */
   neurons?: number;
 }
@@ -330,22 +343,26 @@ export const auditUgc = async (
 export const runUgcAuditJob = async (job: UgcAuditJob): Promise<void> => {
   // Identical text re-moderation is free — apply the cached verdict if one
   // exists (e.g. the prefilter or a prior judge run settled it while queued).
-  const cached = await auditsCollection().findOne(
-    { _id: job.hash },
-    { projection: { verdict: 1, categories: 1, score: 1, reason: 1 } }
-  );
-  if (cached) {
-    const outcome: UgcAuditOutcome = {
-      verdict: cached.verdict,
-      categories: cached.categories ?? [],
-      score: cached.score ?? 0.5,
-      reason: cached.reason ?? ''
-    };
-    await applyVerdictToEntries(job.hash, outcome, 'llm');
-    if (outcome.verdict === 'block') {
-      await enforceUgcHash(job.hash);
+  // Admin re-audit (`force`) deliberately bypasses this so a moderator can
+  // re-judge text that was previously degraded (e.g. `model_unavailable`).
+  if (!job.force) {
+    const cached = await auditsCollection().findOne(
+      { _id: job.hash },
+      { projection: { verdict: 1, categories: 1, score: 1, reason: 1 } }
+    );
+    if (cached) {
+      const outcome: UgcAuditOutcome = {
+        verdict: cached.verdict,
+        categories: cached.categories ?? [],
+        score: cached.score ?? 0.5,
+        reason: cached.reason ?? ''
+      };
+      await applyVerdictToEntries(job.hash, outcome, 'llm');
+      if (outcome.verdict === 'block') {
+        await enforceUgcHash(job.hash);
+      }
+      return;
     }
-    return;
   }
 
   const outcome = await callUgcAi<AuditWorkerResponse>('/v1/audit', {
@@ -358,6 +375,20 @@ export const runUgcAuditJob = async (job: UgcAuditJob): Promise<void> => {
   }
   // The Worker reports its own (rough) spend; the app just meters it.
   await addUgcNeuronUsage(outcome.neurons);
+
+  // A `null` score marks a *failed* judgement (model unavailable etc.) — do
+  // NOT cache it as a real verdict (that would permanently poison the hash).
+  // Degrade to review and throw so the queue rotates the job for a retry.
+  if (outcome.score === null) {
+    const degraded: UgcAuditOutcome = {
+      verdict: 'review',
+      categories: [],
+      score: 0.5,
+      reason: typeof outcome.reason === 'string' ? outcome.reason : 'model_unavailable'
+    };
+    await applyVerdictToEntries(job.hash, degraded, 'llm');
+    throw new Error(`audit worker degraded (${degraded.reason}); will retry`);
+  }
 
   const normalized: UgcAuditOutcome = {
     verdict: outcome.verdict ?? 'review',
@@ -405,7 +436,10 @@ export const dispatchUgcAuditJobs = async (
       kind: job.kind,
       refId: job.refId,
       text: normalized,
-      ...(job.type ? { type: job.type } : {})
+      ...(job.type ? { type: job.type } : {}),
+      // Admin re-audit always re-judges — never short-circuit to a cached
+      // verdict (e.g. a stale `model_unavailable` degradation).
+      force: true
     });
     queuedHashes.push(job.hash);
     queued++;
