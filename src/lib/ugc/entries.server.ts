@@ -134,7 +134,7 @@ export const applyVerdictToEntries = async (
       );
     } else if (status === 'review') {
       result = await collection.updateMany(
-        { hash, auditStatus: { $in: ['pending', 'pass', 'queued'] } },
+        { hash, auditStatus: { $in: ['pending', 'queued'] } },
         { $set: set }
       );
     } else {
@@ -162,7 +162,7 @@ export const markEntriesQueued = async (hashes: string[]): Promise<void> => {
   if (hashes.length === 0) return;
   try {
     await ugcEntriesCollection().updateMany(
-      { hash: { $in: hashes }, auditStatus: { $ne: 'removed' } },
+      { hash: { $in: hashes }, auditStatus: { $in: ['pending', 'queued', 'review'] } },
       { $set: { auditStatus: 'queued' as UgcEntryAuditStatus, updatedAt: new Date() } }
     );
   } catch (err) {
