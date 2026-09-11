@@ -10,7 +10,7 @@
   import { onMount } from 'svelte';
   import { strip } from '$lib/utils/markdown';
   import { getNotificationLink, getNotificationTargetName } from '$lib/notifications/index.client';
-  import { ugcRemovalNoun } from '$lib/ugc/labels';
+  import { ugcRemovalNoun, ugcReasonLabel } from '$lib/ugc/labels';
 
   interface Props {
     notification: Notification;
@@ -78,15 +78,18 @@
           if (notification.reason) {
             return m.notification_system_content_removed_manual({
               type: noun,
-              reason: notification.reason
+              reason: ugcReasonLabel(notification.reason)
             });
           }
           return m.notification_system_content_removed_manual_noreason({ type: noun });
         }
-        return m.notification_system_content_removed({
-          type: noun,
-          reason: notification.reason ?? ''
-        });
+        if (notification.reason) {
+          return m.notification_system_content_removed({
+            type: noun,
+            reason: ugcReasonLabel(notification.reason)
+          });
+        }
+        return m.notification_system_content_removed_noreason({ type: noun });
       }
       default:
         return '';

@@ -45,6 +45,24 @@ export const ugcKindLabel = (kind: UgcKind): string => UGC_KIND_LABELS[kind]();
 export const ugcRemovalNoun = (type?: UgcContentType, kind?: UgcKind): string =>
   type ? ugcTypeLabel(type) : kind ? ugcKindLabel(kind) : '';
 
+/**
+ * Well-known audit-reason tokens (stored verbatim in `auditReason` and on
+ * removal notifications) → localized display labels. Free-text reasons
+ * (admin-entered notes, LLM prose) pass through `ugcReasonLabel` unchanged.
+ */
+const UGC_REASON_LABELS: Record<string, () => string> = {
+  keyword_filter: () => m.ugc_reason_keyword_filter(),
+  manual_removal: () => m.ugc_reason_manual_removal(),
+  cached_verdict: () => m.ugc_reason_cached_verdict(),
+  model_unavailable: () => m.ugc_reason_model_unavailable()
+};
+
+export const ugcReasonLabel = (reason: string | null | undefined): string =>
+  (reason && UGC_REASON_LABELS[reason]?.()) || reason || '';
+
+export const isKnownUgcReason = (reason: string | null | undefined): boolean =>
+  !!reason && reason in UGC_REASON_LABELS;
+
 /** FontAwesome icon per precise content type (admin row badges). */
 export const UGC_TYPE_ICONS: Record<UgcContentType, string> = {
   shop_name: 'fa-store',

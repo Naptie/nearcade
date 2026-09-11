@@ -1,6 +1,6 @@
 import { m } from '$lib/paraglide/messages';
 import type { Notification } from '$lib/types';
-import { ugcRemovalNoun } from '$lib/ugc/labels';
+import { ugcRemovalNoun, ugcReasonLabel } from '$lib/ugc/labels';
 
 const getDisplayName = (user?: { displayName?: string | null; name?: string | null }) => {
   return !user ? 'Unknown User' : user.displayName || (user.name ? `@${user.name}` : 'Anonymous');
@@ -64,15 +64,18 @@ export const getNotificationTitle = (notification: Notification) => {
         if (notification.reason) {
           return m.notification_system_content_removed_manual({
             type: noun,
-            reason: notification.reason
+            reason: ugcReasonLabel(notification.reason)
           });
         }
         return m.notification_system_content_removed_manual_noreason({ type: noun });
       }
-      return m.notification_system_content_removed({
-        type: noun,
-        reason: notification.reason ?? ''
-      });
+      if (notification.reason) {
+        return m.notification_system_content_removed({
+          type: noun,
+          reason: ugcReasonLabel(notification.reason)
+        });
+      }
+      return m.notification_system_content_removed_noreason({ type: noun });
     }
     default:
       return 'nearcade';

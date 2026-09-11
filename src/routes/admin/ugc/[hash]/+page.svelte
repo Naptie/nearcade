@@ -11,7 +11,9 @@
     ugcTypeLabel,
     UGC_TYPE_ICONS,
     auditStatusColor,
-    auditStatusLabel
+    auditStatusLabel,
+    ugcReasonLabel,
+    isKnownUgcReason
   } from '$lib/ugc/labels';
   import { topStatus, type UgcContentType } from '$lib/ugc/types';
   import type { UgcOccurrenceItem } from './+page.server';
@@ -352,9 +354,7 @@
             <input
               type="text"
               class="input input-bordered input-sm w-full"
-              placeholder={data.summary.auditReason === 'keyword_filter'
-                ? m.admin_ugc_reason_keyword_filter()
-                : m.admin_ugc_reason_placeholder()}
+              placeholder={m.admin_ugc_reason_placeholder()}
               bind:value={reasonDraft}
               oninput={() => (metaEdited = true)}
               disabled={busy}
@@ -377,8 +377,10 @@
             </label>
           </label>
         </div>
-        {#if reasonDraft.trim() === 'keyword_filter'}
-          <p class="text-warning mt-1 text-xs">{m.admin_ugc_reason_keyword_filter()}</p>
+        {#if isKnownUgcReason(reasonDraft.trim())}
+          <p class="text-warning mt-1 text-xs">
+            {ugcReasonLabel(reasonDraft.trim())}
+          </p>
         {/if}
         <div class="mt-2 flex items-center gap-2">
           <button
@@ -508,9 +510,7 @@
 
               {#if item.auditReason}
                 <p class="text-base-content/80 mt-2 line-clamp-2 text-sm break-all">
-                  {item.auditReason === 'keyword_filter'
-                    ? m.admin_ugc_reason_keyword_filter()
-                    : item.auditReason}
+                  {ugcReasonLabel(item.auditReason)}
                 </p>
               {/if}
               {#if item.preview}

@@ -205,8 +205,13 @@ export interface UgcAuditOutcome {
 export interface UgcAuditRecord extends UgcAuditOutcome {
   /** SHA-256 of the normalized audited text. */
   _id: string;
-  /** Where the verdict came from — carried over to occurrences on apply. */
-  source: 'prefilter' | 'llm';
+  /**
+   * Where the verdict came from — carried over to occurrences on apply.
+   * `manual` marks a cached verdict overwritten by an admin review
+   * (`updateCachedVerdict`) so future occurrences inherit the human call
+   * instead of the stale automated one.
+   */
+  source: 'prefilter' | 'llm' | 'manual';
   updatedAt: Date;
 }
 
