@@ -418,6 +418,37 @@ export const clearCachedVerdict = async (hash: string): Promise<void> => {
 };
 
 /**
+ * Overwrite the content-addressed audit cache for a hash so that future
+ * occurrences of the same text inherit the manual verdict instead of the
+ * stale AI verdict. Called by admin manual-review actions (pass / flag /
+ * remove_all).
+ */
+export const updateCachedVerdict = async (
+  hash: string,
+  verdict: UgcAuditVerdict,
+  options: { reason?: string; score?: number } = {}
+): Promise<void> => {
+  try {
+    const now = new Date();
+    await auditsCollection().updateOne(
+      { _id: hash },
+      {
+        $set: {
+          verdict,
+          score: options.score ?? (verdict === 'pass' ? 1 : verdict === 'block' ? 1 : 0.5),
+          reason: options.reason ?? '',
+          source: 'manual',
+          updatedAt: now
+        }
+      },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('[UGCAudit] Failed to update cached verdict:', err);
+  }
+};
+
+/**
  * Admin re-audit dispatch: queue a fresh judge run for a text already held
  * by the registry (text is re-verified against its registered hash).
  */

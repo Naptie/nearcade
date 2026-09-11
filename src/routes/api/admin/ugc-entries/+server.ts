@@ -1,7 +1,7 @@
 import { error, isHttpError, isRedirect, json, type RequestHandler } from '@sveltejs/kit';
 import { m } from '$lib/paraglide/messages';
 import { ugcEntriesCollection, ugcAdminFilter } from '$lib/ugc/entries.server';
-import { clearCachedVerdict, dispatchUgcAuditJobs } from '$lib/ugc/audit.server';
+import { clearCachedVerdict, dispatchUgcAuditJobs, updateCachedVerdict } from '$lib/ugc/audit.server';
 import { enforceUgcEntry, enforceUgcHash, restoreUgcEntries } from '$lib/ugc/enforcement.server';
 import { parseJsonOrError } from '$lib/utils/validation.server';
 import { ugcEntryActionRequestSchema, ugcEntryActionResponseSchema } from '$lib/schemas/ugc';
@@ -136,6 +136,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
             { $set: { auditStatus: 'pass', ...manualSet } }
           );
           affected = result.modifiedCount;
+          for (const hash of scopeHashes) {
+            await updateCachedVerdict(hash, 'pass');
+          }
         }
         break;
       }
@@ -148,6 +151,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
             { $set: { auditStatus: 'review', ...manualSet } }
           );
           affected = result.modifiedCount;
+          for (const hash of scopeHashes) {
+            await updateCachedVerdict(hash, 'review', { reason });
+          }
         }
         break;
       }
@@ -175,6 +181,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
             reviewedBy: session.user.id,
             ...(reason !== undefined ? { reason } : {})
           });
+          await updateCachedVerdict(hash, 'block', { reason });
         }
         break;
       }
