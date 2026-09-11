@@ -7,10 +7,6 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import 'dotenv/config';
 
 const base = process.env.PATH_BASE || '';
-const allowedOrigins =
-  process.env.ALLOWED_ORIGINS?.split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean) || [];
 
 const config = {
   preprocess: vitePreprocess(),
@@ -33,7 +29,7 @@ const config = {
       base
     },
     csrf: {
-      trustedOrigins: allowedOrigins
+      trustedOrigins: ['*']
     }
   }
 };
