@@ -102,7 +102,7 @@ const main = async () => {
       });
 
       fixedLinks += user.socialLinks.reduce(
-        (count, link) => (count + (link.userId == null ? 1 : 0) + (link.verified == null ? 1 : 0)),
+        (count, link) => count + (link.userId == null ? 1 : 0) + (link.verified == null ? 1 : 0),
         0
       );
       fixedUsers += 1;
