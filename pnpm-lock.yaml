@@ -180,8 +180,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       openmetro-client:
-        specifier: github:Naptie/openmetro#48833c268f12041564a204739532cee9db5ea9b2
-        version: https://codeload.github.com/Naptie/openmetro/tar.gz/48833c268f12041564a204739532cee9db5ea9b2(@elysia/eden@1.4.10(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3)))(effect@3.22.2)(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3))(zod@4.4.3)
+        specifier: github:Naptie/openmetro#client
+        version: https://codeload.github.com/Naptie/openmetro/tar.gz/f7d0af8a50c17201edd1c7f7c6b4847f348903ba(@elysia/eden@1.4.10(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3)))(effect@3.22.2)(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3))(zod@4.4.3)
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
@@ -4725,8 +4725,8 @@ packages:
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
-  openmetro-client@https://codeload.github.com/Naptie/openmetro/tar.gz/48833c268f12041564a204739532cee9db5ea9b2:
-    resolution: {gitHosted: true, integrity: sha512-KMQiLRe8g2f/kPV8PGIPiLHFXqyYFPijsTo6D/DHOfmR1fCtk/gs5MwrpHKgw+W3jNPX7WVvotalnsBNCB+qww==, tarball: https://codeload.github.com/Naptie/openmetro/tar.gz/48833c268f12041564a204739532cee9db5ea9b2}
+  openmetro-client@https://codeload.github.com/Naptie/openmetro/tar.gz/f7d0af8a50c17201edd1c7f7c6b4847f348903ba:
+    resolution: {gitHosted: true, integrity: sha512-2n5u/tiX1tqa74DhDNd3reK3aSsX907jEz6dzR3aSeXN04M4pyHOIvygv50+ti8CbsKO/20D2L+4f4GGLO6/yg==, tarball: https://codeload.github.com/Naptie/openmetro/tar.gz/f7d0af8a50c17201edd1c7f7c6b4847f348903ba}
     version: 0.1.0
     peerDependencies:
       '@elysia/eden': '>=1.0.0'
@@ -10808,7 +10808,7 @@ snapshots:
 
   openapi-types@12.1.3: {}
 
-  openmetro-client@https://codeload.github.com/Naptie/openmetro/tar.gz/48833c268f12041564a204739532cee9db5ea9b2(@elysia/eden@1.4.10(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3)))(effect@3.22.2)(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3))(zod@4.4.3):
+  openmetro-client@https://codeload.github.com/Naptie/openmetro/tar.gz/f7d0af8a50c17201edd1c7f7c6b4847f348903ba(@elysia/eden@1.4.10(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3)))(effect@3.22.2)(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3))(zod@4.4.3):
     dependencies:
       '@elysia/eden': 1.4.10(elysia@1.4.29(@sinclair/typebox@0.34.52)(exact-mirror@1.0.0)(file-type@22.0.1(supports-color@10.2.2))(openapi-types@12.1.3)(typescript@6.0.3))
       effect: 3.22.2

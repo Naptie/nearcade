@@ -107,7 +107,7 @@
     "meilisearch": "^0.58.0",
     "mongodb": "^7.5.0",
     "nanoid": "^6.0.1",
-    "openmetro-client": "github:Naptie/openmetro#48833c268f12041564a204739532cee9db5ea9b2",
+    "openmetro-client": "github:Naptie/openmetro#client",
     "picocolors": "^1.1.1",
     "qrcode": "^1.5.4",
     "redis": "^5.12.1",
