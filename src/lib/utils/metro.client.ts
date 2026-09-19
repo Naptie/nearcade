@@ -290,6 +290,19 @@ export const buildMetroFullPath = (
 /** AMap wants plain `{ lng, lat }` objects for `path` fields. */
 const toAMapPath = (coords: [number, number][]): Path => coords.map(([lng, lat]) => ({ lng, lat }));
 
+export const getMetroShopLines = (
+  shop: Shop,
+  block: DiscoverMetroBlock | undefined
+): ShopMetro['lines'] => {
+  const metro = shop.transit?.metro;
+  if (!metro) return [];
+
+  return metro.lines.map((line) => {
+    if (block?.network.id === metro.networkId) return block.lines[line.id] ?? line;
+    return line;
+  });
+};
+
 const getMetroShopLine = (
   shop: Shop,
   block: DiscoverMetroBlock | undefined
@@ -308,15 +321,10 @@ const getMetroShopLine = (
       )
         continue;
 
-      return (
-        block.lines[leg.lineId] ??
-        metro.lines.find((line) => line.id === leg.lineId) ??
-        metro.lines[0] ??
-        null
-      );
+      return getMetroShopLines(shop, block).find((line) => line.id === leg.lineId) ?? null;
     }
   }
-  return metro.lines[0] ?? null;
+  return getMetroShopLines(shop, block)[0] ?? null;
 };
 
 export const getMetroShopColor = (

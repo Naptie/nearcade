@@ -431,6 +431,22 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
     fetched.flatMap((entry) => entry.lineDocs).map((line) => [line._id, line] as const)
   );
 
+  const stationLineBadges = (station: MetroStationDoc): ShopMetro['lines'] =>
+    station.lineIds.flatMap((lineId) => {
+      const line = lineDocsById.get(lineId);
+      return line
+        ? [
+            {
+              id: line._id,
+              name: line.name,
+              names: line.names,
+              color: line.color,
+              shortName: line.shortName
+            }
+          ]
+        : [];
+    });
+
   interface AssignableShop {
     id: number;
     location?: { coordinates?: [number, number] | null } | null;
@@ -463,20 +479,7 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
           names: snap.station.names,
           walkSeconds: computeWalkSeconds(snap.distanceKm),
           distanceKm: Math.round(snap.distanceKm * 1000) / 1000,
-          lines: snap.station.lineIds.flatMap((lineId) => {
-            const line = lineDocsById.get(lineId);
-            return line
-              ? [
-                  {
-                    id: line._id,
-                    name: line.name,
-                    names: line.names,
-                    color: line.color,
-                    shortName: line.shortName
-                  }
-                ]
-              : [];
-          })
+          lines: stationLineBadges(snap.station)
         }
       : null;
 
@@ -572,20 +575,7 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
         stationId,
         name: station.name,
         names: station.names,
-        lines: station.lineIds.flatMap((lineId) => {
-          const line = lineDocsById.get(lineId);
-          return line
-            ? [
-                {
-                  id: line._id,
-                  name: line.name,
-                  names: line.names,
-                  color: line.color,
-                  shortName: line.shortName
-                }
-              ]
-            : [];
-        }),
+        lines: stationLineBadges(station),
         location: { lon: station.lon, lat: station.lat },
         rankings: METRO_RANKING_RADIUS_OPTIONS.map((radius) =>
           calculateMetricsForRadius(

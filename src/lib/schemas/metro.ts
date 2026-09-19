@@ -14,6 +14,12 @@ export const metroLineBadgeSchema = z.object({
   shortName: z.string().describe(bilingual('线路官方短号。', 'Official compact line code.'))
 });
 
+export const metroLineBadgesSchema = z
+  .array(metroLineBadgeSchema)
+  .describe(bilingual('站点所属的全部线路。', 'All lines serving the station.'));
+
+export type MetroLineBadge = z.infer<typeof metroLineBadgeSchema>;
+
 export const shopMetroSchema = z
   .object({
     networkId: z.string().describe(bilingual('所属地铁网络 ID。', 'Metro network ID.')),
@@ -40,9 +46,7 @@ export const shopMetroSchema = z
           'Straight-line distance from the shop to the station in km.'
         )
       ),
-    lines: z
-      .array(metroLineBadgeSchema)
-      .describe(bilingual('站点所属线路。', 'Lines serving the station.'))
+    lines: metroLineBadgesSchema
   })
   .describe(bilingual('店铺关联的地铁站信息。', 'Metro station assignment for the shop.'));
 
@@ -192,9 +196,7 @@ export const metroStationRankingSchema = z.object({
   names: z
     .object({ zh: z.string(), en: z.string() })
     .describe(bilingual('地铁站多语名称。', 'Multilingual station names.')),
-  lines: z
-    .array(metroLineBadgeSchema)
-    .describe(bilingual('站点所属线路。', 'Lines serving the station.')),
+  lines: metroLineBadgesSchema,
   location: z
     .object({ lon: z.number(), lat: z.number() })
     .describe(bilingual('站点坐标。', 'Station coordinates.')),

@@ -38,8 +38,7 @@
     getMetroItinerary,
     getMetroBadgeTextColor,
     getMetroLocalizedName,
-    getMetroShopColor,
-    getMetroShopLineCode,
+    getMetroShopLines,
     METRO_WALK_COLOR,
     METRO_WALK_DASH
   } from '$lib/utils/metro.client';
@@ -728,18 +727,21 @@
 
   const createAMapShopLabel = (shop: DiscoverShop): string => {
     const label = document.createElement('span');
-    label.className = 'inline-flex items-center gap-1.5 whitespace-nowrap';
-    const lineCode =
-      metroEnabled && shop.transit?.metro ? getMetroShopLineCode(shop, data.metro) : null;
-    if (lineCode) {
-      const color = getMetroShopColor(shop, data.metro) ?? '#64748b';
+    label.className = 'inline-flex items-center gap-x-1.5 whitespace-nowrap';
+    const lines = metroEnabled && shop.transit?.metro ? getMetroShopLines(shop, data.metro) : [];
+    const lineGroup = document.createElement('span');
+    lineGroup.className = 'inline-flex items-center gap-0.25';
+    for (const line of lines) {
       const chip = document.createElement('span');
-      chip.className = 'min-w-5 rounded-sm px-1 text-center leading-5 font-bold';
+      chip.className =
+        'min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap';
+      const color = line.color ?? '#64748b';
       chip.style.backgroundColor = color;
       chip.style.color = getMetroBadgeTextColor(color);
-      chip.textContent = lineCode;
-      label.appendChild(chip);
+      chip.textContent = line.shortName;
+      lineGroup.appendChild(chip);
     }
+    if (lines.length > 0) label.appendChild(lineGroup);
     // sanitizeHTML allows markup and strips inline styles. DOM text nodes
     // escape external names; style properties avoid interpolating CSS into HTML.
     label.appendChild(document.createTextNode(shop.name));
@@ -1829,26 +1831,28 @@
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
                     {#if metroEnabled && shop.transit?.metro}
-                      {@const metroColor = getMetroShopColor(shop, data.metro) ?? '#64748b'}
-                      {@const lineCode = getMetroShopLineCode(shop, data.metro)}
+                      {@const metroLines = getMetroShopLines(shop, data.metro)}
                       {@const stationLabel = getMetroLocalizedName(
                         shop.transit.metro.names,
                         shop.transit.metro.stationName,
                         getLocale()
                       )}
-                      <div class="mt-1 flex items-center">
+                      <div class="mt-1 flex max-w-full flex-wrap items-center">
                         <span
-                          class="border-base-content/15 bg-base-200 text-base-content inline-flex items-center gap-1.5 rounded-md border p-0.5 pr-1.5 text-xs"
+                          class="border-base-content/15 bg-base-200 text-base-content inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md border p-0.5 pr-1.5 text-xs"
                           title="{m.metro_station()}: {stationLabel}"
                         >
-                          {#if lineCode}
-                            <span
-                              class="min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap"
-                              style="background-color: {metroColor}; color: {getMetroBadgeTextColor(
-                                metroColor
-                              )}">{lineCode}</span
-                            >
-                          {/if}
+                          <div class="inline-flex max-w-full flex-wrap items-center gap-0.25">
+                            {#each metroLines as line (line.id)}
+                              {@const metroColor = line.color ?? '#64748b'}
+                              <span
+                                class="min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap"
+                                style="background-color: {metroColor}; color: {getMetroBadgeTextColor(
+                                  metroColor
+                                )}">{line.shortName}</span
+                              >
+                            {/each}
+                          </div>
                           {stationLabel}
                         </span>
                       </div>

@@ -28,6 +28,7 @@ const suite = (name: string, run: () => Promise<void>) => suites.push({ name, ru
 suite('sync', async () => {
   const { GAME_TITLES, METRO_RANKING_RADIUS_OPTIONS, metroRankingSortKey } =
     await import('../src/lib/constants');
+  const { shopMetroSchema } = await import('../src/lib/schemas/metro');
   const { runOpenMetroSync } = await import('../src/lib/openmetro/sync.server');
 
   const baseUrl = 'https://metro-sync-test.invalid';
@@ -36,13 +37,14 @@ suite('sync', async () => {
   const routing = { weight: 'time', default_transfer_seconds: 120 };
   const fixtures = ['cn-aa', 'cn-bb'].map((id, index) => {
     const lineId = `${id}-line`;
+    const interchangeLineId = `${id}-interchange`;
     const stations = ['a', 'b'].map((suffix, stationIndex) => ({
       id: `${id}-${suffix}`,
       name: `${id}-${suffix}`,
       names,
       location: { lon: 116 + index + stationIndex * 0.1, lat: 40, crs: 'gcj02' },
       status: 'operating',
-      lines: [lineId],
+      lines: stationIndex === 0 ? [lineId, interchangeLineId] : [lineId],
       is_interchange: false
     }));
     const nodes = stations.map((station) => ({
@@ -71,6 +73,16 @@ suite('sync', async () => {
           names,
           color: '#123456',
           short_name: '1',
+          mode: 'metro',
+          status: 'operating',
+          loop: false
+        },
+        {
+          id: interchangeLineId,
+          name: 'Interchange line',
+          names,
+          color: '#654321',
+          short_name: 'X',
           mode: 'metro',
           status: 'operating',
           loop: false
@@ -298,6 +310,10 @@ suite('sync', async () => {
     store.set('shops', [atStation(1, 0, 0), atStation(2, 0, 1), atStation(3, 1, 0)]);
     await sync(true);
     assert.equal(rankings().length, 3);
+    assert.deepEqual(
+      shopMetroSchema.parse(assignment(1)).lines.map((line) => line.shortName),
+      ['1', 'X']
+    );
     const previousNetworks = structuredClone(metadata().networks);
     resetActivity();
 
@@ -938,7 +954,22 @@ suite('route', async () => {
           names: { zh: 'b', en: 'b' },
           walkSeconds,
           distanceKm: 1,
-          lines: []
+          lines: [
+            {
+              id: 'L1',
+              name: 'Line 1',
+              names: { zh: '1号线', en: 'Line 1' },
+              color: '#123456',
+              shortName: '1'
+            },
+            {
+              id: 'L2',
+              name: 'Line 2',
+              names: { zh: '2号线', en: 'Line 2' },
+              color: '#654321',
+              shortName: '2'
+            }
+          ]
         }
       }
     })
@@ -1033,8 +1064,12 @@ suite('route', async () => {
 
   try {
     const { loadShops } = await import('../src/lib/endpoints/discover.server');
-    const { buildMetroOverlay, buildMetroFullPath, buildMetroTransitPlan } =
+    const { buildMetroOverlay, buildMetroFullPath, buildMetroTransitPlan, getMetroShopLines } =
       await import('../src/lib/utils/metro.client');
+    assert.deepEqual(
+      getMetroShopLines(shops[0], undefined).map((line) => line.shortName),
+      ['1', '2']
+    );
     const load = (lon: number, lat: number) =>
       loadShops({
         url: new URL(

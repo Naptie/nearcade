@@ -936,7 +936,7 @@
                                       "required": ["id", "name", "names", "color", "shortName"],
                                       "additionalProperties": false
                                     },
-                                    "description": "站点所属线路。\n\nLines serving the station."
+                                    "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                   }
                                 },
                                 "required": [
@@ -1436,7 +1436,7 @@
                                       "required": ["id", "name", "names", "color", "shortName"],
                                       "additionalProperties": false
                                     },
-                                    "description": "站点所属线路。\n\nLines serving the station."
+                                    "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                   }
                                 },
                                 "required": [
@@ -3085,7 +3085,7 @@
                                       "required": ["id", "name", "names", "color", "shortName"],
                                       "additionalProperties": false
                                     },
-                                    "description": "站点所属线路。\n\nLines serving the station."
+                                    "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                   }
                                 },
                                 "required": [
@@ -5143,7 +5143,7 @@
                               "required": ["id", "name", "names", "color", "shortName"],
                               "additionalProperties": false
                             },
-                            "description": "站点所属线路。\n\nLines serving the station."
+                            "description": "站点所属的全部线路。\n\nAll lines serving the station."
                           },
                           "location": {
                             "type": "object",
@@ -5756,7 +5756,7 @@
                                       "required": ["id", "name", "names", "color", "shortName"],
                                       "additionalProperties": false
                                     },
-                                    "description": "站点所属线路。\n\nLines serving the station."
+                                    "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                   }
                                 },
                                 "required": [
@@ -6382,7 +6382,7 @@
                                     "required": ["id", "name", "names", "color", "shortName"],
                                     "additionalProperties": false
                                   },
-                                  "description": "站点所属线路。\n\nLines serving the station."
+                                  "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                 }
                               },
                               "required": [
@@ -6830,7 +6830,7 @@
                                     "required": ["id", "name", "names", "color", "shortName"],
                                     "additionalProperties": false
                                   },
-                                  "description": "站点所属线路。\n\nLines serving the station."
+                                  "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                 }
                               },
                               "required": [
@@ -7455,7 +7455,7 @@
                                     "required": ["id", "name", "names", "color", "shortName"],
                                     "additionalProperties": false
                                   },
-                                  "description": "站点所属线路。\n\nLines serving the station."
+                                  "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                 }
                               },
                               "required": [
@@ -7899,7 +7899,7 @@
                                     "required": ["id", "name", "names", "color", "shortName"],
                                     "additionalProperties": false
                                   },
-                                  "description": "站点所属线路。\n\nLines serving the station."
+                                  "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                 }
                               },
                               "required": [
@@ -15230,7 +15230,7 @@
                                           "required": ["id", "name", "names", "color", "shortName"],
                                           "additionalProperties": false
                                         },
-                                        "description": "站点所属线路。\n\nLines serving the station."
+                                        "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                       }
                                     },
                                     "required": [
@@ -15608,7 +15608,7 @@
                                           "required": ["id", "name", "names", "color", "shortName"],
                                           "additionalProperties": false
                                         },
-                                        "description": "站点所属线路。\n\nLines serving the station."
+                                        "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                       }
                                     },
                                     "required": [
@@ -16915,7 +16915,7 @@
                                           "required": ["id", "name", "names", "color", "shortName"],
                                           "additionalProperties": false
                                         },
-                                        "description": "站点所属线路。\n\nLines serving the station."
+                                        "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                       }
                                     },
                                     "required": [
@@ -17293,7 +17293,7 @@
                                           "required": ["id", "name", "names", "color", "shortName"],
                                           "additionalProperties": false
                                         },
-                                        "description": "站点所属线路。\n\nLines serving the station."
+                                        "description": "站点所属的全部线路。\n\nAll lines serving the station."
                                       }
                                     },
                                     "required": [
