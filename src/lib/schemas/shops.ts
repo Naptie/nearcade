@@ -225,12 +225,7 @@ export const shopSchema = z.object({
     ),
   transit: shopTransitSchema
     .optional()
-    .describe(
-      bilingual(
-        '店铺的交通信息（由 openmetro 同步任务维护）。',
-        'Transit information for the shop (maintained by the openmetro sync task).'
-      )
-    ),
+    .describe(bilingual('店铺的交通信息。', 'Transit information for the shop.')),
   createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')),
   updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });

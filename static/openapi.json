@@ -852,7 +852,7 @@
                             "type": "boolean"
                           },
                           "transit": {
-                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "description": "店铺的交通信息。\n\nTransit information for the shop.",
                             "type": "object",
                             "properties": {
                               "metro": {
@@ -1352,7 +1352,7 @@
                             "type": "boolean"
                           },
                           "transit": {
-                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "description": "店铺的交通信息。\n\nTransit information for the shop.",
                             "type": "object",
                             "properties": {
                               "metro": {
@@ -3001,7 +3001,7 @@
                             "type": "boolean"
                           },
                           "transit": {
-                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "description": "店铺的交通信息。\n\nTransit information for the shop.",
                             "type": "object",
                             "properties": {
                               "metro": {
@@ -5672,7 +5672,7 @@
                             "type": "boolean"
                           },
                           "transit": {
-                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "description": "店铺的交通信息。\n\nTransit information for the shop.",
                             "type": "object",
                             "properties": {
                               "metro": {
@@ -6298,7 +6298,7 @@
                           "type": "boolean"
                         },
                         "transit": {
-                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "description": "店铺的交通信息。\n\nTransit information for the shop.",
                           "type": "object",
                           "properties": {
                             "metro": {
@@ -6746,7 +6746,7 @@
                           "type": "boolean"
                         },
                         "transit": {
-                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "description": "店铺的交通信息。\n\nTransit information for the shop.",
                           "type": "object",
                           "properties": {
                             "metro": {
@@ -7371,7 +7371,7 @@
                           "type": "boolean"
                         },
                         "transit": {
-                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "description": "店铺的交通信息。\n\nTransit information for the shop.",
                           "type": "object",
                           "properties": {
                             "metro": {
@@ -7815,7 +7815,7 @@
                           "type": "boolean"
                         },
                         "transit": {
-                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "description": "店铺的交通信息。\n\nTransit information for the shop.",
                           "type": "object",
                           "properties": {
                             "metro": {
@@ -15146,7 +15146,7 @@
                                 "type": "boolean"
                               },
                               "transit": {
-                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "description": "店铺的交通信息。\n\nTransit information for the shop.",
                                 "type": "object",
                                 "properties": {
                                   "metro": {
@@ -15524,7 +15524,7 @@
                                 "type": "boolean"
                               },
                               "transit": {
-                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "description": "店铺的交通信息。\n\nTransit information for the shop.",
                                 "type": "object",
                                 "properties": {
                                   "metro": {
@@ -16831,7 +16831,7 @@
                                 "type": "boolean"
                               },
                               "transit": {
-                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "description": "店铺的交通信息。\n\nTransit information for the shop.",
                                 "type": "object",
                                 "properties": {
                                   "metro": {
@@ -17209,7 +17209,7 @@
                                 "type": "boolean"
                               },
                               "transit": {
-                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "description": "店铺的交通信息。\n\nTransit information for the shop.",
                                 "type": "object",
                                 "properties": {
                                   "metro": {
