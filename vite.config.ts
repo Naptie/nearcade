@@ -99,6 +99,9 @@ export default defineConfig({
   resolve: {
     dedupe: ['@better-auth/core', 'better-auth']
   },
+  optimizeDeps: {
+    exclude: ['maplibre-gl']
+  },
   build: {
     minify: 'terser',
     terserOptions: {
