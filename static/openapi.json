@@ -851,6 +851,108 @@
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
                           },
+                          "transit": {
+                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "type": "object",
+                            "properties": {
+                              "metro": {
+                                "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                "type": "object",
+                                "properties": {
+                                  "networkId": {
+                                    "type": "string",
+                                    "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                  },
+                                  "stationId": {
+                                    "type": "string",
+                                    "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                  },
+                                  "stationName": {
+                                    "type": "string",
+                                    "description": "最近地铁站名称。\n\nNearest metro station name."
+                                  },
+                                  "names": {
+                                    "type": "object",
+                                    "properties": {
+                                      "zh": {
+                                        "type": "string"
+                                      },
+                                      "en": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": ["zh", "en"],
+                                    "additionalProperties": false,
+                                    "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                  },
+                                  "walkSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                  },
+                                  "distanceKm": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                  },
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "线路 ID。\n\nLine ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "线路名称。\n\nLine name."
+                                        },
+                                        "names": {
+                                          "type": "object",
+                                          "properties": {
+                                            "zh": {
+                                              "type": "string"
+                                            },
+                                            "en": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": ["zh", "en"],
+                                          "additionalProperties": false,
+                                          "description": "线路多语名称。\n\nMultilingual line names."
+                                        },
+                                        "color": {
+                                          "nullable": true,
+                                          "description": "线路官方色值。\n\nOfficial line color.",
+                                          "type": "string"
+                                        },
+                                        "shortName": {
+                                          "type": "string",
+                                          "description": "线路官方短号。\n\nOfficial compact line code."
+                                        }
+                                      },
+                                      "required": ["id", "name", "names", "color", "shortName"],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "站点所属线路。\n\nLines serving the station."
+                                  }
+                                },
+                                "required": [
+                                  "networkId",
+                                  "stationId",
+                                  "stationName",
+                                  "names",
+                                  "walkSeconds",
+                                  "distanceKm",
+                                  "lines"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
+                          },
                           "createdAt": {
                             "description": "创建时间。\n\nCreation time.",
                             "type": "string",
@@ -1248,6 +1350,108 @@
                           "isLocked": {
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
+                          },
+                          "transit": {
+                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "type": "object",
+                            "properties": {
+                              "metro": {
+                                "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                "type": "object",
+                                "properties": {
+                                  "networkId": {
+                                    "type": "string",
+                                    "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                  },
+                                  "stationId": {
+                                    "type": "string",
+                                    "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                  },
+                                  "stationName": {
+                                    "type": "string",
+                                    "description": "最近地铁站名称。\n\nNearest metro station name."
+                                  },
+                                  "names": {
+                                    "type": "object",
+                                    "properties": {
+                                      "zh": {
+                                        "type": "string"
+                                      },
+                                      "en": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": ["zh", "en"],
+                                    "additionalProperties": false,
+                                    "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                  },
+                                  "walkSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                  },
+                                  "distanceKm": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                  },
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "线路 ID。\n\nLine ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "线路名称。\n\nLine name."
+                                        },
+                                        "names": {
+                                          "type": "object",
+                                          "properties": {
+                                            "zh": {
+                                              "type": "string"
+                                            },
+                                            "en": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": ["zh", "en"],
+                                          "additionalProperties": false,
+                                          "description": "线路多语名称。\n\nMultilingual line names."
+                                        },
+                                        "color": {
+                                          "nullable": true,
+                                          "description": "线路官方色值。\n\nOfficial line color.",
+                                          "type": "string"
+                                        },
+                                        "shortName": {
+                                          "type": "string",
+                                          "description": "线路官方短号。\n\nOfficial compact line code."
+                                        }
+                                      },
+                                      "required": ["id", "name", "names", "color", "shortName"],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "站点所属线路。\n\nLines serving the station."
+                                  }
+                                },
+                                "required": [
+                                  "networkId",
+                                  "stationId",
+                                  "stationName",
+                                  "names",
+                                  "walkSeconds",
+                                  "distanceKm",
+                                  "lines"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
                           },
                           "createdAt": {
                             "description": "创建时间。\n\nCreation time.",
@@ -2376,7 +2580,7 @@
       "get": {
         "tags": ["discover"],
         "summary": "获取附近店铺 / Discover nearby shops",
-        "description": "获取原点附近的店铺，可选择是否包含在勤人数和计算得出的营业时间信息。\n\nFind shops near an origin point, optionally including attendance and computed opening-time information.",
+        "description": "获取原点附近的店铺，可选择是否包含在勤人数和计算得出的营业时间信息。`radius` 同时表示出行时间预算：每个距离档位都对应一个通常所需的出行时间，服务端据此为每家店铺计算最快的到达方式（步行 / 骑行 / 地铁），因此地铁可达的店铺可能超出半径范围——结果始终按出行时间排序，并按 `limit` 截断。当地铁数据可用时（原点 3 km 内有运营车站），响应还会附带 `metro` 行程块：包含最快方式为地铁的店铺的完整行程（乘车站序、官方线路色与短号），浏览器可直接渲染，无需额外请求。注意：`limit=150` 且命中较多地铁行程时响应可达约 270 KB（gzip 后约 90 KB）。\n\nFind shops near an origin point, optionally including attendance and computed opening-time information. `radius` doubles as the travel-time budget: each distance option implies the time it typically takes, and the server computes each shop’s fastest option (walk / ride / metro) accordingly — so metro-reachable shops may sit beyond the radius. Results are always ranked by travel time and cut to `limit`. When metro data is available (origin within 3 km of an operating station), the response also carries a `metro` itinerary block covering the shops whose fastest option is the metro (station sequences, official line colors and short codes) — ready to render with zero follow-up requests. Note: with `limit=150` and many metro itineraries the response can reach ~270 KB (~90 KB gzipped).",
         "operationId": "getDiscover",
         "parameters": [
           {
@@ -2417,7 +2621,7 @@
             "in": "query",
             "name": "radius",
             "schema": {
-              "description": "范围半径，单位 km；0 表示无限制。默认为 10。\n\nSearch radius in kilometers; 0 means unlimited. Defaults to 10.",
+              "description": "范围半径，单位 km；0 表示无限制。默认为 10。任意值会吸附到最近的受支持选项。\n\nSearch radius in kilometers; 0 means unlimited. Defaults to 10. Arbitrary values snap to the closest supported option.",
               "anyOf": [
                 {
                   "type": "string"
@@ -2430,7 +2634,7 @@
                 }
               ]
             },
-            "description": "范围半径，单位 km；0 表示无限制。默认为 10。\n\nSearch radius in kilometers; 0 means unlimited. Defaults to 10."
+            "description": "范围半径，单位 km；0 表示无限制。默认为 10。任意值会吸附到最近的受支持选项。\n\nSearch radius in kilometers; 0 means unlimited. Defaults to 10. Arbitrary values snap to the closest supported option."
           },
           {
             "in": "query",
@@ -2796,6 +3000,108 @@
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
                           },
+                          "transit": {
+                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "type": "object",
+                            "properties": {
+                              "metro": {
+                                "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                "type": "object",
+                                "properties": {
+                                  "networkId": {
+                                    "type": "string",
+                                    "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                  },
+                                  "stationId": {
+                                    "type": "string",
+                                    "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                  },
+                                  "stationName": {
+                                    "type": "string",
+                                    "description": "最近地铁站名称。\n\nNearest metro station name."
+                                  },
+                                  "names": {
+                                    "type": "object",
+                                    "properties": {
+                                      "zh": {
+                                        "type": "string"
+                                      },
+                                      "en": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": ["zh", "en"],
+                                    "additionalProperties": false,
+                                    "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                  },
+                                  "walkSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                  },
+                                  "distanceKm": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                  },
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "线路 ID。\n\nLine ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "线路名称。\n\nLine name."
+                                        },
+                                        "names": {
+                                          "type": "object",
+                                          "properties": {
+                                            "zh": {
+                                              "type": "string"
+                                            },
+                                            "en": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": ["zh", "en"],
+                                          "additionalProperties": false,
+                                          "description": "线路多语名称。\n\nMultilingual line names."
+                                        },
+                                        "color": {
+                                          "nullable": true,
+                                          "description": "线路官方色值。\n\nOfficial line color.",
+                                          "type": "string"
+                                        },
+                                        "shortName": {
+                                          "type": "string",
+                                          "description": "线路官方短号。\n\nOfficial compact line code."
+                                        }
+                                      },
+                                      "required": ["id", "name", "names", "color", "shortName"],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "站点所属线路。\n\nLines serving the station."
+                                  }
+                                },
+                                "required": [
+                                  "networkId",
+                                  "stationId",
+                                  "stationName",
+                                  "names",
+                                  "walkSeconds",
+                                  "distanceKm",
+                                  "lines"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
+                          },
                           "createdAt": {
                             "description": "创建时间。\n\nCreation time.",
                             "type": "string",
@@ -2809,6 +3115,26 @@
                           "distance": {
                             "type": "number",
                             "description": "店铺距离，单位 km。\n\nDistance from the origin in kilometers."
+                          },
+                          "travel": {
+                            "description": "地铁到达方式与耗时；无地铁优势时省略。\n\nMetro arrival time; omitted when the metro offers no advantage.",
+                            "type": "object",
+                            "properties": {
+                              "seconds": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "门到门地铁耗时（秒）。\n\nDoor-to-door metro seconds."
+                              },
+                              "metroSeconds": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "地铁在途耗时（秒）。\n\nIn-system metro seconds."
+                              }
+                            },
+                            "required": ["seconds", "metroSeconds"],
+                            "additionalProperties": false
                           },
                           "totalAttendance": {
                             "description": "店铺综合在勤人数。\n\nCombined shop attendance count.",
@@ -2918,6 +3244,249 @@
                       "items": {
                         "type": "number"
                       }
+                    },
+                    "metro": {
+                      "description": "地铁行程信息块（原点 3 km 内有车站，且至少一家返回店铺的最快方式是地铁时出现）。\n\nMetro itinerary block (present when the origin snaps to a station and ≥1 returned shop is fastest reached by metro).",
+                      "type": "object",
+                      "properties": {
+                        "network": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "地铁网络 ID。\n\nMetro network ID."
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "地铁网络名称。\n\nMetro network name."
+                            },
+                            "names": {
+                              "type": "object",
+                              "properties": {
+                                "zh": {
+                                  "type": "string"
+                                },
+                                "en": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["zh", "en"],
+                              "additionalProperties": false,
+                              "description": "地铁网络多语名称。\n\nMultilingual network names."
+                            },
+                            "cityRegionId": {
+                              "type": "string",
+                              "description": "城市区域 ID。\n\nCity region ID."
+                            }
+                          },
+                          "required": ["id", "name", "names", "cityRegionId"],
+                          "additionalProperties": false,
+                          "description": "原点车站所属网络。\n\nNetwork of the origin station."
+                        },
+                        "origin": {
+                          "type": "object",
+                          "properties": {
+                            "stationId": {
+                              "type": "string",
+                              "description": "原点车站 ID。\n\nOrigin station ID."
+                            },
+                            "stationName": {
+                              "type": "string",
+                              "description": "原点车站名称。\n\nOrigin station name."
+                            },
+                            "names": {
+                              "type": "object",
+                              "properties": {
+                                "zh": {
+                                  "type": "string"
+                                },
+                                "en": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["zh", "en"],
+                              "additionalProperties": false,
+                              "description": "原点车站多语名称。\n\nMultilingual origin-station names."
+                            },
+                            "walkSeconds": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991,
+                              "description": "原点到车站的步行时间（秒）。\n\nWalk seconds from origin to station."
+                            },
+                            "lon": {
+                              "type": "number",
+                              "description": "搜索原点经度。\n\nSearch-origin longitude."
+                            },
+                            "lat": {
+                              "type": "number",
+                              "description": "搜索原点纬度。\n\nSearch-origin latitude."
+                            }
+                          },
+                          "required": [
+                            "stationId",
+                            "stationName",
+                            "names",
+                            "walkSeconds",
+                            "lon",
+                            "lat"
+                          ],
+                          "additionalProperties": false,
+                          "description": "原点进站信息。\n\nOrigin station entry info."
+                        },
+                        "lines": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "线路 ID。\n\nLine ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "线路名称。\n\nLine name."
+                              },
+                              "names": {
+                                "type": "object",
+                                "properties": {
+                                  "zh": {
+                                    "type": "string"
+                                  },
+                                  "en": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["zh", "en"],
+                                "additionalProperties": false,
+                                "description": "线路多语名称。\n\nMultilingual line names."
+                              },
+                              "color": {
+                                "nullable": true,
+                                "description": "线路官方色值。\n\nOfficial line color.",
+                                "type": "string"
+                              },
+                              "shortName": {
+                                "type": "string",
+                                "description": "线路官方短号。\n\nOfficial compact line code."
+                              }
+                            },
+                            "required": ["id", "name", "names", "color", "shortName"],
+                            "additionalProperties": false
+                          },
+                          "description": "行程涉及的线路。\n\nReferenced lines in itineraries."
+                        },
+                        "stations": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "description": "站点名称。\n\nStation name."
+                              },
+                              "names": {
+                                "type": "object",
+                                "properties": {
+                                  "zh": {
+                                    "type": "string"
+                                  },
+                                  "en": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["zh", "en"],
+                                "additionalProperties": false,
+                                "description": "站点多语名称。\n\nMultilingual station names."
+                              },
+                              "lon": {
+                                "type": "number",
+                                "description": "站点经度。\n\nStation longitude."
+                              },
+                              "lat": {
+                                "type": "number",
+                                "description": "站点纬度。\n\nStation latitude."
+                              }
+                            },
+                            "required": ["name", "names", "lon", "lat"],
+                            "additionalProperties": false
+                          },
+                          "description": "行程涉及的站点。\n\nReferenced stations in itineraries."
+                        },
+                        "shops": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "totalSeconds": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "总耗时（秒）＝ 步行进站 + 进站开销 + 在途 + 出站开销 + 步行到店。\n\nTotal travel seconds = access walk + entry overhead + in-system + exit overhead + egress walk."
+                              },
+                              "rideSeconds": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "乘车路段总耗时（秒）。\n\nTotal ride-leg seconds."
+                              },
+                              "transferCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "换乘次数。\n\nNumber of transfers."
+                              },
+                              "legs": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": ["ride", "transfer"],
+                                      "description": "路段类型：乘车或换乘。\n\nLeg kind: ride or transfer."
+                                    },
+                                    "lineId": {
+                                      "description": "乘车路段的线路 ID。\n\nLine ID for ride legs.",
+                                      "type": "string"
+                                    },
+                                    "stationIds": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "description": "途经站点 ID（乘车路段含首末站）。\n\nStation ids visited in order (ride legs include both endpoints)."
+                                    },
+                                    "seconds": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991,
+                                      "description": "路段耗时（秒）。\n\nLeg duration in seconds."
+                                    },
+                                    "distanceKm": {
+                                      "description": "路段距离（km）。\n\nLeg distance in km.",
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "direction": {
+                                      "description": "乘车路段方向（终点站名）。\n\nRide leg direction (terminal station name).",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["kind", "stationIds", "seconds"],
+                                  "additionalProperties": false
+                                },
+                                "description": "行程路段列表。\n\nItinerary legs in order."
+                              }
+                            },
+                            "required": ["totalSeconds", "rideSeconds", "transferCount", "legs"],
+                            "additionalProperties": false
+                          },
+                          "description": "各店铺的行程。\n\nItineraries for each shop."
+                        }
+                      },
+                      "required": ["network", "origin", "lines", "stations", "shops"],
+                      "additionalProperties": false
                     }
                   },
                   "required": ["shops", "location", "radius"],
@@ -4396,6 +4965,379 @@
         }
       }
     },
+    "/rankings/metro": {
+      "get": {
+        "tags": ["rankings"],
+        "summary": "获取地铁站排名 / Get metro station rankings",
+        "description": "读取持久化的地铁站排名，不触发同步或 API 调用。按所选维度与半径的全局名次升序分页（rankOrder 键为 维度_半径）；筛选网络后保留全局名次。\n\nRead persisted metro station rankings without triggering sync or API calls. Paginate by ascending global rank for the selected sort key and radius (rankOrder key `sortBy_radius`); network filtering preserves global ranks.",
+        "operationId": "getRankingsMetro",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "networkId",
+            "schema": {
+              "description": "按网络 ID 筛选；空白表示所有网络。\n\nFilter by network ID; blank means all networks.",
+              "type": "string",
+              "pattern": "^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$"
+            },
+            "description": "按网络 ID 筛选；空白表示所有网络。\n\nFilter by network ID; blank means all networks."
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "schema": {
+              "default": "shops",
+              "description": "排序维度。默认 shops。\n\nSort key. Defaults to shops.",
+              "type": "string",
+              "enum": [
+                "shops",
+                "machines",
+                "maimai_dx",
+                "maimai",
+                "chunithm",
+                "sound_voltex",
+                "beatmania_iidx",
+                "jubeat",
+                "nostalgia",
+                "gd_guitarfreaks",
+                "gd_drummania",
+                "dancerush",
+                "dance_dance_revolution",
+                "popn_music",
+                "danceevolution",
+                "reflec_beat",
+                "taiko_no_tatsujin_old",
+                "groove_coaster",
+                "wacca",
+                "pump_it_up",
+                "top_star",
+                "djmax_technika",
+                "percussion_master",
+                "danzbase",
+                "project_diva_arcade",
+                "ongeki",
+                "dance_around",
+                "taiko_no_tatsujin",
+                "dance3_evo",
+                "jubeat_cn"
+              ]
+            },
+            "description": "排序维度。默认 shops。\n\nSort key. Defaults to shops."
+          },
+          {
+            "in": "query",
+            "name": "radius",
+            "schema": {
+              "description": "统计半径（km）。默认 2。\n\nMetrics radius in km. Defaults to 2.",
+              "type": "string"
+            },
+            "description": "统计半径（km）。默认 2。\n\nMetrics radius in km. Defaults to 2."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "每页条目数，最大 100。\n\nItems per page, up to 100.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24
+            },
+            "description": "每页条目数，最大 100。\n\nItems per page, up to 100."
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "description": "上一页的最后返回条目的全局名次。\n\nGlobal rank of the last returned station on the previous page.",
+              "type": "string",
+              "pattern": "^[1-9]\\d*$"
+            },
+            "description": "上一页的最后返回条目的全局名次。\n\nGlobal rank of the last returned station on the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "地铁站排名 / Metro station rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "type": "string",
+                            "description": "MongoDB ID。\n\nMongoDB ID."
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "`{networkId}:{stationId}`。\n\n`{networkId}:{stationId}`."
+                          },
+                          "networkId": {
+                            "type": "string",
+                            "description": "地铁网络 ID。\n\nMetro network ID."
+                          },
+                          "stationId": {
+                            "type": "string",
+                            "description": "地铁站 ID。\n\nMetro station ID."
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "地铁站名称。\n\nMetro station name."
+                          },
+                          "names": {
+                            "type": "object",
+                            "properties": {
+                              "zh": {
+                                "type": "string"
+                              },
+                              "en": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["zh", "en"],
+                            "additionalProperties": false,
+                            "description": "地铁站多语名称。\n\nMultilingual station names."
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "description": "线路 ID。\n\nLine ID."
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "线路名称。\n\nLine name."
+                                },
+                                "names": {
+                                  "type": "object",
+                                  "properties": {
+                                    "zh": {
+                                      "type": "string"
+                                    },
+                                    "en": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["zh", "en"],
+                                  "additionalProperties": false,
+                                  "description": "线路多语名称。\n\nMultilingual line names."
+                                },
+                                "color": {
+                                  "nullable": true,
+                                  "description": "线路官方色值。\n\nOfficial line color.",
+                                  "type": "string"
+                                },
+                                "shortName": {
+                                  "type": "string",
+                                  "description": "线路官方短号。\n\nOfficial compact line code."
+                                }
+                              },
+                              "required": ["id", "name", "names", "color", "shortName"],
+                              "additionalProperties": false
+                            },
+                            "description": "站点所属线路。\n\nLines serving the station."
+                          },
+                          "location": {
+                            "type": "object",
+                            "properties": {
+                              "lon": {
+                                "type": "number"
+                              },
+                              "lat": {
+                                "type": "number"
+                              }
+                            },
+                            "required": ["lon", "lat"],
+                            "additionalProperties": false,
+                            "description": "站点坐标。\n\nStation coordinates."
+                          },
+                          "rankings": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "radius": {
+                                  "type": "number",
+                                  "description": "统计半径（km）。\n\nMetrics radius in km."
+                                },
+                                "shopCount": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "半径内店铺数。\n\nShops within the radius."
+                                },
+                                "totalMachines": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "半径内机台总数。\n\nTotal machines within the radius."
+                                },
+                                "areaDensity": {
+                                  "nullable": true,
+                                  "description": "每平方公里机台数（区域面积缺失时为 null）。\n\nMachines per km² (null when the area is unavailable).",
+                                  "type": "number"
+                                },
+                                "machinesPerCapita": {
+                                  "nullable": true,
+                                  "description": "每万人机台数（人口缺失时为 null）。\n\nMachines per 10,000 people (null when population is unavailable).",
+                                  "type": "number"
+                                },
+                                "gameSpecificMachines": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "quantity": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": ["name", "quantity"],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "各游戏标题的机台数。\n\nMachine count per game title."
+                                }
+                              },
+                              "required": [
+                                "radius",
+                                "shopCount",
+                                "totalMachines",
+                                "areaDensity",
+                                "machinesPerCapita",
+                                "gameSpecificMachines"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "各半径下的指标。\n\nMetrics per radius."
+                          },
+                          "rankOrder": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "description": "各“维度——半径”组合下的名次。\n\nRank position per `sortBy_radius` key."
+                          }
+                        },
+                        "required": [
+                          "_id",
+                          "id",
+                          "networkId",
+                          "stationId",
+                          "name",
+                          "names",
+                          "lines",
+                          "location",
+                          "rankings",
+                          "rankOrder"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "所选网络与半径的总条目数。\n\nTotal matching stations for the network and radius."
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    },
+                    "nextCursor": {
+                      "nullable": true,
+                      "description": "最后返回条目的全局名次；无下一页时为 null。\n\nGlobal rank of the last returned station; null when there is no next page.",
+                      "type": "string",
+                      "pattern": "^[1-9]\\d*$"
+                    },
+                    "cached": {
+                      "type": "boolean"
+                    },
+                    "cacheTime": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "calculating": {
+                      "type": "boolean"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "names": {
+                            "type": "object",
+                            "properties": {
+                              "zh": {
+                                "type": "string"
+                              },
+                              "en": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["zh", "en"],
+                            "additionalProperties": false
+                          },
+                          "stationCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": ["id", "name", "names", "stationCount"],
+                        "additionalProperties": false
+                      },
+                      "description": "完整地铁网络列表。\n\nFull metro network list."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "totalCount",
+                    "hasMore",
+                    "nextCursor",
+                    "cached",
+                    "cacheTime",
+                    "stale",
+                    "calculating",
+                    "networks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
     "/shops": {
       "get": {
         "tags": ["shops"],
@@ -4728,6 +5670,108 @@
                           "isLocked": {
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
+                          },
+                          "transit": {
+                            "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                            "type": "object",
+                            "properties": {
+                              "metro": {
+                                "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                "type": "object",
+                                "properties": {
+                                  "networkId": {
+                                    "type": "string",
+                                    "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                  },
+                                  "stationId": {
+                                    "type": "string",
+                                    "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                  },
+                                  "stationName": {
+                                    "type": "string",
+                                    "description": "最近地铁站名称。\n\nNearest metro station name."
+                                  },
+                                  "names": {
+                                    "type": "object",
+                                    "properties": {
+                                      "zh": {
+                                        "type": "string"
+                                      },
+                                      "en": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": ["zh", "en"],
+                                    "additionalProperties": false,
+                                    "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                  },
+                                  "walkSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                  },
+                                  "distanceKm": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                  },
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "线路 ID。\n\nLine ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "线路名称。\n\nLine name."
+                                        },
+                                        "names": {
+                                          "type": "object",
+                                          "properties": {
+                                            "zh": {
+                                              "type": "string"
+                                            },
+                                            "en": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": ["zh", "en"],
+                                          "additionalProperties": false,
+                                          "description": "线路多语名称。\n\nMultilingual line names."
+                                        },
+                                        "color": {
+                                          "nullable": true,
+                                          "description": "线路官方色值。\n\nOfficial line color.",
+                                          "type": "string"
+                                        },
+                                        "shortName": {
+                                          "type": "string",
+                                          "description": "线路官方短号。\n\nOfficial compact line code."
+                                        }
+                                      },
+                                      "required": ["id", "name", "names", "color", "shortName"],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "站点所属线路。\n\nLines serving the station."
+                                  }
+                                },
+                                "required": [
+                                  "networkId",
+                                  "stationId",
+                                  "stationName",
+                                  "names",
+                                  "walkSeconds",
+                                  "distanceKm",
+                                  "lines"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "additionalProperties": false
                           },
                           "createdAt": {
                             "description": "创建时间。\n\nCreation time.",
@@ -5253,6 +6297,108 @@
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
                         },
+                        "transit": {
+                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "type": "object",
+                          "properties": {
+                            "metro": {
+                              "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                              "type": "object",
+                              "properties": {
+                                "networkId": {
+                                  "type": "string",
+                                  "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                },
+                                "stationId": {
+                                  "type": "string",
+                                  "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                },
+                                "stationName": {
+                                  "type": "string",
+                                  "description": "最近地铁站名称。\n\nNearest metro station name."
+                                },
+                                "names": {
+                                  "type": "object",
+                                  "properties": {
+                                    "zh": {
+                                      "type": "string"
+                                    },
+                                    "en": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["zh", "en"],
+                                  "additionalProperties": false,
+                                  "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                },
+                                "walkSeconds": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                },
+                                "distanceKm": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                },
+                                "lines": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "线路 ID。\n\nLine ID."
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "线路名称。\n\nLine name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "线路多语名称。\n\nMultilingual line names."
+                                      },
+                                      "color": {
+                                        "nullable": true,
+                                        "description": "线路官方色值。\n\nOfficial line color.",
+                                        "type": "string"
+                                      },
+                                      "shortName": {
+                                        "type": "string",
+                                        "description": "线路官方短号。\n\nOfficial compact line code."
+                                      }
+                                    },
+                                    "required": ["id", "name", "names", "color", "shortName"],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "站点所属线路。\n\nLines serving the station."
+                                }
+                              },
+                              "required": [
+                                "networkId",
+                                "stationId",
+                                "stationName",
+                                "names",
+                                "walkSeconds",
+                                "distanceKm",
+                                "lines"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "createdAt": {
                           "description": "创建时间。\n\nCreation time.",
                           "type": "string",
@@ -5598,6 +6744,108 @@
                         "isLocked": {
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
+                        },
+                        "transit": {
+                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "type": "object",
+                          "properties": {
+                            "metro": {
+                              "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                              "type": "object",
+                              "properties": {
+                                "networkId": {
+                                  "type": "string",
+                                  "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                },
+                                "stationId": {
+                                  "type": "string",
+                                  "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                },
+                                "stationName": {
+                                  "type": "string",
+                                  "description": "最近地铁站名称。\n\nNearest metro station name."
+                                },
+                                "names": {
+                                  "type": "object",
+                                  "properties": {
+                                    "zh": {
+                                      "type": "string"
+                                    },
+                                    "en": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["zh", "en"],
+                                  "additionalProperties": false,
+                                  "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                },
+                                "walkSeconds": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                },
+                                "distanceKm": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                },
+                                "lines": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "线路 ID。\n\nLine ID."
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "线路名称。\n\nLine name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "线路多语名称。\n\nMultilingual line names."
+                                      },
+                                      "color": {
+                                        "nullable": true,
+                                        "description": "线路官方色值。\n\nOfficial line color.",
+                                        "type": "string"
+                                      },
+                                      "shortName": {
+                                        "type": "string",
+                                        "description": "线路官方短号。\n\nOfficial compact line code."
+                                      }
+                                    },
+                                    "required": ["id", "name", "names", "color", "shortName"],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "站点所属线路。\n\nLines serving the station."
+                                }
+                              },
+                              "required": [
+                                "networkId",
+                                "stationId",
+                                "stationName",
+                                "names",
+                                "walkSeconds",
+                                "distanceKm",
+                                "lines"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         },
                         "createdAt": {
                           "description": "创建时间。\n\nCreation time.",
@@ -6122,6 +7370,108 @@
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
                         },
+                        "transit": {
+                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "type": "object",
+                          "properties": {
+                            "metro": {
+                              "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                              "type": "object",
+                              "properties": {
+                                "networkId": {
+                                  "type": "string",
+                                  "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                },
+                                "stationId": {
+                                  "type": "string",
+                                  "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                },
+                                "stationName": {
+                                  "type": "string",
+                                  "description": "最近地铁站名称。\n\nNearest metro station name."
+                                },
+                                "names": {
+                                  "type": "object",
+                                  "properties": {
+                                    "zh": {
+                                      "type": "string"
+                                    },
+                                    "en": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["zh", "en"],
+                                  "additionalProperties": false,
+                                  "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                },
+                                "walkSeconds": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                },
+                                "distanceKm": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                },
+                                "lines": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "线路 ID。\n\nLine ID."
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "线路名称。\n\nLine name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "线路多语名称。\n\nMultilingual line names."
+                                      },
+                                      "color": {
+                                        "nullable": true,
+                                        "description": "线路官方色值。\n\nOfficial line color.",
+                                        "type": "string"
+                                      },
+                                      "shortName": {
+                                        "type": "string",
+                                        "description": "线路官方短号。\n\nOfficial compact line code."
+                                      }
+                                    },
+                                    "required": ["id", "name", "names", "color", "shortName"],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "站点所属线路。\n\nLines serving the station."
+                                }
+                              },
+                              "required": [
+                                "networkId",
+                                "stationId",
+                                "stationName",
+                                "names",
+                                "walkSeconds",
+                                "distanceKm",
+                                "lines"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "createdAt": {
                           "description": "创建时间。\n\nCreation time.",
                           "type": "string",
@@ -6463,6 +7813,108 @@
                         "isLocked": {
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
+                        },
+                        "transit": {
+                          "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                          "type": "object",
+                          "properties": {
+                            "metro": {
+                              "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                              "type": "object",
+                              "properties": {
+                                "networkId": {
+                                  "type": "string",
+                                  "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                },
+                                "stationId": {
+                                  "type": "string",
+                                  "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                },
+                                "stationName": {
+                                  "type": "string",
+                                  "description": "最近地铁站名称。\n\nNearest metro station name."
+                                },
+                                "names": {
+                                  "type": "object",
+                                  "properties": {
+                                    "zh": {
+                                      "type": "string"
+                                    },
+                                    "en": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["zh", "en"],
+                                  "additionalProperties": false,
+                                  "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                },
+                                "walkSeconds": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                },
+                                "distanceKm": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                },
+                                "lines": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "线路 ID。\n\nLine ID."
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "线路名称。\n\nLine name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "线路多语名称。\n\nMultilingual line names."
+                                      },
+                                      "color": {
+                                        "nullable": true,
+                                        "description": "线路官方色值。\n\nOfficial line color.",
+                                        "type": "string"
+                                      },
+                                      "shortName": {
+                                        "type": "string",
+                                        "description": "线路官方短号。\n\nOfficial compact line code."
+                                      }
+                                    },
+                                    "required": ["id", "name", "names", "color", "shortName"],
+                                    "additionalProperties": false
+                                  },
+                                  "description": "站点所属线路。\n\nLines serving the station."
+                                }
+                              },
+                              "required": [
+                                "networkId",
+                                "stationId",
+                                "stationName",
+                                "names",
+                                "walkSeconds",
+                                "distanceKm",
+                                "lines"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
                         },
                         "createdAt": {
                           "description": "创建时间。\n\nCreation time.",
@@ -13693,6 +15145,108 @@
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
                               },
+                              "transit": {
+                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "type": "object",
+                                "properties": {
+                                  "metro": {
+                                    "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                    "type": "object",
+                                    "properties": {
+                                      "networkId": {
+                                        "type": "string",
+                                        "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                      },
+                                      "stationId": {
+                                        "type": "string",
+                                        "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                      },
+                                      "stationName": {
+                                        "type": "string",
+                                        "description": "最近地铁站名称。\n\nNearest metro station name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                      },
+                                      "walkSeconds": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991,
+                                        "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                      },
+                                      "distanceKm": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                      },
+                                      "lines": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "description": "线路 ID。\n\nLine ID."
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "description": "线路名称。\n\nLine name."
+                                            },
+                                            "names": {
+                                              "type": "object",
+                                              "properties": {
+                                                "zh": {
+                                                  "type": "string"
+                                                },
+                                                "en": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": ["zh", "en"],
+                                              "additionalProperties": false,
+                                              "description": "线路多语名称。\n\nMultilingual line names."
+                                            },
+                                            "color": {
+                                              "nullable": true,
+                                              "description": "线路官方色值。\n\nOfficial line color.",
+                                              "type": "string"
+                                            },
+                                            "shortName": {
+                                              "type": "string",
+                                              "description": "线路官方短号。\n\nOfficial compact line code."
+                                            }
+                                          },
+                                          "required": ["id", "name", "names", "color", "shortName"],
+                                          "additionalProperties": false
+                                        },
+                                        "description": "站点所属线路。\n\nLines serving the station."
+                                      }
+                                    },
+                                    "required": [
+                                      "networkId",
+                                      "stationId",
+                                      "stationName",
+                                      "names",
+                                      "walkSeconds",
+                                      "distanceKm",
+                                      "lines"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
                               "createdAt": {
                                 "description": "创建时间。\n\nCreation time.",
                                 "type": "string",
@@ -13968,6 +15522,108 @@
                               "isLocked": {
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
+                              },
+                              "transit": {
+                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "type": "object",
+                                "properties": {
+                                  "metro": {
+                                    "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                    "type": "object",
+                                    "properties": {
+                                      "networkId": {
+                                        "type": "string",
+                                        "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                      },
+                                      "stationId": {
+                                        "type": "string",
+                                        "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                      },
+                                      "stationName": {
+                                        "type": "string",
+                                        "description": "最近地铁站名称。\n\nNearest metro station name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                      },
+                                      "walkSeconds": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991,
+                                        "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                      },
+                                      "distanceKm": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                      },
+                                      "lines": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "description": "线路 ID。\n\nLine ID."
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "description": "线路名称。\n\nLine name."
+                                            },
+                                            "names": {
+                                              "type": "object",
+                                              "properties": {
+                                                "zh": {
+                                                  "type": "string"
+                                                },
+                                                "en": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": ["zh", "en"],
+                                              "additionalProperties": false,
+                                              "description": "线路多语名称。\n\nMultilingual line names."
+                                            },
+                                            "color": {
+                                              "nullable": true,
+                                              "description": "线路官方色值。\n\nOfficial line color.",
+                                              "type": "string"
+                                            },
+                                            "shortName": {
+                                              "type": "string",
+                                              "description": "线路官方短号。\n\nOfficial compact line code."
+                                            }
+                                          },
+                                          "required": ["id", "name", "names", "color", "shortName"],
+                                          "additionalProperties": false
+                                        },
+                                        "description": "站点所属线路。\n\nLines serving the station."
+                                      }
+                                    },
+                                    "required": [
+                                      "networkId",
+                                      "stationId",
+                                      "stationName",
+                                      "names",
+                                      "walkSeconds",
+                                      "distanceKm",
+                                      "lines"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
                               },
                               "createdAt": {
                                 "description": "创建时间。\n\nCreation time.",
@@ -15174,6 +16830,108 @@
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
                               },
+                              "transit": {
+                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "type": "object",
+                                "properties": {
+                                  "metro": {
+                                    "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                    "type": "object",
+                                    "properties": {
+                                      "networkId": {
+                                        "type": "string",
+                                        "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                      },
+                                      "stationId": {
+                                        "type": "string",
+                                        "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                      },
+                                      "stationName": {
+                                        "type": "string",
+                                        "description": "最近地铁站名称。\n\nNearest metro station name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                      },
+                                      "walkSeconds": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991,
+                                        "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                      },
+                                      "distanceKm": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                      },
+                                      "lines": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "description": "线路 ID。\n\nLine ID."
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "description": "线路名称。\n\nLine name."
+                                            },
+                                            "names": {
+                                              "type": "object",
+                                              "properties": {
+                                                "zh": {
+                                                  "type": "string"
+                                                },
+                                                "en": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": ["zh", "en"],
+                                              "additionalProperties": false,
+                                              "description": "线路多语名称。\n\nMultilingual line names."
+                                            },
+                                            "color": {
+                                              "nullable": true,
+                                              "description": "线路官方色值。\n\nOfficial line color.",
+                                              "type": "string"
+                                            },
+                                            "shortName": {
+                                              "type": "string",
+                                              "description": "线路官方短号。\n\nOfficial compact line code."
+                                            }
+                                          },
+                                          "required": ["id", "name", "names", "color", "shortName"],
+                                          "additionalProperties": false
+                                        },
+                                        "description": "站点所属线路。\n\nLines serving the station."
+                                      }
+                                    },
+                                    "required": [
+                                      "networkId",
+                                      "stationId",
+                                      "stationName",
+                                      "names",
+                                      "walkSeconds",
+                                      "distanceKm",
+                                      "lines"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
                               "createdAt": {
                                 "description": "创建时间。\n\nCreation time.",
                                 "type": "string",
@@ -15449,6 +17207,108 @@
                               "isLocked": {
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
+                              },
+                              "transit": {
+                                "description": "店铺的交通信息（由 openmetro 同步任务维护）。\n\nTransit information for the shop (maintained by the openmetro sync task).",
+                                "type": "object",
+                                "properties": {
+                                  "metro": {
+                                    "description": "店铺关联的地铁站信息。\n\nMetro station assignment for the shop.",
+                                    "type": "object",
+                                    "properties": {
+                                      "networkId": {
+                                        "type": "string",
+                                        "description": "所属地铁网络 ID。\n\nMetro network ID."
+                                      },
+                                      "stationId": {
+                                        "type": "string",
+                                        "description": "最近地铁站 ID。\n\nNearest metro station ID."
+                                      },
+                                      "stationName": {
+                                        "type": "string",
+                                        "description": "最近地铁站名称。\n\nNearest metro station name."
+                                      },
+                                      "names": {
+                                        "type": "object",
+                                        "properties": {
+                                          "zh": {
+                                            "type": "string"
+                                          },
+                                          "en": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": ["zh", "en"],
+                                        "additionalProperties": false,
+                                        "description": "最近地铁站多语名称。\n\nMultilingual names of the nearest metro station."
+                                      },
+                                      "walkSeconds": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991,
+                                        "description": "店铺到站点的步行时间（秒）。\n\nWalking seconds from the shop to the station."
+                                      },
+                                      "distanceKm": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "店铺到站点的直线距离（km）。\n\nStraight-line distance from the shop to the station in km."
+                                      },
+                                      "lines": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "description": "线路 ID。\n\nLine ID."
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "description": "线路名称。\n\nLine name."
+                                            },
+                                            "names": {
+                                              "type": "object",
+                                              "properties": {
+                                                "zh": {
+                                                  "type": "string"
+                                                },
+                                                "en": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": ["zh", "en"],
+                                              "additionalProperties": false,
+                                              "description": "线路多语名称。\n\nMultilingual line names."
+                                            },
+                                            "color": {
+                                              "nullable": true,
+                                              "description": "线路官方色值。\n\nOfficial line color.",
+                                              "type": "string"
+                                            },
+                                            "shortName": {
+                                              "type": "string",
+                                              "description": "线路官方短号。\n\nOfficial compact line code."
+                                            }
+                                          },
+                                          "required": ["id", "name", "names", "color", "shortName"],
+                                          "additionalProperties": false
+                                        },
+                                        "description": "站点所属线路。\n\nLines serving the station."
+                                      }
+                                    },
+                                    "required": [
+                                      "networkId",
+                                      "stationId",
+                                      "stationName",
+                                      "names",
+                                      "walkSeconds",
+                                      "distanceKm",
+                                      "lines"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "additionalProperties": false
                               },
                               "createdAt": {
                                 "description": "创建时间。\n\nCreation time.",

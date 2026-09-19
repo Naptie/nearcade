@@ -46,11 +46,17 @@ export const getOrigin = (request: Request) => {
   return origin;
 };
 
-export const getCallbackURI = (baseURL: string, provider: string) =>
-  `${baseURL.replace(/\/$/, '')}/oauth2/callback/${provider}`;
+export const getCallbackURI = (baseURL: string | undefined, provider: string) =>
+  `${(baseURL ?? '').replace(/\/$/, '')}/oauth2/callback/${provider}`;
 
-export const resolveRedirectURI = (callbackURI: string, template: string) => {
-  const proxyTemplate = template.trim();
+export const resolveRedirectURI = (
+  callbackURI: string | undefined,
+  template: string | undefined
+) => {
+  if (!callbackURI) {
+    throw new Error('Missing callback URI');
+  }
+  const proxyTemplate = (template ?? '').trim();
   if (!proxyTemplate) {
     return callbackURI;
   }
@@ -81,6 +87,16 @@ export const initDatabase = async (mongo: MongoClient) => {
     // shops
     db.collection('shops').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
     db.collection('shops').createIndex({ location: '2dsphere' }, { name: 'location_2dsphere' }),
+    // transit.metro.stationId — serves the discover metro arm ($in over
+    // reachable stations), metro-station rankings, and station-centric
+    // lookups; only shops with a persisted openmetro assignment participate.
+    db.collection('shops').createIndex(
+      { 'transit.metro.stationId': 1 },
+      {
+        name: 'transit_metro_stationId_1',
+        partialFilterExpression: { 'transit.metro.stationId': { $exists: true } }
+      }
+    ),
 
     // machines
     db.collection('machines').createIndex({ id: 1 }, { name: 'id_1', unique: true }),

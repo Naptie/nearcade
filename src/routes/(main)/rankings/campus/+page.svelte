@@ -197,8 +197,8 @@
             .coordinates[0]}&radius={radiusFilter}&name={encodeURIComponent(campus.fullName)}"
           target={adaptiveNewTab()}
         >
-          <i class="fas fa-map-marker-alt"></i>
-          <span class="not-md:hidden">{m.view_location()}</span>
+          <i class="fa-solid fa-location-arrow" aria-hidden="true"></i>
+          <span class="not-md:hidden">{m.explore_nearby()}</span>
         </a>
       {/snippet}
     </RankingsTable>

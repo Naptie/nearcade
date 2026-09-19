@@ -15,6 +15,7 @@ import {
 } from './common';
 import { commentVoteSchema } from './comments';
 import { imageAssetIdSchema, imageAssetSchema, imageStorageProviderSchema } from './images';
+import { shopTransitSchema } from './metro';
 
 export const shopNameSchema = z.string().describe(bilingual('店铺名称。', 'Shop name.'));
 export const shopNameInputSchema = z
@@ -220,6 +221,14 @@ export const shopSchema = z.object({
       bilingual(
         '店铺是否已被管理员锁定。锁定后仅管理员可编辑。',
         'Whether this shop has been locked by an admin. Only admins can edit locked shops.'
+      )
+    ),
+  transit: shopTransitSchema
+    .optional()
+    .describe(
+      bilingual(
+        '店铺的交通信息（由 openmetro 同步任务维护）。',
+        'Transit information for the shop (maintained by the openmetro sync task).'
       )
     ),
   createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')),

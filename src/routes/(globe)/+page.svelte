@@ -99,7 +99,7 @@
   // Mobile "three dots" menu (find universities / find clubs). It is fully
   // unmounted when closed so its links can never be clicked while hidden.
   let isMoreMenuOpen = $state(false);
-  let moreMenuWrap: HTMLDivElement | undefined;
+  let moreMenuWrap = $state<HTMLDivElement | undefined>(undefined);
 
   $effect(() => {
     // The menu is only rendered below the `sm` breakpoint. If the viewport

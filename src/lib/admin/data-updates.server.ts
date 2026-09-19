@@ -16,12 +16,17 @@ import type {
 } from '$lib/types';
 import { calculateAreaDensity, calculateDistance } from '$lib/utils';
 import { getOrigin } from '$lib/utils/index.server';
+import { getOpenMetroApiBase } from '$lib/openmetro/client.server';
+import { runOpenMetroSync } from '$lib/openmetro/sync.server';
+import { computeHomeStats, writeHomeStatsCache } from '$lib/utils/home-stats.server';
 
 export const DATA_UPDATE_TASK_IDS = [
   'university_stats',
   'campus_rankings',
   'region_rankings',
-  'meilisearch'
+  'home_stats',
+  'meilisearch',
+  'openmetro_sync'
 ] as const;
 
 export type DataUpdateTaskId = (typeof DATA_UPDATE_TASK_IDS)[number];
@@ -161,7 +166,9 @@ const TASK_TIMEOUT_MS: Record<DataUpdateTaskId, number> = {
   university_stats: 30 * 60 * 1000,
   campus_rankings: 60 * 60 * 1000,
   region_rankings: 60 * 60 * 1000,
-  meilisearch: 30 * 60 * 1000
+  home_stats: 15 * 60 * 1000,
+  meilisearch: 30 * 60 * 1000,
+  openmetro_sync: 30 * 60 * 1000
 };
 
 const getTaskCollection = (client: MongoClient) =>
@@ -306,7 +313,7 @@ const getDerivedTaskRecord = async (
       ? await getDerivedCampusRankingsTaskRecord(client)
       : taskId === 'region_rankings'
         ? await getDerivedRegionRankingsTaskRecord(client)
-        : taskId === 'meilisearch'
+        : taskId === 'meilisearch' || taskId === 'openmetro_sync' || taskId === 'home_stats'
           ? {}
           : await getDerivedUniversityStatsTaskRecord(client);
 
@@ -1241,6 +1248,44 @@ const runRegionRankingsTask = async (
   }
 };
 
+const runOpenMetroSyncTask = async (
+  client: MongoClient,
+  reportProgress: ProgressReporter
+): Promise<{
+  progress: DataUpdateTaskProgress;
+  summary: DataUpdateTaskSummary;
+}> => {
+  const result = await runOpenMetroSync({
+    client,
+    baseUrl: getOpenMetroApiBase(),
+    reportProgress
+  });
+  return { progress: result.progress, summary: result.summary };
+};
+
+const runHomeStatsTask = async (
+  client: MongoClient,
+  reportProgress: ProgressReporter
+): Promise<{
+  progress: DataUpdateTaskProgress;
+  summary: DataUpdateTaskSummary;
+}> => {
+  await reportProgress({ processed: 0, total: null });
+
+  const stats = await computeHomeStats(client);
+  await writeHomeStatsCache(stats);
+
+  const progress: DataUpdateTaskProgress = { processed: 1, total: 1 };
+  const summary: DataUpdateTaskSummary = {
+    shopCount: stats.totals.shops,
+    machineCount: stats.totals.machines,
+    userCount: stats.totals.users
+  };
+
+  await reportProgress(progress, summary);
+  return { progress, summary };
+};
+
 const runMeilisearchTask = async (
   _client: MongoClient,
   reportProgress: ProgressReporter
@@ -1285,13 +1330,21 @@ const runTaskInBackground = (
               ? await runRegionRankingsTask(client, (progress, summary) =>
                   updateTaskProgress(taskId, progress, summary, client)
                 )
-              : taskId === 'meilisearch'
-                ? await runMeilisearchTask(client, (progress, summary) =>
+              : taskId === 'home_stats'
+                ? await runHomeStatsTask(client, (progress, summary) =>
                     updateTaskProgress(taskId, progress, summary, client)
                   )
-                : await runUniversityStatsTask(client, (progress, summary) =>
-                    updateTaskProgress(taskId, progress, summary, client)
-                  );
+                : taskId === 'meilisearch'
+                  ? await runMeilisearchTask(client, (progress, summary) =>
+                      updateTaskProgress(taskId, progress, summary, client)
+                    )
+                  : taskId === 'openmetro_sync'
+                    ? await runOpenMetroSyncTask(client, (progress, summary) =>
+                        updateTaskProgress(taskId, progress, summary, client)
+                      )
+                    : await runUniversityStatsTask(client, (progress, summary) =>
+                        updateTaskProgress(taskId, progress, summary, client)
+                      );
 
         await finishTaskRun(
           taskId,

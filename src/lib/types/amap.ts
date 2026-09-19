@@ -60,6 +60,12 @@ export interface Line {
   type: string;
   stime: never[] | string;
   etime: never[] | string;
+  /**
+   * Official line color. Absent in real AMap responses; set by nearcade when
+   * it synthesizes a transit plan from an openmetro itinerary so the drawn
+   * segment and the panel chip use the operator's own color.
+   */
+  color?: string;
 }
 
 export interface OffStation {

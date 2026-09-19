@@ -3,7 +3,7 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { fromPath } from '$lib/utils/scoped';
-  import { RANKING_RADIUS_OPTIONS } from '$lib/constants';
+  import { METRO_RANKING_RADIUS_OPTIONS, RANKING_RADIUS_OPTIONS } from '$lib/constants';
   import MiniLeaderboard from '$lib/components/home/MiniLeaderboard.svelte';
   import RecentShopChangelog from '$lib/components/home/RecentShopChangelog.svelte';
   import { fade } from 'svelte/transition';
@@ -29,6 +29,15 @@
     value: number;
   };
 
+  type MetroApiEntry = {
+    id: string;
+    name: string;
+    sublabel: string | null;
+    lat: number;
+    lon: number;
+    value: number;
+  };
+
   interface HomeStatsResponse {
     totals: {
       shops: number;
@@ -45,6 +54,12 @@
       [radius: string]: {
         shops: CampusApiEntry[];
         machines: CampusApiEntry[];
+      };
+    };
+    metro: {
+      [radius: string]: {
+        shops: MetroApiEntry[];
+        machines: MetroApiEntry[];
       };
     };
   }
@@ -105,6 +120,41 @@
               href: resolve('/(main)/universities/[id]', {
                 id: entry.id.split('_')[0]
               }),
+              value: entry.value
+            }))
+          });
+        }
+      }
+      return groups;
+    }
+  );
+
+  const metroGroups = $derived.by(
+    (): { key: string; label: string; items: LeaderboardItem[] }[] => {
+      // Older cached payloads (pre-metro) lack the block entirely.
+      if (!stats?.metro) return [];
+      const groups: { key: string; label: string; items: LeaderboardItem[] }[] = [];
+      for (const radius of METRO_RANKING_RADIUS_OPTIONS) {
+        const radiusData = stats.metro[String(radius)];
+        if (!radiusData) continue;
+        for (const sort of ['shops', 'machines'] as const) {
+          const entries = radiusData[sort] ?? [];
+          // Paraglide messages cannot do arithmetic, so the value is scaled
+          // here; the single message branches on `mode` for the unit variant.
+          const withinLabel =
+            radius < 1
+              ? m.home_within_distance({ value: radius * 1000, mode: 'meters' })
+              : m.home_within_distance({ value: radius, mode: 'kilometers' });
+          groups.push({
+            key: `${radius}-${sort}`,
+            label: `${
+              sort === 'shops' ? m.home_ranking_shops() : m.home_ranking_machines()
+            } · ${withinLabel}`,
+            items: entries.map((entry) => ({
+              key: entry.id,
+              label: entry.name,
+              sublabel: entry.sublabel,
+              href: `${resolve('/(main)/discover')}?latitude=${entry.lat}&longitude=${entry.lon}`,
               value: entry.value
             }))
           });
@@ -183,19 +233,28 @@
     </section>
 
     <!-- Mini leaderboards -->
-    {#if stats && (regionGroups.length > 0 || campusGroups.length > 0)}
-      <section class="grid grid-cols-1 gap-6 lg:grid-cols-2" transition:fade>
-        <MiniLeaderboard
-          title={m.region_rankings()}
-          groups={regionGroups}
-          viewAllHref={resolve('/(main)/rankings/region')}
-        />
-        <MiniLeaderboard
-          title={m.campus_rankings()}
-          groups={campusGroups}
-          viewAllHref={resolve('/(main)/rankings/campus')}
-        />
-      </section>
+    {#if stats && (metroGroups.length > 0 || campusGroups.length > 0 || regionGroups.length > 0)}
+      <div class="flex flex-col gap-6" transition:fade>
+        <!-- Metro (left) + campus (right) -->
+        <section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <MiniLeaderboard
+            title={m.stations_ranking()}
+            groups={metroGroups}
+            viewAllHref={resolve('/(main)/rankings/metro')}
+          />
+          <MiniLeaderboard
+            title={m.campus_rankings()}
+            groups={campusGroups}
+            viewAllHref={resolve('/(main)/rankings/campus')}
+          />
+          <MiniLeaderboard
+            title={m.region_rankings()}
+            groups={regionGroups}
+            viewAllHref={resolve('/(main)/rankings/region')}
+            class="lg:col-span-2"
+          />
+        </section>
+      </div>
     {/if}
 
     <!-- Recent shop changelog -->

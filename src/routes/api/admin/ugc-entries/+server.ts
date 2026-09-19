@@ -1,7 +1,11 @@
 import { error, isHttpError, isRedirect, json, type RequestHandler } from '@sveltejs/kit';
 import { m } from '$lib/paraglide/messages';
 import { ugcEntriesCollection, ugcAdminFilter } from '$lib/ugc/entries.server';
-import { clearCachedVerdict, dispatchUgcAuditJobs, updateCachedVerdict } from '$lib/ugc/audit.server';
+import {
+  clearCachedVerdict,
+  dispatchUgcAuditJobs,
+  updateCachedVerdict
+} from '$lib/ugc/audit.server';
 import { enforceUgcEntry, enforceUgcHash, restoreUgcEntries } from '$lib/ugc/enforcement.server';
 import { parseJsonOrError } from '$lib/utils/validation.server';
 import { ugcEntryActionRequestSchema, ugcEntryActionResponseSchema } from '$lib/schemas/ugc';

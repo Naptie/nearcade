@@ -9,7 +9,23 @@ import {
   reportedBySchema,
   shopSchema
 } from './shops';
-import { MAX_DISCOVER_RESULTS } from '$lib/constants';
+import { discoverMetroBlockSchema } from './metro';
+import { MAX_DISCOVER_RESULTS, RADIUS_OPTIONS } from '$lib/constants';
+
+/**
+ * Snap an arbitrary radius to the closest supported search option (0 =
+ * unlimited). Decimal radii from other pages (e.g. the metro ranking's
+ * 0.2/0.5 km buckets) must never fall through — `Math.floor(0.2)` would
+ * silently mean "unlimited".
+ */
+export const snapRadiusToOption = (km: number): number => {
+  const clamped = Math.max(0, Math.min(30, km));
+  if (clamped === 0) return 0;
+  return RADIUS_OPTIONS.reduce(
+    (best, option) => (Math.abs(option - clamped) < Math.abs(best - clamped) ? option : best),
+    RADIUS_OPTIONS[0] as number
+  );
+};
 
 export const discoverReportedAttendanceSchema = z
   .object({
@@ -53,11 +69,11 @@ export const discoverQuerySchema = z.object({
     .optional()
     .transform((value) => (value === undefined || value === '' ? 10 : Number(value)))
     .pipe(z.number())
-    .transform((value) => Math.max(0, Math.min(30, Math.floor(value))))
+    .transform(snapRadiusToOption)
     .describe(
       bilingual(
-        '范围半径，单位 km；0 表示无限制。默认为 10。',
-        'Search radius in kilometers; 0 means unlimited. Defaults to 10.'
+        '范围半径，单位 km；0 表示无限制。默认为 10。任意值会吸附到最近的受支持选项。',
+        'Search radius in kilometers; 0 means unlimited. Defaults to 10. Arbitrary values snap to the closest supported option.'
       )
     ),
   limit: positiveIntegerQueryParamSchema(
@@ -96,6 +112,33 @@ export const discoverQuerySchema = z.object({
   convertFrom: convertFromSchema
 });
 
+/**
+ * A shop's metro travel estimate. Present **only** when riding the network
+ * beats walking the straight-line distance between at least two stations —
+ * the only trip we can time credibly. Shops without a worthwhile metro trip
+ * carry no `travel` at all, exactly as before metro existed, because a
+ * straight-line distance cannot support a credible walk/ride time.
+ */
+export const shopTravelEstimateSchema = z
+  .object({
+    seconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(bilingual('门到门地铁耗时（秒）。', 'Door-to-door metro seconds.')),
+    metroSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(bilingual('地铁在途耗时（秒）。', 'In-system metro seconds.'))
+  })
+  .describe(
+    bilingual(
+      '地铁到达方式与耗时（仅当快于直线步行时给出）。',
+      'Metro arrival time, present only when faster than walking the straight line.'
+    )
+  );
+
 export const discoverShopSchema = shopSchema.extend({
   games: z
     .array(discoverGameSchema)
@@ -103,6 +146,14 @@ export const discoverShopSchema = shopSchema.extend({
   distance: z
     .number()
     .describe(bilingual('店铺距离，单位 km。', 'Distance from the origin in kilometers.')),
+  travel: shopTravelEstimateSchema
+    .optional()
+    .describe(
+      bilingual(
+        '地铁到达方式与耗时；无地铁优势时省略。',
+        'Metro arrival time; omitted when the metro offers no advantage.'
+      )
+    ),
   totalAttendance: z
     .int()
     .min(0)
@@ -127,7 +178,15 @@ export const discoverResponseSchema = z.object({
   gameTitleIds: z
     .array(z.number())
     .optional()
-    .describe(bilingual('游戏标题筛选。', 'Game title filter.'))
+    .describe(bilingual('游戏标题筛选。', 'Game title filter.')),
+  metro: discoverMetroBlockSchema
+    .optional()
+    .describe(
+      bilingual(
+        '地铁行程信息块（原点 3 km 内有车站，且至少一家返回店铺的最快方式是地铁时出现）。',
+        'Metro itinerary block (present when the origin snaps to a station and ≥1 returned shop is fastest reached by metro).'
+      )
+    )
 });
 
 export type DiscoverResponse = z.infer<typeof discoverResponseSchema>;

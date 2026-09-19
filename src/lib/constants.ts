@@ -135,11 +135,108 @@ export const RANKING_FIXED_GAMES: readonly GameKey[] = [
 // Radius constants for rankings
 export const RANKING_RADIUS_OPTIONS = [2, 5, 10, 30] as const;
 
+/**
+ * Radius options for metro station rankings. The largest option equals the
+ * shop↔station snapping cutoff (METRO_ACCESS_MAX_KM), so the widest bucket's
+ * shop/machine counts are exactly the persisted `transit.metro` assignments —
+ * no extra shop enumeration is needed for the ranking. All values are in km.
+ */
+export const METRO_RANKING_RADIUS_OPTIONS = [0.2, 0.5, 1, 2] as const;
+
+/**
+ * Dot-safe rank key for a (sort criterion, radius) pair. Mongo query paths
+ * treat `.` as a nested-field separator, so decimal radii (0.2, 0.5) must
+ * never appear literally in `rankOrder` keys — they are encoded in
+ * centimetres (`0.2` → `20`, `2` → `200`), which stays integer and unique.
+ */
+export const metroRankingSortKey = (sortBy: string, radiusKm: number): string =>
+  `${sortBy}_${Math.round(radiusKm * 100)}`;
+
 // Limit constants for count-based search
 export const LIMIT_OPTIONS = [5, 10, 20, 50, 100, 150] as const;
 
 // Hard limit when both radius and limit are unlimited
 export const MAX_DISCOVER_RESULTS = 150;
+
+/**
+ * localStorage key for the discover table's time-first vs distance-first
+ * preference. Kept here so the default and the key live together.
+ */
+export const DISCOVER_TIME_PRIMARY_KEY = 'nearcade:discover-time-primary';
+
+// ── Metro (openmetro) ────────────────────────────────────────────────────────
+/**
+ * Walking pace for every walk-time estimate. Preferred walking speed is
+ * 1.10–1.65 m/s (4.0–5.9 km/h); urban design guides use 4.8–5.0 km/h
+ * (Design Manual for Roads and Bridges; TfL PTAL). 4.5 km/h sits inside the
+ * evidence range and leans slightly conservative — people walk to take metro.
+ */
+export const METRO_WALK_SPEED_KMH = 4.5;
+/**
+ * Utility-cycling pace (shared bikes and scooters in city traffic). Average
+ * cycling speed in Copenhagen is 15.5 km/h; ~100 W on an upright roadster
+ * gives ~20 km/h, which is not representative of a casual city trip.
+ *
+ * Reference only: it justifies the ~5 km scale at which a ride becomes the
+ * natural choice, and is never multiplied out into a per-shop result (a
+ * straight-line distance cannot support a credible door-to-door time).
+ */
+export const METRO_RIDE_SPEED_KMH = 15.0;
+/** Straight-line → street-network detour. Walking is the most indirect. */
+export const METRO_WALK_DETOUR_FACTOR = 1.3;
+// shop↔station assignment cutoff
+export const METRO_ACCESS_MAX_KM = 2.0;
+// origin→station cutoff, else metro is unavailable for the request
+export const METRO_ORIGIN_MAX_KM = 3.0;
+// security check + platform wait when entering the system
+export const METRO_ENTRY_OVERHEAD_SECONDS = 240;
+// exit gates + wayfinding
+export const METRO_EXIT_OVERHEAD_SECONDS = 120;
+
+/**
+ * Metro substitution: how far you can walk in the time the metro ride itself
+ * takes. A shop is metro-worthy when riding beats walking it straight-line by
+ * any margin — straight-line distance overstates the walk (buildings, rivers,
+ * one-way streets), so the comparison stays on the conservative side.
+ *
+ * Minimum number of distinct stations the ride must pass through. Entering and
+ * leaving at the same station is a walk with extra steps, not a metro trip.
+ */
+export const METRO_MIN_RIDE_STATIONS = 2;
+
+/**
+ * The search radius *is* the travel-time input: each distance option carries a
+ * door-to-door time budget, so the UI labels "5 km · 45min" and every result is
+ * filtered by that budget without a second control.
+ *
+ * These are willingness-to-travel budgets anchored to realistic times: ~2 km is
+ * a comfortable walk, ~5 km a short ride, ~20 km+ a metro trip. The walk/ride
+ * speeds above describe the same scales but are not multiplied out here — the
+ * riding band's 20 min would undercut the walking band's 35 min and make the
+ * options contradict each other.
+ *
+ * **Invariant: `minutes` must strictly increase with `km`.** A larger radius
+ * must never imply a shorter trip — otherwise the options contradict each other
+ * and a wider search could return fewer shops than a narrower one.
+ */
+export const DISCOVER_RADIUS_BUDGETS = [
+  { km: 1, minutes: 15 },
+  { km: 2, minutes: 30 },
+  { km: 5, minutes: 45 },
+  { km: 10, minutes: 60 },
+  { km: 20, minutes: 90 },
+  { km: 30, minutes: 120 }
+] as const;
+
+export type DiscoverRadiusBudget = (typeof DISCOVER_RADIUS_BUDGETS)[number];
+
+/** Time budget (minutes) implied by a radius; null for unlimited (radius 0). */
+export const getTravelBudgetMinutes = (radiusKm: number): number | null =>
+  getTravelBudget(radiusKm)?.minutes ?? null;
+
+/** The full budget entry for a radius. Null for unlimited (radius 0). */
+export const getTravelBudget = (radiusKm: number): DiscoverRadiusBudget | null =>
+  DISCOVER_RADIUS_BUDGETS.find((entry) => entry.km === radiusKm) ?? null;
 
 // Pagination constants
 export const PAGINATION = {
@@ -189,6 +286,15 @@ export const SHOP_ID_OFFSET_ZIV = 20000;
 
 export type GameKey = (typeof GAME_TITLES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];
+
+/**
+ * Sort options for metro station rankings: no area/population-based criteria
+ * (density, per-capita), so it is SORT_CRITERIA minus those two entries.
+ * Passed to RankingsHeader via its `criteria` prop.
+ */
+export const METRO_SORT_CRITERIA = SORT_CRITERIA.filter(
+  (criteria) => criteria.key !== 'density' && criteria.key !== 'per_capita'
+) as readonly { key: SortKey }[];
 export type SocialPlatform = Exclude<(typeof OAUTH_PROVIDERS)[number]['id'], 'microsoft-entra-id'>;
 
 export const SOCIAL_PLATFORMS = OAUTH_PROVIDERS.filter((provider) => provider.profile).map(

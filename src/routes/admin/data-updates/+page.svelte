@@ -6,7 +6,13 @@
   import type { PageData } from './$types';
 
   type TaskState = 'idle' | 'running' | 'succeeded' | 'failed';
-  type TaskId = 'university_stats' | 'campus_rankings' | 'region_rankings' | 'meilisearch';
+  type TaskId =
+    | 'university_stats'
+    | 'campus_rankings'
+    | 'region_rankings'
+    | 'home_stats'
+    | 'meilisearch'
+    | 'openmetro_sync';
 
   type Task = {
     id: TaskId;
@@ -47,11 +53,23 @@
       icon: 'fa-earth-americas',
       summaryKeys: ['totalCount']
     },
+    home_stats: {
+      title: m.admin_data_update_home_stats(),
+      description: m.admin_data_update_home_stats_description(),
+      icon: 'fa-chart-simple',
+      summaryKeys: ['shopCount', 'machineCount', 'userCount']
+    },
     meilisearch: {
       title: m.admin_data_update_meilisearch(),
       description: m.admin_data_update_meilisearch_description(),
       icon: 'fa-magnifying-glass',
       summaryKeys: ['indexedCount', 'shopCount', 'universityCount', 'clubCount']
+    },
+    openmetro_sync: {
+      title: m.admin_data_update_openmetro_sync(),
+      description: m.admin_data_update_openmetro_sync_description(),
+      icon: 'fa-train-subway',
+      summaryKeys: ['unchanged', 'networkCount', 'stationCount', 'assignedCount']
     }
   };
 
@@ -63,8 +81,14 @@
     totalCount: m.admin_data_update_summary_total_count(),
     indexedCount: m.admin_data_update_summary_indexed_count(),
     shopCount: m.admin_data_update_summary_shop_count(),
+    machineCount: m.admin_data_update_summary_machine_count(),
+    userCount: m.admin_data_update_summary_user_count(),
     universityCount: m.admin_data_update_summary_university_count(),
-    clubCount: m.admin_data_update_summary_club_count()
+    clubCount: m.admin_data_update_summary_club_count(),
+    networkCount: m.admin_data_update_summary_network_count(),
+    stationCount: m.admin_data_update_summary_station_count(),
+    assignedCount: m.admin_data_update_summary_assigned_count(),
+    unchanged: m.admin_data_update_summary_unchanged()
   };
 
   let tasks = $state<Task[]>([]);

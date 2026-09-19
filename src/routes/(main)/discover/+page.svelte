@@ -5,12 +5,15 @@
     AMapContext,
     Shop,
     TransportMethod,
+    AMapTransportMethod,
     TransportSearchResult,
     CachedRouteData,
     DirectionsState
   } from '$lib/types';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
   import { onMount, getContext, untrack } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
   import {
     formatDistance,
@@ -28,6 +31,19 @@
     getShopOpeningHours,
     isShopChinaBased
   } from '$lib/utils';
+  import {
+    buildMetroOverlay,
+    buildMetroRouteData,
+    fetchMetroFare,
+    getMetroItinerary,
+    getMetroBadgeTextColor,
+    getMetroLocalizedName,
+    getMetroShopColor,
+    getMetroShopLineCode,
+    METRO_WALK_COLOR,
+    METRO_WALK_DASH
+  } from '$lib/utils/metro.client';
+  import { getTravelIcon, inferTravelSeconds } from '$lib/utils/travel';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
@@ -42,7 +58,9 @@
     HOVERED_SHOP_INDEX,
     GAME_TITLES,
     RADIUS_OPTIONS,
-    LIMIT_OPTIONS
+    LIMIT_OPTIONS,
+    DISCOVER_TIME_PRIMARY_KEY,
+    getTravelBudgetMinutes
   } from '$lib/constants';
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
@@ -91,6 +109,7 @@
         distance: number;
         path: AMap.LngLat[];
         route: AMap.Polyline;
+        selectedRouteIndex: number;
         routeData?: TransportSearchResult; // Store complete route data for directions
       } | null
     >
@@ -105,6 +124,146 @@
 
   let costs: Record<string, Record<string, { preview: string; full: string }>> = $state({});
   let discoverTableContainer: HTMLDivElement | undefined = $state(undefined);
+
+  /**
+   * Metro features need the AMap engine: `useGoogleMaps` only triggers when
+   * every shop is overseas, and only Chinese shops carry metro assignments.
+   */
+  let metroEnabled = $derived(!useGoogleMaps);
+
+  /**
+   * A shop as returned by the discover endpoint: the persisted shop plus the
+   * server's distance, and a travel estimate only when the metro genuinely
+   * beats walking there.
+   */
+  type DiscoverShop = (typeof data.shops)[number];
+
+  /** The server's metro estimate for a shop, when it has one. */
+  const shopTravelSeconds = (shop: DiscoverShop): number | null => shop.travel?.seconds ?? null;
+
+  /**
+   * Whether the travel column leads with time rather than distance. Persisted
+   * so the choice survives reloads and navigation.
+   */
+  let timePrimary = $state(true);
+
+  $effect(() => {
+    if (!browser) return;
+    const stored = localStorage.getItem(DISCOVER_TIME_PRIMARY_KEY);
+    if (stored !== null) timePrimary = stored === 'true';
+  });
+
+  const setTimePrimary = (value: boolean) => {
+    timePrimary = value;
+    if (browser) localStorage.setItem(DISCOVER_TIME_PRIMARY_KEY, String(value));
+  };
+
+  /**
+   * Every shop's displayed travel figure, resolved once and shared by the
+   * table, the sort, the type of comparison:
+   *
+   *  1. a live AMap result (a real route, so the most accurate),
+   *  2. the server's metro estimate (a real itinerary),
+   *  3. a straight-line inference (rough, but it means the column can show a
+   *     time for every row rather than leaving most of them blank).
+   *
+   * `source` records which of the three produced the value, so the UI can mark
+   * inferred figures and the Directions panel can prefer the accurate ones.
+   */
+  type TravelInfo = {
+    seconds: number;
+    distanceKm: number;
+    source: 'amap' | 'metro' | 'inferred';
+  };
+
+  let travelInfoById = $derived.by(() => {
+    const result: Record<string, TravelInfo> = {};
+
+    for (const shop of data.shops) {
+      const id = `${shop.id}`;
+      const amap = travelData[id];
+
+      if (amap && amap.time) {
+        result[id] = { seconds: amap.time, distanceKm: amap.distance, source: 'amap' };
+        continue;
+      }
+
+      const metroSeconds = shopTravelSeconds(shop);
+      if (metroSeconds !== null) {
+        result[id] = { seconds: metroSeconds, distanceKm: shop.distance, source: 'metro' };
+        continue;
+      }
+
+      result[id] = {
+        seconds: inferTravelSeconds(shop.distance),
+        distanceKm: shop.distance,
+        source: 'inferred'
+      };
+    }
+
+    return result;
+  });
+
+  /** Travel figure for a shop; every shop has one. */
+  const shopTravel = (shop: DiscoverShop): TravelInfo =>
+    travelInfoById[`${shop.id}`] ?? {
+      seconds: inferTravelSeconds(shop.distance),
+      distanceKm: shop.distance,
+      source: 'inferred'
+    };
+
+  /**
+   * Itineraries are static for a given response, so each shop's synthetic AMap
+   * plan is built once and reused by the Directions panel and the hover
+   * overlay. Fares (the only live openmetro call) are layered on top.
+   */
+  let metroFares = $state<Record<string, number>>({});
+  const metroFareRequests = new SvelteSet<string>();
+
+  /**
+   * Route data for metro-reachable shops, keyed by id, in the shape
+   * `<Directions>` and the hover overlay expect. Shops without a worthwhile
+   * metro trip get no entry — the panel then falls back to the AMap result (or
+   * shows nothing), exactly as before metro existed.
+   */
+  let shopRouteData = $derived.by(() => {
+    const result: Record<string, TransportSearchResult> = {};
+    if (!metroEnabled) return result;
+    for (const shop of data.shops) {
+      if (!shop.travel) continue;
+      const routeData = buildMetroRouteData(shop, data.metro);
+      if (routeData) result[`${shop.id}`] = routeData;
+    }
+    return result;
+  });
+
+  /**
+   * Whether a shop's metro itinerary — not a live AMap route — is what the
+   * Directions panel should show. AMap wins whenever it returned something,
+   * because a real routed path beats a straight-line-derived estimate.
+   */
+  const prefersMetroItinerary = (shopId: string): boolean =>
+    Boolean(shopRouteData[shopId]) && !travelData[shopId]?.routeData;
+
+  const shopTravelIcon = (shop: DiscoverShop): string => {
+    const travel = shopTravel(shop);
+    if (travel.source === 'metro') return 'fa-train-subway';
+    if (travel.source === 'inferred') return getTravelIcon(undefined);
+    const route = travelData[`${shop.id}`];
+    return getTravelIcon(transportMethod, route?.routeData, route?.selectedRouteIndex);
+  };
+
+  const travelTimeLevel = (seconds: number): 'success' | 'warning' | 'error' => {
+    if (seconds < Math.max(avgTravelTime / 1.5, 1200)) return 'success';
+    if (seconds < Math.max(avgTravelTime * 1.5, 2400)) return 'warning';
+    return 'error';
+  };
+
+  const travelDistanceLevel = (distanceKm: number): 'success' | 'warning' | 'error' => {
+    if (distanceKm < avgTravelDistance / 1.5) return 'success';
+    if (distanceKm < avgTravelDistance * 1.5) return 'warning';
+    return 'error';
+  };
 
   // Auto-discovery functionality
   let user = $derived(data.session?.user);
@@ -164,42 +323,35 @@
   };
 
   let avgTravelTime = $derived.by(() => {
-    if (!transportMethod) return 0;
-    const times = Object.values(travelData)
-      .filter((data) => data !== null)
-      .map((data) => data!.time);
+    // Only figures we can stand behind drive the colour ramp: the straight-line
+    // inferences are uniformly spread and would only flatten the comparison.
+    const times = data.shops
+      .map((shop) => shopTravel(shop))
+      .filter((travel) => travel.source !== 'inferred')
+      .map((travel) => travel.seconds);
     return times.length > 0 ? times.reduce((sum, time) => sum + time, 0) / times.length : 0;
   });
 
   let avgTravelDistance = $derived.by(() => {
-    if (!transportMethod)
-      return data.shops.reduce((sum, shop) => sum + shop.distance, 0) / data.shops.length;
-    const distances = Object.values(travelData)
-      .filter((data) => data !== null)
-      .map((data) => data!.distance);
-    return distances.length > 0
-      ? distances.reduce((sum, dist) => sum + dist, 0) / distances.length
-      : 0;
+    return data.shops.reduce((sum, shop) => sum + shop.distance, 0) / data.shops.length;
   });
 
   let sortedShops = $derived.by(() => {
-    if (!transportMethod) {
-      return data.shops;
-    }
-
+    // Always sort by the current primary metric so the table order matches
+    // what the travel column leads with. Time-first is the default: a
+    // straight-line distance says very little about how long the trip
+    // actually takes, but a real figure (AMap/metro) beats an inferred one —
+    // `shopTravel` already encodes that precedence.
     return [...data.shops].sort((a, b) => {
-      const dataA = travelData[a.id];
-      const dataB = travelData[b.id];
-
-      if (dataA && dataB) {
-        if (dataA.time !== dataB.time) return dataA.time - dataB.time;
-        if (dataA.distance !== dataB.distance) return dataA.distance - dataB.distance;
-        return a.distance - b.distance;
+      if (timePrimary) {
+        const timeA = shopTravel(a).seconds;
+        const timeB = shopTravel(b).seconds;
+        if (timeA !== timeB) return timeA - timeB;
       }
-
-      if (dataA) return -1;
-      if (dataB) return 1;
-      return a.distance - b.distance;
+      const distanceA = shopTravel(a).distanceKm;
+      const distanceB = shopTravel(b).distanceKm;
+      if (distanceA !== distanceB) return distanceA - distanceB;
+      return a.id - b.id;
     });
   });
 
@@ -283,7 +435,7 @@
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let plugins: Record<string, any> = $state({});
 
-  const calculateTravelData = async (method: NonNullable<TransportMethod>) => {
+  const calculateTravelData = async (method: AMapTransportMethod) => {
     if (!amap || !data || data.shops.length === 0) return;
     travelData = {};
 
@@ -370,6 +522,7 @@
             distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
             path,
             route: routeLine,
+            selectedRouteIndex: selectedIndex,
             routeData: result
           };
         };
@@ -573,6 +726,50 @@
     return element;
   };
 
+  const createAMapShopLabel = (shop: DiscoverShop): string => {
+    const label = document.createElement('span');
+    label.className = 'inline-flex items-center gap-1.5 whitespace-nowrap';
+    const lineCode =
+      metroEnabled && shop.transit?.metro ? getMetroShopLineCode(shop, data.metro) : null;
+    if (lineCode) {
+      const color = getMetroShopColor(shop, data.metro) ?? '#64748b';
+      const chip = document.createElement('span');
+      chip.className = 'min-w-5 rounded-sm px-1 text-center leading-5 font-bold';
+      chip.style.backgroundColor = color;
+      chip.style.color = getMetroBadgeTextColor(color);
+      chip.textContent = lineCode;
+      label.appendChild(chip);
+    }
+    // sanitizeHTML allows markup and strips inline styles. DOM text nodes
+    // escape external names; style properties avoid interpolating CSS into HTML.
+    label.appendChild(document.createTextNode(shop.name));
+    return label.outerHTML;
+  };
+
+  const handleMarkerClick = (shopId: string) => {
+    const wasSelected = selectedShopId === shopId;
+    const hasRoute = Boolean(travelData[shopId]?.routeData || shopRouteData[shopId]);
+    selectedShopId = shopId;
+
+    if (highlightedShopIdTimeout) {
+      clearTimeout(highlightedShopIdTimeout);
+      highlightedShopIdTimeout = null;
+    }
+    highlightedShopId = null;
+
+    if (hasRoute && !wasSelected) return;
+
+    highlightedShopId = shopId;
+    highlightedShopIdTimeout = setTimeout(() => {
+      highlightedShopId = null;
+      highlightedShopIdTimeout = null;
+    }, 3000);
+    document.getElementById(`shop-${shopId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  };
+
   const createShopInfoWindowContent = (shop: Shop): string => {
     const address = formatShopAddress(shop);
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
@@ -690,25 +887,12 @@
             });
 
             marker.addListener('click', () => {
-              selectedShopId = `${shop.id}`;
-              highlightedShopId = `${shop.id}`;
               Object.values(markers).forEach((markerInfo) => {
                 markerInfo.infoWindow?.close();
               });
               infoWindow.open(googleMap, marker);
 
-              if (highlightedShopIdTimeout) {
-                clearTimeout(highlightedShopIdTimeout);
-              }
-
-              highlightedShopIdTimeout = setTimeout(() => {
-                highlightedShopId = null;
-              }, 3000);
-
-              const shopElement = document.getElementById(`shop-${shop.id}`);
-              if (shopElement && !(isMobileView && directions.isOpen)) {
-                shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
+              handleMarkerClick(`${shop.id}`);
             });
           });
 
@@ -766,7 +950,7 @@
               content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
               offset: new amap!.Pixel(-7.03, -20),
               label: {
-                content: shop.name,
+                content: createAMapShopLabel(shop),
                 offset: new amap!.Pixel(2, -5),
                 direction: 'right'
               },
@@ -784,20 +968,7 @@
               }
             });
             marker.on('click', () => {
-              selectedShopId = `${shop.id}`;
-              highlightedShopId = `${shop.id}`;
-              if (highlightedShopIdTimeout) {
-                clearTimeout(highlightedShopIdTimeout);
-              }
-              if (!directions.isOpen) {
-                highlightedShopIdTimeout = setTimeout(() => {
-                  highlightedShopId = null;
-                }, 3000);
-              }
-              const shopElement = document.getElementById(`shop-${shop.id}`);
-              if (shopElement && !(isMobileView && directions.isOpen)) {
-                shopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
+              handleMarkerClick(`${shop.id}`);
             });
             marker.setMap(map as AMap.Map);
           });
@@ -818,8 +989,9 @@
   $effect(() => {
     if (!map || useGoogleMaps) return; // Skip for Google Maps
     if (transportMethod) {
+      const method = transportMethod;
       untrack(async () => {
-        await calculateTravelData(transportMethod!);
+        await calculateTravelData(method);
       });
       return () => {
         Object.keys(travelData).forEach((shopId) => {
@@ -882,6 +1054,11 @@
             map.setFitView([route]);
             directions.shopId = selectedShopId;
             openDirections();
+          } else if (shopRouteData[selectedShopId!]) {
+            // No live AMap route for this shop, but the server supplied a metro
+            // itinerary, so the panel can open without waiting.
+            directions.shopId = selectedShopId;
+            openDirections();
           } else {
             const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
             if (shop && map && 'setZoomAndCenter' in map) {
@@ -927,6 +1104,23 @@
         openDirections();
       });
     }
+  });
+
+  /**
+   * Opening the panel for the selection always falls back to the metro
+   * itinerary when there is one; the AMap-route effect above handles the case
+   * where a live route exists (it runs with the route already in hand).
+   */
+  $effect(() => {
+    if (!selectedShopId || useGoogleMaps) return;
+    const selected = selectedShopId;
+    if (!shopRouteData[selected]) return;
+    // A live AMap route takes precedence and opens the panel via its own effect.
+    if (travelData[selected]?.routeData) return;
+    untrack(() => {
+      directions = { isOpen: true, shopId: selected, selectedRouteIndex: 0 };
+      openDirections();
+    });
   });
 
   $effect(() => {
@@ -989,7 +1183,7 @@
 
   $effect(() => {
     if (!amap || !map || useGoogleMaps) return;
-    if (['transit', 'riding', 'driving'].includes(transportMethod!)) {
+    if (['transit', 'riding', 'driving'].includes(transportMethod ?? '')) {
       if (!trafficLayer && amap.TileLayer) {
         trafficLayer = new amap.TileLayer.Traffic({
           zIndex: 1000,
@@ -1004,13 +1198,161 @@
     }
   });
 
-  $effect(() => {
-    if (directions.isOpen && directions.shopId) {
-      highlightedShopId = directions.shopId;
-      return () => {
-        highlightedShopId = null;
-      };
+  // ── Ambient metro overlay ────────────────────────────────────────────────
+  // Always on, independent of the transport method: hovering (or selecting) a
+  // shop paints its openmetro itinerary from the response alone — solid ride
+  // legs in official line colors, dashed grey walks. The overlay is hidden
+  // while a Directions panel is open because the panel draws its own.
+  let metroOverlay: AMap.Polyline[] = [];
+
+  const clearMetroOverlay = () => {
+    metroOverlay.forEach((polyline) => {
+      try {
+        polyline.setMap(null);
+      } catch {
+        // Map may already be destroyed during navigation
+      }
+    });
+    metroOverlay = [];
+  };
+
+  const drawMetroOverlay = (shopId: string, emphasized: boolean) => {
+    if (!amap || !map || useGoogleMaps) return;
+    const shop = data.shops.find((entry) => `${entry.id}` === shopId);
+    if (!shop) return;
+
+    // Only metro shops have an itinerary to paint. A shop with no metro
+    // advantage shows no overlay at all, exactly as before metro existed.
+    const segments = shop.travel ? buildMetroOverlay(shop, data.metro) : [];
+    if (segments.length === 0) return;
+
+    const lines: AMap.Polyline[] = [];
+    for (const segment of segments) {
+      const polyline = new amap.Polyline({
+        path: segment.path.map(([lng, lat]) => new amap!.LngLat(lng, lat)),
+        strokeColor: segment.color ?? METRO_WALK_COLOR,
+        strokeWeight: emphasized ? segment.weight + 1 : segment.weight,
+        strokeOpacity: emphasized ? 1 : 0.85,
+        strokeStyle: segment.dashed ? 'dashed' : 'solid',
+        ...(segment.dashed ? { strokeDasharray: METRO_WALK_DASH, showDir: false } : {}),
+        lineJoin: 'round',
+        lineCap: 'round',
+        zIndex: emphasized ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
+      });
+      polyline.setMap(map as AMap.Map);
+      lines.push(polyline);
     }
+
+    metroOverlay = lines;
+  };
+
+  /**
+   * Shop id whose overlay should be painted: the hovered shop wins, otherwise
+   * the selected one (so the route stays visible after clicking).
+   */
+  let metroOverlayShopId = $derived.by(() => {
+    if (!metroEnabled) return null;
+    if (hoveredShopId) return hoveredShopId;
+    if (selectedShopId) return selectedShopId;
+    return null;
+  });
+
+  $effect(() => {
+    const shopId = metroOverlayShopId;
+    const directionsOpen = directions.isOpen;
+    untrack(() => {
+      clearMetroOverlay();
+      if (!shopId || directionsOpen) return;
+      // A live AMap route for this shop draws itself; the metro overlay would
+      // double-draw a different path on top of it.
+      if (travelData[shopId]?.route) return;
+      drawMetroOverlay(shopId, hoveredShopId === shopId);
+    });
+  });
+
+  $effect(() => () => clearMetroOverlay());
+
+  /**
+   * The openmetro fare for the shop whose metro itinerary is displayed, once it
+   * arrives. `null` means "not available" — either still pending (the panel
+   * shows a skeleton) or never published (the panel drops the column).
+   */
+  let activeDirectionsFare = $derived.by(() => {
+    const shopId = directions.shopId;
+    if (!shopId || !prefersMetroItinerary(shopId)) return null;
+    const fare = metroFares[shopId];
+    return fare !== undefined && Number.isFinite(fare) && fare >= 0 ? fare : null;
+  });
+
+  /**
+   * Route data feeding `<Directions>`. A live AMap result always wins — it is
+   * a real routed path, whereas the metro itinerary is reconstructed from
+   * straight-line walks. The metro plan is the fallback when AMap has nothing
+   * (no transport method selected, or the request failed).
+   */
+  let activeDirectionsRouteData = $derived.by(() => {
+    const shopId = directions.shopId;
+    if (!shopId) return null;
+    return travelData[shopId]?.routeData ?? shopRouteData[shopId] ?? null;
+  });
+
+  let activeDirectionsLoading = $derived.by(() => {
+    const shopId = directions.shopId;
+    if (!shopId) return false;
+    if (travelData[shopId]) return false;
+    if (shopRouteData[shopId]) return false;
+    // A transport method is selected and its result has not arrived yet.
+    return Boolean(transportMethod);
+  });
+
+  /**
+   * True when the panel is showing a **metro itinerary** rather than an AMap
+   * route. Only then is the fare fetched from openmetro and shown with a
+   * skeleton — a live AMap plan reports its own cost and must not be masked by
+   * a request that is still in flight.
+   */
+  let activeDirectionsIsMetro = $derived.by(() => {
+    const shopId = directions.shopId;
+    if (!shopId) return false;
+    return prefersMetroItinerary(shopId);
+  });
+
+  /** True while the openmetro fare for the displayed metro itinerary loads. */
+  let activeDirectionsFareLoading = $derived.by(() => {
+    const shopId = directions.shopId;
+    if (!shopId || !activeDirectionsIsMetro) return false;
+    if (!data.metro) return false;
+    const shop = data.shops.find((entry) => `${entry.id}` === shopId);
+    if (!shop?.travel || !shop.transit?.metro) return false;
+    if (getMetroItinerary(data.metro, shopId) === null) return false;
+    return metroFares[shopId] === undefined;
+  });
+
+  /**
+   * Live fare enrichment (§3.5) — openmetro traffic beyond the discover call.
+   * Runs only when the **metro itinerary** is what the panel shows; a live AMap
+   * plan reports its own cost, so querying openmetro then would be wasted
+   * traffic. Failures are silent (the fare column is simply omitted).
+   */
+  $effect(() => {
+    if (!directions.isOpen || !directions.shopId || !data.metro) return;
+    const shopId = directions.shopId;
+    if (!prefersMetroItinerary(shopId)) return;
+    const shop = data.shops.find((entry) => `${entry.id}` === shopId);
+    if (!shop?.travel) return;
+    if (!shop.transit?.metro) return;
+    if (getMetroItinerary(data.metro, shopId) === null) return;
+    if (metroFares[shopId] !== undefined || metroFareRequests.has(shopId)) return;
+
+    metroFareRequests.add(shopId);
+    const block = data.metro;
+    untrack(() => {
+      fetchMetroFare(block, shop.transit!.metro).then((fare) => {
+        // A null fare still clears the pending state: the panel then drops the
+        // fare column rather than showing a skeleton forever.
+        metroFares = { ...metroFares, [shopId]: fare ?? -1 };
+      });
+    });
   });
 
   const applyGameFilter = (ids: number[]) => {
@@ -1036,6 +1378,16 @@
     }
   };
 
+  /**
+   * Radius options double as the travel-time budget: each distance carries the
+   * time it typically implies, so the label reads "5 km · 45 分" and the user
+   * picks a range rather than a separate time control.
+   */
+  const radiusLabel = (km: number): string => {
+    const budget = getTravelBudgetMinutes(km);
+    return budget === null ? `${km} km` : `${km} km · ${formatDuration(budget * 60)}`;
+  };
+
   $effect(() => {
     const selectedTitleSignature = selectedTitleIds.join(':');
 
@@ -1057,8 +1409,11 @@
   bind:isOpen={directions.isOpen}
   shop={directions.shopId ? data.shops.find((s) => `${s.id}` === directions.shopId) : null}
   selectedRouteIndex={directions.selectedRouteIndex}
-  routeData={directions.shopId ? travelData[directions.shopId]?.routeData : null}
-  isLoading={!!directions.shopId && !travelData[directions.shopId]}
+  routeData={activeDirectionsRouteData}
+  isLoading={activeDirectionsLoading}
+  isMetro={activeDirectionsIsMetro}
+  fareLoading={activeDirectionsFareLoading}
+  fare={activeDirectionsFare}
   map={map as AMap.Map}
   {amap}
   amapLink={routeLink}
@@ -1067,6 +1422,10 @@
   }}
   onRouteSelected={(index) => {
     directions.selectedRouteIndex = index;
+
+    // Server-provided itineraries have a single route, so there is nothing to
+    // re-select or re-cache.
+    if (prefersMetroItinerary(directions.shopId ?? '')) return;
 
     // Update cache with new selected route index
     if (directions.shopId && transportMethod) {
@@ -1108,7 +1467,8 @@
               time: selectedRoute.time ?? 0,
               distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
               path,
-              route: shopData.route
+              route: shopData.route,
+              selectedRouteIndex: index
             };
           }
         }
@@ -1189,7 +1549,7 @@
                       onclick={() => {
                         discoverRadius = r;
                         updateDiscoverSettings();
-                      }}>{r} km</button
+                      }}>{radiusLabel(r)}</button
                     >
                   {/each}
                   <button
@@ -1283,7 +1643,7 @@
             }}
           >
             {#each RADIUS_OPTIONS as r (r)}
-              <option value={r}>{r} km</option>
+              <option value={r}>{radiusLabel(r)}</option>
             {/each}
             <option value={0}>{m.unlimited()}</option>
           </select>
@@ -1328,24 +1688,41 @@
       : ''}"
     bind:this={mapContainer}
   ></div>
-  {#if hiddenAbsentGames.length > 0}
+  <div class="mb-2 flex flex-wrap items-center gap-1">
     <button
       type="button"
-      class="btn btn-ghost btn-xs mb-2 not-hover:text-current/60"
-      class:btn-active={showAbsentGames}
-      aria-pressed={showAbsentGames}
-      onclick={() => {
-        showAbsentGames = !showAbsentGames;
-      }}
+      class="btn btn-ghost btn-xs not-hover:text-current/60"
+      class:btn-active={timePrimary}
+      aria-pressed={timePrimary}
+      title={timePrimary ? m.travel_time() : m.distance()}
+      onclick={() => setTimePrimary(!timePrimary)}
     >
-      <i class={`fa-solid ${showAbsentGames ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-      {#if showAbsentGames}
-        {m.hide_absent_game_titles()}
+      <i class="fa-solid {timePrimary ? 'fa-clock' : 'fa-ruler-horizontal'}"></i>
+      {#if timePrimary}
+        {m.travel_time()}
       {:else}
-        {m.show_hidden_absent_game_titles({ count: hiddenAbsentGames.length })}
+        {m.distance()}
       {/if}
     </button>
-  {/if}
+    {#if hiddenAbsentGames.length > 0}
+      <button
+        type="button"
+        class="btn btn-ghost btn-xs not-hover:text-current/60"
+        class:btn-active={showAbsentGames}
+        aria-pressed={showAbsentGames}
+        onclick={() => {
+          showAbsentGames = !showAbsentGames;
+        }}
+      >
+        <i class={`fa-solid ${showAbsentGames ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+        {#if showAbsentGames}
+          {m.hide_absent_game_titles()}
+        {:else}
+          {m.show_hidden_absent_game_titles({ count: hiddenAbsentGames.length })}
+        {/if}
+      </button>
+    {/if}
+  </div>
   {#if data.shops.length > 0}
     <div class="discover-table-wrap overflow-x-auto rounded-xl" bind:this={discoverTableContainer}>
       <table class="discover-table bg-base-200/30 dark:bg-base-200/60 table">
@@ -1362,7 +1739,7 @@
             <th
               class="discover-header discover-sticky discover-sticky-travel hidden text-center md:table-cell"
             >
-              {#if transportMethod}
+              {#if timePrimary}
                 {m.travel_time()}
               {:else}
                 {m.distance()}
@@ -1451,72 +1828,35 @@
                 <div class="flex items-center space-x-3">
                   <div>
                     <div class="text-lg font-bold">{shop.name}</div>
-                    <span class="text-sm">
-                      <!-- Narrow: show distance/time instead of ID -->
-                      <span class="hidden opacity-50 md:inline">#{shop.id}</span>
-                      <span class="md:hidden">
-                        {#if transportMethod}
-                          {@const hasTravelData = travelData[`${shop.id}`] !== undefined}
-                          {@const travelDist = travelData[`${shop.id}`]?.distance ?? shop.distance}
-                          {#if hasTravelData && travelData[`${shop.id}`] !== null}
-                            <span
-                              class="whitespace-nowrap {!hasTravelData
-                                ? ''
-                                : travelData[`${shop.id}`]!.time <
-                                    Math.max(avgTravelTime / 1.5, 1200)
-                                  ? 'text-success'
-                                  : travelData[`${shop.id}`]!.time <
-                                      Math.max(avgTravelTime * 1.5, 2400)
-                                    ? 'text-warning'
-                                    : 'text-error'}"
-                            >
-                              {formatDuration(travelData[`${shop.id}`]?.time)}
-                            </span>
-                          {:else}
-                            <span
-                              class="whitespace-nowrap {travelDist < avgTravelDistance / 1.5
-                                ? 'text-success'
-                                : travelDist < avgTravelDistance * 1.5
-                                  ? 'text-warning'
-                                  : 'text-error'}"
-                            >
-                              {formatDistance(travelDist, 2)}
-                            </span>
-                          {/if}
-                        {:else}
-                          <span
-                            class="whitespace-nowrap {shop.distance < avgTravelDistance / 1.5
-                              ? 'text-success'
-                              : shop.distance < avgTravelDistance * 1.5
-                                ? 'text-warning'
-                                : 'text-error'}"
-                          >
-                            {formatDistance(shop.distance, 2)}
-                          </span>
-                        {/if}
-                      </span>
-                      <span class="opacity-50 xl:hidden">·</span>
-                      <span
-                        class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
-                      >
-                        {@render attendance('text-xs')}
-                      </span>
-                      {#if transportMethod}
-                        {@const hasTravelData = travelData[`${shop.id}`] !== undefined}
-                        {@const distance = travelData[`${shop.id}`]?.distance ?? shop.distance}
-                        <span class="hidden opacity-50 md:inline">·</span>
+                    {#if metroEnabled && shop.transit?.metro}
+                      {@const metroColor = getMetroShopColor(shop, data.metro) ?? '#64748b'}
+                      {@const lineCode = getMetroShopLineCode(shop, data.metro)}
+                      {@const stationLabel = getMetroLocalizedName(
+                        shop.transit.metro.names,
+                        shop.transit.metro.stationName,
+                        getLocale()
+                      )}
+                      <div class="mt-1 flex items-center">
                         <span
-                          class="hidden whitespace-nowrap transition-opacity not-hover:opacity-50 md:inline {!hasTravelData
-                            ? ''
-                            : distance < avgTravelDistance / 1.5
-                              ? 'text-success'
-                              : distance < avgTravelDistance * 1.5
-                                ? 'text-warning'
-                                : 'text-error'}"
+                          class="border-base-content/15 bg-base-200 text-base-content inline-flex items-center gap-1.5 rounded-md border p-0.5 pr-1.5 text-xs"
+                          title="{m.metro_station()}: {stationLabel}"
                         >
-                          {formatDistance(distance, 2)}
+                          {#if lineCode}
+                            <span
+                              class="min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap"
+                              style="background-color: {metroColor}; color: {getMetroBadgeTextColor(
+                                metroColor
+                              )}">{lineCode}</span
+                            >
+                          {/if}
+                          {stationLabel}
                         </span>
-                      {/if}
+                      </div>
+                    {/if}
+                    <span
+                      class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
+                    >
+                      {@render attendance('text-xs')}
                     </span>
                   </div>
                 </div>
@@ -1529,34 +1869,44 @@
               <td
                 class="discover-cell discover-sticky discover-sticky-travel hidden text-center md:table-cell"
               >
-                {#if transportMethod}
-                  {#if travelData[`${shop.id}`] === undefined}
-                    <span class="loading loading-spinner loading-sm"></span>
-                  {:else}
+                {#if timePrimary}
+                  {@const travel = shopTravel(shop)}
+                  {@const icon = shopTravelIcon(shop)}
+                  <!-- Time leads. Every row has one: a live AMap route, the
+                       server's metro estimate, or a straight-line inference. -->
+                  <div class="flex flex-col items-center gap-0.5">
                     <div
-                      class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap {travelData[
-                        shop.id
-                      ] === null
-                        ? 'badge-neutral'
-                        : travelData[`${shop.id}`]!.time < Math.max(avgTravelTime / 1.5, 1200)
-                          ? 'badge-success'
-                          : travelData[`${shop.id}`]!.time < Math.max(avgTravelTime * 1.5, 2400)
-                            ? 'badge-warning'
-                            : 'badge-error'}"
+                      class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap badge-{travelTimeLevel(
+                        travel.seconds
+                      )}"
+                      title={travel.source === 'inferred' ? m.distance_based_estimate() : undefined}
                     >
-                      {formatDuration(travelData[`${shop.id}`]?.time)}
+                      {formatDuration(travel.seconds)}
                     </div>
-                  {/if}
+                    <span class="text-base-content/60 text-xs">
+                      {formatDistance(travel.distanceKm, 2)}
+                      <i class="fa-solid {icon} ml-0.5"></i>
+                    </span>
+                  </div>
                 {:else}
-                  <div
-                    class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap {shop.distance <
-                    avgTravelDistance / 1.5
-                      ? 'badge-success'
-                      : shop.distance < avgTravelDistance * 1.5
-                        ? 'badge-warning'
-                        : 'badge-error'}"
-                  >
-                    {formatDistance(shop.distance, 2)}
+                  {@const travel = shopTravel(shop)}
+                  {@const icon = shopTravelIcon(shop)}
+                  <!-- Distance leads. -->
+                  <div class="flex flex-col items-center gap-0.5">
+                    <div
+                      class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap badge-{travelDistanceLevel(
+                        travel.distanceKm
+                      )}"
+                    >
+                      {formatDistance(travel.distanceKm, 2)}
+                    </div>
+                    <span
+                      class="text-base-content/60 text-xs"
+                      title={travel.source === 'inferred' ? m.distance_based_estimate() : undefined}
+                    >
+                      {formatDuration(travel.seconds)}
+                      <i class="fa-solid {icon} ml-0.5"></i>
+                    </span>
                   </div>
                 {/if}
               </td>

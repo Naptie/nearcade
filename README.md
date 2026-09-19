@@ -253,6 +253,14 @@ FCM_PROXY="https://example.com/api/notifications/fcm/send"
 完成 `.env` 配置后，运行 `docker compose up -d --build --wait`，然后访问
 `http://localhost:5173`。
 
+**地铁数据配置（可选）**
+
+`.env.example` 中的 `PUBLIC_OPENMETRO_API_BASE = ""` 表示使用代码默认地址
+`https://openmetro.phi.zone`；需要其他 Open Metro 实例时填写其 API 基址，不需要 API 密钥。
+在导入店铺后，通过 `/admin/data-updates` 运行管理员任务 `openmetro_sync`，同步参考数据、
+店铺车站归属和车站排行；建议每日调度。即使上游版本未变，每次同步仍刷新归属与排行，
+仅跳过未变的参考数据写入（版本命中时也跳过参考数据获取）。
+
 ### 构建生产版本
 
 ```bash

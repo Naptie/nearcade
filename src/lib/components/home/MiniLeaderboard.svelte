@@ -19,6 +19,7 @@
     viewAllHref: string;
     rotateIntervalMs?: number;
     getValue?: (item: T) => number;
+    class?: string;
   }
 
   let {
@@ -26,7 +27,8 @@
     groups,
     viewAllHref,
     rotateIntervalMs = 10_000,
-    getValue = (item: T) => item.value
+    getValue = (item: T) => item.value,
+    class: klass = ''
   }: Props = $props();
 
   let groupIndex = $state(0);
@@ -52,7 +54,7 @@
 </script>
 
 <div
-  class="bg-base-200/60 dark:bg-base-200/90 border-base-300 flex flex-col rounded-xl border p-4 shadow-none backdrop-blur-2xl transition hover:shadow-lg sm:p-5 dark:border-neutral-700 dark:shadow-neutral-700/70"
+  class="bg-base-200/60 dark:bg-base-200/90 border-base-300 flex flex-col rounded-xl border p-4 shadow-none backdrop-blur-2xl transition hover:shadow-lg sm:p-5 dark:border-neutral-700 dark:shadow-neutral-700/70 {klass}"
 >
   <div class="mb-3 flex items-center justify-between gap-2">
     <h3 class="truncate text-lg font-bold">{title}</h3>

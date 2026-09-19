@@ -12,9 +12,21 @@
     stale: boolean;
     cacheTime: Date;
     sortBy: SortCriteria;
+    /** Sort options; defaults to the global SORT_CRITERIA (campus/region pages). */
+    criteria?: readonly { key: SortCriteria }[];
   }
 
-  let { title, description, cached, stale, cacheTime, sortBy = $bindable() }: Props = $props();
+  let {
+    title,
+    description,
+    cached,
+    stale,
+    cacheTime,
+    sortBy = $bindable(),
+    criteria
+  }: Props = $props();
+
+  const options = $derived(criteria ?? SORT_CRITERIA);
 
   const getSortLabel = (sortKey: string): string => {
     const criteria = SORT_CRITERIA.find((s) => s.key === sortKey);
@@ -61,8 +73,8 @@
       <span class="label-text">{m.sort_by()}</span>
     </label>
     <select id="sort-select" class="select select-bordered w-full pe-8" bind:value={sortBy}>
-      {#each SORT_CRITERIA as criteria (criteria.key)}
-        <option value={criteria.key}>{getSortLabel(criteria.key)}</option>
+      {#each options as option (option.key)}
+        <option value={option.key}>{getSortLabel(option.key)}</option>
       {/each}
     </select>
   </div>

@@ -43,6 +43,18 @@
     map?: AMap.Map;
     amap?: typeof AMap;
     amapLink?: string;
+    /**
+     * True when `routeData` is a synthetic openmetro itinerary. Its fare is
+     * then fetched live, so the cost column shows a skeleton until it arrives.
+     */
+    isMetro?: boolean;
+    /** True while the openmetro fare request is still in flight. */
+    fareLoading?: boolean;
+    /**
+     * Live fare for a metro itinerary. Overrides the route's own `cost`, which
+     * is 0 for synthetic plans (openmetro publishes fares separately).
+     */
+    fare?: number | null;
     onClose?: () => void;
     onRouteSelected?: (index: number) => void;
   }
@@ -56,6 +68,9 @@
     map = undefined,
     amap = undefined,
     amapLink = '',
+    isMetro = false,
+    fareLoading = false,
+    fare = null,
     onClose = () => {},
     onRouteSelected = () => {}
   }: Props = $props();
@@ -242,6 +257,19 @@
     return undefined;
   });
 
+  /**
+   * Metro fares arrive separately: synthetic `cost: 0` is not a reported fare.
+   * Real AMap routes report their own cost. Explicit zero fares are valid.
+   */
+  const routeCost = $derived.by(() => {
+    const route = processedRoutes[selectedRouteIndex];
+    const cost = isMetro ? fare : route && 'cost' in route ? route.cost : null;
+    return typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? cost : null;
+  });
+
+  /** Missing or failed fares must not leave an empty third grid column. */
+  const showFareStat = $derived(fareLoading || routeCost !== null);
+
   // Clean up polylines when component is destroyed or route changes
   $effect(() => {
     return () => {
@@ -377,17 +405,23 @@
   ): Partial<AMap.PolylineOptions> => {
     const baseOptions = getBasePolylineOptions(segmentIndex);
 
+    // Official line color wins when the segment carries one. Real AMap
+    // responses omit `color`, so their fixed palette is unchanged; nearcade's
+    // synthetic openmetro plans set it so drawn lines match the operator's
+    // colors (and the matching colored chips in the panel).
+    const officialColor = segment.transit?.lines?.[0]?.color;
+
     switch (segment.transit_mode) {
       case 'SUBWAY':
         return {
           ...baseOptions,
-          strokeColor: '#8b5cf6',
+          strokeColor: officialColor || '#8b5cf6',
           strokeWeight: 8
         };
       case 'BUS':
         return {
           ...baseOptions,
-          strokeColor: '#3b82f6',
+          strokeColor: officialColor || '#3b82f6',
           strokeWeight: 8
         };
       case 'WALK':
@@ -589,28 +623,36 @@
         {@const selectedRoute = processedRoutes[selectedRouteIndex]}
         <div class="p-4 md:w-[30vw] md:max-w-lg md:min-w-full">
           <!-- Route Summary -->
-          <div class="mb-4 grid grid-cols-2 gap-4">
-            {#if 'cost' in selectedRoute && selectedRoute.cost > 0}
-              <div class="stat bg-base-200/50 rounded-lg p-3">
-                <div class="stat-title text-xs">{m.cost()}</div>
-                <div class="stat-value text-lg text-wrap">
-                  {m.cost_cny({ cost: selectedRoute.cost })}
-                </div>
+          <div class="mb-4 grid gap-4 {showFareStat ? 'grid-cols-3' : 'grid-cols-2'}">
+            <div class="stat bg-base-200/50 rounded-lg p-3">
+              <div class="stat-title text-xs">{m.travel_time()}</div>
+              <div class="stat-value text-lg text-wrap">
+                {formatDuration(selectedRoute.time)}
               </div>
-            {:else}
-              <div class="stat bg-base-200/50 rounded-lg p-3">
-                <div class="stat-title text-xs">{m.travel_time()}</div>
-                <div class="stat-value text-lg text-wrap">
-                  {formatDuration(selectedRoute.time)}
-                </div>
-              </div>
-            {/if}
+            </div>
             <div class="stat bg-base-200/50 rounded-lg p-3">
               <div class="stat-title text-xs">{m.total_distance()}</div>
               <div class="stat-value text-lg text-wrap">
                 {formatDistance(selectedRoute.distance / 1000, 2)}
               </div>
             </div>
+            {#if showFareStat}
+              {#if fareLoading}
+                <div class="stat bg-base-200/50 rounded-lg p-3">
+                  <div class="stat-title text-xs">{m.fare()}</div>
+                  <div class="stat-value text-lg text-wrap">
+                    <div class="skeleton h-6 w-16"></div>
+                  </div>
+                </div>
+              {:else if routeCost !== null}
+                <div class="stat bg-base-200/50 rounded-lg p-3">
+                  <div class="stat-title text-xs">{m.fare()}</div>
+                  <div class="stat-value text-lg text-wrap">
+                    {m.cost_cny({ cost: routeCost })}
+                  </div>
+                </div>
+              {/if}
+            {/if}
           </div>
 
           <!-- Route Steps -->

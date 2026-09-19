@@ -270,6 +270,16 @@ For Firebase Cloud Messaging proxy setup, please refer to [this endpoint](src/ro
 Once `.env` is configured, run `docker compose up -d --build --wait`, then open
 `http://localhost:5173`.
 
+**Metro data setup (optional)**
+
+`.env.example` sets `PUBLIC_OPENMETRO_API_BASE = ""`, which uses the code's
+`https://openmetro.phi.zone` default. Set another Open Metro API base if needed;
+no API key is required. After importing shops, run the admin task `openmetro_sync`
+at `/admin/data-updates` to populate reference data, shop assignments and station
+rankings; daily scheduling is recommended. Every sync refreshes assignments and
+rankings even when upstream versions are unchanged; only unchanged reference
+writes are skipped (a version match also skips reference fetches).
+
 ### Building for Production
 
 ```bash

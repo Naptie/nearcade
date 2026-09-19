@@ -3,7 +3,8 @@ import type {
   RADIUS_OPTIONS,
   LIMIT_OPTIONS,
   GAME_TITLES,
-  RANKING_RADIUS_OPTIONS
+  RANKING_RADIUS_OPTIONS,
+  METRO_RANKING_RADIUS_OPTIONS
 } from '../constants';
 import type { TransportSearchResult } from './amap';
 import type { PublicUser } from '$lib/auth/types';
@@ -56,6 +57,23 @@ export type Shop = UgcAttachable &
     /** Per-game entries may carry their own cached translations (`_t`). */
     games: Array<z.infer<typeof gameSchema> & UgcAttachable>;
   };
+
+/**
+ * Metro (openmetro) types re-exported for the browser. The zod schemas in
+ * `$lib/schemas/metro` are the single source of truth (they describe the
+ * discover API response), so importing the inferred types keeps the client and
+ * the API in lockstep.
+ */
+export type {
+  ShopMetro,
+  DiscoverMetroBlock,
+  MetroLegPlan,
+  MetroShopItinerary,
+  MetroStationRanking
+} from '$lib/schemas/metro';
+
+/** Per-shop fastest-mode estimate carried by the discover response. */
+export type { ShopTravelEstimate, MetroItinerary } from '$lib/utils/travel';
 
 export type Game = z.infer<typeof gameSchema> & UgcAttachable;
 
@@ -152,11 +170,25 @@ export interface RegionRankingCache {
 export type SortCriteria =
   'shops' | 'machines' | 'density' | 'per_capita' | (typeof GAME_TITLES)[number]['key'];
 
+/**
+ * Travel method driving the discover view. These select an *AMap* network
+ * lookup for the table's travel column; the server-computed openmetro
+ * itineraries (walk / ride / metro) are always shown in the panel regardless
+ * of this choice, so there is no separate "metro" method.
+ */
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
+
+/** Methods computed by the AMap plugins (all of them — `undefined` means none). */
+export type AMapTransportMethod = Exclude<TransportMethod, undefined>;
+
+export const isAMapTransportMethod = (method: TransportMethod): method is AMapTransportMethod =>
+  method !== undefined;
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
 
 export type RankingRadiusFilter = (typeof RANKING_RADIUS_OPTIONS)[number];
+
+export type MetroRankingRadiusFilter = (typeof METRO_RANKING_RADIUS_OPTIONS)[number];
 
 export type LimitFilter = (typeof LIMIT_OPTIONS)[number];
 

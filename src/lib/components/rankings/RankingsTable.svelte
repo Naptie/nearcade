@@ -4,19 +4,16 @@
   import { formatDistance, getGameName } from '$lib/utils';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { RANKING_RADIUS_OPTIONS, RANKING_FIXED_GAMES } from '$lib/constants';
-  import type {
-    RankingMetrics,
-    SortCriteria,
-    RankingRadiusFilter,
-    RankingsTableItem
-  } from '$lib/types';
+  import type { RankingMetrics, SortCriteria, RankingsTableItem } from '$lib/types';
   import type { Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
 
   interface Props {
     rankings: RankingsTableItem[];
     sortBy: SortCriteria;
-    radiusFilter: RankingRadiusFilter;
+    radiusFilter: number;
+    /** Radius column options; defaults to the campus options. */
+    radiusOptions?: readonly number[];
     isLoading: boolean;
     isLoadingMore: boolean;
     hasMore: boolean;
@@ -32,6 +29,7 @@
     rankings,
     sortBy,
     radiusFilter = $bindable(),
+    radiusOptions = RANKING_RADIUS_OPTIONS,
     isLoading,
     isLoadingMore,
     hasMore,
@@ -89,10 +87,10 @@
   };
 
   const visibleRadiusOptions = $derived.by(() => {
-    if (screenWidth < 640) return [RANKING_RADIUS_OPTIONS[1]];
-    if (screenWidth < 768) return RANKING_RADIUS_OPTIONS.slice(1, 3);
-    if (screenWidth < 1024) return RANKING_RADIUS_OPTIONS.slice(0, 3);
-    return RANKING_RADIUS_OPTIONS;
+    if (screenWidth < 640) return [radiusOptions[1]];
+    if (screenWidth < 768) return radiusOptions.slice(1, 3);
+    if (screenWidth < 1024) return radiusOptions.slice(0, 3);
+    return radiusOptions;
   });
 
   $effect(() => {
