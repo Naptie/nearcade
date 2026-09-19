@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { onMount, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
-  import maplibregl from 'maplibre-gl';
+  import * as maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '$lib/styles/maplibre.css';
   import { SvelteMap } from 'svelte/reactivity';

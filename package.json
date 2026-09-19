@@ -60,7 +60,7 @@
     "eslint-plugin-svelte": "^3.20.0",
     "firebase": "^12.14.0",
     "globals": "^17.7.0",
-    "maplibre-gl": "^5.24.0",
+    "maplibre-gl": "^6.10.0",
     "prettier": "^3.9.5",
     "prettier-plugin-svelte": "^3.5.2",
     "prettier-plugin-tailwindcss": "^0.7.4",

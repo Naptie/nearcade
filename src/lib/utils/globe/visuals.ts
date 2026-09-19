@@ -37,7 +37,7 @@
 import * as THREE from 'three';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import type { CustomRenderMethodInput } from 'maplibre-gl';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 /** Zoom level below which enhancements are fully opaque. */
 const FADE_IN_ZOOM = 4.0;
