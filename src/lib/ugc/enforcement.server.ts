@@ -302,8 +302,8 @@ const clearShopField = async (
   const unset: Record<string, true> = {};
   const set: Record<string, string> = {};
   let arrayFilters: { 'g.gameId': number }[] = [];
-  if (type === 'shop_name') unset['name'] = true;
-  else if (type === 'shop_description') unset['comment'] = true;
+  if (type === 'shop_name') set['name'] = '';
+  else if (type === 'shop_description') set['comment'] = '';
   else if (type === 'shop_address') unset['address.detailed'] = true;
   else {
     const attribute = GAME_FIELD_BY_TYPE[type];
