@@ -141,5 +141,5 @@
     "@protobufjs/utf8": "^1.1.2",
     "kysely": "^0.28.17"
   },
-  "packageManager": "pnpm@12.3.4"
+  "packageManager": "pnpm@12.5.1"
 }
