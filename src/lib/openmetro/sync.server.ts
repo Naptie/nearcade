@@ -421,6 +421,49 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
     }
   );
 
+  // ── Phase 2b: orphan cleanup ───────────────────────────────────────────────
+  // `replaceNetworkDocs` deletes stale docs only *within* a network id, so a
+  // network that disappears or is RENAMED upstream (e.g. `cn-bj` →
+  // `cn-beijing`) leaves its entire reference dataset behind forever. Those
+  // orphans stay in the snapshot: the origin can snap to a ghost station
+  // whose graph reaches only ghost ids, the `$in` shop query then matches
+  // nothing, and discover silently loses the metro arm for that city.
+  // Delete every doc whose networkId is not in the current upstream list.
+  const currentNetworkIds = new Set(networks.map((network) => network.id));
+  const orphanFilter = { networkId: { $nin: [...currentNetworkIds] } } as never;
+  const orphanCounts: Record<string, number> = {};
+  for (const [name, collection] of [
+    ['stations', 'metro_stations'],
+    ['lines', 'metro_lines'],
+    ['patterns', 'metro_patterns'],
+    ['edges', 'metro_edges']
+  ] as const) {
+    const result = (await db.collection(collection).deleteMany(orphanFilter)) as {
+      deletedCount?: number;
+    } | null;
+    if ((result?.deletedCount ?? 0) > 0) orphanCounts[name] = result!.deletedCount!;
+  }
+  const orphanNetworks = (await db
+    .collection('openmetro_networks')
+    .deleteMany({ _id: { $nin: [...currentNetworkIds] } } as never)) as {
+    deletedCount?: number;
+  } | null;
+  if ((orphanNetworks?.deletedCount ?? 0) > 0)
+    orphanCounts.networks = orphanNetworks!.deletedCount!;
+
+  // Removing orphans does not advance max(lastSyncedAt), so serving isolates
+  // that already built a snapshot would keep the ghost stations until the
+  // next real data change. Touch the version whenever anything was deleted.
+  if (Object.keys(orphanCounts).length > 0) {
+    await db
+      .collection('openmetro_networks')
+      .updateMany({}, { $set: { lastSyncedAt: now } });
+    console.log(
+      '[Metro Sync] Removed orphaned network docs:',
+      JSON.stringify(orphanCounts)
+    );
+  }
+
   // ── Phase 3: assign (flat, across all networks) ───────────────────────────
   // Assignment candidates are operating stations only — out-of-service stops
   // stay in the routing graph for time parity but must never host a shop.
@@ -679,7 +722,10 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
       unassignedCount:
         shops.length - [...assigned.values()].reduce((sum, group) => sum + group.shops.length, 0),
       updatedShops: shopOps.length,
-      rankingCount: assigned.size
+      rankingCount: assigned.size,
+      ...(Object.keys(orphanCounts).length > 0
+        ? { orphanedDocsRemoved: Object.values(orphanCounts).reduce((a, b) => a + b, 0) }
+        : {})
     }
   };
 };

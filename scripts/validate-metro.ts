@@ -120,7 +120,7 @@ suite('sync', async () => {
   type Doc = Record<string, unknown>;
   type Filter = Record<string, unknown>;
   const store = new Map<string, Doc[]>();
-  const writes: Array<{ collection: string; filter: Filter }> = [];
+  const writes: Array<{ collection: string; filter: Filter; replacement?: Doc }> = [];
   const requests: string[] = [];
   const metadataWrites: Doc[] = [];
   let publishVersion = true;
@@ -139,7 +139,7 @@ suite('sync', async () => {
       return doc[key] === value;
     });
   const replace = (name: string, filter: Filter, replacement: Doc) => {
-    writes.push({ collection: name, filter: structuredClone(filter) });
+    writes.push({ collection: name, filter: structuredClone(filter), replacement });
     const documents = rows(name);
     const index = documents.findIndex((doc) => matches(doc, filter));
     if (index < 0) documents.push(structuredClone(replacement));
@@ -148,12 +148,16 @@ suite('sync', async () => {
       metadataWrites.push(structuredClone(replacement));
     }
   };
-  const remove = (name: string, filter: Filter) => {
-    writes.push({ collection: name, filter: structuredClone(filter) });
+  const remove = (name: string, filter: Filter): number => {
+    const before = rows(name).length;
     store.set(
       name,
       rows(name).filter((doc) => !matches(doc, filter))
     );
+    const deletedCount = before - rows(name).length;
+    // Mirror Mongo: a delete that matched nothing is not a write.
+    if (deletedCount > 0) writes.push({ collection: name, filter: structuredClone(filter) });
+    return deletedCount;
   };
   type BulkOp =
     | { replaceOne: { filter: Filter; replacement: Doc; upsert: boolean } }
@@ -187,7 +191,7 @@ suite('sync', async () => {
             replace(name, filter, replacement);
           },
           async deleteMany(filter: Filter) {
-            remove(name, filter);
+            return { deletedCount: remove(name, filter) };
           },
           async insertMany(documents: Doc[]) {
             assert.equal(name, 'metro_station_rankings');
@@ -442,9 +446,12 @@ suite('sync', async () => {
           referenceWrites().some(
             (write) =>
               write.collection === name &&
-              (write.filter._id === network.id || write.filter.networkId === network.id)
-          ),
-          `${name}: ${network.id} forced persistence`
+              (write.filter._id === network.id ||
+                write.filter.networkId === network.id ||
+                write.replacement?.networkId === network.id ||
+                write.replacement?._id === network.id),
+            `${name}: ${network.id} forced persistence`
+          )
         );
       }
     }
