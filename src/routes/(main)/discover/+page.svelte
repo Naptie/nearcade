@@ -39,6 +39,7 @@
     getMetroBadgeTextColor,
     getMetroLocalizedName,
     getMetroShopLines,
+    type MetroFare,
     METRO_WALK_COLOR,
     METRO_WALK_DASH
   } from '$lib/utils/metro.client';
@@ -216,7 +217,7 @@
    * plan is built once and reused by the Directions panel and the hover
    * overlay. Fares (the only live openmetro call) are layered on top.
    */
-  let metroFares = $state<Record<string, number>>({});
+  let metroFares = $state<Record<string, MetroFare | null>>({});
   const metroFareRequests = new SvelteSet<string>();
 
   /**
@@ -1283,7 +1284,12 @@
     const shopId = directions.shopId;
     if (!shopId || !prefersMetroItinerary(shopId)) return null;
     const fare = metroFares[shopId];
-    return fare !== undefined && Number.isFinite(fare) && fare >= 0 ? fare : null;
+    return fare && Number.isFinite(fare.amount) && fare.amount >= 0 ? fare.amount : null;
+  });
+
+  let activeDirectionsFareCurrency = $derived.by(() => {
+    const shopId = directions.shopId;
+    return shopId && prefersMetroItinerary(shopId) ? (metroFares[shopId]?.currency ?? null) : null;
   });
 
   /**
@@ -1352,7 +1358,7 @@
       fetchMetroFare(block, shop.transit!.metro).then((fare) => {
         // A null fare still clears the pending state: the panel then drops the
         // fare column rather than showing a skeleton forever.
-        metroFares = { ...metroFares, [shopId]: fare ?? -1 };
+        metroFares = { ...metroFares, [shopId]: fare };
       });
     });
   });
@@ -1416,6 +1422,7 @@
   isMetro={activeDirectionsIsMetro}
   fareLoading={activeDirectionsFareLoading}
   fare={activeDirectionsFare}
+  fareCurrency={activeDirectionsFareCurrency}
   map={map as AMap.Map}
   {amap}
   amapLink={routeLink}

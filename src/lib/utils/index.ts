@@ -201,6 +201,25 @@ export const parseRelativeTime = (date: Date, locale: string) => {
   }).format(0, 'second');
 };
 
+export const formatCurrencyAmount = (amount: number, currency: string, locale: string): string => {
+  const code = currency.trim().toUpperCase();
+  if (!code) return `${amount}`;
+
+  try {
+    const parts = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'symbol'
+    }).formatToParts(amount);
+
+    return parts
+      .map((part) => (part.type === 'currency' && part.value === '¤' ? code : part.value))
+      .join('');
+  } catch {
+    return `${amount} ${code}`;
+  }
+};
+
 export const getGameName = (identifier?: number | string): string | undefined => {
   const game = GAME_TITLES.find((g) =>
     typeof identifier === 'number' ? g.id === identifier : g.key === identifier

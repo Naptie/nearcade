@@ -14,6 +14,8 @@
   } from '$lib/types/amap';
   import { m } from '$lib/paraglide/messages';
   import { convertPath, formatDistance, formatDuration, removeRecursiveBrackets } from '$lib/utils';
+  import { formatCurrencyAmount } from '$lib/utils';
+  import { getLocale } from '$lib/paraglide/runtime';
   import { SELECTED_ROUTE_INDEX } from '$lib/constants';
   import FancyButton from './FancyButton.svelte';
   import Drawer from './Drawer.svelte';
@@ -55,6 +57,8 @@
      * is 0 for synthetic plans (openmetro publishes fares separately).
      */
     fare?: number | null;
+    /** ISO currency code reported by Open Metro for a metro fare. */
+    fareCurrency?: string | null;
     onClose?: () => void;
     onRouteSelected?: (index: number) => void;
   }
@@ -71,6 +75,7 @@
     isMetro = false,
     fareLoading = false,
     fare = null,
+    fareCurrency = null,
     onClose = () => {},
     onRouteSelected = () => {}
   }: Props = $props();
@@ -648,7 +653,13 @@
                 <div class="stat bg-base-200/50 rounded-lg p-3">
                   <div class="stat-title text-xs">{m.fare()}</div>
                   <div class="stat-value text-lg text-wrap">
-                    {m.cost_cny({ cost: routeCost })}
+                    {#if !isMetro || fareCurrency?.toUpperCase() === 'CNY'}
+                      {m.cost_cny({ cost: routeCost })}
+                    {:else if fareCurrency}
+                      {formatCurrencyAmount(routeCost, fareCurrency, getLocale())}
+                    {:else}
+                      {routeCost}
+                    {/if}
                   </div>
                 </div>
               {/if}

@@ -514,9 +514,14 @@ const getApiBase = (): string =>
 let client: ReturnType<typeof createClient> | null = null;
 const getClient = () => (client ??= createClient(getApiBase()));
 
+export interface MetroFare {
+  amount: number;
+  currency: string | null;
+}
+
 /** Session-scoped fare cache keyed `networkId:fromStation:toStation`. */
-const fareCache = new Map<string, number | null>();
-const fareInFlight = new Map<string, Promise<number | null>>();
+const fareCache = new Map<string, MetroFare | null>();
+const fareInFlight = new Map<string, Promise<MetroFare | null>>();
 
 /**
  * Fare for the in-system part of a shop's itinerary, or null when openmetro
@@ -525,7 +530,7 @@ const fareInFlight = new Map<string, Promise<number | null>>();
 export const fetchMetroFare = async (
   block: DiscoverMetroBlock | undefined,
   shopMetro: ShopMetro | undefined
-): Promise<number | null> => {
+): Promise<MetroFare | null> => {
   if (!block || !shopMetro || shopMetro.networkId !== block.network.id) return null;
   if (shopMetro.stationId === block.origin.stationId) return null;
 
@@ -535,7 +540,7 @@ export const fetchMetroFare = async (
   const existing = fareInFlight.get(key);
   if (existing) return existing;
 
-  const request = (async (): Promise<number | null> => {
+  const request = (async (): Promise<MetroFare | null> => {
     try {
       const { data, error } = await getClient()
         .api.networks({ id: block.network.id })
@@ -544,7 +549,9 @@ export const fetchMetroFare = async (
         });
       const plan = data as ApiRoutePlan | null;
       if (error || !plan) return null;
-      return typeof plan.fare === 'number' ? plan.fare : null;
+      if (typeof plan.fare !== 'number') return null;
+      const currency = typeof plan.currency === 'string' ? plan.currency.trim() : '';
+      return { amount: plan.fare, currency: currency || null };
     } catch {
       // Silent by design (§6): the panel simply keeps showing the time stat.
       return null;
