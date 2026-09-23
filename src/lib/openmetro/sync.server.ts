@@ -455,13 +455,8 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
   // that already built a snapshot would keep the ghost stations until the
   // next real data change. Touch the version whenever anything was deleted.
   if (Object.keys(orphanCounts).length > 0) {
-    await db
-      .collection('openmetro_networks')
-      .updateMany({}, { $set: { lastSyncedAt: now } });
-    console.log(
-      '[Metro Sync] Removed orphaned network docs:',
-      JSON.stringify(orphanCounts)
-    );
+    await db.collection('openmetro_networks').updateMany({}, { $set: { lastSyncedAt: now } });
+    console.log('[Metro Sync] Removed orphaned network docs:', JSON.stringify(orphanCounts));
   }
 
   // ── Phase 3: assign (flat, across all networks) ───────────────────────────
