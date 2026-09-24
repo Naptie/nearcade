@@ -80,7 +80,13 @@ export const resolveUgcOccurrence = (kind: UgcKind, fieldKey: string): UgcOccurr
     case 'attendance_report':
       return { type: 'attendance_report' };
     case 'user':
-      return fieldKey === 'bio' ? { type: 'bio' } : null;
+      // Live user fields: `name` (handle), `displayName`, `bio`.
+      if (fieldKey === 'bio') return { type: 'bio' };
+      if (fieldKey === 'name' || fieldKey === 'user_name') return { type: 'user_name' };
+      if (fieldKey === 'displayName' || fieldKey === 'user_display_name') {
+        return { type: 'user_display_name' };
+      }
+      return null;
     default:
       return null;
   }

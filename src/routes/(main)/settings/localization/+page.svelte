@@ -9,7 +9,7 @@
   import { dismissBanner } from '$lib/notifications/banner.svelte';
   import { pageTitle } from '$lib/utils';
   import {
-    UGC_CONTENT_TYPES,
+    UGC_TRANSLATION_FIELDS,
     UGC_TRANSLATION_GROUPS,
     type UgcTranslationGroupId,
     type UgcTranslationField
@@ -54,10 +54,10 @@
     return group ? group.types.every((type) => selectedFields.has(type)) : false;
   };
 
-  const allSelected = $derived(UGC_CONTENT_TYPES.every((type) => selectedFields.has(type)));
+  const allSelected = $derived(UGC_TRANSLATION_FIELDS.every((type) => selectedFields.has(type)));
 
   const toggleAll = () => {
-    selectedFieldsOverride = allSelected ? new SvelteSet() : new SvelteSet(UGC_CONTENT_TYPES);
+    selectedFieldsOverride = allSelected ? new SvelteSet() : new SvelteSet(UGC_TRANSLATION_FIELDS);
   };
 
   const GROUP_LABELS: Record<

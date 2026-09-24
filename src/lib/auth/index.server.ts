@@ -341,6 +341,32 @@ function createAuth() {
                 }
               }
             );
+
+            // Register the generated handle / display name as UGC (same path
+            // as profile edits). Lazy import avoids a module cycle with the
+            // UGC pipeline.
+            try {
+              const [{ submitUgc }, { auditUgc }] = await Promise.all([
+                import('$lib/ugc/entries.server'),
+                import('$lib/ugc/audit.server')
+              ]);
+              const profileUgc = {
+                name: username,
+                displayName: user.name ?? '',
+                bio: ''
+              };
+              submitUgc(
+                'user',
+                user.id,
+                { id: user.id, name: username, displayName: user.name },
+                profileUgc
+              );
+              void auditUgc('user', user.id, profileUgc).catch((err: unknown) =>
+                console.error('Failed to audit new user profile UGC:', err)
+              );
+            } catch (err) {
+              console.error('Failed to register new user profile UGC:', err);
+            }
           }
         }
       }

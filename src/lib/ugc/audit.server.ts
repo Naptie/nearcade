@@ -438,7 +438,9 @@ export const runUgcAuditJobs = async (jobs: UgcAuditJob[]): Promise<void> => {
     if (normalized.verdict === 'block') {
       await enforceUgcHash(job.hash);
     }
-    console.log(`[UGCAudit] ${job.kind}/${job.refId} → ${normalized.verdict} (${model ?? 'prefilter'})`);
+    console.log(
+      `[UGCAudit] ${job.kind}/${job.refId} → ${normalized.verdict} (${model ?? 'prefilter'})`
+    );
   }
 };
 

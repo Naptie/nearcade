@@ -283,6 +283,10 @@ const liveFieldText = (
       return text(doc.reason);
     case 'attendance_report':
       return text(doc.comment);
+    case 'user_name':
+      return text(doc.name);
+    case 'user_display_name':
+      return text(doc.displayName);
     case 'bio':
       return text(doc.bio);
     default:
@@ -449,7 +453,7 @@ const enforceRows = async (
         removedSomething = true;
       }
     } else if (kind === 'user') {
-      // Profile bio — clear the field on the user document.
+      // Profile name / displayName / bio — clear only the offending fields.
       if (stillLive.length > 0) {
         let filter: Record<string, unknown>;
         try {
@@ -457,8 +461,21 @@ const enforceRows = async (
         } catch {
           filter = { id: refId };
         }
-        const result = await db.collection('users').updateOne(filter, { $unset: { bio: '' } });
-        removedSomething = result.modifiedCount > 0;
+        const unset: Record<string, true> = {};
+        const set: Record<string, string> = {};
+        for (const row of stillLive) {
+          if (row.type === 'bio') unset.bio = true;
+          else if (row.type === 'user_name') set.name = '';
+          else if (row.type === 'user_display_name') set.displayName = '';
+        }
+        const update: Record<string, unknown> = {
+          ...(Object.keys(unset).length ? { $unset: unset } : {}),
+          ...(Object.keys(set).length ? { $set: set } : {})
+        };
+        if (Object.keys(update).length > 0) {
+          const result = await db.collection('users').updateOne(filter, update as never);
+          removedSomething = result.modifiedCount > 0;
+        }
       }
     }
 
@@ -620,9 +637,23 @@ const writeBackField = async (
     } catch {
       filter = { id: refId };
     }
+    // Restore only into a still-empty field so a post-removal edit is never
+    // clobbered (mirrors the shop/organization write-back rule).
+    const emptyField =
+      type === 'user_name'
+        ? { name: { $in: ['', null] } as never }
+        : type === 'user_display_name'
+          ? { displayName: { $in: ['', null] } as never }
+          : { bio: { $in: ['', null] } as never };
+    const setField =
+      type === 'user_name'
+        ? { name: text }
+        : type === 'user_display_name'
+          ? { displayName: text }
+          : { bio: text };
     const result = await db
       .collection('users')
-      .updateOne({ ...filter, bio: { $in: ['', null] } as never }, { $set: { bio: text } });
+      .updateOne({ ...filter, ...emptyField }, { $set: setField });
     return result.modifiedCount > 0;
   }
   // Whole-content kinds: entity was deleted outright — nothing to write back.

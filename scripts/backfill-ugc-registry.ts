@@ -62,6 +62,8 @@ type ContentType =
   | 'comment'
   | 'delete_request'
   | 'attendance_report'
+  | 'user_name'
+  | 'user_display_name'
   | 'bio';
 
 interface Registration {
@@ -110,7 +112,12 @@ const resolveType = (kind: Kind, fieldKey: string): { type: ContentType; key?: s
     case 'attendance_report':
       return { type: 'attendance_report' };
     case 'user':
-      return fieldKey === 'bio' ? { type: 'bio' } : null;
+      if (fieldKey === 'bio') return { type: 'bio' };
+      if (fieldKey === 'name' || fieldKey === 'user_name') return { type: 'user_name' };
+      if (fieldKey === 'displayName' || fieldKey === 'user_display_name') {
+        return { type: 'user_display_name' };
+      }
+      return null;
     default:
       return null;
   }
@@ -256,11 +263,20 @@ const SPECS: KindSpec[] = [
   },
   {
     collection: 'users',
-    // Profile bios — refId is the user's Mongo ObjectId (hex) so
-    // enforcement can clear `users.bio`; author = the user themselves.
+    // Profile name / displayName / bio — refId is the user's id (or Mongo
+    // ObjectId hex) so enforcement can clear the matching field; author is
+    // the user themselves.
     extract: (doc) => {
-      const bio = text(doc.bio);
-      if (!bio) return [];
+      const fields: Record<string, string> = {
+        name: text(doc.name),
+        displayName: text(doc.displayName),
+        bio: text(doc.bio)
+      };
+      // Drop empties so we don't register blank occurrences.
+      for (const key of Object.keys(fields)) {
+        if (!fields[key]) delete fields[key];
+      }
+      if (Object.keys(fields).length === 0) return [];
       const refId = text(doc.id) || String(doc._id);
       return [
         {
@@ -268,12 +284,11 @@ const SPECS: KindSpec[] = [
           refId,
           createdBy: refId || null,
           authorName: text(doc.displayName) || text(doc.name) || null,
-          fields: { bio },
+          fields,
           timestamp: docTimestamp(doc)
         }
       ];
-    },
-    filter: { bio: { $type: 'string', $ne: '' } }
+    }
   }
 ];
 
@@ -296,7 +311,6 @@ const buildOccurrenceDocs = async (registration: Registration) => {
       text,
       createdBy: registration.createdBy,
       authorName: registration.authorName,
-      auditStatus: 'pending' as const,
       createdAt: registration.timestamp,
       updatedAt: registration.timestamp
     };
@@ -304,6 +318,50 @@ const buildOccurrenceDocs = async (registration: Registration) => {
     docs.push(doc);
   }
   return docs;
+};
+
+/**
+ * Idempotent upsert: insert missing rows; refresh text/hash/author when the
+ * live content changed (resetting audit state so the new text is re-judged);
+ * leave identical rows (and their audit state) untouched.
+ *
+ * Pipeline update is required so `auditStatus` can compare the *previous*
+ * hash. Every free-form string must go through `$literal` — values like
+ * `"$2.00 / 3 songs."` would otherwise be parsed as field paths.
+ */
+const upsertOccurrence = (doc: Record<string, unknown>) => {
+  const sameHash = { $eq: ['$hash', { $literal: doc.hash }] };
+  const keep = <T>(field: string, fallback: T) => ({
+    $cond: [sameHash, { $ifNull: [`$${field}`, fallback] }, fallback]
+  });
+  return {
+    updateOne: {
+      filter: { _id: doc._id as string },
+      update: [
+        {
+          $set: {
+            type: { $literal: doc.type },
+            refId: { $literal: doc.refId },
+            hash: { $literal: doc.hash },
+            text: { $literal: doc.text },
+            createdBy: { $literal: doc.createdBy ?? null },
+            authorName: { $literal: doc.authorName ?? null },
+            createdAt: { $ifNull: ['$createdAt', { $literal: doc.createdAt }] },
+            updatedAt: { $literal: doc.updatedAt },
+            auditStatus: keep('auditStatus', 'pending'),
+            auditSource: keep('auditSource', null),
+            auditReason: keep('auditReason', null),
+            auditCategories: keep('auditCategories', null),
+            auditScore: keep('auditScore', null),
+            auditModel: keep('auditModel', null),
+            ...(doc.key ? { key: { $literal: doc.key } } : {})
+          }
+        },
+        ...(!doc.key ? [{ $unset: 'key' }] : [])
+      ] as never,
+      upsert: true
+    }
+  };
 };
 
 const backfill = async (db: Db): Promise<void> => {
@@ -334,21 +392,15 @@ const backfill = async (db: Db): Promise<void> => {
       }
       try {
         const result = await db.collection('ugc_entries').bulkWrite(
-          entries.map((doc) => ({
-            insertOne: { document: doc as never }
-          })),
+          entries.map((doc) => upsertOccurrence(doc) as never),
           { ordered: false }
         );
-        registered += result.insertedCount;
-        skipped += entries.length - result.insertedCount;
+        const touched = result.upsertedCount + result.modifiedCount + result.matchedCount;
+        registered += result.upsertedCount + result.modifiedCount;
+        skipped += result.matchedCount - result.modifiedCount;
+        if (touched === 0 && entries.length > 0) skipped += entries.length;
       } catch (err) {
-        // With `ordered: false` duplicate-key rejections still reject with a
-        // MongoBulkWriteError whose `result.insertedCount` reflects the
-        // entries that *did* land — count them and continue.
-        const bulkErr = err as { result?: { insertedCount?: number } };
-        const inserted = bulkErr.result?.insertedCount ?? 0;
-        registered += inserted;
-        skipped += entries.length - inserted;
+        console.error(`  bulk upsert failed (${spec.collection}):`, err);
       }
     };
 
@@ -359,8 +411,8 @@ const backfill = async (db: Db): Promise<void> => {
     await flush();
 
     console.log(
-      `${spec.collection}: ${DRY_RUN ? 'would register' : 'registered'} ${registered}${
-        skipped > 0 ? `, skipped ${skipped} (already registered)` : ''
+      `${spec.collection}: ${DRY_RUN ? 'would upsert' : 'upserted'} ${registered}${
+        skipped > 0 ? `, unchanged ${skipped}` : ''
       }`
     );
     totalRegistered += registered;
@@ -368,8 +420,8 @@ const backfill = async (db: Db): Promise<void> => {
   }
 
   console.log(
-    `\nDone. ${DRY_RUN ? 'Would register' : 'Registered'} ${totalRegistered} entries` +
-      `${totalSkipped > 0 ? `, skipped ${totalSkipped} existing` : ''}${DRY_RUN ? ' (dry run)' : ''}.`
+    `\nDone. ${DRY_RUN ? 'Would upsert' : 'Upserted'} ${totalRegistered} entries` +
+      `${totalSkipped > 0 ? `, ${totalSkipped} unchanged` : ''}${DRY_RUN ? ' (dry run)' : ''}.`
   );
 };
 

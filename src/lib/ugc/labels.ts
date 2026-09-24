@@ -20,6 +20,8 @@ export const UGC_TYPE_LABELS: Record<UgcContentType, () => string> = {
   comment: () => m.ugc_type_comment(),
   delete_request: () => m.ugc_type_delete_request(),
   attendance_report: () => m.ugc_type_attendance_report(),
+  user_name: () => m.ugc_type_user_name(),
+  user_display_name: () => m.ugc_type_user_display_name(),
   bio: () => m.ugc_type_bio()
 };
 
@@ -87,6 +89,8 @@ export const UGC_TYPE_ICONS: Record<UgcContentType, string> = {
   comment: 'fa-comment',
   delete_request: 'fa-trash-can',
   attendance_report: 'fa-user-clock',
+  user_name: 'fa-at',
+  user_display_name: 'fa-id-card',
   bio: 'fa-user-pen'
 };
 

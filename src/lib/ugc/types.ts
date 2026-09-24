@@ -43,17 +43,33 @@ export const UGC_CONTENT_TYPES = [
   'comment',
   'delete_request',
   'attendance_report',
+  'user_name',
+  'user_display_name',
   'bio'
 ] as const;
 export type UgcContentType = (typeof UGC_CONTENT_TYPES)[number];
 
 /**
- * Auto-translation opt-in fields — intentionally identical to the canonical
- * content-type list, so the registry, the admin queue and the user-facing
- * translation settings all share one vocabulary (`comment`, not `comments`).
+ * Auto-translation opt-in fields. Intentionally a *subset* of the canonical
+ * content-type list: `user_name` / `user_display_name` are auditable UGC but
+ * must never be machine-translated (handles and display names stay verbatim).
  */
-export const UGC_TRANSLATION_FIELDS = UGC_CONTENT_TYPES;
-export type UgcTranslationField = UgcContentType;
+export const UGC_TRANSLATION_FIELDS = [
+  'shop_name',
+  'shop_address',
+  'shop_description',
+  'game_name',
+  'game_version',
+  'game_cost',
+  'game_description',
+  'organization_description',
+  'post',
+  'comment',
+  'delete_request',
+  'attendance_report',
+  'bio'
+] as const satisfies readonly UgcContentType[];
+export type UgcTranslationField = (typeof UGC_TRANSLATION_FIELDS)[number];
 
 /**
  * Coarse entity family a content type lives on. Drives live-document lookup,
@@ -73,6 +89,8 @@ export const UGC_KIND_BY_TYPE: Record<UgcContentType, UgcKind> = {
   comment: 'comment',
   delete_request: 'delete_request',
   attendance_report: 'attendance_report',
+  user_name: 'user',
+  user_display_name: 'user',
   bio: 'user'
 };
 
@@ -95,14 +113,15 @@ export const UGC_TYPES_BY_KIND: Record<UgcKind, readonly UgcContentType[]> = {
   comment: ['comment'],
   delete_request: ['delete_request'],
   attendance_report: ['attendance_report'],
-  user: ['bio']
+  user: ['user_name', 'user_display_name', 'bio']
 };
 
 /**
  * User-facing auto-translation categories (settings → Localization). Each
- * group covers a subset of the canonical content types and the union is
- * exactly `UGC_CONTENT_TYPES` — a user ticking every option opts into
- * everything. Keep the `ugc_group_*` message keys in sync with `id`.
+ * group covers a subset of the translatable content types and the union is
+ * exactly `UGC_TRANSLATION_FIELDS` — a user ticking every option opts into
+ * everything that is translated. Keep the `ugc_group_*` message keys in sync
+ * with `id`.
  */
 export interface UgcTranslationGroup {
   id:
@@ -115,7 +134,7 @@ export interface UgcTranslationGroup {
     | 'comments'
     | 'others';
   /** Precise content types this group switches on. */
-  types: readonly UgcContentType[];
+  types: readonly UgcTranslationField[];
 }
 
 export const UGC_TRANSLATION_GROUPS: readonly UgcTranslationGroup[] = [
@@ -145,16 +164,28 @@ const UGC_FIELD_ALIASES: Record<string, UgcContentType> = {
 export const isUgcContentType = (value: string): value is UgcContentType =>
   (UGC_CONTENT_TYPES as readonly string[]).includes(value);
 
-/** Normalize stored/legacy preference fields to the canonical type list. */
+export const isUgcTranslationField = (value: string): value is UgcTranslationField =>
+  (UGC_TRANSLATION_FIELDS as readonly string[]).includes(value);
+
+/**
+ * Normalize stored/legacy preference fields to the translatable field list.
+ * Non-translatable UGC types (e.g. `user_name`) are dropped even if present
+ * in older preference blobs.
+ */
 export const normalizeUgcTranslationFields = (
   fields: readonly (string | null | undefined)[]
-): UgcContentType[] => {
-  const seen = new Set<UgcContentType>();
-  const out: UgcContentType[] = [];
+): UgcTranslationField[] => {
+  const seen = new Set<UgcTranslationField>();
+  const out: UgcTranslationField[] = [];
   for (const raw of fields) {
     if (!raw) continue;
     const alias = UGC_FIELD_ALIASES[raw];
-    const type = alias ?? (isUgcContentType(raw) ? raw : undefined);
+    const type =
+      alias && isUgcTranslationField(alias)
+        ? alias
+        : isUgcTranslationField(raw)
+          ? raw
+          : undefined;
     if (type && !seen.has(type)) {
       seen.add(type);
       out.push(type);

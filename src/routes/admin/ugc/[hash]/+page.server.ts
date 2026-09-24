@@ -75,7 +75,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
       auditSource: record.auditSource ?? null,
       auditReason: record.auditReason ?? null,
       auditScore: typeof record.auditScore === 'number' ? record.auditScore : null,
-      auditModel: typeof record.auditModel === 'string' && record.auditModel ? record.auditModel : null,
+      auditModel:
+        typeof record.auditModel === 'string' && record.auditModel ? record.auditModel : null,
       authorName: record.authorName,
       preview: record.text.slice(0, PREVIEW_MAX),
       createdAt: record.createdAt.toISOString(),

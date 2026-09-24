@@ -325,15 +325,27 @@ export const actions: Actions = {
 
       await usersCollection.updateOne({ _id: new ObjectId(user.id) }, { $set: updateData });
 
-      // Register the profile bio as UGC (type `bio`). Registration is
+      // Register profile name / displayName / bio as UGC. Registration is
       // fire-and-forget; a background audit (no submit gate — profile edits
       // must never hard-block) catches problems after the fact, and any
-      // cached block for an identical bio is enforced on registration.
+      // cached block for identical text is enforced on registration.
+      const finalName = (
+        typeof updateData.name === 'string' ? updateData.name : (user.name ?? '')
+      ).slice(0, 50);
+      const finalDisplayName = (displayName?.trim() || '').slice(0, 50);
       const finalBio = (bio?.trim() || '').slice(0, 2000);
-      submitUgc('user', user.id, session.user, { bio: finalBio });
-      if (finalBio) {
-        void auditUgc('user', user.id, finalBio).catch((err: unknown) =>
-          console.error('Failed to audit profile bio:', err)
+      const profileUgc = {
+        name: finalName,
+        displayName: finalDisplayName,
+        bio: finalBio
+      };
+      submitUgc('user', user.id, session.user, profileUgc);
+      const toAudit = Object.fromEntries(
+        Object.entries(profileUgc).filter(([, value]) => value.trim())
+      );
+      if (Object.keys(toAudit).length > 0) {
+        void auditUgc('user', user.id, toAudit).catch((err: unknown) =>
+          console.error('Failed to audit profile UGC:', err)
         );
       }
 
