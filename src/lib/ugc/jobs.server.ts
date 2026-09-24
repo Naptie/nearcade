@@ -7,8 +7,15 @@ import {
 } from './api.server';
 import { lookupUgcTranslations, persistUgcTranslation } from './translate.server';
 import { UGC_TRANSLATION_ENABLED } from '$lib/constants';
-import { type UgcLocale } from './types';
-import { AUDIT_JOB_LIST_KEY, runUgcAuditJobs, type UgcAuditJob } from './audit.server';
+import { ugcTypeKind, type UgcContentType, type UgcLocale } from './types';
+import {
+  AUDIT_JOB_LIST_KEY,
+  dispatchUgcAuditJobs,
+  runUgcAuditJobs,
+  type UgcAuditJob
+} from './audit.server';
+import { AUDITS_COLLECTION, ENTRIES_COLLECTION } from './entries.server';
+import mongo from '$lib/db/index.server';
 
 /**
  * Translation job queue — the on-demand half of the read path, and the only
@@ -209,18 +216,44 @@ export const processUgcTranslationJobs = async (limit = 10): Promise<number> => 
 };
 
 /**
- * Drain the durable Tier-1 audit queue in batches. Free-tier OpenRouter is
- * billed per request, so each tick packs up to `limit` jobs (sorted by
- * content type for better in-prompt homogeneity) into ONE Worker round-trip.
- * Jobs are LPOP'd as a batch and only stay gone after every verdict has been
- * written to Mongo; a failing batch is RPUSH'd back to the tail and retried
- * on a later tick. Returns the number of jobs fully completed (0 when nothing
- * to do / budget exhausted).
+ * Drain the durable Tier-1 audit queue in batches, grouped by content type.
  *
- * The judge engine itself lives in `./audit.server` (`runUgcAuditJobs`); this
- * module owns the queue draining for both background pipelines.
+ * Free-tier OpenRouter is billed per request, so we (1) coalesce briefly when
+ * the queue is feeding slowly (a lone job waits a moment for siblings), then
+ * (2) group by `type`/`kind` and issue ONE Worker round-trip per group —
+ * homogeneous prompts keep the judge accurate and one request covers up to
+ * MAX_AUDIT_BATCH texts.
+ *
+ * Jobs are LPOP'd as a batch and only stay gone after every verdict has been
+ * written to Mongo; a failing group is RPUSH'd back to the tail and retried
+ * on a later tick. Returns the number of jobs fully completed.
  */
 const AUDIT_JOB_BATCH = 30;
+/** If the first pull is tiny, wait this long for more jobs before judging. */
+const AUDIT_COALESCE_MS = 2_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const pullAuditJobs = async (
+  max: number
+): Promise<{ jobs: UgcAuditJob[]; raws: Map<string, string> }> => {
+  const jobs: UgcAuditJob[] = [];
+  const raws = new Map<string, string>();
+  for (let i = 0; i < max; i++) {
+    const raw = await redis.lPop(AUDIT_JOB_LIST_KEY);
+    if (raw == null) break;
+    try {
+      const job = JSON.parse(raw) as UgcAuditJob;
+      if (job?.hash && job.text) {
+        jobs.push(job);
+        raws.set(job.hash, raw);
+      }
+    } catch {
+      // Malformed — drop.
+    }
+  }
+  return { jobs, raws };
+};
 
 export const processUgcAuditJobs = async (limit = AUDIT_JOB_BATCH): Promise<number> => {
   if (!isUgcAiConfigured()) return 0;
@@ -229,35 +262,45 @@ export const processUgcAuditJobs = async (limit = AUDIT_JOB_BATCH): Promise<numb
   let processed = 0;
   try {
     await ensureConnected();
-    for (let round = 0; round < 4; round++) {
-      // Take a batch off the queue (in-flight). Malformed entries are dropped.
-      const jobs: UgcAuditJob[] = [];
-      const taken: string[] = [];
-      for (let i = 0; i < limit; i++) {
-        const raw = await redis.lPop(AUDIT_JOB_LIST_KEY);
-        if (raw == null) break;
-        taken.push(raw);
+
+    // Coalesce: a single trailing job waits briefly so a burst of submits
+    // lands in one request instead of N size-1 calls.
+    const firstPull = await pullAuditJobs(limit);
+    let jobs = firstPull.jobs;
+    const raws = firstPull.raws;
+    if (jobs.length > 0 && jobs.length < limit) {
+      await sleep(AUDIT_COALESCE_MS);
+      const more = await pullAuditJobs(limit - jobs.length);
+      jobs = jobs.concat(more.jobs);
+      for (const [hash, raw] of more.raws) raws.set(hash, raw);
+    }
+    if (jobs.length === 0) return 0;
+
+    // Group by precise content type (fallback kind) — one model call per group.
+    const groups = new Map<string, UgcAuditJob[]>();
+    for (const job of jobs) {
+      const key = job.type ?? job.kind ?? '';
+      const list = groups.get(key);
+      if (list) list.push(job);
+      else groups.set(key, [job]);
+    }
+
+    for (const [typeKey, group] of groups) {
+      // Cap each request at the Worker's batch limit; leftovers go again.
+      for (let offset = 0; offset < group.length; offset += AUDIT_JOB_BATCH) {
+        const chunk = group.slice(offset, offset + AUDIT_JOB_BATCH);
         try {
-          const job = JSON.parse(raw) as UgcAuditJob;
-          if (job?.hash && job.text) jobs.push(job);
-        } catch {
-          // Malformed — drop.
+          console.log(`[UGCAudit] batch type=${typeKey || '-'} n=${chunk.length}`);
+          await runUgcAuditJobs(chunk);
+          processed += chunk.length;
+        } catch (err) {
+          console.error(`[UGCAudit] Batch failed (type=${typeKey}); returning to tail:`, err);
+          const rawsBack = chunk.map((job) => raws.get(job.hash)).filter((r): r is string => !!r);
+          if (rawsBack.length > 0) await redis.rPush(AUDIT_JOB_LIST_KEY, rawsBack);
+          // Skip remaining chunks of this group; try other types next tick.
+          break;
         }
       }
-      if (taken.length === 0) break;
-      if (jobs.length === 0) continue;
-
-      // Same content type in one prompt keeps the judge context homogeneous.
-      jobs.sort((a, b) => (a.type ?? a.kind ?? '').localeCompare(b.type ?? b.kind ?? ''));
-
-      try {
-        await runUgcAuditJobs(jobs);
-      } catch (err) {
-        console.error('[UGCAudit] Batch failed; returning to tail:', err);
-        await redis.rPush(AUDIT_JOB_LIST_KEY, taken);
-        break;
-      }
-      processed += jobs.length;
     }
   } catch (err: unknown) {
     console.error('[UGCAudit] Failed to drain audit jobs:', err);
@@ -269,6 +312,73 @@ export const processUgcAuditJobs = async (limit = AUDIT_JOB_BATCH): Promise<numb
 const UGC_JOB_INTERVAL_MS = 15_000;
 
 /**
+ * Repair Mongo↔Redis drift: entries stuck at `queued` whose job vanished from
+ * Redis (restart / FLUSHDB) would otherwise never be judged. Re-enqueues one
+ * job per distinct hash that still has no cached verdict and is not already
+ * in the Redis queue.
+ */
+export const reconcileStuckAuditJobs = async (limit = 200): Promise<number> => {
+  if (!isUgcAiConfigured()) return 0;
+  try {
+    await ensureConnected();
+    const db = mongo.db();
+    const stuck = await db
+      .collection(ENTRIES_COLLECTION)
+      .aggregate<{ _id: string; type: UgcContentType; refId: string; text: string }>([
+        { $match: { auditStatus: 'queued' } },
+        {
+          $group: {
+            _id: '$hash',
+            type: { $first: '$type' },
+            refId: { $first: '$refId' },
+            text: { $first: '$text' }
+          }
+        },
+        { $limit: limit }
+      ])
+      .toArray();
+    if (stuck.length === 0) return 0;
+
+    const hashes = stuck.map((row) => row._id);
+    const judged = await db
+      .collection<{ _id: string }>(AUDITS_COLLECTION)
+      .find({ _id: { $in: hashes } }, { projection: { _id: 1 } })
+      .toArray();
+    const judgedSet = new Set(judged.map((row) => row._id));
+
+    const queuedRaws = await redis.lRange(AUDIT_JOB_LIST_KEY, 0, -1);
+    const inRedis = new Set<string>();
+    for (const raw of queuedRaws) {
+      try {
+        inRedis.add((JSON.parse(raw) as UgcAuditJob).hash);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const orphaned = stuck
+      .filter((row) => !judgedSet.has(row._id) && !inRedis.has(row._id))
+      .map((row) => ({
+        hash: row._id,
+        kind: ugcTypeKind(row.type),
+        refId: row.refId,
+        text: row.text,
+        type: row.type
+      }));
+    if (orphaned.length === 0) return 0;
+
+    const requeued = await dispatchUgcAuditJobs(orphaned);
+    if (requeued > 0) {
+      console.log(`[UGCAudit] Reconciler re-enqueued ${requeued} stuck job(s)`);
+    }
+    return requeued;
+  } catch (err) {
+    console.error('[UGCAudit] Reconcile failed:', err);
+    return 0;
+  }
+};
+
+/**
  * Single entry point for the background UGC job loop — the translation
  * queue plus the durable Tier-1 moderation queue. Call ONCE from the app's
  * ServerInit (`hooks.server.ts`); the interval is unref'd so it never keeps
@@ -276,7 +386,17 @@ const UGC_JOB_INTERVAL_MS = 15_000;
  * resume after the daily Neuron reset.
  */
 export const startUgcBackgroundJobs = (): void => {
+  let ticks = 0;
   const tick = async (): Promise<void> => {
+    // Every ~2 minutes, repair Mongo `queued` rows whose Redis jobs were lost.
+    if (ticks % 8 === 0) {
+      try {
+        await reconcileStuckAuditJobs();
+      } catch (err) {
+        console.error('[UGCAudit] Reconcile loop error:', err);
+      }
+    }
+    ticks++;
     try {
       await processUgcTranslationJobs(5);
     } catch (err) {
