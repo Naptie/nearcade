@@ -5,7 +5,7 @@
   import { authClient } from '$lib/auth/client';
   import { withPostLoginMarker } from '$lib/auth/email';
   import { resolve, base } from '$app/paths';
-  import { getDisplayName, isAdminOrModerator, getProviders } from '$lib/utils';
+  import { getDisplayName, isAdminOrModerator, getProviders, userRouteId } from '$lib/utils';
   import { toastErrorWithCopy } from '$lib/notifications/toast.svelte';
   import { onMount } from 'svelte';
   import type { AuthSession } from '$lib/auth/types';
@@ -250,7 +250,7 @@
       >
         <li>
           <a
-            href={resolve('/(main)/users/[id]', { id: '@' + session.user.name })}
+            href={resolve('/(main)/users/[id]', { id: userRouteId(session.user) })}
             class="flex items-center gap-2"
           >
             <i class="fa-solid fa-user"></i>

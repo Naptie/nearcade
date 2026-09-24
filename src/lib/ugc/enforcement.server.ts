@@ -465,7 +465,9 @@ const enforceRows = async (
         const set: Record<string, string> = {};
         for (const row of stillLive) {
           if (row.type === 'bio') unset.bio = true;
-          else if (row.type === 'user_name') set.name = '';
+          // `name` must stay unique/non-empty — a removed handle becomes the
+          // stable user id (write-back only restores over that placeholder).
+          else if (row.type === 'user_name') set.name = refId;
           else if (row.type === 'user_display_name') set.displayName = '';
         }
         const update: Record<string, unknown> = {
@@ -637,11 +639,12 @@ const writeBackField = async (
     } catch {
       filter = { id: refId };
     }
-    // Restore only into a still-empty field so a post-removal edit is never
-    // clobbered (mirrors the shop/organization write-back rule).
+    // Restore only into a still-empty field (or the `name` placeholder that
+    // enforcement left behind) so a post-removal edit is never clobbered.
+    // `name` is unique/non-empty: a removed handle becomes the user id.
     const emptyField =
       type === 'user_name'
-        ? { name: { $in: ['', null] } as never }
+        ? { name: { $in: ['', null, refId] } as never }
         : type === 'user_display_name'
           ? { displayName: { $in: ['', null] } as never }
           : { bio: { $in: ['', null] } as never };

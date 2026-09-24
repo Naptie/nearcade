@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { getDisplayName } from '$lib/utils';
+  import { getDisplayName, userRouteId } from '$lib/utils';
 
   interface Props {
     user:
@@ -165,7 +165,7 @@
 
 {#if target !== null}
   <a
-    href={resolve('/(main)/users/[id]', { id: '@' + user?.name })}
+    href={resolve('/(main)/users/[id]', { id: userRouteId(user) })}
     {target}
     class="group/useravatar flex items-center {gapClasses[size]} {className}"
     class:w-full={showName}

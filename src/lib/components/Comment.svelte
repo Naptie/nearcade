@@ -11,7 +11,7 @@
   import { render } from '$lib/utils/markdown';
   import MarkdownEditor from './MarkdownEditor.svelte';
   import { buildImageUploadUrl } from '$lib/utils/image';
-  import { getDisplayName, getFnsLocale } from '$lib/utils';
+  import { getDisplayName, getFnsLocale, userRouteId } from '$lib/utils';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { getLocale } from '$lib/paraglide/runtime';
@@ -220,7 +220,7 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
           <a
-            href={resolve('/(main)/users/[id]', { id: '@' + comment.author?.name })}
+            href={resolve('/(main)/users/[id]', { id: userRouteId(comment.author) })}
             class="hover:text-accent font-medium transition-colors"
           >
             {getDisplayName(comment.author)}

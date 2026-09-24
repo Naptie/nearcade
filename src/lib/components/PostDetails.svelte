@@ -23,7 +23,7 @@
   import { invalidateAll } from '$app/navigation';
   import { stripPostImageMarkdownByIds } from '$lib/utils/image';
   import { buildImageUploadUrl } from '$lib/utils/image';
-  import { getDisplayName, getFnsLocale, pageTitle } from '$lib/utils';
+  import { getDisplayName, getFnsLocale, pageTitle, userRouteId } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { getLocale } from '$lib/paraglide/runtime';
   import { page } from '$app/state';
@@ -583,7 +583,7 @@
             <UserAvatar user={post.author} size="md" showName={false} />
             <div>
               <a
-                href={resolve('/(main)/users/[id]', { id: '@' + post.author?.name })}
+                href={resolve('/(main)/users/[id]', { id: userRouteId(post.author) })}
                 class="hover:text-accent font-medium transition-colors"
               >
                 {getDisplayName(post.author)}

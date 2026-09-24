@@ -757,15 +757,33 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
   }
 };
 
+/**
+ * Route param for `/(main)/users/[id]`: `@username` when a real handle exists,
+ * otherwise the stable user id.
+ */
+export const userRouteId = (
+  user?: { name?: string | null; id?: string | null } | null
+): string => {
+  if (!user) return '';
+  const handle = user.name && user.name !== user.id ? user.name : null;
+  return handle ? `@${handle}` : (user.id ?? '');
+};
+
 export const getDisplayName = (
   user?: {
     displayName?: string | null;
     name?: string | null;
+    id?: string | null;
   } | null
 ) => {
-  return !user
-    ? m.unknown_user()
-    : user.displayName || (user.name ? `@${user.name}` : m.anonymous_user());
+  if (!user) return m.unknown_user();
+  const handle = user.name && user.name !== user.id ? user.name : null;
+  return (
+    user.displayName ||
+    (handle ? `@${handle}` : '') ||
+    (user.id ? `@${user.id}` : '') ||
+    m.anonymous_user()
+  );
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -12,7 +12,8 @@
     getDisplayName,
     getUserTypeBadgeClass,
     getUserTypeLabel,
-    pageTitle
+    pageTitle,
+    userRouteId
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import type { User } from '$lib/auth/types';
@@ -333,7 +334,7 @@
                   >
                     <UserAvatar {user} size="md" target={adaptiveNewTab()} />
                     <a
-                      href={resolve('/(main)/users/[id]', { id: '@' + user.name })}
+                      href={resolve('/(main)/users/[id]', { id: userRouteId(user) })}
                       target={adaptiveNewTab()}
                       class="group-hover:text-accent min-w-0 flex-1 transition-colors"
                     >
