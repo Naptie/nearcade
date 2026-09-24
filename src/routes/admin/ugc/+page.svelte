@@ -477,7 +477,7 @@
                   class="text-base-content/80 mt-1 line-clamp-2 text-sm break-all"
                   title={m.admin_ugc_reason()}
                 >
-                  <i class="fa-solid fa-circle-info mr-1 text-warning"></i>
+                  <i class="fa-solid fa-circle-info mr-1"></i>
                   {ugcReasonLabel(item.auditReason)}
                 </p>
               {/if}
