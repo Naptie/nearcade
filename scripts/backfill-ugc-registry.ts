@@ -365,14 +365,16 @@ const upsertOccurrence = (doc: Record<string, unknown>) => {
 };
 
 const backfill = async (db: Db): Promise<void> => {
-  let totalRegistered = 0;
-  let totalSkipped = 0;
+  let totalInserted = 0;
+  let totalUpdated = 0;
+  let totalUnchanged = 0;
 
   for (const spec of SPECS) {
     const collection = db.collection(spec.collection);
     const cursor = collection.find(spec.filter ?? {}, { batchSize: BATCH_SIZE });
-    let registered = 0;
-    let skipped = 0;
+    let inserted = 0;
+    let updated = 0;
+    let unchanged = 0;
     let batch: Record<string, unknown>[] = [];
 
     const flush = async () => {
@@ -386,19 +388,35 @@ const backfill = async (db: Db): Promise<void> => {
         await Promise.all(registrations.map((registration) => buildOccurrenceDocs(registration)))
       ).flat();
       if (entries.length === 0) return;
+
       if (DRY_RUN) {
-        registered += entries.length;
+        // Classify against the live registry so "would X" is truthful.
+        // Registry `_id` is a string (`${type}:${refId}[:${key}]`), not ObjectId.
+        const ids = entries.map((e) => String(e._id));
+        const existing = await db
+          .collection<{ _id: string; hash?: string }>('ugc_entries')
+          .find({ _id: { $in: ids } }, { projection: { _id: 1, hash: 1 } })
+          .toArray();
+        const byId = new Map(existing.map((row) => [row._id, row.hash]));
+        for (const entry of entries) {
+          const prev = byId.get(String(entry._id));
+          if (prev === undefined) inserted++;
+          else if (prev !== entry.hash) updated++;
+          else unchanged++;
+        }
         return;
       }
+
       try {
         const result = await db.collection('ugc_entries').bulkWrite(
           entries.map((doc) => upsertOccurrence(doc) as never),
           { ordered: false }
         );
-        const touched = result.upsertedCount + result.modifiedCount + result.matchedCount;
-        registered += result.upsertedCount + result.modifiedCount;
-        skipped += result.matchedCount - result.modifiedCount;
-        if (touched === 0 && entries.length > 0) skipped += entries.length;
+        // upserted = new row; matched+modified ≈ content changed;
+        // matched-modified = identical content (no-op).
+        inserted += result.upsertedCount;
+        updated += result.modifiedCount;
+        unchanged += Math.max(0, result.matchedCount - result.modifiedCount);
       } catch (err) {
         console.error(`  bulk upsert failed (${spec.collection}):`, err);
       }
@@ -410,18 +428,21 @@ const backfill = async (db: Db): Promise<void> => {
     }
     await flush();
 
+    const verb = DRY_RUN ? 'would ' : '';
     console.log(
-      `${spec.collection}: ${DRY_RUN ? 'would upsert' : 'upserted'} ${registered}${
-        skipped > 0 ? `, unchanged ${skipped}` : ''
-      }`
+      `${spec.collection}: ${verb}insert ${inserted}, ${verb}update ${updated}, unchanged ${unchanged}` +
+        ` (scanned ${inserted + updated + unchanged})`
     );
-    totalRegistered += registered;
-    totalSkipped += skipped;
+    totalInserted += inserted;
+    totalUpdated += updated;
+    totalUnchanged += unchanged;
   }
 
   console.log(
-    `\nDone. ${DRY_RUN ? 'Would upsert' : 'Upserted'} ${totalRegistered} entries` +
-      `${totalSkipped > 0 ? `, ${totalSkipped} unchanged` : ''}${DRY_RUN ? ' (dry run)' : ''}.`
+    `\nDone.${DRY_RUN ? ' (dry run)' : ''} ` +
+      `${DRY_RUN ? 'Would insert' : 'Inserted'} ${totalInserted}, ` +
+      `${DRY_RUN ? 'would update' : 'updated'} ${totalUpdated}, ` +
+      `unchanged ${totalUnchanged}.`
   );
 };
 
