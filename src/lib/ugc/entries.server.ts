@@ -105,6 +105,7 @@ const auditSet = (outcome: UgcAuditOutcome, source: UgcEntryAuditSource, now: Da
   auditReason: outcome.reason,
   auditCategories: outcome.categories,
   auditScore: outcome.score,
+  auditModel: outcome.model,
   updatedAt: now
 });
 
@@ -261,6 +262,7 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
             auditReason: '',
             auditCategories: '',
             auditScore: '',
+            auditModel: '',
             reviewedBy: '',
             reviewedAt: ''
           }
@@ -277,7 +279,7 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
       const cached = await ugcAuditsCollection()
         .find(
           { _id: { $in: [...newHashes] } },
-          { projection: { verdict: 1, categories: 1, score: 1, reason: 1, source: 1 } }
+          { projection: { verdict: 1, categories: 1, score: 1, reason: 1, source: 1, model: 1 } }
         )
         .toArray();
       for (const record of cached) {
@@ -285,7 +287,8 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
           verdict: record.verdict,
           categories: record.categories ?? [],
           score: record.score ?? 0.5,
-          reason: record.reason ?? ''
+          reason: record.reason ?? '',
+          model: record.model ?? null
         };
         await applyVerdictToEntries(record._id, outcome, record.source ?? 'llm');
         if (outcome.verdict === 'block') {

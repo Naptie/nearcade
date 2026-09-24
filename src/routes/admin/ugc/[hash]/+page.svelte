@@ -13,7 +13,8 @@
     auditStatusColor,
     auditStatusLabel,
     ugcReasonLabel,
-    isKnownUgcReason
+    isKnownUgcReason,
+    shortUgcModelName
   } from '$lib/ugc/labels';
   import { topStatus, type UgcContentType } from '$lib/ugc/types';
   import type { UgcOccurrenceItem } from './+page.server';
@@ -344,6 +345,15 @@
 
       <div class="mt-3 flex flex-wrap gap-1.5">
         <AuditStatuses item={data.summary} />
+        {#if data.summary.auditModel}
+          <span
+            class="badge badge-soft badge-sm font-mono"
+            title="{m.admin_ugc_model()}: {data.summary.auditModel}"
+          >
+            <i class="fa-solid fa-microchip"></i>
+            {shortUgcModelName(data.summary.auditModel)}
+          </span>
+        {/if}
       </div>
 
       <!-- Review metadata editor (reason/score) — independent of audit actions -->
@@ -494,6 +504,15 @@
                       : item.auditSource === 'prefilter'
                         ? m.admin_ugc_source_prefilter()
                         : m.admin_ugc_source_manual()}
+                  </span>
+                {/if}
+                {#if item.auditModel}
+                  <span
+                    class="badge badge-soft badge-sm font-mono"
+                    title="{m.admin_ugc_model()}: {item.auditModel}"
+                  >
+                    <i class="fa-solid fa-microchip"></i>
+                    {shortUgcModelName(item.auditModel)}
                   </span>
                 {/if}
                 {#if item.href}

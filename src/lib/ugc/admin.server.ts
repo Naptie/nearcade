@@ -134,6 +134,7 @@ export const HASH_SUMMARY_GROUP: Record<string, unknown> = {
   auditReason: { $first: '$auditReason' },
   auditScore: { $first: '$auditScore' },
   auditSource: { $first: '$auditSource' },
+  auditModel: { $first: '$auditModel' },
   authorName: { $first: '$authorName' },
   ...statusCountAccumulators
 };
@@ -162,6 +163,7 @@ export const normalizeHashSummary = (row: Record<string, unknown>): UgcHashSumma
     auditReason: typeof row.auditReason === 'string' ? row.auditReason : null,
     auditScore: typeof row.auditScore === 'number' ? row.auditScore : null,
     auditSource: typeof row.auditSource === 'string' ? row.auditSource : null,
+    auditModel: typeof row.auditModel === 'string' && row.auditModel ? row.auditModel : null,
     authorName: typeof row.authorName === 'string' ? row.authorName : null
   };
 };

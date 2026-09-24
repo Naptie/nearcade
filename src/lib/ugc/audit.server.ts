@@ -127,15 +127,22 @@ export interface UgcAuditBlock {
   source: 'prefilter' | 'cached';
 }
 
-interface AuditWorkerResponse extends Omit<UgcAuditOutcome, 'score'> {
-  verdict: UgcAuditVerdict;
-  /**
-   * `null` marks a *failed* judgement (e.g. model unavailable) rather than a
-   * genuine verdict — the app must NOT cache it, only degrade to review and
-   * retry the job.
-   */
-  score: number | null;
-  /** Rough Neuron spend reported by the Worker (0 for keyword blocks). */
+interface AuditWorkerResponse {
+  /** Batch-shaped results, order-preserving vs. the submitted `items`. */
+  results?: {
+    verdict: UgcAuditVerdict;
+    categories: string[];
+    /**
+     * `null` marks a *failed* judgement (e.g. model unavailable) rather than a
+     * genuine verdict — the app must NOT cache it, only degrade to review and
+     * retry the job.
+     */
+    score: number | null;
+    reason: string;
+    /** Model id that produced this verdict (`null` for keyword hits). */
+    model: string | null;
+  }[];
+  /** Rough Neuron spend reported by the Worker (0 for OpenRouter/keyword). */
   neurons?: number;
 }
 
@@ -161,6 +168,7 @@ const persistVerdict = async (
           score: outcome.score,
           reason: outcome.reason,
           source,
+          model: outcome.model,
           updatedAt: new Date()
         }
       },
@@ -179,7 +187,8 @@ const keywordBlockOutcome = (result: PrefilterItemResult): UgcAuditOutcome => ({
     ? result.categories.filter((category): category is string => typeof category === 'string')
     : [],
   score: 1,
-  reason: typeof result.reason === 'string' && result.reason ? result.reason : 'keyword_filter'
+  reason: typeof result.reason === 'string' && result.reason ? result.reason : 'keyword_filter',
+  model: null
 });
 
 /** Durable Tier-1 enqueue — fire-and-forget; Redis failures only log. */
@@ -254,7 +263,7 @@ export const auditUgc = async (
     const cached = await auditsCollection()
       .find(
         { _id: { $in: candidates.map(({ hash }) => hash) }, verdict: 'block' },
-        { projection: { categories: 1, score: 1, reason: 1 } }
+        { projection: { categories: 1, score: 1, reason: 1, model: 1 } }
       )
       .toArray();
     for (const candidate of candidates) {
@@ -268,7 +277,8 @@ export const auditUgc = async (
         verdict: 'block',
         categories: cachedBlock.categories ?? [],
         score: cachedBlock.score ?? 1,
-        reason: cachedBlock.reason || 'cached_verdict'
+        reason: cachedBlock.reason || 'cached_verdict',
+        model: cachedBlock.model ?? null
       };
       mergeBlocking(outcome, 'cached');
       await applyVerdictToEntries(candidate.hash, outcome, 'prefilter');
@@ -341,66 +351,95 @@ export const auditUgc = async (
  * a job ONLY after this resolves (see `processUgcAuditJobs` there).
  */
 export const runUgcAuditJob = async (job: UgcAuditJob): Promise<void> => {
+  await runUgcAuditJobs([job]);
+};
+
+/**
+ * Run a batch of audit jobs with ONE Worker round-trip. Free-tier OpenRouter
+ * is billed per request, so the drain loop packs up to MAX_AUDIT_BATCH jobs
+ * (sorted by content type for better in-prompt homogeneity). Throws when the
+ * batch did not finish and must be retried.
+ */
+export const runUgcAuditJobs = async (jobs: UgcAuditJob[]): Promise<void> => {
+  if (jobs.length === 0) return;
+
   // Identical text re-moderation is free — apply the cached verdict if one
-  // exists (e.g. the prefilter or a prior judge run settled it while queued).
-  // Admin re-audit (`force`) deliberately bypasses this so a moderator can
-  // re-judge text that was previously degraded (e.g. `model_unavailable`).
-  if (!job.force) {
-    const cached = await auditsCollection().findOne(
-      { _id: job.hash },
-      { projection: { verdict: 1, categories: 1, score: 1, reason: 1 } }
-    );
-    if (cached) {
-      const outcome: UgcAuditOutcome = {
-        verdict: cached.verdict,
-        categories: cached.categories ?? [],
-        score: cached.score ?? 0.5,
-        reason: cached.reason ?? ''
-      };
-      await applyVerdictToEntries(job.hash, outcome, 'llm');
-      if (outcome.verdict === 'block') {
-        await enforceUgcHash(job.hash);
+  // exists. Admin re-audit (`force`) deliberately bypasses this.
+  const fresh: UgcAuditJob[] = [];
+  for (const job of jobs) {
+    if (!job.force) {
+      const cached = await auditsCollection().findOne(
+        { _id: job.hash },
+        { projection: { verdict: 1, categories: 1, score: 1, reason: 1, model: 1 } }
+      );
+      if (cached) {
+        const outcome: UgcAuditOutcome = {
+          verdict: cached.verdict,
+          categories: cached.categories ?? [],
+          score: cached.score ?? 0.5,
+          reason: cached.reason ?? '',
+          model: cached.model ?? null
+        };
+        await applyVerdictToEntries(job.hash, outcome, 'llm');
+        if (outcome.verdict === 'block') {
+          await enforceUgcHash(job.hash);
+        }
+        continue;
       }
-      return;
     }
+    fresh.push(job);
   }
+  if (fresh.length === 0) return;
 
   const outcome = await callUgcAi<AuditWorkerResponse>('/v1/audit', {
-    kind: job.kind,
-    text: job.text,
-    ...(job.type ? { type: job.type } : {})
+    items: fresh.map((job) => ({
+      text: job.text,
+      kind: job.kind,
+      ...(job.type ? { type: job.type } : {})
+    }))
   });
-  if (!outcome?.verdict) {
-    throw new Error('audit worker returned no verdict');
+  const results = outcome?.results;
+  if (!results || results.length !== fresh.length) {
+    throw new Error(
+      `audit worker returned ${results?.length ?? 0} results for ${fresh.length} items`
+    );
   }
   // The Worker reports its own (rough) spend; the app just meters it.
   await addUgcNeuronUsage(outcome.neurons);
 
-  // A `null` score marks a *failed* judgement (model unavailable etc.) — do
-  // NOT cache it as a real verdict (that would permanently poison the hash).
-  // Degrade to review and throw so the queue rotates the job for a retry.
-  if (outcome.score === null) {
-    const degraded: UgcAuditOutcome = {
-      verdict: 'review',
-      categories: [],
-      score: 0.5,
-      reason: typeof outcome.reason === 'string' ? outcome.reason : 'model_unavailable'
-    };
-    await applyVerdictToEntries(job.hash, degraded, 'llm');
-    throw new Error(`audit worker degraded (${degraded.reason}); will retry`);
-  }
+  for (let i = 0; i < fresh.length; i++) {
+    const job = fresh[i];
+    const row = results[i];
+    const model = row.model ?? null;
 
-  const normalized: UgcAuditOutcome = {
-    verdict: outcome.verdict ?? 'review',
-    categories: Array.isArray(outcome.categories) ? outcome.categories : [],
-    score: typeof outcome.score === 'number' ? outcome.score : 0.5,
-    reason: typeof outcome.reason === 'string' ? outcome.reason : ''
-  };
-  await persistVerdict(job.hash, normalized, 'llm');
-  if (normalized.verdict === 'block') {
-    await enforceUgcHash(job.hash);
+    // A `null` score marks a *failed* judgement (model unavailable etc.) — do
+    // NOT cache it as a real verdict (that would permanently poison the hash).
+    // Degrade to review and throw so the queue rotates the job for a retry.
+    if (!row?.verdict || row.score === null) {
+      const degraded: UgcAuditOutcome = {
+        verdict: 'review',
+        categories: [],
+        score: 0.5,
+        reason: typeof row?.reason === 'string' ? row.reason : 'model_unavailable',
+        model
+      };
+      await applyVerdictToEntries(job.hash, degraded, 'llm');
+      throw new Error(`audit worker degraded (${degraded.reason}); will retry`);
+    }
+
+    const normalized: UgcAuditOutcome = {
+      verdict: row.verdict,
+      categories: Array.isArray(row.categories) ? row.categories : [],
+      score: typeof row.score === 'number' ? row.score : 0.5,
+      reason: typeof row.reason === 'string' ? row.reason : '',
+      model
+    };
+    await persistVerdict(job.hash, normalized, 'llm');
+    if (normalized.verdict === 'block') {
+      await enforceUgcHash(job.hash);
+    }
+    console.log(`[UGCAudit] ${job.kind}/${job.refId} → ${normalized.verdict} (${model ?? 'prefilter'})`);
   }
-  console.log(`[UGCAudit] ${job.kind}/${job.refId} → ${normalized.verdict}`);
 };
 
 /**
@@ -438,6 +477,8 @@ export const updateCachedVerdict = async (
           score: options.score ?? (verdict === 'pass' ? 1 : verdict === 'block' ? 1 : 0.5),
           reason: options.reason ?? '',
           source: 'manual',
+          // Human override — the previous automated model is no longer authoritative.
+          model: null,
           updatedAt: now
         }
       },

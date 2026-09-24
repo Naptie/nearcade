@@ -84,6 +84,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const now = new Date();
     const manualSet = {
       auditSource: 'manual' as const,
+      // Human action — previous automated model is no longer authoritative.
+      auditModel: null,
       reviewedBy: session.user.id,
       reviewedAt: now,
       updatedAt: now

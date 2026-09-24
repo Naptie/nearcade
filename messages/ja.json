@@ -289,6 +289,7 @@
   "admin_ugc_jobs_translation_queue": "翻訳キュー",
   "admin_ugc_mark_pass": "手動で承認",
   "admin_ugc_meta_saved": "レビュー情報を更新しました。",
+  "admin_ugc_model": "モデル",
   "admin_ugc_occurrence_heading": "出現箇所",
   "admin_ugc_occurrences": [
     {

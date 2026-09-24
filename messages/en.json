@@ -290,6 +290,7 @@
   "admin_ugc_jobs_translation_queue": "Translation queue",
   "admin_ugc_mark_pass": "Mark pass",
   "admin_ugc_meta_saved": "Review metadata updated.",
+  "admin_ugc_model": "Model",
   "admin_ugc_occurrence_heading": "Occurrences",
   "admin_ugc_occurrences": [
     {

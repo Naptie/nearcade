@@ -63,6 +63,16 @@ export const ugcReasonLabel = (reason: string | null | undefined): string =>
 export const isKnownUgcReason = (reason: string | null | undefined): boolean =>
   !!reason && reason in UGC_REASON_LABELS;
 
+/**
+ * Compact display form of a Workers AI model id (`@cf/qwen/qwen3-30b-a3b-fp8`
+ * → `qwen3-30b-a3b-fp8`). Full id stays available as the badge tooltip.
+ */
+export const shortUgcModelName = (model: string | null | undefined): string => {
+  if (!model) return '';
+  const last = model.split('/').pop() ?? model;
+  return last.replace(/^@?cf[-:]/, '') || model;
+};
+
 /** FontAwesome icon per precise content type (admin row badges). */
 export const UGC_TYPE_ICONS: Record<UgcContentType, string> = {
   shop_name: 'fa-store',

@@ -8,7 +8,7 @@ import {
 import { lookupUgcTranslations, persistUgcTranslation } from './translate.server';
 import { UGC_TRANSLATION_ENABLED } from '$lib/constants';
 import { type UgcLocale } from './types';
-import { AUDIT_JOB_LIST_KEY, runUgcAuditJob, type UgcAuditJob } from './audit.server';
+import { AUDIT_JOB_LIST_KEY, runUgcAuditJobs, type UgcAuditJob } from './audit.server';
 
 /**
  * Translation job queue — the on-demand half of the read path, and the only
@@ -133,15 +133,17 @@ const runUgcTranslationJob = async (job: TranslationJob): Promise<void> => {
 
   const response = await callUgcAi<{
     results?: { lang: string; text: string | null }[];
+    model: string;
   }>('/v1/translate', {
     items: targets.map((target) => ({ text: job.text, target }))
   });
   await addUgcNeuronUsage(response?.neurons);
 
   const results = response?.results;
-  if (!results) {
+  if (!results || !response?.model) {
     throw new Error('translate worker returned no results');
   }
+  const model = response.model;
 
   for (let index = 0; index < targets.length; index++) {
     const target = targets[index];
@@ -149,7 +151,7 @@ const runUgcTranslationJob = async (job: TranslationJob): Promise<void> => {
     // `null` from the Worker = identity/untranslatable. Cache it as an empty
     // string (negative entry) so waiting clients settle as 'none' and this
     // hash:locale is never re-enqueued.
-    await persistUgcTranslation(job.hash, target, translated ?? '', 'm2m100-1.2b');
+    await persistUgcTranslation(job.hash, target, translated ?? '', model);
   }
   console.log(`[UGCTranslate] Job done: ${job.hash} → ${targets.join(', ')}`);
 };
@@ -207,19 +209,18 @@ export const processUgcTranslationJobs = async (limit = 10): Promise<number> => 
 };
 
 /**
- * Drain the durable Tier-1 audit queue. A job leaves the queue ONLY after it
- * finishes and its verdict has actually been written to Mongo — while the
- * (possibly multi-phase) Worker round-trip + persist/enforce is running, the
- * job stays tracked at the head of the queue, so admins always see it as
- * active until the DB write lands. A failing head is rotated to the tail and
- * retried on a later tick. Returns the number of jobs fully completed (0
- * when nothing to do / budget exhausted — jobs stay queued and resume after
- * the daily Neuron reset).
+ * Drain the durable Tier-1 audit queue in batches. Free-tier OpenRouter is
+ * billed per request, so each tick packs up to `limit` jobs (sorted by
+ * content type for better in-prompt homogeneity) into ONE Worker round-trip.
+ * Jobs are LPOP'd as a batch and only stay gone after every verdict has been
+ * written to Mongo; a failing batch is RPUSH'd back to the tail and retried
+ * on a later tick. Returns the number of jobs fully completed (0 when nothing
+ * to do / budget exhausted).
  *
- * The judge engine itself lives in `./audit.server` (`runUgcAuditJob`); this
+ * The judge engine itself lives in `./audit.server` (`runUgcAuditJobs`); this
  * module owns the queue draining for both background pipelines.
  */
-const AUDIT_JOB_BATCH = 5;
+const AUDIT_JOB_BATCH = 30;
 
 export const processUgcAuditJobs = async (limit = AUDIT_JOB_BATCH): Promise<number> => {
   if (!isUgcAiConfigured()) return 0;
@@ -228,34 +229,35 @@ export const processUgcAuditJobs = async (limit = AUDIT_JOB_BATCH): Promise<numb
   let processed = 0;
   try {
     await ensureConnected();
-    for (let index = 0; index < limit; index++) {
-      const head = await redis.lIndex(AUDIT_JOB_LIST_KEY, 0);
-      if (!head) break;
-      let job: UgcAuditJob | null = null;
-      try {
-        job = JSON.parse(head) as UgcAuditJob;
-      } catch {
-        // Malformed head — drop it and continue.
-        await redis.lPop(AUDIT_JOB_LIST_KEY);
-        continue;
+    for (let round = 0; round < 4; round++) {
+      // Take a batch off the queue (in-flight). Malformed entries are dropped.
+      const jobs: UgcAuditJob[] = [];
+      const taken: string[] = [];
+      for (let i = 0; i < limit; i++) {
+        const raw = await redis.lPop(AUDIT_JOB_LIST_KEY);
+        if (raw == null) break;
+        taken.push(raw);
+        try {
+          const job = JSON.parse(raw) as UgcAuditJob;
+          if (job?.hash && job.text) jobs.push(job);
+        } catch {
+          // Malformed — drop.
+        }
       }
-      if (!job?.hash || !job.text) {
-        await redis.lPop(AUDIT_JOB_LIST_KEY);
-        continue;
-      }
+      if (taken.length === 0) break;
+      if (jobs.length === 0) continue;
+
+      // Same content type in one prompt keeps the judge context homogeneous.
+      jobs.sort((a, b) => (a.type ?? a.kind ?? '').localeCompare(b.type ?? b.kind ?? ''));
+
       try {
-        await runUgcAuditJob(job);
+        await runUgcAuditJobs(jobs);
       } catch (err) {
-        console.error(`[UGCAudit] Job failed (${job.kind}/${job.refId}):`, err);
-        // Rotate the failing head to the tail so later jobs can proceed; the
-        // cached-verdict check makes the retry cheap.
-        await redis.lPop(AUDIT_JOB_LIST_KEY);
-        await redis.rPush(AUDIT_JOB_LIST_KEY, head);
-        continue;
+        console.error('[UGCAudit] Batch failed; returning to tail:', err);
+        await redis.rPush(AUDIT_JOB_LIST_KEY, taken);
+        break;
       }
-      // Success — only now does the job leave the queue.
-      await redis.lPop(AUDIT_JOB_LIST_KEY);
-      processed++;
+      processed += jobs.length;
     }
   } catch (err: unknown) {
     console.error('[UGCAudit] Failed to drain audit jobs:', err);

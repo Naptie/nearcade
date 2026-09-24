@@ -780,6 +780,7 @@ export const restoreUgcEntries = async (
       $set: {
         auditStatus: 'pass' as const,
         auditSource: 'manual' as const,
+        auditModel: null,
         reviewedBy,
         reviewedAt: now,
         updatedAt: now

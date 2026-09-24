@@ -14,7 +14,8 @@
     AUDIT_STATUSES,
     auditStatusColor,
     auditStatusLabel,
-    ugcReasonLabel
+    ugcReasonLabel,
+    shortUgcModelName
   } from '$lib/ugc/labels';
   import { getLocale } from '$lib/paraglide/runtime';
   import AuditStatuses from '$lib/ugc/components/AuditStatuses.svelte';
@@ -500,6 +501,15 @@
                         : item.auditSource === 'prefilter'
                           ? m.admin_ugc_source_prefilter()
                           : m.admin_ugc_source_manual()}
+                    </span>
+                  {/if}
+                  {#if item.auditModel}
+                    <span
+                      class="badge badge-soft badge-sm font-mono"
+                      title="{m.admin_ugc_model()}: {item.auditModel}"
+                    >
+                      <i class="fa-solid fa-microchip"></i>
+                      {shortUgcModelName(item.auditModel)}
                     </span>
                   {/if}
                   {#if typeof item.auditScore === 'number' && item.auditScore > 0}

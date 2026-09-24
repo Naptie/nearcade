@@ -194,6 +194,11 @@ export interface UgcAuditOutcome {
   categories: string[];
   score: number;
   reason: string;
+  /**
+   * Workers AI model id that produced this verdict (from the ugc-ai Worker).
+   * `null` for keyword-prefilter hits, manual overrides, and legacy records.
+   */
+  model: string | null;
 }
 
 /**
@@ -281,6 +286,8 @@ export interface UgcEntryRecord {
   auditReason?: string;
   auditCategories?: string[];
   auditScore?: number;
+  /** Model that produced the verdict (absent for prefilter/manual/legacy). */
+  auditModel?: string | null;
   reviewedBy?: string | null;
   reviewedAt?: Date | null;
   createdAt: Date;
@@ -301,6 +308,7 @@ export interface UgcHashSummary {
   auditReason?: string | null;
   auditScore?: number | null;
   auditSource?: string | null;
+  auditModel?: string | null;
   authorName?: string | null;
 }
 

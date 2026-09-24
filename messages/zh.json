@@ -289,6 +289,7 @@
   "admin_ugc_jobs_translation_queue": "翻译队列",
   "admin_ugc_mark_pass": "人工通过",
   "admin_ugc_meta_saved": "复核信息已更新。",
+  "admin_ugc_model": "模型",
   "admin_ugc_occurrence_heading": "出现位置",
   "admin_ugc_occurrences": [
     {
