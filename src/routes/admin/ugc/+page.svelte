@@ -13,7 +13,8 @@
     UGC_TYPE_ICONS,
     AUDIT_STATUSES,
     auditStatusColor,
-    auditStatusLabel
+    auditStatusLabel,
+    ugcReasonLabel
   } from '$lib/ugc/labels';
   import { getLocale } from '$lib/paraglide/runtime';
   import AuditStatuses from '$lib/ugc/components/AuditStatuses.svelte';
@@ -469,6 +470,16 @@
                   </a>
                 {/if}
               </div>
+
+              {#if item.auditReason}
+                <p
+                  class="text-base-content/80 mt-1 line-clamp-2 text-sm break-all"
+                  title={m.admin_ugc_reason()}
+                >
+                  <i class="fa-solid fa-circle-info mr-1 text-warning"></i>
+                  {ugcReasonLabel(item.auditReason)}
+                </p>
+              {/if}
 
               {#if item.text}
                 <p
