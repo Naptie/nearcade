@@ -172,7 +172,12 @@ export const initDatabase = async (mongo: MongoClient) => {
       .createIndex(
         { auditStatus: 1, type: 1, updatedAt: -1 },
         { name: 'auditStatus_1_type_1_updatedAt_-1' }
-      )
+      ),
+
+    // admin_stats_snapshots — dashboard stock history (one doc per scope+day).
+    db
+      .collection('admin_stats_snapshots')
+      .createIndex({ scope: 1, date: -1 }, { name: 'scope_1_date_-1', unique: true })
   ]);
 
   // Official nearcade account — the author of SYSTEM notifications. Read

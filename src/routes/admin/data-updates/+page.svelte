@@ -9,8 +9,10 @@
   type TaskId =
     | 'university_stats'
     | 'campus_rankings'
+    | 'metro_rankings'
     | 'region_rankings'
     | 'home_stats'
+    | 'admin_stats_snapshot'
     | 'meilisearch'
     | 'openmetro_sync';
 
@@ -47,6 +49,12 @@
       icon: 'fa-trophy',
       summaryKeys: ['processedCount', 'campusCount', 'totalCount']
     },
+    metro_rankings: {
+      title: m.admin_data_update_metro_rankings(),
+      description: m.admin_data_update_metro_rankings_description(),
+      icon: 'fa-train-subway',
+      summaryKeys: ['totalCount', 'networkCount', 'assignedCount']
+    },
     region_rankings: {
       title: m.admin_data_update_region_rankings(),
       description: m.admin_data_update_region_rankings_description(),
@@ -58,6 +66,12 @@
       description: m.admin_data_update_home_stats_description(),
       icon: 'fa-chart-simple',
       summaryKeys: ['shopCount', 'machineCount', 'userCount']
+    },
+    admin_stats_snapshot: {
+      title: m.admin_data_update_admin_stats_snapshot(),
+      description: m.admin_data_update_admin_stats_snapshot_description(),
+      icon: 'fa-camera',
+      summaryKeys: ['userCount', 'shopCount', 'machineCount', 'universityCount', 'clubCount']
     },
     meilisearch: {
       title: m.admin_data_update_meilisearch(),

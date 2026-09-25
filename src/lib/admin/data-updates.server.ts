@@ -19,12 +19,16 @@ import { getOrigin } from '$lib/utils/index.server';
 import { getOpenMetroApiBase } from '$lib/openmetro/client.server';
 import { runOpenMetroSync } from '$lib/openmetro/sync.server';
 import { computeHomeStats, writeHomeStatsCache } from '$lib/utils/home-stats.server';
+import { captureAdminStatsSnapshot, DIFF_METRICS } from '$lib/admin/stats-snapshots.server';
+import { rebuildMetroRankings } from '$lib/openmetro/rankings.server';
 
 export const DATA_UPDATE_TASK_IDS = [
   'university_stats',
   'campus_rankings',
+  'metro_rankings',
   'region_rankings',
   'home_stats',
+  'admin_stats_snapshot',
   'meilisearch',
   'openmetro_sync'
 ] as const;
@@ -165,8 +169,10 @@ const RANKINGS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
 const TASK_TIMEOUT_MS: Record<DataUpdateTaskId, number> = {
   university_stats: 30 * 60 * 1000,
   campus_rankings: 60 * 60 * 1000,
+  metro_rankings: 30 * 60 * 1000,
   region_rankings: 60 * 60 * 1000,
   home_stats: 15 * 60 * 1000,
+  admin_stats_snapshot: 15 * 60 * 1000,
   meilisearch: 30 * 60 * 1000,
   openmetro_sync: 30 * 60 * 1000
 };
@@ -313,7 +319,11 @@ const getDerivedTaskRecord = async (
       ? await getDerivedCampusRankingsTaskRecord(client)
       : taskId === 'region_rankings'
         ? await getDerivedRegionRankingsTaskRecord(client)
-        : taskId === 'meilisearch' || taskId === 'openmetro_sync' || taskId === 'home_stats'
+        : taskId === 'meilisearch' ||
+            taskId === 'openmetro_sync' ||
+            taskId === 'home_stats' ||
+            taskId === 'admin_stats_snapshot' ||
+            taskId === 'metro_rankings'
           ? {}
           : await getDerivedUniversityStatsTaskRecord(client);
 
@@ -1286,6 +1296,65 @@ const runHomeStatsTask = async (
   return { progress, summary };
 };
 
+const runAdminStatsSnapshotTask = async (
+  client: MongoClient,
+  reportProgress: ProgressReporter
+): Promise<{
+  progress: DataUpdateTaskProgress;
+  summary: DataUpdateTaskSummary;
+}> => {
+  await reportProgress({ processed: 0, total: null });
+
+  const { snapshot, baseline } = await captureAdminStatsSnapshot(client);
+
+  const progress: DataUpdateTaskProgress = { processed: 1, total: 1 };
+  const summary: DataUpdateTaskSummary = {
+    baseline,
+    userCount: snapshot.counts.users,
+    shopCount: snapshot.counts.shops,
+    machineCount: snapshot.counts.machines,
+    universityCount: snapshot.counts.universities,
+    clubCount: snapshot.counts.clubs
+  };
+
+  // Compact add/remove totals for the task summary panel.
+  for (const metric of DIFF_METRICS) {
+    const addValue = snapshot.added[metric];
+    const removeValue = snapshot.removed[metric];
+    if (addValue != null) summary[`added_${metric}`] = addValue;
+    if (removeValue != null) summary[`removed_${metric}`] = removeValue;
+  }
+
+  await reportProgress(progress, summary);
+  return { progress, summary };
+};
+
+const runMetroRankingsTask = async (
+  client: MongoClient,
+  reportProgress: ProgressReporter
+): Promise<{
+  progress: DataUpdateTaskProgress;
+  summary: DataUpdateTaskSummary;
+}> => {
+  await reportProgress({ processed: 0, total: null });
+
+  // Local-only rebuild: metro_* reference data + shops. Does not call Open Metro.
+  const result = await rebuildMetroRankings(client);
+
+  const progress: DataUpdateTaskProgress = {
+    processed: result.rankingCount,
+    total: result.rankingCount
+  };
+  const summary: DataUpdateTaskSummary = {
+    totalCount: result.rankingCount,
+    networkCount: result.networkCount,
+    assignedCount: result.assignedCount
+  };
+
+  await reportProgress(progress, summary);
+  return { progress, summary };
+};
+
 const runMeilisearchTask = async (
   _client: MongoClient,
   reportProgress: ProgressReporter
@@ -1334,17 +1403,25 @@ const runTaskInBackground = (
                 ? await runHomeStatsTask(client, (progress, summary) =>
                     updateTaskProgress(taskId, progress, summary, client)
                   )
-                : taskId === 'meilisearch'
-                  ? await runMeilisearchTask(client, (progress, summary) =>
+                : taskId === 'admin_stats_snapshot'
+                  ? await runAdminStatsSnapshotTask(client, (progress, summary) =>
                       updateTaskProgress(taskId, progress, summary, client)
                     )
-                  : taskId === 'openmetro_sync'
-                    ? await runOpenMetroSyncTask(client, (progress, summary) =>
+                  : taskId === 'metro_rankings'
+                    ? await runMetroRankingsTask(client, (progress, summary) =>
                         updateTaskProgress(taskId, progress, summary, client)
                       )
-                    : await runUniversityStatsTask(client, (progress, summary) =>
-                        updateTaskProgress(taskId, progress, summary, client)
-                      );
+                    : taskId === 'meilisearch'
+                      ? await runMeilisearchTask(client, (progress, summary) =>
+                          updateTaskProgress(taskId, progress, summary, client)
+                        )
+                      : taskId === 'openmetro_sync'
+                        ? await runOpenMetroSyncTask(client, (progress, summary) =>
+                            updateTaskProgress(taskId, progress, summary, client)
+                          )
+                        : await runUniversityStatsTask(client, (progress, summary) =>
+                            updateTaskProgress(taskId, progress, summary, client)
+                          );
 
         await finishTaskRun(
           taskId,

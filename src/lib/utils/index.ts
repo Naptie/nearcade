@@ -761,9 +761,7 @@ export const getUserTypeBadgeClass = (userType: string | undefined) => {
  * Route param for `/(main)/users/[id]`: `@username` when a real handle exists,
  * otherwise the stable user id.
  */
-export const userRouteId = (
-  user?: { name?: string | null; id?: string | null } | null
-): string => {
+export const userRouteId = (user?: { name?: string | null; id?: string | null } | null): string => {
   if (!user) return '';
   const handle = user.name && user.name !== user.id ? user.name : null;
   return handle ? `@${handle}` : (user.id ?? '');

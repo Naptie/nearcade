@@ -12,15 +12,14 @@
 import { createHash } from 'node:crypto';
 import type { AnyBulkWriteOperation, Collection, Document, MongoClient } from 'mongodb';
 import { createClient } from 'openmetro-client';
+import { METRO_ACCESS_MAX_KM } from '$lib/constants';
+import type { ShopMetro } from '$lib/schemas/metro';
+import { computeWalkSeconds, snapToStation } from './graph.server';
 import {
-  GAME_TITLES,
-  METRO_ACCESS_MAX_KM,
-  METRO_RANKING_RADIUS_OPTIONS,
-  metroRankingSortKey
-} from '$lib/constants';
-import type { MetroStationRanking, ShopMetro } from '$lib/schemas/metro';
-import type { RankingMetrics } from '$lib/schemas/rankings';
-import { calculateDistanceKm, computeWalkSeconds, snapToStation } from './graph.server';
+  createStationLineBadges,
+  rebuildMetroRankings,
+  type RankableShop
+} from './rankings.server';
 import { invalidateMetroSnapshot } from './snapshot.server';
 import {
   parseOpenMetroGraph,
@@ -60,7 +59,6 @@ export interface RunOpenMetroSyncOptions {
 }
 
 const FETCH_TIMEOUT_MS = 30 * 1000;
-const RANKINGS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
 const BULK_CHUNK_SIZE = 500;
 
 /**
@@ -72,60 +70,6 @@ const BULK_CHUNK_SIZE = 500;
  * docs can never survive a deploy.
  */
 const METRO_DOC_SCHEMA_VERSION = 3;
-
-/**
- * Campus-parity ranking helpers. Mirrors the campus task's
- * `getShopsWithinRadius`/`calculateMetricsForRadius` in
- * `$lib/admin/data-updates.server.ts`, kept local so the sync stays
- * script-safe (no SvelteKit-only import chain).
- */
-interface RankableShop {
-  id: number;
-  location?: { coordinates?: [number, number] | null } | null;
-  games?: Array<{ titleId: number; quantity: number }> | null;
-}
-
-const getShopsWithinRadius = (
-  shops: RankableShop[],
-  stationLon: number,
-  stationLat: number,
-  radiusKm: number
-): RankableShop[] =>
-  shops.filter((shop) => {
-    const [lng, lat] = shop.location?.coordinates ?? [];
-    return (
-      Number.isFinite(lat) &&
-      Number.isFinite(lng) &&
-      calculateDistanceKm(stationLat, stationLon, lat as number, lng as number) <= radiusKm
-    );
-  });
-
-const countGameMachines = (shops: RankableShop[], titleId: number): number =>
-  shops.reduce(
-    (total, shop) => total + (shop.games?.find((game) => game.titleId === titleId)?.quantity || 0),
-    0
-  );
-
-const calculateMetricsForRadius = (shops: RankableShop[], radiusKm: number): RankingMetrics => {
-  const totalMachines = shops.reduce(
-    (total, shop) =>
-      total + (shop.games?.reduce((sum, game) => sum + (game.quantity || 0), 0) ?? 0),
-    0
-  );
-  return {
-    radius: radiusKm,
-    shopCount: shops.length,
-    totalMachines,
-    // Straight-line radius areas are exact circles (unlike region polygons),
-    // so density is always defined — matching campus behaviour for campuses.
-    areaDensity: totalMachines / (Math.PI * radiusKm * radiusKm),
-    machinesPerCapita: null,
-    gameSpecificMachines: GAME_TITLES.map((game) => ({
-      name: game.key,
-      quantity: countGameMachines(shops, game.id)
-    }))
-  };
-};
 
 const runBulkWrite = async (
   collection: Collection<Document>,
@@ -468,28 +412,10 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
   const lineDocsById = new Map(
     fetched.flatMap((entry) => entry.lineDocs).map((line) => [line._id, line] as const)
   );
+  const stationLineBadges = createStationLineBadges(lineDocsById);
 
-  const stationLineBadges = (station: MetroStationDoc): ShopMetro['lines'] =>
-    station.lineIds.flatMap((lineId) => {
-      const line = lineDocsById.get(lineId);
-      return line
-        ? [
-            {
-              id: line._id,
-              name: line.name,
-              names: line.names,
-              color: line.color,
-              shortName: line.shortName
-            }
-          ]
-        : [];
-    });
-
-  interface AssignableShop {
-    id: number;
-    location?: { coordinates?: [number, number] | null } | null;
+  interface AssignableShop extends RankableShop {
     transit?: { metro?: ShopMetro | null } | null;
-    games?: Array<{ titleId: number; quantity: number }> | null;
   }
   const shops = (await db
     .collection('shops')
@@ -560,145 +486,14 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
   );
 
   // ── Phase 4: rebuild metro station rankings from the same pass ────────────
-  const rankingsCollection = db.collection('metro_station_rankings');
-  const existingMetadata = (await rankingsCollection.findOne({ _id: 'metadata' } as never)) as {
-    createdAt?: Date;
-    networks?: Array<{
-      id: string;
-      name: string;
-      names?: { zh: string; en: string };
-      stationCount: number;
-    }>;
-  } | null;
-  // Keep the last published network list available while rebuilding or on failure.
-  const metadataNetworks =
-    existingMetadata?.networks ??
-    fetched.map((entry) => ({
-      id: entry.network.id,
-      name: entry.network.name,
-      names: entry.network.names,
-      stationCount: 0
-    }));
-  await rankingsCollection.replaceOne(
-    { _id: 'metadata' } as never,
-    {
-      _id: 'metadata',
-      createdAt: existingMetadata?.createdAt ?? now,
-      expiresAt: new Date(Date.now() - 1),
-      totalCount: 0,
-      isCalculating: true,
-      calculationStarted: now,
-      networks: metadataNetworks
-    } as never,
-    { upsert: true }
-  );
-
-  try {
-    await rankingsCollection.deleteMany({ _id: { $ne: 'metadata' } } as never);
-
-    // Campus-parity model (§3.6): each station carries per-radius metrics over
-    // ALL shops by straight-line distance, exactly like campus rankings. The
-    // smallest radius equals the snapping cutoff, so its shop/machine counts
-    // agree with the persisted assignments; larger radii are straight-line
-    // caches built from the same shop projection — no extra reads.
-    const sortCriteria = ['shops', 'machines', ...GAME_TITLES.map((game) => game.key)] as const;
-    const rankings: MetroStationRanking[] = [];
-
-    for (const [stationId, group] of assigned) {
-      const { station } = group;
-      rankings.push({
-        id: `${station.networkId}:${stationId}`,
-        _id: `${station.networkId}:${stationId}`,
-        networkId: station.networkId,
-        stationId,
-        name: station.name,
-        names: station.names,
-        lines: stationLineBadges(station),
-        location: { lon: station.lon, lat: station.lat },
-        rankings: METRO_RANKING_RADIUS_OPTIONS.map((radius) =>
-          calculateMetricsForRadius(
-            getShopsWithinRadius(shops, station.lon, station.lat, radius),
-            radius
-          )
-        ),
-        rankOrder: {}
-      });
+  const rankingResult = await rebuildMetroRankings(client, {
+    input: {
+      stations: allStationDocs,
+      lineDocs: fetched.flatMap((entry) => entry.lineDocs),
+      shops,
+      assigned
     }
-
-    for (const sortBy of sortCriteria) {
-      for (const radius of METRO_RANKING_RADIUS_OPTIONS) {
-        // Dot-safe key: Mongo paths split on '.', so decimal radii are encoded
-        // in centimetres (see metroRankingSortKey).
-        const sortKey = metroRankingSortKey(sortBy, radius);
-        const sorted = [...rankings].sort((left, right) => {
-          const leftMetrics = left.rankings.find((entry) => entry.radius === radius);
-          const rightMetrics = right.rankings.find((entry) => entry.radius === radius);
-          if (!leftMetrics || !rightMetrics) return 0;
-          let difference: number;
-          switch (sortBy) {
-            case 'shops':
-              difference = rightMetrics.shopCount - leftMetrics.shopCount;
-              break;
-            case 'machines':
-              difference = rightMetrics.totalMachines - leftMetrics.totalMachines;
-              break;
-            default: {
-              const leftQuantity =
-                leftMetrics.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ??
-                0;
-              const rightQuantity =
-                rightMetrics.gameSpecificMachines.find((entry) => entry.name === sortBy)
-                  ?.quantity ?? 0;
-              difference = rightQuantity - leftQuantity;
-            }
-          }
-          // Locale-independent ID order keeps tied ranks stable across shop read orders.
-          return difference || (left._id < right._id ? -1 : left._id > right._id ? 1 : 0);
-        });
-        sorted.forEach((ranking, index) => {
-          ranking.rankOrder[sortKey] = index + 1;
-        });
-      }
-    }
-
-    if (rankings.length > 0) {
-      await rankingsCollection.insertMany(rankings as never[]);
-    }
-
-    await rankingsCollection.replaceOne(
-      { _id: 'metadata' } as never,
-      {
-        _id: 'metadata',
-        createdAt: now,
-        expiresAt: new Date(Date.now() + RANKINGS_CACHE_DURATION_MS),
-        totalCount: rankings.length,
-        isCalculating: false,
-        calculationStarted: undefined,
-        networks: fetched.map((entry) => ({
-          id: entry.network.id,
-          name: entry.network.name,
-          names: entry.network.names,
-          stationCount: rankings.filter((ranking) => ranking.networkId === entry.network.id).length
-        }))
-      } as never,
-      { upsert: true }
-    );
-  } catch (error) {
-    await rankingsCollection.replaceOne(
-      { _id: 'metadata' } as never,
-      {
-        _id: 'metadata',
-        createdAt: existingMetadata?.createdAt ?? now,
-        expiresAt: new Date(Date.now() - 1),
-        totalCount: 0,
-        isCalculating: false,
-        calculationStarted: undefined,
-        networks: metadataNetworks
-      } as never,
-      { upsert: true }
-    );
-    throw error;
-  }
+  });
 
   // Serving isolates pick up the new data via the version re-check; this one
   // can switch immediately.
@@ -713,11 +508,10 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
       lineCount,
       patternCount,
       edgeCount,
-      assignedCount: [...assigned.values()].reduce((sum, group) => sum + group.shops.length, 0),
-      unassignedCount:
-        shops.length - [...assigned.values()].reduce((sum, group) => sum + group.shops.length, 0),
+      assignedCount: rankingResult.assignedCount,
+      unassignedCount: rankingResult.unassignedCount,
       updatedShops: shopOps.length,
-      rankingCount: assigned.size,
+      rankingCount: rankingResult.rankingCount,
       ...(Object.keys(orphanCounts).length > 0
         ? { orphanedDocsRemoved: Object.values(orphanCounts).reduce((a, b) => a + b, 0) }
         : {})

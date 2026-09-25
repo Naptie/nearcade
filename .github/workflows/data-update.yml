@@ -1,0 +1,80 @@
+name: Data Update
+run-name: Refresh site data
+
+on:
+  # Runs at 4:00 UTC every day
+  schedule:
+    - cron: '0 4 * * *'
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: data-update
+  cancel-in-progress: false
+
+jobs:
+  trigger-data-updates:
+    name: Trigger data update tasks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: University stats
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"university_stats"}'
+
+      - name: Region rankings
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"region_rankings"}'
+
+      - name: Campus rankings
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"campus_rankings"}'
+
+      - name: Metro rankings
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"metro_rankings"}'
+
+      - name: Admin stats snapshot
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"admin_stats_snapshot"}'
+
+      - name: Meilisearch
+        env:
+          SSC_SECRET: ${{ secrets.SSC_SECRET }}
+        run: |
+          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SSC_SECRET}" \
+            -d '{"task":"meilisearch"}'

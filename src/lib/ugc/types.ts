@@ -181,11 +181,7 @@ export const normalizeUgcTranslationFields = (
     if (!raw) continue;
     const alias = UGC_FIELD_ALIASES[raw];
     const type =
-      alias && isUgcTranslationField(alias)
-        ? alias
-        : isUgcTranslationField(raw)
-          ? raw
-          : undefined;
+      alias && isUgcTranslationField(alias) ? alias : isUgcTranslationField(raw) ? raw : undefined;
     if (type && !seen.has(type)) {
       seen.add(type);
       out.push(type);

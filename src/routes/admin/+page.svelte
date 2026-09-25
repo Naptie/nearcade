@@ -1,11 +1,21 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { pageTitle } from '$lib/utils';
+  import { formatDateTime, pageTitle } from '$lib/utils';
   import StatCard from '$lib/components/admin/StatCard.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  const stats = $derived((data.stats ?? null) as Record<string, number> | null);
+  const trends = $derived(
+    (data.trends ?? null) as Record<string, Array<{ date: string; value: number }>> | null
+  );
+
+  const deltaOf = (metric: string) => {
+    const entry = data.deltas?.[metric];
+    return entry ? { added: entry.added, removed: entry.removed } : { added: null, removed: null };
+  };
 </script>
 
 <svelte:head>
@@ -18,178 +28,207 @@
     <div>
       <h1 class="text-base-content text-3xl font-bold">{m.admin_dashboard()}</h1>
       <p class="text-base-content/60 mt-1">{m.admin_dashboard_description()}</p>
+      {#if data.snapshotMeta?.capturedAt}
+        <p class="text-base-content/40 mt-1 text-xs">
+          {m.admin_snapshot_captured_at({ time: formatDateTime(data.snapshotMeta.capturedAt) })}
+        </p>
+      {/if}
     </div>
   </div>
 
-  {#if data.stats}
+  {#if stats}
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       <!-- Total Users (site admin only) -->
-      {#if data.stats.totalUsers !== undefined}
+      {#if stats.totalUsers !== undefined}
+        {@const delta = deltaOf('users')}
         <StatCard
           label={m.admin_users()}
-          value={data.stats.totalUsers}
+          value={stats.totalUsers}
           icon="fa-user"
           iconBgClass="bg-blue-100"
           iconClass="text-blue-600"
-          trend={data.trends?.totalUsers}
+          trend={trends?.totalUsers}
           trendColor="#2563eb"
-          delta={data.recentActivity?.newUsers}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Clubs -->
-      {#if data.stats.totalClubs !== undefined}
+      {#if stats.totalClubs !== undefined}
+        {@const delta = deltaOf('clubs')}
         <StatCard
           label={m.admin_clubs()}
-          value={data.stats.totalClubs}
+          value={stats.totalClubs}
           icon="fa-users"
           iconBgClass="bg-green-100"
           iconClass="text-green-600"
-          trend={data.trends?.totalClubs}
+          trend={trends?.totalClubs}
           trendColor="#16a34a"
-          delta={data.recentActivity?.newClubs}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Posts -->
-      {#if data.stats.totalPosts !== undefined}
+      {#if stats.totalPosts !== undefined}
+        {@const delta = deltaOf('posts')}
         <StatCard
           label={m.admin_posts()}
-          value={data.stats.totalPosts}
+          value={stats.totalPosts}
           icon="fa-file-lines"
           iconBgClass="bg-blue-100"
           iconClass="text-blue-600"
-          trend={data.trends?.totalPosts}
+          trend={trends?.totalPosts}
           trendColor="#2563eb"
-          delta={data.recentActivity?.newPosts}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Shops (site admin only) -->
-      {#if data.stats.totalShops !== undefined}
+      {#if stats.totalShops !== undefined}
+        {@const delta = deltaOf('shops')}
         <StatCard
           label={m.admin_arcade_shops()}
-          value={data.stats.totalShops}
+          value={stats.totalShops}
           icon="fa-gamepad"
           iconBgClass="bg-orange-100"
           iconClass="text-orange-600"
-          trend={data.trends?.totalShops}
+          trend={trends?.totalShops}
           trendColor="#ea580c"
-          delta={data.recentActivity?.newShops}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Shop Changelog Entries (site admin only) -->
-      {#if data.stats.totalShopChangelogs !== undefined}
+      {#if stats.totalShopChangelogs !== undefined}
+        {@const delta = deltaOf('shopChangelogs')}
         <StatCard
           label={m.admin_shop_changelogs()}
-          value={data.stats.totalShopChangelogs}
+          value={stats.totalShopChangelogs}
           icon="fa-clock-rotate-left"
           iconBgClass="bg-amber-100"
           iconClass="text-amber-600"
-          trend={data.trends?.totalShopChangelogs}
+          trend={trends?.totalShopChangelogs}
           trendColor="#d97706"
-          delta={data.recentActivity?.newShopChangelogs}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
-      <!-- Total Universities -->
-      {#if data.stats.totalUniversities !== undefined && data.stats.totalUniversityChangelogs !== undefined}
+      <!-- Total Universities: stock total, changelog curve (user-activity signal) -->
+      {#if stats.totalUniversities !== undefined && stats.totalUniversityChangelogs !== undefined}
+        {@const delta = deltaOf('universityChangelogs')}
         <StatCard
           label={m.admin_universities()}
-          value={data.stats.totalUniversities}
+          value={stats.totalUniversities}
           icon="fa-graduation-cap"
           iconBgClass="bg-purple-100"
           iconClass="text-purple-600"
-          trend={data.trends?.totalUniversities}
+          trend={trends?.totalUniversities}
           trendColor="#7c3aed"
-          delta={data.recentActivity?.newUniversityChangelogs}
+          added={delta.added}
+          removed={delta.removed}
           deltaLabel={m.admin_university_changelogs()}
         />
       {/if}
 
       <!-- Total Machines (site admin only) -->
-      {#if data.stats.totalMachines !== undefined}
+      {#if stats.totalMachines !== undefined}
+        {@const delta = deltaOf('machines')}
         <StatCard
           label={m.admin_machines()}
-          value={data.stats.totalMachines}
+          value={stats.totalMachines}
           icon="fa-server"
           iconBgClass="bg-teal-100"
           iconClass="text-teal-600"
-          trend={data.trends?.totalMachines}
+          trend={trends?.totalMachines}
           trendColor="#0d9488"
-          delta={data.recentActivity?.newMachines}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Images (site admin only) -->
-      {#if data.stats.totalImages !== undefined}
+      {#if stats.totalImages !== undefined}
+        {@const delta = deltaOf('images')}
         <StatCard
           label={m.admin_images()}
-          value={data.stats.totalImages}
+          value={stats.totalImages}
           icon="fa-images"
           iconBgClass="bg-pink-100"
           iconClass="text-pink-600"
-          trend={data.trends?.totalImages}
+          trend={trends?.totalImages}
           trendColor="#db2777"
-          delta={data.recentActivity?.newImages}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Invites -->
-      {#if data.stats.totalInvites !== undefined}
+      {#if stats.totalInvites !== undefined}
+        {@const delta = deltaOf('invites')}
         <StatCard
           label={m.admin_invites()}
-          value={data.stats.totalInvites}
+          value={stats.totalInvites}
           icon="fa-link"
           iconBgClass="bg-indigo-100"
           iconClass="text-indigo-600"
-          trend={data.trends?.totalInvites}
+          trend={trends?.totalInvites}
           trendColor="#4f46e5"
-          delta={data.recentActivity?.newInvites}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Join Requests -->
-      {#if data.stats.totalJoinRequests !== undefined}
+      {#if stats.totalJoinRequests !== undefined}
+        {@const delta = deltaOf('joinRequests')}
         <StatCard
           label={m.join_requests()}
-          value={data.stats.totalJoinRequests}
+          value={stats.totalJoinRequests}
           icon="fa-user-plus"
           iconBgClass="bg-yellow-100"
           iconClass="text-yellow-600"
-          trend={data.trends?.totalJoinRequests}
+          trend={trends?.totalJoinRequests}
           trendColor="#ca8a04"
-          delta={data.recentActivity?.newJoinRequests}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total OAuth Clients (site admin only) -->
-      {#if data.stats.totalOAuthClients !== undefined}
+      {#if stats.totalOAuthClients !== undefined}
+        {@const delta = deltaOf('oauthClients')}
         <StatCard
           label={m.admin_oauth_clients()}
-          value={data.stats.totalOAuthClients}
+          value={stats.totalOAuthClients}
           icon="fa-key"
           iconBgClass="bg-slate-100"
           iconClass="text-slate-600"
-          trend={data.trends?.totalOAuthClients}
+          trend={trends?.totalOAuthClients}
           trendColor="#475569"
-          delta={data.recentActivity?.newOAuthClients}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
 
       <!-- Total Shop Delete Requests (site admin only) -->
-      {#if data.stats.totalShopDeleteRequests !== undefined}
+      {#if stats.totalShopDeleteRequests !== undefined}
+        {@const delta = deltaOf('shopDeleteRequests')}
         <StatCard
           label={m.shop_delete_requests()}
-          value={data.stats.totalShopDeleteRequests}
+          value={stats.totalShopDeleteRequests}
           icon="fa-trash-can"
           iconBgClass="bg-red-100"
           iconClass="text-red-600"
-          trend={data.trends?.totalShopDeleteRequests}
+          trend={trends?.totalShopDeleteRequests}
           trendColor="#dc2626"
-          delta={data.recentActivity?.newShopDeleteRequests}
+          added={delta.added}
+          removed={delta.removed}
         />
       {/if}
     </div>
