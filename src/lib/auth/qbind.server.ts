@@ -50,8 +50,12 @@ export type QbindConsumeResult =
  *
  * - The value key (written by the qbind bot) is claimed with GETDEL so only
  *   one consumer (the listener or a polling request) wins.
- * - The owner mapping is claimed with GETDEL; without it the binding cannot
- *   be attributed to a user and is treated as not found.
+ * - The owner mapping is peeked first (plain GET) so a token without an
+ *   owner never consumes the bot's value key: the binding cannot complete
+ *   anyway, and destroying that key would break the bot's repeat-refusal
+ *   behaviour for nothing.
+ * - The owner mapping is then claimed with GETDEL; without it the binding
+ *   cannot be attributed to a user and is treated as not found.
  * - On success the verified QQ social link is written and the result is
  *   stored for the frontend to poll.
  *
@@ -64,11 +68,14 @@ export async function claimAndCompleteQbindToken(token: string): Promise<QbindCo
   const already = await getQbindResult(token);
   if (already) return { status: 'success', qq: already };
 
+  const ownerKey = getQbindOwnerKey(token);
+  const ownerId = await redis.get(ownerKey);
+  if (!ownerId) return { status: 'not_found' };
+
   const valueKey = getQbindKey(token);
   const raw = await redis.getDel(valueKey);
   if (!raw) return { status: 'not_found' };
 
-  const ownerKey = getQbindOwnerKey(token);
   const userId = await redis.getDel(ownerKey);
   if (!userId) return { status: 'not_found' };
 

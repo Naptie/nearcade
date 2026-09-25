@@ -61,11 +61,19 @@ const completeQbindBinding = async (
   token: string
 ) => {
   try {
+    const ownerKey = getQbindOwnerKey(token);
+    // Peek (GET, not GETDEL) before claiming the value key: without an owner
+    // the binding cannot complete, so consuming the qbind bot's key would
+    // destroy its repeat-refusal state for nothing. Tokens that never went
+    // through the website flow (or whose owner already expired) leave the
+    // key to its own TTL instead.
+    const ownerId = await commandClient.get(ownerKey);
+    if (!ownerId) return;
+
     const valueKey = getQbindKey(token);
     const raw = await commandClient.getDel(valueKey);
     if (!raw) return;
 
-    const ownerKey = getQbindOwnerKey(token);
     const userId = await commandClient.getDel(ownerKey);
     if (!userId) return;
 
