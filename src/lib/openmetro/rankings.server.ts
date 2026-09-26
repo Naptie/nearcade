@@ -221,7 +221,12 @@ export const rebuildMetroRankings = async (
     // Campus-parity model: each station carries per-radius metrics over ALL
     // shops by straight-line distance. The smallest radius equals the snapping
     // cutoff's inner bucket; larger radii are caches from the same projection.
-    const sortCriteria = ['shops', 'machines', ...GAME_TITLES.map((game) => game.key)] as const;
+    const sortCriteria = [
+      'shops',
+      'machines',
+      'density',
+      ...GAME_TITLES.map((game) => game.key)
+    ] as const;
     const rankings: MetroStationRanking[] = [];
 
     for (const [stationId, group] of assigned) {
@@ -262,6 +267,14 @@ export const rebuildMetroRankings = async (
             case 'machines':
               difference = rightMetrics.totalMachines - leftMetrics.totalMachines;
               break;
+            case 'density': {
+              const leftDensity = leftMetrics.areaDensity;
+              const rightDensity = rightMetrics.areaDensity;
+              if (leftDensity == null) difference = rightDensity == null ? 0 : 1;
+              else if (rightDensity == null) difference = -1;
+              else difference = rightDensity - leftDensity;
+              break;
+            }
             default: {
               const leftQuantity =
                 leftMetrics.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ??

@@ -288,13 +288,24 @@ export type GameKey = (typeof GAME_TITLES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];
 
 /**
- * Sort options for metro station rankings: no area/population-based criteria
- * (density, per-capita), so it is SORT_CRITERIA minus those two entries.
+ * Sort options shared by every POI-based ranking (campus, metro station).
+ * A POI has no population of its own, so per-capita is unmeasurable and is
+ * dropped; density stays because both pages measure it over the same
+ * straight-line search circle (machines / πr²). Only region rankings keep the
+ * full SORT_CRITERIA — regions are the one entity with real area/population.
+ *
  * Passed to RankingsHeader via its `criteria` prop.
  */
-export const METRO_SORT_CRITERIA = SORT_CRITERIA.filter(
-  (criteria) => criteria.key !== 'density' && criteria.key !== 'per_capita'
+export const POI_SORT_CRITERIA = SORT_CRITERIA.filter(
+  (criteria) => criteria.key !== 'per_capita'
 ) as readonly { key: SortKey }[];
+
+export type PoiSortKey = Exclude<SortKey, 'per_capita'>;
+
+/** True when `value` is a sort key offered by POI rankings (per-capita is not). */
+export const isPoiSortKey = (value: string | null | undefined): value is PoiSortKey =>
+  POI_SORT_CRITERIA.some((criteria) => criteria.key === value);
+
 export type SocialPlatform = Exclude<(typeof OAUTH_PROVIDERS)[number]['id'], 'microsoft-entra-id'>;
 
 export const SOCIAL_PLATFORMS = OAUTH_PROVIDERS.filter((provider) => provider.profile).map(

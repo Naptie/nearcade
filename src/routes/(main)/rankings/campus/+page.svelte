@@ -12,7 +12,7 @@
     UniversityRankingResponse,
     RankingsTableItem
   } from '$lib/types';
-  import { PAGINATION } from '$lib/constants';
+  import { PAGINATION, POI_SORT_CRITERIA } from '$lib/constants';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import RankingsHeader from '$lib/components/rankings/RankingsHeader.svelte';
@@ -118,6 +118,7 @@
     stale={data.stale}
     cacheTime={data.cacheTime}
     bind:sortBy
+    criteria={POI_SORT_CRITERIA}
   />
 
   {#if data.error}

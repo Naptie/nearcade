@@ -350,7 +350,7 @@ suite('sync', async () => {
       first.rankings.map((entry) => entry.radius),
       [...METRO_RANKING_RADIUS_OPTIONS]
     );
-    for (const sortBy of ['shops', 'machines', GAME_TITLES[0].key]) {
+    for (const sortBy of ['shops', 'machines', 'density', GAME_TITLES[0].key]) {
       for (const radius of METRO_RANKING_RADIUS_OPTIONS) {
         assert.equal(typeof first.rankOrder[metroRankingSortKey(sortBy, radius)], 'number');
       }
@@ -407,7 +407,7 @@ suite('sync', async () => {
       atStation(2, 0, 1),
       atStation(1, 0, 0)
     ]);
-    const sortKeys = ['shops', 'machines', ...GAME_TITLES.map((game) => game.key)];
+    const sortKeys = ['shops', 'machines', 'density', ...GAME_TITLES.map((game) => game.key)];
     const expectedIds = ['cn-aa:cn-aa-a', 'cn-aa:cn-aa-b', 'cn-bb:cn-bb-a', 'cn-bb:cn-bb-b'];
     for (let pass = 0; pass < 2; pass++) {
       resetActivity();
@@ -535,7 +535,7 @@ suite('rankings', async () => {
     assert.equal(parse(`?networkId=${encodeURIComponent(networkId)}`).networkId, undefined);
   }
   assert.equal(parse('?networkId=%20cn-bj%20').networkId, 'cn-bj');
-  for (const sortBy of ['shops', 'machines', ...GAME_TITLES.map((game) => game.key)]) {
+  for (const sortBy of ['shops', 'machines', 'density', ...GAME_TITLES.map((game) => game.key)]) {
     assert.equal(parse(`?sortBy=${sortBy}`).sortBy, sortBy);
   }
   for (const radius of METRO_RANKING_RADIUS_OPTIONS) {
@@ -570,6 +570,7 @@ suite('rankings', async () => {
     ]),
     ['sortBy', ''],
     ['sortBy', 'unknown'],
+    ['sortBy', 'per_capita'],
     ['sortBy', 'shops.$gt'],
     ['radius', '0'],
     ['radius', '-5'],
@@ -598,7 +599,7 @@ suite('rankings', async () => {
   assert.equal(document.paths?.['/rankings/metro']?.get?.parameters?.length, 5);
   console.log('  ✓ OpenAPI: shared input/output schemas generate successfully.');
 
-  const sortKeys = ['shops', 'machines', ...GAME_TITLES.map((game) => game.key)];
+  const sortKeys = ['shops', 'machines', 'density', ...GAME_TITLES.map((game) => game.key)];
   const rows: MetroStationRanking[] = [1, 2, 3, 4, 5].map((rank) => ({
     id: `cn-bj:station-${rank}`,
     _id: `cn-bj:station-${rank}`,

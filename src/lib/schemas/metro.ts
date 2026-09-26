@@ -229,7 +229,7 @@ export const metroRankingQuerySchema = z.object({
       )
     ),
   sortBy: z
-    .enum(['shops', 'machines', ...GAME_TITLES.map((game) => game.key)])
+    .enum(['shops', 'machines', 'density', ...GAME_TITLES.map((game) => game.key)])
     .default('shops')
     .describe(bilingual('排序维度。默认 shops。', 'Sort key. Defaults to shops.')),
   radius: z

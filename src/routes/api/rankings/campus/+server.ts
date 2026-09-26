@@ -1,8 +1,8 @@
 import { isHttpError, isRedirect, json } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { UniversityRankingData, SortCriteria, RadiusFilter } from '$lib/types';
-import { PAGINATION } from '$lib/constants';
+import type { UniversityRankingData, RadiusFilter } from '$lib/types';
+import { PAGINATION, isPoiSortKey } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 
@@ -24,7 +24,8 @@ export const GET: RequestHandler = async ({ url }) => {
     const db = mongo.db();
     const cacheCollection = db.collection('campus_rankings');
 
-    const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
+    const requestedSortBy = url.searchParams.get('sortBy');
+    const sortBy = isPoiSortKey(requestedSortBy) ? requestedSortBy : 'shops';
     const radiusFilter = parseInt(url.searchParams.get('radius') || '10') as RadiusFilter;
     const limit = parseInt(url.searchParams.get('limit') || '') || PAGINATION.RANKING_PAGE_SIZE;
     const after = url.searchParams.get('after') || null;

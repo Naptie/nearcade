@@ -1,12 +1,14 @@
 import { env } from '$env/dynamic/public';
-import { PAGINATION } from '$lib/constants';
+import { PAGINATION, isPoiSortKey } from '$lib/constants';
 import type { SortCriteria, RankingRadiusFilter, UniversityRankingResponse } from '$lib/types';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, url }) => {
   try {
-    // Get query parameters - only sortBy and radius matter for initial load
-    const sortBy = (url.searchParams.get('sortBy') as SortCriteria) || 'shops';
+    // Get query parameters - only sortBy and radius matter for initial load.
+    // Per-capita has no meaning for a campus, so unknown/stale keys fall back.
+    const requestedSortBy = url.searchParams.get('sortBy');
+    const sortBy = isPoiSortKey(requestedSortBy) ? requestedSortBy : 'shops';
     const radius = parseInt(url.searchParams.get('radius') || '10') as RankingRadiusFilter;
 
     // Always start with no cursor for initial load (cursor-based pagination)

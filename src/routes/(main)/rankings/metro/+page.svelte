@@ -12,7 +12,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import type { MetroRankingResponse, MetroStationRanking } from '$lib/schemas/metro';
   import type { SortCriteria, MetroRankingRadiusFilter, RankingsTableItem } from '$lib/types';
-  import { PAGINATION, METRO_RANKING_RADIUS_OPTIONS, METRO_SORT_CRITERIA } from '$lib/constants';
+  import { PAGINATION, METRO_RANKING_RADIUS_OPTIONS, POI_SORT_CRITERIA } from '$lib/constants';
   import { browser } from '$app/environment';
 
   let { data } = $props();
@@ -157,7 +157,7 @@
     stale={data.stale}
     cacheTime={data.cacheTime}
     bind:sortBy
-    criteria={METRO_SORT_CRITERIA}
+    criteria={POI_SORT_CRITERIA}
   />
 
   {#if data.error}

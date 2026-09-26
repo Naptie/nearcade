@@ -4992,6 +4992,7 @@
               "enum": [
                 "shops",
                 "machines",
+                "density",
                 "maimai_dx",
                 "maimai",
                 "chunithm",
