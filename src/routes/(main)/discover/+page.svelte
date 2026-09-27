@@ -1797,7 +1797,7 @@
             </th>
           </tr>
         </thead>
-        {#snippet discoverShopRow(shop)}
+        {#snippet discoverShopRow(shop: DiscoverShop)}
           {@const isShopOpen = isShopCurrentlyOpen(shop, now)}
           {#snippet attendance(klass = 'text-sm')}
             {#if shop.isClosed}
