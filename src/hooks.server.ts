@@ -21,7 +21,7 @@ import { base } from '$app/paths';
 import { getAvailableOSS } from '$lib/oss';
 import { decompressLocationData } from '$lib/utils/url';
 import { parseLegacyShopParams } from '$lib/utils/shops/id';
-import { building } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { auth } from '$lib/auth/index.server';
 import {
   EMAIL_SETTINGS_ROUTE,
@@ -417,7 +417,9 @@ export const init: ServerInit = async () => {
     );
     console.log('|\n=============================================');
 
-    const { startUgcBackgroundJobs } = await import('$lib/ugc/jobs.server');
-    startUgcBackgroundJobs();
+    if (!dev) {
+      const { startUgcBackgroundJobs } = await import('$lib/ugc/jobs.server');
+      startUgcBackgroundJobs();
+    }
   }
 };
