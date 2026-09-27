@@ -136,7 +136,11 @@
       <i class="fa-solid fa-desktop"></i>
       <span>{m.machines({ count: getTotalMachines(shop) })}</span>
     </div>
-    {#if shop.density > 0}
+    {#if shop.isClosed}
+      <div class="text-error">
+        <span>{m.shop_mark_as_closed()}</span>
+      </div>
+    {:else if shop.density > 0}
       <div
         class="text-base-content/60 flex items-center gap-1 text-{getDensityTailwindColor(
           shop.density

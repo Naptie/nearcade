@@ -836,7 +836,7 @@
                             "additionalProperties": false
                           },
                           "isOpen": {
-                            "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                            "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                             "type": "boolean"
                           },
                           "isClaimed": {
@@ -850,6 +850,15 @@
                           "isLocked": {
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
+                          },
+                          "isClosed": {
+                            "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                            "type": "boolean"
+                          },
+                          "closedReason": {
+                            "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                            "type": "string",
+                            "maxLength": 200
                           },
                           "transit": {
                             "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -1336,7 +1345,7 @@
                             "additionalProperties": false
                           },
                           "isOpen": {
-                            "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                            "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                             "type": "boolean"
                           },
                           "isClaimed": {
@@ -1350,6 +1359,15 @@
                           "isLocked": {
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
+                          },
+                          "isClosed": {
+                            "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                            "type": "boolean"
+                          },
+                          "closedReason": {
+                            "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                            "type": "string",
+                            "maxLength": 200
                           },
                           "transit": {
                             "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -2985,7 +3003,7 @@
                             "additionalProperties": false
                           },
                           "isOpen": {
-                            "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                            "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                             "type": "boolean"
                           },
                           "isClaimed": {
@@ -2999,6 +3017,15 @@
                           "isLocked": {
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
+                          },
+                          "isClosed": {
+                            "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                            "type": "boolean"
+                          },
+                          "closedReason": {
+                            "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                            "type": "string",
+                            "maxLength": 200
                           },
                           "transit": {
                             "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -5657,7 +5684,7 @@
                             "additionalProperties": false
                           },
                           "isOpen": {
-                            "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                            "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                             "type": "boolean"
                           },
                           "isClaimed": {
@@ -5671,6 +5698,15 @@
                           "isLocked": {
                             "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                             "type": "boolean"
+                          },
+                          "isClosed": {
+                            "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                            "type": "boolean"
+                          },
+                          "closedReason": {
+                            "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                            "type": "string",
+                            "maxLength": 200
                           },
                           "transit": {
                             "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -6036,6 +6072,15 @@
                       },
                       "required": ["titleId", "name", "version"]
                     }
+                  },
+                  "isClosed": {
+                    "description": "店铺是否已闭店（全天停业）。\n\nWhether this shop is permanently closed (out of business all day).",
+                    "type": "boolean"
+                  },
+                  "closedReason": {
+                    "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                    "type": "string",
+                    "maxLength": 200
                   }
                 },
                 "required": ["name", "openingHours", "location"]
@@ -6283,7 +6328,7 @@
                           "additionalProperties": false
                         },
                         "isOpen": {
-                          "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                          "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                           "type": "boolean"
                         },
                         "isClaimed": {
@@ -6297,6 +6342,15 @@
                         "isLocked": {
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
+                        },
+                        "isClosed": {
+                          "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                          "type": "boolean"
+                        },
+                        "closedReason": {
+                          "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                          "type": "string",
+                          "maxLength": 200
                         },
                         "transit": {
                           "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -6731,7 +6785,7 @@
                           "additionalProperties": false
                         },
                         "isOpen": {
-                          "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                          "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                           "type": "boolean"
                         },
                         "isClaimed": {
@@ -6745,6 +6799,15 @@
                         "isLocked": {
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
+                        },
+                        "isClosed": {
+                          "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                          "type": "boolean"
+                        },
+                        "closedReason": {
+                          "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                          "type": "string",
+                          "maxLength": 200
                         },
                         "transit": {
                           "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -7110,6 +7173,15 @@
                       },
                       "required": ["titleId", "name", "version"]
                     }
+                  },
+                  "isClosed": {
+                    "description": "店铺是否已闭店（全天停业）。\n\nWhether this shop is permanently closed (out of business all day).",
+                    "type": "boolean"
+                  },
+                  "closedReason": {
+                    "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                    "type": "string",
+                    "maxLength": 200
                   }
                 }
               }
@@ -7356,7 +7428,7 @@
                           "additionalProperties": false
                         },
                         "isOpen": {
-                          "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                          "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                           "type": "boolean"
                         },
                         "isClaimed": {
@@ -7370,6 +7442,15 @@
                         "isLocked": {
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
+                        },
+                        "isClosed": {
+                          "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                          "type": "boolean"
+                        },
+                        "closedReason": {
+                          "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                          "type": "string",
+                          "maxLength": 200
                         },
                         "transit": {
                           "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -7800,7 +7881,7 @@
                           "additionalProperties": false
                         },
                         "isOpen": {
-                          "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                          "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                           "type": "boolean"
                         },
                         "isClaimed": {
@@ -7814,6 +7895,15 @@
                         "isLocked": {
                           "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                           "type": "boolean"
+                        },
+                        "isClosed": {
+                          "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                          "type": "boolean"
+                        },
+                        "closedReason": {
+                          "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                          "type": "string",
+                          "maxLength": 200
                         },
                         "transit": {
                           "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -15131,7 +15221,7 @@
                                 "additionalProperties": false
                               },
                               "isOpen": {
-                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                                "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                                 "type": "boolean"
                               },
                               "isClaimed": {
@@ -15145,6 +15235,15 @@
                               "isLocked": {
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
+                              },
+                              "isClosed": {
+                                "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                                "type": "boolean"
+                              },
+                              "closedReason": {
+                                "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                                "type": "string",
+                                "maxLength": 200
                               },
                               "transit": {
                                 "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -15509,7 +15608,7 @@
                                 "additionalProperties": false
                               },
                               "isOpen": {
-                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                                "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                                 "type": "boolean"
                               },
                               "isClaimed": {
@@ -15523,6 +15622,15 @@
                               "isLocked": {
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
+                              },
+                              "isClosed": {
+                                "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                                "type": "boolean"
+                              },
+                              "closedReason": {
+                                "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                                "type": "string",
+                                "maxLength": 200
                               },
                               "transit": {
                                 "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -16816,7 +16924,7 @@
                                 "additionalProperties": false
                               },
                               "isOpen": {
-                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                                "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                                 "type": "boolean"
                               },
                               "isClaimed": {
@@ -16830,6 +16938,15 @@
                               "isLocked": {
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
+                              },
+                              "isClosed": {
+                                "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                                "type": "boolean"
+                              },
+                              "closedReason": {
+                                "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                                "type": "string",
+                                "maxLength": 200
                               },
                               "transit": {
                                 "description": "店铺的交通信息。\n\nTransit information for the shop.",
@@ -17194,7 +17311,7 @@
                                 "additionalProperties": false
                               },
                               "isOpen": {
-                                "description": "店铺营业状态。\n\nWhether the shop is currently open.",
+                                "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
                                 "type": "boolean"
                               },
                               "isClaimed": {
@@ -17208,6 +17325,15 @@
                               "isLocked": {
                                 "description": "店铺是否已被管理员锁定。锁定后仅管理员可编辑。\n\nWhether this shop has been locked by an admin. Only admins can edit locked shops.",
                                 "type": "boolean"
+                              },
+                              "isClosed": {
+                                "description": "店铺是否已闭店（全天停业）。未设置时视为未闭店。\n\nWhether this shop is permanently closed (out of business all day). Omitted means not closed.",
+                                "type": "boolean"
+                              },
+                              "closedReason": {
+                                "description": "闭店原因（可选）。\n\nOptional reason the shop is permanently closed.",
+                                "type": "string",
+                                "maxLength": 200
                               },
                               "transit": {
                                 "description": "店铺的交通信息。\n\nTransit information for the shop.",

@@ -28,7 +28,7 @@
     formatShopAddress,
     getGameName,
     adaptiveNewTab,
-    getShopOpeningHours,
+    isShopCurrentlyOpen,
     isShopChinaBased
   } from '$lib/utils';
   import {
@@ -354,6 +354,10 @@
       return a.id - b.id;
     });
   });
+
+  let activeShops = $derived(sortedShops.filter((shop) => !shop.isClosed));
+  let closedShops = $derived(sortedShops.filter((shop) => shop.isClosed));
+  let closedShopsExpanded = $state(false);
 
   let machineCount = $derived.by(() => {
     return sortedShops.reduce(
@@ -878,6 +882,9 @@
             });
 
             markers[`${shop.id}`] = { marker, infoWindow, zIndex };
+            if (shop.isClosed) {
+              marker.map = null;
+            }
 
             marker.addListener('mouseover', () => {
               hoveredShopId = `${shop.id}`;
@@ -903,6 +910,7 @@
           const bounds = new google.maps.LatLngBounds();
           bounds.extend({ lat: data.location.latitude, lng: data.location.longitude });
           data.shops.forEach((shop) => {
+            if (shop.isClosed) return;
             bounds.extend({ lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] });
           });
           googleMap.fitBounds(bounds);
@@ -974,12 +982,37 @@
               handleMarkerClick(`${shop.id}`);
             });
             marker.setMap(map as AMap.Map);
+            if (shop.isClosed) {
+              marker.hide();
+            }
           });
 
           if (map && 'setFitView' in map) map.setFitView();
         }
       });
     }
+  });
+
+  $effect(() => {
+    const expanded = closedShopsExpanded;
+    const mapInstance = map;
+    if (!mapInstance) return;
+    untrack(() => {
+      for (const shop of data.shops) {
+        if (!shop.isClosed) continue;
+        const markerData = markers[`${shop.id}`];
+        if (!markerData) continue;
+        const marker = markerData.marker;
+        if ('hide' in marker && typeof marker.hide === 'function') {
+          if (expanded) marker.show();
+          else marker.hide();
+        } else {
+          (marker as google.maps.marker.AdvancedMarkerElement).map = expanded
+            ? (mapInstance as google.maps.Map)
+            : null;
+        }
+      }
+    });
   });
 
   $effect(() => {
@@ -1764,232 +1797,259 @@
             </th>
           </tr>
         </thead>
-        <tbody>
-          {#each sortedShops as shop (shop._id)}
-            {@const openingHours = getShopOpeningHours(shop)}
-            {@const isShopOpen =
-              openingHours &&
-              now >= openingHours.openTolerated &&
-              now <= openingHours.closeTolerated}
-            {#snippet attendance(klass = 'text-sm')}
-              {#if isShopOpen}
-                {@const currentAttendance = shop.totalAttendance || 0}
-                {@const reportedAttendance = shop.currentReportedAttendance}
-                {#if reportedAttendance}
-                  <AttendanceReportBlame
-                    reportedAttendance={{
-                      ...reportedAttendance,
-                      reportedBy: reportedAttendance.reporter
-                    }}
-                    class="tooltip-right"
-                  >
-                    <div class="text-accent not-xl:hidden {klass}">
-                      {m.in_attendance({ count: currentAttendance })}
-                    </div>
-                    <div class="text-accent xl:hidden {klass}">
-                      <i class="fa-solid fa-user"></i>
-                      {currentAttendance}
-                    </div>
-                  </AttendanceReportBlame>
-                {:else}
-                  <div
-                    class="text-base-content/60 not-xl:hidden {klass}"
-                    class:text-primary={currentAttendance > 0}
-                  >
+        {#snippet discoverShopRow(shop)}
+          {@const isShopOpen = isShopCurrentlyOpen(shop, now)}
+          {#snippet attendance(klass = 'text-sm')}
+            {#if shop.isClosed}
+              <div class="text-error {klass}">{m.shop_mark_as_closed()}</div>
+            {:else if isShopOpen}
+              {@const currentAttendance = shop.totalAttendance || 0}
+              {@const reportedAttendance = shop.currentReportedAttendance}
+              {#if reportedAttendance}
+                <AttendanceReportBlame
+                  reportedAttendance={{
+                    ...reportedAttendance,
+                    reportedBy: reportedAttendance.reporter
+                  }}
+                  class="tooltip-right"
+                >
+                  <div class="text-accent not-xl:hidden {klass}">
                     {m.in_attendance({ count: currentAttendance })}
                   </div>
-                  <div
-                    class="text-base-content/60 xl:hidden {klass}"
-                    class:text-primary={currentAttendance > 0}
-                  >
+                  <div class="text-accent xl:hidden {klass}">
                     <i class="fa-solid fa-user"></i>
                     {currentAttendance}
                   </div>
-                {/if}
+                </AttendanceReportBlame>
               {:else}
-                <div class="text-error {klass}">{m.closed()}</div>
-              {/if}
-            {/snippet}
-            <tr
-              id="shop-{shop.id}"
-              class="group cursor-pointer transition-all select-none {highlightedShopId ===
-              `${shop.id}`
-                ? 'bg-accent/8'
-                : hoveredShopId === `${shop.id}`
-                  ? 'bg-base-300/30'
-                  : ''}"
-              onmouseenter={() => {
-                hoveredShopId = `${shop.id}`;
-              }}
-              onmouseleave={() => {
-                if (hoveredShopId === `${shop.id}`) {
-                  hoveredShopId = null;
-                }
-              }}
-              onclick={(event) => {
-                if ((event.target as Element)?.closest('button, a')) return;
-                selectedShopId = `${shop.id}`;
-                if (!(isMobileView && directions.isOpen))
-                  mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}
-            >
-              <td class="discover-cell discover-sticky discover-sticky-shop">
-                <div class="flex items-center space-x-3">
-                  <div>
-                    <div class="text-lg font-bold">{shop.name}</div>
-                    {#if metroEnabled && shop.transit?.metro}
-                      {@const metroLines = getMetroShopLines(shop, data.metro)}
-                      {@const stationLabel = getMetroLocalizedName(
-                        shop.transit.metro.names,
-                        shop.transit.metro.stationName,
-                        getLocale()
-                      )}
-                      <div class="mt-1 flex max-w-full flex-wrap items-center">
-                        <span
-                          class="border-base-content/15 bg-base-200 text-base-content inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md border p-0.5 pr-1.5 text-xs"
-                          title="{m.metro_station()}: {stationLabel}"
-                        >
-                          <div class="inline-flex max-w-full flex-wrap items-center gap-0.25">
-                            {#each metroLines as line (line.id)}
-                              {@const metroColor = line.color ?? '#64748b'}
-                              <span
-                                class="min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap"
-                                style="background-color: {metroColor}; color: {getMetroBadgeTextColor(
-                                  metroColor
-                                )}">{line.shortName}</span
-                              >
-                            {/each}
-                          </div>
-                          {stationLabel}
-                        </span>
-                      </div>
-                    {/if}
-                    <span
-                      class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
-                    >
-                      {@render attendance('text-xs')}
-                    </span>
-                  </div>
+                <div
+                  class="text-base-content/60 not-xl:hidden {klass}"
+                  class:text-primary={currentAttendance > 0}
+                >
+                  {m.in_attendance({ count: currentAttendance })}
                 </div>
-              </td>
-              <td
-                class="discover-cell discover-sticky discover-sticky-attendance text-center not-xl:hidden"
-              >
-                {@render attendance()}
-              </td>
-              <td
-                class="discover-cell discover-sticky discover-sticky-travel hidden text-center md:table-cell"
-              >
-                {#if timePrimary}
-                  {@const travel = shopTravel(shop)}
-                  {@const icon = shopTravelIcon(shop)}
-                  <!-- Time leads. Every row has one: a live AMap route, the
-                       server's metro estimate, or a straight-line inference. -->
-                  <div class="flex flex-col items-center gap-0.5">
-                    <div
-                      class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap badge-{travelTimeLevel(
-                        travel.seconds
-                      )}"
-                      title={travel.source === 'inferred' ? m.distance_based_estimate() : undefined}
-                    >
-                      {formatDuration(travel.seconds)}
-                    </div>
-                    <span class="text-base-content/60 text-xs">
-                      {formatDistance(travel.distanceKm, 2)}
-                      <i class="fa-solid {icon} ml-0.5"></i>
-                    </span>
-                  </div>
-                {:else}
-                  {@const travel = shopTravel(shop)}
-                  {@const icon = shopTravelIcon(shop)}
-                  <!-- Distance leads. -->
-                  <div class="flex flex-col items-center gap-0.5">
-                    <div
-                      class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap badge-{travelDistanceLevel(
-                        travel.distanceKm
-                      )}"
-                    >
-                      {formatDistance(travel.distanceKm, 2)}
-                    </div>
-                    <span
-                      class="text-base-content/60 text-xs"
-                      title={travel.source === 'inferred' ? m.distance_based_estimate() : undefined}
-                    >
-                      {formatDuration(travel.seconds)}
-                      <i class="fa-solid {icon} ml-0.5"></i>
-                    </span>
-                  </div>
-                {/if}
-              </td>
-              {#each displayedGames as gameInfo (gameInfo.id)}
-                {@const game = findGame(shop.games, gameInfo.id)}
-                <td class="discover-cell discover-game-column text-center">
-                  {#if game}
-                    {@const id = `${shop.id}`}
-                    <div class="flex items-center justify-center gap-3">
-                      <div
-                        class="group-hover:text-accent flex items-center gap-1 text-sm transition-colors"
+                <div
+                  class="text-base-content/60 xl:hidden {klass}"
+                  class:text-primary={currentAttendance > 0}
+                >
+                  <i class="fa-solid fa-user"></i>
+                  {currentAttendance}
+                </div>
+              {/if}
+            {:else}
+              <div class="text-error {klass}">{m.closed()}</div>
+            {/if}
+          {/snippet}
+          <tr
+            id="shop-{shop.id}"
+            class="group cursor-pointer transition-all select-none {highlightedShopId ===
+            `${shop.id}`
+              ? 'bg-accent/8'
+              : hoveredShopId === `${shop.id}`
+                ? 'bg-base-300/30'
+                : ''}"
+            onmouseenter={() => {
+              hoveredShopId = `${shop.id}`;
+            }}
+            onmouseleave={() => {
+              if (hoveredShopId === `${shop.id}`) {
+                hoveredShopId = null;
+              }
+            }}
+            onclick={(event) => {
+              if ((event.target as Element)?.closest('button, a')) return;
+              selectedShopId = `${shop.id}`;
+              if (!(isMobileView && directions.isOpen))
+                mapContainer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+          >
+            <td class="discover-cell discover-sticky discover-sticky-shop">
+              <div class="flex items-center space-x-3">
+                <div>
+                  <div class="text-lg font-bold">{shop.name}</div>
+                  {#if metroEnabled && shop.transit?.metro}
+                    {@const metroLines = getMetroShopLines(shop, data.metro)}
+                    {@const stationLabel = getMetroLocalizedName(
+                      shop.transit.metro.names,
+                      shop.transit.metro.stationName,
+                      getLocale()
+                    )}
+                    <div class="mt-1 flex max-w-full flex-wrap items-center">
+                      <span
+                        class="border-base-content/15 bg-base-200 text-base-content inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md border p-0.5 pr-1.5 text-xs"
+                        title="{m.metro_station()}: {stationLabel}"
                       >
-                        <i class="fas fa-desktop"></i>
-                        {game.quantity}
-                      </div>
-                      {#if costs[id] && costs[id][game.titleId]}
-                        {@const cost = costs[id][game.titleId]}
-                        {#if cost.full === cost.preview}
+                        <div class="inline-flex max-w-full flex-wrap items-center gap-0.25">
+                          {#each metroLines as line (line.id)}
+                            {@const metroColor = line.color ?? '#64748b'}
+                            <span
+                              class="min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap"
+                              style="background-color: {metroColor}; color: {getMetroBadgeTextColor(
+                                metroColor
+                              )}">{line.shortName}</span
+                            >
+                          {/each}
+                        </div>
+                        {stationLabel}
+                      </span>
+                    </div>
+                  {/if}
+                  <span
+                    class="inline-flex whitespace-nowrap transition-opacity not-hover:opacity-50 xl:hidden"
+                  >
+                    {@render attendance('text-xs')}
+                  </span>
+                </div>
+              </div>
+            </td>
+            <td
+              class="discover-cell discover-sticky discover-sticky-attendance text-center not-xl:hidden"
+            >
+              {@render attendance()}
+            </td>
+            <td
+              class="discover-cell discover-sticky discover-sticky-travel hidden text-center md:table-cell"
+            >
+              {#if timePrimary}
+                {@const travel = shopTravel(shop)}
+                {@const icon = shopTravelIcon(shop)}
+                <!-- Time leads. Every row has one: a live AMap route, the
+                       server's metro estimate, or a straight-line inference. -->
+                <div class="flex flex-col items-center gap-0.5">
+                  <div
+                    class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap badge-{travelTimeLevel(
+                      travel.seconds
+                    )}"
+                    title={travel.source === 'inferred' ? m.distance_based_estimate() : undefined}
+                  >
+                    {formatDuration(travel.seconds)}
+                  </div>
+                  <span class="text-base-content/60 text-xs">
+                    {formatDistance(travel.distanceKm, 2)}
+                    <i class="fa-solid {icon} ml-0.5"></i>
+                  </span>
+                </div>
+              {:else}
+                {@const travel = shopTravel(shop)}
+                {@const icon = shopTravelIcon(shop)}
+                <!-- Distance leads. -->
+                <div class="flex flex-col items-center gap-0.5">
+                  <div
+                    class="badge badge-soft badge-sm sm:badge-md lg:badge-lg whitespace-nowrap badge-{travelDistanceLevel(
+                      travel.distanceKm
+                    )}"
+                  >
+                    {formatDistance(travel.distanceKm, 2)}
+                  </div>
+                  <span
+                    class="text-base-content/60 text-xs"
+                    title={travel.source === 'inferred' ? m.distance_based_estimate() : undefined}
+                  >
+                    {formatDuration(travel.seconds)}
+                    <i class="fa-solid {icon} ml-0.5"></i>
+                  </span>
+                </div>
+              {/if}
+            </td>
+            {#each displayedGames as gameInfo (gameInfo.id)}
+              {@const game = findGame(shop.games, gameInfo.id)}
+              <td class="discover-cell discover-game-column text-center">
+                {#if game}
+                  {@const id = `${shop.id}`}
+                  <div class="flex items-center justify-center gap-3">
+                    <div
+                      class="group-hover:text-accent flex items-center gap-1 text-sm transition-colors"
+                    >
+                      <i class="fas fa-desktop"></i>
+                      {game.quantity}
+                    </div>
+                    {#if costs[id] && costs[id][game.titleId]}
+                      {@const cost = costs[id][game.titleId]}
+                      {#if cost.full === cost.preview}
+                        <div
+                          class="group-hover:text-warning flex items-center gap-1 text-sm transition-colors"
+                        >
+                          <i class="fa-solid fa-coins"></i>
+                          {@html cost.full}
+                        </div>
+                      {:else}
+                        <div class="tooltip">
+                          <div class="tooltip-content">
+                            {@html cost.full}
+                          </div>
                           <div
                             class="group-hover:text-warning flex items-center gap-1 text-sm transition-colors"
                           >
                             <i class="fa-solid fa-coins"></i>
-                            {@html cost.full}
+                            {@html cost.preview.substring(0, 25)}...
                           </div>
-                        {:else}
-                          <div class="tooltip">
-                            <div class="tooltip-content">
-                              {@html cost.full}
-                            </div>
-                            <div
-                              class="group-hover:text-warning flex items-center gap-1 text-sm transition-colors"
-                            >
-                              <i class="fa-solid fa-coins"></i>
-                              {@html cost.preview.substring(0, 25)}...
-                            </div>
-                          </div>
-                        {/if}
+                        </div>
                       {/if}
-                    </div>
-                  {:else}
-                    <div class="text-base-content/40 text-xl">—</div>
-                  {/if}
-                </td>
-              {/each}
-              <td class="discover-cell discover-sticky discover-sticky-actions text-center">
-                <div class="flex flex-col justify-center gap-1 xl:flex-row xl:gap-2">
-                  <a
-                    class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
-                    href={resolve('/(main)/shops/[id]', {
-                      id: shop.id.toString()
-                    })}
-                    target={adaptiveNewTab()}
-                    onclick={() => handleShopClick(shop)}
-                  >
-                    <i class="fas fa-info-circle"></i>
-                    <span class="hidden md:inline">{m.details()}</span>
-                  </a>
-                  <a
-                    class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
-                    href={getRouteLink(shop)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onclick={() => handleShopClick(shop)}
-                  >
-                    <i class="fas fa-map-marked-alt"></i>
-                    <span class="hidden md:inline">{m.route()}</span>
-                  </a>
-                </div>
+                    {/if}
+                  </div>
+                {:else}
+                  <div class="text-base-content/40 text-xl">—</div>
+                {/if}
               </td>
-            </tr>
+            {/each}
+            <td class="discover-cell discover-sticky discover-sticky-actions text-center">
+              <div class="flex flex-col justify-center gap-1 xl:flex-row xl:gap-2">
+                <a
+                  class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
+                  href={resolve('/(main)/shops/[id]', {
+                    id: shop.id.toString()
+                  })}
+                  target={adaptiveNewTab()}
+                  onclick={() => handleShopClick(shop)}
+                >
+                  <i class="fas fa-info-circle"></i>
+                  <span class="hidden md:inline">{m.details()}</span>
+                </a>
+                <a
+                  class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
+                  href={getRouteLink(shop)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onclick={() => handleShopClick(shop)}
+                >
+                  <i class="fas fa-map-marked-alt"></i>
+                  <span class="hidden md:inline">{m.route()}</span>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {/snippet}
+        <tbody>
+          {#each activeShops as shop (shop._id)}
+            {@render discoverShopRow(shop)}
           {/each}
         </tbody>
+        {#if closedShops.length > 0}
+          <tbody>
+            <tr class="hover:bg-transparent">
+              <td colspan="100" class="p-0">
+                <button
+                  type="button"
+                  class="btn btn-ghost h-auto min-h-0 w-full justify-start gap-2 rounded-none px-3 py-3 text-sm font-medium"
+                  onclick={() => (closedShopsExpanded = !closedShopsExpanded)}
+                  aria-expanded={closedShopsExpanded}
+                >
+                  <i
+                    class="fa-solid {closedShopsExpanded
+                      ? 'fa-chevron-down'
+                      : 'fa-chevron-right'} text-xs"
+                  ></i>
+                  {m.discover_closed_shops({ count: closedShops.length })}
+                </button>
+              </td>
+            </tr>
+            {#if closedShopsExpanded}
+              {#each closedShops as shop (shop._id)}
+                {@render discoverShopRow(shop)}
+              {/each}
+            {/if}
+          </tbody>
+        {/if}
       </table>
     </div>
 

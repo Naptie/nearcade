@@ -31,6 +31,8 @@ export interface ShopCreateDraft {
   /** Slots as [openHour, openMinute, closeHour, closeMinute]. */
   slots: [number, number, number, number][];
   games: GameDraft[];
+  isClosed?: boolean;
+  closedReason?: string;
 }
 
 export interface GameDraft {
@@ -130,7 +132,9 @@ export const isShopDraftEmpty = (draft: ShopCreateDraft): boolean => {
     draft.location === null &&
     draft.regionIds.length === 0 &&
     draft.games.length === 0 &&
-    allDefaultHours
+    allDefaultHours &&
+    !draft.isClosed &&
+    !draft.closedReason
   );
 };
 
@@ -173,5 +177,7 @@ export const draftToInitialData = (draft: ShopCreateDraft): Partial<ShopFormData
   },
   openingHours: draftToOpeningHours(draft.slots),
   location: draft.location ?? undefined,
-  games: draft.games.map(draftToGame)
+  games: draft.games.map(draftToGame),
+  isClosed: draft.isClosed ?? false,
+  closedReason: draft.closedReason ?? ''
 });

@@ -192,6 +192,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
 
     const now = Date.now();
+    if (shop.isClosed) {
+      error(400, m.shop_is_permanently_closed());
+    }
     const { openTolerated, closeTolerated } = getShopOpeningHours(shop);
     if (now < openTolerated.getTime() || now > closeTolerated.getTime()) {
       error(400, m.shop_is_currently_closed());

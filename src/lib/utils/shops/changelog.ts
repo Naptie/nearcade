@@ -33,6 +33,8 @@ export const getShopChangelogFieldName = (field: string, m: typeof mFunc): strin
     address: m.shop_address(),
     openingHours: m.shop_opening_hours(),
     location: m.shop_location(),
+    isClosed: m.shop_mark_as_closed(),
+    closedReason: m.shop_closed_reason(),
     game: m.shop_games(),
     'game.titleId': m.shop_game_title(),
     'game.name': m.shop_game_name(),
@@ -52,6 +54,11 @@ const formatShopChangelogValue = (value: string, field: string, m: typeof mFunc)
   if (field === 'game.titleId') {
     const title = GAME_TITLES.find((game) => game.id.toString() === value);
     if (title) return m[title.key]();
+  }
+
+  if (field === 'isClosed') {
+    if (value === 'true') return m.yes();
+    if (value === 'false') return m.no();
   }
 
   return value;
