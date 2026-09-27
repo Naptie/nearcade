@@ -92,7 +92,12 @@ export interface AdminStatsSnapshot {
 export interface AdminStatsIdSet {
   _id: string;
   date: string;
-  hashes: Partial<Record<DiffMetric, Buffer>>;
+  /**
+   * Concatenated hex of 8-byte ID hashes per metric. Stored as a string on
+   * purpose: BSON Binary does not round-trip to Buffer reliably in the Node
+   * driver (read-back became an empty set and every day looked like "all new").
+   */
+  hashes: Partial<Record<DiffMetric, string>>;
 }
 
 export interface CaptureStatsSnapshotResult {
@@ -142,22 +147,75 @@ export const toUtcDateKey = (at: Date = new Date()): string => at.toISOString().
 const hashId = (id: string): Buffer =>
   createHash('sha256').update(id, 'utf8').digest().subarray(0, 8);
 
-const bufferToHashSet = (value: Buffer | Uint8Array | undefined | null): Set<string> => {
+const hashesToBuffer = (hashes: Iterable<Buffer>): Buffer => Buffer.concat([...hashes]);
+
+const hashesToHex = (hashes: Iterable<Buffer>): string => {
+  let out = '';
+  for (const hash of hashes) out += hash.toString('hex');
+  return out;
+};
+
+const hexToHashSet = (value: string | undefined | null): Set<string> => {
   const set = new Set<string>();
-  if (!value || value.length === 0) return set;
-  const buf = Buffer.isBuffer(value) ? value : Buffer.from(value);
-  for (let offset = 0; offset + 8 <= buf.length; offset += 8) {
-    set.add(buf.subarray(offset, offset + 8).toString('hex'));
+  if (!value) return set;
+  for (let offset = 0; offset + 16 <= value.length; offset += 16) {
+    set.add(value.slice(offset, offset + 16));
   }
   return set;
 };
 
-const hashesToBuffer = (hashes: Iterable<Buffer>): Buffer => Buffer.concat([...hashes]);
+/** Best-effort decode of legacy BSON Binary / Buffer hash payloads. */
+const binaryToHashSet = (value: unknown): Set<string> | null => {
+  if (value == null) return null;
+  if (typeof value === 'string') return hexToHashSet(value);
 
+  let bytes: Uint8Array | null = null;
+  if (Buffer.isBuffer(value)) {
+    bytes = value;
+  } else if (value instanceof Uint8Array) {
+    bytes = value;
+  } else {
+    const maybe = value as {
+      buffer?: unknown;
+      value?: () => unknown;
+      length?: number;
+    };
+    if (typeof maybe.value === 'function') {
+      const inner = maybe.value();
+      if (Buffer.isBuffer(inner) || inner instanceof Uint8Array) bytes = inner;
+      else if (typeof inner === 'string') return hexToHashSet(inner);
+    }
+    if (!bytes && maybe.buffer instanceof Uint8Array) {
+      bytes = maybe.buffer;
+    }
+    // Some Binary objects look array-like with only `length` — that would
+    // silently become a zero-filled buffer via Buffer.from, so refuse those.
+    if (!bytes) return null;
+  }
+
+  if (bytes.length === 0) return new Set();
+  if (bytes.length % 8 !== 0) return null;
+
+  const set = new Set<string>();
+  for (let offset = 0; offset + 8 <= bytes.length; offset += 8) {
+    set.add(Buffer.from(bytes.buffer, bytes.byteOffset + offset, 8).toString('hex'));
+  }
+  return set;
+};
+
+/**
+ * Returns the previous hash set, or `null` when the stored payload is missing
+ * or unreadable (callers must treat that as baseline, never as "empty = all
+ * new", which inflated add counts to the full collection).
+ */
 const readIdSetHashes = (
   idset: AdminStatsIdSet | null | undefined,
   metric: DiffMetric
-): Set<string> => bufferToHashSet(idset?.hashes?.[metric]);
+): Set<string> | null => {
+  const raw = idset?.hashes?.[metric];
+  if (raw == null) return null;
+  return binaryToHashSet(raw);
+};
 
 const diffHashSets = (
   previous: Set<string>,
@@ -273,7 +331,7 @@ export const captureAdminStatsSnapshot = async (
   const counts = emptyCounts();
   const added = emptyDeltas();
   const removed = emptyDeltas();
-  const nextHashes: Partial<Record<DiffMetric, Buffer>> = {};
+  const nextHashes: Partial<Record<DiffMetric, string>> = {};
   const baseline = !previousIdset;
 
   await Promise.all(
@@ -284,7 +342,7 @@ export const captureAdminStatsSnapshot = async (
 
       if (!includeHashes || !scan.hashes) return;
 
-      nextHashes[metric] = scan.hashes;
+      nextHashes[metric] = hashesToHex([scan.hashes]);
 
       if (!previousIdset) {
         added[metric] = null;
@@ -292,10 +350,16 @@ export const captureAdminStatsSnapshot = async (
         return;
       }
 
-      const delta = diffHashSets(
-        readIdSetHashes(previousIdset, metric),
-        bufferToHashSet(scan.hashes)
-      );
+      const prior = readIdSetHashes(previousIdset, metric);
+      if (prior === null) {
+        // Stored hash set missing/unreadable (e.g. legacy BSON Binary). Do not
+        // report the entire current stock as newly added — start a new baseline.
+        added[metric] = null;
+        removed[metric] = null;
+        return;
+      }
+
+      const delta = diffHashSets(prior, hexToHashSet(nextHashes[metric]));
 
       if (previousIdset.date !== date) {
         added[metric] = delta.added;
@@ -304,6 +368,8 @@ export const captureAdminStatsSnapshot = async (
       }
 
       // Same-day re-run: fold further churn into the existing day bucket.
+      // Only accumulate when the day already has real numbers; a null bucket
+      // means "no usable baseline" and must not be turned into "all new".
       const prevAdded = priorNormalized?.added[metric];
       const prevRemoved = priorNormalized?.removed[metric];
       if (prevAdded == null && prevRemoved == null) {
@@ -339,15 +405,15 @@ export const captureAdminStatsSnapshot = async (
   // Small snapshot first so a crash cannot drop the day's numbers.
   await snapshotCollection.updateOne({ _id: snapshot._id }, { $set: snapshot }, { upsert: true });
 
-  await idsetCollection.updateOne(
+  // replaceOne: `$set: { _id }` is illegal on update and used to fail after the
+  // first insert, leaving the rolling hash set frozen forever.
+  await idsetCollection.replaceOne(
     { _id: idsetKey(scope) },
     {
-      $set: {
-        _id: idsetKey(scope),
-        date,
-        hashes: nextHashes
-      }
-    },
+      _id: idsetKey(scope),
+      date,
+      hashes: nextHashes
+    } as AdminStatsIdSet,
     { upsert: true }
   );
 
