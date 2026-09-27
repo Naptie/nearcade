@@ -40,6 +40,7 @@ type RawGlobeShop = {
   location: Shop['location'];
   openingHours: Shop['openingHours'];
   games: RawGlobeShopGame[];
+  isClosed?: Shop['isClosed'];
 };
 
 const GAME_SEATS_BY_TITLE_ID = new Map<number, number>(
@@ -56,7 +57,8 @@ const globeShopProjection = {
   'games.titleId': 1,
   'games.name': 1,
   'games.quantity': 1,
-  id: 1
+  id: 1,
+  isClosed: 1
 } as const;
 
 const aggregateGlobeGames = (games: RawGlobeShopGame[]): GlobeShopGameSummary[] => {
@@ -80,6 +82,8 @@ const aggregateGlobeGames = (games: RawGlobeShopGame[]): GlobeShopGameSummary[] 
 };
 
 const getGlobeShopDensity = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): number => {
+  if (shop.isClosed) return 0;
+
   const openingHoursParsed = getShopOpeningHours(shop);
   const now = new Date();
 
@@ -136,7 +140,8 @@ const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): Gl
   location: shop.location,
   aggregatedGames: aggregateGlobeGames(shop.games),
   currentAttendance: attendances.reduce((sum, attendance) => sum + attendance.total, 0),
-  density: getGlobeShopDensity(shop, attendances)
+  density: getGlobeShopDensity(shop, attendances),
+  ...(shop.isClosed ? { isClosed: true } : {})
 });
 
 type GlobeShopFilters = {

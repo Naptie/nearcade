@@ -1454,6 +1454,33 @@ export const getShopOpeningHours = (
   return result;
 };
 
+/**
+ * Whether a shop is currently open for business.
+ * Permanently closed shops (`isClosed`) are always treated as not open.
+ */
+export const isShopCurrentlyOpen = (
+  shop: Pick<Shop, 'location' | 'openingHours'> & { isClosed?: boolean },
+  now: Date = new Date(),
+  openingHours: ShopOpeningHours = getShopOpeningHours(shop)
+): boolean => {
+  if (shop.isClosed) return false;
+  return now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
+};
+
+/**
+ * Timezone plus inferred open status for a shop, used by list/detail/discover APIs.
+ */
+export const getShopTimeInfo = (
+  shop: Pick<Shop, 'location' | 'openingHours'> & { isClosed?: boolean },
+  now: Date = new Date()
+): { timezone: { name: string; offset: number }; isOpen: boolean } => {
+  const openingHours = getShopOpeningHours(shop);
+  return {
+    timezone: { name: getShopTimezone(shop.location), offset: openingHours.offsetHours },
+    isOpen: isShopCurrentlyOpen(shop, now, openingHours)
+  };
+};
+
 const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // High-accuracy GPS fix budget. We stop waiting for a GPS lock after this and

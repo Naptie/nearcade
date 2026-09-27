@@ -198,7 +198,12 @@ export const shopSchema = z.object({
   isOpen: z
     .boolean()
     .optional()
-    .describe(bilingual('店铺营业状态。', 'Whether the shop is currently open.')),
+    .describe(
+      bilingual(
+        '店铺当前是否营业。已闭店时恒为否。',
+        'Whether the shop is currently open. Always false when the shop is permanently closed.'
+      )
+    ),
   isClaimed: z
     .boolean()
     .optional()
@@ -223,6 +228,21 @@ export const shopSchema = z.object({
         'Whether this shop has been locked by an admin. Only admins can edit locked shops.'
       )
     ),
+  isClosed: z
+    .boolean()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺是否已闭店（全天停业）。未设置时视为未闭店。',
+        'Whether this shop is permanently closed (out of business all day). Omitted means not closed.'
+      )
+    ),
+  closedReason: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .describe(bilingual('闭店原因（可选）。', 'Optional reason the shop is permanently closed.')),
   transit: shopTransitSchema
     .optional()
     .describe(bilingual('店铺的交通信息。', 'Transit information for the shop.')),
@@ -257,7 +277,22 @@ export const createShopRequestSchema = z.object({
     .array(gameCreateSchema)
     .optional()
     .default([])
-    .describe(bilingual('机台。', 'Machines/games available at the shop.'))
+    .describe(bilingual('机台。', 'Machines/games available at the shop.')),
+  isClosed: z
+    .boolean()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺是否已闭店（全天停业）。',
+        'Whether this shop is permanently closed (out of business all day).'
+      )
+    ),
+  closedReason: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .describe(bilingual('闭店原因（可选）。', 'Optional reason the shop is permanently closed.'))
 });
 
 export const updateShopRequestSchema = z
@@ -270,7 +305,22 @@ export const updateShopRequestSchema = z
     games: z
       .array(gameUpdateInputSchema)
       .optional()
-      .describe(bilingual('机台。', 'Machines/games available at the shop.'))
+      .describe(bilingual('机台。', 'Machines/games available at the shop.')),
+    isClosed: z
+      .boolean()
+      .optional()
+      .describe(
+        bilingual(
+          '店铺是否已闭店（全天停业）。',
+          'Whether this shop is permanently closed (out of business all day).'
+        )
+      ),
+    closedReason: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      .describe(bilingual('闭店原因（可选）。', 'Optional reason the shop is permanently closed.'))
   })
   .refine((value) => Object.keys(value).length > 0, 'No fields to update');
 

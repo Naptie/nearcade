@@ -9,7 +9,9 @@ export const shopFormSchema = z.object({
   address: shopAddressSchema,
   openingHours: openingHoursSchema,
   location: locationSchema,
-  games: z.array(gameCreateSchema)
+  games: z.array(gameCreateSchema),
+  isClosed: z.boolean().optional().default(false),
+  closedReason: z.string().trim().max(200).optional().default('')
 });
 
 export type GameFormData = z.infer<typeof gameCreateSchema>;

@@ -20,7 +20,8 @@ export interface ShopChangelogViewer {
   userType?: string | null;
 }
 
-type MutableShopField = 'name' | 'comment' | 'address' | 'openingHours' | 'location';
+type MutableShopField =
+  'name' | 'comment' | 'address' | 'openingHours' | 'location' | 'isClosed' | 'closedReason';
 type MutableGameField = 'titleId' | 'name' | 'version' | 'comment' | 'quantity' | 'cost';
 
 export interface ShopRollbackPreview {
@@ -33,7 +34,15 @@ export interface ShopRollbackPreview {
   rollbackEntryCount: number;
 }
 
-const mutableShopFields = ['name', 'comment', 'address', 'openingHours', 'location'] as const;
+const mutableShopFields = [
+  'name',
+  'comment',
+  'address',
+  'openingHours',
+  'location',
+  'isClosed',
+  'closedReason'
+] as const;
 const mutableGameFields = ['titleId', 'name', 'version', 'comment', 'quantity', 'cost'] as const;
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
@@ -171,7 +180,7 @@ export const logShopFieldChanges = async (
   newData: Partial<Shop>,
   user: ChangelogUser
 ): Promise<void> => {
-  const fieldsToTrack = ['name', 'comment', 'address', 'openingHours', 'location'] as const;
+  const fieldsToTrack = mutableShopFields;
   const effectiveName = (newData.name ?? shopName).trim();
 
   for (const field of fieldsToTrack) {
@@ -521,18 +530,34 @@ export const applyShopRollback = async (
 
   preview.rolledBackShop.address = address;
 
+  const rollbackSet: Record<string, unknown> = {
+    name: preview.rolledBackShop.name,
+    comment: preview.rolledBackShop.comment,
+    address: preview.rolledBackShop.address,
+    openingHours: preview.rolledBackShop.openingHours,
+    location: preview.rolledBackShop.location,
+    games: preview.rolledBackShop.games,
+    updatedAt: preview.rolledBackShop.updatedAt
+  };
+  const rollbackUnset: Record<string, ''> = {};
+
+  if (typeof preview.rolledBackShop.isClosed === 'boolean') {
+    rollbackSet.isClosed = preview.rolledBackShop.isClosed;
+  } else {
+    rollbackUnset.isClosed = '';
+  }
+
+  if (preview.rolledBackShop.closedReason) {
+    rollbackSet.closedReason = preview.rolledBackShop.closedReason;
+  } else {
+    rollbackUnset.closedReason = '';
+  }
+
   await db.collection<Shop>('shops').updateOne(
     { id: shopId },
     {
-      $set: {
-        name: preview.rolledBackShop.name,
-        comment: preview.rolledBackShop.comment,
-        address: preview.rolledBackShop.address,
-        openingHours: preview.rolledBackShop.openingHours,
-        location: preview.rolledBackShop.location,
-        games: preview.rolledBackShop.games,
-        updatedAt: preview.rolledBackShop.updatedAt
-      }
+      $set: rollbackSet,
+      ...(Object.keys(rollbackUnset).length > 0 ? { $unset: rollbackUnset } : {})
     }
   );
 

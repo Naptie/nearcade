@@ -24,6 +24,8 @@
     address: shop.address,
     openingHours: shop.openingHours,
     location: shop.location,
+    isClosed: shop.isClosed ?? false,
+    closedReason: shop.closedReason ?? '',
     games: shop.games.map((g) => ({
       titleId: g.titleId,
       name: g.name,

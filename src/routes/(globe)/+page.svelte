@@ -18,7 +18,7 @@
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
-    getShopOpeningHours
+    isShopCurrentlyOpen
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { viewport } from '$lib/utils/viewport.svelte';
@@ -798,11 +798,7 @@
             >
               {#if starredReady}
                 {#each data.starredShops as shop (shop._id)}
-                  {@const openingHours = getShopOpeningHours(shop)}
-                  {@const isShopOpen =
-                    openingHours &&
-                    now >= openingHours.openTolerated &&
-                    now <= openingHours.closeTolerated}
+                  {@const isShopOpen = isShopCurrentlyOpen(shop, now)}
                   {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
                   <div
                     class="bg-base-100 hover:border-primary w-full rounded-lg border border-current/0 px-3 py-2 text-start transition hover:shadow-md {isInAttendance
@@ -873,7 +869,9 @@
                           {/if}
                         </div>
                       {:else}
-                        <div class="text-error text-sm">{m.closed()}</div>
+                        <div class="text-error text-sm">
+                          {shop.isClosed ? m.shop_mark_as_closed() : m.closed()}
+                        </div>
                       {/if}
                     </a>
                   </div>

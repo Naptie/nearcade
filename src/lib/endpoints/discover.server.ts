@@ -1,6 +1,6 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Game, Shop } from '$lib/types';
-import { calculateDistance, toPlainObject, getShopOpeningHours, getShopTimezone } from '$lib/utils';
+import { calculateDistance, toPlainObject, getShopTimeInfo } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
@@ -273,20 +273,7 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     })[] = shops.map((shop) => {
       const coordinates = shop.location?.coordinates;
 
-      const extraTimeInfo = (() => {
-        if (!includeTimeInfo)
-          return {} as Partial<{
-            timezone: { name: string; offset: number };
-            isOpen: boolean;
-          }>;
-        const openingHours = getShopOpeningHours(shop);
-        const isOpen = now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
-        const timezoneName = getShopTimezone(shop.location);
-        return {
-          timezone: { name: timezoneName, offset: openingHours.offsetHours },
-          isOpen
-        };
-      })();
+      const extraTimeInfo = includeTimeInfo ? getShopTimeInfo(shop, now) : {};
 
       let distance = Infinity;
 
