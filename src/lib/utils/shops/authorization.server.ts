@@ -4,6 +4,9 @@ import type { Shop } from '$lib/types';
  * Determines whether a user can perform write operations (edit, delete-request, upload/delete photos)
  * on a shop.
  *
+ * Comments, comment votes, and comment replies are not write operations in this sense: they only
+ * require a signed-in user with verified contact, regardless of `isClaimed` or `isLocked`.
+ *
  * Rules:
  * - Site admins can always perform write operations.
  * - If the shop is locked (`isLocked: true`), only site admins are allowed.

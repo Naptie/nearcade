@@ -119,6 +119,9 @@
   let canProtectedShopAction = $derived(
     !!data.user && hasPhone && canModifyClaimedShop && canModifyLockedShop
   );
+  /** Commenting is independent of shop management: claimed or locked shops
+   * still accept comments from any signed-in user with a bound phone. */
+  let canComment = $derived(!!data.user && hasPhone);
   let protectedShopActionMessage = $derived.by(() => {
     if (!data.user) {
       return '';
@@ -761,7 +764,7 @@
 
   const handleCommentSubmit = async () => {
     if (
-      !canProtectedShopAction ||
+      !canComment ||
       !shop ||
       (!newCommentContent.trim() && newCommentImageIds.length === 0) ||
       isSubmittingComment
@@ -792,7 +795,7 @@
   };
 
   const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
-    if (!canProtectedShopAction) return;
+    if (!canComment) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
@@ -810,7 +813,7 @@
   };
 
   const handleCommentReply = (commentId: string) => {
-    if (!canProtectedShopAction) return;
+    if (!canComment) return;
 
     if (replyImageIds.length > 0) {
       void cleanupDraftImages(replyImageIds);
@@ -824,7 +827,7 @@
 
   const submitReply = async () => {
     if (
-      !canProtectedShopAction ||
+      !canComment ||
       !shop ||
       (!replyContent.trim() && replyImageIds.length === 0) ||
       !replyingTo ||
@@ -860,7 +863,7 @@
   };
 
   const handleCommentEdit = async (commentId: string, newContent: string, imageIds: string[]) => {
-    if (!canProtectedShopAction) return;
+    if (!canComment) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
@@ -882,7 +885,7 @@
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    if (!canProtectedShopAction) return;
+    if (!canComment) return;
 
     try {
       const response = await fetch(fromPath(`/api/comments/${commentId}`), {
@@ -2038,7 +2041,7 @@
           </h2>
 
           <!-- Add comment form -->
-          {#if canProtectedShopAction}
+          {#if canComment}
             <div class="bg-base-100 mb-6 rounded-xl p-4">
               <MarkdownEditor
                 bind:value={newCommentContent}
@@ -2047,7 +2050,7 @@
                 placeholder={m.comment_placeholder()}
                 disabled={isSubmittingComment}
                 minHeight="min-h-[100px]"
-                currentUser={canProtectedShopAction ? data.user : undefined}
+                currentUser={data.user}
                 imageUploadUrl={buildImageUploadUrl({
                   draftKind: 'shop-comment',
                   shopId: shop.id
@@ -2087,12 +2090,12 @@
                 <div>
                   <Comment
                     {comment}
-                    currentUserId={canProtectedShopAction ? data.user?.id : undefined}
-                    currentUser={canProtectedShopAction ? data.user : undefined}
-                    canReply={canProtectedShopAction}
+                    currentUserId={canComment ? data.user?.id : undefined}
+                    currentUser={canComment ? data.user : undefined}
+                    canReply={canComment}
                     canEdit={false}
-                    onVote={canProtectedShopAction ? handleCommentVote : undefined}
-                    onReply={canProtectedShopAction ? handleCommentReply : undefined}
+                    onVote={canComment ? handleCommentVote : undefined}
+                    onReply={canComment ? handleCommentReply : undefined}
                     onEdit={handleCommentEdit}
                     onDelete={handleCommentDelete}
                     isPostRendered={isCommentsRendered}
@@ -2100,7 +2103,7 @@
                   />
 
                   <!-- Reply form -->
-                  {#if replyingTo === comment.id && canProtectedShopAction}
+                  {#if replyingTo === comment.id && canComment}
                     <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
                       <MarkdownEditor
                         bind:value={replyContent}
@@ -2109,7 +2112,7 @@
                         placeholder={m.reply_to_comment()}
                         disabled={isSubmittingReply}
                         minHeight="min-h-[100px]"
-                        currentUser={canProtectedShopAction ? data.user : undefined}
+                        currentUser={data.user}
                         imageUploadUrl={buildImageUploadUrl({
                           draftKind: 'shop-comment',
                           shopId: shop.id
@@ -2149,12 +2152,12 @@
                   {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
                     <Comment
                       comment={reply}
-                      currentUserId={canProtectedShopAction ? data.user?.id : undefined}
-                      currentUser={canProtectedShopAction ? data.user : undefined}
-                      canReply={canProtectedShopAction}
+                      currentUserId={canComment ? data.user?.id : undefined}
+                      currentUser={canComment ? data.user : undefined}
+                      canReply={canComment}
                       canEdit={false}
-                      onVote={canProtectedShopAction ? handleCommentVote : undefined}
-                      onReply={canProtectedShopAction ? handleCommentReply : undefined}
+                      onVote={canComment ? handleCommentVote : undefined}
+                      onReply={canComment ? handleCommentReply : undefined}
                       onEdit={handleCommentEdit}
                       onDelete={handleCommentDelete}
                       isPostRendered={isCommentsRendered}
