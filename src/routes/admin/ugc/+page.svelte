@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { page } from '$app/state';
@@ -177,7 +177,7 @@
       toast(m.admin_ugc_action_done({ count: String(affected) }), { type: 'success' });
       selected.clear();
       selectAllMatching = false;
-      await goto(page.url.toString(), { replaceState: true, noScroll: true });
+      await invalidateAll();
     } catch (err) {
       toastError(err instanceof Error ? err.message : m.internal_server_error());
     } finally {
@@ -199,7 +199,7 @@
   $effect(() => {
     if (!documentVisible || busy) return;
     const interval = setInterval(async () => {
-      if (!busy) await goto(page.url.toString(), { replaceState: true, noScroll: true });
+      if (!busy) await invalidateAll();
     }, 5000);
     return () => clearInterval(interval);
   });

@@ -12,6 +12,595 @@
     }
   ],
   "paths": {
+    "/announcements": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "获取公告列表 / List announcements",
+        "description": "获取已发布的全站公告，并返回当前访问者的未读数量。\n\nList published site announcements and the current viewer unread count.",
+        "operationId": "getAnnouncements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "description": "页数。默认为 1。\n\nPage number. Defaults to 1.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
+            },
+            "description": "页数。默认为 1。\n\nPage number. Defaults to 1."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "公告列表 / Announcement list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "announcements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "content": {
+                            "type": "string"
+                          },
+                          "images": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "description": "图片资源 ID。\n\nImage asset ID."
+                            }
+                          },
+                          "resolvedImages": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "_id": {
+                                  "description": "MongoDB ID。\n\nMongoDB ID.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "图片资源 ID。\n\nImage asset ID."
+                                },
+                                "shopId": {
+                                  "description": "关联店铺 ID。\n\nAssociated shop ID.",
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991
+                                },
+                                "commentId": {
+                                  "description": "关联评论 ID。\n\nAssociated comment ID.",
+                                  "type": "string"
+                                },
+                                "postId": {
+                                  "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                  "type": "string"
+                                },
+                                "announcementId": {
+                                  "description": "关联公告 ID。\n\nAssociated announcement ID.",
+                                  "type": "string"
+                                },
+                                "deleteRequestId": {
+                                  "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
+                                  "type": "string"
+                                },
+                                "userId": {
+                                  "description": "关联用户 ID。\n\nAssociated user ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "universityId": {
+                                  "description": "关联大学 ID。\n\nAssociated university ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "clubId": {
+                                  "description": "关联社团 ID。\n\nAssociated club ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "description": "图片 URL。\n\nImage URL."
+                                },
+                                "storageProvider": {
+                                  "type": "string",
+                                  "enum": ["s3", "leancloud"],
+                                  "description": "图片存储提供商。\n\nImage storage provider."
+                                },
+                                "storageKey": {
+                                  "type": "string",
+                                  "description": "存储键。\n\nStorage key."
+                                },
+                                "storageObjectId": {
+                                  "description": "远端存储对象 ID。\n\nRemote storage object ID.",
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "uploadedBy": {
+                                  "nullable": true,
+                                  "description": "上传者用户 ID。\n\nUploader user ID.",
+                                  "type": "string"
+                                },
+                                "uploader": {
+                                  "description": "上传者信息（摘要）。\n\nUploader summary (projected fields).",
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "用户 ID。\n\nUser ID."
+                                    },
+                                    "name": {
+                                      "nullable": true,
+                                      "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix.",
+                                      "type": "string"
+                                    },
+                                    "displayName": {
+                                      "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "image": {
+                                      "description": "头像。\n\nAvatar URL.",
+                                      "nullable": true,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["id", "name"],
+                                  "additionalProperties": false
+                                },
+                                "uploadedAt": {
+                                  "description": "上传时间。\n\nUpload time.",
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "url",
+                                "storageProvider",
+                                "storageKey",
+                                "uploadedBy",
+                                "uploadedAt"
+                              ],
+                              "additionalProperties": false,
+                              "description": "图片资源。\n\nImage asset."
+                            }
+                          },
+                          "createdBy": {
+                            "type": "string",
+                            "description": "用户 ID。\n\nUser ID."
+                          },
+                          "createdAt": {
+                            "description": "创建时间。\n\nCreation time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "description": "更新时间。\n\nUpdate time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["draft", "published"],
+                            "description": "公告状态：draft 为草稿，published 为已发布。\n\nAnnouncement status: draft or published."
+                          },
+                          "publishedAt": {
+                            "nullable": true,
+                            "description": "公告发布时间。\n\nAnnouncement publish time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "expiresAt": {
+                            "nullable": true,
+                            "description": "公告过期时间。\n\nAnnouncement expiration time.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "isPinned": {
+                            "type": "boolean"
+                          },
+                          "author": {
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "description": "MongoDB ID。客户端请使用 id。\n\nMongoDB ID. Use `id` in clients.",
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "description": "MongoDB ObjectId。\n\nMongoDB ObjectId.",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "用户 ID。\n\nUser ID."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "用户名。展示时请在前面加 @ 符号。\n\nUsername. Display with an @ prefix."
+                              },
+                              "email": {
+                                "description": "邮箱，仅在用户勾选“邮箱可见性”时存在。\n\nEmail address when the user has made it public.",
+                                "type": "string"
+                              },
+                              "image": {
+                                "description": "头像。\n\nAvatar URL.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "avatarImageId": {
+                                "description": "头像图片资源 ID。\n\nAvatar image asset ID.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "description": "创建时间。\n\nCreation time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "description": "资料更新时间。\n\nProfile update time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "joinedAt": {
+                                "description": "加入时间。\n\nJoin time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "lastActiveAt": {
+                                "description": "最后活跃时间。\n\nLast active time.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "userType": {
+                                "description": "用户类型。\n\nUser type.",
+                                "type": "string",
+                                "enum": [
+                                  "site_admin",
+                                  "developer",
+                                  "school_admin",
+                                  "club_admin",
+                                  "school_moderator",
+                                  "club_moderator",
+                                  "student",
+                                  "regular"
+                                ]
+                              },
+                              "bio": {
+                                "description": "个人简介。\n\nUser bio.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "description": "用户示名，展示优先级高于 name。\n\nDisplay name, preferred over `name` when present.",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "socialLinks": {
+                                "description": "社交链接。\n\nSocial links visible to clients.",
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "platform": {
+                                      "type": "string",
+                                      "enum": [
+                                        "qq",
+                                        "wechat",
+                                        "github",
+                                        "discord",
+                                        "osu",
+                                        "diving-fish",
+                                        "phira"
+                                      ],
+                                      "description": "社交平台。\n\nSocial platform."
+                                    },
+                                    "username": {
+                                      "type": "string",
+                                      "description": "用户名。\n\nUsername."
+                                    },
+                                    "verified": {
+                                      "description": "是否已通过平台验证（验证后自行修改用户名会清除该标记）。\n\nWhether the username has been verified via the platform (editing the username clears it).",
+                                      "type": "boolean"
+                                    },
+                                    "userId": {
+                                      "description": "平台侧账号 ID（验证时捕获）。\n\nProvider-side account id captured at verification time.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": ["platform", "username"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "frequentingArcades": {
+                                "description": "常去机厅，仅在用户勾选“常去机厅可见性”时存在。\n\nFrequently visited arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "starredArcades": {
+                                "description": "收藏机厅，仅在用户勾选“收藏机厅可见性”时存在。\n\nStarred arcades when made public.",
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": ["id", "name", "createdAt", "updatedAt"],
+                            "additionalProperties": false
+                          },
+                          "unread": {
+                            "type": "boolean",
+                            "description": "当前访问者是否未读。\n\nWhether the current viewer has not read it."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "content",
+                          "createdBy",
+                          "createdAt",
+                          "status",
+                          "isPinned",
+                          "unread"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "公告列表。\n\nAnnouncement list."
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "是否还有更多公告。\n\nWhether more announcements exist."
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991,
+                      "description": "当前页。\n\nCurrent page."
+                    },
+                    "unreadCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "未读公告数。\n\nUnread announcement count."
+                    }
+                  },
+                  "required": ["announcements", "hasMore", "page", "unreadCount"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["posts"],
+        "summary": "创建公告 / Create announcement",
+        "description": "站点管理员创建全站公告。公告不支持表态。\n\nSite admins create a site-wide announcement. Announcements do not support user reactions or comments.",
+        "operationId": "postAnnouncements",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "公告标题。\n\nAnnouncement title."
+                  },
+                  "content": {
+                    "default": "",
+                    "description": "公告内容（Markdown）。\n\nAnnouncement content in Markdown.",
+                    "type": "string"
+                  },
+                  "images": {
+                    "default": [],
+                    "description": "公告图片资源 ID 列表。\n\nAnnouncement image asset IDs.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "图片资源 ID。\n\nImage asset ID."
+                    }
+                  },
+                  "publish": {
+                    "default": true,
+                    "description": "是否立即发布。\n\nWhether to publish immediately.",
+                    "type": "boolean"
+                  },
+                  "publishAt": {
+                    "nullable": true,
+                    "description": "公告发布时间。\n\nAnnouncement publication time.",
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "expiresAt": {
+                    "nullable": true,
+                    "description": "过期时间。\n\nExpiration time.",
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  }
+                },
+                "required": ["title"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已创建公告 / Announcement created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "announcementId": {
+                      "type": "string",
+                      "description": "新公告 ID。\n\nNew announcement ID."
+                    }
+                  },
+                  "required": ["success", "announcementId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "401": {
+            "description": "未授权 / Unauthorized"
+          },
+          "403": {
+            "description": "权限不足 / Forbidden"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/announcements/read": {
+      "post": {
+        "tags": ["posts"],
+        "summary": "更新公告已读状态 / Update announcement read state",
+        "description": "为登录用户持久化已读水位，或为访客写入仅包含已读水位的 Cookie。\n\nPersists a read cursor for signed-in users, or stores a read-cursor cookie for guests.",
+        "operationId": "postAnnouncementsRead",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "announcementId": {
+                    "description": "要标记已读的公告 ID。\n\nAnnouncement ID to mark read.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "all": {
+                    "description": "是否将当前全部公告标记为已读。\n\nWhether to mark every current announcement read.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已读状态 / Read state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "是否成功。\n\nWhether the operation succeeded."
+                    },
+                    "state": {
+                      "type": "object",
+                      "properties": {
+                        "readThroughAt": {
+                          "nullable": true,
+                          "description": "此时间及之前发布的公告视为已读。\n\nAnnouncements published at or before this time are read.",
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "readTokens": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "单独已读的公告版本标记。\n\nIndividually read announcement version tokens."
+                        }
+                      },
+                      "required": ["readThroughAt", "readTokens"],
+                      "additionalProperties": false
+                    },
+                    "unreadCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "未读公告数。\n\nUnread announcement count."
+                    }
+                  },
+                  "required": ["success", "state", "unreadCount"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "404": {
+            "description": "公告不存在 / Announcement not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
     "/clubs": {
       "get": {
         "tags": ["clubs"],
@@ -1898,6 +2487,10 @@
                                   "description": "关联帖子 ID。\n\nAssociated post ID.",
                                   "type": "string"
                                 },
+                                "announcementId": {
+                                  "description": "关联公告 ID。\n\nAssociated announcement ID.",
+                                  "type": "string"
+                                },
                                 "deleteRequestId": {
                                   "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
                                   "type": "string"
@@ -3537,6 +4130,10 @@
                     "description": "关联帖子 ID。\n\nAssociated post ID.",
                     "type": "string"
                   },
+                  "announcementId": {
+                    "description": "关联公告 ID。\n\nAssociated announcement ID.",
+                    "type": "string"
+                  },
                   "deleteRequestId": {
                     "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
                     "type": "string"
@@ -3545,6 +4142,7 @@
                     "type": "string",
                     "enum": [
                       "post",
+                      "announcement",
                       "post-comment",
                       "shop-comment",
                       "shop-delete-request",
@@ -3878,6 +4476,10 @@
                               },
                               "postId": {
                                 "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                "type": "string"
+                              },
+                              "announcementId": {
+                                "description": "关联公告 ID。\n\nAssociated announcement ID.",
                                 "type": "string"
                               },
                               "deleteRequestId": {
@@ -4274,6 +4876,10 @@
                                 },
                                 "postId": {
                                   "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                  "type": "string"
+                                },
+                                "announcementId": {
+                                  "description": "关联公告 ID。\n\nAssociated announcement ID.",
                                   "type": "string"
                                 },
                                 "deleteRequestId": {
@@ -9240,6 +9846,10 @@
                               "description": "关联帖子 ID。\n\nAssociated post ID.",
                               "type": "string"
                             },
+                            "announcementId": {
+                              "description": "关联公告 ID。\n\nAssociated announcement ID.",
+                              "type": "string"
+                            },
                             "deleteRequestId": {
                               "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
                               "type": "string"
@@ -10044,6 +10654,10 @@
                             "description": "关联帖子 ID。\n\nAssociated post ID.",
                             "type": "string"
                           },
+                          "announcementId": {
+                            "description": "关联公告 ID。\n\nAssociated announcement ID.",
+                            "type": "string"
+                          },
                           "deleteRequestId": {
                             "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
                             "type": "string"
@@ -10758,6 +11372,10 @@
                                   "description": "关联帖子 ID。\n\nAssociated post ID.",
                                   "type": "string"
                                 },
+                                "announcementId": {
+                                  "description": "关联公告 ID。\n\nAssociated announcement ID.",
+                                  "type": "string"
+                                },
                                 "deleteRequestId": {
                                   "description": "关联删除申请 ID。\n\nAssociated delete request ID.",
                                   "type": "string"
@@ -11304,6 +11922,10 @@
                               },
                               "postId": {
                                 "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                "type": "string"
+                              },
+                              "announcementId": {
+                                "description": "关联公告 ID。\n\nAssociated announcement ID.",
                                 "type": "string"
                               },
                               "deleteRequestId": {
@@ -11994,6 +12616,10 @@
                             },
                             "postId": {
                               "description": "关联帖子 ID。\n\nAssociated post ID.",
+                              "type": "string"
+                            },
+                            "announcementId": {
+                              "description": "关联公告 ID。\n\nAssociated announcement ID.",
                               "type": "string"
                             },
                             "deleteRequestId": {
@@ -14151,6 +14777,10 @@
                                 },
                                 "postId": {
                                   "description": "关联帖子 ID。\n\nAssociated post ID.",
+                                  "type": "string"
+                                },
+                                "announcementId": {
+                                  "description": "关联公告 ID。\n\nAssociated announcement ID.",
                                   "type": "string"
                                 },
                                 "deleteRequestId": {

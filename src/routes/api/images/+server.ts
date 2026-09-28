@@ -36,6 +36,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     shopId,
     commentId,
     postId,
+    announcementId,
     deleteRequestId,
     draftKind,
     organizationType,
@@ -45,6 +46,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     shopId: formData.get('shopId') ?? url.searchParams.get('shopId'),
     commentId: formData.get('commentId') ?? url.searchParams.get('commentId'),
     postId: formData.get('postId') ?? url.searchParams.get('postId'),
+    announcementId: formData.get('announcementId') ?? url.searchParams.get('announcementId'),
     deleteRequestId: formData.get('deleteRequestId') ?? url.searchParams.get('deleteRequestId'),
     draftKind: formData.get('draftKind') ?? url.searchParams.get('draftKind'),
     organizationType: formData.get('organizationType') ?? url.searchParams.get('organizationType'),
@@ -56,6 +58,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         shopId,
         commentId,
         postId,
+        announcementId,
         deleteRequestId
       };
   const draftContext: ImageDraftContext = {
@@ -63,6 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     organizationType,
     organizationId,
     postId,
+    announcementId,
     shopId,
     deleteRequestId
   };

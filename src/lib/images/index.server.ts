@@ -11,6 +11,7 @@ const IMAGE_OWNER_KEYS = [
   'shopId',
   'commentId',
   'postId',
+  'announcementId',
   'deleteRequestId',
   'userId',
   'universityId',
@@ -40,10 +41,16 @@ export interface ImageMutationAccess {
 
 export interface ImageDraftContext {
   kind?:
-    'post' | 'post-comment' | 'shop-comment' | 'shop-delete-request' | 'delete-request-comment';
+    | 'post'
+    | 'announcement'
+    | 'post-comment'
+    | 'shop-comment'
+    | 'shop-delete-request'
+    | 'delete-request-comment';
   organizationType?: 'university' | 'club';
   organizationId?: string;
   postId?: string;
+  announcementId?: string;
   shopId?: number;
   deleteRequestId?: string;
 }
@@ -83,6 +90,8 @@ const getDraftImageFolder = (draftContext: ImageDraftContext, uploadedBy: string
         return `${draftContext.organizationType}s/${draftContext.organizationId}/posts`;
       }
       return `posts/${uploadedBy}`;
+    case 'announcement':
+      return `announcements/${uploadedBy}`;
     case 'post-comment':
       if (draftContext.postId) {
         return `posts/${draftContext.postId}/comments`;
@@ -119,6 +128,7 @@ const getImageFolder = (
   if (owner.shopId !== undefined) return `shops/${owner.shopId}`;
   if (owner.commentId) return `comments/${owner.commentId}`;
   if (owner.postId) return `posts/${owner.postId}`;
+  if (owner.announcementId) return `announcements/${owner.announcementId}`;
   if (owner.deleteRequestId) return `delete-requests/${owner.deleteRequestId}`;
   if (owner.userId) return `avatars/users/${owner.userId}`;
   if (owner.universityId) return `avatars/universities/${owner.universityId}`;
@@ -330,6 +340,7 @@ export const attachImagesToOwner = async (
 const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
   const commentImageIdsByOwner = new Map<string, string[]>();
   const postImageIdsByOwner = new Map<string, string[]>();
+  const announcementImageIdsByOwner = new Map<string, string[]>();
   const deleteRequestImageIdsByOwner = new Map<string, string[]>();
   const userAvatarIds = new Set<string>();
   const universityAvatarIds = new Set<string>();
@@ -346,6 +357,13 @@ const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
     if (image.postId) {
       postImageIdsByOwner.set(image.postId, [
         ...(postImageIdsByOwner.get(image.postId) ?? []),
+        image.id
+      ]);
+    }
+
+    if (image.announcementId) {
+      announcementImageIdsByOwner.set(image.announcementId, [
+        ...(announcementImageIdsByOwner.get(image.announcementId) ?? []),
         image.id
       ]);
     }
@@ -388,6 +406,28 @@ const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
         }
       );
     }),
+    ...[...announcementImageIdsByOwner.entries()].map(
+      async ([announcementId, imageIdsForOwner]) => {
+        const announcement = await db
+          .collection<{ id: string; content: string }>('announcements')
+          .findOne({ id: announcementId }, { projection: { content: 1 } });
+
+        if (!announcement) return;
+
+        await db
+          .collection<{ id: string; content: string; images?: string[] }>('announcements')
+          .updateOne(
+            { id: announcementId },
+            {
+              $pull: { images: { $in: imageIdsForOwner } },
+              $set: {
+                content: stripPostImageMarkdownByIds(announcement.content, imageIdsForOwner),
+                updatedAt: new Date()
+              }
+            }
+          );
+      }
+    ),
     ...[...deleteRequestImageIdsByOwner.entries()].map(([deleteRequestId, imageIdsForOwner]) =>
       db
         .collection<ShopDeleteRequest>('shop_delete_requests')

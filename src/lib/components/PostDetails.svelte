@@ -9,6 +9,7 @@
     PostWritability,
     PostReadability
   } from '$lib/types';
+  import type { AnnouncementPostView } from '$lib/announcements/view';
   import type { User } from '$lib/auth/types';
   import UserAvatar from './UserAvatar.svelte';
   import Comment from './Comment.svelte';
@@ -37,42 +38,54 @@
     toAbsoluteUrl
   } from '$lib/utils/seo';
 
+  type PostDetailsPost = PostWithAuthor & {
+    status?: 'draft' | 'published';
+    publishedAt?: Date | string | null;
+    expiresAt?: Date | string | null;
+  };
+
   interface Props {
-    post: PostWithAuthor;
-    comments: CommentWithAuthorAndVote[];
-    userVote: 'upvote' | 'downvote' | null;
+    post: PostDetailsPost | AnnouncementPostView;
+    comments?: CommentWithAuthorAndVote[];
+    userVote?: 'upvote' | 'downvote' | null;
     currentUserId?: string;
     currentUser?: User | undefined;
-    organizationType: 'university' | 'club';
-    organizationName: string;
+    organizationType?: 'university' | 'club';
+    organizationName?: string;
     organizationSlug?: string;
-    organizationId: string;
+    organizationId?: string;
     organizationReadability?: PostReadability;
-    canJoinOrganization: boolean;
+    canJoinOrganization?: boolean;
     postWritability?: PostWritability;
     canManage?: boolean; // User can pin/unpin, lock/unlock posts
     canEdit?: boolean; // User can edit/delete posts
     canComment?: boolean; // User can comment on posts
+    announcementMode?: boolean;
+    backHref?: string;
+    backLabel?: string;
   }
 
   let {
     post,
-    comments,
-    userVote,
+    comments = [],
+    userVote = null,
     currentUserId,
     currentUser = undefined,
     organizationType,
-    organizationName,
+    organizationName = '',
     organizationSlug,
-    organizationId,
-    canJoinOrganization,
-    postWritability = organizationType === 'university'
-      ? PostWritability.UNIV_MEMBERS
-      : PostWritability.CLUB_MEMBERS,
+    organizationId = '',
+    canJoinOrganization = false,
+    postWritability = organizationType === 'club'
+      ? PostWritability.CLUB_MEMBERS
+      : PostWritability.UNIV_MEMBERS,
     organizationReadability = PostReadability.PUBLIC,
     canManage = false,
     canEdit = false,
-    canComment: canCommentGeneral = false
+    canComment: canCommentGeneral = false,
+    announcementMode = false,
+    backHref,
+    backLabel
   }: Props = $props();
 
   let content = $state('');
@@ -95,6 +108,11 @@
   let editImageIds = $state<string[]>([]);
   let editAttachments = $state<ImageAsset[]>([]);
   let editReadability = $state(PostReadability.PUBLIC);
+  let editPublishAt = $state('');
+  let editPublishAtChanged = $state(false);
+  let editExpiresAt = $state('');
+  let editNotifyReaders = $state(false);
+  let editStatus = $state<'draft' | 'published'>('published');
   let editWideMode = $state(false);
   let isSavingPost = $state(false);
   let showDeletePostConfirm = $state(false);
@@ -127,6 +145,7 @@
   );
 
   // Determine if user can vote based on post readability permissions
+  let postedAt = $derived(localPost.publishedAt ?? localPost.createdAt);
   let canVote = $derived.by(() => {
     if (!currentUserId) return false;
     if (localPost.isLocked && !canManagePost) return false;
@@ -145,14 +164,23 @@
   });
 
   let backUrl = $derived.by(() => {
+    if (backHref) return backHref;
     if (organizationType === 'university') {
       return (
         resolve('/(main)/universities/[id]', { id: organizationSlug || organizationId }) + '#posts'
       );
-    } else {
+    }
+    if (organizationType === 'club') {
       return resolve('/(main)/clubs/[id]', { id: organizationSlug || organizationId }) + '#posts';
     }
+    return resolve('/(main)/announcements');
   });
+  let resolvedBackLabel = $derived(
+    backLabel || (announcementMode ? m.back_to_announcements() : m.back_to_posts())
+  );
+  let interactionEndpoint = $derived(
+    announcementMode ? `/api/announcements/${post.id}` : `/api/posts/${post.id}`
+  );
 
   const readabilityOptions = $derived([
     { value: PostReadability.PUBLIC, label: m.post_readability_public() },
@@ -197,6 +225,16 @@
     editImageIds = localPost.images ? [...localPost.images] : [];
     editAttachments = localPost.resolvedImages ? [...localPost.resolvedImages] : [];
     editReadability = localPost.readability;
+    editStatus = localPost.status === 'draft' ? 'draft' : 'published';
+    editPublishAt =
+      localPost.publishedAt && new Date(localPost.publishedAt) > new Date()
+        ? new Date(localPost.publishedAt).toLocaleString('sv').slice(0, 16).replace(' ', 'T')
+        : '';
+    editPublishAtChanged = false;
+    editNotifyReaders = false;
+    editExpiresAt = localPost.expiresAt
+      ? new Date(localPost.expiresAt).toLocaleString('sv').slice(0, 16).replace(' ', 'T')
+      : '';
   };
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
@@ -380,7 +418,7 @@
     if (!canManagePost) return;
 
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
+      const response = await fetch(fromPath(interactionEndpoint), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -405,7 +443,7 @@
     if (!canManagePost) return;
 
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
+      const response = await fetch(fromPath(interactionEndpoint), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -452,7 +490,7 @@
 
     isSavingPost = true;
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
+      const response = await fetch(fromPath(interactionEndpoint), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -460,7 +498,18 @@
         body: JSON.stringify({
           title: editTitle.trim(),
           content: editContent.trim(),
-          readability: editReadability,
+          ...(announcementMode
+            ? {
+                status: editStatus,
+                ...(editPublishAtChanged
+                  ? {
+                      publishAt: editPublishAt ? new Date(editPublishAt).toISOString() : null
+                    }
+                  : {}),
+                expiresAt: editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
+                notifyReaders: editNotifyReaders
+              }
+            : { readability: editReadability }),
           images: editImageIds
         })
       });
@@ -472,7 +521,24 @@
           content: editContent.trim(),
           images: [...editImageIds],
           resolvedImages: [...editAttachments],
-          readability: editReadability,
+          readability: announcementMode ? localPost.readability : editReadability,
+          status: announcementMode ? editStatus : localPost.status,
+          publishedAt: announcementMode
+            ? editStatus === 'draft'
+              ? null
+              : editNotifyReaders
+                ? new Date()
+                : editPublishAtChanged
+                  ? editPublishAt
+                    ? new Date(editPublishAt)
+                    : new Date()
+                  : localPost.publishedAt
+            : localPost.publishedAt,
+          expiresAt: announcementMode
+            ? editExpiresAt
+              ? new Date(editExpiresAt)
+              : null
+            : localPost.expiresAt,
           updatedAt: new Date()
         };
         isEditingPost = false;
@@ -497,7 +563,7 @@
 
   const confirmDeletePost = async () => {
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}`), {
+      const response = await fetch(fromPath(interactionEndpoint), {
         method: 'DELETE'
       });
 
@@ -559,7 +625,7 @@
         class="hover:text-primary flex items-center gap-2 text-sm transition-colors"
       >
         <i class="fa-solid fa-arrow-left"></i>
-        {m.back_to_posts()}
+        {resolvedBackLabel}
       </a>
       {#if isEditingPost}
         <!-- Wide mode toggle -->
@@ -589,7 +655,7 @@
                 {getDisplayName(post.author)}
               </a>
               <div class="text-base-content/60 text-sm">
-                {formatDistanceToNow(post.createdAt, {
+                {formatDistanceToNow(postedAt, {
                   addSuffix: true,
                   locale: getFnsLocale(getLocale())
                 })}
@@ -603,6 +669,12 @@
           <!-- Post badges -->
           <div class="flex items-center justify-between gap-2">
             <div class="flex gap-2 text-nowrap">
+              {#if announcementMode}
+                <div class="badge badge-soft badge-primary gap-0.75">
+                  <i class="fa-solid fa-bullhorn"></i>
+                  <span class="not-sm:hidden">{m.announcement()}</span>
+                </div>
+              {/if}
               {#if localPost.isPinned}
                 <div class="badge badge-soft badge-info gap-0.75">
                   <i class="fa-solid fa-thumbtack"></i>
@@ -631,12 +703,14 @@
                         {localPost.isPinned ? m.unpin_post() : m.pin_post()}
                       </button>
                     </li>
-                    <li>
-                      <button onclick={toggleLockPost} class="text-warning">
-                        <i class="fa-solid {localPost.isLocked ? 'fa-unlock' : 'fa-lock'}"></i>
-                        {localPost.isLocked ? m.unlock_post() : m.lock_post()}
-                      </button>
-                    </li>
+                    {#if !announcementMode}
+                      <li>
+                        <button onclick={toggleLockPost} class="text-warning">
+                          <i class="fa-solid {localPost.isLocked ? 'fa-unlock' : 'fa-lock'}"></i>
+                          {localPost.isLocked ? m.unlock_post() : m.lock_post()}
+                        </button>
+                      </li>
+                    {/if}
                   {/if}
                   {#if canEditPost}
                     <li>
@@ -675,25 +749,85 @@
               />
             </div>
 
-            <!-- Readability selection -->
-            <div class="form-control">
-              <label class="label" for="edit-post-readability">
-                <span class="label-text">{m.post_visibility()}</span>
-              </label>
-              <select
-                id="edit-post-readability"
-                class="select select-bordered w-full"
-                bind:value={editReadability}
-                disabled={isSavingPost}
-              >
-                {#each readabilityOptions.filter((option) => canManage || option.value >= organizationReadability) as option (option.value)}
-                  <option value={option.value}>
-                    {option.label}
-                  </option>
-                {/each}
-              </select>
-            </div>
+            {#if !announcementMode}
+              <!-- Readability selection -->
+              <div class="form-control">
+                <label class="label" for="edit-post-readability">
+                  <span class="label-text">{m.post_visibility()}</span>
+                </label>
+                <select
+                  id="edit-post-readability"
+                  class="select select-bordered w-full"
+                  bind:value={editReadability}
+                  disabled={isSavingPost}
+                >
+                  {#each readabilityOptions.filter((option) => canManage || option.value >= organizationReadability) as option (option.value)}
+                    <option value={option.value}>
+                      {option.label}
+                    </option>
+                  {/each}
+                </select>
+              </div>
+            {:else}
+              <div class="form-control w-full md:max-w-xs">
+                <label class="label" for="edit-announcement-status">
+                  <span class="label-text">{m.status()}</span>
+                </label>
+                <select
+                  id="edit-announcement-status"
+                  class="select select-bordered"
+                  bind:value={editStatus}
+                >
+                  <option value="published">{m.announcement_published()}</option>
+                  <option value="draft">{m.announcement_draft()}</option>
+                </select>
+              </div>
+            {/if}
           </div>
+          {#if announcementMode}
+            <div class="mb-4 flex flex-col gap-3">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div class="form-control">
+                  <label class="label" for="edit-announcement-publish-at">
+                    <span class="label-text">{m.announcement_publish_at()}</span>
+                  </label>
+                  <input
+                    id="edit-announcement-publish-at"
+                    type="datetime-local"
+                    class="input input-bordered w-full"
+                    bind:value={editPublishAt}
+                    oninput={() => (editPublishAtChanged = true)}
+                    disabled={isSavingPost}
+                  />
+                  <span class="label-text-alt text-base-content/60 mt-1">
+                    {m.announcement_publish_at_hint()}
+                  </span>
+                </div>
+                <div class="form-control">
+                  <label class="label" for="edit-announcement-expires">
+                    <span class="label-text">{m.expires()}</span>
+                  </label>
+                  <input
+                    id="edit-announcement-expires"
+                    type="datetime-local"
+                    class="input input-bordered w-full"
+                    bind:value={editExpiresAt}
+                    disabled={isSavingPost}
+                  />
+                </div>
+              </div>
+              {#if localPost.status === 'published'}
+                <label class="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-sm"
+                    bind:checked={editNotifyReaders}
+                  />
+                  <span>{m.announcement_notify_readers()}</span>
+                </label>
+              {/if}
+            </div>
+          {/if}
         {:else}
           <h1 class="mb-4 text-3xl font-bold md:text-4xl">
             <T
@@ -717,7 +851,9 @@
             minHeight="min-h-48"
             currentUser={canManagePostImages ? currentUser : undefined}
             imageUploadUrl={canManagePostImages
-              ? buildImageUploadUrl({ postId: localPost.id })
+              ? buildImageUploadUrl(
+                  announcementMode ? { announcementId: localPost.id } : { postId: localPost.id }
+                )
               : undefined}
             persistedImageIds={localPost.images ?? []}
             appendUploadedImagesToMarkdown={true}
@@ -804,204 +940,145 @@
         </div>
       {/if}
 
-      <!-- Voting section -->
-      <div class="flex items-center justify-between pt-4 not-sm:flex-col">
-        <div class="flex items-center gap-4">
-          <!-- Vote buttons -->
-          <div class="flex items-center gap-2">
-            <button
-              class="btn btn-ghost hover:btn-success btn-sm {userVote === 'upvote'
-                ? 'not-hover:text-success'
-                : ''}"
-              onclick={() => handleVote('upvote')}
-              disabled={!canVote || isVoting}
-              title={m.upvote()}
-            >
-              <i class="fa-solid fa-caret-up fa-lg"></i>
-              <span>{post.upvotes}</span>
-            </button>
+      {#if !announcementMode}
+        <!-- Voting section -->
+        <div class="flex items-center justify-between pt-4 not-sm:flex-col">
+          <div class="flex items-center gap-4">
+            <!-- Vote buttons -->
+            <div class="flex items-center gap-2">
+              <button
+                class="btn btn-ghost hover:btn-success btn-sm {userVote === 'upvote'
+                  ? 'not-hover:text-success'
+                  : ''}"
+                onclick={() => handleVote('upvote')}
+                disabled={!canVote || isVoting}
+                title={m.upvote()}
+              >
+                <i class="fa-solid fa-caret-up fa-lg"></i>
+                <span>{post.upvotes}</span>
+              </button>
 
-            <span
-              class="text-lg font-bold {netVotes > 0
-                ? 'text-success'
-                : netVotes < 0
-                  ? 'text-error'
-                  : 'text-base-content/60'}"
-            >
-              {netVotes > 0 ? '+' : ''}{netVotes}
-            </span>
+              <span
+                class="text-lg font-bold {netVotes > 0
+                  ? 'text-success'
+                  : netVotes < 0
+                    ? 'text-error'
+                    : 'text-base-content/60'}"
+              >
+                {netVotes > 0 ? '+' : ''}{netVotes}
+              </span>
 
-            <button
-              class="btn btn-ghost hover:btn-error btn-sm {userVote === 'downvote'
-                ? 'not-hover:text-error'
-                : ''}"
-              onclick={() => handleVote('downvote')}
-              disabled={!canVote || isVoting}
-              title={m.downvote()}
-            >
-              <i class="fa-solid fa-caret-down fa-lg"></i>
-              <span>{post.downvotes}</span>
-            </button>
+              <button
+                class="btn btn-ghost hover:btn-error btn-sm {userVote === 'downvote'
+                  ? 'not-hover:text-error'
+                  : ''}"
+                onclick={() => handleVote('downvote')}
+                disabled={!canVote || isVoting}
+                title={m.downvote()}
+              >
+                <i class="fa-solid fa-caret-down fa-lg"></i>
+                <span>{post.downvotes}</span>
+              </button>
+            </div>
+
+            <!-- Comment count -->
+            <div class="text-base-content/60 flex items-center gap-1 text-nowrap not-sm:hidden">
+              <i class="fa-solid fa-comments"></i>
+              <span>{comments.length}</span>
+              <span>{m.comments().toLowerCase()}</span>
+            </div>
           </div>
 
-          <!-- Comment count -->
-          <div class="text-base-content/60 flex items-center gap-1 text-nowrap not-sm:hidden">
-            <i class="fa-solid fa-comments"></i>
-            <span>{comments.length}</span>
-            <span>{m.comments().toLowerCase()}</span>
-          </div>
-        </div>
-
-        {#if !currentUserId}
-          <button
-            class="text-base-content/60 group-hover:link-accent cursor-pointer text-sm transition-colors"
-            onclick={() => {
-              window.dispatchEvent(new CustomEvent('nearcade-login'));
-            }}
-          >
-            {m.login_to_vote_and_comment()}
-          </button>
-        {/if}
-      </div>
-    </article>
-
-    <!-- Comments section -->
-    <section class="mt-8">
-      <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold not-sm:px-4">
-        <i class="fa-solid fa-comments"></i>
-        {m.comments()} ({comments.length})
-      </h2>
-
-      <!-- Add comment form -->
-      {#if canComment}
-        <div class="bg-base-100 mb-6 rounded-xl p-4">
-          <MarkdownEditor
-            bind:value={newCommentContent}
-            bind:attachments={newCommentAttachments}
-            bind:imageIds={newCommentImageIds}
-            placeholder={m.comment_placeholder()}
-            disabled={isSubmittingComment}
-            minHeight="min-h-[100px]"
-            {currentUser}
-            imageUploadUrl={buildImageUploadUrl({
-              draftKind: 'post-comment',
-              postId: localPost.id
-            })}
-          />
-
-          <div class="mt-3 flex justify-end">
+          {#if !currentUserId}
             <button
-              class="btn btn-primary btn-sm"
-              onclick={handleCommentSubmit}
-              disabled={isSubmittingComment ||
-                (!newCommentContent.trim() && newCommentImageIds.length === 0)}
+              class="text-base-content/60 group-hover:link-accent cursor-pointer text-sm transition-colors"
+              onclick={() => {
+                window.dispatchEvent(new CustomEvent('nearcade-login'));
+              }}
             >
-              {#if isSubmittingComment}
-                <span class="loading loading-spinner loading-sm"></span>
-              {:else}
-                <i class="fa-solid fa-paper-plane"></i>
-              {/if}
-              {m.post_comment()}
+              {m.login_to_vote_and_comment()}
             </button>
-          </div>
-        </div>
-      {:else if currentUserId && (localPost.isLocked || !canComment)}
-        <div class="bg-base-200 group mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
-          {#if localPost.isLocked}
-            <i class="fa-solid fa-lock text-warning text-2xl"></i>
-            <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
-          {:else if canJoinOrganization && organizationType === 'university' && postWritability === PostWritability.UNIV_MEMBERS}
-            <i class="fa-solid fa-user-check text-warning text-2xl"></i>
-            <a
-              href={resolve('/(main)/universities/[id]/verify', {
-                id: organizationSlug || organizationId
-              })}
-              class="text-base-content/60 group-hover:link-accent transition-colors"
-              >{m.verify_and_join_university_to_comment()}</a
-            >
-          {:else if canJoinOrganization && organizationType === 'club' && postWritability === PostWritability.CLUB_MEMBERS}
-            <i class="fa-solid fa-user-check text-warning text-2xl"></i>
-            <a
-              href={resolve('/(main)/clubs/[id]', { id: organizationSlug || organizationId })}
-              class="text-base-content/60 group-hover:link-accent transition-colors"
-              >{m.join_club_to_comment()}</a
-            >
-          {:else}
-            <i class="fa-solid fa-ban text-error text-4xl"></i>
-            <p class="text-base-content/60">{m.no_comment_permission()}</p>
           {/if}
         </div>
       {/if}
+    </article>
 
-      <!-- Comments list -->
-      {#if comments.length > 0}
-        <div class="space-y-1">
-          {#each comments.filter((c) => !c.parentCommentId) as comment (comment.id)}
-            <div>
-              <Comment
-                {comment}
-                {currentUserId}
-                {currentUser}
-                canReply={canComment}
-                {canEdit}
-                onVote={canVote ? handleCommentVote : undefined}
-                onReply={canComment ? handleCommentReply : undefined}
-                onEdit={handleCommentEdit}
-                onDelete={handleCommentDelete}
-                {isPostRendered}
-                depth={0}
-              />
+    {#if !announcementMode}
+      <!-- Comments section -->
+      <section class="mt-8">
+        <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold not-sm:px-4">
+          <i class="fa-solid fa-comments"></i>
+          {m.comments()} ({comments.length})
+        </h2>
 
-              <!-- Reply form -->
-              {#if replyingTo === comment.id}
-                <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
-                  <MarkdownEditor
-                    bind:value={replyContent}
-                    bind:attachments={replyAttachments}
-                    bind:imageIds={replyImageIds}
-                    placeholder={m.reply_to_comment()}
-                    disabled={isSubmittingReply}
-                    minHeight="min-h-[100px]"
-                    {currentUser}
-                    imageUploadUrl={buildImageUploadUrl({
-                      draftKind: 'post-comment',
-                      postId: localPost.id
-                    })}
-                  />
+        <!-- Add comment form -->
+        {#if canComment}
+          <div class="bg-base-100 mb-6 rounded-xl p-4">
+            <MarkdownEditor
+              bind:value={newCommentContent}
+              bind:attachments={newCommentAttachments}
+              bind:imageIds={newCommentImageIds}
+              placeholder={m.comment_placeholder()}
+              disabled={isSubmittingComment}
+              minHeight="min-h-[100px]"
+              {currentUser}
+              imageUploadUrl={buildImageUploadUrl({
+                draftKind: 'post-comment',
+                postId: localPost.id
+              })}
+            />
 
-                  <div class="mt-3 flex items-center justify-end">
-                    <div class="flex gap-2">
-                      <button
-                        class="btn btn-ghost btn-sm"
-                        onclick={() => {
-                          resetReplyComposer(true);
-                        }}
-                        disabled={isSubmittingReply}
-                      >
-                        {m.cancel()}
-                      </button>
-                      <button
-                        class="btn btn-primary btn-sm"
-                        onclick={submitReply}
-                        disabled={isSubmittingReply ||
-                          (!replyContent.trim() && replyImageIds.length === 0)}
-                      >
-                        {#if isSubmittingReply}
-                          <span class="loading loading-spinner loading-sm"></span>
-                        {:else}
-                          <i class="fa-solid fa-paper-plane"></i>
-                        {/if}
-                        {m.reply()}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              {/if}
+            <div class="mt-3 flex justify-end">
+              <button
+                class="btn btn-primary btn-sm"
+                onclick={handleCommentSubmit}
+                disabled={isSubmittingComment ||
+                  (!newCommentContent.trim() && newCommentImageIds.length === 0)}
+              >
+                {#if isSubmittingComment}
+                  <span class="loading loading-spinner loading-sm"></span>
+                {:else}
+                  <i class="fa-solid fa-paper-plane"></i>
+                {/if}
+                {m.post_comment()}
+              </button>
+            </div>
+          </div>
+        {:else if currentUserId && (localPost.isLocked || !canComment)}
+          <div class="bg-base-200 group mb-6 flex flex-col items-center gap-2 rounded-xl p-4">
+            {#if localPost.isLocked}
+              <i class="fa-solid fa-lock text-warning text-2xl"></i>
+              <p class="text-base-content/60">{m.post_locked_no_comments()}</p>
+            {:else if canJoinOrganization && organizationType === 'university' && postWritability === PostWritability.UNIV_MEMBERS}
+              <i class="fa-solid fa-user-check text-warning text-2xl"></i>
+              <a
+                href={resolve('/(main)/universities/[id]/verify', {
+                  id: organizationSlug || organizationId
+                })}
+                class="text-base-content/60 group-hover:link-accent transition-colors"
+                >{m.verify_and_join_university_to_comment()}</a
+              >
+            {:else if canJoinOrganization && organizationType === 'club' && postWritability === PostWritability.CLUB_MEMBERS}
+              <i class="fa-solid fa-user-check text-warning text-2xl"></i>
+              <a
+                href={resolve('/(main)/clubs/[id]', { id: organizationSlug || organizationId })}
+                class="text-base-content/60 group-hover:link-accent transition-colors"
+                >{m.join_club_to_comment()}</a
+              >
+            {:else}
+              <i class="fa-solid fa-ban text-error text-4xl"></i>
+              <p class="text-base-content/60">{m.no_comment_permission()}</p>
+            {/if}
+          </div>
+        {/if}
 
-              <!-- Nested replies -->
-              {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
+        <!-- Comments list -->
+        {#if comments.length > 0}
+          <div class="space-y-1">
+            {#each comments.filter((c) => !c.parentCommentId) as comment (comment.id)}
+              <div>
                 <Comment
-                  comment={reply}
+                  {comment}
                   {currentUserId}
                   {currentUser}
                   canReply={canComment}
@@ -1011,26 +1088,89 @@
                   onEdit={handleCommentEdit}
                   onDelete={handleCommentDelete}
                   {isPostRendered}
-                  depth={1}
+                  depth={0}
                 />
-              {/each}
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="bg-base-100 rounded-xl p-8 text-center">
-          <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
-          <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
-          {#if currentUserId}
-            {#if canComment}
-              <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+
+                <!-- Reply form -->
+                {#if replyingTo === comment.id}
+                  <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
+                    <MarkdownEditor
+                      bind:value={replyContent}
+                      bind:attachments={replyAttachments}
+                      bind:imageIds={replyImageIds}
+                      placeholder={m.reply_to_comment()}
+                      disabled={isSubmittingReply}
+                      minHeight="min-h-[100px]"
+                      {currentUser}
+                      imageUploadUrl={buildImageUploadUrl({
+                        draftKind: 'post-comment',
+                        postId: localPost.id
+                      })}
+                    />
+
+                    <div class="mt-3 flex items-center justify-end">
+                      <div class="flex gap-2">
+                        <button
+                          class="btn btn-ghost btn-sm"
+                          onclick={() => {
+                            resetReplyComposer(true);
+                          }}
+                          disabled={isSubmittingReply}
+                        >
+                          {m.cancel()}
+                        </button>
+                        <button
+                          class="btn btn-primary btn-sm"
+                          onclick={submitReply}
+                          disabled={isSubmittingReply ||
+                            (!replyContent.trim() && replyImageIds.length === 0)}
+                        >
+                          {#if isSubmittingReply}
+                            <span class="loading loading-spinner loading-sm"></span>
+                          {:else}
+                            <i class="fa-solid fa-paper-plane"></i>
+                          {/if}
+                          {m.reply()}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Nested replies -->
+                {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
+                  <Comment
+                    comment={reply}
+                    {currentUserId}
+                    {currentUser}
+                    canReply={canComment}
+                    {canEdit}
+                    onVote={canVote ? handleCommentVote : undefined}
+                    onReply={canComment ? handleCommentReply : undefined}
+                    onEdit={handleCommentEdit}
+                    onDelete={handleCommentDelete}
+                    {isPostRendered}
+                    depth={1}
+                  />
+                {/each}
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="bg-base-100 rounded-xl p-8 text-center">
+            <i class="fa-solid fa-comments text-base-content/30 mb-4 text-4xl"></i>
+            <h3 class="mb-2 text-lg font-medium">{m.no_comments_yet()}</h3>
+            {#if currentUserId}
+              {#if canComment}
+                <p class="text-base-content/60">{m.be_first_to_comment()}</p>
+              {/if}
+            {:else}
+              <p class="text-base-content/60">{m.login_to_comment()}</p>
             {/if}
-          {:else}
-            <p class="text-base-content/60">{m.login_to_comment()}</p>
-          {/if}
-        </div>
-      {/if}
-    </section>
+          </div>
+        {/if}
+      </section>
+    {/if}
   </div>
 {/if}
 

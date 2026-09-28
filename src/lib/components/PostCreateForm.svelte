@@ -9,11 +9,13 @@
   import { onDestroy } from 'svelte';
 
   interface Props {
-    organizationType: 'university' | 'club';
-    organizationId: string;
-    organizationName: string;
-    organizationReadability: PostReadability;
-    canManage: boolean;
+    organizationType?: 'university' | 'club';
+    organizationId?: string;
+    organizationName?: string;
+    organizationReadability?: PostReadability;
+    canManage?: boolean;
+    variant?: 'organization' | 'announcement';
+    submitUrl?: string;
     currentUser?: User | undefined;
     cancelHref: string;
     wideMode?: boolean;
@@ -21,11 +23,13 @@
   }
 
   let {
-    organizationType,
-    organizationId,
-    organizationName,
-    organizationReadability,
-    canManage,
+    organizationType = 'university',
+    organizationId = '',
+    organizationName = '',
+    organizationReadability = PostReadability.PUBLIC,
+    canManage = false,
+    variant = 'organization',
+    submitUrl,
     currentUser = undefined,
     cancelHref,
     wideMode = $bindable(false),
@@ -40,6 +44,11 @@
   let isSubmitting = $state(false);
   let error = $state('');
   let publishedImageIds = $state<string[]>([]);
+  let publishNow = $state(true);
+  let publishAtLocal = $state('');
+  let expiresAtLocal = $state('');
+  let isAnnouncement = $derived(variant === 'announcement');
+  let isScheduled = $derived(!publishNow && Boolean(publishAtLocal));
 
   const readabilityOptions = $derived([
     { value: PostReadability.PUBLIC, label: m.post_readability_public() },
@@ -57,6 +66,9 @@
     readability = getDefaultPostReadability(organizationReadability);
     error = '';
     isSubmitting = false;
+    publishNow = true;
+    publishAtLocal = '';
+    expiresAtLocal = '';
   };
 
   const cleanupDraftImages = () => {
@@ -83,27 +95,40 @@
 
     try {
       const endpoint = fromPath(
-        `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts`
+        submitUrl ||
+          `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts`
       );
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          readability,
-          images: imageIds
-        })
+        body: JSON.stringify(
+          isAnnouncement
+            ? {
+                title: title.trim(),
+                content: content.trim(),
+                images: imageIds,
+                publish: publishNow || Boolean(publishAtLocal),
+                publishAt:
+                  !publishNow && publishAtLocal ? new Date(publishAtLocal).toISOString() : null,
+                expiresAt: expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null
+              }
+            : {
+                title: title.trim(),
+                content: content.trim(),
+                readability,
+                images: imageIds
+              }
+        )
       });
 
       if (response.ok) {
-        const result = (await response.json()) as { postId: string };
+        const result = (await response.json()) as { postId?: string; announcementId?: string };
         publishedImageIds = [...imageIds];
         reset();
         if (onCreated) {
-          onCreated(result.postId);
+          onCreated(result.announcementId || result.postId || '');
         }
       } else {
         const errorData = (await response.json()) as { message: string };
@@ -120,8 +145,8 @@
 <!-- Header -->
 <div class="mb-4 flex items-center justify-between">
   <h3 class="flex items-center gap-2 text-lg font-bold">
-    <i class="fa-solid fa-plus"></i>
-    {m.create_post()}
+    <i class="fa-solid {isAnnouncement ? 'fa-bullhorn' : 'fa-plus'}"></i>
+    {isAnnouncement ? m.new_announcement() : m.create_post()}
   </h3>
   <label class="flex cursor-pointer items-center gap-2 not-xl:hidden" title={m.wide_mode()}>
     <span class="text-base-content/60 text-sm">{m.wide_mode()}</span>
@@ -131,10 +156,15 @@
 
 <!-- Organization info -->
 <div class="bg-base-200 mb-4 rounded-lg p-3 text-sm">
-  <span class="text-base-content/60">
-    {m.posting_to()}:
-  </span>
-  <span class="font-medium">{organizationName}</span>
+  {#if isAnnouncement}
+    <span class="font-medium">{m.posting_announcement()}</span>
+    <p class="text-base-content/60 mt-1">{m.announcements_no_reactions()}</p>
+  {:else}
+    <span class="text-base-content/60">
+      {m.posting_to()}:
+    </span>
+    <span class="font-medium">{organizationName}</span>
+  {/if}
 </div>
 
 <!-- Error message -->
@@ -146,8 +176,8 @@
 {/if}
 
 <!-- Form -->
-<div class="flex min-h-0 flex-1 flex-col">
-  <div class="mb-4 flex gap-2">
+<div class="flex min-h-0 flex-1 flex-col gap-4">
+  <div class="flex gap-2">
     <!-- Title input -->
     <div class="form-control flex-1">
       <label class="label" for="post-title">
@@ -168,25 +198,69 @@
         </span>
       </label>
     </div>
-    <!-- Readability selection -->
-    <div class="form-control">
-      <label class="label" for="post-readability">
-        <span class="label-text">{m.post_visibility()}</span>
-      </label>
-      <select
-        id="post-readability"
-        class="select select-bordered"
-        bind:value={readability}
-        disabled={isSubmitting}
-      >
-        {#each readabilityOptions.filter((option) => canManage || option.value >= organizationReadability) as option (option.value)}
-          <option value={option.value}>
-            {option.label}
-          </option>
-        {/each}
-      </select>
-    </div>
+    {#if !isAnnouncement}
+      <!-- Readability selection -->
+      <div class="form-control">
+        <label class="label" for="post-readability">
+          <span class="label-text">{m.post_visibility()}</span>
+        </label>
+        <select
+          id="post-readability"
+          class="select select-bordered"
+          bind:value={readability}
+          disabled={isSubmitting}
+        >
+          {#each readabilityOptions.filter((option) => canManage || option.value >= organizationReadability) as option (option.value)}
+            <option value={option.value}>
+              {option.label}
+            </option>
+          {/each}
+        </select>
+      </div>
+    {/if}
   </div>
+  {#if isAnnouncement}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="form-control">
+        <label class="label" for="announcement-publish-at">
+          <span class="label-text">{m.announcement_publish_at()}</span>
+        </label>
+        <input
+          id="announcement-publish-at"
+          type="datetime-local"
+          class="input input-bordered w-full"
+          bind:value={publishAtLocal}
+          disabled={isSubmitting || publishNow}
+        />
+        <span class="label-text-alt text-base-content/60 mt-1">
+          {publishNow ? m.announcement_publish_immediately() : m.announcement_publish_at_hint()}
+        </span>
+        <label class="mt-3 flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-primary checkbox-sm"
+            bind:checked={publishNow}
+          />
+          <span>{m.announcement_publish_immediately()}</span>
+        </label>
+      </div>
+      <div class="form-control">
+        <label class="label" for="announcement-expires">
+          <span class="label-text">{m.expires()}</span>
+        </label>
+        <input
+          id="announcement-expires"
+          type="datetime-local"
+          class="input input-bordered w-full"
+          bind:value={expiresAtLocal}
+          disabled={isSubmitting}
+        />
+        <span class="label-text-alt text-base-content/60 mt-1"
+          >{m.announcement_expires_at_hint()}</span
+        >
+      </div>
+    </div>
+  {/if}
 
   <!-- Content area -->
   <MarkdownEditor
@@ -197,11 +271,11 @@
     disabled={isSubmitting}
     minHeight="min-h-48"
     {currentUser}
-    imageUploadUrl={buildImageUploadUrl({
-      draftKind: 'post',
-      organizationType,
-      organizationId
-    })}
+    imageUploadUrl={buildImageUploadUrl(
+      isAnnouncement
+        ? { draftKind: 'announcement' }
+        : { draftKind: 'post', organizationType, organizationId }
+    )}
     appendUploadedImagesToMarkdown={true}
   />
 </div>
@@ -221,6 +295,12 @@
     {:else}
       <i class="fa-solid fa-paper-plane"></i>
     {/if}
-    {m.publish_post()}
+    {isAnnouncement
+      ? publishNow
+        ? m.publish_announcement()
+        : isScheduled
+          ? m.schedule_announcement()
+          : m.announcement_draft()
+      : m.publish_post()}
   </button>
 </div>

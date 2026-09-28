@@ -21,6 +21,7 @@ import type {
   universitySchema
 } from '$lib/schemas/organizations';
 import type { postSchema, postVoteSchema, postWithAuthorSchema } from '$lib/schemas/posts';
+import type { announcementSchema, announcementWithAuthorSchema } from '$lib/schemas/announcements';
 import type {
   gameSchema,
   shopDeleteRequestSchema,
@@ -321,6 +322,10 @@ export interface ChangelogEntryWithUser extends ChangelogEntry {
 export type Post = z.infer<typeof postSchema> & UgcAttachable;
 
 export type PostWithAuthor = z.infer<typeof postWithAuthorSchema> & UgcAttachable;
+
+export type Announcement = z.infer<typeof announcementSchema> & UgcAttachable;
+
+export type AnnouncementWithAuthor = z.infer<typeof announcementWithAuthorSchema> & UgcAttachable;
 
 export type PostVote = z.infer<typeof postVoteSchema>;
 

@@ -212,7 +212,9 @@
     </div>
   </dialog>
 {:else}
-  {@const { pendingJoinRequests, unreadNotifications } = session.session}
+  {@const navigationCounts = page.data.navigationCounts}
+  {@const pendingJoinRequests = navigationCounts?.pendingJoinRequests ?? 0}
+  {@const unreadNotifications = navigationCounts?.unreadNotifications ?? 0}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div
     class="dropdown dropdown-end"
