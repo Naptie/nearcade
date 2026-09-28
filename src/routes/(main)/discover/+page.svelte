@@ -983,7 +983,15 @@
             });
             marker.setMap(map as AMap.Map);
             if (shop.isClosed) {
-              marker.hide();
+              // Hide via CSS visibility instead of marker.hide(): AMap keeps
+              // drawing hidden markers and measures their label while it has
+              // no layout, which permanently misplaces it (show() never
+              // re-measures). Visibility preserves layout, so the label stays
+              // centered for whenever the marker is revealed.
+              document
+                .getElementById(`shop-marker-${shop.id}`)
+                ?.closest<HTMLElement>('.amap-marker')
+                ?.style.setProperty('visibility', 'hidden');
             }
           });
 
@@ -1004,8 +1012,10 @@
         if (!markerData) continue;
         const marker = markerData.marker;
         if ('hide' in marker && typeof marker.hide === 'function') {
-          if (expanded) marker.show();
-          else marker.hide();
+          document
+            .getElementById(`shop-marker-${shop.id}`)
+            ?.closest<HTMLElement>('.amap-marker')
+            ?.style.setProperty('visibility', expanded ? '' : 'hidden');
         } else {
           (marker as google.maps.marker.AdvancedMarkerElement).map = expanded
             ? (mapInstance as google.maps.Map)
@@ -2027,7 +2037,7 @@
         {#if closedShops.length > 0}
           <tbody>
             <tr class="hover:bg-transparent">
-              <td colspan="100" class="p-0">
+              <td class="discover-cell discover-sticky discover-sticky-shop p-0">
                 <button
                   type="button"
                   class="btn btn-ghost h-auto min-h-0 w-full justify-start gap-2 rounded-none px-3 py-3 text-sm font-medium"
@@ -2042,6 +2052,7 @@
                   {m.discover_closed_shops({ count: closedShops.length })}
                 </button>
               </td>
+              <td colspan="100" class="p-0"></td>
             </tr>
             {#if closedShopsExpanded}
               {#each closedShops as shop (shop._id)}
