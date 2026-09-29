@@ -1153,7 +1153,7 @@
         {/if}
       {/snippet}
       {#snippet closedAlert()}
-        <InlineAlert type="error" title={m.shop_permanently_closed()}>
+        <InlineAlert type="error" soft title={m.shop_permanently_closed()}>
           {#if shop.closedReason}
             {shop.closedReason}
           {/if}

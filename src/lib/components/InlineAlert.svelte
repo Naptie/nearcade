@@ -28,7 +28,7 @@
   {#if title}
     <div class="min-w-0 flex-1 text-left">
       <h3 class="font-bold">{title}</h3>
-      <div class="text-base-content/90">
+      <div class="text-current/90">
         {@render children?.()}
       </div>
     </div>
