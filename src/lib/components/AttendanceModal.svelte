@@ -136,7 +136,7 @@
               now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)}
           >
             {shop.isClosed
-              ? m.shop_permanently_closed()
+              ? m.shop_is_permanently_closed()
               : now < openTolerated || now > closeTolerated
                 ? m.shop_closed()
                 : now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)

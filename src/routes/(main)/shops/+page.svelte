@@ -400,7 +400,7 @@
                   </div>
                   {#if shop.isClosed}
                     <div class="text-error">
-                      <span>{m.shop_mark_as_closed()}</span>
+                      <span>{m.shop_permanently_closed()}</span>
                     </div>
                   {:else if shop.currentReportedAttendance}
                     <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>

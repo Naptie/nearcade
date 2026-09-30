@@ -1134,7 +1134,7 @@
                     ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
                     : ''
               : shop.isClosed
-                ? m.shop_permanently_closed()
+                ? m.shop_is_permanently_closed()
                 : m.shop_closed()}
           >
             <button
@@ -1153,7 +1153,7 @@
         {/if}
       {/snippet}
       {#snippet closedAlert()}
-        <InlineAlert type="error" soft title={m.shop_permanently_closed()}>
+        <InlineAlert type="error" soft title={m.shop_is_permanently_closed()}>
           {#if shop.closedReason}
             {shop.closedReason}
           {/if}
