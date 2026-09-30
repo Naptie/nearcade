@@ -1533,7 +1533,7 @@
   "shop_opening_hours": "Opening Hours",
   "shop_opening_hours_constant": "Same hours",
   "shop_owner": "Shop Owner",
-  "shop_permanently_closed": "This shop is permanently closed",
+  "shop_permanently_closed": "Permanently closed",
   "shop_photo_delete_request": "Photo Delete Request",
   "shop_photo_delete_request_already_pending": "A pending delete request for this photo already exists",
   "shop_photo_delete_request_reason_placeholder": "Please explain why this photo should be deleted...",

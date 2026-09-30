@@ -1523,7 +1523,7 @@
   "shop_opening_hours": "営業時間",
   "shop_opening_hours_constant": "毎日同じ時間",
   "shop_owner": "店舗オーナー",
-  "shop_permanently_closed": "この店舗は閉業しています",
+  "shop_permanently_closed": "閉業済み",
   "shop_photo_delete_request": "写真削除申請",
   "shop_photo_delete_request_already_pending": "この写真の削除申請がすでに処理待ちです",
   "shop_photo_delete_request_reason_placeholder": "この写真を削除すべき理由を説明してください...",

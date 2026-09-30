@@ -1523,7 +1523,7 @@
   "shop_opening_hours": "营业时间",
   "shop_opening_hours_constant": "每天相同时间",
   "shop_owner": "店主",
-  "shop_permanently_closed": "该店铺已闭店",
+  "shop_permanently_closed": "已闭店",
   "shop_photo_delete_request": "照片删除申请",
   "shop_photo_delete_request_already_pending": "该照片已有待处理的删除申请",
   "shop_photo_delete_request_reason_placeholder": "请说明为什么要删除此照片...",
