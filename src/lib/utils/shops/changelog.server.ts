@@ -8,6 +8,7 @@ import type {
 } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { resolveShopAddress } from '$lib/utils/region.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 
 interface ChangelogUser {
   id: string | null;
@@ -560,6 +561,15 @@ export const applyShopRollback = async (
       ...(Object.keys(rollbackUnset).length > 0 ? { $unset: rollbackUnset } : {})
     }
   );
+
+  try {
+    const rolledBackShop = await db.collection<Shop>('shops').findOne({ id: shopId });
+    if (rolledBackShop) {
+      await syncShopDocument(rolledBackShop);
+    }
+  } catch (meiliErr) {
+    console.error('Failed to sync rolled-back shop to Meilisearch:', meiliErr);
+  }
 
   await logShopChange(client, {
     shopId,

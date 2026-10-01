@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 import type { Shop } from '$lib/types';
 import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
@@ -357,6 +358,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);
+
+    try {
+      await syncShopDocument(newShop);
+    } catch (meiliErr) {
+      console.error('Failed to sync new shop to Meilisearch:', meiliErr);
+    }
 
     // Register entry + background pre-translation + LLM audit for the text.
     submitUgc('shop', newShop.id, session.user, shopUgcTexts);

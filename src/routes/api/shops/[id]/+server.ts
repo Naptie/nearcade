@@ -2,6 +2,7 @@ import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 import { requireBoundPhone } from '$lib/utils/index.server';
@@ -514,6 +515,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     // Refresh registry + background pre-translation for stored text.
     if (updated) {
       submitUgc('shop', shopId, session.user, shopUgcTexts(updated));
+
+      try {
+        await syncShopDocument(updated);
+      } catch (meiliErr) {
+        console.error('Failed to sync updated shop to Meilisearch:', meiliErr);
+      }
     }
 
     const rawRegion = updated!.address?.region;
