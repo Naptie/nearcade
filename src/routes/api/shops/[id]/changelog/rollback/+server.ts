@@ -1,9 +1,14 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { applyShopRollback, buildShopRollbackPreview } from '$lib/utils/shops/changelog.server';
+import {
+  applyShopRollback,
+  buildShopRollbackPreview,
+  UgcBlockedError
+} from '$lib/utils/shops/changelog.server';
 import mongo from '$lib/db/index.server';
 import { requireBoundPhone } from '$lib/utils/index.server';
 import { expandShopRegions } from '$lib/utils/region.server';
+import { blockedUgcMessage } from '$lib/ugc/audit.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';
 
@@ -95,6 +100,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       rolledBackShop: toPlainObject(rolledBackShop)
     });
   } catch (err) {
+    if (err instanceof UgcBlockedError) {
+      error(400, blockedUgcMessage(err.block));
+    }
     const message = err instanceof Error ? err.message : 'Failed to apply rollback';
     if (message === 'Shop not found') error(404, m.shop_not_found());
     if (message === 'Target changelog entry not found') error(404, m.changelog_no_entries());

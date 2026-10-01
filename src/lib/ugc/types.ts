@@ -304,6 +304,13 @@ export interface UgcEntryRecord {
   hash: string;
   /** Normalized source text — powers admin preview/search and re-dispatch. */
   text: string;
+  /**
+   * Verbatim source text as submitted (line breaks / whitespace runs intact),
+   * captured at registration so restoring a removed field can put back the
+   * author's exact formatting. Falls back to `text` (normalized) when absent
+   * (legacy rows predating the field — see the raw-text backfill script).
+   */
+  rawText?: string;
   /** Author user id, when the kind has one (shops may not). */
   createdBy: string | null;
   /** Denormalized author username for list display/filtering. */
