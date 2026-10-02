@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { syncShopDocument } from '$lib/db/meili.server';
 import type { Shop } from '$lib/types';
+import type { z } from 'zod';
 import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
@@ -20,6 +21,7 @@ import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { getNextShopId } from '$lib/utils/shops/id.server';
 import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
+import { openingHoursSchema } from '$lib/schemas/common';
 import {
   IncompleteShopRegionError,
   resolveShopAddress,
@@ -27,7 +29,9 @@ import {
   localizeAddressGeneral
 } from '$lib/utils/region.server';
 
-const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
+type NormalizedOpeningHours = z.infer<typeof openingHoursSchema>;
+
+const normalizeOpeningHours = (openingHours: unknown): NormalizedOpeningHours | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
 
   const normalizeTime = (value: unknown) => {
@@ -40,7 +44,7 @@ const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | nu
     };
   };
 
-  const normalized: Shop['openingHours'] = [];
+  const normalized: NormalizedOpeningHours = [];
   for (const entry of openingHours) {
     if (!Array.isArray(entry) || entry.length < 2) return null;
     const open = normalizeTime(entry[0]);

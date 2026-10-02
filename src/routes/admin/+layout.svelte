@@ -78,6 +78,14 @@
       developerVisible: false
     },
     {
+      id: 'announcements',
+      label: m.admin_announcements(),
+      icon: 'fa-bullhorn',
+      href: resolve('/admin/announcements'),
+      requiresSiteAdmin: true,
+      developerVisible: false
+    },
+    {
       id: 'ugc',
       label: m.admin_ugc(),
       icon: 'fa-shield-halved',
@@ -124,7 +132,7 @@
       href: resolve('/admin/join-requests'),
       requiresSiteAdmin: false,
       developerVisible: false,
-      count: data.session?.session.pendingJoinRequests
+      count: data.navigationCounts?.pendingJoinRequests
     },
     {
       id: 'oauth-clients',

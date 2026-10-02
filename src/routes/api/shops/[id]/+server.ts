@@ -1,10 +1,12 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
+import type { z } from 'zod';
 import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { syncShopDocument } from '$lib/db/meili.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
+import { openingHoursSchema } from '$lib/schemas/common';
 import { requireBoundPhone } from '$lib/utils/index.server';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
 import {
@@ -28,22 +30,11 @@ import {
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
 import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
+import { shopUgcTexts } from '$lib/ugc/shop-fields.server';
 
-const shopUgcTexts = (shop: Shop): Record<string, string> => ({
-  shop_name: shop.name,
-  shop_description: shop.comment ?? '',
-  shop_address: shop.address?.detailed ?? '',
-  ...Object.fromEntries(
-    (shop.games ?? []).flatMap((game) => [
-      [`game_name:${game.gameId}`, game.name],
-      [`game_version:${game.gameId}`, game.version ?? ''],
-      [`game_cost:${game.gameId}`, game.cost ?? ''],
-      [`game_description:${game.gameId}`, game.comment ?? '']
-    ])
-  )
-});
+type NormalizedOpeningHours = z.infer<typeof openingHoursSchema>;
 
-const normalizeOpeningHours = (openingHours: unknown): Shop['openingHours'] | null => {
+const normalizeOpeningHours = (openingHours: unknown): NormalizedOpeningHours | null => {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
 
   const normalizeTime = (value: unknown) => {

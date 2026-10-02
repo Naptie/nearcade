@@ -521,10 +521,12 @@ const enforceRows = async (
             : {};
       // The offending text as the author wrote it — read off the in-memory
       // `live` snapshot (still present after whole-content deletion), falling
-      // back to the registry's normalized copy. Masked before it is stored.
-      const rawSource = live
-        ? (liveFieldText(rows[0].type, live, rows[0].key) ?? rows[0].text)
-        : rows[0].text;
+      // back to the registry's verbatim/normalized copy. Masked before it is
+      // stored.
+      const rawSource =
+        (live ? liveFieldText(rows[0].type, live, rows[0].key) : null) ||
+        rows[0].rawText ||
+        rows[0].text;
       await notifyRemoval(rows[0], reason, reviewedBy, rawSource, nav);
     }
     return markIds.length;
@@ -536,17 +538,19 @@ const enforceRows = async (
 
 /**
  * Enforce every occurrence carrying a content hash (content-addressed).
- * Auto-block paths call this after the verdict was applied (rows are
- * `block`); manual "remove all with same hash" calls it with rows in any
- * status. `removed` rows stay terminal either way.
+ * Auto-block paths apply the verdict first — which marks the rows `removed` —
+ * and then call this, so the query must NOT exclude `removed` rows or
+ * enforcement would silently no-op. It is safe to re-enforce them:
+ * `enforceRows`'s still-live hash check is the real guard (cleared or
+ * legitimately edited fields never match), and already-`removed` rows are
+ * not re-marked or re-notified unless content was actually removed again.
+ * Manual "remove all with same hash" calls pass non-removed rows.
  */
 export const enforceUgcHash = async (
   hash: string,
   options: EnforceOptions = {}
 ): Promise<number> => {
-  const rows = await ugcEntriesCollection()
-    .find({ hash, auditStatus: { $ne: 'removed' } })
-    .toArray();
+  const rows = await ugcEntriesCollection().find({ hash }).toArray();
   let affected = 0;
   const groups = new Map<string, UgcEntryRecord[]>();
   for (const row of rows) {
@@ -771,10 +775,11 @@ const resurrectWholeContent = async (kind: UgcKind, refId: string): Promise<bool
  *  1. whole-content kinds (comment/post/delete request/attendance report)
  *     are re-inserted verbatim from the removal archive — never when the
  *     entity was re-created in the meantime;
- *  2. data-bearing kinds re-write the removed text back onto live fields,
- *     but ONLY when the live field is empty/absent (i.e. it was merely
- *     cleared by enforcement and never legitimately edited afterwards) —
- *     this never overwrites newer content;
+ *  2. data-bearing kinds re-write the removed text back onto live fields —
+ *     preferring the verbatim source (`rawText`, line breaks intact) over the
+ *     registry's normalized copy — but ONLY when the live field is
+ *     empty/absent (i.e. it was merely cleared by enforcement and never
+ *     legitimately edited afterwards); this never overwrites newer content;
  *  3. flip the removed rows back to `pass` with manual review metadata
  *     (auditReason/categories/score are left untouched — no redundant
  *     overwrite).
@@ -801,7 +806,7 @@ export const restoreUgcEntries = async (
         // still holds (different) text was legitimately edited after removal
         // and must never be clobbered.
         if (!normalized) {
-          await writeBackField(kind, row.refId, row.type, row.key, row.text);
+          await writeBackField(kind, row.refId, row.type, row.key, row.rawText ?? row.text);
         }
       }
     }

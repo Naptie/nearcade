@@ -35,6 +35,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       { url: regex },
       { uploadedBy: regex },
       { postId: regex },
+      { announcementId: regex },
       { commentId: regex },
       { deleteRequestId: regex },
       ...(Number.isNaN(numericSearch) ? [] : [{ shopId: numericSearch }])

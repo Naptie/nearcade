@@ -28,6 +28,11 @@ export const AUDITS_COLLECTION = 'ugc_audits';
 /** Text cap mirrors the audit pipeline's MAX_AUDITED_TEXT_LENGTH. */
 export const MAX_AUDITED_TEXT_LENGTH = 8000;
 
+/** Storage cap for the verbatim source text (`rawText`) — whitespace-heavy
+ * submissions normalize far below it, so pathological inputs fall back to
+ * the normalized text instead of bloating registry rows. */
+export const MAX_RAW_TEXT_LENGTH = 20000;
+
 export const ugcEntriesCollection = (): Collection<UgcEntryRecord> =>
   mongo.db().collection<UgcEntryRecord>(ENTRIES_COLLECTION);
 
@@ -211,13 +216,19 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
 
   try {
     const familyTypes = UGC_TYPES_BY_KIND[kind];
-    const desired: (UgcOccurrenceSpec & { hash: string; text: string })[] = [];
+    const desired: (UgcOccurrenceSpec & { hash: string; text: string; rawText: string })[] = [];
     for (const [fieldKey, raw] of Object.entries(fields)) {
       const spec = resolveUgcOccurrence(kind, fieldKey);
       if (!spec) continue;
       const text = raw ? normalizeUgcText(raw) : '';
       if (!text || text.length > MAX_AUDITED_TEXT_LENGTH) continue;
-      desired.push({ ...spec, hash: await ugcTextHash(text), text });
+      desired.push({
+        ...spec,
+        hash: await ugcTextHash(text),
+        text,
+        // Verbatim source for a formatting-faithful restore.
+        rawText: raw && raw.length <= MAX_RAW_TEXT_LENGTH ? raw : text
+      });
     }
 
     const collection = ugcEntriesCollection();
@@ -226,7 +237,7 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
     const existing = await collection
       .find(
         { refId: entityId, type: { $in: [...familyTypes] } },
-        { projection: { _id: 1, type: 1, key: 1, hash: 1 } }
+        { projection: { _id: 1, type: 1, key: 1, hash: 1, auditStatus: 1, rawText: 1 } }
       )
       .toArray();
     const existingByIdentity = new Map(
@@ -247,7 +258,26 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
     for (const d of desired) {
       const identity = occurrenceIdentity(d.type, d.key);
       const prev = existingByIdentity.get(identity);
-      if (prev && prev.hash === d.hash) continue; // content unchanged — keep status/timestamp
+      if (prev && prev.hash === d.hash) {
+        // Removed text that re-appears (re-submitted by the author, or brought
+        // back by a shop rollback) must never go live: the submit gate only
+        // re-blocks text whose *cached verdict* is a block, so manually
+        // removed occurrences slip through here. Re-enforce the removal.
+        if (prev.auditStatus === 'removed') {
+          const { enforceUgcEntry } = await import('./enforcement.server');
+          void enforceUgcEntry(prev._id).catch((err: unknown) =>
+            console.error(`[UGCEntries] Re-enforcement failed (${prev._id}):`, err)
+          );
+        } else if (!prev.rawText) {
+          // Pre-rawText row re-saved with identical content — capture the
+          // verbatim source opportunistically.
+          await collection.updateOne(
+            { _id: ugcEntryId(d.type, entityId, d.key) },
+            { $set: { rawText: d.rawText } }
+          );
+        }
+        continue; // content unchanged — keep status/timestamp
+      }
 
       const keyed: { key?: string } = d.key ? { key: d.key } : {};
       await collection.updateOne(
@@ -259,6 +289,7 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
             ...keyed,
             hash: d.hash,
             text: d.text,
+            rawText: d.rawText,
             auditStatus: 'pending' as UgcEntryAuditStatus,
             updatedAt: now
           },

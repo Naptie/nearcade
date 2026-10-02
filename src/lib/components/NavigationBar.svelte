@@ -6,6 +6,7 @@
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import AuthModal from '$lib/components/AuthModal.svelte';
+  import AnnouncementNavLink from '$lib/components/AnnouncementNavLink.svelte';
   import { beforeNavigate } from '$app/navigation';
   import { page } from '$app/state';
 
@@ -108,6 +109,9 @@
         <i class="fa-solid fa-globe fa-lg"></i>
         <span class="hidden lg:inline">{m.globe()}</span>
       </a>
+    {/if}
+    {#if page.url.pathname !== resolve('/(main)/announcements')}
+      <AnnouncementNavLink />
     {/if}
     {#if page.url.pathname !== resolve('/(main)/shops')}
       <a

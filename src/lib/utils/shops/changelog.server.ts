@@ -9,11 +9,22 @@ import type {
 import { nanoid } from 'nanoid';
 import { resolveShopAddress } from '$lib/utils/region.server';
 import { syncShopDocument } from '$lib/db/meili.server';
+import { auditUgc, type UgcAuditBlock } from '$lib/ugc/audit.server';
+import { submitUgc } from '$lib/ugc/entries.server';
+import { shopUgcTexts } from '$lib/ugc/shop-fields.server';
 
 interface ChangelogUser {
   id: string | null;
   name?: string | null;
   image?: string | null;
+}
+
+/** Thrown by `applyShopRollback` when the rolled-back text fails the UGC
+ * moderation gate — routes map it to the localized rejection message. */
+export class UgcBlockedError extends Error {
+  constructor(readonly block: UgcAuditBlock) {
+    super('ugc_blocked');
+  }
 }
 
 export interface ShopChangelogViewer {
@@ -531,6 +542,13 @@ export const applyShopRollback = async (
 
   preview.rolledBackShop.address = address;
 
+  // Same moderation gate as the shop edit path: rolled-back text must not
+  // bypass Tier-0, and never-judged text must reach the LLM judge queue.
+  const blocked = await auditUgc('shop', shopId, shopUgcTexts(preview.rolledBackShop));
+  if (blocked) {
+    throw new UgcBlockedError(blocked);
+  }
+
   const rollbackSet: Record<string, unknown> = {
     name: preview.rolledBackShop.name,
     comment: preview.rolledBackShop.comment,
@@ -560,6 +578,16 @@ export const applyShopRollback = async (
       $set: rollbackSet,
       ...(Object.keys(rollbackUnset).length > 0 ? { $unset: rollbackUnset } : {})
     }
+  );
+
+  // Re-register the rolled-back fields so content-addressed moderation state
+  // follows the restore: without this, text that was removed by moderation
+  // would come back through the rollback unnoticed by the UGC registry.
+  submitUgc(
+    'shop',
+    shopId,
+    user.id ? { id: user.id, name: user.name ?? null } : null,
+    shopUgcTexts(preview.rolledBackShop)
   );
 
   try {

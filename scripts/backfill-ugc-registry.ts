@@ -6,19 +6,28 @@
  * `ugc_entries`: one row per auditable text field of an entity, typed by the
  * canonical precise content-type list
  * (`_id = ${type}:${refId}[:${key}]`, e.g. `game_name:123:20011001`),
- * storing the normalized text and its content hash once.
+ * storing the normalized text, its content hash, and the verbatim source
+ * (`rawText` — line breaks / whitespace intact, so restoring a removed field
+ * can put back the author's exact formatting) once.
  *
  * Rows are only inserted when missing (re-run after dropping `ugc_entries`
- * to rebuild). Registration ONLY: no audits are dispatched, no translations
- * queued, no content touched.
+ * to rebuild); rows whose live content drifted are refreshed (resetting
+ * audit state so the new text is re-judged); identical rows only get their
+ * `rawText` backfilled. Registration ONLY: no audits are dispatched, no
+ * translations queued, no live content touched.
+ *
+ * Also reports the removed-but-persisting anomaly: rows marked `removed`
+ * whose registered text STILL lives on the entity (enforcement missed them —
+ * e.g. text re-submitted before the hash-unchanged re-enforcement fix, or a
+ * shop changelog rollback). The run archives their verbatim text.
  *
  * The type resolution below mirrors `resolveUgcOccurrence` in
  * `src/lib/ugc/entries.server.ts` — keep them in sync.
  *
  * Usage:
- *   pnpm backfill:ugc-registry
- *   MONGODB_URI=mongodb://host pnpm backfill:ugc-registry
- *   pnpm backfill:ugc-registry -- --dry-run    # count only, no writes
+ *   pnpm register-ugc
+ *   MONGODB_URI=mongodb://host pnpm register-ugc
+ *   pnpm register-ugc -- --dry-run    # count/report only, no writes
  */
 import { MongoClient, ObjectId, type Db } from 'mongodb';
 
@@ -32,6 +41,9 @@ const DRY_RUN = process.argv.includes('--dry-run');
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 500);
 
 const MAX_TEXT_LENGTH = 8000;
+/** Mirrors MAX_RAW_TEXT_LENGTH in src/lib/ugc/entries.server.ts — keep in sync. */
+const MAX_RAW_TEXT_LENGTH = 20000;
+const ANOMALY_PRINT_LIMIT = 50;
 
 /** NFC + whitespace-collapsed normalization (identical to src/lib/ugc/hash.ts). */
 const normalizeUgcText = (text: string): string =>
@@ -309,6 +321,9 @@ const buildOccurrenceDocs = async (registration: Registration) => {
       refId: registration.refId,
       hash,
       text,
+      // Verbatim source for a formatting-faithful restore — mirrors the
+      // rawText capture in `registerUgcEntry`.
+      rawText: raw && raw.length <= MAX_RAW_TEXT_LENGTH ? raw : text,
       createdBy: registration.createdBy,
       authorName: registration.authorName,
       createdAt: registration.timestamp,
@@ -321,9 +336,10 @@ const buildOccurrenceDocs = async (registration: Registration) => {
 };
 
 /**
- * Idempotent upsert: insert missing rows; refresh text/hash/author when the
- * live content changed (resetting audit state so the new text is re-judged);
- * leave identical rows (and their audit state) untouched.
+ * Idempotent upsert: insert missing rows; refresh text/hash/rawText/author
+ * when the live content changed (resetting audit state so the new text is
+ * re-judged); leave identical rows' audit state untouched while backfilling
+ * their rawText.
  *
  * Pipeline update is required so `auditStatus` can compare the *previous*
  * hash. Every free-form string must go through `$literal` — values like
@@ -344,6 +360,7 @@ const upsertOccurrence = (doc: Record<string, unknown>) => {
             refId: { $literal: doc.refId },
             hash: { $literal: doc.hash },
             text: { $literal: doc.text },
+            rawText: { $literal: doc.rawText },
             createdBy: { $literal: doc.createdBy ?? null },
             authorName: { $literal: doc.authorName ?? null },
             createdAt: { $ifNull: ['$createdAt', { $literal: doc.createdAt }] },
@@ -368,6 +385,8 @@ const backfill = async (db: Db): Promise<void> => {
   let totalInserted = 0;
   let totalUpdated = 0;
   let totalUnchanged = 0;
+  let totalRawTextWrites = 0;
+  const anomalies: Record<string, unknown>[] = [];
 
   for (const spec of SPECS) {
     const collection = db.collection(spec.collection);
@@ -375,6 +394,7 @@ const backfill = async (db: Db): Promise<void> => {
     let inserted = 0;
     let updated = 0;
     let unchanged = 0;
+    let rawTextWrites = 0;
     let batch: Record<string, unknown>[] = [];
 
     const flush = async () => {
@@ -389,34 +409,41 @@ const backfill = async (db: Db): Promise<void> => {
       ).flat();
       if (entries.length === 0) return;
 
-      if (DRY_RUN) {
-        // Classify against the live registry so "would X" is truthful.
-        // Registry `_id` is a string (`${type}:${refId}[:${key}]`), not ObjectId.
-        const ids = entries.map((e) => String(e._id));
-        const existing = await db
-          .collection<{ _id: string; hash?: string }>('ugc_entries')
-          .find({ _id: { $in: ids } }, { projection: { _id: 1, hash: 1 } })
-          .toArray();
-        const byId = new Map(existing.map((row) => [row._id, row.hash]));
-        for (const entry of entries) {
-          const prev = byId.get(String(entry._id));
-          if (prev === undefined) inserted++;
-          else if (prev !== entry.hash) updated++;
-          else unchanged++;
+      // Classify against the live registry so counts are truthful in both
+      // modes and removed-but-persisting rows can be spotted. Registry `_id`
+      // is a string (`${type}:${refId}[:${key}]`), not ObjectId.
+      const ids = entries.map((e) => String(e._id));
+      const existing = await db
+        .collection<{ _id: string; hash?: string; auditStatus?: string; rawText?: string }>(
+          'ugc_entries'
+        )
+        .find(
+          { _id: { $in: ids } },
+          { projection: { _id: 1, hash: 1, auditStatus: 1, rawText: 1 } }
+        )
+        .toArray();
+      const byId = new Map(existing.map((row) => [row._id, row]));
+      for (const entry of entries) {
+        const prev = byId.get(String(entry._id));
+        if (prev === undefined) inserted++;
+        else if (prev.hash !== entry.hash) updated++;
+        else unchanged++;
+        if (prev && prev.rawText !== entry.rawText) rawTextWrites++;
+        // The row is `removed` yet its registered text is still live on the
+        // entity — enforcement missed it (text re-submitted before the
+        // hash-unchanged re-enforcement fix, or a shop rollback). This run
+        // archives the verbatim text so a restore stays formatting-faithful.
+        if (prev?.auditStatus === 'removed' && prev.hash === entry.hash) {
+          anomalies.push(entry);
         }
-        return;
       }
+      if (DRY_RUN) return;
 
       try {
-        const result = await db.collection('ugc_entries').bulkWrite(
+        await db.collection('ugc_entries').bulkWrite(
           entries.map((doc) => upsertOccurrence(doc) as never),
           { ordered: false }
         );
-        // upserted = new row; matched+modified ≈ content changed;
-        // matched-modified = identical content (no-op).
-        inserted += result.upsertedCount;
-        updated += result.modifiedCount;
-        unchanged += Math.max(0, result.matchedCount - result.modifiedCount);
       } catch (err) {
         console.error(`  bulk upsert failed (${spec.collection}):`, err);
       }
@@ -430,20 +457,42 @@ const backfill = async (db: Db): Promise<void> => {
 
     const verb = DRY_RUN ? 'would ' : '';
     console.log(
-      `${spec.collection}: ${verb}insert ${inserted}, ${verb}update ${updated}, unchanged ${unchanged}` +
-        ` (scanned ${inserted + updated + unchanged})`
+      `${spec.collection}: ${verb}insert ${inserted}, ${verb}update ${updated}, unchanged ${unchanged}, ` +
+        `${verb}backfill rawText on ${rawTextWrites} (scanned ${inserted + updated + unchanged})`
     );
     totalInserted += inserted;
     totalUpdated += updated;
     totalUnchanged += unchanged;
+    totalRawTextWrites += rawTextWrites;
   }
 
   console.log(
     `\nDone.${DRY_RUN ? ' (dry run)' : ''} ` +
       `${DRY_RUN ? 'Would insert' : 'Inserted'} ${totalInserted}, ` +
       `${DRY_RUN ? 'would update' : 'updated'} ${totalUpdated}, ` +
-      `unchanged ${totalUnchanged}.`
+      `unchanged ${totalUnchanged}, ` +
+      `${DRY_RUN ? 'would backfill rawText on' : 'backfilled rawText on'} ${totalRawTextWrites}.`
   );
+
+  if (anomalies.length > 0) {
+    console.log(
+      `\n⚠ ${anomalies.length} removed row(s) whose registered text still persists on the live entity` +
+        ` (enforcement missed them; this run ${DRY_RUN ? 'would archive' : 'archives'} their verbatim text):`
+    );
+    for (const entry of anomalies.slice(0, ANOMALY_PRINT_LIMIT)) {
+      const raw = String(entry.rawText ?? entry.text ?? '');
+      const preview = raw.replace(/\s+/g, ' ').slice(0, 80);
+      console.log(
+        `  - ${String(entry._id)} author=${String(entry.authorName ?? entry.createdBy ?? '—')} ` +
+          `text="${preview}${raw.length > 80 ? '…' : ''}"`
+      );
+    }
+    if (anomalies.length > ANOMALY_PRINT_LIMIT) {
+      console.log(`  … and ${anomalies.length - ANOMALY_PRINT_LIMIT} more`);
+    }
+  } else {
+    console.log('\nNo removed-but-persisting rows found.');
+  }
 };
 
 const main = async (): Promise<void> => {

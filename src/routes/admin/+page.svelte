@@ -250,6 +250,10 @@
             <i class="fa-solid fa-images mr-2"></i>
             {m.admin_images()}
           </a>
+          <a href={resolve('/admin/announcements')} class="btn btn-soft">
+            <i class="fa-solid fa-bullhorn mr-2"></i>
+            {m.admin_announcements()}
+          </a>
           <a href={resolve('/admin/machines')} class="btn btn-soft">
             <i class="fa-solid fa-server mr-2"></i>
             {m.admin_machines()}

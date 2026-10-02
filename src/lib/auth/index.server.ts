@@ -14,10 +14,6 @@ import { ObjectId } from 'mongodb';
 import { generateValidUsername } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { sendVerificationLinkEmail } from './email.server';
-import {
-  countUnreadNotifications,
-  countPendingJoinRequests
-} from '$lib/notifications/index.server';
 import { syncVerifiedSocialLinkFromAccount } from './social-verify.server';
 import type { User } from './types';
 import { syncUserAvatarToOSSIfNeeded } from '$lib/images/avatar-sync.server';
@@ -244,11 +240,7 @@ function createAuth() {
 
         return {
           user,
-          session: {
-            ...session,
-            unreadNotifications: await countUnreadNotifications(mongo, userId),
-            pendingJoinRequests: await countPendingJoinRequests(mongo, userId)
-          }
+          session
         };
       }),
       sveltekitCookies(getRequestEvent)

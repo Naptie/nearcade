@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import type { PostWithAuthor } from '$lib/types';
+  import type { AnnouncementWithAuthor, PostWithAuthor } from '$lib/types';
   import UserAvatar from './UserAvatar.svelte';
   import { formatDistanceToNow } from 'date-fns';
   import { resolve } from '$app/paths';
@@ -12,11 +12,14 @@
   import T from '$lib/ugc/components/T.svelte';
 
   interface Props {
-    post: PostWithAuthor;
+    post: PostWithAuthor | AnnouncementWithAuthor;
     showOrganization?: boolean;
     organizationType?: 'university' | 'club';
     organizationName?: string;
     organizationSlug?: string;
+    href?: string;
+    unread?: boolean;
+    announcement?: boolean;
   }
 
   let {
@@ -24,21 +27,39 @@
     showOrganization = false,
     organizationType = 'university',
     organizationName = '',
-    organizationSlug = ''
+    organizationSlug = '',
+    href,
+    unread = false,
+    announcement = false
   }: Props = $props();
 
   let content = $state('');
 
-  let netVotes = $derived(post.upvotes - post.downvotes);
+  let isAnnouncement = $derived(announcement);
+  let netVotes = $derived(
+    isAnnouncement ? 0 : (post as PostWithAuthor).upvotes - (post as PostWithAuthor).downvotes
+  );
+  let postedAt = $derived(
+    isAnnouncement
+      ? ((post as AnnouncementWithAuthor).publishedAt ?? post.createdAt)
+      : post.createdAt
+  );
+  let announcementExpiresAt = $derived((post as AnnouncementWithAuthor).expiresAt ?? null);
+  let expired = $derived(
+    isAnnouncement && announcementExpiresAt ? new Date(announcementExpiresAt) <= new Date() : false
+  );
+  let announcementStatus = $derived((post as AnnouncementWithAuthor).status);
+  let postWithOrganization = $derived(post as PostWithAuthor);
   let postDetailUrl = $derived.by(() => {
-    if (post.universityId) {
+    if (href) return href;
+    if (postWithOrganization.universityId) {
       return resolve('/(main)/universities/[id]/posts/[postId]', {
-        id: organizationSlug || post.universityId,
+        id: organizationSlug || postWithOrganization.universityId,
         postId: post.id
       });
     } else {
       return resolve('/(main)/clubs/[id]/posts/[postId]', {
-        id: organizationSlug || post.clubId || '',
+        id: organizationSlug || postWithOrganization.clubId || '',
         postId: post.id
       });
     }
@@ -73,9 +94,11 @@
                   goto(
                     organizationType === 'university'
                       ? resolve('/(main)/universities/[id]', {
-                          id: organizationSlug || post.universityId || ''
+                          id: organizationSlug || postWithOrganization.universityId || ''
                         })
-                      : resolve('/(main)/clubs/[id]', { id: organizationSlug || post.clubId || '' })
+                      : resolve('/(main)/clubs/[id]', {
+                          id: organizationSlug || postWithOrganization.clubId || ''
+                        })
                   );
                 }}
               >
@@ -84,7 +107,7 @@
             {/if}
           </div>
           <div class="text-base-content/60 text-xs">
-            {formatDistanceToNow(post.createdAt, {
+            {formatDistanceToNow(postedAt, {
               addSuffix: true,
               locale: getFnsLocale(getLocale())
             })}
@@ -94,13 +117,25 @@
 
       <!-- Post badges -->
       <div class="flex gap-1">
+        {#if unread}
+          <div class="badge badge-primary badge-sm gap-0.5 text-nowrap">
+            <i class="fa-solid fa-circle text-[0.45rem]"></i>
+            <span class="not-sm:hidden">{m.announcement_unread()}</span>
+          </div>
+        {/if}
+        {#if isAnnouncement && announcementStatus === 'draft'}
+          <div class="badge badge-soft badge-sm text-nowrap">{m.announcement_draft()}</div>
+        {/if}
+        {#if expired}
+          <div class="badge badge-soft badge-warning badge-sm text-nowrap">{m.expired()}</div>
+        {/if}
         {#if post.isPinned}
           <div class="badge badge-soft badge-info badge-sm gap-0.5 text-nowrap">
             <i class="fa-solid fa-thumbtack"></i>
             <span class="not-sm:hidden">{m.pinned()}</span>
           </div>
         {/if}
-        {#if post.isLocked}
+        {#if !isAnnouncement && (post as PostWithAuthor).isLocked}
           <div class="badge badge-soft badge-warning badge-sm gap-0.5 text-nowrap">
             <i class="fa-solid fa-lock"></i>
             <span class="not-sm:hidden">{m.locked()}</span>
@@ -123,27 +158,31 @@
     <div class="flex items-center justify-between text-sm">
       <!-- Vote count and comments -->
       <div class="flex items-center gap-4">
-        <div
-          class="flex items-center gap-1 {netVotes > 0
-            ? 'text-success'
-            : netVotes < 0
-              ? 'text-error'
-              : 'text-base-content/60'}"
-        >
-          <div class="relative flex flex-col gap-1">
-            <i class="fa-solid fa-caret-up opacity-0"></i>
-            <i class="fa-solid fa-caret-up absolute bottom-1"></i>
-            <i class="fa-solid fa-caret-down absolute top-1"></i>
+        {#if !isAnnouncement}
+          <div
+            class="flex items-center gap-1 {netVotes > 0
+              ? 'text-success'
+              : netVotes < 0
+                ? 'text-error'
+                : 'text-base-content/60'}"
+          >
+            <div class="relative flex flex-col gap-1">
+              <i class="fa-solid fa-caret-up opacity-0"></i>
+              <i class="fa-solid fa-caret-up absolute bottom-1"></i>
+              <i class="fa-solid fa-caret-down absolute top-1"></i>
+            </div>
+            <span class="font-medium">
+              {netVotes > 0 ? '+' : ''}{netVotes}
+            </span>
           </div>
-          <span class="font-medium">
-            {netVotes > 0 ? '+' : ''}{netVotes}
-          </span>
-        </div>
+        {/if}
 
-        <div class="text-base-content/60 flex items-center gap-1">
-          <i class="fa-solid fa-comments"></i>
-          <span>{post.commentCount}</span>
-        </div>
+        {#if !isAnnouncement}
+          <div class="text-base-content/60 flex items-center gap-1">
+            <i class="fa-solid fa-comments"></i>
+            <span>{(post as PostWithAuthor).commentCount}</span>
+          </div>
+        {/if}
       </div>
     </div>
   </div>

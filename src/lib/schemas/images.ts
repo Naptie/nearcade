@@ -33,6 +33,10 @@ export const imageAssetSchema = z
       .describe(bilingual('关联店铺 ID。', 'Associated shop ID.')),
     commentId: z.string().optional().describe(bilingual('关联评论 ID。', 'Associated comment ID.')),
     postId: z.string().optional().describe(bilingual('关联帖子 ID。', 'Associated post ID.')),
+    announcementId: z
+      .string()
+      .optional()
+      .describe(bilingual('关联公告 ID。', 'Associated announcement ID.')),
     deleteRequestId: z
       .string()
       .optional()
@@ -87,7 +91,14 @@ const optionalPositiveIntegerInput = (description: string) =>
     .describe(description);
 
 export const imageDraftKindSchema = z
-  .enum(['post', 'post-comment', 'shop-comment', 'shop-delete-request', 'delete-request-comment'])
+  .enum([
+    'post',
+    'announcement',
+    'post-comment',
+    'shop-comment',
+    'shop-delete-request',
+    'delete-request-comment'
+  ])
   .describe(bilingual('草稿图片用途。', 'Draft image purpose.'));
 
 export const imageDraftOrganizationTypeSchema = z
@@ -102,6 +113,9 @@ export const imageUploadFormDataSchema = z
     shopId: optionalPositiveIntegerInput(bilingual('关联店铺 ID。', 'Associated shop ID.')),
     commentId: optionalTrimmedString(bilingual('关联评论 ID。', 'Associated comment ID.')),
     postId: optionalTrimmedString(bilingual('关联帖子 ID。', 'Associated post ID.')),
+    announcementId: optionalTrimmedString(
+      bilingual('关联公告 ID。', 'Associated announcement ID.')
+    ),
     deleteRequestId: optionalTrimmedString(
       bilingual('关联删除申请 ID。', 'Associated delete request ID.')
     ),
@@ -120,9 +134,13 @@ export const imageUploadFormDataSchema = z
     )
   })
   .superRefine((value, ctx) => {
-    const ownerCount = [value.shopId, value.commentId, value.postId, value.deleteRequestId].filter(
-      (item) => item !== undefined
-    ).length;
+    const ownerCount = [
+      value.shopId,
+      value.commentId,
+      value.postId,
+      value.announcementId,
+      value.deleteRequestId
+    ].filter((item) => item !== undefined).length;
 
     if (ownerCount > 1) {
       ctx.addIssue({
@@ -141,6 +159,10 @@ export const imageUploadRequestSchema = z.object({
   shopId: z.int().positive().optional().describe(bilingual('关联店铺 ID。', 'Associated shop ID.')),
   commentId: z.string().optional().describe(bilingual('关联评论 ID。', 'Associated comment ID.')),
   postId: z.string().optional().describe(bilingual('关联帖子 ID。', 'Associated post ID.')),
+  announcementId: z
+    .string()
+    .optional()
+    .describe(bilingual('关联公告 ID。', 'Associated announcement ID.')),
   deleteRequestId: z
     .string()
     .optional()

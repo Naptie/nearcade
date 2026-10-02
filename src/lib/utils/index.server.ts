@@ -130,6 +130,20 @@ export const initDatabase = async (mongo: MongoClient) => {
     // posts
     db.collection('posts').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
 
+    // announcements
+    db.collection('announcements').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    db
+      .collection('announcements')
+      .createIndex(
+        { status: 1, publishedAt: -1, expiresAt: 1, isPinned: -1 },
+        { name: 'status_1_publishedAt_-1_expiresAt_1_isPinned_-1' }
+      ),
+
+    // announcement read cursors
+    db
+      .collection('announcement_read_state')
+      .createIndex({ userId: 1 }, { name: 'userId_1', unique: true }),
+
     // comments
     db.collection('comments').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
 

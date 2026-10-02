@@ -30,10 +30,6 @@ import { env } from '$env/dynamic/private';
 import { auth } from '$lib/auth/index.server';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import {
-  countPendingJoinRequests,
-  countUnreadNotifications
-} from '$lib/notifications/index.server';
 import type { AuthSession, User } from '$lib/auth/types';
 import type { OAuthScope } from './scopes';
 
@@ -268,10 +264,6 @@ export async function resolveOAuthAccessTokenSession(
 
   const issuedAt = timestampToDate(payload.iat) ?? new Date();
   const expiresAt = timestampToDate(payload.exp) ?? issuedAt;
-  const [unreadNotifications, pendingJoinRequests] = await Promise.all([
-    countUnreadNotifications(mongo, user.id),
-    countPendingJoinRequests(mongo, user)
-  ]);
 
   return {
     user,
@@ -283,9 +275,7 @@ export async function resolveOAuthAccessTokenSession(
       updatedAt: issuedAt,
       ipAddress: null,
       userAgent: event.request.headers.get('user-agent'),
-      userId: user.id,
-      unreadNotifications,
-      pendingJoinRequests: pendingJoinRequests ?? 0
+      userId: user.id
     }
   };
 }

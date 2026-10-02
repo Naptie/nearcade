@@ -14,11 +14,15 @@ export interface Session {
   ipAddress: string | null;
   userAgent: string | null;
   userId: string;
-  unreadNotifications: number;
-  pendingJoinRequests: number;
 }
 
 export interface AuthSession {
   user: User;
   session: Session;
+}
+
+export interface NavigationCounts {
+  unreadNotifications: number;
+  pendingJoinRequests: number;
+  unreadAnnouncements: number;
 }
