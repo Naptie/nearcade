@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { z } from 'zod';
 import mongo from '$lib/db/index.server';
+import { removeShopDocument } from '$lib/db/meili.server';
 import { m } from '$lib/paraglide/messages';
 import { requireBoundPhone } from '$lib/utils/index.server';
 import { notify } from '$lib/notifications/index.server';
@@ -185,6 +186,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
           deleteRequestId: deleteRequest.id
         });
         await db.collection('shops').deleteOne({ id: deleteRequest.shopId });
+        try {
+          await removeShopDocument(String(shop._id));
+        } catch (meiliErr) {
+          console.error('Failed to remove deleted shop from Meilisearch:', meiliErr);
+        }
       } else {
         // The shop is no longer in `shops` — it was already moved to
         // `deleted_shops`, typically by an external sync process rather than
@@ -200,6 +206,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
                 { id: deleteRequest.shopId },
                 { $set: { deleteRequestId: deleteRequest.id } }
               );
+          }
+          try {
+            await removeShopDocument(String(existingDeletedShop._id));
+          } catch (meiliErr) {
+            console.error('Failed to remove deleted shop from Meilisearch:', meiliErr);
           }
         }
         // If the shop is in neither collection, there is nothing to move —

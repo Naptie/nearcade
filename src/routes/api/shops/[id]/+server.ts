@@ -1,8 +1,9 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
 import type { z } from 'zod';
-import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils';
+import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 import { openingHoursSchema } from '$lib/schemas/common';
@@ -323,20 +324,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     const now = new Date();
 
-    const extraTimeInfo = (() => {
-      if (!includeTimeInfo)
-        return {} as Partial<{
-          timezone: { name: string; offset: number };
-          isOpen: boolean;
-        }>;
-      const openingHours = getShopOpeningHours(shop);
-      const isOpen = now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
-      const timezoneName = getShopTimezone(shop.location);
-      return {
-        timezone: { name: timezoneName, offset: openingHours.offsetHours },
-        isOpen
-      };
-    })();
+    const extraTimeInfo = includeTimeInfo ? getShopTimeInfo(shop, now) : {};
 
     const rawRegion = shop.address?.region;
     const regionIds =
@@ -382,7 +370,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   const { id: shopId } = parseParamsOrError(shopIdParamSchema, params);
   const body = await parseJsonOrError(request, updateShopRequestSchema);
 
-  const { name, comment, address, openingHours, location, games } = body;
+  const { name, comment, address, openingHours, location, games, isClosed, closedReason } = body;
 
   try {
     const db = mongo.db();
@@ -426,6 +414,32 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       updateFields.openingHours = normalizedOpeningHours;
     }
     if (location !== undefined) updateFields.location = location;
+
+    const unsetFields: Record<string, ''> = {};
+    if (isClosed !== undefined) {
+      const wasClosed = Boolean(existing.isClosed);
+      const willBeClosed = Boolean(isClosed);
+      if (wasClosed !== willBeClosed) {
+        updateFields.isClosed = willBeClosed;
+      }
+      if (wasClosed && !willBeClosed) {
+        unsetFields.closedReason = '';
+      }
+    }
+
+    const willBeClosed = isClosed !== undefined ? Boolean(isClosed) : Boolean(existing.isClosed);
+    if (willBeClosed && closedReason !== undefined && !('closedReason' in unsetFields)) {
+      const trimmedReason = closedReason.trim();
+      const previousReason = existing.closedReason ?? '';
+      if (trimmedReason !== previousReason) {
+        if (trimmedReason) {
+          updateFields.closedReason = trimmedReason;
+        } else {
+          unsetFields.closedReason = '';
+        }
+      }
+    }
+
     if (games !== undefined) {
       const normalizedGames = normalizeGamesForShopUpdate(shopId, games, existing.games ?? []);
       if (!normalizedGames) {
@@ -443,7 +457,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       error(400, blockedUgcMessage(blocked));
     }
 
-    await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
+    await shopsCollection.updateOne(
+      { id: shopId },
+      {
+        $set: updateFields,
+        ...(Object.keys(unsetFields).length > 0 ? { $unset: unsetFields } : {})
+      }
+    );
 
     // Log changes to shop changelog (non-fatal)
     const changelogUser = {
@@ -457,7 +477,10 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
         shopId,
         existing.name,
         existing,
-        updateFields,
+        {
+          ...updateFields,
+          ...Object.fromEntries(Object.keys(unsetFields).map((field) => [field, undefined]))
+        },
         changelogUser
       );
     } catch (logErr) {
@@ -483,6 +506,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     // Refresh registry + background pre-translation for stored text.
     if (updated) {
       submitUgc('shop', shopId, session.user, shopUgcTexts(updated));
+
+      try {
+        await syncShopDocument(updated);
+      } catch (meiliErr) {
+        console.error('Failed to sync updated shop to Meilisearch:', meiliErr);
+      }
     }
 
     const rawRegion = updated!.address?.region;

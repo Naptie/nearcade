@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import type { Machine, Shop } from '$lib/types';
 import { serialNumber, toPlainArray, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
@@ -227,6 +228,14 @@ export const actions = {
           { id: machine.shopId },
           { $unset: { isClaimed: '', ownerId: '' }, $set: { updatedAt: new Date() } }
         );
+      const updatedShop = await db.collection<Shop>('shops').findOne({ id: machine.shopId });
+      if (updatedShop) {
+        try {
+          await syncShopDocument(updatedShop);
+        } catch (meiliErr) {
+          console.error('Failed to sync updated shop to Meilisearch:', meiliErr);
+        }
+      }
     }
 
     await machinesCollection.deleteOne({ id: machineId });

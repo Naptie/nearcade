@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 import type { Machine, Shop } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { m } from '$lib/paraglide/messages';
@@ -56,6 +57,14 @@ export const POST: RequestHandler = async ({ url }) => {
   const shop = await shopsCollection.findOne({
     id: machine.shopId
   });
+
+  if (shop) {
+    try {
+      await syncShopDocument(shop);
+    } catch (meiliErr) {
+      console.error('Failed to sync updated shop to Meilisearch:', meiliErr);
+    }
+  }
 
   const response = activateMachineResponseSchema.parse({
     success: true,

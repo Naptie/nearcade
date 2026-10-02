@@ -18,6 +18,7 @@
     getMyLocation,
     getShopTimezone,
     getShopOpeningHours,
+    isShopCurrentlyOpen,
     isShopChinaBased,
     pageTitle,
     sanitizeHTML
@@ -65,6 +66,7 @@
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { maybeShowUgcTranslationPrompt } from '$lib/ugc/client';
   import T from '$lib/ugc/components/T.svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -164,9 +166,7 @@
   let openingHours = $derived(shop && getShopOpeningHours(shop));
   let showOpeningHoursInUserTime = $state(false);
   let now = $state(new Date());
-  let isShopOpen = $derived(
-    openingHours && now >= openingHours.openTolerated && now <= openingHours.closeTolerated
-  );
+  let isShopOpen = $derived(!!shop && isShopCurrentlyOpen(shop, now));
   let otherShop = $derived.by(() => {
     if (!currentAttendanceFromServer) return false;
     const attendance = currentAttendanceFromServer;
@@ -1133,7 +1133,9 @@
                   : isUserNearShop === false && distance
                     ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
                     : ''
-              : m.shop_closed()}
+              : shop.isClosed
+                ? m.shop_is_permanently_closed()
+                : m.shop_closed()}
           >
             <button
               class="btn btn-primary w-full"
@@ -1149,6 +1151,13 @@
             </button>
           </div>
         {/if}
+      {/snippet}
+      {#snippet closedAlert()}
+        <InlineAlert type="error" soft title={m.shop_is_permanently_closed()}>
+          {#if shop.closedReason}
+            {shop.closedReason}
+          {/if}
+        </InlineAlert>
       {/snippet}
       {#snippet header(isMain = true)}
         {@const [link, label] = !isShopChinaBased(shop)
@@ -1440,11 +1449,22 @@
         </div>
       {/snippet}
 
+      {#if shop.isClosed}
+        <div class="mb-4 md:hidden">
+          {@render closedAlert()}
+        </div>
+      {/if}
+
       {@render header(false)}
 
       <!-- Sidebar -->
       <div class="order-1 not-md:mb-6 md:col-span-2 lg:col-span-1">
         <div class="sticky top-20 space-y-6">
+          {#if shop.isClosed}
+            <div class="not-md:hidden">
+              {@render closedAlert()}
+            </div>
+          {/if}
           <!-- Shop Information -->
           <div class="card bg-base-200">
             <div class="card-body p-6">

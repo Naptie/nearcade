@@ -1,6 +1,6 @@
 import { Meilisearch } from 'meilisearch';
 import type { MongoClient } from 'mongodb';
-import { toPlainArray } from '$lib/utils';
+import { toPlainArray, toPlainObject } from '$lib/utils';
 import { env } from '$env/dynamic/private';
 import type { Shop } from '$lib/types';
 import { getShopRegionNames } from '$lib/utils/region.server';
@@ -50,12 +50,7 @@ export const init = async (
   // Enrich shops with regionNames (all language variants) for multilingual search
   const shopsWithRegionNames = await Promise.all(
     shops.map(async (shop) => {
-      const region = shop.address?.region;
-      const regionIds =
-        Array.isArray(region) && region.length > 0 && typeof region[0] === 'string'
-          ? (region as string[])
-          : undefined;
-      const regionNames = await getShopRegionNames(regionIds);
+      const regionNames = await getShopRegionNames(getShopRegionIds(shop));
       return { ...shop, regionNames };
     })
   );
@@ -124,6 +119,30 @@ export const init = async (
     'clubs'
   );
   return results;
+};
+
+const getShopRegionIds = (shop: Shop): string[] | undefined => {
+  const region = shop.address?.region;
+  return Array.isArray(region) && region.length > 0 && typeof region[0] === 'string'
+    ? (region as string[])
+    : undefined;
+};
+
+/**
+ * Upsert one shop document into the Meilisearch index after a Mongo write.
+ * `regionNames` is recomputed here because it exists only on the indexed
+ * document, never in MongoDB.
+ */
+export const syncShopDocument = async (shop: Shop): Promise<void> => {
+  const regionNames = await getShopRegionNames(getShopRegionIds(shop));
+  await meiliProxy
+    .index<Shop>('shops')
+    .updateDocuments([toPlainObject({ ...shop, regionNames })], { primaryKey: '_id' });
+};
+
+/** Remove a shop document from the Meilisearch index by its Mongo `_id`. */
+export const removeShopDocument = async (shopDocId: string): Promise<void> => {
+  await meiliProxy.index<Shop>('shops').deleteDocument(shopDocId);
 };
 
 export default meiliProxy;

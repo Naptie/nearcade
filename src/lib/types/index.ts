@@ -546,6 +546,7 @@ export interface GlobeShop {
   aggregatedGames: GlobeShopGameSummary[];
   currentAttendance: number;
   density: number;
+  isClosed?: boolean;
 }
 
 export interface GlobeShopWithExtras extends GlobeShop {

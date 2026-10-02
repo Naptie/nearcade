@@ -131,23 +131,26 @@
           <span class="label-text font-medium">{m.planned_leave_time()}</span>
           <span
             class="label-text-alt text-base-content/60 text-right"
-            class:text-error={now < openTolerated ||
+            class:text-error={shop.isClosed ||
+              now < openTolerated ||
               now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)}
           >
-            {now < openTolerated || now > closeTolerated
-              ? m.shop_closed()
-              : now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)
-                ? m.shop_closing()
-                : m.planned_leave_time_help({
-                    time: formatTime(latestPlannedLeave),
-                    isTomorrow: (() => {
-                      return (
-                        latestPlannedLeave.getFullYear() === now.getFullYear() &&
-                        latestPlannedLeave.getMonth() === now.getMonth() &&
-                        latestPlannedLeave.getDate() === now.getDate() + 1
-                      ).toString();
-                    })()
-                  })}
+            {shop.isClosed
+              ? m.shop_is_permanently_closed()
+              : now < openTolerated || now > closeTolerated
+                ? m.shop_closed()
+                : now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)
+                  ? m.shop_closing()
+                  : m.planned_leave_time_help({
+                      time: formatTime(latestPlannedLeave),
+                      isTomorrow: (() => {
+                        return (
+                          latestPlannedLeave.getFullYear() === now.getFullYear() &&
+                          latestPlannedLeave.getMonth() === now.getMonth() &&
+                          latestPlannedLeave.getDate() === now.getDate() + 1
+                        ).toString();
+                      })()
+                    })}
           </span>
         </label>
         <input
@@ -157,6 +160,7 @@
           class:input-error={(plannedLeaveAt &&
             (new Date(plannedLeaveAt) <= earliestPlannedLeave ||
               new Date(plannedLeaveAt) > latestPlannedLeave)) ||
+            shop.isClosed ||
             now < openTolerated ||
             now > new Date(closeTolerated.getTime() - 10 * 60 * 1000)}
           bind:value={plannedLeaveAt}
@@ -190,6 +194,7 @@
             !plannedLeaveAt ||
             new Date(plannedLeaveAt) <= earliestPlannedLeave ||
             new Date(plannedLeaveAt) > latestPlannedLeave ||
+            shop.isClosed ||
             now < openTolerated ||
             now > new Date(closeTolerated.getTime() - 10 * 60 * 1000) ||
             isSubmitting}

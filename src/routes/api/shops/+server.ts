@@ -1,9 +1,10 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
+import { syncShopDocument } from '$lib/db/meili.server';
 import type { Shop } from '$lib/types';
 import type { z } from 'zod';
-import { getShopOpeningHours, getShopTimezone, toPlainObject } from '$lib/utils';
+import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import { PAGINATION } from '$lib/constants';
 import { nanoid } from 'nanoid';
 import {
@@ -238,21 +239,7 @@ export const GET: RequestHandler = async ({ url }) => {
       toPlainObject({
         shops: await Promise.all(
           shops.map(async (shop) => {
-            const extraTimeInfo = (() => {
-              if (!includeTimeInfo)
-                return {} as Partial<{
-                  timezone: { name: string; offset: number };
-                  isOpen: boolean;
-                }>;
-              const openingHours = getShopOpeningHours(shop);
-              const isOpen =
-                now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
-              const timezoneName = getShopTimezone(shop.location);
-              return {
-                timezone: { name: timezoneName, offset: openingHours.offsetHours },
-                isOpen
-              };
-            })();
+            const extraTimeInfo = includeTimeInfo ? getShopTimeInfo(shop, now) : {};
 
             const rawRegion = shop.address?.region;
             const regionIds =
@@ -296,7 +283,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   requireBoundPhone(session.user);
 
   const body = await parseJsonOrError(request, createShopRequestSchema);
-  const { name, location, openingHours, address, comment, games } = body;
+  const { name, location, openingHours, address, comment, games, isClosed, closedReason } = body;
 
   const normalizedOpeningHours = normalizeOpeningHours(openingHours);
   if (!normalizedOpeningHours) {
@@ -338,6 +325,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     const now = new Date();
+    const trimmedClosedReason = closedReason?.trim();
     const newShop: Shop = {
       _id: nanoid(),
       id: newId,
@@ -348,7 +336,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       location,
       games: normalizedGames ?? [],
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      ...(isClosed ? { isClosed: true } : {}),
+      ...(isClosed && trimmedClosedReason ? { closedReason: trimmedClosedReason } : {})
     };
 
     const shopUgcTexts: Record<string, string> = {
@@ -372,6 +362,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     await shopsCollection.insertOne(newShop as Parameters<typeof shopsCollection.insertOne>[0]);
+
+    try {
+      await syncShopDocument(newShop);
+    } catch (meiliErr) {
+      console.error('Failed to sync new shop to Meilisearch:', meiliErr);
+    }
 
     // Register entry + background pre-translation + LLM audit for the text.
     submitUgc('shop', newShop.id, session.user, shopUgcTexts);

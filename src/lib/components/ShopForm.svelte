@@ -53,6 +53,8 @@
     untrack(() => initialData.location ?? null)
   );
   let locationName = $state<string>(untrack(() => initialLocationName ?? ''));
+  let isClosed = $state(untrack(() => initialData.isClosed ?? false));
+  let closedReason = $state(untrack(() => initialData.closedReason ?? ''));
   let isSubmitting = $state(false);
   let showLocationModal = $state(false);
 
@@ -209,7 +211,9 @@
     regionIds,
     isConstant,
     slots,
-    games
+    games,
+    isClosed,
+    closedReason
   });
 
   // Debounce-save the draft on every form-state change. Guards against persisting
@@ -226,6 +230,8 @@
     void isConstant;
     void slots;
     void games;
+    void isClosed;
+    void closedReason;
     // Only start autosaving after a genuine user edit; mounting/restoring must
     // not overwrite a draft that the page may still be offering to restore.
     if (!hasUserEdited) return;
@@ -316,7 +322,9 @@
         },
         openingHours,
         location,
-        games
+        games,
+        isClosed,
+        closedReason: isClosed ? closedReason.trim() : ''
       });
       // Success: the parent handles navigation; clear the persisted draft so the
       // "restore?" prompt doesn't reappear next time the user opens this page.
@@ -491,6 +499,26 @@
         </div>
       {/each}
     </div>
+  </div>
+
+  <!-- Permanently closed -->
+  <div class="form-control gap-3">
+    <label class="flex cursor-pointer items-center gap-2">
+      <input type="checkbox" class="toggle toggle-error toggle-sm" bind:checked={isClosed} />
+      <span class="text-sm font-medium">{m.shop_mark_as_closed()}</span>
+    </label>
+    {#if isClosed}
+      <div class="form-control gap-1.5">
+        <span class="label-text text-sm">{m.shop_closed_reason()}</span>
+        <input
+          type="text"
+          class="input input-bordered w-full"
+          maxlength="200"
+          bind:value={closedReason}
+          placeholder={m.shop_closed_reason_placeholder()}
+        />
+      </div>
+    {/if}
   </div>
 
   <!-- Games -->

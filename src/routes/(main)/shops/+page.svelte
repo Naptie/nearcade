@@ -398,7 +398,11 @@
                     <i class="fa-solid fa-desktop"></i>
                     <span>{m.machines({ count: getTotalMachines(shop) })}</span>
                   </div>
-                  {#if shop.currentReportedAttendance}
+                  {#if shop.isClosed}
+                    <div class="text-error">
+                      <span>{m.shop_permanently_closed()}</span>
+                    </div>
+                  {:else if shop.currentReportedAttendance}
                     <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
                       <div class="text-accent flex items-center gap-1">
                         <i class="fa-solid fa-user"></i>
