@@ -21,7 +21,7 @@
  *   (+z) → prime meridian, equator
  *
  * No Mercator model matrix is needed — a unit sphere (radius 1) is already
- * the globe; cloud sphere is radius 1.004.
+ * the globe; cloud sphere is radius 1.006.
  *
  * Texture alignment
  * ─────────────────────────────────────────────────────────────────────
@@ -78,14 +78,19 @@ const CLOUD_SHADOW_ALTITUDE_SCALE = 1.0;
 export const DEFAULT_CLOUD_SHADOW_OPACITY = 0.8;
 /** Maximum opacity of the night-lights overlay. */
 const MAX_NIGHT_LIGHTS_OPACITY = 1;
-/** Radius scale factor for the night-lights shell so it sits above the raster globe. */
-const NIGHT_LIGHTS_ALTITUDE_SCALE = 1.0015;
+/**
+ * Radius scale factor for the night-lights shell. Must stay at 1.0: MapLibre
+ * renders the Bing MVT (fills, roads, labels) exactly on the unit sphere, so
+ * any inflation makes the shell's horizon overshoot the vector surface at
+ * pitched views (tens of px of parallax near the limb, growing with zoom).
+ * Layer order alone decides stacking because these materials disable depth
+ * testing, so no z-fighting buffer is needed.
+ */
+const NIGHT_LIGHTS_ALTITUDE_SCALE = 1.0;
 /** Fraction of the basemap retained in the dominant blend mode; the rest is suppressed so city lights can win visually. */
 const NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION = 0.35;
 /** Width of the smooth transition between day and night for city lights. */
 const NIGHT_LIGHTS_TERMINATOR_SOFTNESS = 0.22;
-/** Fade the night lights near the visible limb to avoid a hard edge. */
-const NIGHT_LIGHTS_LIMB_SOFTNESS = 0.22;
 /** Radius scale factor for the additive atmosphere shell. */
 const ATMOSPHERE_ALTITUDE_SCALE = 1.012;
 /** Base opacity of the atmosphere shell before fresnel shaping. */
@@ -122,10 +127,15 @@ const DEFAULT_SUNLIGHT_INTENSITY = 1;
 
 /** Maximum opacity of the day map overlay. */
 const MAX_DAY_MAP_OPACITY = 1;
-/** Radius scale factor for the day map shell so it sits just above the raster globe. */
-const DAY_MAP_ALTITUDE_SCALE = 1.0005;
-/** Fade the day map near the visible limb to avoid a hard edge. */
-const DAY_MAP_LIMB_SOFTNESS = 0.16;
+/**
+ * Radius scale factor for the day map shell. Must stay at 1.0 so the texture's
+ * painted coastline stays glued to the Bing MVT surface (fills, roads, labels
+ * render exactly on the unit sphere). Inflating the shell detaches the two at
+ * pitched views — the parallax reaches tens of px near the horizon at high
+ * zoom, making roads/labels look like they float or sink against the texture.
+ * These materials disable depth testing, so exact overlap causes no fighting.
+ */
+const DAY_MAP_ALTITUDE_SCALE = 1.0;
 
 /** Names of the individual Three.js mesh layers that can be toggled. */
 export type GlobeLayerName =
@@ -168,8 +178,13 @@ const ALL_GLOBE_LAYER_NAMES: GlobeLayerName[] = [
   'dayMap'
 ];
 
-const GLOBE_MESH_WIDTH_SEGMENTS = 32;
-const GLOBE_MESH_HEIGHT_SEGMENTS = 16;
+// Mesh resolution: the silhouette of a segmented sphere sags inward from the
+// true horizon by 1−cos(180°/widthSegments) (~0.5% at 32 segments — many px at
+// globe radii typical of zoom 5–8). Since the surface shells render exactly on
+// the unit sphere with no limb fade, keep the gap a hairline: 128×64 puts the
+// sag at ~0.03%. Also keeps texture mapping near the limb from stretching.
+const GLOBE_MESH_WIDTH_SEGMENTS = 128;
+const GLOBE_MESH_HEIGHT_SEGMENTS = 64;
 const MESH_REVEAL_STAGGER_MS = 120;
 const DEFAULT_HIGH_RES_PREFETCH_ZOOM = 3.8;
 const DEFAULT_HIGH_RES_SWAP_ZOOM = 4.2;
@@ -266,7 +281,6 @@ const nightLightsFragmentShader = /* glsl */ `
   uniform float     uDominantBlend;
   uniform float     uDominantDimStrength;
   uniform float     uTerminatorSoftness;
-  uniform float     uLimbSoftness;
 
   varying vec3 vNormal;
   varying vec3 vWorldPos;
@@ -275,15 +289,14 @@ const nightLightsFragmentShader = /* glsl */ `
   void main() {
     vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
     vec3 N = normalize(vNormal);
-    vec3 viewDir = normalize(uCameraPos - vWorldPos);
     float nDotL = dot(N, uSunDir);
-    float nDotV = max(dot(N, viewDir), 0.0);
 
     // Full intensity on the night side, fading smoothly through the terminator.
+    // No limb fade: the shell sits exactly on the globe surface (radius 1.0),
+    // so its horizon coincides with the Bing MVT horizon — fading here would
+    // eat the lights near the horizon and detach them from the basemap.
     float nightSide = 1.0 - smoothstep(-uTerminatorSoftness, uTerminatorSoftness, nDotL);
-    // Fade near the limb so the visible edge blends softly into the atmosphere.
-    float limbFade = smoothstep(0.0, uLimbSoftness, nDotV);
-    float nightMask = nightSide * limbFade;
+    float nightMask = nightSide;
 
     vec3 nightColor = texture2D(uNightMap, sampleUv).rgb;
     float alpha = max(max(nightColor.r, nightColor.g), nightColor.b) * nightMask * uOpacity;
@@ -336,7 +349,6 @@ const dayMapFragmentShader = /* glsl */ `
   uniform vec3      uCameraPos;
   uniform vec3      uSunDir;
   uniform float     uOpacity;
-  uniform float     uLimbSoftness;
 
   varying vec3 vNormal;
   varying vec3 vWorldPos;
@@ -344,15 +356,14 @@ const dayMapFragmentShader = /* glsl */ `
 
   void main() {
     vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
-    vec3 N = normalize(vNormal);
-    vec3 viewDir = normalize(uCameraPos - vWorldPos);
-    float nDotV = max(dot(N, viewDir), 0.0);
 
-    // Fade near the limb so the visible edge blends softly into the Bing base.
-    float limbFade = smoothstep(0.0, uLimbSoftness, nDotV);
-
+    // No limb fade: the day map sits exactly on the globe surface (radius 1.0),
+    // so its horizon coincides with the Bing MVT horizon. A fresnel-style fade
+    // here would make the texture vanish well before the true horizon at pitched
+    // views (the band grows with pitch), leaving Bing's roads/labels/coasts
+    // drawing beyond the visible "surface" — looking like they float above it.
     vec3 color = texture2D(uDayMap, sampleUv).rgb;
-    gl_FragColor = vec4(color, limbFade * uOpacity);
+    gl_FragColor = vec4(color, uOpacity);
   }
 `;
 
@@ -968,8 +979,7 @@ export class GlobeVisualsLayer {
           uOpacity: { value: 0 },
           uDominantBlend: { value: 0 },
           uDominantDimStrength: { value: 1 - NIGHT_LIGHTS_DOMINANT_BASEMAP_RETENTION },
-          uTerminatorSoftness: { value: NIGHT_LIGHTS_TERMINATOR_SOFTNESS },
-          uLimbSoftness: { value: NIGHT_LIGHTS_LIMB_SOFTNESS }
+          uTerminatorSoftness: { value: NIGHT_LIGHTS_TERMINATOR_SOFTNESS }
         },
         vertexShader: specularVertexShader,
         fragmentShader: nightLightsFragmentShader,
@@ -1076,8 +1086,7 @@ export class GlobeVisualsLayer {
           uDayMap: { value: null },
           uCameraPos: { value: new THREE.Vector3(0, 0, 2) },
           uSunDir: { value: new THREE.Vector3(0, 0, 1) },
-          uOpacity: { value: 0 },
-          uLimbSoftness: { value: DAY_MAP_LIMB_SOFTNESS }
+          uOpacity: { value: 0 }
         },
         vertexShader: specularVertexShader,
         fragmentShader: dayMapFragmentShader,
