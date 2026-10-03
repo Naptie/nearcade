@@ -1655,35 +1655,56 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
 };
 
 /**
- * Convert GPS coordinates to AMap coordinates when AMap is available
+ * Convert GPS (WGS-84) coordinates to GCJ-02 ("Mars coordinates").
+ *
+ * Delegates to our own `/api/geo/translate` endpoint (Tencent coord translate,
+ * SK-signed server-side, same-origin-gated) and falls back to the AMap JS SDK
+ * when available. Conversion is never done locally — the provider owns the
+ * datum.
  */
 export const convertCoordinates = (
   location: { latitude: number; longitude: number },
   amap?: typeof AMap
-) => {
-  if (amap && location.latitude !== undefined && location.longitude !== undefined) {
-    return new Promise<typeof location>((resolve, reject) => {
-      amap.convertFrom(
-        [location.longitude, location.latitude],
-        'gps',
-        (status: string, response: { info: string; locations: { lat: number; lng: number }[] }) => {
-          if (status === 'complete' && response.info === 'ok') {
-            const result = response.locations[0];
-            location.latitude = result.lat;
-            location.longitude = result.lng;
-            resolve(location);
-          } else {
-            console.error('AMap conversion failed:', status, response);
-            reject(new Error('AMap conversion failed'));
-          }
-        }
-      );
+) =>
+  fetch(`/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}`)
+    .then(async (response) => {
+      const data = (await response.json()) as {
+        converted: boolean;
+        lng: number;
+        lat: number;
+      };
+      if (!response.ok) throw new Error('Coordinate translation failed');
+      location.longitude = data.lng;
+      location.latitude = data.lat;
+      return location;
+    })
+    .catch((err) => {
+      console.warn('Coordinate translation endpoint failed, falling back to AMap:', err);
+      if (amap && location.latitude !== undefined && location.longitude !== undefined) {
+        return new Promise<typeof location>((resolve, reject) => {
+          amap.convertFrom(
+            [location.longitude, location.latitude],
+            'gps',
+            (
+              status: string,
+              response: { info: string; locations: { lat: number; lng: number }[] }
+            ) => {
+              if (status === 'complete' && response.info === 'ok') {
+                const result = response.locations[0];
+                location.latitude = result.lat;
+                location.longitude = result.lng;
+                resolve(location);
+              } else {
+                console.error('AMap conversion failed:', status, response);
+                reject(new Error('AMap conversion failed'));
+              }
+            }
+          );
+        });
+      }
+      console.warn('AMap not available, using unconverted coordinates');
+      return location;
     });
-  } else {
-    console.warn('AMap not available or location not set, skipping conversion');
-    return Promise.resolve(location);
-  }
-};
 
 export const aggregateGames = <T extends { titleId: number; quantity: number }>(shop: {
   games: T[];

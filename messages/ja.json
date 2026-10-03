@@ -1454,6 +1454,7 @@
   "shop_add_game": "ゲームを追加",
   "shop_address": "住所",
   "shop_address_add_field": "住所フィールドを追加",
+  "shop_address_autofill_failed": "選択した位置から地域を自動判定できませんでした。手動で選択してください。",
   "shop_address_city": "市区",
   "shop_address_country": "国/地域",
   "shop_address_county": "区/郡",

@@ -3,7 +3,6 @@ import type { Game, Shop } from '$lib/types';
 import { calculateDistance, toPlainObject, getShopTimeInfo } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { base } from '$app/paths';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { getShopsAttendanceData } from './attendance.server';
 import type { PublicUser } from '$lib/auth/types';
@@ -13,7 +12,7 @@ import {
   type DiscoverResponse
 } from '$lib/schemas/discover';
 import { parseQueryOrError } from '$lib/utils/validation.server';
-import { env } from '$env/dynamic/private';
+import { translateToGcj02 } from '$lib/utils/geo.server';
 import {
   METRO_ENTRY_OVERHEAD_SECONDS,
   METRO_EXIT_OVERHEAD_SECONDS,
@@ -56,29 +55,15 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     convertFrom
   } = parsedQuery;
 
-  // Convert coordinates from a non-GCJ-02 system if requested
+  // Convert coordinates from a non-GCJ-02 system if requested.
+  // Tencent coord translate first (per-feature daily quota); AMap remains the
+  // fallback so discovery degrades gracefully if Tencent is unavailable.
   if (convertFrom) {
-    try {
-      const convertUrl = new URL(
-        `${base}/_AMapService/v3/assistant/coordinate/convert`,
-        url.origin
-      );
-      convertUrl.searchParams.set('locations', `${longitude},${latitude}`);
-      convertUrl.searchParams.set('coordsys', convertFrom);
-      convertUrl.searchParams.set('key', env.AMAP_KEY);
-      const response = await fetch(convertUrl.toString());
-      const data = (await response.json()) as { status: string; info: string; locations?: string };
-      if (data.status === '1' && data.locations) {
-        const [convertedLng, convertedLat] = data.locations.split(';')[0].split(',').map(Number);
-        if (!isNaN(convertedLng) && !isNaN(convertedLat)) {
-          longitude = convertedLng;
-          latitude = convertedLat;
-        }
-      } else {
-        console.error('AMap coordinate conversion failed:', data.info);
-      }
-    } catch (err) {
-      console.error('Failed to convert coordinates via AMap:', err);
+    const converted = await translateToGcj02(longitude, latitude, convertFrom, url.origin);
+    if (converted) {
+      [longitude, latitude] = converted;
+    } else {
+      console.error('Coordinate translation failed for all providers; using original coords');
     }
   }
 

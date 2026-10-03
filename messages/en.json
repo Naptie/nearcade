@@ -1464,6 +1464,7 @@
   "shop_add_game": "Add Game",
   "shop_address": "Address",
   "shop_address_add_field": "Add Address Field",
+  "shop_address_autofill_failed": "Couldn't detect the region from the picked location — please select it manually.",
   "shop_address_city": "City",
   "shop_address_country": "Country",
   "shop_address_county": "County/District",

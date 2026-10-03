@@ -1,0 +1,213 @@
+import { error, json } from '@sveltejs/kit';
+import { AMAP_KEY, AMAP_SECRET } from '$env/static/private';
+import { m } from '$lib/paraglide/messages';
+import {
+  initRegionCache,
+  resolveRegionFromGeneral,
+  resolveRegionNearPoint
+} from '$lib/regions/utils.server';
+import { googleRegeo } from '$lib/utils/google.server';
+import mongo from '$lib/db/index.server';
+import type { RequestHandler } from './$types';
+
+/**
+ * Resolve the region hierarchy at a coordinate for the shop form.
+ *
+ * GET /api/regions/resolve?lat=..&lng=..
+ *
+ * China: server-side AMap regeo (same credentials as the `_AMapService`
+ * proxy) → region-ID hierarchy + street-level `detailed`.
+ * Overseas: Google Geocoding API reverse geocoding (via `REVERSE_PROXY`)
+ * → structured place names; the region chain is auto-selected only when a
+ * same-country region name matches near the point (≤50 km, leaf preferred),
+ * otherwise the caller keeps manual region selection. Results are cached in
+ * memory (coordinates rounded to 5 decimals, 10 min) so re-picking the same
+ * spot never re-burns provider quota.
+ */
+const CN_BOUNDS = { lngMin: 73, lngMax: 136, latMin: 3, latMax: 54 };
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+const cache = new Map<string, { at: number; value: ResolveLocationResponse }>();
+
+interface ResolveLocationResponse {
+  resolved: boolean;
+  region?: string[];
+  general?: string[];
+  detailed?: string;
+  /** How the region chain was matched ('name' = component name, 'nearest' = closest terminal region). */
+  matchedBy?: 'name' | 'nearest';
+}
+
+export const GET: RequestHandler = async ({ locals, url }) => {
+  const session = locals.session;
+  if (!session?.user) {
+    error(401, m.unauthorized());
+  }
+
+  const lat = Number(url.searchParams.get('lat'));
+  const lng = Number(url.searchParams.get('lng'));
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    error(400, 'Invalid coordinates');
+  }
+
+  const cacheKey = `${lng.toFixed(5)},${lat.toFixed(5)}`;
+  const hit = cache.get(cacheKey);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+    return json(hit.value);
+  }
+
+  const result = await resolveLocation(lng, lat, url.origin);
+  // Cache only fully-resolved results: negatives and detailed-only responses
+  // stay uncached so matcher improvements and retries take effect immediately
+  // (Google geocode is cheap; AMap regeo volume is tiny).
+  if (result.resolved && result.region?.length) {
+    cache.set(cacheKey, { at: Date.now(), value: result });
+    if (cache.size > 500) {
+      const oldest = [...cache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+      if (oldest) cache.delete(oldest[0]);
+    }
+  }
+  return json(result);
+};
+
+async function resolveLocation(
+  lng: number,
+  lat: number,
+  referer: string
+): Promise<ResolveLocationResponse> {
+  // AMap regeo only covers China and expects GCJ-02; skip it for foreign coords.
+  const inCn =
+    lng >= CN_BOUNDS.lngMin &&
+    lng <= CN_BOUNDS.lngMax &&
+    lat >= CN_BOUNDS.latMin &&
+    lat <= CN_BOUNDS.latMax;
+  if (inCn) {
+    // Don't fall through to Google inside China: Google returns WGS-84-based
+    // data with poor CN coverage, while our stored CN coordinates are GCJ-02.
+    const amap = await resolveByAmap(lng, lat);
+    return amap ?? { resolved: false };
+  }
+
+  // Overseas: Google reverse geocoding.
+  return resolveByGoogle(lng, lat, referer);
+}
+
+const POSTAL_RE = /\b\d{4,10}(?:[- ]\d{2,4})?\b|\b[A-Z]\d[A-Z](?: ?\d[A-Z]\d)?\b/;
+const normSegment = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+async function resolveByGoogle(
+  lng: number,
+  lat: number,
+  referer: string
+): Promise<ResolveLocationResponse> {
+  const g = await googleRegeo(lat, lng, referer);
+  if (!g || !g.formatted) return { resolved: false };
+
+  // Street-level detail: strip trailing administrative segments (country,
+  // admin1/2, locality, postal) from the formatted address, keeping ≥1 part.
+  const drop = new Set(
+    [
+      g.country.long,
+      g.country.short,
+      'usa',
+      'uk',
+      g.admin1?.long,
+      g.admin1?.short,
+      g.admin2,
+      g.locality,
+      g.postalTown,
+      g.sublocality
+    ]
+      .filter((s): s is string => !!s)
+      .map(normSegment)
+  );
+  const parts = g.formatted
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  while (parts.length > 1) {
+    const last = parts[parts.length - 1];
+    if (drop.has(normSegment(last)) || POSTAL_RE.test(last)) parts.pop();
+    else break;
+  }
+
+  // Region auto-select, two tiers: a same-country region whose name matches an
+  // address component within 50 km (leaf preferred), else the nearest terminal
+  // region within 25 km (pragmatic point-in-region proxy).
+  await initRegionCache(mongo);
+  const names = [
+    g.locality,
+    g.postalTown,
+    g.sublocality,
+    g.neighborhood,
+    g.admin2,
+    g.admin1?.long
+  ].filter((s): s is string => !!s);
+  const matched = await resolveRegionNearPoint(g.country.short, names, [lng, lat]);
+
+  const general = [g.country.long, g.admin1?.long, g.admin2, g.locality].filter(
+    (s): s is string => !!s
+  );
+  return {
+    resolved: true,
+    ...(matched ? { region: matched.chain, matchedBy: matched.matchedBy } : {}),
+    general,
+    detailed: parts.join(', ')
+  };
+}
+
+async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationResponse | null> {
+  if (!AMAP_KEY || !AMAP_SECRET) return null;
+
+  const regeoUrl = new URL('https://restapi.amap.com/v3/geocode/regeo');
+  regeoUrl.searchParams.set('key', AMAP_KEY);
+  regeoUrl.searchParams.set('jscode', AMAP_SECRET);
+  regeoUrl.searchParams.set('location', `${lng.toFixed(6)},${lat.toFixed(6)}`);
+
+  let data: {
+    status?: string;
+    regeocode?: {
+      formatted_address?: string;
+      addressComponent?: { province?: string; city?: string | string[]; district?: string };
+    };
+  };
+  try {
+    const response = await fetch(regeoUrl, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return { resolved: false };
+    data = await response.json();
+  } catch {
+    return { resolved: false };
+  }
+
+  const component = data.regeocode?.addressComponent;
+  const province = typeof component?.province === 'string' ? component.province.trim() : '';
+  const cityRaw = Array.isArray(component?.city) ? component?.city?.[0] : component?.city;
+  const city = typeof cityRaw === 'string' ? cityRaw.trim() : '';
+  const district = typeof component?.district === 'string' ? component.district.trim() : '';
+  if (!province) return { resolved: false };
+
+  // Municipalities repeat the province as the city; drop consecutive dupes.
+  const names: string[] = [];
+  for (const part of ['中国', province, city, district]) {
+    if (part && part !== names[names.length - 1]) names.push(part);
+  }
+
+  await initRegionCache(mongo);
+  const region = resolveRegionFromGeneral(names);
+  if (!region || region.length === 0) return { resolved: false };
+
+  let detailed = data.regeocode?.formatted_address?.trim() ?? '';
+  for (const name of [province, city, district]) {
+    if (name && detailed.startsWith(name)) detailed = detailed.slice(name.length).trim();
+  }
+  if (!detailed) detailed = data.regeocode?.formatted_address?.trim() ?? '';
+
+  return { resolved: true, region, general: names, detailed };
+}

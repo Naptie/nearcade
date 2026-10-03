@@ -411,3 +411,126 @@ export async function getRegionHierarchyByIds(
 
   return { levels };
 }
+
+// ── Coordinate-anchored overseas resolution ────────────────────────────────
+
+const haversineKmLocal = (a: [number, number], b: [number, number]): number => {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const la1 = toRad(a[1]);
+  const la2 = toRad(b[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
+/** Normalize a place name for fuzzy comparison (diacritics, admin suffixes, punctuation). */
+const normalizePlaceName = (s: string): string => {
+  let n = s
+    .replace(/\([^)]*\)/g, '')
+    .replace(/[（）]/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-–—]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  let prev = '';
+  while (prev !== n) {
+    prev = n;
+    n = n
+      .replace(
+        /\s*(prefecture|metropolis|municipality|metropolitan|province|county|district|borough|township|town|village|state|region|island|city|of america|ku|shi|ken|fu)$/g,
+        ''
+      )
+      .replace(/(特别行政区|自治区|自治州|自治县|自治旗|地区|街道|市|省|区|县|旗|盟)$/g, '')
+      .replace(/\s/g, '');
+  }
+  return n;
+};
+
+/**
+ * Resolve an overseas region-ID chain for a point, two tiers:
+ *
+ *  1. name match — one of `names` (e.g. Google address components) equals a
+ *     same-country region's name, within `maxKm` of the point (leaf preferred
+ *     over administrative ancestors).
+ *  2. nearest leaf — when no name matches, the nearest TERMINAL region in the
+ *     country's subtree within `nearestKm` wins (pragmatic point-in-region
+ *     proxy for dense datasets; boundary-adjacent picks may land on the
+ *     neighbouring district's centroid).
+ *
+ * Returns the ID chain (root→leaf) plus which tier matched, or null.
+ */
+export async function resolveRegionNearPoint(
+  countryId: string,
+  names: string[],
+  coords: [number, number],
+  maxKm: number = 50,
+  nearestKm: number = 25
+): Promise<{ chain: string[]; matchedBy: 'name' | 'nearest' } | null> {
+  const regionsById = byId;
+  const kids = childrenByParentId;
+  if (!regionsById || !kids) return null;
+  if (!regionsById.has(countryId)) return null;
+
+  const chainOf = (region: Region): string[] => {
+    const chain: string[] = [];
+    let cur: Region | undefined = region;
+    while (cur) {
+      chain.unshift(cur.id);
+      cur = cur.parentId ? regionsById.get(cur.parentId) : undefined;
+    }
+    return chain;
+  };
+
+  // Tier 1: name match anchored to the point.
+  const wanted = new Set(names.map(normalizePlaceName).filter(Boolean));
+  if (wanted.size > 0) {
+    const candidates: { region: Region; dist: number; isLeaf: boolean }[] = [];
+    const walk = (id: string) => {
+      for (const child of kids.get(id) ?? []) {
+        for (const key of [child.name.en, child.name.zh]) {
+          if (key && wanted.has(normalizePlaceName(key))) {
+            if (child.location?.coordinates) {
+              candidates.push({
+                region: child,
+                dist: haversineKmLocal(coords, child.location.coordinates),
+                isLeaf: !kids.has(child.id)
+              });
+            }
+            break;
+          }
+        }
+        walk(child.id);
+      }
+    };
+    walk(countryId);
+
+    candidates.sort((a, b) => (a.isLeaf === b.isLeaf ? a.dist - b.dist : a.isLeaf ? -1 : 1));
+    const best = candidates[0];
+    if (best && best.dist <= maxKm) {
+      return { chain: chainOf(best.region), matchedBy: 'name' };
+    }
+  }
+
+  // Tier 2: nearest terminal region regardless of name (dense-dataset proxy).
+  const walkLeaves = (id: string): { region: Region; dist: number } | null => {
+    let best: { region: Region; dist: number } | null = null;
+    for (const child of kids.get(id) ?? []) {
+      if (!kids.has(child.id) && child.location?.coordinates) {
+        const dist = haversineKmLocal(coords, child.location.coordinates);
+        if (!best || dist < best.dist) best = { region: child, dist };
+      }
+      const sub = walkLeaves(child.id);
+      if (sub && (!best || sub.dist < best.dist)) best = sub;
+    }
+    return best;
+  };
+  const nearest = walkLeaves(countryId);
+  if (nearest && nearest.dist <= nearestKm) {
+    return { chain: chainOf(nearest.region), matchedBy: 'nearest' };
+  }
+  return null;
+}

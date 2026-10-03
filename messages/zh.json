@@ -1454,6 +1454,7 @@
   "shop_add_game": "添加机台",
   "shop_address": "地址",
   "shop_address_add_field": "添加地址字段",
+  "shop_address_autofill_failed": "无法从所选位置自动识别地区，请手动选择。",
   "shop_address_city": "城市",
   "shop_address_country": "国家/地区",
   "shop_address_county": "区/县",

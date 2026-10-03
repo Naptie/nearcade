@@ -25,6 +25,9 @@
     regionComplete?: boolean;
     /** Initial region IDs to pre-populate (e.g. when editing). */
     initialRegionIds?: string[];
+    /** Region IDs resolved externally (e.g. from a location pick); when it
+     *  changes to a new non-empty chain, the cascade re-resolves and selects it. */
+    resolvedRegionIds?: string[];
     /** CSS class for the grid container. */
     gridClass?: string;
   };
@@ -33,6 +36,7 @@
     regionIds = $bindable<string[]>(),
     regionComplete = $bindable<boolean>(),
     initialRegionIds,
+    resolvedRegionIds,
     gridClass = 'grid grid-cols-2 gap-1'
   }: Props = $props();
 
@@ -111,40 +115,52 @@
 
   // ---- Pre-population ----
 
+  /** Re-resolve the cascade levels from a full region-ID chain. */
+  async function applyRegionIds(ids: string[]) {
+    const response = await fetch(`${REGIONS_ENDPOINT}/${ids.join('/')}?locale=${getLocale()}`);
+    if (!response.ok) throw new Error('Failed to resolve region hierarchy');
+
+    const data = (await response.json()) as {
+      levels: {
+        region: { id: string; label: string; level: string; hasChildren: boolean };
+        options: RegionOption[];
+      }[];
+    };
+
+    const levels: RegionLevel[] = data.levels.map((l) => ({
+      options: l.options,
+      selectedId: l.region.id
+    }));
+
+    // If the last selected region has children, load one more empty level.
+    const last = data.levels[data.levels.length - 1];
+    if (last?.region.hasChildren) {
+      const childOptions = await fetchRegionOptions(last.region.id);
+      levels.push({ options: childOptions, selectedId: '' });
+    }
+
+    regionLevels = levels;
+  }
+
   $effect(() => {
     if (regionPrefilled) return;
     if (regionLevels.length === 0 || regionLevels[0].options.length === 0) return;
     if (!initialRegionIds || initialRegionIds.length === 0) return;
 
     regionPrefilled = true;
+    applyRegionIds(initialRegionIds).catch(console.error);
+  });
 
-    const ids = initialRegionIds;
-
-    (async () => {
-      const response = await fetch(`${REGIONS_ENDPOINT}/${ids.join('/')}?locale=${getLocale()}`);
-      if (!response.ok) throw new Error('Failed to resolve region hierarchy');
-
-      const data = (await response.json()) as {
-        levels: {
-          region: { id: string; label: string; level: string; hasChildren: boolean };
-          options: RegionOption[];
-        }[];
-      };
-
-      const levels: RegionLevel[] = data.levels.map((l) => ({
-        options: l.options,
-        selectedId: l.region.id
-      }));
-
-      // If the last selected region has children, load one more empty level.
-      const last = data.levels[data.levels.length - 1];
-      if (last?.region.hasChildren) {
-        const childOptions = await fetchRegionOptions(last.region.id);
-        levels.push({ options: childOptions, selectedId: '' });
-      }
-
-      regionLevels = levels;
-    })().catch(console.error);
+  // Re-resolve when a location pick resolves a new region chain externally.
+  let lastResolvedKey = '';
+  $effect(() => {
+    const ids = resolvedRegionIds;
+    if (!ids || ids.length === 0) return;
+    const key = ids.join('/');
+    if (key === lastResolvedKey) return;
+    lastResolvedKey = key;
+    if (regionLevels.length === 0 || regionLevels[0].options.length === 0) return;
+    applyRegionIds(ids).catch(console.error);
   });
 </script>
 

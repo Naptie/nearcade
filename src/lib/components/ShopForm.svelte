@@ -139,6 +139,70 @@
     return addr.region.map((r) => (typeof r === 'string' ? r : r.id));
   });
 
+  // ---- Location → address resolution ----
+  // A picked/prefilled location is the primary source: the server reverse-
+  // geocodes it (AMap regeo for China) and we drive the region cascade + the
+  // detailed address from the result, so region/coords/detail always agree.
+
+  /** Region chain resolved from the last location pick (drives the cascade). */
+  let resolvedRegionIds = $state<string[]>([]);
+  let resolvingLocation = $state(false);
+  let resolveFailed = $state(false);
+  /** True once the user types a custom detailed address; autofill then stops overwriting it. */
+  let detailedTouchedManually = $state(false);
+  /** Guards the one-shot auto-resolve for prefilled locations (e.g. from /globe). */
+  let autoResolveAttempted = $state(false);
+
+  async function resolveFromLocation(coords: [number, number], fallbackAddress?: string) {
+    resolvingLocation = true;
+    resolveFailed = false;
+    try {
+      const [lng, lat] = coords;
+      const response = await fetch(`/api/regions/resolve?lat=${lat}&lng=${lng}`);
+      const result = (await response.json().catch(() => null)) as {
+        resolved: boolean;
+        region?: string[];
+        detailed?: string;
+      } | null;
+      if (!response.ok || !result?.resolved) {
+        resolveFailed = true;
+        if (fallbackAddress && !detailedAddress && !detailedTouchedManually) {
+          detailedAddress = fallbackAddress;
+        }
+        return;
+      }
+      if (result.region?.length) {
+        resolvedRegionIds = result.region;
+      } else {
+        // Provider gave an address but no confident region match — the user
+        // still picks the region manually.
+        resolveFailed = true;
+      }
+      if (result.detailed && !detailedTouchedManually) {
+        detailedAddress = result.detailed;
+      }
+    } catch {
+      resolveFailed = true;
+      if (fallbackAddress && !detailedAddress && !detailedTouchedManually) {
+        detailedAddress = fallbackAddress;
+      }
+    } finally {
+      resolvingLocation = false;
+    }
+  }
+
+  // Prefilled locations (e.g. arriving from /globe with coordinates) resolve
+  // once on mount so the region/detailed fields populate without a pick.
+  // Skipped when the initial data already carries a region (edit mode or a
+  // restored draft) — the cascade prefill owns that state.
+  $effect(() => {
+    if (autoResolveAttempted || resolvingLocation) return;
+    if (!location || regionIds.length > 0) return;
+    if (initialRegionIds && initialRegionIds.length > 0) return;
+    autoResolveAttempted = true;
+    void resolveFromLocation(location.coordinates);
+  });
+
   // ---- Games ----
 
   let games = $state<GameFormData[]>(
@@ -365,46 +429,7 @@
     <MarkdownEditor bind:value={comment} placeholder={m.shop_description()} />
   </div>
 
-  <!-- Address -->
-  <div class="form-control gap-3">
-    <span class="label-text font-medium">{m.shop_address()}</span>
-    <div class="flex flex-col gap-1">
-      <div
-        onfocusin={() => {
-          regionSectionTouched = false;
-        }}
-        onfocusout={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            regionSectionTouched = true;
-          }
-        }}
-      >
-        <RegionCascadeSelect bind:regionIds bind:regionComplete {initialRegionIds} />
-      </div>
-
-      {#if regionIds.length > 0 && !regionComplete && regionSectionTouched}
-        <p class="text-warning text-xs">
-          <i class="fa-solid fa-circle-info"></i>
-          {m.shop_region_incomplete()}
-        </p>
-      {/if}
-    </div>
-
-    <!-- Detailed address -->
-    <div class="mt-2 flex flex-col">
-      <label class="label-text text-sm" for="shop-address-detailed"
-        >{m.shop_address_detailed()}</label
-      >
-      <input
-        id="shop-address-detailed"
-        type="text"
-        class="input input-bordered w-full"
-        bind:value={detailedAddress}
-      />
-    </div>
-  </div>
-
-  <!-- Location -->
+  <!-- Location (resolved first: drives the address fields below) -->
   <div class="form-control gap-3">
     <span class="label-text font-medium">{m.shop_location()}</span>
     <div class="bg-base-200/50 flex items-center gap-3 rounded-xl p-3">
@@ -421,6 +446,9 @@
           </div>
         </div>
       {/if}
+      {#if resolvingLocation}
+        <span class="loading loading-spinner loading-sm text-primary"></span>
+      {/if}
       <button
         type="button"
         class="btn btn-soft w-fit self-end"
@@ -429,6 +457,59 @@
         <i class="fa-solid fa-map-location-dot"></i>
         {m.pick_location()}
       </button>
+    </div>
+  </div>
+
+  <!-- Address -->
+  <div class="form-control gap-3">
+    <span class="label-text font-medium">{m.shop_address()}</span>
+    <div class="flex flex-col gap-1">
+      <div
+        onfocusin={() => {
+          regionSectionTouched = false;
+        }}
+        onfocusout={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            regionSectionTouched = true;
+          }
+        }}
+      >
+        <RegionCascadeSelect
+          bind:regionIds
+          bind:regionComplete
+          {initialRegionIds}
+          {resolvedRegionIds}
+        />
+      </div>
+
+      {#if regionIds.length > 0 && !regionComplete && regionSectionTouched}
+        <p class="text-warning text-xs">
+          <i class="fa-solid fa-circle-info"></i>
+          {m.shop_region_incomplete()}
+        </p>
+      {/if}
+      {#if resolveFailed}
+        <p class="text-warning text-xs">
+          <i class="fa-solid fa-circle-info"></i>
+          {m.shop_address_autofill_failed()}
+        </p>
+      {/if}
+    </div>
+
+    <!-- Detailed address -->
+    <div class="mt-2 flex flex-col">
+      <label class="label-text text-sm" for="shop-address-detailed"
+        >{m.shop_address_detailed()}</label
+      >
+      <input
+        id="shop-address-detailed"
+        type="text"
+        class="input input-bordered w-full"
+        bind:value={detailedAddress}
+        oninput={() => {
+          detailedTouchedManually = true;
+        }}
+      />
     </div>
   </div>
 
@@ -657,8 +738,11 @@
       coordinates: [loc.longitude, loc.latitude]
     };
     locationName = loc.name ?? '';
-    if (loc.address && !detailedAddress) {
-      detailedAddress = loc.address;
-    }
+    // The picked location now drives the address: resolve the region chain and
+    // the street-level detailed address server-side. The picker's own formatted
+    // address (which duplicates the hierarchy) is only a fallback when the
+    // reverse geocode fails and nothing was typed yet.
+    autoResolveAttempted = true;
+    void resolveFromLocation([loc.longitude, loc.latitude], loc.address ?? undefined);
   }}
 />
