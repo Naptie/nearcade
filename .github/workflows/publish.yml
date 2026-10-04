@@ -82,6 +82,7 @@ jobs:
           CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
           AMAP_KEY: ${{ secrets.AMAP_KEY }}
           AMAP_SECRET: ${{ secrets.AMAP_SECRET }}
+          TENCENT_MAPS_SK: ${{ secrets.TENCENT_MAPS_SK }}
           WECHAT_TEMPLATE_BIND_RESULT: ${{ secrets.WECHAT_TEMPLATE_BIND_RESULT }}
           WECHAT_TEMPLATE_QUEUE_NOTIFICATION: ${{ secrets.WECHAT_TEMPLATE_QUEUE_NOTIFICATION }}
 

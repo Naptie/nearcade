@@ -7,8 +7,9 @@
  *   `sig = md5(path?sortedParams + SK)` (Tencent WebService signature scheme).
  * - Otherwise the request origin is sent as Referer for domain-authorized keys.
  */
-import { env } from '$env/dynamic/private';
 import { createHash } from 'node:crypto';
+import { PUBLIC_TENCENT_MAPS_KEY } from '$env/static/public';
+import { env } from '$env/dynamic/private';
 
 type TranslateFrom = 'gps' | 'baidu' | 'mapbar';
 
@@ -38,7 +39,7 @@ export const tencentTranslateToGcj02 = async (
   from: TranslateFrom,
   referer: string
 ): Promise<[number, number] | null> => {
-  const key = env.TENCENT_MAPS_KEY || env.PUBLIC_TENCENT_MAPS_KEY;
+  const key = PUBLIC_TENCENT_MAPS_KEY;
   if (!key) return null;
 
   const memoKey = `${from}:${lng.toFixed(3)},${lat.toFixed(3)}`;
@@ -95,7 +96,7 @@ export const tencentRegeo = async (
   lng: number,
   referer: string
 ): Promise<TencentRegeo | null> => {
-  const key = env.TENCENT_MAPS_KEY || env.PUBLIC_TENCENT_MAPS_KEY;
+  const key = PUBLIC_TENCENT_MAPS_KEY;
   if (!key) return null;
   const path = '/ws/geocoder/v1/';
   const params: Record<string, string> = { key, location: `${lat.toFixed(6)},${lng.toFixed(6)}` };
