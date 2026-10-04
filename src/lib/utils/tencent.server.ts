@@ -76,7 +76,8 @@ export const tencentTranslateToGcj02 = async (
       translateMemo.delete(translateMemo.keys().next().value as string);
     }
     return result;
-  } catch {
+  } catch (err) {
+    console.error('[regions/resolve] Tencent regeo fetch failed:', (err as Error).message, (err as Error).cause);
     return null;
   }
 };
@@ -124,7 +125,10 @@ export const tencentRegeo = async (
       console.error('[regions/resolve] Tencent regeo failed:', data.status, data.message ?? '');
       return null;
     }
-    if (!comp.province) return null;
+    if (!comp.province) {
+      console.error('[regions/resolve] Tencent regeo returned no province for', lat, lng, JSON.stringify(data.result?.address_component ?? null).slice(0, 200));
+      return null;
+    }
     return {
       province: comp.province ?? '',
       city: comp.city ?? '',
