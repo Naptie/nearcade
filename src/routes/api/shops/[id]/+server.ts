@@ -4,6 +4,7 @@ import type { z } from 'zod';
 import { getShopTimeInfo, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { syncShopDocument } from '$lib/db/meili.server';
+import { reassignShopTransitInBackground } from '$lib/openmetro/assign.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
 import { openingHoursSchema } from '$lib/schemas/common';
@@ -512,6 +513,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       } catch (meiliErr) {
         console.error('Failed to sync updated shop to Meilisearch:', meiliErr);
       }
+    }
+
+    // A location/address edit can move the shop across the metro network:
+    // reassign its station immediately instead of waiting for the next
+    // full openmetro sync.
+    if (updateFields.location !== undefined || updateFields.address !== undefined) {
+      reassignShopTransitInBackground(mongo, shopId);
     }
 
     const rawRegion = updated!.address?.region;

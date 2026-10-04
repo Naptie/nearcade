@@ -9,6 +9,7 @@ import type {
 import { nanoid } from 'nanoid';
 import { resolveShopAddress } from '$lib/utils/region.server';
 import { syncShopDocument } from '$lib/db/meili.server';
+import { reassignShopTransitInBackground } from '$lib/openmetro/assign.server';
 import { auditUgc, type UgcAuditBlock } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 import { shopUgcTexts } from '$lib/ugc/shop-fields.server';
@@ -598,6 +599,10 @@ export const applyShopRollback = async (
   } catch (meiliErr) {
     console.error('Failed to sync rolled-back shop to Meilisearch:', meiliErr);
   }
+
+  // A rollback can restore a previous location: reassign the metro station
+  // so `transit.metro` follows the restored coordinates (non-fatal).
+  reassignShopTransitInBackground(client, shopId);
 
   await logShopChange(client, {
     shopId,

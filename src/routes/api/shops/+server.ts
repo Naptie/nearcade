@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import mongo from '$lib/db/index.server';
 import { syncShopDocument } from '$lib/db/meili.server';
+import { reassignShopTransitInBackground } from '$lib/openmetro/assign.server';
 import type { Shop } from '$lib/types';
 import type { z } from 'zod';
 import { getShopTimeInfo, toPlainObject } from '$lib/utils';
@@ -368,6 +369,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     } catch (meiliErr) {
       console.error('Failed to sync new shop to Meilisearch:', meiliErr);
     }
+
+    // Assign the nearest metro station right away so the new shop is
+    // immediately discoverable via the metro arm; the full openmetro sync
+    // remains the system of record.
+    reassignShopTransitInBackground(mongo, newId);
 
     // Register entry + background pre-translation + LLM audit for the text.
     submitUgc('shop', newShop.id, session.user, shopUgcTexts);

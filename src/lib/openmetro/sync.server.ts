@@ -7,14 +7,17 @@
  * `scripts/verify-metro.ts` drives the exact same code the admin task runs.
  *
  * Written ONLY here; everything downstream (snapshot cache, discover, future
- * rankings API) reads the persisted collections.
+ * rankings API) reads the persisted collections. The shop→station assignment
+ * primitives (`buildShopMetro` / `shopTransitUpdate`) live in
+ * `assign.server.ts` and are shared with the incremental single-shop path.
  */
 import { createHash } from 'node:crypto';
 import type { AnyBulkWriteOperation, Collection, Document, MongoClient } from 'mongodb';
 import { createClient } from 'openmetro-client';
 import { METRO_ACCESS_MAX_KM } from '$lib/constants';
 import type { ShopMetro } from '$lib/schemas/metro';
-import { computeWalkSeconds, snapToStation } from './graph.server';
+import { snapToStation } from './graph.server';
+import { buildShopMetro, shopTransitUpdate } from './assign.server';
 import {
   createStationLineBadges,
   rebuildMetroRankings,
@@ -435,34 +438,12 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
         ? snapToStation(allStationDocs, lat as number, lng as number, METRO_ACCESS_MAX_KM)
         : null;
 
-    const nextMetro: ShopMetro | null = snap
-      ? {
-          networkId: snap.station.networkId,
-          stationId: snap.station._id,
-          stationName: snap.station.name,
-          names: snap.station.names,
-          walkSeconds: computeWalkSeconds(snap.distanceKm),
-          distanceKm: Math.round(snap.distanceKm * 1000) / 1000,
-          lines: stationLineBadges(snap.station)
-        }
-      : null;
-
-    if (JSON.stringify(shop.transit?.metro ?? null) !== JSON.stringify(nextMetro)) {
-      shopOps.push(
-        nextMetro
-          ? {
-              updateOne: {
-                filter: { id: shop.id },
-                update: { $set: { 'transit.metro': nextMetro } }
-              }
-            }
-          : {
-              updateOne: {
-                filter: { id: shop.id },
-                update: { $unset: { 'transit.metro': '' } }
-              }
-            }
-      );
+    const nextMetro = buildShopMetro(snap, stationLineBadges);
+    const transitUpdate = shopTransitUpdate(shop.transit?.metro, nextMetro);
+    if (transitUpdate) {
+      shopOps.push({
+        updateOne: { filter: { id: shop.id }, update: transitUpdate }
+      } as (typeof shopOps)[number]);
     }
 
     if (snap) {
