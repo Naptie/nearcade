@@ -107,23 +107,31 @@ export const tencentRegeo = async (
       headers: { Referer: referer },
       signal: AbortSignal.timeout(8000)
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error('[regions/resolve] Tencent regeo HTTP', response.status);
+      return null;
+    }
     const data = (await response.json()) as {
       status?: number;
-      geocode?: {
+      message?: string;
+      result?: {
         address_component?: { province?: string; city?: string; district?: string };
         formatted_addresses?: { recommend?: string };
       };
     };
-    const comp = data.status === 0 ? data.geocode?.address_component : undefined;
-    if (!comp?.province) return null;
+    const comp = data.status === 0 ? data.result?.address_component : undefined;
+    if (!comp) {
+      console.error('[regions/resolve] Tencent regeo failed:', data.status, data.message ?? '');
+      return null;
+    }
+    if (!comp.province) return null;
     return {
       province: comp.province ?? '',
       city: comp.city ?? '',
       district: comp.district ?? '',
       formatted:
-        data.geocode?.formatted_addresses?.recommend ??
-        data.geocode?.address_component?.province ??
+        data.result?.formatted_addresses?.recommend ??
+        data.result?.address_component?.province ??
         ''
     };
   } catch {

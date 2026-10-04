@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { AMAP_KEY, AMAP_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { m } from '$lib/paraglide/messages';
 import {
   initRegionCache,
@@ -66,7 +66,12 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     return json(hit.value);
   }
 
-  const result = await resolveLocation(lng, lat, url.origin, url.searchParams.get('address') ?? undefined);
+  const result = await resolveLocation(
+    lng,
+    lat,
+    url.origin,
+    url.searchParams.get('address') ?? undefined
+  );
   // Cache only fully-resolved results: negatives and detailed-only responses
   // stay uncached so matcher improvements and retries take effect immediately
   // (Google geocode is cheap; AMap regeo volume is tiny).
@@ -95,10 +100,12 @@ async function resolveLocation(
   if (inCn) {
     // Don't fall through to Google inside China: Google returns WGS-84-based
     // data with poor CN coverage, while our stored CN coordinates are GCJ-02.
-    const amap = await resolveByAmap(lng, lat);
-    if (amap) return amap;
+    // Tencent first: it is billed per day (hard daily quota), while AMap
+    // shares a monthly pool — spend Tencent's idle quota before AMap's.
     const tencent = await resolveByTencent(lng, lat, referer);
     if (tencent) return tencent;
+    const amap = await resolveByAmap(lng, lat);
+    if (amap) return amap;
     // Last resort: parse the picker's formatted address into the hierarchy.
     return parsePickerAddress(pickerAddress);
   }
@@ -107,16 +114,26 @@ async function resolveLocation(
   return resolveByGoogle(lng, lat, referer);
 }
 
-async function resolveByTencent(lng: number, lat: number, referer: string): Promise<ResolveLocationResponse | null> {
+async function resolveByTencent(
+  lng: number,
+  lat: number,
+  referer: string
+): Promise<ResolveLocationResponse | null> {
   const g = await tencentRegeo(lat, lng, referer);
-  if (!g?.province) return null;
+  if (!g?.province) {
+    console.error('[regions/resolve] Tencent regeo failed for', lng, lat);
+    return null;
+  }
   const names: string[] = [];
   for (const part of ['中国', g.province, g.city, g.district]) {
     if (part && part !== names[names.length - 1]) names.push(part);
   }
   await initRegionCache(mongo);
   const region = resolveRegionFromGeneral(names);
-  if (!region || region.length === 0) return null;
+  if (!region || region.length === 0) {
+    console.error('[regions/resolve] AMap general did not resolve:', names.join('/'));
+    return null;
+  }
   let detailed = g.formatted.trim();
   for (const name of [g.province, g.city, g.district]) {
     if (name && detailed.startsWith(name)) detailed = detailed.slice(name.length).trim();
@@ -207,11 +224,12 @@ async function resolveByGoogle(
 }
 
 async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationResponse | null> {
-  if (!AMAP_KEY || !AMAP_SECRET) return null;
+  // Runtime env: credentials rotate in the server .env without a rebuild.
+  if (!env.AMAP_KEY || !env.AMAP_SECRET) return null;
 
   const regeoUrl = new URL('https://restapi.amap.com/v3/geocode/regeo');
-  regeoUrl.searchParams.set('key', AMAP_KEY);
-  regeoUrl.searchParams.set('jscode', AMAP_SECRET);
+  regeoUrl.searchParams.set('key', env.AMAP_KEY);
+  regeoUrl.searchParams.set('jscode', env.AMAP_SECRET);
   regeoUrl.searchParams.set('location', `${lng.toFixed(6)},${lat.toFixed(6)}`);
 
   let data: {
@@ -223,10 +241,14 @@ async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationR
   };
   try {
     const response = await fetch(regeoUrl, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) return { resolved: false };
+    if (!response.ok) {
+      console.error('[regions/resolve] AMap regeo HTTP', response.status);
+      return null;
+    }
     data = await response.json();
-  } catch {
-    return { resolved: false };
+  } catch (err) {
+    console.error('[regions/resolve] AMap regeo fetch failed:', (err as Error).message, (err as Error).cause);
+    return null;
   }
 
   const component = data.regeocode?.addressComponent;
@@ -234,7 +256,10 @@ async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationR
   const cityRaw = Array.isArray(component?.city) ? component?.city?.[0] : component?.city;
   const city = typeof cityRaw === 'string' ? cityRaw.trim() : '';
   const district = typeof component?.district === 'string' ? component.district.trim() : '';
-  if (!province) return { resolved: false };
+  if (!province) {
+    console.error('[regions/resolve] AMap regeo returned no province for', lng, lat);
+    return null;
+  }
 
   // Municipalities repeat the province as the city; drop consecutive dupes.
   const names: string[] = [];
@@ -244,7 +269,7 @@ async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationR
 
   await initRegionCache(mongo);
   const region = resolveRegionFromGeneral(names);
-  if (!region || region.length === 0) return { resolved: false };
+  if (!region || region.length === 0) return null;
 
   let detailed = data.regeocode?.formatted_address?.trim() ?? '';
   for (const name of [province, city, district]) {
