@@ -7,6 +7,8 @@ import {
   resolveRegionNearPoint
 } from '$lib/regions/utils.server';
 import { googleRegeo } from '$lib/utils/google.server';
+import { tencentRegeo } from '$lib/utils/tencent.server';
+import { parseRegionChainFromText } from '$lib/regions/utils.server';
 import mongo from '$lib/db/index.server';
 import type { RequestHandler } from './$types';
 
@@ -34,6 +36,7 @@ interface ResolveLocationResponse {
   region?: string[];
   general?: string[];
   detailed?: string;
+  needsManualRegion?: boolean;
   /** How the region chain was matched ('name' = component name, 'nearest' = closest terminal region). */
   matchedBy?: 'name' | 'nearest';
 }
@@ -63,7 +66,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     return json(hit.value);
   }
 
-  const result = await resolveLocation(lng, lat, url.origin);
+  const result = await resolveLocation(lng, lat, url.origin, url.searchParams.get('address') ?? undefined);
   // Cache only fully-resolved results: negatives and detailed-only responses
   // stay uncached so matcher improvements and retries take effect immediately
   // (Google geocode is cheap; AMap regeo volume is tiny).
@@ -80,7 +83,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 async function resolveLocation(
   lng: number,
   lat: number,
-  referer: string
+  referer: string,
+  pickerAddress?: string
 ): Promise<ResolveLocationResponse> {
   // AMap regeo only covers China and expects GCJ-02; skip it for foreign coords.
   const inCn =
@@ -92,11 +96,50 @@ async function resolveLocation(
     // Don't fall through to Google inside China: Google returns WGS-84-based
     // data with poor CN coverage, while our stored CN coordinates are GCJ-02.
     const amap = await resolveByAmap(lng, lat);
-    return amap ?? { resolved: false };
+    if (amap) return amap;
+    const tencent = await resolveByTencent(lng, lat, referer);
+    if (tencent) return tencent;
+    // Last resort: parse the picker's formatted address into the hierarchy.
+    return parsePickerAddress(pickerAddress);
   }
 
   // Overseas: Google reverse geocoding.
   return resolveByGoogle(lng, lat, referer);
+}
+
+async function resolveByTencent(lng: number, lat: number, referer: string): Promise<ResolveLocationResponse | null> {
+  const g = await tencentRegeo(lat, lng, referer);
+  if (!g?.province) return null;
+  const names: string[] = [];
+  for (const part of ['中国', g.province, g.city, g.district]) {
+    if (part && part !== names[names.length - 1]) names.push(part);
+  }
+  await initRegionCache(mongo);
+  const region = resolveRegionFromGeneral(names);
+  if (!region || region.length === 0) return null;
+  let detailed = g.formatted.trim();
+  for (const name of [g.province, g.city, g.district]) {
+    if (name && detailed.startsWith(name)) detailed = detailed.slice(name.length).trim();
+  }
+  return { resolved: true, region, general: names, detailed: detailed || g.formatted.trim() };
+}
+
+/**
+ * Final fallback: parse the picker's formatted address text against the
+ * region hierarchy (greedy longest-prefix per level) and return the matched
+ * chain plus the unmatched remainder as the detailed address.
+ */
+function parsePickerAddress(pickerAddress?: string): ResolveLocationResponse {
+  const text = pickerAddress?.trim();
+  if (!text) return { resolved: false };
+  const parsed = parseRegionChainFromText(text);
+  if (!parsed) return { resolved: false, needsManualRegion: true };
+  return {
+    resolved: true,
+    region: parsed.chain,
+    general: parsed.general,
+    detailed: parsed.remainder || text
+  };
 }
 
 const POSTAL_RE = /\b\d{4,10}(?:[- ]\d{2,4})?\b|\b[A-Z]\d[A-Z](?: ?\d[A-Z]\d)?\b/;

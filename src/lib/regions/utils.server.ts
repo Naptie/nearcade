@@ -540,3 +540,51 @@ export async function resolveRegionNearPoint(
   }
   return null;
 }
+
+/**
+ * Parse a formatted Chinese address into a region-ID chain by greedy
+ * longest-prefix matching against the hierarchy (中国 → 省 → 市 → 区县),
+ * starting only when the text begins with 中国/中华. Returns the chain and
+ * the unmatched remainder (street-level detail), or null when even the
+ * province can't be matched.
+ */
+export function parseRegionChainFromText(text: string): {
+  chain: string[];
+  general: string[];
+  remainder: string;
+} | null {
+  if (!byId || !childrenByParentId) return null;
+  let rest = text.trim();
+  if (!/^(中国|中华)/.test(rest)) rest = `中国${rest}`;
+  const chain: string[] = [];
+  const general: string[] = [];
+  let parentId: string | null = byId.get('CN') ? 'CN' : null;
+  if (!parentId) return null;
+  chain.push('CN');
+  general.push('中国');
+  rest = rest.replace(/^中国/, '');
+  let guard = 0;
+  while (guard++ < 6) {
+    let best: { region: Region; len: number } | null = null;
+    for (const child of childrenByParentId.get(parentId) ?? []) {
+      const n = child.name.zh;
+      if (n && rest.startsWith(n) && (!best || n.length > best.len)) {
+        best = { region: child, len: n.length };
+      }
+    }
+    if (!best) break;
+    chain.push(best.region.id);
+    general.push(zh(best.region.name) || en(best.region.name) || best.region.id);
+    rest = rest.slice(best.len);
+    parentId = best.region.id;
+  }
+  if (chain.length < 3) return null; // need at least province level
+  return { chain, general, remainder: rest.trim() };
+}
+
+function zh(name: Record<string, string>): string {
+  return name?.zh ?? '';
+}
+function en(name: Record<string, string>): string {
+  return name?.en ?? '';
+}

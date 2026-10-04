@@ -80,3 +80,53 @@ export const tencentTranslateToGcj02 = async (
     return null;
   }
 };
+
+export interface TencentRegeo {
+  province: string;
+  city: string;
+  district: string;
+  formatted: string;
+}
+
+/** Tencent reverse geocode (逆地址解析), SK-signed server-side. Null on failure. */
+export const tencentRegeo = async (
+  lat: number,
+  lng: number,
+  referer: string
+): Promise<TencentRegeo | null> => {
+  const key = env.TENCENT_MAPS_KEY || env.PUBLIC_TENCENT_MAPS_KEY;
+  if (!key) return null;
+  const path = '/ws/geocoder/v1/';
+  const params: Record<string, string> = { key, location: `${lat.toFixed(6)},${lng.toFixed(6)}` };
+  const sk = env.TENCENT_MAPS_SK;
+  if (sk) params.sig = tencentSig(path, params, sk);
+  const url = new URL(`https://apis.map.qq.com${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  try {
+    const response = await fetch(url, {
+      headers: { Referer: referer },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      status?: number;
+      geocode?: {
+        address_component?: { province?: string; city?: string; district?: string };
+        formatted_addresses?: { recommend?: string };
+      };
+    };
+    const comp = data.status === 0 ? data.geocode?.address_component : undefined;
+    if (!comp?.province) return null;
+    return {
+      province: comp.province ?? '',
+      city: comp.city ?? '',
+      district: comp.district ?? '',
+      formatted:
+        data.geocode?.formatted_addresses?.recommend ??
+        data.geocode?.address_component?.province ??
+        ''
+    };
+  } catch {
+    return null;
+  }
+};

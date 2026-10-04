@@ -158,7 +158,9 @@
     resolveFailed = false;
     try {
       const [lng, lat] = coords;
-      const response = await fetch(`/api/regions/resolve?lat=${lat}&lng=${lng}`);
+      const response = await fetch(
+        `/api/regions/resolve?lat=${lat}&lng=${lng}&address=${encodeURIComponent(fallbackAddress ?? '')}`
+      );
       const result = (await response.json().catch(() => null)) as {
         resolved: boolean;
         region?: string[];
@@ -166,9 +168,6 @@
       } | null;
       if (!response.ok || !result?.resolved) {
         resolveFailed = true;
-        if (fallbackAddress && !detailedAddress && !detailedTouchedManually) {
-          detailedAddress = fallbackAddress;
-        }
         return;
       }
       if (result.region?.length) {
@@ -183,9 +182,6 @@
       }
     } catch {
       resolveFailed = true;
-      if (fallbackAddress && !detailedAddress && !detailedTouchedManually) {
-        detailedAddress = fallbackAddress;
-      }
     } finally {
       resolvingLocation = false;
     }
