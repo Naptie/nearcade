@@ -56,7 +56,7 @@ export interface DataUpdateTask {
   lastError: string | null;
   progress: DataUpdateTaskProgress | null;
   summary: DataUpdateTaskSummary | null;
-  triggerSource: 'site_admin' | 'ssc' | null;
+  triggerSource: 'site_admin' | 'ssc' | 'startup' | null;
   triggerUserId: string | null;
   triggerUserName: string | null;
 }
@@ -72,7 +72,7 @@ interface DataUpdateTaskRecord {
   lastError?: string | null;
   progress?: DataUpdateTaskProgress | null;
   summary?: DataUpdateTaskSummary | null;
-  triggerSource?: 'site_admin' | 'ssc' | null;
+  triggerSource?: 'site_admin' | 'ssc' | 'startup' | null;
   triggerUserId?: string | null;
   triggerUserName?: string | null;
 }
@@ -143,7 +143,7 @@ interface RankingsUniversity {
 }
 
 export interface DataUpdateTriggerContext {
-  source: 'site_admin' | 'ssc';
+  source: 'site_admin' | 'ssc' | 'startup';
   userId?: string | null;
   userName?: string | null;
 }
@@ -167,6 +167,22 @@ type ProgressReporter = (
 const DATA_UPDATE_COLLECTION = 'admin_data_updates';
 const RANKINGS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
 const TASK_TIMEOUT_MS: Record<DataUpdateTaskId, number> = {
+  university_stats: 30 * 60 * 1000,
+  campus_rankings: 60 * 60 * 1000,
+  metro_rankings: 30 * 60 * 1000,
+  region_rankings: 60 * 60 * 1000,
+  home_stats: 15 * 60 * 1000,
+  admin_stats_snapshot: 15 * 60 * 1000,
+  meilisearch: 30 * 60 * 1000,
+  openmetro_sync: 30 * 60 * 1000
+};
+
+/**
+ * Staleness budget per task for the app-init trigger (`triggerDueDataUpdatesOnBoot`):
+ * a task skipped at boot when it completed more recently than this. Mirrors
+ * the serving-isolate refresh cadence the tasks were tuned for.
+ */
+export const DATA_UPDATE_INTERVALS: Record<DataUpdateTaskId, number> = {
   university_stats: 30 * 60 * 1000,
   campus_rankings: 60 * 60 * 1000,
   metro_rankings: 30 * 60 * 1000,
@@ -1453,4 +1469,43 @@ export const triggerDataUpdate = async (
   }
 
   return claimResult;
+};
+
+/**
+ * App-init maintenance trigger: runs due data-update tasks once per process
+ * start, never inside a dev/hot-reload cycle. A task is due when it has
+ * never run or its interval (per `DATA_UPDATE_INTERVALS`) has elapsed —
+ * `claimTaskRun` still guards against concurrent re-runs, so a restart
+ * while a task is running never duplicates it. Returns which tasks were
+ * actually claimed.
+ */
+export const triggerDueDataUpdatesOnBoot = async (
+  trigger: DataUpdateTriggerContext,
+  client: MongoClient = mongo
+): Promise<DataUpdateTaskId[]> => {
+  const due: DataUpdateTaskId[] = [];
+  const now = Date.now();
+  for (const [taskId, intervalMs] of Object.entries(DATA_UPDATE_INTERVALS)) {
+    if (taskId !== 'openmetro_sync') continue;
+    const record = normalizeTaskRecord(
+      taskId,
+      (await getTaskCollection(client).findOne({
+        _id: taskId
+      })) as Partial<DataUpdateTaskRecord> | null
+    );
+    if (record.status === 'running') continue;
+    const lastRunMs = (record.lastSuccessfulAt ?? record.startedAt ?? record.finishedAt)?.getTime();
+    if (lastRunMs !== undefined && now - lastRunMs < intervalMs) continue;
+    due.push(taskId);
+  }
+  const claimed: DataUpdateTaskId[] = [];
+  for (const taskId of due) {
+    try {
+      const result = await triggerDataUpdate(taskId, trigger, client);
+      if (result.started && !result.alreadyRunning) claimed.push(taskId);
+    } catch (error) {
+      console.error(`Data update boot trigger failed: ${taskId}`, error);
+    }
+  }
+  return claimed;
 };

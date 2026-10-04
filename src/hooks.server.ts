@@ -420,6 +420,11 @@ export const init: ServerInit = async () => {
     if (!dev) {
       const { startUgcBackgroundJobs } = await import('$lib/ugc/jobs.server');
       startUgcBackgroundJobs();
+      const { triggerDueDataUpdatesOnBoot } = await import('$lib/admin/data-updates.server');
+      triggerDueDataUpdatesOnBoot({
+        source: 'startup',
+        userName: 'App init'
+      }).catch((err) => console.error('[DataUpdates] Boot trigger error:', err));
     }
   }
 };

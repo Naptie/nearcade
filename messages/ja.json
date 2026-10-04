@@ -115,6 +115,7 @@
   "admin_data_update_source": "実行元",
   "admin_data_update_source_site_admin": "サイト管理者",
   "admin_data_update_source_ssc": "リモートサービス",
+  "admin_data_update_source_startup": "アプリ起動時",
   "admin_data_update_status_failed": "失敗",
   "admin_data_update_status_idle": "待機中",
   "admin_data_update_status_running": "実行中",

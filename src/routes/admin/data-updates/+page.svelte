@@ -27,7 +27,7 @@
     lastError?: string | null;
     progress?: { processed: number; total: number | null } | null;
     summary?: Record<string, string | number | boolean | null> | null;
-    triggerSource?: 'site_admin' | 'ssc' | null;
+    triggerSource?: 'site_admin' | 'ssc' | 'startup' | null;
     triggerUserName?: string | null;
   };
 
@@ -354,9 +354,11 @@
               <div class="mt-1 font-medium">
                 {task.triggerSource === 'ssc'
                   ? m.admin_data_update_source_ssc()
-                  : task.triggerSource === 'site_admin'
-                    ? m.admin_data_update_source_site_admin()
-                    : m.unknown()}
+                  : task.triggerSource === 'startup'
+                    ? m.admin_data_update_source_startup()
+                    : task.triggerSource === 'site_admin'
+                      ? m.admin_data_update_source_site_admin()
+                      : m.unknown()}
               </div>
             </div>
           </div>

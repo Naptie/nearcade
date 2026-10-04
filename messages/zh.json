@@ -115,6 +115,7 @@
   "admin_data_update_source": "触发来源",
   "admin_data_update_source_site_admin": "站点管理员",
   "admin_data_update_source_ssc": "远程服务",
+  "admin_data_update_source_startup": "应用启动",
   "admin_data_update_status_failed": "失败",
   "admin_data_update_status_idle": "空闲",
   "admin_data_update_status_running": "运行中",

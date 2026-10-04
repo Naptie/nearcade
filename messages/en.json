@@ -116,6 +116,7 @@
   "admin_data_update_source": "Trigger source",
   "admin_data_update_source_site_admin": "Site admin",
   "admin_data_update_source_ssc": "Remote service",
+  "admin_data_update_source_startup": "App startup",
   "admin_data_update_status_failed": "Failed",
   "admin_data_update_status_idle": "Idle",
   "admin_data_update_status_running": "Running",
