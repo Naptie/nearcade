@@ -14,9 +14,8 @@
 import { createHash } from 'node:crypto';
 import type { AnyBulkWriteOperation, Collection, Document, MongoClient } from 'mongodb';
 import { createClient } from 'openmetro-client';
-import { METRO_ACCESS_MAX_KM } from '$lib/constants';
 import type { ShopMetro } from '$lib/schemas/metro';
-import { snapToStation } from './graph.server';
+import { snapShopLocation } from './graph.server';
 import { buildShopMetro, shopTransitUpdate } from './assign.server';
 import {
   createStationLineBadges,
@@ -432,11 +431,7 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
   const assigned = new Map<string, { station: MetroStationDoc; shops: AssignableShop[] }>();
 
   for (const shop of shops) {
-    const [lng, lat] = shop.location?.coordinates ?? [];
-    const snap =
-      Number.isFinite(lat) && Number.isFinite(lng)
-        ? snapToStation(allStationDocs, lat as number, lng as number, METRO_ACCESS_MAX_KM)
-        : null;
+    const snap = snapShopLocation(allStationDocs, shop.location);
 
     const nextMetro = buildShopMetro(snap, stationLineBadges);
     const transitUpdate = shopTransitUpdate(shop.transit?.metro, nextMetro);

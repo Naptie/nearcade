@@ -6,15 +6,10 @@
  * already-persisted metro_* collections + shops — no Open Metro API calls.
  */
 import type { MongoClient } from 'mongodb';
-import {
-  GAME_TITLES,
-  METRO_ACCESS_MAX_KM,
-  METRO_RANKING_RADIUS_OPTIONS,
-  metroRankingSortKey
-} from '$lib/constants';
+import { GAME_TITLES, METRO_RANKING_RADIUS_OPTIONS, metroRankingSortKey } from '$lib/constants';
 import type { MetroStationRanking, ShopMetro } from '$lib/schemas/metro';
 import type { RankingMetrics } from '$lib/schemas/rankings';
-import { calculateDistanceKm, snapToStation } from './graph.server';
+import { calculateDistanceKm, snapShopLocation } from './graph.server';
 import type { MetroLineDoc, MetroNetworkDoc, MetroStationDoc } from './schemas';
 
 const RANKINGS_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -114,11 +109,7 @@ const deriveAssigned = (
 ): Map<string, MetroRankingStationGroup> => {
   const assigned = new Map<string, MetroRankingStationGroup>();
   for (const shop of shops) {
-    const [lng, lat] = shop.location?.coordinates ?? [];
-    const snap =
-      Number.isFinite(lat) && Number.isFinite(lng)
-        ? snapToStation(stations, lat as number, lng as number, METRO_ACCESS_MAX_KM)
-        : null;
+    const snap = snapShopLocation(stations, shop.location);
     if (!snap) continue;
     const group = assigned.get(snap.station._id);
     if (group) {

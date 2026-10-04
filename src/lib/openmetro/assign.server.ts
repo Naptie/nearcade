@@ -10,9 +10,8 @@
  * injected by the caller, never imported here.
  */
 import type { MongoClient } from 'mongodb';
-import { METRO_ACCESS_MAX_KM } from '$lib/constants';
 import type { ShopMetro } from '$lib/schemas/metro';
-import { computeWalkSeconds, snapToStation, type MetroSnapResult } from './graph.server';
+import { computeWalkSeconds, snapShopLocation, type MetroSnapResult } from './graph.server';
 import { createStationLineBadges } from './rankings.server';
 import type { MetroStationDoc } from './schemas';
 import { getMetroSnapshot } from './snapshot.server';
@@ -78,11 +77,7 @@ export const reassignShopTransit = async (client: MongoClient, shopId: number): 
   if (!shop) return;
 
   const snapshot = await getMetroSnapshot(client);
-  const [lng, lat] = shop.location?.coordinates ?? [];
-  const snap =
-    Number.isFinite(lat) && Number.isFinite(lng)
-      ? snapToStation(snapshot.operatingStations, lat as number, lng as number, METRO_ACCESS_MAX_KM)
-      : null;
+  const snap = snapShopLocation(snapshot.operatingStations, shop.location);
 
   const transitUpdate = shopTransitUpdate(
     shop.transit?.metro,

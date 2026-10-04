@@ -3,7 +3,7 @@
  * Flat global station snapping and one Dijkstra over the stop-level adjacency
  * for travel-time isochrones.
  */
-import { METRO_ORIGIN_MAX_KM } from '$lib/constants';
+import { METRO_ACCESS_MAX_KM, METRO_ORIGIN_MAX_KM } from '$lib/constants';
 import { computeWalkSeconds } from '$lib/utils/travel';
 import type { MetroEdgeDoc, MetroStationDoc } from './schemas';
 import type { MetroSnapshot } from './snapshot.server';
@@ -55,6 +55,23 @@ export const snapToStation = (
     }
   }
   return best && best.distanceKm <= maxKm ? best : null;
+};
+
+/**
+ * Snap one shop's persisted location to its nearest operating station within
+ * METRO_ACCESS_MAX_KM (null when the coordinates are missing/non-finite or
+ * no station is close enough). Shared by every assignment path — full sync
+ * Phase 3, the incremental single-shop reassignment, and ranking group
+ * derivation — so the finite-coordinate guard has one implementation.
+ */
+export const snapShopLocation = (
+  stations: MetroStationDoc[],
+  location?: { coordinates?: number[] | null } | null
+): MetroSnapResult | null => {
+  const [lng, lat] = location?.coordinates ?? [];
+  return Number.isFinite(lat) && Number.isFinite(lng)
+    ? snapToStation(stations, lat as number, lng as number, METRO_ACCESS_MAX_KM)
+    : null;
 };
 
 export interface MetroDijkstra {
