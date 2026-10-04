@@ -23,6 +23,8 @@ export interface Region {
   _settlementType?: string;
   /** Pipeline-only administrative type. */
   _adminType?: string;
+  /** Upstream selection guard: false = hidden from the region selector. */
+  selectable?: false;
   /** Stable Wikidata entity selected during enrichment. */
   _wikidataQid?: string;
 }

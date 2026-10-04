@@ -28,7 +28,11 @@ export async function initRegionCache(client: MongoClient) {
   const db = client.db();
   const raw = await db
     .collection<Region>('regions')
-    .find({})
+    // Street level is upstream data we deliberately do not expose: for arcades
+    // a county (or a 直筒子市 at city level) is already terminal and specific,
+    // and forcing a street pick adds noise. Same for regions marked
+    // `selectable: false` upstream (e.g. the collapsed Singapore capital leaf).
+    .find({ level: { $ne: 'street' } })
     .project<Region>({
       id: 1,
       parentId: 1,
@@ -38,15 +42,17 @@ export async function initRegionCache(client: MongoClient) {
       area: 1,
       location: 1,
       _settlementType: 1,
-      _adminType: 1
+      _adminType: 1,
+      selectable: 1
     })
     .toArray();
+  const visible = raw.filter((r) => r.selectable !== false);
 
-  byId = new Map(raw.map((r) => [r.id, r]));
+  byId = new Map(visible.map((r) => [r.id, r]));
 
   childrenByParentId = new Map<string | null, Region[]>();
   byName = new Map();
-  for (const region of raw) {
+  for (const region of visible) {
     const key = region.parentId;
     const bucket = childrenByParentId.get(key);
     if (bucket) {
