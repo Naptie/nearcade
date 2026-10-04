@@ -120,20 +120,14 @@ async function resolveByTencent(
   referer: string
 ): Promise<ResolveLocationResponse | null> {
   const g = await tencentRegeo(lat, lng, referer);
-  if (!g?.province) {
-    console.error('[regions/resolve] Tencent regeo failed for', lng, lat);
-    return null;
-  }
+  if (!g?.province) return null;
   const names: string[] = [];
   for (const part of ['中国', g.province, g.city, g.district]) {
     if (part && part !== names[names.length - 1]) names.push(part);
   }
   await initRegionCache(mongo);
   const region = resolveRegionFromGeneral(names);
-  if (!region || region.length === 0) {
-    console.error('[regions/resolve] AMap general did not resolve:', names.join('/'));
-    return null;
-  }
+  if (!region || region.length === 0) return null;
   let detailed = g.formatted.trim();
   for (const name of [g.province, g.city, g.district]) {
     if (name && detailed.startsWith(name)) detailed = detailed.slice(name.length).trim();
@@ -241,13 +235,9 @@ async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationR
   };
   try {
     const response = await fetch(regeoUrl, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) {
-      console.error('[regions/resolve] AMap regeo HTTP', response.status);
-      return null;
-    }
+    if (!response.ok) return null;
     data = await response.json();
-  } catch (err) {
-    console.error('[regions/resolve] AMap regeo fetch failed:', (err as Error).message, (err as Error).cause);
+  } catch {
     return null;
   }
 
@@ -256,10 +246,7 @@ async function resolveByAmap(lng: number, lat: number): Promise<ResolveLocationR
   const cityRaw = Array.isArray(component?.city) ? component?.city?.[0] : component?.city;
   const city = typeof cityRaw === 'string' ? cityRaw.trim() : '';
   const district = typeof component?.district === 'string' ? component.district.trim() : '';
-  if (!province) {
-    console.error('[regions/resolve] AMap regeo returned no province for', lng, lat);
-    return null;
-  }
+  if (!province) return null;
 
   // Municipalities repeat the province as the city; drop consecutive dupes.
   const names: string[] = [];
