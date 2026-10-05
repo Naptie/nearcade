@@ -373,7 +373,7 @@
           <i class="fa-solid fa-earth-asia"></i>
           <span>{label?.name ?? regionId}</span>
           {#if label?.path}
-            <span class="opacity-50">· {label.path}</span>
+            <span class="opacity-50">{label.path}</span>
           {/if}
           <i class="fa-solid fa-xmark text-xs"></i>
         </button>
