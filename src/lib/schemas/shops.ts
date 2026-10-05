@@ -236,7 +236,17 @@ const shopStatsSchema = z
     openDays: z.int().describe(bilingual('每周营业天数。', 'Days per week with opening hours.')),
     weeklyOpenMinutes: z
       .int()
-      .describe(bilingual('每周总营业分钟数。', 'Total opening minutes per week.'))
+      .describe(bilingual('每周总营业分钟数。', 'Total opening minutes per week.')),
+    currentAttendance: z
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        bilingual(
+          '当前在勤人数缓存。Redis 是实时数据源；此副本由签到接口在每次签到变更后刷新，供排序使用，其余统计字段重算时必须原样保留。',
+          'Cached live attendance count. Redis is the source of truth; this copy is refreshed by the check-in endpoints after every attendance change and exists for sorting. Every wholesale stats recompute must carry it over.'
+        )
+      )
   })
   .describe(bilingual('统计缓存。', 'Aggregated stats cache.'));
 

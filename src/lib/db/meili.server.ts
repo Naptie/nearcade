@@ -4,7 +4,7 @@ import { toPlainArray, toPlainObject } from '$lib/utils';
 import { env } from '$env/dynamic/private';
 import type { Shop } from '$lib/types';
 import { getShopRegionNames } from '$lib/utils/region.server';
-import { computeShopDerivedFields } from '$lib/utils/shops/derived';
+import { computeShopDerivedFields, withLiveAttendance } from '$lib/utils/shops/derived';
 import mongo from '$lib/db/index.server';
 
 let meili: Meilisearch | undefined;
@@ -57,7 +57,7 @@ export const init = async (
   const shopsWithRegionNames = await Promise.all(
     shops.map(async (shop) => {
       const regionNames = await getShopRegionNames(getShopRegionIds(shop));
-      const derived = computeShopDerivedFields(shop);
+      const derived = withLiveAttendance(computeShopDerivedFields(shop), shop);
       return {
         ...shop,
         ...derived,
@@ -174,11 +174,13 @@ const getShopRegionIds = (shop: Shop): string[] | undefined => {
  * (openingMinutes / aggGames / gameTokens / stats / timezone) onto the Mongo
  * document, keeping every write path (create, edit, rollback, machine
  * claim) in sync for Mongo-side filtering — and re-resolving the timezone
- * whenever the coordinates changed.
+ * whenever the coordinates changed. The live `stats.currentAttendance` cache
+ * is carried over untouched (see `withLiveAttendance`), since only the
+ * attendance endpoints may write it.
  * `regionNames` exists only on the indexed document, never in MongoDB.
  */
 export const syncShopDocument = async (shop: Shop): Promise<void> => {
-  const derived = computeShopDerivedFields(shop);
+  const derived = withLiveAttendance(computeShopDerivedFields(shop), shop);
   await mongo.db().collection<Shop>('shops').updateOne({ _id: shop._id }, { $set: derived });
   const regionNames = await getShopRegionNames(getShopRegionIds(shop));
   await meiliProxy.index<Shop>('shops').updateDocuments(

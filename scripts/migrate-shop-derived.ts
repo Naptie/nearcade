@@ -45,7 +45,11 @@ if (!('MONGODB_URI' in process.env)) {
   dotenv.config();
 }
 
-import { computeShopDerivedFields, canonicalizeOpeningHours } from '../src/lib/utils/shops/derived';
+import {
+  computeShopDerivedFields,
+  canonicalizeOpeningHours,
+  withLiveAttendance
+} from '../src/lib/utils/shops/derived';
 import type { Shop } from '../src/lib/types';
 
 const args = process.argv.slice(2);
@@ -138,11 +142,19 @@ const migrate = async () => {
     const hoursChanged = stableStringify(canonicalHours) !== stableStringify(rawHours);
     if (hoursChanged) stats.hoursCanonicalized += 1;
 
-    const derived = computeShopDerivedFields({
-      games: shop.games ?? [],
-      openingHours: canonicalHours,
-      location: shop.location
-    });
+    // `withLiveAttendance` carries the existing `stats.currentAttendance`
+    // cache over, so re-running this script on an already-migrated database
+    // never churns (or wipes) the live-attendance copy. It can only preserve
+    // what is still present — a value already wiped can only be restored from
+    // Redis, the source of truth.
+    const derived = withLiveAttendance(
+      computeShopDerivedFields({
+        games: shop.games ?? [],
+        openingHours: canonicalHours,
+        location: shop.location
+      }),
+      shop
+    );
 
     const set: Record<string, unknown> = {};
     if (hoursChanged) set.openingHours = canonicalHours;
