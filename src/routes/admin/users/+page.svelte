@@ -1,9 +1,9 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
   import { resolve } from '$app/paths';
-  import { onMount } from 'svelte';
   import type { PageData } from './$types';
   import {
     adaptiveNewTab,
@@ -12,21 +12,52 @@
     getDisplayName,
     getUserTypeBadgeClass,
     getUserTypeLabel,
-    pageTitle,
     userRouteId
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
+  import { buildPageHref, parsePageParam, readParam } from '$lib/admin/list-state';
   import type { User } from '$lib/auth/types';
   import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminStats from '$lib/components/admin/AdminStats.svelte';
+  import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminTable from '$lib/components/admin/AdminTable.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminLoading from '$lib/components/admin/AdminLoading.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
 
   let { data }: { data: PageData } = $props();
 
-  // Client-side search/filter state
-  let searchQuery = $state('');
-  let selectedUserType = $state('all');
-  let currentPage = $state(1);
-  let hasMore = $state(false);
+  // The list is still fetched client-side, but the URL owns search, user type
+  // and page so deep links and browser back/forward keep working.
+  const searchQuery = $derived(readParam(page.url, 'search'));
+  const currentPage = $derived(parsePageParam(page.url));
+
+  const stats = $derived(
+    Object.entries(data.userTypeStats || {}).map(([type, count]) => ({
+      label: getUserTypeLabel(type),
+      value: count
+    }))
+  );
+
+  // The empty option means "no filter", so `userType` is dropped from the URL.
+  const userTypeOptions = [
+    { value: '', label: m.admin_all_types() },
+    ...[
+      'site_admin',
+      'developer',
+      'school_admin',
+      'school_moderator',
+      'club_admin',
+      'club_moderator',
+      'student',
+      'regular'
+    ].map((option) => ({ value: option, label: getUserTypeLabel(option) }))
+  ];
+
   let users = $state<
     Array<
       User & {
@@ -35,9 +66,9 @@
       }
     >
   >([]);
+  let hasMore = $state(false);
   let isLoadingUsers = $state(false);
   let copiedId = $state<string | null>(null);
-  let searchTimeout: ReturnType<typeof setTimeout>;
 
   const copyId = async (id: string) => {
     try {
@@ -53,23 +84,26 @@
     }
   };
 
-  // Fetch users from the API
+  // Fetch users from the API, driven by the current URL state.
   const fetchUsers = async () => {
+    const search = readParam(page.url, 'search');
+    const userType = readParam(page.url, 'userType');
+    const targetPage = parsePageParam(page.url);
+
     isLoadingUsers = true;
     try {
-      const parts = [`detailed=true`, `limit=20`, `page=${currentPage}`];
-      if (searchQuery.trim()) {
-        parts.push(`q=${encodeURIComponent(searchQuery.trim())}`);
+      const parts = [`detailed=true`, `limit=20`, `page=${targetPage}`];
+      if (search.trim()) {
+        parts.push(`q=${encodeURIComponent(search.trim())}`);
       }
-      if (selectedUserType && selectedUserType !== 'all') {
-        parts.push(`userType=${encodeURIComponent(selectedUserType)}`);
+      if (userType && userType !== 'all') {
+        parts.push(`userType=${encodeURIComponent(userType)}`);
       }
       const response = await fetch(fromPath('/api/admin/users/search') + `?${parts.join('&')}`);
       if (response.ok) {
         const result = await response.json();
         users = result.users;
         hasMore = result.hasMore;
-        currentPage = result.currentPage;
       }
     } catch {
       users = [];
@@ -79,27 +113,12 @@
     }
   };
 
-  // Load users on mount
-  onMount(() => {
-    fetchUsers();
+  $effect(() => {
+    void fetchUsers();
   });
 
-  const handleSearchInput = () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      currentPage = 1;
-      fetchUsers();
-    }, 300);
-  };
-
-  const handleUserTypeChange = () => {
-    currentPage = 1;
-    fetchUsers();
-  };
-
-  const goToPage = (page: number) => {
-    currentPage = page;
-    fetchUsers();
+  const goToPage = (targetPage: number) => {
+    goto(buildPageHref(page.url, targetPage), { keepFocus: true, noScroll: true });
   };
 
   // Modal state for user type editing
@@ -242,231 +261,158 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_users(), m.admin_panel())}</title>
-</svelte:head>
+<AdminPage title={m.admin_users()} description={m.admin_users_description()}>
+  {#snippet actions()}
+    <AdminStats {stats} />
+  {/snippet}
 
-<div class="space-y-6">
-  <!-- Page Header -->
-  <div class="flex flex-col items-center justify-between gap-4 lg:flex-row">
-    <div class="not-lg:text-center">
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_users()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_users_description()}</p>
-    </div>
+  <AdminToolbar
+    placeholder={m.admin_search_by_name_email()}
+    filters={[{ name: 'userType', label: m.user_type(), options: userTypeOptions }]}
+    loading={isLoadingUsers}
+  />
 
-    <!-- User Type Statistics -->
-    <div class="flex gap-4 not-md:flex-wrap">
-      {#each Object.entries(data.userTypeStats || {}) as [type, count], index (index)}
-        <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
-          <div class="stat-title text-xs">{getUserTypeLabel(type)}</div>
-          <div class="stat-value text-lg">{count}</div>
-        </div>
-      {/each}
-    </div>
-  </div>
-
-  <!-- Filters -->
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <div class="flex flex-col gap-4 sm:flex-row">
-      <div class="form-control flex-1">
-        <label class="label" for="search">
-          <span class="label-text font-medium">{m.search()}</span>
-        </label>
-        <input
-          id="search"
-          type="text"
-          class="input input-bordered w-full"
-          placeholder={m.admin_search_by_name_email()}
-          bind:value={searchQuery}
-          oninput={handleSearchInput}
-        />
-      </div>
-
-      <div class="form-control">
-        <label class="label" for="userType">
-          <span class="label-text font-medium">{m.user_type()}</span>
-        </label>
-        <select
-          id="userType"
-          class="select select-bordered"
-          bind:value={selectedUserType}
-          onchange={handleUserTypeChange}
-        >
-          {#each ['all', 'site_admin', 'developer', 'school_admin', 'school_moderator', 'club_admin', 'club_moderator', 'student', 'regular'] as option (option)}
-            <option value={option}>
-              {option === 'all' ? m.admin_all_types() : getUserTypeLabel(option)}
-            </option>
-          {/each}
-        </select>
-      </div>
-    </div>
-  </div>
-
-  <!-- Users List -->
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if isLoadingUsers}
-      <div class="py-12 text-center">
-        <span class="loading loading-spinner loading-lg"></span>
-        <p class="text-base-content/60 mt-2">{m.loading()}</p>
-      </div>
+      <AdminLoading />
     {:else if users && users.length > 0}
-      <div class="overflow-x-auto">
-        <table class="table w-full table-fixed">
-          <thead>
-            <tr>
-              <th class="w-[40%] sm:w-auto">{m.admin_user_header()}</th>
-              <th class="not-ss:hidden">{m.admin_type_header()}</th>
-              <th class="w-[40%] sm:w-auto">{m.admin_associations_header()}</th>
-              <th class="not-sm:hidden">{m.admin_last_active_header()}</th>
-              <th class="not-md:hidden">{m.admin_joined_header()}</th>
-              <th class="w-[20%] text-right sm:w-auto">{m.admin_actions_header()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each users as user (user.id)}
-              <tr class="hover">
-                <td class="max-w-[35vw]">
-                  <div
-                    class="group flex cursor-pointer items-center gap-3"
-                    title={user.email && !user.email.endsWith('.nearcade')
-                      ? `Email: ${user.email}`
-                      : undefined}
+      <AdminTable fixed>
+        {#snippet head()}
+          <tr>
+            <th class="w-[40%] sm:w-auto">{m.admin_user_header()}</th>
+            <th class="not-ss:hidden">{m.admin_type_header()}</th>
+            <th class="w-[40%] sm:w-auto">{m.admin_associations_header()}</th>
+            <th class="not-sm:hidden">{m.admin_last_active_header()}</th>
+            <th class="not-md:hidden">{m.admin_joined_header()}</th>
+            <th class="w-[20%] text-right sm:w-auto">{m.admin_actions_header()}</th>
+          </tr>
+        {/snippet}
+
+        {#each users as user (user.id)}
+          <tr class="hover">
+            <td class="max-w-[35vw]">
+              <div
+                class="group flex cursor-pointer items-center gap-3"
+                title={user.email && !user.email.endsWith('.nearcade')
+                  ? `Email: ${user.email}`
+                  : undefined}
+              >
+                <UserAvatar {user} size="md" target={adaptiveNewTab()} />
+                <a
+                  href={resolve('/(main)/users/[id]', { id: userRouteId(user) })}
+                  target={adaptiveNewTab()}
+                  class="group-hover:text-accent min-w-0 flex-1 transition-colors"
+                >
+                  <div class="truncate font-medium">
+                    {getDisplayName(user)}
+                  </div>
+                  <div class="truncate text-sm opacity-60">
+                    <code class="font-mono">{user.id}</code>
+                  </div>
+                </a>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
+                  class:btn-success={copiedId === user.id}
+                  class:btn-active={copiedId === user.id}
+                  onclick={() => copyId(user.id)}
+                  title={m.copy()}
+                  aria-label={m.copy()}
+                >
+                  {#if copiedId === user.id}
+                    <i class="fa-solid fa-check fa-sm"></i>
+                  {:else}
+                    <i class="fa-solid fa-copy fa-sm"></i>
+                  {/if}
+                </button>
+              </div>
+            </td>
+            <td class="not-ss:hidden">
+              <div class="badge badge-sm text-nowrap {getUserTypeBadgeClass(user.userType)}">
+                {getUserTypeLabel(user.userType)}
+              </div>
+            </td>
+            <td>
+              <div class="text-sm text-nowrap">
+                <div>{m.admin_universities_count({ count: user.universitiesCount || 0 })}</div>
+                <div>{m.admin_clubs_count({ count: user.clubsCount || 0 })}</div>
+              </div>
+            </td>
+            <td class="not-sm:hidden">
+              {#if user.lastActiveAt}
+                <div class="truncate text-sm lg:hidden">
+                  {formatDate(user.lastActiveAt)}
+                </div>
+                <div class="truncate text-sm not-lg:hidden">
+                  {formatDateTime(user.lastActiveAt)}
+                </div>
+              {/if}
+            </td>
+            <td class="not-md:hidden">
+              {#if user.joinedAt}
+                <div class="truncate text-sm xl:hidden">
+                  {formatDate(user.joinedAt)}
+                </div>
+                <div class="truncate text-sm not-xl:hidden">
+                  {formatDateTime(user.joinedAt)}
+                </div>
+              {/if}
+            </td>
+            <td>
+              <AdminRowActions>
+                <button
+                  class="btn btn-primary btn-soft btn-xs sm:btn-sm min-h-[36px] text-nowrap sm:min-h-[44px] sm:min-w-[44px]"
+                  onclick={() => openEditModal(user)}
+                >
+                  <i class="fa-solid fa-edit"></i>
+                  <span class="not-lg:hidden">{m.edit()}</span>
+                </button>
+
+                <form
+                  method="POST"
+                  action="?/deleteUser"
+                  use:enhance={() => {
+                    return async ({ result, update }) => {
+                      if (result.type === 'success') {
+                        await invalidateAll();
+                        await fetchUsers();
+                      }
+                      await update();
+                    };
+                  }}
+                  class="contents"
+                >
+                  <input type="hidden" name="userId" value={user.id} />
+                  <button
+                    type="button"
+                    class="btn btn-error btn-soft btn-xs sm:btn-sm min-h-[36px] text-nowrap sm:min-h-[44px] sm:min-w-[44px]"
+                    onclick={(e) =>
+                      confirm(m.admin_user_delete_confirm()) &&
+                      e.currentTarget.closest('form')?.requestSubmit()}
+                    disabled={user.id === data.user?.id}
                   >
-                    <UserAvatar {user} size="md" target={adaptiveNewTab()} />
-                    <a
-                      href={resolve('/(main)/users/[id]', { id: userRouteId(user) })}
-                      target={adaptiveNewTab()}
-                      class="group-hover:text-accent min-w-0 flex-1 transition-colors"
-                    >
-                      <div class="truncate font-medium">
-                        {getDisplayName(user)}
-                      </div>
-                      <div class="truncate text-sm opacity-60">
-                        <code class="font-mono">{user.id}</code>
-                      </div>
-                    </a>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-                      class:btn-success={copiedId === user.id}
-                      class:btn-active={copiedId === user.id}
-                      onclick={() => copyId(user.id)}
-                      title={m.copy()}
-                      aria-label={m.copy()}
-                    >
-                      {#if copiedId === user.id}
-                        <i class="fa-solid fa-check fa-sm"></i>
-                      {:else}
-                        <i class="fa-solid fa-copy fa-sm"></i>
-                      {/if}
-                    </button>
-                  </div>
-                </td>
-                <td class="not-ss:hidden">
-                  <div class="badge badge-sm text-nowrap {getUserTypeBadgeClass(user.userType)}">
-                    {getUserTypeLabel(user.userType)}
-                  </div>
-                </td>
-                <td>
-                  <div class="text-sm text-nowrap">
-                    <div>{m.admin_universities_count({ count: user.universitiesCount || 0 })}</div>
-                    <div>{m.admin_clubs_count({ count: user.clubsCount || 0 })}</div>
-                  </div>
-                </td>
-                <td class="not-sm:hidden">
-                  {#if user.lastActiveAt}
-                    <div class="truncate text-sm lg:hidden">
-                      {formatDate(user.lastActiveAt)}
-                    </div>
-                    <div class="truncate text-sm not-lg:hidden">
-                      {formatDateTime(user.lastActiveAt)}
-                    </div>
-                  {/if}
-                </td>
-                <td class="not-md:hidden">
-                  {#if user.joinedAt}
-                    <div class="truncate text-sm xl:hidden">
-                      {formatDate(user.joinedAt)}
-                    </div>
-                    <div class="truncate text-sm not-xl:hidden">
-                      {formatDateTime(user.joinedAt)}
-                    </div>
-                  {/if}
-                </td>
-                <td>
-                  <div class="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:gap-2">
-                    <button
-                      class="btn btn-primary btn-soft btn-xs sm:btn-sm min-h-[36px] text-nowrap sm:min-h-[44px] sm:min-w-[44px]"
-                      onclick={() => openEditModal(user)}
-                    >
-                      <i class="fa-solid fa-edit"></i>
-                      <span class="not-lg:hidden">{m.edit()}</span>
-                    </button>
+                    <i class="fa-solid fa-trash"></i>
+                    <span class="not-lg:hidden">{m.delete()}</span>
+                  </button>
+                </form>
+              </AdminRowActions>
+            </td>
+          </tr>
+        {/each}
+      </AdminTable>
 
-                    <form
-                      method="POST"
-                      action="?/deleteUser"
-                      use:enhance={() => {
-                        return async ({ result, update }) => {
-                          if (result.type === 'success') {
-                            await invalidateAll();
-                            await fetchUsers();
-                          }
-                          await update();
-                        };
-                      }}
-                      class="contents"
-                    >
-                      <input type="hidden" name="userId" value={user.id} />
-                      <button
-                        type="button"
-                        class="btn btn-error btn-soft btn-xs sm:btn-sm min-h-[36px] text-nowrap sm:min-h-[44px] sm:min-w-[44px]"
-                        onclick={(e) =>
-                          confirm(m.admin_user_delete_confirm()) &&
-                          e.currentTarget.closest('form')?.requestSubmit()}
-                        disabled={user.id === data.user?.id}
-                      >
-                        <i class="fa-solid fa-trash"></i>
-                        <span class="not-lg:hidden">{m.delete()}</span>
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      <div class="border-base-300 border-t p-4">
-        <div class="flex justify-center gap-2">
-          {#if currentPage > 1}
-            <button class="btn btn-soft" onclick={() => goToPage(currentPage - 1)}>
-              {m.previous_page()}
-            </button>
-          {/if}
-          <span class="btn btn-disabled btn-soft">
-            {m.page({ page: currentPage })}
-          </span>
-          {#if hasMore}
-            <button class="btn btn-soft" onclick={() => goToPage(currentPage + 1)}>
-              {m.next_page()}
-            </button>
-          {/if}
-        </div>
-      </div>
+      <AdminPagination {currentPage} {hasMore} onPageChange={goToPage} />
     {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-user text-base-content/40 mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_users_found()}</h3>
-        <p class="text-base-content/60">
-          {searchQuery.trim() ? m.admin_no_users_search_results() : m.admin_no_users_available()}
-        </p>
-      </div>
+      <AdminEmptyState
+        icon="fa-user"
+        title={m.admin_no_users_found()}
+        description={searchQuery.trim()
+          ? m.admin_no_users_search_results()
+          : m.admin_no_users_available()}
+      />
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>
 
 <!-- Edit User Modal -->
 <div class="modal" class:modal-open={newUserType}>

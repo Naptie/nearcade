@@ -23,6 +23,7 @@
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
+  import { canonicalizeOpeningHourPair } from '$lib/utils/shops/derived';
   import { ATTENDANCE_RADIUS_KM, GAME_TITLES } from '$lib/constants';
   import { getContext } from 'svelte';
   import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
@@ -59,6 +60,7 @@
   import Comment from '$lib/components/Comment.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import type { OpeningHourTime, ImageAsset } from '$lib/types';
+  import type { OpeningHourEntry } from '$lib/utils/shops/derived';
   import { render } from '$lib/utils/markdown';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
   import ShopChangelogView from '$lib/components/ShopChangelogView.svelte';
@@ -354,37 +356,16 @@
     m.saturday()
   ];
 
-  const normalizeOpeningHourTime = (time: OpeningHourTime | number): OpeningHourTime => {
-    if (typeof time === 'number') {
-      const normalized = ((time % 24) + 24) % 24 || 0;
-      let hour = Math.floor(normalized);
-      let minute = Math.round((normalized - hour) * 60);
-      if (minute === 60) {
-        minute = 0;
-        hour = (hour + 1) % 24;
-      }
-      return { hour, minute };
-    }
+  const openingHourTotalMinutes = (time: OpeningHourTime) => time.hour * 60 + time.minute;
 
-    return {
-      hour: Math.max(0, Math.min(23, Math.floor(Number(time?.hour) || 0))),
-      minute: Math.max(0, Math.min(59, Math.floor(Number(time?.minute) || 0)))
-    };
-  };
-
-  const getOpeningHourTotalMinutes = (time: OpeningHourTime | number) => {
-    const normalized = normalizeOpeningHourTime(time);
-    return normalized.hour * 60 + normalized.minute;
-  };
-
-  const formatShopOpeningHourPair = (
-    pair: [OpeningHourTime | number, OpeningHourTime | number]
-  ) => {
-    const openStr = formatOpeningHourLiteral(pair[0]);
-    const closeStr = formatOpeningHourLiteral(pair[1]);
-    const closesNextDay =
-      getOpeningHourTotalMinutes(pair[1]) <= getOpeningHourTotalMinutes(pair[0]);
-    return closesNextDay ? `${openStr} – ${m.tomorrow()} ${closeStr}` : `${openStr} – ${closeStr}`;
+  const formatShopOpeningHourPair = (pair: OpeningHourEntry) => {
+    const [open, close] = canonicalizeOpeningHourPair(pair[0], pair[1]);
+    const openStr = formatOpeningHourLiteral(open);
+    // `formatOpeningHourLiteral` folds a 24–47 close back to wall-clock time.
+    const closeStr = formatOpeningHourLiteral(close);
+    return close.hour >= 24
+      ? `${openStr} – ${m.tomorrow()} ${closeStr}`
+      : `${openStr} – ${closeStr}`;
   };
 
   const formatUserSingleOpeningHourPair = (open: Date, close: Date) => {
@@ -405,20 +386,18 @@
   const makeZonedDate = (
     timeZone: string,
     dateParts: { year: number; month: number; day: number },
-    time: OpeningHourTime | number
-  ) => {
-    const normalized = normalizeOpeningHourTime(time);
-    return fromZonedTime(
+    time: OpeningHourTime
+  ) =>
+    fromZonedTime(
       `${dateParts.year}-${padTimePart(dateParts.month)}-${padTimePart(dateParts.day)}T${padTimePart(
-        normalized.hour
-      )}:${padTimePart(normalized.minute)}:00`,
+        time.hour
+      )}:${padTimePart(time.minute)}:00`,
       timeZone
     );
-  };
 
   const getShopWeekDateParts = (weekdayIndex: number) => {
     if (!shop) return undefined;
-    const timeZone = getShopTimezone(shop.location);
+    const timeZone = getShopTimezone(shop);
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       year: 'numeric',
@@ -453,31 +432,28 @@
     };
   };
 
-  const formatUserOpeningHourPair = (
-    pair: [OpeningHourTime | number, OpeningHourTime | number],
-    weekdayIndex: number
-  ) => {
+  const formatUserOpeningHourPair = (pair: OpeningHourEntry, weekdayIndex: number) => {
     const dateParts = getShopWeekDateParts(weekdayIndex);
     if (!dateParts) return formatShopOpeningHourPair(pair);
 
-    const open = makeZonedDate(dateParts.timeZone, dateParts, pair[0]);
-    const closesNextShopDay =
-      getOpeningHourTotalMinutes(pair[1]) <= getOpeningHourTotalMinutes(pair[0]);
-    const closeDateParts = closesNextShopDay
-      ? (() => {
-          const date = new Date(Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day + 1));
-          return {
-            year: date.getUTCFullYear(),
-            month: date.getUTCMonth() + 1,
-            day: date.getUTCDate()
-          };
-        })()
-      : dateParts;
-    const close = makeZonedDate(dateParts.timeZone, closeDateParts, pair[1]);
+    const [openTime, closeTime] = canonicalizeOpeningHourPair(pair[0], pair[1]);
+    const open = makeZonedDate(dateParts.timeZone, dateParts, openTime);
+    // The canonical close is always a positive delta past the open, so the day
+    // spill falls out of the arithmetic instead of being rebuilt from date parts.
+    const durationMs =
+      (openingHourTotalMinutes(closeTime) - openingHourTotalMinutes(openTime)) * 60 * 1000;
+    const close = new Date(open.getTime() + durationMs);
     const expectedOpenDay = (weekdayIndex + 1) % 7;
-    const expectedCloseDay = (expectedOpenDay + (closesNextShopDay ? 1 : 0)) % 7;
+    const expectedCloseDay = (expectedOpenDay + (closeTime.hour >= 24 ? 1 : 0)) % 7;
     const showOpenDay = open.getDay() !== expectedOpenDay;
-    const showCloseDay = close.getDay() !== expectedCloseDay || showOpenDay;
+    // Suppress the close day only when the close really is on the open's own
+    // user-calendar day. A 24-hour row otherwise renders as `06:00 – 06:00`,
+    // which reads as a zero-length session.
+    const closeOnLaterDay =
+      close.getFullYear() !== open.getFullYear() ||
+      close.getMonth() !== open.getMonth() ||
+      close.getDate() !== open.getDate();
+    const showCloseDay = closeOnLaterDay || close.getDay() !== expectedCloseDay || showOpenDay;
     const labels = JS_DAY_LABELS();
     const openLabel = `${showOpenDay ? `${labels[open.getDay()]} ` : ''}${formatTime(open)}`;
     const closeLabel = `${showCloseDay ? `${labels[close.getDay()]} ${formatTime(close)}` : formatTime(close)}`;

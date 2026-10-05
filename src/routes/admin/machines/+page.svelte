@@ -1,14 +1,21 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { page } from '$app/state';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData, ActionData } from './$types';
-  import { adaptiveNewTab, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab } from '$lib/utils';
   import { enhance } from '$app/forms';
   import type { Shop, Machine } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import { fromPath } from '$lib/utils/scoped';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminStats from '$lib/components/admin/AdminStats.svelte';
+  import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminTable from '$lib/components/admin/AdminTable.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
 
   type MachineOwner = {
     id: string;
@@ -23,9 +30,6 @@
   };
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
-
-  let searchQuery = $derived(data.search || '');
-  let searchTimeout: ReturnType<typeof setTimeout>;
 
   let copied = $state<string | null>(null);
 
@@ -74,24 +78,6 @@
   let shopSearchResults = $state<{ id: number; name: string }[]>([]);
   let isSearchingShops = $state(false);
   let shopSearchTimeout: ReturnType<typeof setTimeout>;
-
-  const handleSearchInput = () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      updateSearch();
-    }, 300);
-  };
-
-  const updateSearch = () => {
-    const url = new URL(page.url);
-    if (searchQuery.trim()) {
-      url.searchParams.set('search', searchQuery.trim());
-    } else {
-      url.searchParams.delete('search');
-    }
-    url.searchParams.delete('page');
-    goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-  };
 
   const openCreateModal = () => {
     createForm = { ...defaultCreateForm };
@@ -237,204 +223,145 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_machines(), m.admin_panel())}</title>
-</svelte:head>
+<AdminPage title={m.admin_machines()} description={m.admin_machines_description()}>
+  {#snippet actions()}
+    <AdminStats
+      stats={[
+        { label: m.total(), value: data.machineStats?.total || 0 },
+        { label: m.activated(), value: data.machineStats?.activated || 0, class: 'text-success' }
+      ]}
+    />
 
-<div class="min-w-3xs space-y-6">
-  <!-- Page Header -->
-  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-    <div class="not-sm:text-center">
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_machines()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_machines_description()}</p>
-    </div>
+    <button class="btn btn-primary" onclick={openCreateModal}>
+      <i class="fa-solid fa-plus"></i>
+      {m.create_machine()}
+    </button>
+  {/snippet}
 
-    <div class="flex items-center gap-4">
-      <!-- Machine Statistics -->
-      <div class="stats shadow">
-        <div class="stat px-4 py-2">
-          <div class="stat-title text-xs">{m.total()}</div>
-          <div class="stat-value text-primary text-xl">{data.machineStats?.total || 0}</div>
-        </div>
-        <div class="stat px-4 py-2">
-          <div class="stat-title text-xs">{m.activated()}</div>
-          <div class="stat-value text-success text-xl">{data.machineStats?.activated || 0}</div>
-        </div>
-      </div>
+  <AdminToolbar placeholder={m.admin_search_by_name_or_serial()} total={data.totalCount} />
 
-      <!-- Create Button -->
-      <button class="btn btn-primary" onclick={openCreateModal}>
-        <i class="fa-solid fa-plus"></i>
-        {m.create_machine()}
-      </button>
-    </div>
-  </div>
-
-  <!-- Search -->
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <div class="form-control">
-      <label class="label" for="search">
-        <span class="label-text font-medium">{m.search()}</span>
-      </label>
-      <input
-        id="search"
-        type="text"
-        class="input input-bordered w-full"
-        placeholder={m.admin_search_by_name_or_serial()}
-        bind:value={searchQuery}
-        oninput={handleSearchInput}
-      />
-    </div>
-  </div>
-
-  <!-- Machines List -->
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if data.machines && data.machines.length > 0}
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>{m.name()}</th>
-              <th>{m.serial_number()}</th>
-              <th class="not-sm:hidden">{m.bound_shop()}</th>
-              <th class="not-lg:hidden">{m.machine_owner()}</th>
-              <th class="not-sm:hidden">{m.status()}</th>
-              <th class="text-right">{m.admin_actions_header()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.machines as machine (machine._id)}
-              <tr class="hover">
-                <td>
-                  <div class="font-medium">{machine.name}</div>
-                </td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <code class="text-sm">
-                      {(machine.serialNumber ?? '').match(/.{1,4}/g)?.join('-') ||
-                        machine.serialNumber}
-                    </code>
-                    <button
-                      class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-                      class:btn-success={copied === machine.serialNumber}
-                      class:btn-active={copied === machine.serialNumber}
-                      onclick={() => copyToClipboard(machine.serialNumber)}
-                      title={m.copy()}
-                    >
-                      {#if copied === machine.serialNumber}
-                        <i class="fa-solid fa-check fa-lg"></i>
-                      {:else}
-                        <i class="fa-solid fa-copy fa-lg"></i>
-                      {/if}
-                    </button>
-                  </div>
-                </td>
-                <td class="not-sm:hidden">
-                  {#if machine.shop}
-                    <a
-                      href={resolve('/(main)/shops/[id]', {
-                        id: machine.shopId.toString()
-                      })}
-                      target={adaptiveNewTab()}
-                      class="link link-hover"
-                    >
-                      {machine.shop.name}
-                    </a>
-                  {:else}
-                    <span class="opacity-60">#{machine.shopId}</span>
-                  {/if}
-                </td>
-                <td class="not-lg:hidden">
-                  {#if machine.owner}
-                    <UserAvatar user={machine.owner} size="sm" showName target={adaptiveNewTab()} />
-                  {:else if machine.ownerId}
-                    <code class="text-xs opacity-80">{machine.ownerId}</code>
-                  {:else}
-                    <span class="opacity-40">—</span>
-                  {/if}
-                </td>
-                <td class="not-sm:hidden">
-                  {#if machine.isActivated}
-                    <span class="badge badge-success badge-soft">
-                      <i class="fa-solid fa-check-circle"></i>
-                      {m.activated()}
-                    </span>
-                  {:else}
-                    <span class="badge badge-warning badge-soft">
-                      <i class="fa-solid fa-clock"></i>
-                      {m.pending_activation()}
-                    </span>
-                  {/if}
-                </td>
-                <td>
-                  <div class="flex justify-end gap-2">
-                    <button
-                      class="btn btn-soft btn-sm"
-                      onclick={() => openEditModal(machine)}
-                      title={m.edit()}
-                    >
-                      <i class="fa-solid fa-pen"></i>
-                    </button>
-                    <button
-                      class="btn btn-error btn-soft btn-sm"
-                      onclick={() => openDeleteModal(machine)}
-                      title={m.delete()}
-                    >
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable>
+        {#snippet head()}
+          <tr>
+            <th>{m.name()}</th>
+            <th>{m.serial_number()}</th>
+            <th class="not-sm:hidden">{m.bound_shop()}</th>
+            <th class="not-lg:hidden">{m.machine_owner()}</th>
+            <th class="not-sm:hidden">{m.status()}</th>
+            <th class="text-right">{m.admin_actions_header()}</th>
+          </tr>
+        {/snippet}
 
-      <!-- Pagination -->
-      <div class="border-base-300 border-t p-4">
-        <div class="flex justify-center gap-2">
-          {#if (data.currentPage || 1) > 1}
-            <a
-              href="?page={(data.currentPage || 1) - 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}"
-              class="btn btn-soft"
-            >
-              {m.previous_page()}
-            </a>
-          {/if}
-          <span class="btn btn-disabled btn-soft">
-            {m.page({ page: data.currentPage || 1 })}
-          </span>
-          {#if data.hasMore}
-            <a
-              href="?page={(data.currentPage || 1) + 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}"
-              class="btn btn-soft"
-            >
-              {m.next_page()}
-            </a>
-          {/if}
-        </div>
-      </div>
+        {#each data.machines as machine (machine._id)}
+          <tr class="hover">
+            <td>
+              <div class="font-medium">{machine.name}</div>
+            </td>
+            <td>
+              <div class="flex items-center gap-2">
+                <code class="text-sm">
+                  {(machine.serialNumber ?? '').match(/.{1,4}/g)?.join('-') || machine.serialNumber}
+                </code>
+                <button
+                  class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
+                  class:btn-success={copied === machine.serialNumber}
+                  class:btn-active={copied === machine.serialNumber}
+                  onclick={() => copyToClipboard(machine.serialNumber)}
+                  title={m.copy()}
+                >
+                  {#if copied === machine.serialNumber}
+                    <i class="fa-solid fa-check fa-lg"></i>
+                  {:else}
+                    <i class="fa-solid fa-copy fa-lg"></i>
+                  {/if}
+                </button>
+              </div>
+            </td>
+            <td class="not-sm:hidden">
+              {#if machine.shop}
+                <a
+                  href={resolve('/(main)/shops/[id]', {
+                    id: machine.shopId.toString()
+                  })}
+                  target={adaptiveNewTab()}
+                  class="link link-hover"
+                >
+                  {machine.shop.name}
+                </a>
+              {:else}
+                <span class="opacity-60">#{machine.shopId}</span>
+              {/if}
+            </td>
+            <td class="not-lg:hidden">
+              {#if machine.owner}
+                <UserAvatar user={machine.owner} size="sm" showName target={adaptiveNewTab()} />
+              {:else if machine.ownerId}
+                <code class="text-xs opacity-80">{machine.ownerId}</code>
+              {:else}
+                <span class="opacity-40">—</span>
+              {/if}
+            </td>
+            <td class="not-sm:hidden">
+              {#if machine.isActivated}
+                <span class="badge badge-success badge-soft">
+                  <i class="fa-solid fa-check-circle"></i>
+                  {m.activated()}
+                </span>
+              {:else}
+                <span class="badge badge-warning badge-soft">
+                  <i class="fa-solid fa-clock"></i>
+                  {m.pending_activation()}
+                </span>
+              {/if}
+            </td>
+            <td>
+              <AdminRowActions>
+                <button
+                  class="btn btn-soft btn-sm"
+                  onclick={() => openEditModal(machine)}
+                  title={m.edit()}
+                >
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button
+                  class="btn btn-error btn-soft btn-sm"
+                  onclick={() => openDeleteModal(machine)}
+                  title={m.delete()}
+                >
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </AdminRowActions>
+            </td>
+          </tr>
+        {/each}
+      </AdminTable>
+
+      <AdminPagination
+        currentPage={data.currentPage}
+        hasMore={data.hasMore}
+        total={data.totalCount}
+        pageSize={data.pageSize}
+      />
     {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-server text-base-content/40 mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">{m.no_machines_found()}</h3>
-        <p class="text-base-content/60">
-          {data.search ? m.no_machines_found_search() : m.no_machines_found_empty()}
-        </p>
-        {#if !data.search}
-          <button class="btn btn-primary mt-4" onclick={openCreateModal}>
-            <i class="fa-solid fa-plus"></i>
-            {m.create_machine()}
-          </button>
-        {/if}
-      </div>
+      <AdminEmptyState
+        icon="fa-server"
+        title={m.no_machines_found()}
+        description={data.search ? m.no_machines_found_search() : m.no_machines_found_empty()}
+      >
+        {#snippet action()}
+          {#if !data.search}
+            <button class="btn btn-primary" onclick={openCreateModal}>
+              <i class="fa-solid fa-plus"></i>
+              {m.create_machine()}
+            </button>
+          {/if}
+        {/snippet}
+      </AdminEmptyState>
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>
 
 <!-- Create Machine Modal -->
 <div class="modal" class:modal-open={showCreateModal}>

@@ -2,19 +2,20 @@ import mongo from '$lib/db/index.server';
 import type { PageServerLoad } from './$types';
 import type { UniversityMember, ClubMember, PostWithAuthor, Club, University } from '$lib/types';
 import { protect, toPlainArray } from '$lib/utils';
+import { parsePageParam, readParam } from '$lib/admin/list-state';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
   const user = session?.user;
+  const limit = 20;
 
   if (!user) {
-    return { posts: [], totalCount: 0, hasMore: false };
+    return { posts: [], totalCount: 0, hasMore: false, pageSize: limit };
   }
 
   try {
-    const search = url.searchParams.get('search') || '';
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = 20;
+    const search = readParam(url, 'search');
+    const page = parsePageParam(url);
     const skip = (page - 1) * limit;
 
     const db = mongo.db();
@@ -61,7 +62,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
       if (orConditions.length === 0) {
         // User has no management permissions
-        return { posts: [], totalCount: 0, hasMore: false };
+        return { posts: [], totalCount: 0, hasMore: false, pageSize: limit };
       }
 
       postFilter = {
@@ -145,10 +146,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       currentPage: page,
       totalCount,
       hasMore,
-      page
+      page,
+      pageSize: limit
     };
   } catch (err) {
     console.error('Error loading admin posts:', err);
-    return { posts: [], totalCount: 0, hasMore: false };
+    return { posts: [], totalCount: 0, hasMore: false, pageSize: limit };
   }
 };

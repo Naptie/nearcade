@@ -4,8 +4,14 @@ import { getAllShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import { GAME_TITLES } from '$lib/constants';
 import type { GlobeShop, GlobeShopGameSummary, Shop } from '$lib/types';
 import { getShopOpeningHours } from '$lib/utils';
-import { expandRegionHierarchyWithNames } from '$lib/regions/utils.server';
-import { localizeAddressGeneral } from '$lib/utils/region.server';
+import { toShopApiAddress } from '$lib/utils/region.server';
+import {
+  buildShopGeoFilter,
+  buildShopMongoFilter,
+  combineMongoFilters
+} from '$lib/utils/shops/filter-query.server';
+import { isShopOpenAt } from '$lib/utils/shops/derived';
+import type { ShopFilterState } from '$lib/schemas/shop-filter';
 
 export type GlobeAttendanceTotals = Array<{ gameId: number; total: number }>;
 export type GlobeAttendanceMap = Map<string, GlobeAttendanceTotals>;
@@ -129,13 +135,16 @@ const getGlobeShopDensity = (shop: RawGlobeShop, attendances: GlobeAttendanceTot
   }
 };
 
-const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): GlobeShop => ({
+/**
+ * Everything except the address: the localized region chain is resolved once,
+ * in {@link toGlobeShopWithRegion}, so a raw shop never carries region names.
+ */
+const toGlobeShop = (
+  shop: RawGlobeShop,
+  attendances: GlobeAttendanceTotals
+): Omit<GlobeShop, 'address'> => ({
   id: shop.id,
   name: shop.name,
-  address: {
-    general: shop.address.general,
-    region: shop.address.region
-  },
   openingHours: shop.openingHours,
   location: shop.location,
   aggregatedGames: aggregateGlobeGames(shop.games),
@@ -144,21 +153,93 @@ const toGlobeShop = (shop: RawGlobeShop, attendances: GlobeAttendanceTotals): Gl
   ...(shop.isClosed ? { isClosed: true } : {})
 });
 
-type GlobeShopFilters = {
-  regionId?: string;
+export type GlobeShopFilters = {
+  /** Legacy URL param constraints (still accepted for old shared links). */
   titleIds?: number[];
+  /**
+   * Structured filter state (`f` URL param), translated by the shared engine.
+   * The single source of truth for what the globe shows — including the region
+   * selected by clicking a shop, which occupies a `regions` slot like any other
+   * filter dimension rather than a constraint of its own.
+   */
+  filter?: ShopFilterState;
 };
 
-const getGlobeShopFilter = ({ regionId, titleIds = [] }: GlobeShopFilters): Filter<Shop> => ({
-  ...(regionId ? { 'address.region': regionId } : {}),
-  ...(titleIds.length > 0
-    ? { games: { $all: titleIds.map((titleId) => ({ $elemMatch: { titleId } })) } }
-    : {})
-});
+const getGlobeShopFilter = ({ titleIds = [], filter }: GlobeShopFilters): Filter<Shop> =>
+  combineMongoFilters(
+    titleIds.length > 0
+      ? ({
+          games: { $all: titleIds.map((titleId) => ({ $elemMatch: { titleId } })) }
+        } as Filter<Shop>)
+      : null,
+    filter ? (buildShopMongoFilter(filter) as Filter<Shop>) : null
+  );
+
+/**
+ * The full predicate for every globe query that is *not* the `$geoNear`
+ * pipeline: the sidebar total, the by-name path and the marker set.
+ *
+ * `getGlobeShopFilter` deliberately omits geo (the `$geoNear` stage applies it
+ * while fetching), so it has to be added back here — otherwise "near me"
+ * silently widens the reported count, the by-name page and the map markers to
+ * every shop on earth.
+ */
+const getGlobeShopQuery = (filters: GlobeShopFilters): Filter<Shop> =>
+  combineMongoFilters(
+    getGlobeShopFilter(filters),
+    filters.filter?.geo ? buildShopGeoFilter(filters.filter) : null
+  );
+
+/** Predicates no index can answer — applied exactly over fetched results. */
+const needsGlobePostFilter = (filters: GlobeShopFilters): boolean =>
+  !!filters.filter?.hours?.openNow || !!filters.filter?.activity;
+
+const matchesGlobeActivity = (
+  activity: NonNullable<ShopFilterState['activity']>,
+  shop: RawGlobeShop,
+  attendances: GlobeAttendanceTotals
+): boolean => {
+  const titleIdByGameId = new Map(shop.games.map((game) => [game.gameId, game.titleId]));
+  const total = attendances.reduce((sum, attendance) => sum + attendance.total, 0);
+  if (activity.attendance?.min !== undefined && total < activity.attendance.min) return false;
+  if (activity.attendance?.max !== undefined && total > activity.attendance.max) return false;
+  if (activity.gameAttendance) {
+    for (const requirement of activity.gameAttendance) {
+      const perGame = attendances
+        .filter((attendance) => {
+          const titleId = titleIdByGameId.get(attendance.gameId);
+          return titleId !== undefined && requirement.titleIds.includes(titleId);
+        })
+        .reduce((sum, attendance) => sum + attendance.total, 0);
+      if (requirement.min !== undefined && perGame < requirement.min) return false;
+      if (requirement.max !== undefined && perGame > requirement.max) return false;
+    }
+  }
+  return true;
+};
+
+/** Exact per-shop post-filters (open-now, activity) for fetched globe shops. */
+const applyGlobePostFilters = (
+  shops: RawGlobeShop[],
+  filters: GlobeShopFilters,
+  attendanceByShop: GlobeAttendanceMap
+): RawGlobeShop[] => {
+  let result = shops;
+  if (filters.filter?.hours?.openNow) {
+    const now = new Date();
+    result = result.filter((shop) => isShopOpenAt(shop, now));
+  }
+  if (filters.filter?.activity) {
+    const activity = filters.filter.activity;
+    result = result.filter((shop) =>
+      matchesGlobeActivity(activity, shop, attendanceByShop.get(`${shop.id}`) ?? [])
+    );
+  }
+  return result;
+};
 
 const loadRawGlobeShops = (filters: GlobeShopFilters = {}) => {
-  const { regionId, titleIds = [] } = filters;
-  const query = getGlobeShopFilter({ regionId, titleIds });
+  const query = getGlobeShopQuery(filters);
 
   return mongo
     .db()
@@ -168,10 +249,23 @@ const loadRawGlobeShops = (filters: GlobeShopFilters = {}) => {
     .toArray() as Promise<RawGlobeShop[]>;
 };
 
-export const loadGlobeShops = async (): Promise<GlobeShop[]> => {
-  const [shops, attendance] = await Promise.all([loadRawGlobeShops(), loadGlobeAttendanceCached()]);
-
-  return shops.map((shop) => toGlobeShop(shop, attendance.get(`${shop.id}`) ?? []));
+/**
+ * Attach the localized region chain (IDs + the request's locale) to a raw
+ * globe shop. `address.general` is derived from the very same names, so the
+ * marker popups can never disagree with the region filter.
+ */
+const toGlobeShopWithRegion = async (
+  raw: RawGlobeShop,
+  attendances: GlobeAttendanceTotals
+): Promise<GlobeShop> => {
+  const address = await toShopApiAddress({
+    general: raw.address.general,
+    region: raw.address.region
+  });
+  return {
+    ...toGlobeShop(raw, attendances),
+    address: { general: address.general, region: address.region }
+  };
 };
 
 export const loadGlobeShopsWithRegions = async (): Promise<GlobeShop[]> => {
@@ -180,25 +274,9 @@ export const loadGlobeShopsWithRegions = async (): Promise<GlobeShop[]> => {
     loadGlobeAttendanceCached()
   ]);
 
-  const result: GlobeShop[] = [];
-  for (const raw of rawShops) {
-    const region = raw.address.region;
-    const expandedRegion = region?.length
-      ? await expandRegionHierarchyWithNames(region[region.length - 1]).catch(() => [])
-      : undefined;
-    const addressWithRegion = {
-      general: raw.address.general,
-      region: expandedRegion as GlobeShop['address']['region']
-    };
-    result.push({
-      ...toGlobeShop(raw, attendance.get(`${raw.id}`) ?? []),
-      address: {
-        general: localizeAddressGeneral(addressWithRegion),
-        region: expandedRegion as GlobeShop['address']['region']
-      }
-    });
-  }
-  return result;
+  return Promise.all(
+    rawShops.map((raw) => toGlobeShopWithRegion(raw, attendance.get(`${raw.id}`) ?? []))
+  );
 };
 
 export const loadGlobeAttendance = (): Promise<GlobeAttendanceMap> => loadGlobeAttendanceCached();
@@ -222,14 +300,16 @@ export type GlobeMarker = {
 };
 
 /**
- * Returns minimal marker data for all shops: id, name, coordinates, density.
- * This is ~95% smaller than the full globe data response.
+ * Returns minimal marker data for all shops matching the filters: id, name,
+ * coordinates, density. Time-dependent and activity predicates are applied
+ * exactly here (the whole matching set is loaded anyway).
  */
 export const loadGlobeMarkers = async (filters: GlobeShopFilters = {}): Promise<GlobeMarker[]> => {
-  const [shops, attendance] = await Promise.all([
+  const [allShops, attendance] = await Promise.all([
     loadRawGlobeShops(filters),
     loadGlobeAttendanceCached()
   ]);
+  const shops = applyGlobePostFilters(allShops, filters, attendance);
 
   return shops.map((shop) => ({
     id: shop.id,
@@ -242,25 +322,9 @@ export const loadGlobeMarkers = async (filters: GlobeShopFilters = {}): Promise<
 
 const hydrateGlobeShops = async (rawShops: RawGlobeShop[]): Promise<GlobeShop[]> => {
   const attendance = await loadGlobeAttendanceCached();
-  const result: GlobeShop[] = [];
-  for (const raw of rawShops) {
-    const region = raw.address.region;
-    const expandedRegion = region?.length
-      ? await expandRegionHierarchyWithNames(region[region.length - 1]).catch(() => [])
-      : undefined;
-    const addressWithRegion = {
-      general: raw.address.general,
-      region: expandedRegion as GlobeShop['address']['region']
-    };
-    result.push({
-      ...toGlobeShop(raw, attendance.get(`${raw.id}`) ?? []),
-      address: {
-        general: localizeAddressGeneral(addressWithRegion),
-        region: expandedRegion as GlobeShop['address']['region']
-      }
-    });
-  }
-  return result;
+  return Promise.all(
+    rawShops.map((raw) => toGlobeShopWithRegion(raw, attendance.get(`${raw.id}`) ?? []))
+  );
 };
 
 /**
@@ -280,66 +344,104 @@ export const loadGlobeShopsByIds = async (ids: number[]): Promise<GlobeShop[]> =
   return hydrateGlobeShops(rawShops);
 };
 
-export const GLOBE_SHOPS_PAGE_SIZE = 6;
+const GLOBE_SHOPS_PAGE_SIZE = 6;
+/** Over-fetch factor for pages that need exact post-filtering. */
+const GLOBE_POSTFILTER_FACTOR = 3;
 
 export const loadGlobeShopsByDistance = async (
   longitude: number,
   latitude: number,
   offset: number,
   filters: GlobeShopFilters = {}
-): Promise<{ shops: GlobeShop[]; hasMore: boolean; totalCount: number }> => {
+): Promise<{
+  shops: GlobeShop[];
+  hasMore: boolean;
+  totalCount: number;
+  approximateTotal: boolean;
+}> => {
   const filter = getGlobeShopFilter(filters);
-  const [rawShops, totalCount] = await Promise.all([
+  // The panel's geo anchor (point + radius) wins over the sidebar origin when
+  // present, so the location constraint and the distance order agree.
+  const anchor = filters.filter?.geo
+    ? {
+        lng: filters.filter.geo.lng,
+        lat: filters.filter.geo.lat,
+        maxDistanceMeters: filters.filter.geo.radiusKm * 1000
+      }
+    : { lng: longitude, lat: latitude, maxDistanceMeters: undefined };
+  const postFiltering = needsGlobePostFilter(filters);
+  const fetchLimit = GLOBE_SHOPS_PAGE_SIZE * (postFiltering ? GLOBE_POSTFILTER_FACTOR : 1);
+  // The page comes from `$geoNear` (which applies the radius as `maxDistance`),
+  // but a pipeline stage cannot be reused by `countDocuments`, so the same radius
+  // is added here as `$geoWithin`/`$centerSphere` — the identical great-circle
+  // measure on the same 2dsphere index, so the count can never outgrow the page.
+  const countQuery = getGlobeShopQuery(filters);
+  const [allRaw, totalCount] = await Promise.all([
     mongo
       .db()
       .collection<Shop>('shops')
       .aggregate([
         {
           $geoNear: {
-            near: { type: 'Point', coordinates: [longitude, latitude] },
+            near: { type: 'Point', coordinates: [anchor.lng, anchor.lat] },
             key: 'location',
             distanceField: '_globeDistance',
+            ...(anchor.maxDistanceMeters !== undefined
+              ? { maxDistance: anchor.maxDistanceMeters }
+              : {}),
+            spherical: true,
             ...(Object.keys(filter).length > 0 ? { query: filter } : {})
           }
         },
-        { $skip: offset },
-        { $limit: GLOBE_SHOPS_PAGE_SIZE + 1 },
+        { $skip: postFiltering ? offset * GLOBE_POSTFILTER_FACTOR : offset },
+        { $limit: fetchLimit + 1 },
         { $project: globeShopProjection }
       ])
       .toArray() as Promise<RawGlobeShop[]>,
-    mongo.db().collection<Shop>('shops').countDocuments(filter)
+    mongo.db().collection<Shop>('shops').countDocuments(countQuery)
   ]);
 
-  const hasMore = rawShops.length > GLOBE_SHOPS_PAGE_SIZE;
+  const filtered = applyGlobePostFilters(allRaw, filters, await loadGlobeAttendanceCached());
+  const hasMore = filtered.length > GLOBE_SHOPS_PAGE_SIZE;
   return {
-    shops: await hydrateGlobeShops(rawShops.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
+    shops: await hydrateGlobeShops(filtered.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
     hasMore,
-    totalCount
+    totalCount,
+    approximateTotal: postFiltering
   };
 };
 
 export const loadGlobeShopsByName = async (
   offset: number,
   filters: GlobeShopFilters = {}
-): Promise<{ shops: GlobeShop[]; hasMore: boolean; totalCount: number }> => {
-  const filter = getGlobeShopFilter(filters);
-  const [rawShops, totalCount] = await Promise.all([
+): Promise<{
+  shops: GlobeShop[];
+  hasMore: boolean;
+  totalCount: number;
+  approximateTotal: boolean;
+}> => {
+  const filter = getGlobeShopQuery(filters);
+  const postFiltering = needsGlobePostFilter(filters);
+  const fetchLimit = GLOBE_SHOPS_PAGE_SIZE * (postFiltering ? GLOBE_POSTFILTER_FACTOR : 1);
+  const [allRaw, totalCount] = await Promise.all([
     mongo
       .db()
       .collection<Shop>('shops')
       .find(filter)
       .sort({ name: 1, id: 1 })
-      .skip(offset)
-      .limit(GLOBE_SHOPS_PAGE_SIZE + 1)
+      .skip(postFiltering ? offset * GLOBE_POSTFILTER_FACTOR : offset)
+      .limit(fetchLimit + 1)
       .project(globeShopProjection)
       .toArray() as Promise<RawGlobeShop[]>,
     mongo.db().collection<Shop>('shops').countDocuments(filter)
   ]);
 
-  const hasMore = rawShops.length > GLOBE_SHOPS_PAGE_SIZE;
+  const filtered = applyGlobePostFilters(allRaw, filters, await loadGlobeAttendanceCached());
+  const hasMore = filtered.length > GLOBE_SHOPS_PAGE_SIZE;
   return {
-    shops: await hydrateGlobeShops(rawShops.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
+    shops: await hydrateGlobeShops(filtered.slice(0, GLOBE_SHOPS_PAGE_SIZE)),
     hasMore,
-    totalCount
+    totalCount,
+    approximateTotal: postFiltering
   };
 };

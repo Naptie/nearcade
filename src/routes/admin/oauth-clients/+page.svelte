@@ -2,8 +2,13 @@
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import { getDisplayName, pageTitle } from '$lib/utils';
+  import { getDisplayName } from '$lib/utils';
   import CopyField from '$lib/components/CopyField.svelte';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminTable from '$lib/components/admin/AdminTable.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -44,22 +49,13 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_oauth_clients(), m.admin_panel())}</title>
-</svelte:head>
-
-<div class="min-w-3xs space-y-6">
-  <!-- Page Header -->
-  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-    <div class="not-sm:text-center">
-      <h1 class="text-2xl font-bold">{m.admin_oauth_clients()}</h1>
-      <p class="text-base-content/60 text-sm">{m.admin_oauth_clients_description()}</p>
-    </div>
+<AdminPage title={m.admin_oauth_clients()} description={m.admin_oauth_clients_description()}>
+  {#snippet actions()}
     <button class="btn btn-primary btn-sm" onclick={() => (showCreateModal = true)}>
       <i class="fa-solid fa-plus"></i>
       {m.admin_oauth_create_client()}
     </button>
-  </div>
+  {/snippet}
 
   <!-- Error display -->
   {#if form && 'error' in form && form.error}
@@ -85,15 +81,12 @@
   {/if}
 
   <!-- Clients list -->
-  {#if !data.clients || data.clients.length === 0}
-    <div class="bg-base-100 flex flex-col items-center rounded-xl p-12 shadow">
-      <i class="fa-solid fa-key fa-3x text-base-content/20 mb-4"></i>
-      <p class="text-base-content/60">{m.admin_oauth_no_clients()}</p>
-    </div>
-  {:else}
-    <div class="overflow-x-auto">
-      <table class="bg-base-100 table w-full table-fixed rounded-xl shadow">
-        <thead>
+  <AdminPanel>
+    {#if !data.clients || data.clients.length === 0}
+      <AdminEmptyState icon="fa-key" title={m.admin_oauth_no_clients()} />
+    {:else}
+      <AdminTable fixed>
+        {#snippet head()}
           <tr>
             <th class="w-[35%] sm:w-[18%]">{m.name()}</th>
             <th class="w-[45%] sm:w-[26%]">Client ID</th>
@@ -103,116 +96,115 @@
               <th class="w-[16%] not-lg:hidden">{m.admin_oauth_client_creator()}</th>
               <th class="w-[10%] not-xl:hidden">{m.admin_oauth_consent_skip()}</th>
             {/if}
-            <th class="w-[20%] sm:w-[10%]">{m.actions()}</th>
+            <th class="w-[20%] text-right sm:w-[10%]">{m.actions()}</th>
           </tr>
-        </thead>
-        <tbody>
-          {#each data.clients as client (client.clientId)}
-            <tr>
-              <td class="min-w-0">
-                <div class="flex min-w-0 items-center gap-2">
-                  {#if client.icon}
-                    <img src={client.icon} alt={client.name} class="h-6 w-6 shrink-0 rounded" />
-                  {:else}
-                    <i class="fa-solid fa-cube text-base-content/30 shrink-0"></i>
-                  {/if}
-                  <div class="min-w-0">
-                    <div class="truncate font-medium" title={client.name}>
-                      {client.name}
-                    </div>
-                    <div class="items-cnter flex gap-1">
-                      <span
-                        class="badge badge-xs badge-soft text-nowrap lg:hidden {client.isPublic
-                          ? 'badge-info'
-                          : 'badge-warning'}"
-                      >
-                        {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
-                      </span>
-                      {#if client.uri}
-                        <div class="text-base-content/50 truncate text-xs" title={client.uri}>
-                          {client.uri}
-                        </div>
-                      {/if}
-                    </div>
+        {/snippet}
+
+        {#each data.clients as client (client.clientId)}
+          <tr>
+            <td class="min-w-0">
+              <div class="flex min-w-0 items-center gap-2">
+                {#if client.icon}
+                  <img src={client.icon} alt={client.name} class="h-6 w-6 shrink-0 rounded" />
+                {:else}
+                  <i class="fa-solid fa-cube text-base-content/30 shrink-0"></i>
+                {/if}
+                <div class="min-w-0">
+                  <div class="truncate font-medium" title={client.name}>
+                    {client.name}
                   </div>
-                </div>
-              </td>
-              <td>
-                <CopyField value={client.clientId} buttonStyle="ghost" size="xs" display="text" />
-              </td>
-              <td class="not-lg:hidden">
-                <span
-                  class="badge badge-sm badge-soft text-nowrap {client.isPublic
-                    ? 'badge-info'
-                    : 'badge-warning'}"
-                >
-                  {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
-                </span>
-              </td>
-              <td class="not-xl:hidden">
-                <div>
-                  {#each client.redirectUris.slice(0, 2) as uri, i (i)}
-                    <div class="truncate text-xs">{uri}</div>
-                  {/each}
-                  {#if client.redirectUris.length > 2}
-                    <div class="text-base-content/50 text-xs">
-                      +{client.redirectUris.length - 2}
-                    </div>
-                  {/if}
-                </div>
-              </td>
-              {#if data.isSiteAdmin}
-                <td class="not-lg:hidden">
-                  <div class="min-w-0 text-sm">
-                    <div class="truncate" title={getDisplayName(client.creator ?? undefined)}>
-                      {getDisplayName(client.creator ?? undefined)}
-                    </div>
-                    {#if client.creator?.name}
-                      <div class="text-base-content/50 truncate text-xs">
-                        @{client.creator.name}
+                  <div class="items-cnter flex gap-1">
+                    <span
+                      class="badge badge-xs badge-soft text-nowrap lg:hidden {client.isPublic
+                        ? 'badge-info'
+                        : 'badge-warning'}"
+                    >
+                      {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
+                    </span>
+                    {#if client.uri}
+                      <div class="text-base-content/50 truncate text-xs" title={client.uri}>
+                        {client.uri}
                       </div>
                     {/if}
                   </div>
-                </td>
-                <td class="not-xl:hidden">
-                  {#if client.skipConsent}
-                    <span class="badge badge-sm badge-success">{m.yes()}</span>
-                  {:else}
-                    <span class="badge badge-ghost badge-sm">{m.no()}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <CopyField value={client.clientId} buttonStyle="ghost" size="xs" display="text" />
+            </td>
+            <td class="not-lg:hidden">
+              <span
+                class="badge badge-sm badge-soft text-nowrap {client.isPublic
+                  ? 'badge-info'
+                  : 'badge-warning'}"
+              >
+                {client.isPublic ? m.admin_oauth_public() : m.admin_oauth_confidential()}
+              </span>
+            </td>
+            <td class="not-xl:hidden">
+              <div>
+                {#each client.redirectUris.slice(0, 2) as uri, i (i)}
+                  <div class="truncate text-xs">{uri}</div>
+                {/each}
+                {#if client.redirectUris.length > 2}
+                  <div class="text-base-content/50 text-xs">
+                    +{client.redirectUris.length - 2}
+                  </div>
+                {/if}
+              </div>
+            </td>
+            {#if data.isSiteAdmin}
+              <td class="not-lg:hidden">
+                <div class="min-w-0 text-sm">
+                  <div class="truncate" title={getDisplayName(client.creator ?? undefined)}>
+                    {getDisplayName(client.creator ?? undefined)}
+                  </div>
+                  {#if client.creator?.name}
+                    <div class="text-base-content/50 truncate text-xs">
+                      @{client.creator.name}
+                    </div>
                   {/if}
-                </td>
-              {/if}
-              <td>
-                <div class="flex gap-1">
-                  <button
-                    class="btn btn-ghost btn-xs"
-                    aria-label={m.admin_oauth_edit_client()}
-                    onclick={() => {
-                      editTarget = client;
-                      showEditModal = true;
-                    }}
-                  >
-                    <i class="fa-solid fa-pen-to-square"></i>
-                  </button>
-                  <button
-                    class="btn btn-ghost btn-xs text-error"
-                    aria-label={m.delete()}
-                    onclick={() => {
-                      deleteTarget = { clientId: client.clientId, name: client.name };
-                      showDeleteModal = true;
-                    }}
-                  >
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
                 </div>
               </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  {/if}
-</div>
+              <td class="not-xl:hidden">
+                {#if client.skipConsent}
+                  <span class="badge badge-sm badge-success">{m.yes()}</span>
+                {:else}
+                  <span class="badge badge-ghost badge-sm">{m.no()}</span>
+                {/if}
+              </td>
+            {/if}
+            <td>
+              <AdminRowActions>
+                <button
+                  class="btn btn-ghost btn-xs"
+                  aria-label={m.admin_oauth_edit_client()}
+                  onclick={() => {
+                    editTarget = client;
+                    showEditModal = true;
+                  }}
+                >
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button
+                  class="btn btn-ghost btn-xs text-error"
+                  aria-label={m.delete()}
+                  onclick={() => {
+                    deleteTarget = { clientId: client.clientId, name: client.name };
+                    showDeleteModal = true;
+                  }}
+                >
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </AdminRowActions>
+            </td>
+          </tr>
+        {/each}
+      </AdminTable>
+    {/if}
+  </AdminPanel>
+</AdminPage>
 
 <!-- Create Client Modal -->
 {#if showCreateModal}

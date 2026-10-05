@@ -725,7 +725,7 @@
               <div class="bg-base-100 rounded-lg">
                 {#if displayedArcades && displayedArcades.length > 0}
                   <div class="divide-base-200 divide-y">
-                    {#each displayedArcades as shop (shop._id)}
+                    {#each displayedArcades as shop (shop.id)}
                       <div class="flex items-center justify-between p-4">
                         <a
                           href={resolve('/(main)/shops/[id]', {
@@ -1061,7 +1061,7 @@
           </div>
         {:else if searchResults.length > 0}
           <div class="max-h-96 space-y-2 overflow-y-auto">
-            {#each searchResults as shop (shop._id)}
+            {#each searchResults as shop (shop.id)}
               <div class="bg-base-200 flex items-center justify-between rounded-lg p-3">
                 <div class="flex-1">
                   <h4 class="font-medium">{shop.name}</h4>

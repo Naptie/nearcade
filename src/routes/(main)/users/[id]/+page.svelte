@@ -368,7 +368,7 @@
             </h3>
             {#if data.user.frequentingArcades && data.user.frequentingArcades.length > 0}
               <div class="space-y-3">
-                {#each data.user.frequentingArcades as shop (shop._id)}
+                {#each data.user.frequentingArcades as shop (shop.id)}
                   <ManagedArcade {shop} {radius} />
                 {/each}
               </div>
@@ -398,7 +398,7 @@
             </h3>
             {#if data.user.starredArcades && data.user.starredArcades.length > 0}
               <div class="space-y-3">
-                {#each data.user.starredArcades as shop (shop._id)}
+                {#each data.user.starredArcades as shop (shop.id)}
                   <ManagedArcade {shop} {radius} />
                 {/each}
               </div>
@@ -481,7 +481,7 @@
               {m.frequenting_arcades()}
             </h3>
             <div class="space-y-2">
-              {#each data.user.frequentingArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop._id)}
+              {#each data.user.frequentingArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop.id)}
                 {@render arcade(shop)}
               {/each}
               {#if data.user.frequentingArcades.length > ARCADE_DISPLAY_LIMIT}
@@ -503,7 +503,7 @@
               {m.starred_arcades()}
             </h3>
             <div class="space-y-2">
-              {#each data.user.starredArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop._id)}
+              {#each data.user.starredArcades.slice(0, ARCADE_DISPLAY_LIMIT) as shop (shop.id)}
                 {@render arcade(shop)}
               {/each}
               {#if data.user.starredArcades.length > ARCADE_DISPLAY_LIMIT}

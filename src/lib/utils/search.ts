@@ -71,11 +71,10 @@ export const expandHighlightedBracketsRecursive = <T>(input: T, query: string): 
 };
 
 /**
- * Apply search-query highlighting to expanded region entries' name values.
- * For each region entry, if the query (or any token of it) matches a name value
- * (case-insensitive substring), that value is wrapped with highlight tags.
- * This ensures `formatShopAddress` → `getDisplayAddressParts` → `selectLocalizedRegionName`
- * picks up the highlighted name for the user's locale.
+ * Apply search-query highlighting to expanded region entries' localized names.
+ * When the query (or any token of it) matches a name case-insensitively, the
+ * name is wrapped with highlight tags, so `formatShopAddress` →
+ * `getDisplayAddressParts` picks up the highlighted value.
  */
 export const highlightRegionEntries = (
   entries: AddressRegionEntry[],
@@ -88,18 +87,11 @@ export const highlightRegionEntries = (
   if (tokens.length === 0) return entries;
 
   return entries.map((entry) => {
-    const highlightedName: Record<string, string> = {};
-    for (const [locale, value] of Object.entries(entry.name)) {
-      if (!value) {
-        highlightedName[locale] = value;
-        continue;
-      }
-      const lowerValue = value.toLowerCase();
-      const matched = tokens.some((token) => lowerValue.includes(token.toLowerCase()));
-      highlightedName[locale] = matched
-        ? `${HIGHLIGHT_PRE_TAG}${value}${HIGHLIGHT_POST_TAG}`
-        : value;
-    }
-    return { id: entry.id, name: highlightedName };
+    if (!entry.name) return entry;
+    const lowerValue = entry.name.toLowerCase();
+    const matched = tokens.some((token) => lowerValue.includes(token.toLowerCase()));
+    return matched
+      ? { id: entry.id, name: `${HIGHLIGHT_PRE_TAG}${entry.name}${HIGHLIGHT_POST_TAG}` }
+      : entry;
   });
 };

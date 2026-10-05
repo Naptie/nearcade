@@ -2,14 +2,23 @@
   import { m } from '$lib/paraglide/messages';
   import type { ImageAsset } from '$lib/types';
   import type { PageData } from './$types';
-  import { pageTitle, getDisplayName } from '$lib/utils';
+  import { getDisplayName } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import ImageViewerModal from '$lib/components/ImageViewerModal.svelte';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminStats from '$lib/components/admin/AdminStats.svelte';
+  import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
 
   let { data }: { data: PageData } = $props();
 
   let deletedImageIds = $state<string[]>([]);
   let images = $derived(data.images.filter((image) => !deletedImageIds.includes(image.id)));
+  // Client-side deletions shrink the count, so the toolbar summary and the
+  // pagination window stay in sync with the rows actually on screen.
   let totalCount = $derived(Math.max(0, data.totalCount - deletedImageIds.length));
   let viewerOpen = $state(false);
   let viewerIndex = $state(0);
@@ -47,50 +56,14 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_images(), m.admin_panel())}</title>
-</svelte:head>
+<AdminPage title={m.admin_images()} description={m.admin_images_description()}>
+  {#snippet actions()}
+    <AdminStats stats={[{ label: m.total(), value: totalCount }]} />
+  {/snippet}
 
-<div class="min-w-3xs space-y-6">
-  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-    <div class="not-sm:text-center">
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_images()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_images_description()}</p>
-    </div>
+  <AdminToolbar placeholder={m.admin_images_search_placeholder()} total={totalCount} />
 
-    <div class="stats shadow">
-      <div class="stat px-4 py-2">
-        <div class="stat-title text-xs">{m.total()}</div>
-        <div class="stat-value text-primary text-xl">{totalCount}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <form method="GET" class="flex flex-col gap-3 sm:flex-row">
-      <div class="form-control flex-1">
-        <label class="label" for="search">
-          <span class="label-text font-medium">{m.search()}</span>
-        </label>
-        <input
-          id="search"
-          name="search"
-          type="text"
-          class="input input-bordered w-full"
-          value={data.search}
-          placeholder={m.admin_images_search_placeholder()}
-        />
-      </div>
-      <div class="flex items-end">
-        <button type="submit" class="btn btn-primary w-full sm:w-auto">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          {m.search()}
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if images.length > 0}
       <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
         {#each images as image, index (image.id)}
@@ -148,7 +121,7 @@
                 </div>
               </div>
 
-              <div class="flex justify-end gap-2">
+              <AdminRowActions>
                 <button
                   type="button"
                   class="btn btn-soft btn-sm"
@@ -169,46 +142,29 @@
                 >
                   <i class="fa-solid fa-trash"></i>
                 </button>
-              </div>
+              </AdminRowActions>
             </div>
           </div>
         {/each}
       </div>
 
-      <div class="border-base-300 border-t p-4">
-        <div class="flex justify-center gap-2">
-          {#if data.currentPage > 1}
-            <a
-              href={`?page=${data.currentPage - 1}${data.search ? `&search=${encodeURIComponent(data.search)}` : ''}`}
-              class="btn btn-soft"
-            >
-              {m.previous_page()}
-            </a>
-          {/if}
-
-          <span class="btn btn-disabled btn-soft">{m.page({ page: data.currentPage })}</span>
-
-          {#if data.hasMore}
-            <a
-              href={`?page=${data.currentPage + 1}${data.search ? `&search=${encodeURIComponent(data.search)}` : ''}`}
-              class="btn btn-soft"
-            >
-              {m.next_page()}
-            </a>
-          {/if}
-        </div>
-      </div>
+      <AdminPagination
+        currentPage={data.currentPage}
+        hasMore={data.hasMore}
+        total={totalCount}
+        pageSize={data.pageSize}
+      />
     {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-images text-base-content/40 mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_images_found()}</h3>
-        <p class="text-base-content/60">
-          {data.search ? m.admin_no_images_found_search() : m.admin_no_images_found_empty()}
-        </p>
-      </div>
+      <AdminEmptyState
+        icon="fa-images"
+        title={m.admin_no_images_found()}
+        description={data.search
+          ? m.admin_no_images_found_search()
+          : m.admin_no_images_found_empty()}
+      />
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>
 
 <ImageViewerModal
   bind:isOpen={viewerOpen}

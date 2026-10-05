@@ -191,7 +191,57 @@ export const initDatabase = async (mongo: MongoClient) => {
     // admin_stats_snapshots — dashboard stock history (one doc per scope+day).
     db
       .collection('admin_stats_snapshots')
-      .createIndex({ scope: 1, date: -1 }, { name: 'scope_1_date_-1', unique: true })
+      .createIndex({ scope: 1, date: -1 }, { name: 'scope_1_date_-1', unique: true }),
+
+    // shop_changelog — append-only audit ledger, never rewritten. Every read is
+    // "newest first, narrowed by some dimension", so each filter dimension gets
+    // a matching createdAt-suffixed index: the trailing -1 lets the sort ride
+    // the same index instead of an in-memory blocking sort.
+    //
+    // Free-text search stays a substring scan by design (users expect
+    // mid-token matches, which a text index cannot serve). Because the scan can
+    // walk createdAt in reverse and stop as soon as `skip + limit` rows have been
+    // found, sparse-result queries stay bounded in the common case.
+    db.collection('shop_changelog').createIndex({ createdAt: -1 }, { name: 'createdAt_-1' }),
+    db
+      .collection('shop_changelog')
+      .createIndex({ shopId: 1, createdAt: -1 }, { name: 'shopId_1_createdAt_-1' }),
+    db
+      .collection('shop_changelog')
+      .createIndex({ action: 1, createdAt: -1 }, { name: 'action_1_createdAt_-1' }),
+    db
+      .collection('shop_changelog')
+      .createIndex(
+        { 'fieldInfo.field': 1, createdAt: -1 },
+        { name: 'fieldInfo_field_1_createdAt_-1' }
+      ),
+    db
+      .collection('shop_changelog')
+      .createIndex({ userId: 1, createdAt: -1 }, { name: 'userId_1_createdAt_-1' }),
+
+    // deleted_shops — write-once archive of removed shops; each record keeps the
+    // shop snapshot plus deletedAt/deletedBy/deleteRequestId. The admin browser
+    // only ever reads "newest deletion first, narrowed by some dimension", so
+    // each filter dimension gets a deletedAt-suffixed index and the trailing -1
+    // lets the sort ride the same index.
+    //
+    // Free-text search is a substring scan over the archived name/address by
+    // design (mid-token matches, which a text index cannot serve); as on
+    // shop_changelog it can walk deletedAt in reverse and stop once
+    // `skip + limit` rows are found.
+    db.collection('deleted_shops').createIndex({ deletedAt: -1 }, { name: 'deletedAt_-1' }),
+    db.collection('deleted_shops').createIndex({ id: 1 }, { name: 'id_1' }),
+    db
+      .collection('deleted_shops')
+      .createIndex({ deletedBy: 1, deletedAt: -1 }, { name: 'deletedBy_1_deletedAt_-1' }),
+    db
+      .collection('deleted_shops')
+      .createIndex({ deleteRequestId: 1 }, { name: 'deleteRequestId_1' }),
+
+    // shop_delete_requests — the deleted-shops browser joins each archived shop
+    // back to the request that justified it; without this the lookup degrades to
+    // a collection scan per row.
+    db.collection('shop_delete_requests').createIndex({ id: 1 }, { name: 'id_1' })
   ]);
 
   // Official nearcade account — the author of SYSTEM notifications. Read

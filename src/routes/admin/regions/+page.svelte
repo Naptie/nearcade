@@ -6,9 +6,13 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import type { PageData } from './$types';
   import type { Region, AdminRegionNode, AdminRegionSearchHit } from '$lib/regions/types';
-  import { adaptiveNewTab, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab } from '$lib/utils';
   import RegionTreeNode from '$lib/components/admin/RegionTreeNode.svelte';
   import RegionEditModal from '$lib/components/admin/RegionEditModal.svelte';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminLoading from '$lib/components/admin/AdminLoading.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -142,18 +146,7 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_regions(), m.admin_panel())}</title>
-</svelte:head>
-
-<div class="min-w-3xs space-y-6">
-  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-    <div class="not-sm:text-center">
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_regions()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_regions_description()}</p>
-    </div>
-  </div>
-
+<AdminPage title={m.admin_regions()} description={m.admin_regions_description()}>
   {#if deleteError}
     <div class="alert alert-error">
       <i class="fa-solid fa-circle-xmark"></i>
@@ -161,7 +154,7 @@
     </div>
   {/if}
 
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
+  <AdminPanel padded>
     <div class="form-control">
       <label class="label" for="search">
         <span class="label-text font-medium">{m.search()}</span>
@@ -174,15 +167,12 @@
         bind:value={searchQuery}
       />
     </div>
-  </div>
+  </AdminPanel>
 
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if searchActive}
       {#if isSearching}
-        <div class="text-base-content/60 flex items-center justify-center gap-2 py-12">
-          <span class="loading loading-spinner"></span>
-          <span>{m.loading()}</span>
-        </div>
+        <AdminLoading />
       {:else if (searchResults ?? []).length > 0}
         <ul class="divide-base-200 divide-y">
           {#each searchResults ?? [] as hit (hit.id)}
@@ -240,13 +230,11 @@
           {/each}
         </ul>
       {:else}
-        <div class="py-12 text-center">
-          <i class="fa-solid fa-map-location-dot text-base-content/40 mb-4 text-4xl"></i>
-          <h3 class="text-base-content mb-2 text-lg font-semibold">
-            {m.admin_no_regions_found()}
-          </h3>
-          <p class="text-base-content/60">{m.admin_no_regions_found_search()}</p>
-        </div>
+        <AdminEmptyState
+          icon="fa-map-location-dot"
+          title={m.admin_no_regions_found()}
+          description={m.admin_no_regions_found_search()}
+        />
       {/if}
     {:else}
       {#key refreshKey}
@@ -265,18 +253,16 @@
             {/each}
           </ul>
         {:else}
-          <div class="py-12 text-center">
-            <i class="fa-solid fa-map-location-dot text-base-content/40 mb-4 text-4xl"></i>
-            <h3 class="text-base-content mb-2 text-lg font-semibold">
-              {m.admin_no_regions_found()}
-            </h3>
-            <p class="text-base-content/60">{m.admin_no_regions_found_empty()}</p>
-          </div>
+          <AdminEmptyState
+            icon="fa-map-location-dot"
+            title={m.admin_no_regions_found()}
+            description={m.admin_no_regions_found_empty()}
+          />
         {/if}
       {/key}
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>
 
 <RegionEditModal
   region={editingRegion}

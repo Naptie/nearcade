@@ -861,7 +861,7 @@
               <div class="bg-base-100 rounded-lg">
                 {#if displayedFrequentingArcades && displayedFrequentingArcades.length > 0}
                   <div class="divide-base-200 divide-y">
-                    {#each displayedFrequentingArcades as shop (shop._id)}
+                    {#each displayedFrequentingArcades as shop (shop.id)}
                       <div class="flex items-center justify-between p-4">
                         <a
                           href={resolve('/(main)/shops/[id]', {

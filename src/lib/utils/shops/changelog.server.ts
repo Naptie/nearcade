@@ -1,4 +1,4 @@
-import type { Filter, MongoClient } from 'mongodb';
+import type { Document, Filter, MongoClient } from 'mongodb';
 import type {
   Game,
   Shop,
@@ -13,6 +13,7 @@ import { reassignShopTransitInBackground } from '$lib/openmetro/assign.server';
 import { auditUgc, type UgcAuditBlock } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 import { shopUgcTexts } from '$lib/ugc/shop-fields.server';
+import { escapeRegex, userLookupStages, USER_LABEL_EXPRESSION } from './query.server';
 
 interface ChangelogUser {
   id: string | null;
@@ -287,6 +288,13 @@ export const logShopGamesChanges = async (
 };
 
 /**
+ * Shared aggregation stages that resolve an entry's `userId` into the author
+ * document stored as `entry.user`. Kept in one place so every changelog reader
+ * projects the same shape.
+ */
+const USER_LOOKUP_STAGES: Document[] = userLookupStages('userId');
+
+/**
  * Fetch changelog entries for a shop with uploader data joined via $lookup.
  */
 export const getShopChangelogEntries = async (
@@ -303,31 +311,7 @@ export const getShopChangelogEntries = async (
     { $sort: { createdAt: -1 } },
     { $skip: offset },
     { $limit: limit },
-    {
-      $lookup: {
-        from: 'users',
-        let: { uid: '$userId' },
-        pipeline: [
-          { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
-          {
-            $project: {
-              _id: 0,
-              id: 1,
-              name: 1,
-              displayName: 1,
-              image: { $ifNull: ['$image', null] }
-            }
-          }
-        ],
-        as: 'userArr'
-      }
-    },
-    {
-      $addFields: {
-        user: { $arrayElemAt: ['$userArr', 0] }
-      }
-    },
-    { $project: { userArr: 0 } }
+    ...USER_LOOKUP_STAGES
   ];
 
   const [entries, total] = await Promise.all([
@@ -363,31 +347,7 @@ export const getRecentShopChangelogEntries = async (
     { $sort: { createdAt: -1 } },
     { $skip: offset },
     { $limit: limit },
-    {
-      $lookup: {
-        from: 'users',
-        let: { uid: '$userId' },
-        pipeline: [
-          { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
-          {
-            $project: {
-              _id: 0,
-              id: 1,
-              name: 1,
-              displayName: 1,
-              image: { $ifNull: ['$image', null] }
-            }
-          }
-        ],
-        as: 'userArr'
-      }
-    },
-    {
-      $addFields: {
-        user: { $arrayElemAt: ['$userArr', 0] }
-      }
-    },
-    { $project: { userArr: 0 } }
+    ...USER_LOOKUP_STAGES
   ];
 
   const [entries, total] = await Promise.all([
@@ -404,6 +364,259 @@ export const getRecentShopChangelogEntries = async (
       return sanitizeDeletedPhotoEntry(entry) as ShopChangelogEntryWithUser;
     }),
     total
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Admin changelog browser
+//
+// Site-wide, searchable, filterable view over the whole `shop_changelog`
+// ledger. The public per-shop reader above stays deliberately simple; this
+// section exists only for the admin console and is never called from
+// user-facing routes.
+// ---------------------------------------------------------------------------
+
+export interface ShopChangelogSearchQuery {
+  /** Free text matched against shop name, field, game, old/new value and actor id. */
+  search?: string;
+  action?: string;
+  /** Exact `fieldInfo.field` value, e.g. `name` or `game.cost`. */
+  field?: string;
+  userId?: string;
+  shopId?: number;
+  /** Inclusive lower bound on `createdAt`. */
+  from?: Date | null;
+  /** Inclusive upper bound on `createdAt`. */
+  to?: Date | null;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Build the Mongo match document for a changelog search.
+ *
+ * `search` is an `$or` across the fields an admin would plausibly type into the
+ * search box; every other key is an exact-equality narrowing filter.
+ */
+export const buildShopChangelogMatch = (
+  query: ShopChangelogSearchQuery
+): Filter<ShopChangelogEntry> => {
+  const match: Filter<ShopChangelogEntry> = {};
+
+  const search = query.search?.trim();
+  if (search) {
+    const rx = new RegExp(escapeRegex(search), 'i');
+    match.$or = [
+      { shopName: rx },
+      { 'fieldInfo.field': rx },
+      { 'fieldInfo.gameName': rx },
+      { 'fieldInfo.gameVersion': rx },
+      { oldValue: rx },
+      { newValue: rx },
+      { userId: rx },
+      { action: rx }
+    ];
+  }
+
+  if (query.action && query.action !== 'all') {
+    match.action = query.action as ShopChangelogAction;
+  }
+  if (query.field) {
+    (match as Record<string, unknown>)['fieldInfo.field'] = query.field;
+  }
+  if (query.userId) {
+    match.userId = query.userId;
+  }
+  if (typeof query.shopId === 'number' && Number.isFinite(query.shopId)) {
+    match.shopId = query.shopId;
+  }
+  if (query.from || query.to) {
+    match.createdAt = {
+      ...(query.from ? { $gte: query.from } : {}),
+      ...(query.to ? { $lte: query.to } : {})
+    };
+  }
+
+  return match;
+};
+
+/** Hide photos the viewer is not allowed to see, matching the public reader. */
+const projectForViewer = (
+  entries: ShopChangelogEntryWithUser[],
+  viewer: ShopChangelogViewer | null
+): ShopChangelogEntryWithUser[] =>
+  entries.map((entry) => {
+    if (!isDeletedPhotoEntry(entry) || canViewDeletedPhotoInChangelog(entry, viewer)) {
+      return entry;
+    }
+    return sanitizeDeletedPhotoEntry(entry) as ShopChangelogEntryWithUser;
+  });
+
+/**
+ * Site-wide changelog search: newest first, with the author joined in.
+ * Returns the matching row count so callers can size their pagination.
+ */
+export const searchShopChangelogEntries = async (
+  client: MongoClient,
+  query: ShopChangelogSearchQuery,
+  viewer: ShopChangelogViewer | null = null
+): Promise<{ entries: ShopChangelogEntryWithUser[]; total: number }> => {
+  const { limit = 20, offset = 0 } = query;
+  const db = client.db();
+  const collection = db.collection<ShopChangelogEntry>('shop_changelog');
+  const match = buildShopChangelogMatch(query);
+
+  const pipeline = [
+    { $match: match },
+    { $sort: { createdAt: -1, id: 1 } },
+    { $skip: offset },
+    { $limit: limit },
+    ...USER_LOOKUP_STAGES
+  ];
+
+  const [entries, total] = await Promise.all([
+    collection.aggregate(pipeline).toArray() as Promise<ShopChangelogEntryWithUser[]>,
+    collection.countDocuments(match)
+  ]);
+
+  return { entries: projectForViewer(entries, viewer), total };
+};
+
+export interface ShopChangelogFacet {
+  value: string;
+  count: number;
+}
+
+export interface ShopChangelogUserFacet extends ShopChangelogFacet {
+  userId: string;
+  /** Pre-formatted, language-neutral author label (`Display Name` or `@handle`). */
+  label: string;
+}
+
+export interface ShopChangelogFacets {
+  actions: ShopChangelogFacet[];
+  fields: ShopChangelogFacet[];
+  users: ShopChangelogUserFacet[];
+  /** Distinct shops present in the searched scope. */
+  shopCount: number;
+  /** Newest / oldest timestamps present in the searched scope. */
+  newest: Date | null;
+  oldest: Date | null;
+}
+
+/** Upper bounds for the facet dropdowns, so the option lists stay usable. */
+const FACET_LIMITS = { actions: 40, fields: 80, users: 60 } as const;
+
+/**
+ * Filter options for the admin changelog browser, computed in a single pass
+ * with `$facet`.
+ *
+ * Facets intentionally ignore the action / field / actor / date narrowing and
+ * are derived from the free-text scope only. That keeps the dropdowns stable
+ * while an admin drills in — excluding the dimension being filtered would make
+ * the other options collapse to zero the moment a filter is applied.
+ */
+export const getShopChangelogFacets = async (
+  client: MongoClient,
+  query: Pick<ShopChangelogSearchQuery, 'search' | 'shopId'>
+): Promise<ShopChangelogFacets> => {
+  const db = client.db();
+  const collection = db.collection<ShopChangelogEntry>('shop_changelog');
+  const match = buildShopChangelogMatch(query);
+
+  const [result] = await collection
+    .aggregate([
+      { $match: match },
+      {
+        $facet: {
+          actions: [
+            { $group: { _id: '$action', count: { $sum: 1 } } },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: FACET_LIMITS.actions }
+          ],
+          fields: [
+            { $group: { _id: '$fieldInfo.field', count: { $sum: 1 } } },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: FACET_LIMITS.fields }
+          ],
+          users: [
+            { $group: { _id: '$userId', count: { $sum: 1 } } },
+            { $sort: { count: -1, _id: 1 } },
+            { $limit: FACET_LIMITS.users },
+            {
+              $lookup: {
+                from: 'users',
+                let: { uid: '$_id' },
+                pipeline: [
+                  { $match: { $expr: { $eq: ['$id', '$$uid'] } } },
+                  { $project: { _id: 0, id: 1, name: 1, displayName: 1 } }
+                ],
+                as: 'author'
+              }
+            },
+            {
+              $addFields: {
+                author: { $arrayElemAt: ['$author', 0] }
+              }
+            },
+            {
+              // Mirror getDisplayName: prefer the display name, fall back to
+              // `@handle`, and treat a name equal to the id as "no handle".
+              $project: {
+                _id: 0,
+                count: 1,
+                userId: '$_id',
+                label: USER_LABEL_EXPRESSION
+              }
+            }
+          ],
+          shops: [{ $group: { _id: '$shopId' } }, { $count: 'total' }],
+          range: [
+            {
+              $group: {
+                _id: null,
+                newest: { $max: '$createdAt' },
+                oldest: { $min: '$createdAt' }
+              }
+            }
+          ]
+        }
+      }
+    ])
+    .toArray();
+
+  const toFacets = (rows: Array<{ _id: string | null; count: number }>): ShopChangelogFacet[] =>
+    rows
+      .filter((row) => typeof row._id === 'string' && row._id.length > 0)
+      .map((row) => ({ value: row._id as string, count: row.count }));
+
+  const users: ShopChangelogUserFacet[] = (
+    (result?.users ?? []) as Array<{
+      userId: string | null;
+      count: number;
+      label: string | null;
+    }>
+  )
+    .filter((row) => typeof row.userId === 'string' && row.userId.length > 0)
+    .map((row) => ({
+      value: row.userId as string,
+      userId: row.userId as string,
+      count: row.count,
+      label: row.label || (row.userId as string)
+    }));
+
+  const shopCount = ((result?.shops ?? [])[0] as { total?: number } | undefined)?.total ?? 0;
+
+  const range = (result?.range ?? [])[0] as
+    { newest?: Date | null; oldest?: Date | null } | undefined;
+
+  return {
+    actions: toFacets((result?.actions ?? []) as Array<{ _id: string | null; count: number }>),
+    fields: toFacets((result?.fields ?? []) as Array<{ _id: string | null; count: number }>),
+    users,
+    shopCount,
+    newest: range?.newest ?? null,
+    oldest: range?.oldest ?? null
   };
 };
 
@@ -527,9 +740,7 @@ export const applyShopRollback = async (
   const preview = await buildShopRollbackPreview(client, shopId, targetEntryId);
   const db = client.db();
   const storedRegion = preview.rolledBackShop.address.region;
-  const region = Array.isArray(storedRegion)
-    ? storedRegion.map((entry) => (typeof entry === 'string' ? entry : entry.id))
-    : undefined;
+  const region = Array.isArray(storedRegion) ? storedRegion : undefined;
   const address = await resolveShopAddress({
     general: preview.rolledBackShop.address.general ?? [],
     detailed: preview.rolledBackShop.address.detailed ?? '',

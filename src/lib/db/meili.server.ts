@@ -4,6 +4,8 @@ import { toPlainArray, toPlainObject } from '$lib/utils';
 import { env } from '$env/dynamic/private';
 import type { Shop } from '$lib/types';
 import { getShopRegionNames } from '$lib/utils/region.server';
+import { computeShopDerivedFields } from '$lib/utils/shops/derived';
+import mongo from '$lib/db/index.server';
 
 let meili: Meilisearch | undefined;
 
@@ -47,13 +49,31 @@ export const init = async (
   const universities = await db.collection('universities').find().toArray();
   const clubs = await db.collection('clubs').find().toArray();
 
-  // Enrich shops with regionNames (all language variants) for multilingual search
+  // Enrich shops with regionNames (all language variants) for multilingual
+  // search and with the derived cache fields (openingMinutes, aggGames,
+  // gameTokens, stats, timezone) so filter/sort attributes are complete.
+  // Booleans are materialized because Meilisearch cannot match a filter
+  // against a missing attribute (`isClosed = false`).
   const shopsWithRegionNames = await Promise.all(
     shops.map(async (shop) => {
       const regionNames = await getShopRegionNames(getShopRegionIds(shop));
-      return { ...shop, regionNames };
+      const derived = computeShopDerivedFields(shop);
+      return {
+        ...shop,
+        ...derived,
+        isClosed: !!shop.isClosed,
+        isClaimed: !!shop.isClaimed,
+        regionNames
+      };
     })
   );
+
+  const shopsMissingDerived = shops.filter((shop) => !shop.openingMinutes).length;
+  if (shopsMissingDerived > 0) {
+    console.warn(
+      `[Meilisearch] ${shopsMissingDerived} shops are missing derived fields — run "tsx scripts/migrate-shop-derived.ts" to backfill them.`
+    );
+  }
 
   // Delete existing indexes if they exist
   await meili.deleteIndexIfExists('shops');
@@ -65,7 +85,7 @@ export const init = async (
   const universityIndex = meili.index('universities');
   const clubIndex = meili.index('clubs');
 
-  // Configure searchable/filterable attributes
+  // Configure searchable/filterable/sortable attributes
   await shopIndex.updateSettings({
     searchableAttributes: [
       'name',
@@ -76,7 +96,27 @@ export const init = async (
       'games.version',
       'comment'
     ],
-    filterableAttributes: ['games.titleId', 'address.region']
+    filterableAttributes: [
+      'games.titleId',
+      'games.quantity',
+      'gameTokens',
+      'address.region',
+      'isClosed',
+      'isClaimed',
+      'stats.machineCount',
+      'stats.distinctTitleCount',
+      'createdAt',
+      'updatedAt'
+    ],
+    sortableAttributes: [
+      'name',
+      'id',
+      'stats.machineCount',
+      'stats.distinctTitleCount',
+      'stats.currentAttendance',
+      'createdAt',
+      'updatedAt'
+    ]
   });
   await universityIndex.updateSettings({
     searchableAttributes: [
@@ -130,14 +170,29 @@ const getShopRegionIds = (shop: Shop): string[] | undefined => {
 
 /**
  * Upsert one shop document into the Meilisearch index after a Mongo write.
- * `regionNames` is recomputed here because it exists only on the indexed
- * document, never in MongoDB.
+ * Also recomputes and persists the derived cache fields
+ * (openingMinutes / aggGames / gameTokens / stats / timezone) onto the Mongo
+ * document, keeping every write path (create, edit, rollback, machine
+ * claim) in sync for Mongo-side filtering — and re-resolving the timezone
+ * whenever the coordinates changed.
+ * `regionNames` exists only on the indexed document, never in MongoDB.
  */
 export const syncShopDocument = async (shop: Shop): Promise<void> => {
+  const derived = computeShopDerivedFields(shop);
+  await mongo.db().collection<Shop>('shops').updateOne({ _id: shop._id }, { $set: derived });
   const regionNames = await getShopRegionNames(getShopRegionIds(shop));
-  await meiliProxy
-    .index<Shop>('shops')
-    .updateDocuments([toPlainObject({ ...shop, regionNames })], { primaryKey: '_id' });
+  await meiliProxy.index<Shop>('shops').updateDocuments(
+    [
+      toPlainObject({
+        ...shop,
+        ...derived,
+        isClosed: !!shop.isClosed,
+        isClaimed: !!shop.isClaimed,
+        regionNames
+      })
+    ],
+    { primaryKey: '_id' }
+  );
 };
 
 /** Remove a shop document from the Meilisearch index by its Mongo `_id`. */

@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ data, url, fetch }) => {
     }
     data = await resp.json();
   }
-  const { shops, location, radius, limit, gameTitleIds, metro } = data;
+  const { shops, location, radius, limit, gameTitleIds, metro, regionLabels } = data;
 
   return {
     shops,
@@ -20,6 +20,9 @@ export const load: PageLoad = async ({ data, url, fetch }) => {
     radius,
     limit,
     gameTitleIds: gameTitleIds ?? [],
-    metro
+    metro,
+    // Localized names for the regions in the `f` parameter. Carried through this
+    // projection because the chips render from it, not from the raw IDs.
+    regionLabels: regionLabels ?? {}
   };
 };

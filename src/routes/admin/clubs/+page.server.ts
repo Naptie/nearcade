@@ -6,6 +6,7 @@ import { PAGINATION } from '$lib/constants';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
+import { parsePageParam } from '$lib/admin/list-state';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -19,7 +20,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   try {
     const db = mongo.db();
 
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const page = parsePageParam(url);
     const limit = parseInt(url.searchParams.get('limit') || '0') || PAGINATION.PAGE_SIZE;
     const skip = (page - 1) * limit;
 

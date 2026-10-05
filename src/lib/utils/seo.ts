@@ -91,21 +91,6 @@ export function buildBreadcrumbSchema(items: { name: string; item?: string }[]):
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const getLocaleForShop = (shop: Shop): string => {
-  const countryCode =
-    typeof shop.address?.region?.[0] === 'string'
-      ? shop.address.region[0]
-      : shop.address?.region?.[0]?.id;
-  switch (countryCode) {
-    case 'CN':
-      return 'zh';
-    case 'JP':
-      return 'ja';
-    default:
-      return 'en';
-  }
-};
-
 function buildOpeningHoursSpecification(
   openingHours: Array<[{ hour: number; minute: number }, { hour: number; minute: number }]>
 ): unknown[] | undefined {
@@ -133,10 +118,10 @@ function buildOpeningHoursSpecification(
 }
 
 export function buildShopSchema(shop: Shop, canonicalUrl: string, imageUrl?: string): object {
-  const addressParts = getDisplayAddressParts(
-    { general: shop.address?.general ?? [], region: shop.address?.region },
-    getLocaleForShop(shop)
-  );
+  const addressParts = getDisplayAddressParts({
+    general: shop.address?.general ?? [],
+    region: shop.address?.region
+  });
   const address: Record<string, string> = {
     '@type': 'PostalAddress',
     streetAddress: shop.address?.detailed ?? ''

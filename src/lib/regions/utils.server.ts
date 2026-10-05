@@ -9,7 +9,14 @@
  */
 import type { MongoClient } from 'mongodb';
 import mongo from '$lib/db/index.server';
-import type { Region, AddressRegionEntry, AdminRegionNode, AdminRegionSearchHit } from './types';
+import { regionNameForLocale } from './labels';
+import type {
+  Region,
+  AddressRegionEntry,
+  RegionNameEntry,
+  AdminRegionNode,
+  AdminRegionSearchHit
+} from './types';
 
 // ── Cached data ────────────────────────────────────────────────────────────
 
@@ -86,14 +93,13 @@ export async function reloadRegionCache(client: MongoClient): Promise<void> {
 /**
  * Pick the best name for a locale from a region's name map.
  * Priority: exact locale match → language match → English → any available value.
+ *
+ * Thin server-side alias for the shared rule in `$lib/regions/labels`, so a
+ * region resolved from the database and one resolved from a name map that
+ * travelled through a link always read identically.
  */
-function selectRegionNameForLocale(name: Record<string, string>, locale: string): string {
-  if (name[locale]) return name[locale];
-  const language = locale.split('-')[0];
-  if (language && name[language]) return name[language];
-  if (name.en) return name.en;
-  const firstAvailable = Object.values(name).find((value) => value);
-  return firstAvailable ?? '';
+export function selectRegionNameForLocale(name: Record<string, string>, locale: string): string {
+  return regionNameForLocale(name, locale);
 }
 
 function compareRegions(a: Region, b: Region, collator: Intl.Collator, locale: string): number {
@@ -145,13 +151,29 @@ export async function expandRegionHierarchy(leafId: string): Promise<string[]> {
   return path;
 }
 
-export async function expandRegionHierarchyWithNames(
-  leafId: string
+export async function expandRegionHierarchyWithNames(leafId: string): Promise<RegionNameEntry[]> {
+  const entries: RegionNameEntry[] = [];
+  let cur: Region | undefined = byId?.get(leafId);
+  while (cur) {
+    entries.unshift({ id: cur.id, name: cur.name });
+    cur = cur.parentId ? byId?.get(cur.parentId) : undefined;
+  }
+  return entries;
+}
+
+/**
+ * Expand a leaf region ID into its full chain (root → leaf) carrying only the
+ * name for `locale`. This is what public responses ship: one localized label
+ * per node instead of every locale the upstream dataset happens to carry.
+ */
+export async function expandRegionHierarchyLocalized(
+  leafId: string,
+  locale: string
 ): Promise<AddressRegionEntry[]> {
   const entries: AddressRegionEntry[] = [];
   let cur: Region | undefined = byId?.get(leafId);
   while (cur) {
-    entries.unshift({ id: cur.id, name: cur.name });
+    entries.unshift({ id: cur.id, name: selectRegionNameForLocale(cur.name, locale) });
     cur = cur.parentId ? byId?.get(cur.parentId) : undefined;
   }
   return entries;
@@ -339,7 +361,7 @@ export function searchAdminRegions(query: string, limit = 200): AdminRegionSearc
       Object.values(region.name).some((name) => name?.toLowerCase().includes(q));
     if (!matches) continue;
 
-    const ancestors: AddressRegionEntry[] = [];
+    const ancestors: RegionNameEntry[] = [];
     let cursor = region.parentId ? byId.get(region.parentId) : undefined;
     while (cursor) {
       ancestors.unshift({ id: cursor.id, name: cursor.name });

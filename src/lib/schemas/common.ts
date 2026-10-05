@@ -3,6 +3,7 @@ import type { ZodOpenApiOverrideMetaContext } from 'zod-openapi';
 import { z } from 'zod';
 
 import { PAGINATION, SOCIAL_PLATFORMS, USER_TYPES } from '../constants';
+import { canonicalizeOpeningHours } from '../utils/shops/derived';
 import { UGC_TRANSLATION_FIELDS } from '../ugc/types';
 
 export const bilingual = (chinese: string, english: string, singleLine = false) =>
@@ -72,28 +73,75 @@ export const paginationQuerySchema = z.object({
   )
 });
 
+// OpenAPI specs for the canonical hour/minute fields. The transforms on the
+// Zod side are opaque to zod-openapi, so both the field overrides and the
+// openingHoursSchema override below draw their structure from this one spec.
+const openingHourField = {
+  hour: {
+    type: 'integer',
+    minimum: 0,
+    maximum: 47,
+    description: bilingual(
+      '24 小时制本地小时。营业结束时间允许 24–47，表示次日。',
+      'Hour in 24-hour local time. Closing times accept 24–47, denoting the next day.'
+    )
+  },
+  minute: {
+    type: 'integer',
+    minimum: 0,
+    maximum: 59,
+    description: bilingual('分钟。', 'Minute.')
+  }
+} as const;
+
 export const openingHourTimeSchema = z.object({
   hour: z
     .number()
-    .transform((value) => Math.max(0, Math.min(23, Math.floor(value))))
-    .describe(bilingual('24 小时制本地小时。', 'Hour in 24-hour local time.'))
-    .meta({ override: { type: 'integer', minimum: 0, maximum: 23 } }),
+    .transform((value) => Math.max(0, Math.min(47, Math.floor(value))))
+    .meta({ override: openingHourField.hour }),
   minute: z
     .number()
     .transform((value) => Math.max(0, Math.min(59, Math.floor(value))))
-    .describe(bilingual('分钟。', 'Minute.'))
-    .meta({ override: { type: 'integer', minimum: 0, maximum: 59 } })
+    .meta({ override: openingHourField.minute })
 });
 
 export const openingHoursSchema = z
   .array(z.tuple([openingHourTimeSchema, openingHourTimeSchema]))
   .min(1)
+  // Canonical form: the open side stays within the same day and the close
+  // side runs past it for overnight hours (22:00–02:00 → 22:00–26:00).
+  // Legacy wraparound payloads are lifted here so the rest of the app never
+  // has to handle both shapes.
+  .transform(canonicalizeOpeningHours)
   .describe(
     bilingual(
-      '营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。',
-      'Opening hours. One item means the same hours for the whole week; seven items map to weekdays.'
+      '营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。',
+      'Opening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).'
     )
-  );
+  )
+  // The transform above hides the array from zod-openapi in output schemas,
+  // so re-state its shape here: an array (≥ 1) of [open, close] tuples.
+  .meta({
+    // zod-openapi passes `io` at runtime but omits it from the meta-override type.
+    override: (ctx: ZodOpenApiOverrideMetaContext & { io: 'input' | 'output' }) => {
+      Object.assign(ctx.jsonSchema, {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'array',
+          minItems: 2,
+          maxItems: 2,
+          items: {
+            type: 'object',
+            properties: openingHourField,
+            required: ['hour', 'minute'],
+            // Matches the generator: strict objects in responses only.
+            ...(ctx.io === 'output' ? { additionalProperties: false } : {})
+          }
+        }
+      });
+    }
+  });
 
 export const locationSchema = z.object({
   type: z.literal('Point').describe(bilingual('GeoJSON 几何类型。', 'GeoJSON geometry type.')),

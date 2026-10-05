@@ -1,13 +1,11 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Shop } from '$lib/types';
-import type { z } from 'zod';
-import { getShopTimeInfo, toPlainObject } from '$lib/utils';
+import { toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { syncShopDocument } from '$lib/db/meili.server';
 import { reassignShopTransitInBackground } from '$lib/openmetro/assign.server';
 import type { RequestHandler } from './$types';
 import { m } from '$lib/paraglide/messages';
-import { openingHoursSchema } from '$lib/schemas/common';
 import { requireBoundPhone } from '$lib/utils/index.server';
 import { logShopFieldChanges, logShopGamesChanges } from '$lib/utils/shops/changelog.server';
 import {
@@ -22,43 +20,12 @@ import {
   parseParamsOrError,
   parseQueryOrError
 } from '$lib/utils/validation.server';
-import {
-  IncompleteShopRegionError,
-  resolveShopAddress,
-  expandShopAddress,
-  localizeAddressGeneral
-} from '$lib/utils/region.server';
+import { toShopApi } from '$lib/utils/shops/api.server';
+import { IncompleteShopRegionError, resolveShopAddress } from '$lib/utils/region.server';
 import { canModifyShop } from '$lib/utils/shops/authorization.server';
 import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 import { shopUgcTexts } from '$lib/ugc/shop-fields.server';
-
-type NormalizedOpeningHours = z.infer<typeof openingHoursSchema>;
-
-const normalizeOpeningHours = (openingHours: unknown): NormalizedOpeningHours | null => {
-  if (!Array.isArray(openingHours) || openingHours.length === 0) return null;
-
-  const normalizeTime = (value: unknown) => {
-    if (!value || typeof value !== 'object') return null;
-    const candidate = value as { hour?: unknown; minute?: unknown };
-    if (typeof candidate.hour !== 'number' || typeof candidate.minute !== 'number') return null;
-    return {
-      hour: Math.max(0, Math.min(23, Math.floor(candidate.hour))),
-      minute: Math.max(0, Math.min(59, Math.floor(candidate.minute)))
-    };
-  };
-
-  const normalized: Shop['openingHours'] = [];
-  for (const entry of openingHours) {
-    if (!Array.isArray(entry) || entry.length < 2) return null;
-    const open = normalizeTime(entry[0]);
-    const close = normalizeTime(entry[1]);
-    if (!open || !close) return null;
-    normalized.push([open, close]);
-  }
-
-  return normalized;
-};
 
 type ParsedGameInput = {
   gameId?: number;
@@ -325,29 +292,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     const now = new Date();
 
-    const extraTimeInfo = includeTimeInfo ? getShopTimeInfo(shop, now) : {};
-
-    const rawRegion = shop.address?.region;
-    const regionIds =
-      Array.isArray(rawRegion) &&
-      rawRegion.length > 0 &&
-      rawRegion.every((r): r is string => typeof r === 'string')
-        ? rawRegion
-        : undefined;
-    const expandedRegion = await expandShopAddress(regionIds);
-    const localizedAddress = { ...shop.address, region: expandedRegion };
-
     const response = shopResponseSchema.parse(
-      toPlainObject({
-        shop: {
-          ...shop,
-          address: {
-            ...localizedAddress,
-            general: localizeAddressGeneral(localizedAddress)
-          },
-          ...extraTimeInfo
-        }
-      })
+      toPlainObject({ shop: await toShopApi(shop, { includeTimeInfo, now }) })
     );
 
     return json(response);
@@ -392,10 +338,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     if (address !== undefined) {
       const coords = (location?.coordinates ?? existing.location?.coordinates ?? null) as
         [number, number] | null;
-      const regionIds =
-        address.region && Array.isArray(address.region)
-          ? address.region.map((r) => (typeof r === 'string' ? r : r.id))
-          : undefined;
+      const regionIds = address.region;
       updateFields.address = await resolveShopAddress({
         general: address.general ?? [],
         detailed: address.detailed ?? '',
@@ -408,11 +351,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       }
     }
     if (openingHours !== undefined) {
-      const normalizedOpeningHours = normalizeOpeningHours(openingHours);
-      if (!normalizedOpeningHours) {
-        error(400, 'openingHours must be a non-empty array of [ {hour, minute}, {hour, minute} ]');
-      }
-      updateFields.openingHours = normalizedOpeningHours;
+      // Already canonical (schema transform lifts overnight closes past
+      // midnight) and validated non-empty.
+      updateFields.openingHours = openingHours;
     }
     if (location !== undefined) updateFields.location = location;
 
@@ -522,23 +463,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       reassignShopTransitInBackground(mongo, shopId);
     }
 
-    const rawRegion = updated!.address?.region;
-    const regionIds =
-      Array.isArray(rawRegion) && rawRegion.length > 0 && typeof rawRegion[0] === 'string'
-        ? (rawRegion as string[])
-        : undefined;
-    const expandedRegion = await expandShopAddress(regionIds);
-    const localizedAddress = { ...updated!.address, region: expandedRegion };
     const response = shopResponseSchema.parse(
-      toPlainObject({
-        shop: {
-          ...updated!,
-          address: {
-            ...localizedAddress,
-            general: localizeAddressGeneral(localizedAddress)
-          }
-        }
-      })
+      toPlainObject({ shop: await toShopApi(updated!, { now: new Date() }) })
     );
     return json(response);
   } catch (err) {
@@ -581,23 +507,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     await shopsCollection.updateOne({ id: shopId }, { $set: updateFields });
 
     const updated = await shopsCollection.findOne({ id: shopId });
-    const rawRegion = updated!.address?.region;
-    const regionIds =
-      Array.isArray(rawRegion) && rawRegion.length > 0 && typeof rawRegion[0] === 'string'
-        ? (rawRegion as string[])
-        : undefined;
-    const expandedRegion = await expandShopAddress(regionIds);
-    const localizedAddress = { ...updated!.address, region: expandedRegion };
     const response = shopResponseSchema.parse(
-      toPlainObject({
-        shop: {
-          ...updated!,
-          address: {
-            ...localizedAddress,
-            general: localizeAddressGeneral(localizedAddress)
-          }
-        }
-      })
+      toPlainObject({ shop: await toShopApi(updated!, { now: new Date() }) })
     );
     return json(response);
   } catch (err) {

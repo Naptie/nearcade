@@ -6,34 +6,201 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
-  import { aggregateGames, formatShopAddress, getGameName, pageTitle } from '$lib/utils';
+  import {
+    aggregateGames,
+    formatShopAddress,
+    getGameName,
+    getMyLocation,
+    pageTitle
+  } from '$lib/utils';
   import { hasBoundPhone } from '$lib/utils';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import { PAGINATION, GAME_TITLES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
-  import type { Shop } from '$lib/types';
+  import type { PublicUser } from '$lib/auth/types';
+  import type { Shop, ShopApiAddress } from '$lib/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
-  import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
-  import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
+  import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import T from '$lib/ugc/components/T.svelte';
+  import {
+    emptyShopFilterState,
+    SHOP_SORT_OPTIONS,
+    type ShopFilterState,
+    type ShopSearchSort
+  } from '$lib/schemas/shop-filter';
+  import { countActiveFilters, serializeShopFilterState } from '$lib/utils/shops/filter';
+
+  /**
+   * A stored shop whose address has been projected to the public shape (localized
+   * region names), plus the live values the page load attaches.
+   */
+  type CardShop = Omit<Shop, 'address'> & {
+    address: ShopApiAddress;
+    _rankingScore?: number;
+    nameHl?: string;
+    currentAttendance?: number;
+    currentReportedAttendance?: {
+      reportedAt: string;
+      reportedBy: PublicUser;
+      comment: string | null;
+    } | null;
+  };
 
   let { data }: { data: PageData } = $props();
 
   const pageLocale = $derived(getLocale());
 
-  let searchQuery = $derived(data.query);
+  // Initial capture is intentional: the $effect below re-syncs after every
+  // load (back/forward included).
+  // svelte-ignore state_referenced_locally
+  let searchQuery = $state(data.query);
+  // svelte-ignore state_referenced_locally
+  let sortValue = $state<ShopSearchSort>(data.sort);
+  let filterPanelOpen = $state(false);
   let isSearching = $state(false);
-  let selectedTitleIds = $derived<number[]>(data.titleIds || []);
-  let selectedRegionIds = $state<string[]>([]);
-  let selectedRegionId = $derived(
-    selectedRegionIds.length > 0 ? selectedRegionIds[selectedRegionIds.length - 1] : ''
-  );
-  let regionDropdownOpen = $state(false);
-  let regionDropdownEl = $state<HTMLElement>();
-  let gameFilterOpen = $state(false);
+  let locating = $state(false);
+
+  // Re-sync the URL-driven controls after every load (back/forward included).
+  $effect(() => {
+    searchQuery = data.query;
+    sortValue = data.sort;
+  });
 
   const hasPhone = $derived(hasBoundPhone(data.user) || data.user?.userType === 'site_admin');
   const canCreateShop = $derived(!!data.user && hasPhone);
+  const activeCount = $derived(countActiveFilters(data.filter));
+
+  // ── URL state ──
+
+  const buildShopUrl = (
+    overrides: {
+      q?: string;
+      sort?: ShopSearchSort;
+      page?: number;
+      filter?: ShopFilterState;
+    } = {}
+  ) => {
+    const applied = $state.snapshot(data.filter) ?? emptyShopFilterState();
+    const params = new SvelteURLSearchParams();
+    const q = (overrides.q ?? searchQuery).trim();
+    const sort = overrides.sort ?? sortValue;
+    if (q) params.set('q', q);
+    if (sort !== 'relevance') params.set('sort', sort);
+    if (overrides.page && overrides.page > 1) params.set('page', String(overrides.page));
+    const filter = overrides.filter ?? applied;
+    if (serializeShopFilterState(filter) !== serializeShopFilterState(emptyShopFilterState())) {
+      params.set('f', serializeShopFilterState(filter));
+    }
+    const qs = params.toString();
+    return resolve('/(main)/shops') + (qs ? `?${qs}` : '');
+  };
+
+  const handleSearch = async (event: Event) => {
+    event.preventDefault();
+    isSearching = true;
+    await goto(buildShopUrl({ q: searchQuery, page: 1 }));
+    isSearching = false;
+  };
+
+  const handleSortChange = async (event: Event) => {
+    sortValue = (event.target as HTMLSelectElement).value as ShopSearchSort;
+    await goto(buildShopUrl({ sort: sortValue, page: 1 }));
+  };
+
+  const handleApplyFilter = async (filter: ShopFilterState) => {
+    filterPanelOpen = false;
+    isSearching = true;
+    await goto(buildShopUrl({ filter, page: 1 }));
+    isSearching = false;
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new SvelteURLSearchParams(page.url.searchParams);
+    params.set('page', newPage.toString());
+    goto(resolve('/(main)/shops') + `?${params.toString()}`);
+  };
+
+  // ── Quick chips + summary chips (applied immediately) ──
+
+  const applyFilterUpdate = (mutate: (filter: ShopFilterState) => void) => {
+    const next = structuredClone($state.snapshot(data.filter)) as ShopFilterState;
+    mutate(next);
+    return goto(buildShopUrl({ filter: next, page: 1 }));
+  };
+
+  const deleteHoursKey = (filter: ShopFilterState, key: 'openNow' | 'is24h') => {
+    if (filter.hours) {
+      delete filter.hours[key];
+      if (Object.keys(filter.hours).length === 0) delete filter.hours;
+    }
+  };
+
+  const toggleOpenNow = () =>
+    applyFilterUpdate((filter) => {
+      if (filter.hours?.openNow) deleteHoursKey(filter, 'openNow');
+      else filter.hours = { ...(filter.hours ?? {}), openNow: true };
+    });
+
+  const toggle24h = () =>
+    applyFilterUpdate((filter) => {
+      if (filter.hours?.is24h) deleteHoursKey(filter, 'is24h');
+      else filter.hours = { ...(filter.hours ?? {}), is24h: true };
+    });
+
+  const toggleNearMe = async () => {
+    if (data.filter.geo) {
+      await applyFilterUpdate((filter) => {
+        delete filter.geo;
+      });
+      return;
+    }
+    locating = true;
+    try {
+      const { latitude, longitude } = await getMyLocation();
+      await applyFilterUpdate((filter) => {
+        filter.geo = { mode: 'near', lat: latitude, lng: longitude, radiusKm: 10 };
+      });
+    } catch {
+      // Location unavailable — leave the filter untouched.
+    } finally {
+      locating = false;
+    }
+  };
+
+  const removeRegionChip = (regionId: string) =>
+    applyFilterUpdate((filter) => {
+      filter.regions = (filter.regions ?? []).filter((id) => id !== regionId);
+      if (filter.regions.length === 0) delete filter.regions;
+    });
+
+  const removeScheduleChip = (key: 'openAt' | 'opensBy' | 'closesFrom') =>
+    applyFilterUpdate((filter) => {
+      if (filter.hours) {
+        delete filter.hours[key];
+        if (Object.keys(filter.hours).length === 0) delete filter.hours;
+      }
+    });
+
+  const clearAllFilters = async () => {
+    await goto(buildShopUrl({ filter: emptyShopFilterState(), page: 1 }));
+  };
+
+  // ── Chip labels ──
+
+  const SCHEDULE_KEYS = ['openAt', 'opensBy', 'closesFrom'] as const;
+  const SCHEDULE_LABELS: Record<(typeof SCHEDULE_KEYS)[number], () => string> = {
+    openAt: () => m.filter_schedule_openAt(),
+    opensBy: () => m.filter_schedule_opensBy(),
+    closesFrom: () => m.filter_schedule_closesFrom()
+  };
+
+  const formatChipMinute = (minute: number) =>
+    `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+
+  const gameLeafCount = (expr: NonNullable<ShopFilterState['games']>): number =>
+    expr.children.reduce((count, child) => count + ('op' in child ? gameLeafCount(child) : 1), 0);
+
+  // ── Card helpers ──
 
   const handleCreateShop = () => {
     if (!data.user) {
@@ -47,88 +214,27 @@
     goto(resolve('/(main)/shops/new'));
   };
 
-  $effect(() => {
-    const open = regionDropdownOpen;
-    if (!open) return;
-    const el = regionDropdownEl;
-    if (!el) return;
-
-    const handlePointerDown = (e: PointerEvent) => {
-      if (!el.contains(e.target as Node)) {
-        regionDropdownOpen = false;
-      }
-    };
-
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
-  });
-
-  // Sync regionId from URL on initial load
-  $effect(() => {
-    const urlRegionId = data.regionId;
-    if (urlRegionId && selectedRegionIds.length === 0) {
-      // We only store the leaf ID from the URL; the cascade will be re-selected by the user
-      selectedRegionIds = [urlRegionId];
-    }
-  });
-
-  const handleSearch = async (event: Event) => {
-    event.preventDefault();
-    isSearching = true;
-    const params = new SvelteURLSearchParams();
-    if (searchQuery.trim()) {
-      params.set('q', searchQuery.trim());
-    }
-    if (selectedTitleIds.length > 0) {
-      params.set('titleIds', selectedTitleIds.join(','));
-    }
-    if (selectedRegionId) {
-      params.set('regionId', selectedRegionId);
-    }
-    await goto(resolve('/(main)/shops') + `?${params.toString()}`);
-    isSearching = false;
-  };
-
-  const handlePageChange = (newPage: number) => {
-    const params = new SvelteURLSearchParams(page.url.searchParams);
-    params.set('page', newPage.toString());
-    goto(resolve('/(main)/shops') + `?${params.toString()}`);
-  };
-
-  const applyFilters = async (titleIds?: number[]) => {
-    const effectiveTitleIds = titleIds ?? selectedTitleIds;
-    isSearching = true;
-    const params = new SvelteURLSearchParams();
-    if (searchQuery.trim()) {
-      params.set('q', searchQuery.trim());
-    }
-    if (effectiveTitleIds.length > 0) {
-      params.set('titleIds', effectiveTitleIds.join(','));
-    }
-    if (selectedRegionId) {
-      params.set('regionId', selectedRegionId);
-    }
-    await goto(resolve('/(main)/shops') + `?${params.toString()}`);
-    isSearching = false;
-  };
-
-  const clearFilters = async () => {
-    selectedRegionIds = [];
-    isSearching = true;
-    const params = new SvelteURLSearchParams();
-    if (searchQuery.trim()) {
-      params.set('q', searchQuery.trim());
-    }
-    await goto(resolve('/(main)/shops') + `?${params.toString()}`);
-    isSearching = false;
-  };
-
-  const getTotalMachines = (shop: Shop): number => {
+  const getTotalMachines = (shop: Pick<Shop, 'games'>): number => {
     return shop.games.reduce((total, game) => total + game.quantity, 0);
   };
 
   const getGameInfo = (gameId: number) => {
     return GAME_TITLES.find((g) => g.id === gameId);
+  };
+
+  const SORT_LABELS: Record<ShopSearchSort, () => string> = {
+    relevance: () => m.sort_relevance(),
+    name_asc: () => m.sort_name_asc(),
+    name_desc: () => m.sort_name_desc(),
+    distance: () => m.sort_distance(),
+    machines_desc: () => m.sort_machines_desc(),
+    machines_asc: () => m.sort_machines_asc(),
+    titles_desc: () => m.sort_titles_desc(),
+    attendance_desc: () => m.sort_attendance_desc(),
+    id_asc: () => m.sort_id_asc(),
+    id_desc: () => m.sort_id_desc(),
+    updated_desc: () => m.sort_updated_desc(),
+    created_desc: () => m.sort_created_desc()
   };
 </script>
 
@@ -175,74 +281,33 @@
   </div>
 
   <!-- Search Bar -->
-  <div class="mb-8">
-    <form onsubmit={handleSearch} class="flex gap-4">
-      <!-- Game Title Filter -->
+  <div class="mb-4">
+    <form onsubmit={handleSearch} class="flex gap-2 sm:gap-4">
+      <!-- Filter panel -->
       <button
         type="button"
         class="btn btn-soft hover:btn-accent"
-        class:btn-primary={selectedTitleIds.length > 0}
-        aria-label={m.filter_by_game_titles()}
-        onclick={() => (gameFilterOpen = true)}
+        class:btn-primary={activeCount > 0}
+        aria-label={m.filter_title()}
+        onclick={() => (filterPanelOpen = true)}
       >
         <i class="fa-solid fa-filter"></i>
-        {#if selectedTitleIds.length > 0}
-          <span class="badge badge-sm">{selectedTitleIds.length}</span>
+        {#if activeCount > 0}
+          <span class="badge badge-sm">{activeCount}</span>
         {/if}
       </button>
 
-      <!-- Region Filter Dropdown -->
-      <div class="dropdown" class:dropdown-open={regionDropdownOpen} bind:this={regionDropdownEl}>
-        <button
-          type="button"
-          class="btn btn-soft hover:btn-accent"
-          class:btn-primary={!!selectedRegionId}
-          aria-label={m.filter_by_region()}
-          onclick={() => (regionDropdownOpen = !regionDropdownOpen)}
-        >
-          <i class="fa-solid fa-earth-asia"></i>
-          {#if selectedRegionId}
-            <i class="fa-solid fa-circle-check text-xs"></i>
-          {/if}
-        </button>
-        <div
-          role="menu"
-          class="card dropdown-content bg-base-200 z-10 mt-2 w-72 shadow-lg"
-          onfocusout={(e) => {
-            const relatedTarget = e.relatedTarget as Node | null;
-            if (relatedTarget && !e.currentTarget.contains(relatedTarget)) {
-              regionDropdownOpen = false;
-            }
-          }}
-        >
-          <div class="card-body p-4">
-            <h3 class="card-title text-base text-nowrap">{m.filter_by_region()}</h3>
-            <RegionCascadeSelect
-              bind:regionIds={selectedRegionIds}
-              gridClass="grid grid-cols-1 gap-1"
-            />
-            <div class="card-actions mt-2 w-fit flex-nowrap justify-between whitespace-nowrap">
-              <button
-                type="button"
-                class="btn btn-soft hover:btn-error btn-sm"
-                onclick={clearFilters}
-                disabled={selectedTitleIds.length === 0 && !selectedRegionId}
-              >
-                <i class="fa-solid fa-trash"></i>
-                {m.clear_filters()}
-              </button>
-              <button
-                type="button"
-                class="btn btn-primary btn-soft btn-sm"
-                onclick={() => applyFilters()}
-              >
-                <i class="fa-solid fa-filter"></i>
-                {m.apply_filters()}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Sort -->
+      <select
+        class="select select-bordered w-36 sm:w-44"
+        aria-label={m.filter_sort()}
+        value={sortValue}
+        onchange={handleSortChange}
+      >
+        {#each SHOP_SORT_OPTIONS.filter((option) => option !== 'distance' || !!data.filter.geo) as option (option)}
+          <option value={option}>{SORT_LABELS[option]()}</option>
+        {/each}
+      </select>
 
       <div class="flex-1">
         <input
@@ -266,6 +331,152 @@
         <span class="not-sm:hidden">{m.search()}</span>
       </button>
     </form>
+
+    <!-- Quick chips + active filter summary -->
+    <div class="mt-2 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        class="btn btn-xs rounded-full {data.filter.hours?.openNow ? 'btn-primary' : 'btn-soft'}"
+        onclick={toggleOpenNow}
+      >
+        <i class="fa-solid fa-clock"></i>
+        {m.filter_open_now()}
+      </button>
+      <button
+        type="button"
+        class="btn btn-xs rounded-full {data.filter.hours?.is24h ? 'btn-primary' : 'btn-soft'}"
+        onclick={toggle24h}
+      >
+        <i class="fa-solid fa-business-time"></i>
+        {m.filter_open_24h()}
+      </button>
+      <button
+        type="button"
+        class="btn btn-xs rounded-full {data.filter.geo ? 'btn-primary' : 'btn-soft'}"
+        onclick={toggleNearMe}
+      >
+        {#if locating}
+          <span class="loading loading-spinner loading-xs"></span>
+        {:else}
+          <i class="fa-solid fa-location-crosshairs"></i>
+        {/if}
+        {m.filter_near_me()}
+      </button>
+
+      {#each data.filter.regions ?? [] as regionId (regionId)}
+        {@const label = data.regionLabels?.[regionId]}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={() => removeRegionChip(regionId)}
+        >
+          <i class="fa-solid fa-earth-asia"></i>
+          <span>{label?.name ?? regionId}</span>
+          {#if label?.path}
+            <span class="opacity-50">· {label.path}</span>
+          {/if}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/each}
+      {#if data.filter.geo}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={toggleNearMe}
+        >
+          {m.filter_radius_option({ radius: data.filter.geo.radiusKm })}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/if}
+      {#if data.filter.games}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={() =>
+            applyFilterUpdate((filter) => {
+              delete filter.games;
+            })}
+        >
+          <i class="fa-solid fa-gamepad"></i>
+          {m.filter_games_chip({ count: gameLeafCount(data.filter.games) })}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/if}
+      {#each SCHEDULE_KEYS as key (key)}
+        {#if data.filter.hours?.[key]}
+          <button
+            type="button"
+            class="btn btn-xs btn-primary btn-soft rounded-full"
+            onclick={() => removeScheduleChip(key)}
+          >
+            {SCHEDULE_LABELS[key]()}
+            {formatChipMinute(data.filter.hours[key].minute)}
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        {/if}
+      {/each}
+      {#if data.filter.machines}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={() =>
+            applyFilterUpdate((filter) => {
+              delete filter.machines;
+            })}
+        >
+          <i class="fa-solid fa-desktop"></i>
+          {m.filter_section_machines()}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/if}
+      {#if data.filter.activity}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={() =>
+            applyFilterUpdate((filter) => {
+              delete filter.activity;
+            })}
+        >
+          <i class="fa-solid fa-user"></i>
+          {m.filter_section_activity()}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/if}
+      {#if data.filter.status?.closed && data.filter.status.closed !== 'include'}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={() =>
+            applyFilterUpdate((filter) => {
+              delete filter.status;
+            })}
+        >
+          {data.filter.status.closed === 'exclude'
+            ? m.filter_closed_exclude()
+            : m.filter_closed_only()}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/if}
+      {#if data.filter.advanced}
+        <button
+          type="button"
+          class="btn btn-xs btn-primary btn-soft rounded-full"
+          onclick={() =>
+            applyFilterUpdate((filter) => {
+              delete filter.advanced;
+            })}
+        >
+          {m.filter_section_advanced()}
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      {/if}
+      {#if activeCount > 0}
+        <button type="button" class="btn btn-ghost btn-xs text-error" onclick={clearAllFilters}>
+          {m.clear_filters()}
+        </button>
+      {/if}
+    </div>
   </div>
 
   <!-- Results -->
@@ -301,130 +512,43 @@
         {/each}
       </div>
     {:then shopsData}
-      {#if shopsData.shops.length > 0}
+      {#if shopsData.shops.length > 0 || shopsData.exactMatch}
         <!-- Results Header -->
         <div class="flex items-center justify-between">
           <div class="text-base-content/60 text-sm">
             {#if data.query}
               {m.showing_results_for({ query: data.query })}
-            {:else if data.titleIds.length > 0}
-              <div class="inline-flex flex-wrap items-center gap-2">
-                {@html m.showing_shops_with_games({
-                  games: GAME_TITLES.filter((g) => data.titleIds.includes(g.id))
-                    .map(
-                      (g) =>
-                        `<span class="badge badge-soft badge-sm px-1.75">${getGameName(g.key)}</span>`
-                    )
-                    .join('')
-                })}
-              </div>
+            {:else if activeCount > 0}
+              {m.showing_filtered_shops()}
             {:else}
               {m.showing_all_shops()}
             {/if}
           </div>
           <div class="text-base-content/60 text-sm">
+            {#if shopsData.approximateTotal}≈&nbsp;{/if}
             {m.shops_available({ count: shopsData.totalCount })}
           </div>
         </div>
 
+        {#if shopsData.exactMatch}
+          <!-- Exact match pin for numeric queries -->
+          {@const aggregatedExact = aggregateGames(shopsData.exactMatch)}
+          <div class="flex flex-col gap-1">
+            <div class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+              <i class="fa-solid fa-crosshairs"></i>
+              {m.filter_exact_match()}
+            </div>
+            <div class="max-w-md">
+              {@render shopCard(shopsData.exactMatch, aggregatedExact, true)}
+            </div>
+          </div>
+        {/if}
+
         <!-- Shop Grid -->
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {#each shopsData.shops as shop (shop._id)}
-            {@const aggregatedGames = aggregateGames(shop)}
-            <a
-              href={resolve('/(main)/shops/[id]', {
-                id: shop.id.toString()
-              })}
-              class="card bg-base-200 ring-primary/0 group hover:ring-primary min-w-0 shadow-sm ring-2 transition hover:shadow-md"
-            >
-              <div
-                class="group-hover:from-primary from-warning/50 dark:from-warning/30 pointer-events-none absolute inset-0 rounded-2xl bg-linear-to-br to-transparent to-55% transition-colors"
-                style:opacity="{(shop._rankingScore || 0) * 20}%"
-              ></div>
-              <div class="card-body p-5">
-                <!-- Shop Header -->
-                <div class="mb-2 flex flex-col">
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="min-w-0 flex-1">
-                      {#if shop.nameHl}
-                        <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                          {@html shop.nameHl}
-                        </h3>
-                      {:else}
-                        <h3 class="truncate text-lg font-semibold" title={shop.name}>
-                          <T
-                            text={shop.name}
-                            field="shop_name"
-                            translation={shop._t?.shop_name?.[pageLocale]}
-                          />
-                        </h3>
-                      {/if}
-                    </div>
-                  </div>
-
-                  <div class="text-base-content/80 flex items-start gap-2 text-sm">
-                    <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
-                    <span class="line-clamp-2">
-                      {@html formatShopAddress(shop)}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Games Info -->
-                <div class="mb-1">
-                  <div class="flex flex-wrap gap-2">
-                    {#each aggregatedGames.slice(0, 6) as game (game.titleId)}
-                      {@const gameInfo = getGameInfo(game.titleId)}
-                      {#if gameInfo}
-                        <div class="badge badge-soft badge-sm">
-                          <span class="max-w-16 truncate">
-                            {getGameName(gameInfo.key) || game.name}
-                          </span>
-                          <span class="text-xs opacity-70">×{game.quantity}</span>
-                        </div>
-                      {/if}
-                    {/each}
-                    {#if aggregatedGames.length > 6}
-                      <div class="badge badge-soft badge-sm">
-                        +{aggregatedGames.length - 6}
-                      </div>
-                    {/if}
-                  </div>
-                </div>
-
-                <!-- Stats -->
-                <div class="mt-auto flex items-center justify-between gap-1 text-sm">
-                  <div class="text-base-content/60 flex items-center gap-1">
-                    <i class="fa-solid fa-desktop"></i>
-                    <span>{m.machines({ count: getTotalMachines(shop) })}</span>
-                  </div>
-                  {#if shop.isClosed}
-                    <div class="text-error">
-                      <span>{m.shop_permanently_closed()}</span>
-                    </div>
-                  {:else if shop.currentReportedAttendance}
-                    <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
-                      <div class="text-accent flex items-center gap-1">
-                        <i class="fa-solid fa-user"></i>
-                        <span
-                          >{m.in_attendance({
-                            count: shop.currentAttendance || 0
-                          })}</span
-                        >
-                      </div>
-                    </AttendanceReportBlame>
-                  {:else}
-                    <div
-                      class="text-base-content/60 flex items-center gap-1"
-                      class:text-primary={shop.currentAttendance > 0}
-                    >
-                      <i class="fa-solid fa-user"></i>
-                      <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
-                    </div>
-                  {/if}
-                </div>
-              </div>
-            </a>
+          {#each shopsData.shops as shop (shop.id)}
+            {@const aggregated = aggregateGames(shop)}
+            {@render shopCard(shop, aggregated, false)}
           {/each}
         </div>
 
@@ -465,8 +589,8 @@
             <i class="fa-solid fa-store text-4xl"></i>
           </div>
           <h3 class="mb-2 text-xl font-semibold">
-            {#if data.query}
-              {m.no_shops_found_for({ query: data.query })}
+            {#if data.query || activeCount > 0}
+              {m.no_shops_found_for({ query: data.query || m.filter_title() })}
             {:else}
               {m.no_shops_available()}
             {/if}
@@ -495,8 +619,103 @@
   </div>
 </div>
 
-<GameTitleFilterModal
-  bind:isOpen={gameFilterOpen}
-  {selectedTitleIds}
-  onConfirm={(ids) => applyFilters(ids)}
+<ShopFilterPanel
+  bind:open={filterPanelOpen}
+  applied={data.filter}
+  regionLabels={data.regionLabels}
+  onapply={handleApplyFilter}
+  onclose={() => (filterPanelOpen = false)}
 />
+
+{#snippet shopCard(shop: CardShop, aggregated: Shop['games'], pinned: boolean)}
+  <a
+    href={resolve('/(main)/shops/[id]', {
+      id: shop.id.toString()
+    })}
+    class="card bg-base-200 group min-w-0 shadow-sm ring-2 transition hover:shadow-md {pinned
+      ? 'ring-primary'
+      : 'ring-primary/0 hover:ring-primary'}"
+  >
+    <div
+      class="group-hover:from-primary from-warning/50 dark:from-warning/30 pointer-events-none absolute inset-0 rounded-2xl bg-linear-to-br to-transparent to-55% transition-colors"
+      style:opacity="{(shop._rankingScore || 0) * 20}%"
+    ></div>
+    <div class="card-body p-5">
+      <!-- Shop Header -->
+      <div class="mb-2 flex flex-col">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            {#if shop.nameHl}
+              <h3 class="truncate text-lg font-semibold" title={shop.name}>
+                {@html shop.nameHl}
+              </h3>
+            {:else}
+              <h3 class="truncate text-lg font-semibold" title={shop.name}>
+                <T
+                  text={shop.name}
+                  field="shop_name"
+                  translation={shop._t?.shop_name?.[pageLocale]}
+                />
+              </h3>
+            {/if}
+          </div>
+        </div>
+
+        <div class="text-base-content/80 flex items-start gap-2 text-sm">
+          <i class="fa-solid fa-location-dot text-primary mt-0.5 shrink-0"></i>
+          <span class="line-clamp-2">
+            {@html formatShopAddress(shop)}
+          </span>
+        </div>
+      </div>
+
+      <!-- Games Info -->
+      <div class="mb-1">
+        <div class="flex flex-wrap gap-2">
+          {#each aggregated.slice(0, 6) as game (game.titleId)}
+            {@const gameInfo = getGameInfo(game.titleId)}
+            {#if gameInfo}
+              <div class="badge badge-soft badge-sm">
+                <span class="max-w-16 truncate">
+                  {getGameName(gameInfo.key) || game.name}
+                </span>
+                <span class="text-xs opacity-70">×{game.quantity}</span>
+              </div>
+            {/if}
+          {/each}
+          {#if aggregated.length > 6}
+            <div class="badge badge-soft badge-sm">+{aggregated.length - 6}</div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="mt-auto flex items-center justify-between gap-1 text-sm">
+        <div class="text-base-content/60 flex items-center gap-1">
+          <i class="fa-solid fa-desktop"></i>
+          <span>{m.machines({ count: getTotalMachines(shop) })}</span>
+        </div>
+        {#if shop.isClosed}
+          <div class="text-error">
+            <span>{m.shop_permanently_closed()}</span>
+          </div>
+        {:else if shop.currentReportedAttendance}
+          <AttendanceReportBlame reportedAttendance={shop.currentReportedAttendance}>
+            <div class="text-accent flex items-center gap-1">
+              <i class="fa-solid fa-user"></i>
+              <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
+            </div>
+          </AttendanceReportBlame>
+        {:else}
+          <div
+            class="text-base-content/60 flex items-center gap-1"
+            class:text-primary={(shop.currentAttendance ?? 0) > 0}
+          >
+            <i class="fa-solid fa-user"></i>
+            <span>{m.in_attendance({ count: shop.currentAttendance || 0 })}</span>
+          </div>
+        {/if}
+      </div>
+    </div>
+  </a>
+{/snippet}

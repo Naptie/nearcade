@@ -4,6 +4,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { ENTRIES_COLLECTION } from '$lib/ugc/entries.server';
 import { buildUgcHref, loadUgcHashSummary } from '$lib/ugc/admin.server';
+import { parsePageParam } from '$lib/admin/list-state';
 import type {
   UgcContentType,
   UgcEntryAuditStatus,
@@ -52,7 +53,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
     error(404, m.admin_ugc_hash_not_found());
   }
 
-  const currentPage = Math.max(parseInt(url.searchParams.get('page') || '1') || 1, 1);
+  const currentPage = parsePageParam(url);
   const skip = (currentPage - 1) * PAGE_SIZE;
 
   const records = await collection

@@ -16,6 +16,7 @@ import {
 import { commentVoteSchema } from './comments';
 import { imageAssetIdSchema, imageAssetSchema, imageStorageProviderSchema } from './images';
 import { shopTransitSchema } from './metro';
+import { shopSearchSortSchema } from './shop-filter';
 
 export const shopNameSchema = z.string().describe(bilingual('店铺名称。', 'Shop name.'));
 export const shopNameInputSchema = z
@@ -122,6 +123,12 @@ const queueIsPublicSchema = z
   .boolean()
   .describe(bilingual('是否为公开位置。', 'Whether this position is public.'));
 
+/**
+ * Stored shop address — what a Mongo document holds and what the app reads.
+ * Databases keep ONLY the region ID chain; localized names are resolved at
+ * read time (see {@link shopApiAddressSchema}), so no locale is ever persisted
+ * or duplicated per shop.
+ */
 export const shopAddressSchema = z.object({
   general: z
     .array(z.string())
@@ -134,13 +141,30 @@ export const shopAddressSchema = z.object({
     ),
   detailed: z.string().default('').describe(bilingual('详细地址。', 'Detailed street address.')),
   region: z
-    .union([
-      z.array(z.string()),
-      z.array(z.object({ id: z.string(), name: z.record(z.string(), z.string()) }))
-    ])
-    .optional()
-    .describe(bilingual('地区 ID 层级。', 'Region hierarchy.'))
+    .array(z.string())
+    .default([])
+    .describe(bilingual('地区 ID 层级。', 'Region ID hierarchy.'))
 });
+
+/** Public address region node: stable ID plus the requested locale's name. */
+export const shopApiRegionEntrySchema = z
+  .object({
+    id: z.string().describe(bilingual('地区 ID。', 'Region ID.')),
+    name: z.string().describe(bilingual('按请求语言本地化的地区名。', 'Region name, localized.'))
+  })
+  .describe(bilingual('地区层级节点。', 'One node of the region hierarchy.'));
+
+export const shopApiAddressSchema = z
+  .object({
+    general: z
+      .array(z.string())
+      .describe(bilingual('按请求语言本地化的大致地址。', 'General address, localized.')),
+    detailed: z.string().describe(bilingual('详细地址。', 'Detailed street address.')),
+    region: z
+      .array(shopApiRegionEntrySchema)
+      .describe(bilingual('地区 ID 层级及本地化名。', 'Region hierarchy with localized names.'))
+  })
+  .describe(bilingual('店铺地址。', 'Shop address.'));
 
 export const gameSchema = z.object({
   gameId: gameIdSchema,
@@ -179,22 +203,180 @@ export const attendanceReportedEntrySchema = z.object({
   reporter: partialAttendanceUserSchema
 });
 
-export const shopSchema = z.object({
+export const shopOpeningMinutesIntervalSchema = z
+  .object({
+    o: z
+      .int()
+      .min(0)
+      .max(2879)
+      .describe(
+        bilingual('开始分钟数（店铺本地时间）。', 'Interval start in minutes (shop-local).')
+      ),
+    c: z
+      .int()
+      .min(0)
+      .max(2879)
+      .describe(
+        bilingual(
+          '结束分钟数（店铺本地时间），大于 1440 表示跨夜（如 1560 = 次日 02:00）。',
+          'Interval end in minutes (shop-local); values above 1440 spill into the next day (e.g. 1560 = 02:00).'
+        )
+      )
+  })
+  .describe(bilingual('一段营业区间。', 'One opening interval.'));
+
+const shopStatsSchema = z
+  .object({
+    machineCount: z
+      .int()
+      .describe(bilingual('机台总数（数量求和）。', 'Total machines (Σ quantity).')),
+    distinctTitleCount: z
+      .int()
+      .describe(bilingual('不同游戏系列数。', 'Distinct game title count.')),
+    openDays: z.int().describe(bilingual('每周营业天数。', 'Days per week with opening hours.')),
+    weeklyOpenMinutes: z
+      .int()
+      .describe(bilingual('每周总营业分钟数。', 'Total opening minutes per week.'))
+  })
+  .describe(bilingual('统计缓存。', 'Aggregated stats cache.'));
+
+/** Timezone as persisted on the document: resolved from coordinates on write. */
+const shopStoredTimezoneSchema = z
+  .object({
+    name: z.string().describe(bilingual('IANA 时区名。', 'IANA timezone name.'))
+  })
+  .describe(
+    bilingual('店铺时区（由坐标在写入时解析）。', 'Shop timezone, resolved at write time.')
+  );
+
+/** Timezone as served publicly: the persisted name plus the current UTC offset. */
+const shopApiTimezoneSchema = z
+  .object({
+    name: z.string().describe(bilingual('时区名称。', 'Timezone name.')),
+    offset: z
+      .number()
+      .describe(
+        bilingual(
+          '相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。',
+          'Current offset from UTC in hours (DST-aware).'
+        )
+      )
+  })
+  .describe(bilingual('店铺时区。', 'Computed shop timezone.'));
+
+/**
+ * The persisted shop document — MongoDB and the Meilisearch index.
+ *
+ * This schema owns every derived cache field (`openingMinutes`, `aggGames`,
+ * `gameTokens`, `stats`) and the Mongo-only `_id`. They exist to serve
+ * server-side filtering and sorting and are deliberately NOT part of
+ * {@link shopApiSchema}: nothing may reach a response just because it happens
+ * to live in the database document.
+ */
+export const shopDocumentSchema = z.object({
   _id: z.string().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   id: shopIdSchema,
   name: shopNameSchema,
   comment: shopCommentSchema,
   address: shopAddressSchema.describe(bilingual('店铺地址。', 'Shop address.')),
   openingHours: openingHoursSchema,
+  openingMinutes: z
+    .array(z.array(shopOpeningMinutesIntervalSchema))
+    .length(7)
+    .optional()
+    .describe(
+      bilingual(
+        '每周 7 天的营业分钟区间缓存（服务端从营业时间计算并维护，请勿手写）。',
+        'Per-weekday opening intervals in minutes, computed and maintained by the server from openingHours. Do not write by hand.'
+      )
+    ),
+  aggGames: z
+    .array(z.object({ titleId: z.int(), quantity: z.int() }))
+    .optional()
+    .describe(
+      bilingual(
+        '按系列聚合的机台数量缓存（服务端维护）。',
+        'Per-title aggregated machine quantity cache, maintained by the server.'
+      )
+    ),
+  gameTokens: z
+    .array(z.string())
+    .optional()
+    .describe(
+      bilingual(
+        'Meilisearch 用的 (系列, 数量) 组合令牌缓存（服务端维护）。',
+        '(title, quantity) token cache for exact Meilisearch filtering, maintained by the server.'
+      )
+    ),
+  stats: shopStatsSchema.optional(),
+  timezone: shopStoredTimezoneSchema.optional(),
   games: z.array(gameSchema).describe(bilingual('机台。', 'Machines/games available at the shop.')),
   location: shopLocationSchema,
-  timezone: z
-    .object({
-      name: z.string().describe(bilingual('时区名称。', 'Timezone name.')),
-      offset: z.number().describe(bilingual('时区偏移，单位：小时。', 'Timezone offset in hours.'))
-    })
+  isClaimed: z
+    .boolean()
     .optional()
-    .describe(bilingual('店铺时区。', 'Computed shop timezone.')),
+    .describe(
+      bilingual('店铺是否已被认领。', 'Whether this shop is claimed by a machine/operator.')
+    ),
+  ownerId: z
+    .string()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺认领者用户 ID。',
+        'User ID of the shop owner (set when the shop is claimed via machine activation).'
+      )
+    ),
+  isLocked: z
+    .boolean()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺是否已被管理员锁定。锁定后仅管理员可编辑。',
+        'Whether this shop has been locked by an admin. Only admins can edit locked shops.'
+      )
+    ),
+  isClosed: z
+    .boolean()
+    .optional()
+    .describe(
+      bilingual(
+        '店铺是否已闭店（全天停业）。未设置时视为未闭店。',
+        'Whether this shop is permanently closed (out of business all day). Omitted means not closed.'
+      )
+    ),
+  closedReason: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .describe(bilingual('闭店原因（可选）。', 'Optional reason the shop is permanently closed.')),
+  transit: shopTransitSchema
+    .optional()
+    .describe(bilingual('店铺的交通信息。', 'Transit information for the shop.')),
+  createdAt: dateTimeSchema(bilingual('创建时间。', 'Creation time.')),
+  updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
+});
+
+/**
+ * The ONE public shop schema, shared by every endpoint that returns a shop
+ * (list, detail, create, update, discover, and the arcade lists embedded in
+ * user/club/university responses).
+ *
+ * It contains user-authored facts plus the small set of per-request
+ * computations (`timezone`, `isOpen`) — and nothing that exists only to make
+ * server-side queries cheaper. A field is public because it is listed here,
+ * not because it happens to be on the Mongo document.
+ */
+export const shopApiSchema = z.object({
+  id: shopIdSchema,
+  name: shopNameSchema,
+  comment: shopCommentSchema,
+  address: shopApiAddressSchema,
+  openingHours: openingHoursSchema,
+  games: z.array(gameSchema).describe(bilingual('机台。', 'Machines/games available at the shop.')),
+  location: shopLocationSchema,
+  timezone: shopApiTimezoneSchema.optional(),
   isOpen: z
     .boolean()
     .optional()
@@ -250,13 +432,37 @@ export const shopSchema = z.object({
   updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });
 
+export type ShopApiInput = z.input<typeof shopApiSchema>;
+
 export const shopsListQuerySchema = paginationQuerySchema.extend({
   q: z.string().optional().default('').describe(bilingual('查询字符串。', 'Search query string.')),
   regionId: z
     .string()
     .optional()
     .default('')
-    .describe(bilingual('地区筛选 ID。', 'Region ID to filter by.')),
+    .describe(
+      bilingual(
+        '地区筛选 ID（旧参数，建议改用 f）。',
+        'Region ID to filter by (legacy; prefer `f`).'
+      )
+    ),
+  sort: shopSearchSortSchema
+    .optional()
+    .describe(
+      bilingual(
+        '排序方式；默认相关度（有查询词时）或名称。',
+        'Sort order; defaults to relevance (with a query) or name.'
+      )
+    ),
+  f: z
+    .string()
+    .optional()
+    .describe(
+      bilingual(
+        '结构化筛选状态（base64url JSON，v:1）。',
+        'Structured filter state (base64url JSON, v:1).'
+      )
+    ),
   includeTimeInfo: includeTimeInfoSchema
 });
 
@@ -334,7 +540,7 @@ export const adminUpdateShopRequestSchema = z
   .refine((value) => Object.keys(value).length > 0, 'No fields to update');
 
 export const shopsListResponseSchema = z.object({
-  shops: z.array(shopSchema).describe(bilingual('店铺列表。', 'Shop list.')),
+  shops: z.array(shopApiSchema).describe(bilingual('店铺列表。', 'Shop list.')),
   totalCount: z.int().describe(bilingual('总数。', 'Total count.')),
   currentPage: z.int().describe(bilingual('当前页。', 'Current page.')),
   hasNextPage: z.boolean().describe(bilingual('是否有下一页。', 'Whether there is a next page.')),
@@ -344,7 +550,7 @@ export const shopsListResponseSchema = z.object({
 });
 
 export const shopResponseSchema = z.object({
-  shop: shopSchema.describe(bilingual('店铺详情。', 'Shop details.'))
+  shop: shopApiSchema.describe(bilingual('店铺详情。', 'Shop details.'))
 });
 
 export const shopSummarySchema = z

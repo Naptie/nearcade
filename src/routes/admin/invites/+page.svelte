@@ -1,57 +1,37 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
-  import { page } from '$app/state';
-  import { goto } from '$app/navigation';
   import { resolve, base } from '$app/paths';
   import type { PageData } from './$types';
   import type { InviteLink } from '$lib/types';
-  import { adaptiveNewTab, formatDateTime, getDisplayName, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, formatDateTime, getDisplayName } from '$lib/utils';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminStats from '$lib/components/admin/AdminStats.svelte';
+  import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminTable from '$lib/components/admin/AdminTable.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
 
   let { data }: { data: PageData } = $props();
 
-  let searchQuery = $derived(data.search || '');
-  let selectedStatus = $derived(data.status || 'all');
-  let searchTimeout: ReturnType<typeof setTimeout>;
   let copiedId = $state<string | null>(null);
 
-  // Status filter options
+  const stats = $derived([
+    { label: m.total(), value: data.inviteStats?.total || 0 },
+    { label: m.active(), value: data.inviteStats?.active || 0, class: 'text-success' },
+    { label: m.unused(), value: data.inviteStats?.unused || 0, class: 'text-info' },
+    { label: m.expired(), value: data.inviteStats?.expired || 0, class: 'text-error' }
+  ]);
+
+  // `''` means "no filter", so the status param is dropped from the URL.
   const statusOptions = [
-    { value: 'all', label: m.admin_all_statuses() },
+    { value: '', label: m.admin_all_statuses() },
     { value: 'active', label: m.active() },
     { value: 'unused', label: m.unused() },
     { value: 'expired', label: m.expired() }
   ];
-
-  const handleSearchInput = () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      updateFilters();
-    }, 300);
-  };
-
-  const handleStatusChange = () => {
-    updateFilters();
-  };
-
-  const updateFilters = () => {
-    const url = new URL(page.url);
-
-    if (searchQuery.trim()) {
-      url.searchParams.set('search', searchQuery.trim());
-    } else {
-      url.searchParams.delete('search');
-    }
-
-    if (selectedStatus && selectedStatus !== 'all') {
-      url.searchParams.set('status', selectedStatus.toString());
-    } else {
-      url.searchParams.delete('status');
-    }
-
-    url.searchParams.delete('page'); // Reset to first page
-    goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-  };
 
   const copyInviteLink = (code: string) => {
     const link = `${window.location.origin}${base}/invite/${code}`;
@@ -83,243 +63,152 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_invites(), m.admin_panel())}</title>
-</svelte:head>
+<AdminPage title={m.admin_invites()} description={m.admin_invite_description()}>
+  {#snippet actions()}
+    <AdminStats {stats} />
+  {/snippet}
 
-<div class="min-w-3xs space-y-6">
-  <!-- Page Header -->
-  <div class="flex flex-col items-center justify-between gap-4 md:flex-row">
-    <div class="not-md:text-center">
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_invites()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_invite_description()}</p>
-    </div>
+  <AdminToolbar
+    placeholder={m.admin_invite_search_placeholder()}
+    filters={[{ name: 'status', label: m.admin_status(), options: statusOptions }]}
+  />
 
-    <!-- Invite Statistics -->
-    <div class="flex gap-4 not-sm:flex-wrap">
-      <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
-        <div class="stat-title text-xs">{m.total()}</div>
-        <div class="stat-value text-lg">{data.inviteStats?.total || 0}</div>
-      </div>
-      <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
-        <div class="stat-title text-xs">{m.active()}</div>
-        <div class="stat-value text-success text-lg">{data.inviteStats?.active || 0}</div>
-      </div>
-      <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
-        <div class="stat-title text-xs">{m.unused()}</div>
-        <div class="stat-value text-info text-lg">{data.inviteStats?.unused || 0}</div>
-      </div>
-      <div class="stat bg-base-100 min-w-0 rounded-lg shadow-sm">
-        <div class="stat-title text-xs">{m.expired()}</div>
-        <div class="stat-value text-error text-lg">{data.inviteStats?.expired || 0}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Filters -->
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <div class="flex gap-4">
-      <div class="form-control flex-1">
-        <label class="label" for="search">
-          <span class="label-text font-medium">{m.search()}</span>
-        </label>
-        <input
-          id="search"
-          type="text"
-          class="input input-bordered w-full"
-          placeholder={m.admin_invite_search_placeholder()}
-          bind:value={searchQuery}
-          oninput={handleSearchInput}
-        />
-      </div>
-
-      <div class="form-control">
-        <label class="label" for="status">
-          <span class="label-text font-medium">{m.admin_status()}</span>
-        </label>
-        <select
-          id="status"
-          class="select select-bordered w-full"
-          bind:value={selectedStatus}
-          onchange={handleStatusChange}
-        >
-          {#each statusOptions as option (option.value)}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
-      </div>
-    </div>
-  </div>
-
-  <!-- Invites List -->
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if data.invites && data.invites.length > 0}
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th class="not-md:hidden">{m.admin_invite_code()}</th>
-              <th>{m.admin_invite_target()}</th>
-              <th class="not-sm:hidden">{m.admin_invite_creator()}</th>
-              <th class="not-md:hidden">{m.admin_invite_usage()}</th>
-              <th>{m.admin_status()}</th>
-              <th>{m.admin_invite_created()}</th>
-              <th class="text-right">{m.admin_actions()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.invites as invite (invite.id)}
-              <tr class="hover">
-                <td class="not-md:hidden">
-                  <div class="font-mono text-sm">
-                    <button
-                      class="hover:text-accent cursor-pointer transition-colors"
-                      onclick={() => copyInviteLink(invite.code)}
-                      title={m.admin_invite_copy_link()}
-                    >
-                      {invite.code}
-                    </button>
-                  </div>
-                </td>
-                <td>
-                  <div class="text-sm">
-                    {#if invite.club}
-                      <div class="flex items-center gap-2">
-                        <span class="not-xl:hidden">
-                          <i class="fa-solid fa-users text-primary"></i>
-                        </span>
-                        <a
-                          href={resolve('/(main)/clubs/[id]', { id: invite.club.id })}
-                          target={adaptiveNewTab()}
-                          class="hover:text-accent line-clamp-2 font-medium transition-colors"
-                        >
-                          {invite.club.name}
-                        </a>
-                      </div>
-                    {:else if invite.university}
-                      <div class="flex items-center gap-2">
-                        <span class="not-xl:hidden">
-                          <i class="fa-solid fa-graduation-cap text-primary"></i>
-                        </span>
-                        <a
-                          href={resolve('/(main)/universities/[id]', { id: invite.university.id })}
-                          target={adaptiveNewTab()}
-                          class="hover:text-accent line-clamp-2 font-medium transition-colors"
-                        >
-                          {invite.university.name}
-                        </a>
-                      </div>
-                    {:else}
-                      <span class="text-base-content/60">{m.admin_invite_unknown_target()}</span>
-                    {/if}
-                  </div>
-                </td>
-                <td class="max-w-[10vw] truncate not-sm:hidden">
-                  <a
-                    href={resolve('/(main)/users/[id]', { id: invite.creator?.id || '' })}
-                    target={adaptiveNewTab()}
-                    class="hover:text-accent text-sm transition-colors"
-                    title={getDisplayName(invite.creator)}
-                  >
-                    {getDisplayName(invite.creator)}
-                  </a>
-                </td>
-                <td class="not-md:hidden">
-                  <div class="text-sm">
-                    {m.uses({
-                      current: invite.currentUses || 0,
-                      max: invite.maxUses || 0
-                    })}
-                  </div>
-                </td>
-                <td>
-                  <div class="badge badge-soft text-nowrap {getStatusBadgeClass(invite)}">
-                    {getStatusText(invite)}
-                  </div>
-                </td>
-                <td>
-                  <div class="text-sm">
-                    {formatDateTime(invite.createdAt)}
-                    {#if invite.expiresAt}
-                      <div class="text-base-content/60 text-xs">
-                        {m.expires()}: {formatDateTime(invite.expiresAt)}
-                      </div>
-                    {/if}
-                  </div>
-                </td>
-                <td>
-                  <div class="flex justify-end gap-2">
-                    <button
-                      class="btn btn-soft btn-sm text-nowrap"
-                      onclick={() => copyInviteLink(invite.code)}
-                      title={m.admin_invite_copy_link()}
-                      disabled={copiedId === invite.code}
-                    >
-                      {#if copiedId === invite.code}
-                        <i class="fa-solid fa-check"></i>
-                        <span class="not-lg:hidden">{m.copied()}</span>
-                      {:else}
-                        <i class="fa-solid fa-copy"></i>
-                        <span class="not-lg:hidden">{m.copy()}</span>
-                      {/if}
-                    </button>
-                    <form method="POST" action="?/delete" use:enhance class="inline">
-                      <input type="hidden" name="inviteId" value={invite.id} />
-                      <button
-                        type="button"
-                        class="btn btn-error btn-sm btn-soft text-nowrap"
-                        onclick={(e) =>
-                          confirm(m.admin_invite_delete_confirm()) &&
-                          e.currentTarget.closest('form')?.requestSubmit()}
-                      >
-                        <i class="fa-solid fa-trash"></i>
-                        <span class="not-lg:hidden">{m.delete()}</span>
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable>
+        {#snippet head()}
+          <tr>
+            <th class="not-md:hidden">{m.admin_invite_code()}</th>
+            <th>{m.admin_invite_target()}</th>
+            <th class="not-sm:hidden">{m.admin_invite_creator()}</th>
+            <th class="not-md:hidden">{m.admin_invite_usage()}</th>
+            <th>{m.admin_status()}</th>
+            <th>{m.admin_invite_created()}</th>
+            <th class="text-right">{m.admin_actions()}</th>
+          </tr>
+        {/snippet}
 
-      <!-- Pagination -->
-      {#if data.hasMore}
-        <div class="border-base-300 border-t p-4">
-          <div class="flex justify-center gap-2">
-            {#if (data.currentPage || 1) > 1}
+        {#each data.invites as invite (invite.id)}
+          <tr class="hover">
+            <td class="not-md:hidden">
+              <div class="font-mono text-sm">
+                <button
+                  class="hover:text-accent cursor-pointer transition-colors"
+                  onclick={() => copyInviteLink(invite.code)}
+                  title={m.admin_invite_copy_link()}
+                >
+                  {invite.code}
+                </button>
+              </div>
+            </td>
+            <td>
+              <div class="text-sm">
+                {#if invite.club}
+                  <div class="flex items-center gap-2">
+                    <span class="not-xl:hidden">
+                      <i class="fa-solid fa-users text-primary"></i>
+                    </span>
+                    <a
+                      href={resolve('/(main)/clubs/[id]', { id: invite.club.id })}
+                      target={adaptiveNewTab()}
+                      class="hover:text-accent line-clamp-2 font-medium transition-colors"
+                    >
+                      {invite.club.name}
+                    </a>
+                  </div>
+                {:else if invite.university}
+                  <div class="flex items-center gap-2">
+                    <span class="not-xl:hidden">
+                      <i class="fa-solid fa-graduation-cap text-primary"></i>
+                    </span>
+                    <a
+                      href={resolve('/(main)/universities/[id]', { id: invite.university.id })}
+                      target={adaptiveNewTab()}
+                      class="hover:text-accent line-clamp-2 font-medium transition-colors"
+                    >
+                      {invite.university.name}
+                    </a>
+                  </div>
+                {:else}
+                  <span class="text-base-content/60">{m.admin_invite_unknown_target()}</span>
+                {/if}
+              </div>
+            </td>
+            <td class="max-w-[10vw] truncate not-sm:hidden">
               <a
-                href="?page={(data.currentPage || 1) - 1}{data.search
-                  ? `&search=${encodeURIComponent(data.search)}`
-                  : ''}{data.status && data.status !== 'all' ? `&status=${data.status}` : ''}"
-                class="btn btn-soft"
+                href={resolve('/(main)/users/[id]', { id: invite.creator?.id || '' })}
+                target={adaptiveNewTab()}
+                class="hover:text-accent text-sm transition-colors"
+                title={getDisplayName(invite.creator)}
               >
-                {m.previous_page()}
+                {getDisplayName(invite.creator)}
               </a>
-            {/if}
-            <span class="btn btn-disabled btn-soft">
-              {m.page({ page: data.currentPage || 1 })}
-            </span>
-            <a
-              href="?page={(data.currentPage || 1) + 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}{data.status && data.status !== 'all' ? `&status=${data.status}` : ''}"
-              class="btn btn-soft"
-            >
-              {m.next_page()}
-            </a>
-          </div>
-        </div>
-      {/if}
+            </td>
+            <td class="not-md:hidden">
+              <div class="text-sm">
+                {m.uses({
+                  current: invite.currentUses || 0,
+                  max: invite.maxUses || 0
+                })}
+              </div>
+            </td>
+            <td>
+              <div class="badge badge-soft text-nowrap {getStatusBadgeClass(invite)}">
+                {getStatusText(invite)}
+              </div>
+            </td>
+            <td>
+              <div class="text-sm">
+                {formatDateTime(invite.createdAt)}
+                {#if invite.expiresAt}
+                  <div class="text-base-content/60 text-xs">
+                    {m.expires()}: {formatDateTime(invite.expiresAt)}
+                  </div>
+                {/if}
+              </div>
+            </td>
+            <td>
+              <AdminRowActions>
+                <button
+                  class="btn btn-soft btn-sm text-nowrap"
+                  onclick={() => copyInviteLink(invite.code)}
+                  title={m.admin_invite_copy_link()}
+                  disabled={copiedId === invite.code}
+                >
+                  {#if copiedId === invite.code}
+                    <i class="fa-solid fa-check"></i>
+                    <span class="not-lg:hidden">{m.copied()}</span>
+                  {:else}
+                    <i class="fa-solid fa-copy"></i>
+                    <span class="not-lg:hidden">{m.copy()}</span>
+                  {/if}
+                </button>
+                <form method="POST" action="?/delete" use:enhance class="inline">
+                  <input type="hidden" name="inviteId" value={invite.id} />
+                  <button
+                    type="button"
+                    class="btn btn-error btn-sm btn-soft text-nowrap"
+                    onclick={(e) =>
+                      confirm(m.admin_invite_delete_confirm()) &&
+                      e.currentTarget.closest('form')?.requestSubmit()}
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                    <span class="not-lg:hidden">{m.delete()}</span>
+                  </button>
+                </form>
+              </AdminRowActions>
+            </td>
+          </tr>
+        {/each}
+      </AdminTable>
+
+      <AdminPagination currentPage={data.currentPage} hasMore={data.hasMore} />
     {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-link text-base-content/40 mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_invite_no_invites()}</h3>
-        <p class="text-base-content/60">
-          {data.search ? m.admin_invite_no_results() : m.admin_invite_no_manage()}
-        </p>
-      </div>
+      <AdminEmptyState
+        icon="fa-link"
+        title={m.admin_invite_no_invites()}
+        description={data.search ? m.admin_invite_no_results() : m.admin_invite_no_manage()}
+      />
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>

@@ -7,7 +7,7 @@ import {
   partialAttendanceUserSchema,
   reportedAtSchema,
   reportedBySchema,
-  shopSchema
+  shopApiSchema
 } from './shops';
 import { discoverMetroBlockSchema } from './metro';
 import { MAX_DISCOVER_RESULTS, RADIUS_OPTIONS } from '$lib/constants';
@@ -37,7 +37,7 @@ export const discoverReportedAttendanceSchema = z
   .describe(bilingual('当前在勤人数报告。', 'Current attendance report.'))
   .nullable();
 
-export const discoverGameSchema = shopSchema.shape.games.element.extend({
+export const discoverGameSchema = shopApiSchema.shape.games.element.extend({
   totalAttendance: gameAttendanceTotalSchema.optional()
 });
 
@@ -84,6 +84,15 @@ export const discoverQuerySchema = z.object({
     MAX_DISCOVER_RESULTS,
     MAX_DISCOVER_RESULTS
   ),
+  f: z
+    .string()
+    .optional()
+    .describe(
+      bilingual(
+        '结构化筛选状态（base64url JSON，见 /shops 的 f 参数）。',
+        'Structured filter state (base64url JSON, same as the /shops f parameter).'
+      )
+    ),
   gameTitleIds: z
     .union([z.string(), z.array(z.number()), z.undefined()])
     .optional()
@@ -139,7 +148,7 @@ export const shopTravelEstimateSchema = z
     )
   );
 
-export const discoverShopSchema = shopSchema.extend({
+export const discoverShopSchema = shopApiSchema.extend({
   games: z
     .array(discoverGameSchema)
     .describe(bilingual('附近店铺的机台列表。', 'Games available at the nearby shop.')),

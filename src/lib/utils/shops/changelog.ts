@@ -2,8 +2,17 @@ import type { m as mFunc } from '$lib/paraglide/messages';
 import type { ShopChangelogEntry } from '$lib/types';
 import { GAME_TITLES } from '$lib/constants';
 
+/**
+ * Changelog actions as the app knows them today, plus any string the ledger
+ * might contain. Admin facets read action values straight out of MongoDB, where
+ * a deployment newer than this bundle can already have recorded actions that
+ * are not in the enum — every lookup below falls back to the raw value instead
+ * of failing to type-check.
+ */
+export type KnownShopChangelogAction = ShopChangelogEntry['action'] | (string & {});
+
 export const getShopChangelogActionName = (
-  action: ShopChangelogEntry['action'],
+  action: KnownShopChangelogAction,
   m: typeof mFunc
 ): string => {
   const actionMap: Record<string, string> = {
@@ -143,7 +152,7 @@ export const formatShopChangelogDescription = (
   }
 };
 
-export const getShopChangelogActionBadgeClass = (action: ShopChangelogEntry['action']): string => {
+export const getShopChangelogActionBadgeClass = (action: KnownShopChangelogAction): string => {
   switch (action) {
     case 'created':
     case 'game_added':
@@ -170,7 +179,7 @@ export const getShopChangelogActionBadgeClass = (action: ShopChangelogEntry['act
   }
 };
 
-export const getShopChangelogActionIcon = (action: ShopChangelogEntry['action']): string => {
+export const getShopChangelogActionIcon = (action: KnownShopChangelogAction): string => {
   switch (action) {
     case 'created':
       return 'fa-plus text-success';

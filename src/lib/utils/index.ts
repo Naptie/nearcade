@@ -12,7 +12,6 @@ import type { Collection, ObjectId, MongoClient } from 'mongodb';
 import {
   type Shop,
   type Game,
-  type Location,
   type TransportMethod,
   type TransportSearchResult,
   type CachedRouteData,
@@ -27,14 +26,22 @@ import {
   PostReadability
 } from '$lib/types';
 import { ROUTE_CACHE_STORE } from '$lib/constants';
+import type { AddressRegionEntry } from '$lib/regions/types';
 import type { PublicUser, User } from '$lib/auth/types';
 import { customAlphabet, nanoid } from 'nanoid';
 import rehypeParse from 'rehype-parse';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { unified } from 'unified';
-import tzlookup from '@photostructure/tz-lookup';
 import { getTimezoneOffset } from 'date-fns-tz';
+import {
+  MINUTES_PER_DAY,
+  aggregateGameQuantities,
+  computeOpeningMinutes,
+  getShopTimezoneName,
+  weekdayFromDate,
+  type ShopOpeningMinutes
+} from '$lib/utils/shops/derived';
 import { enUS, ja, zhCN } from 'date-fns/locale';
 
 export const alphabetUppercase = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -1134,15 +1141,18 @@ const normalizeOpeningHourTime = (time: unknown) => {
     return { hour, minute };
   }
 
+  // Canonical hours allow a close side up to 47 (next day); the value is kept
+  // intact here and folded per consumer (getNextTimeAtHour mods by 24, the
+  // display formatter shows wall-clock time).
   const candidate = time as { hour?: unknown; minute?: unknown } | undefined;
-  const hour = Math.max(0, Math.min(23, Math.floor(Number(candidate?.hour) || 0)));
+  const hour = Math.max(0, Math.min(47, Math.floor(Number(candidate?.hour) || 0)));
   const minute = Math.max(0, Math.min(59, Math.floor(Number(candidate?.minute) || 0)));
   return { hour, minute };
 };
 
 export const formatOpeningHourLiteral = (time: unknown) => {
   const normalized = normalizeOpeningHourTime(time);
-  const hh = String(normalized.hour).padStart(2, '0');
+  const hh = String(normalized.hour % 24).padStart(2, '0');
   const mm = String(normalized.minute).padStart(2, '0');
   return `${hh}:${mm}`;
 };
@@ -1150,7 +1160,7 @@ export const formatOpeningHourLiteral = (time: unknown) => {
 export const isShopChinaBased = (shop: {
   address: {
     general: string[];
-    region?: string[] | { id: string; name: Record<string, string> }[];
+    region?: string[] | AddressRegionEntry[];
   };
 }) => {
   const regions = shop.address.region;
@@ -1174,35 +1184,18 @@ export const formatAddressParts = (parts: string[], locale?: string): string => 
 };
 
 /**
- * Pick the most appropriate localized name from a region's name map.
- * Falls back through: exact locale → language code → English → any available value.
- */
-const selectLocalizedRegionName = (name: Record<string, string>, locale?: string): string => {
-  if (locale) {
-    if (name[locale]) return name[locale];
-    const language = locale.split('-')[0];
-    if (name[language]) return name[language];
-  }
-  if (name.en) return name.en;
-  const firstAvailable = Object.values(name).find((value) => value);
-  return firstAvailable ?? '';
-};
-
-/**
  * Derive locale-aware display address parts from region data.
- * Falls back to `address.general` when region data is unavailable.
+ * Region entries already carry the localized name resolved by the server, so
+ * this is a straight projection; `address.general` is the fallback for shops
+ * whose region chain is unavailable.
  */
-export const getDisplayAddressParts = (
-  address: {
-    general: string[];
-    region?: string[] | { id: string; name: Record<string, string> }[];
-  },
-  locale: string = getLocale()
-): string[] => {
+export const getDisplayAddressParts = (address: {
+  general: string[];
+  region?: string[] | AddressRegionEntry[];
+}): string[] => {
   const regions = address.region;
   if (regions && regions.length > 0 && typeof regions[0] === 'object') {
-    const entries = regions as { id: string; name: Record<string, string> }[];
-    return entries.map((entry) => selectLocalizedRegionName(entry.name, locale));
+    return (regions as AddressRegionEntry[]).map((entry) => entry.name);
   }
   // Fallback: use general address with deduplication
   const parts: string[] = [];
@@ -1244,12 +1237,12 @@ export const formatShopAddress = (
     address: {
       general: string[];
       detailed?: string;
-      region?: string[] | { id: string; name: Record<string, string> }[];
+      region?: string[] | AddressRegionEntry[];
     };
     addressHl?: {
       general: string[];
       detailed?: string;
-      region?: string[] | { id: string; name: Record<string, string> }[];
+      region?: string[] | AddressRegionEntry[];
     };
     /** AI-translated detailed address, attached by the shops loaders. */
     _t?: { shop_address?: Partial<Record<'en' | 'zh' | 'ja', string>> };
@@ -1260,10 +1253,7 @@ export const formatShopAddress = (
   const address = shop.addressHl || shop.address;
   const region = shop.address.region; // always from original, never from highlight
   const general = address.general; // may be highlighted
-  const addressParts =
-    region?.length && typeof region[0] === 'object'
-      ? getDisplayAddressParts({ general, region }, locale)
-      : getAddressParts(general);
+  const addressParts = getDisplayAddressParts({ general, region });
   const detailedAddress =
     shop._t?.shop_address?.[locale as 'en' | 'zh' | 'ja'] ?? address.detailed ?? '';
 
@@ -1278,41 +1268,26 @@ export const formatShopAddress = (
 };
 
 /**
- * Determines timezone based on given coordinates
+ * The shop's IANA timezone name, read from the value persisted on write.
+ * Falls back to a coordinate lookup for pre-migration documents.
  */
-export const getShopTimezone = (location: Location): string => {
-  const [longitude, latitude] = location.coordinates;
-  const cacheKey = `${longitude},${latitude}`;
-  const cachedTimezone = shopTimezoneCache.get(cacheKey);
-  if (cachedTimezone) return cachedTimezone;
+export const getShopTimezone = (shop: Pick<Shop, 'location' | 'timezone'>): string =>
+  getShopTimezoneName(shop);
 
-  let resolvedTimezone = 'Asia/Shanghai';
-
-  try {
-    const timezone = tzlookup(latitude, longitude);
-    if (timezone === 'Asia/Urumqi') {
-      resolvedTimezone = 'Asia/Shanghai';
-    } else if (timezone) {
-      resolvedTimezone = timezone;
-    }
-  } catch (error) {
-    console.error('Failed to lookup timezone:', error);
-  }
-
-  shopTimezoneCache.set(cacheKey, resolvedTimezone);
-  return resolvedTimezone;
-};
-
-const shopTimezoneCache = new Map<string, string>();
-const timezoneOffsetCache = new Map<string, number>();
-
-export const getCurrentTimeByLocation = (location: Location) => {
-  const timezone = getShopTimezone(location);
-  let offsetMs = timezoneOffsetCache.get(timezone);
-  if (offsetMs === undefined) {
-    offsetMs = getTimezoneOffset(timezone);
-    timezoneOffsetCache.set(timezone, offsetMs);
-  }
+/**
+ * Current shop-local clock for a timezone name.
+ *
+ * The offset is resolved on every call and never memoized: a zone's UTC offset
+ * depends on the instant, not just the zone (`America/New_York` is -5 in
+ * January, -4 in July), so a name-keyed cache would freeze the first value the
+ * process ever saw and keep serving a stale offset after a DST transition.
+ *
+ * The derived result is still memoized one level up, in `getShopOpeningHours`,
+ * whose cache key includes the local hour AND the resolved offset — so a DST
+ * change produces a different key rather than a stale hit.
+ */
+export const getCurrentTimeByTimezone = (timezone: string) => {
+  const offsetMs = getTimezoneOffset(timezone);
   const offsetHours = offsetMs / (1000 * 60 * 60);
 
   const now = new Date();
@@ -1326,67 +1301,6 @@ export const getCurrentTimeByLocation = (location: Location) => {
 const toleranceMsForShopOpen = 30 * 60 * 1000; // 30 minutes tolerance
 const toleranceMsForShopClose = 150 * 60 * 1000; // 2.5 hours tolerance
 
-/**
- * Calculate the next occurrence of the specified local time in the location.
- */
-export const getNextTimeAtHour = (
-  location: Location,
-  hours: unknown[],
-  basisHour: unknown,
-  currentTimeByLocation = getCurrentTimeByLocation(location)
-) => {
-  const normalizeHourMinute = (time: unknown) => {
-    const normalized = normalizeOpeningHourTime(time);
-    const hour = normalized.hour;
-    const minute = normalized.minute;
-    const totalMinutes = (((hour * 60 + minute) % 1440) + 1440) % 1440;
-    return {
-      hour: Math.floor(totalMinutes / 60),
-      minute: totalMinutes % 60,
-      totalMinutes
-    };
-  };
-
-  const basis = normalizeHourMinute(basisHour);
-  const normalizedHours = hours.map(normalizeHourMinute);
-
-  const { nowShifted, offsetMs } = currentTimeByLocation;
-  const now = new Date();
-
-  const year = nowShifted.getUTCFullYear();
-  const month = nowShifted.getUTCMonth();
-  const date = nowShifted.getUTCDate();
-
-  let targetUtcMs =
-    Date.UTC(year, month, date, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
-
-  // If that target time is not in the future, move to next day
-  let i = 0;
-  while (targetUtcMs + toleranceMsForShopClose <= now.getTime()) {
-    targetUtcMs =
-      Date.UTC(year, month, date + ++i, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
-  }
-
-  // Otherwise, if the target time is too far in the future (more than 24 hours), move to previous day
-  i = 0;
-  while (targetUtcMs - toleranceMsForShopOpen - now.getTime() > 24 * 3600 * 1000) {
-    targetUtcMs =
-      Date.UTC(year, month, date - ++i, 0, 0, 0, 0) + basis.totalMinutes * 60 * 1000 - offsetMs;
-  }
-
-  return {
-    hours: normalizedHours.map((hour, idx) => {
-      let diff = hour.totalMinutes - basis.totalMinutes;
-      // If diff is non-negative, the time appears at or after the basis in the
-      // same day, meaning it actually belongs to the previous day (unless it
-      // is the basis element itself, i.e. the last entry).
-      if (diff >= 0 && idx !== normalizedHours.length - 1) diff -= 1440;
-      return new Date(targetUtcMs + diff * 60 * 1000);
-    }),
-    hour: new Date(targetUtcMs)
-  };
-};
-
 export interface ShopOpeningHours {
   open: Date;
   close: Date;
@@ -1399,40 +1313,107 @@ export interface ShopOpeningHours {
 
 const shopOpeningHoursCache = new Map<string, ShopOpeningHours>();
 const MAX_SHOP_OPENING_HOURS_CACHE = 5000;
+const MINUTES_PER_DAY_MS = MINUTES_PER_DAY * 60 * 1000;
 
 /**
- * Get the opening hours for a shop
+ * Get the opening hours for a shop: the session covering "now" (including
+ * overnight sessions started the previous day), or the next upcoming one.
+ *
+ * Interval selection uses the canonical per-weekday minutes produced by
+ * `computeOpeningMinutes` (single source of truth shared with the filter
+ * engine and the globe), so display and open/closed state can never drift
+ * apart. Tolerances are attached for attendance/density use only —
+ * open/closed state itself is exact.
+ *
  * @param shop The shop to get opening hours for
  * @returns An object containing the opening and closing times
  */
 export const getShopOpeningHours = (
-  shop: Pick<Shop, 'location' | 'openingHours'>
+  shop: Pick<Shop, 'location' | 'openingHours' | 'timezone'> & {
+    openingMinutes?: ShopOpeningMinutes;
+  }
 ): ShopOpeningHours => {
-  const currentTimeByLocation = getCurrentTimeByLocation(shop.location);
-  const { nowShifted, offsetHours } = currentTimeByLocation;
+  const timezone = getShopTimezoneName(shop);
+  const currentTimeByLocation = getCurrentTimeByTimezone(timezone);
+  const { nowShifted, offsetMs, offsetHours } = currentTimeByLocation;
 
-  // Cache key: location + local year-month-hour + opening-hours shape.
+  // Cache key: timezone + local year-month-hour + opening-hours shape.
   // The result only changes when the local hour (or the opening hours) changes.
-  const cacheKey = `${shop.location.coordinates.join(',')}:${nowShifted.toISOString().slice(0, 13)}:${offsetHours}:${JSON.stringify(shop.openingHours)}`;
+  const cacheKey = `${timezone}:${nowShifted.toISOString().slice(0, 13)}:${offsetHours}:${JSON.stringify(shop.openingHours)}`;
   const cached = shopOpeningHoursCache.get(cacheKey);
   if (cached) return cached;
 
-  const openingHours =
-    shop.openingHours.length === 1
-      ? shop.openingHours[0]
-      : (shop.openingHours[nowShifted.getUTCDay()] ?? shop.openingHours[0]);
-  const normalizedOpeningHours = openingHours ?? [
-    { hour: 10, minute: 0 },
-    { hour: 22, minute: 0 }
-  ];
-  const {
-    hours: [open, close]
-  } = getNextTimeAtHour(
-    shop.location,
-    normalizedOpeningHours,
-    normalizedOpeningHours[1],
-    currentTimeByLocation
+  const openingMinutes = shop.openingMinutes ?? computeOpeningMinutes(shop.openingHours ?? []);
+
+  const localWeekday = weekdayFromDate(nowShifted);
+  const localMinute = nowShifted.getUTCHours() * 60 + nowShifted.getUTCMinutes();
+  const dayStartUtcMs = Date.UTC(
+    nowShifted.getUTCFullYear(),
+    nowShifted.getUTCMonth(),
+    nowShifted.getUTCDate(),
+    0,
+    0,
+    0,
+    0
   );
+  const dateFor = (dayOffset: number, minutes: number) =>
+    new Date(dayStartUtcMs + dayOffset * MINUTES_PER_DAY_MS + minutes * 60 * 1000 - offsetMs);
+
+  // The session covering now, as { dayOffset, minute } pairs relative to the
+  // local day. A close side ≥ 1440 spills into the following day.
+  let session:
+    | { openDayOffset: number; openMinute: number; closeDayOffset: number; closeMinute: number }
+    | undefined;
+
+  for (const interval of openingMinutes[localWeekday] ?? []) {
+    if (interval.o <= localMinute && localMinute < interval.c) {
+      session = {
+        openDayOffset: 0,
+        openMinute: interval.o,
+        closeDayOffset: Math.floor(interval.c / MINUTES_PER_DAY),
+        closeMinute: interval.c % MINUTES_PER_DAY
+      };
+      break;
+    }
+  }
+  if (!session) {
+    const previousDay = (localWeekday + 6) % 7;
+    for (const interval of openingMinutes[previousDay] ?? []) {
+      if (interval.c > MINUTES_PER_DAY && localMinute + MINUTES_PER_DAY < interval.c) {
+        session = {
+          openDayOffset: -1,
+          openMinute: interval.o,
+          closeDayOffset: 0,
+          closeMinute: interval.c - MINUTES_PER_DAY
+        };
+        break;
+      }
+    }
+  }
+  if (!session) {
+    // Upcoming session: later today, otherwise the next seven days.
+    search: for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+      const weekday = (localWeekday + dayOffset) % 7;
+      for (const interval of openingMinutes[weekday] ?? []) {
+        if (dayOffset === 0 && interval.o <= localMinute) continue;
+        session = {
+          openDayOffset: dayOffset,
+          openMinute: interval.o,
+          closeDayOffset: dayOffset + Math.floor(interval.c / MINUTES_PER_DAY),
+          closeMinute: interval.c % MINUTES_PER_DAY
+        };
+        break search;
+      }
+    }
+  }
+  // Defensive: shops always carry at least one interval (schema-enforced);
+  // fall back to the historical default window otherwise.
+  if (!session) {
+    session = { openDayOffset: 0, openMinute: 600, closeDayOffset: 0, closeMinute: 1320 };
+  }
+
+  const open = dateFor(session.openDayOffset, session.openMinute);
+  const close = dateFor(session.closeDayOffset, session.closeMinute);
   const openTolerated = new Date(open.getTime() - toleranceMsForShopOpen);
   const closeTolerated = new Date(close.getTime() + toleranceMsForShopClose);
 
@@ -1442,8 +1423,14 @@ export const getShopOpeningHours = (
     openTolerated,
     closeTolerated,
     offsetHours: offsetHours,
-    openLocal: formatOpeningHourLiteral(normalizedOpeningHours[0]),
-    closeLocal: formatOpeningHourLiteral(normalizedOpeningHours[1])
+    openLocal: formatOpeningHourLiteral({
+      hour: Math.floor(session.openMinute / 60),
+      minute: session.openMinute % 60
+    }),
+    closeLocal: formatOpeningHourLiteral({
+      hour: Math.floor(session.closeMinute / 60),
+      minute: session.closeMinute % 60
+    })
   };
 
   if (shopOpeningHoursCache.size >= MAX_SHOP_OPENING_HOURS_CACHE) {
@@ -1457,26 +1444,29 @@ export const getShopOpeningHours = (
 /**
  * Whether a shop is currently open for business.
  * Permanently closed shops (`isClosed`) are always treated as not open.
+ * Exact bounds: tolerance windows exist only for attendance computations,
+ * never for open/closed state.
  */
 export const isShopCurrentlyOpen = (
-  shop: Pick<Shop, 'location' | 'openingHours'> & { isClosed?: boolean },
+  shop: Pick<Shop, 'location' | 'openingHours' | 'timezone'> & { isClosed?: boolean },
   now: Date = new Date(),
   openingHours: ShopOpeningHours = getShopOpeningHours(shop)
 ): boolean => {
   if (shop.isClosed) return false;
-  return now >= openingHours.openTolerated && now <= openingHours.closeTolerated;
+  return now >= openingHours.open && now <= openingHours.close;
 };
 
 /**
  * Timezone plus inferred open status for a shop, used by list/detail/discover APIs.
+ * The name comes from the document; the DST-aware offset is computed per request.
  */
 export const getShopTimeInfo = (
-  shop: Pick<Shop, 'location' | 'openingHours'> & { isClosed?: boolean },
+  shop: Pick<Shop, 'location' | 'openingHours' | 'timezone'> & { isClosed?: boolean },
   now: Date = new Date()
 ): { timezone: { name: string; offset: number }; isOpen: boolean } => {
   const openingHours = getShopOpeningHours(shop);
   return {
-    timezone: { name: getShopTimezone(shop.location), offset: openingHours.offsetHours },
+    timezone: { name: getShopTimezoneName(shop), offset: openingHours.offsetHours },
     isOpen: isShopCurrentlyOpen(shop, now, openingHours)
   };
 };
@@ -1711,14 +1701,15 @@ export const aggregateGames = <T extends { titleId: number; quantity: number }>(
 }) => {
   const gameMap: Record<number, T> = {};
   for (const g of shop.games) {
-    const existing = gameMap[g.titleId];
-    if (existing) {
-      existing.quantity += g.quantity;
-    } else {
+    if (!gameMap[g.titleId]) {
       gameMap[g.titleId] = { ...g };
     }
   }
-  return Object.values(gameMap);
+  // Quantities are summed per titleId by the shared aggregation helper.
+  return aggregateGameQuantities(shop.games).map(({ titleId, quantity }) => ({
+    ...gameMap[titleId],
+    quantity
+  }));
 };
 
 export const getFnsLocale = (locale: string) => {

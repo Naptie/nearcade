@@ -1,10 +1,9 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
-  import { page } from '$app/state';
-  import { adaptiveNewTab, formatDateTime, pageTitle, parseRelativeTime } from '$lib/utils';
+  import { adaptiveNewTab, formatDateTime, parseRelativeTime } from '$lib/utils';
   import { SvelteSet } from 'svelte/reactivity';
   import { toast, toastError } from '$lib/notifications/toast.svelte';
   import { topStatus, UGC_CONTENT_TYPES } from '$lib/ugc/types';
@@ -19,69 +18,17 @@
   } from '$lib/ugc/labels';
   import { getLocale } from '$lib/paraglide/runtime';
   import AuditStatuses from '$lib/ugc/components/AuditStatuses.svelte';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminStats from '$lib/components/admin/AdminStats.svelte';
+  import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import type { AdminFilter } from '$lib/components/admin/AdminToolbar.svelte';
 
   let { data }: { data: PageData } = $props();
 
-  // Local search state (not derived from `data`): keeps the field editable
-  // while the debounced navigation runs, so focus/IME composition are never
-  // interrupted (mirrors the client-side search pattern on the users page).
-  let searchQuery = $state('');
-  let searchInput: HTMLInputElement | undefined = $state();
-  let composing = false;
-  let searchTimeout: ReturnType<typeof setTimeout> | undefined;
   let busy = $state(false);
-
-  // Reconcile only on *external* changes (first render, back/forward, filter
-  // clicks, batch-action reloads) — never while the user is typing/composing.
-  $effect(() => {
-    const urlSearch = data.search ?? '';
-    if (urlSearch !== searchQuery && !composing && document.activeElement !== searchInput) {
-      searchQuery = urlSearch;
-    }
-  });
-
-  const handleSearchCompositionStart = () => {
-    composing = true;
-  };
-
-  const handleSearchCompositionEnd = () => {
-    composing = false;
-  };
-
-  const handleSearchInput = () => {
-    // Never navigate mid-composition (IME); the commit fires `input` again.
-    if (composing) return;
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      updateSearch();
-    }, 300);
-  };
-
-  const updateSearch = () => {
-    const url = new URL(page.url);
-    if (searchQuery.trim()) {
-      url.searchParams.set('search', searchQuery.trim());
-    } else {
-      url.searchParams.delete('search');
-    }
-    url.searchParams.delete('page');
-    goto(url.toString());
-  };
-
-  // Per-page selection + "select all matching" (db-wide) mode. Selection is
-  // by CONTENT HASH (each list item is one hash).
-  let selected = new SvelteSet<string>();
-  let selectAllMatching = $state(false);
-
-  /** Precise content-type options for the single-select filter. */
-  const TYPES: { value: string; label: string; icon: string }[] = [
-    { value: 'all', label: m.all_types(), icon: 'fa-shield-halved' },
-    ...UGC_CONTENT_TYPES.map((type) => ({
-      value: type,
-      label: ugcTypeLabel(type),
-      icon: UGC_TYPE_ICONS[type]
-    }))
-  ];
 
   /** Count for a type option under the current status/search filter. */
   const typeCount = (value: string): number =>
@@ -89,12 +36,40 @@
       ? Object.values(data.typeCounts ?? {}).reduce((sum, n) => sum + n, 0)
       : (data.typeCounts?.[value] ?? 0);
 
-  const setFilter = (key: string, value: string) => {
-    const url = new URL(page.url);
-    url.searchParams.set(key, value);
-    url.searchParams.delete('page');
-    goto(url.toString());
-  };
+  // Search term + both facet selects live in the URL and are owned by
+  // AdminToolbar: it keeps the local input state (so typing and IME composition
+  // are never interrupted), debounces, writes term + selects back to the query
+  // string, strips the "all" values and resets `page` on every change.
+  const filters = $derived<AdminFilter[]>([
+    {
+      name: 'type',
+      label: m.admin_type_header(),
+      class: 'lg:w-56',
+      options: [
+        { value: '', label: `${m.all_types()} (${typeCount('all')})` },
+        ...UGC_CONTENT_TYPES.map((type) => ({
+          value: type,
+          label: `${ugcTypeLabel(type)} (${typeCount(type)})`
+        }))
+      ]
+    },
+    {
+      name: 'status',
+      label: m.admin_ugc_status_filter(),
+      options: [
+        { value: '', label: m.all_statuses() },
+        ...AUDIT_STATUSES.filter((option) => option.value !== 'all').map((option) => ({
+          value: option.value,
+          label: option.label
+        }))
+      ]
+    }
+  ]);
+
+  // Per-page selection + "select all matching" (db-wide) mode. Selection is
+  // by CONTENT HASH (each list item is one hash).
+  let selected = new SvelteSet<string>();
+  let selectAllMatching = $state(false);
 
   // Selection -------------------------------------------------------------
 
@@ -262,82 +237,15 @@
   });
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_ugc(), m.admin_panel())}</title>
-</svelte:head>
+<AdminPage title={m.admin_ugc()} description={m.admin_ugc_description()}>
+  {#snippet actions()}
+    <AdminStats stats={[{ label: m.admin_ugc_stat_unique(), value: data.totalCount || 0 }]} />
+  {/snippet}
 
-<div class="min-w-3xs space-y-6">
-  <!-- Page Header -->
-  <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-    <div class="not-sm:text-center">
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_ugc()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_ugc_description()}</p>
-    </div>
-
-    <div class="flex items-center gap-2">
-      <div class="stats shadow">
-        <div class="stat">
-          <div class="stat-title">{m.admin_ugc_stat_unique()}</div>
-          <div class="stat-value text-primary">{data.totalCount || 0}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Filters -->
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-      <label class="form-control w-full max-w-xs">
-        <span class="label-text mb-1 font-medium">{m.search()}</span>
-        <label class="input input-bordered flex items-center gap-2">
-          <i class="fa-solid fa-magnifying-glass text-base-content/50"></i>
-          <input
-            type="text"
-            class="grow"
-            placeholder={m.admin_ugc_search_placeholder()}
-            bind:value={searchQuery}
-            bind:this={searchInput}
-            oninput={handleSearchInput}
-            oncompositionstart={handleSearchCompositionStart}
-            oncompositionend={handleSearchCompositionEnd}
-          />
-        </label>
-      </label>
-      <div class="flex flex-wrap items-end gap-3">
-        <label class="form-control min-w-44">
-          <span class="label-text mb-1 font-medium">{m.admin_type_header()}</span>
-          <select
-            class="select select-bordered w-full"
-            value={data.type}
-            onchange={(event) => setFilter('type', event.currentTarget.value)}
-          >
-            {#each TYPES as typeOption (typeOption.value)}
-              <option value={typeOption.value}>
-                {typeOption.label} ({typeCount(typeOption.value)})
-              </option>
-            {/each}
-          </select>
-        </label>
-        <label class="form-control">
-          <span class="label-text mb-1 font-medium">{m.admin_ugc_status_filter()}</span>
-          <select
-            class="select select-bordered w-full min-w-36"
-            value={data.status}
-            onchange={(event) => setFilter('status', event.currentTarget.value)}
-          >
-            {#each AUDIT_STATUSES as statusOption (statusOption.value)}
-              <option value={statusOption.value}>{statusOption.label}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-    </div>
-  </div>
+  <AdminToolbar placeholder={m.admin_ugc_search_placeholder()} {filters} total={data.totalCount} />
 
   <!-- Batch toolbar -->
-  <div
-    class="bg-base-100 border-base-300 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 shadow-sm"
-  >
+  <AdminPanel class="flex flex-wrap items-center justify-between gap-3 p-3">
     <div class="flex flex-wrap items-center gap-2 text-sm">
       <button class="btn btn-ghost btn-sm" onclick={toggleSelectPage} disabled={busy}>
         <i
@@ -410,18 +318,17 @@
         {m.admin_ugc_remove_all_hash()}
       </button>
     </div>
-  </div>
+  </AdminPanel>
 
   <!-- Hash list -->
-  {#if data.items.length === 0}
-    <div class="py-12 text-center">
-      <div class="text-base-content/20 mb-4 text-6xl">
-        <i class="fa-solid fa-shield-halved"></i>
-      </div>
-      <h3 class="mb-2 text-xl font-semibold">{m.admin_ugc_empty()}</h3>
-    </div>
-  {:else}
-    <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
+    {#if data.items.length === 0}
+      <AdminEmptyState
+        icon="fa-shield-halved"
+        title={m.admin_ugc_empty()}
+        description={m.admin_no_results_search_description()}
+      />
+    {:else}
       <div class="divide-base-200 divide-y">
         {#each data.items as item (item.hash)}
           <div class="hover:bg-base-200/50 flex gap-3 p-4 transition-colors">
@@ -536,38 +443,16 @@
           </div>
         {/each}
       </div>
-    </div>
 
-    <!-- Pagination -->
-    <div class="flex justify-center gap-2">
-      {#if (data.currentPage || 1) > 1}
-        <a
-          href="?page={(data.currentPage || 1) -
-            1}&status={data.status}&type={data.type}{data.search
-            ? `&search=${encodeURIComponent(data.search)}`
-            : ''}"
-          class="btn btn-soft"
-        >
-          {m.previous_page()}
-        </a>
-      {/if}
-      <span class="btn btn-disabled btn-soft">
-        {m.page({ page: data.currentPage || 1 })}
-      </span>
-      {#if data.hasMore}
-        <a
-          href="?page={(data.currentPage || 1) +
-            1}&status={data.status}&type={data.type}{data.search
-            ? `&search=${encodeURIComponent(data.search)}`
-            : ''}"
-          class="btn btn-soft"
-        >
-          {m.next_page()}
-        </a>
-      {/if}
-    </div>
-  {/if}
-</div>
+      <AdminPagination
+        currentPage={data.currentPage}
+        hasMore={data.hasMore}
+        total={data.totalCount}
+        pageSize={data.pageSize}
+      />
+    {/if}
+  </AdminPanel>
+</AdminPage>
 
 <!-- Active jobs modal -->
 <dialog class="modal" class:modal-open={jobsOpen}>

@@ -4,8 +4,8 @@
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import { page } from '$app/state';
-  import { adaptiveNewTab, formatDate, pageTitle } from '$lib/utils';
-  import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
+  import { adaptiveNewTab, formatDate } from '$lib/utils';
+  import { SvelteSet } from 'svelte/reactivity';
   import { toast, toastError } from '$lib/notifications/toast.svelte';
   import {
     ugcTypeLabel,
@@ -19,6 +19,10 @@
   import { topStatus, type UgcContentType } from '$lib/ugc/types';
   import type { UgcOccurrenceItem } from './+page.server';
   import AuditStatuses from '$lib/ugc/components/AuditStatuses.svelte';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -31,14 +35,9 @@
 
   const listBase = $derived(page.url.pathname.replace(/\/[^/]+\/?$/, ''));
   const backParam = $derived(page.url.searchParams.get('back'));
+  // `back` carries the whole list query, so it survives the occurrence
+  // pagination links (AdminPagination preserves every other query param).
   const listHref = $derived(listBase + (backParam ? `?${backParam}` : ''));
-
-  const occurrencePageHref = (pageNumber: number): string => {
-    const params = new SvelteURLSearchParams();
-    params.set('page', String(pageNumber));
-    if (backParam) params.set('back', backParam);
-    return `?${params.toString()}`;
-  };
 
   // Occurrence selection (this page) for batch removal/restoration.
   let selectedOccurrences = new SvelteSet<string>();
@@ -266,65 +265,56 @@
   const typeLabel = (type: UgcContentType): string => ugcTypeLabel(type);
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_ugc(), m.admin_panel())}</title>
-</svelte:head>
-
-<div class="min-w-3xs space-y-6">
-  <!-- Header -->
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div class="min-w-0">
-      <a href={listHref} class="btn btn-ghost btn-sm -ml-2">
-        <i class="fa-solid fa-arrow-left"></i>
-        {m.admin_ugc()}
-      </a>
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_ugc_content_hash()}</h1>
-      <p class="text-base-content/60 mt-1 font-mono text-xs break-all">{data.hash}</p>
-    </div>
-
+<AdminPage title={m.admin_ugc_content_hash()} backHref={listHref} backLabel={m.admin_ugc()}>
+  {#snippet actions()}
     <!-- Hash-level actions -->
-    <div class="flex flex-wrap items-center gap-2">
+    <button
+      class="btn btn-success btn-soft btn-sm"
+      disabled={busy || nonRemovedTotal === 0}
+      onclick={() => runHashAction('mark_pass')}
+    >
+      <i class="fa-solid fa-check"></i>
+      {m.admin_ugc_mark_pass()}
+    </button>
+    <button
+      class="btn btn-info btn-soft btn-sm"
+      disabled={busy || nonRemovedTotal === 0}
+      onclick={() => runHashAction('dispatch_audit')}
+    >
+      <i class="fa-solid fa-robot"></i>
+      {m.admin_ugc_reaudit()}
+    </button>
+    <button
+      class="btn btn-error btn-soft btn-sm"
+      disabled={busy || nonRemovedTotal === 0}
+      onclick={() => runHashAction('remove_all')}
+    >
+      <i class="fa-solid fa-broom"></i>
+      {m.admin_ugc_remove_all_hash()}
+    </button>
+    {#if removedTotal > 0}
       <button
-        class="btn btn-success btn-soft btn-sm"
-        disabled={busy || nonRemovedTotal === 0}
-        onclick={() => runHashAction('mark_pass')}
+        class="btn btn-warning btn-soft btn-sm"
+        disabled={busy}
+        title={m.admin_ugc_restore_hint()}
+        onclick={() => runHashAction('restore')}
       >
-        <i class="fa-solid fa-check"></i>
-        {m.admin_ugc_mark_pass()}
+        <i class="fa-solid fa-rotate-left"></i>
+        {m.admin_ugc_restore()}
       </button>
-      <button
-        class="btn btn-info btn-soft btn-sm"
-        disabled={busy || nonRemovedTotal === 0}
-        onclick={() => runHashAction('dispatch_audit')}
-      >
-        <i class="fa-solid fa-robot"></i>
-        {m.admin_ugc_reaudit()}
-      </button>
-      <button
-        class="btn btn-error btn-soft btn-sm"
-        disabled={busy || nonRemovedTotal === 0}
-        onclick={() => runHashAction('remove_all')}
-      >
-        <i class="fa-solid fa-broom"></i>
-        {m.admin_ugc_remove_all_hash()}
-      </button>
-      {#if removedTotal > 0}
-        <button
-          class="btn btn-warning btn-soft btn-sm"
-          disabled={busy}
-          title={m.admin_ugc_restore_hint()}
-          onclick={() => runHashAction('restore')}
-        >
-          <i class="fa-solid fa-rotate-left"></i>
-          {m.admin_ugc_restore()}
-        </button>
-      {/if}
-    </div>
-  </div>
+    {/if}
+  {/snippet}
+
+  <!--
+    The 64-char hash stays body content rather than AdminPage's `description`:
+    that slot has no `font-mono text-xs break-all`, so the hash would render at
+    body size in a proportional font and overflow narrow screens.
+  -->
+  <p class="text-base-content/60 font-mono text-xs break-all">{data.hash}</p>
 
   <!-- Summary card -->
   {#if data.summary}
-    <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
+    <AdminPanel padded>
       <div class="flex flex-wrap items-center gap-1.5">
         <span class="badge badge-soft badge-sm badge-{auditStatusColor(topStatus(data.summary))}">
           {auditStatusLabel(topStatus(data.summary))}
@@ -416,11 +406,11 @@
           {/if}
         </div>
       </div>
-    </div>
+    </AdminPanel>
   {/if}
 
   <!-- Occurrences -->
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     <div
       class="border-base-200 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"
     >
@@ -469,10 +459,7 @@
     </div>
 
     {#if data.occurrences.length === 0}
-      <div class="text-base-content/50 py-12 text-center">
-        <i class="fa-solid fa-inbox mb-3 text-4xl"></i>
-        <p>{m.admin_ugc_empty()}</p>
-      </div>
+      <AdminEmptyState icon="fa-inbox" title={m.admin_ugc_empty()} />
     {:else}
       <div class="divide-base-200 divide-y">
         {#each data.occurrences as item (item._id)}
@@ -585,21 +572,7 @@
       </div>
 
       <!-- Pagination (keeps the `back` list filter alive across pages) -->
-      <div class="border-base-200 flex justify-center gap-2 border-t py-3">
-        {#if (data.currentPage || 1) > 1}
-          <a href={occurrencePageHref((data.currentPage || 1) - 1)} class="btn btn-soft btn-sm">
-            {m.previous_page()}
-          </a>
-        {/if}
-        <span class="btn btn-disabled btn-soft btn-sm">
-          {m.page({ page: data.currentPage || 1 })}
-        </span>
-        {#if data.hasMore}
-          <a href={occurrencePageHref((data.currentPage || 1) + 1)} class="btn btn-soft btn-sm">
-            {m.next_page()}
-          </a>
-        {/if}
-      </div>
+      <AdminPagination currentPage={data.currentPage} hasMore={data.hasMore} />
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>

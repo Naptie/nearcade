@@ -7,6 +7,7 @@ import { syncShopDocument } from '$lib/db/meili.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { nanoid } from 'nanoid';
+import { parsePageParam, readParam } from '$lib/admin/list-state';
 
 type MachineOwner = {
   id: string;
@@ -32,8 +33,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     error(403, m.access_denied());
   }
 
-  const search = url.searchParams.get('search') || '';
-  const page = parseInt(url.searchParams.get('page') || '1');
+  const search = readParam(url, 'search');
+  const page = parsePageParam(url);
   const limit = 20;
   const skip = (page - 1) * limit;
 
@@ -92,6 +93,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   // Get machine statistics
   const totalMachines = await machinesCollection.countDocuments();
   const activatedMachines = await machinesCollection.countDocuments({ isActivated: true });
+  // Row count for the active search, so the shared toolbar/pagination can show a
+  // numbered window instead of a bare next/previous pair.
+  const matchedMachines = await machinesCollection.countDocuments(searchQuery);
 
   const machinesWithRegions = await expandShopsRegions(
     (machines as MachineListItem[]).map((machine) => machine.shop).filter(Boolean) as Shop[]
@@ -107,6 +111,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     search,
     currentPage: page,
     hasMore,
+    pageSize: limit,
+    totalCount: matchedMachines,
     machineStats: {
       total: totalMachines,
       activated: activatedMachines

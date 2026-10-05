@@ -7,7 +7,13 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import type { PageData } from './$types';
   import type { JoinRequestWithUser } from '$lib/types';
-  import { adaptiveNewTab, formatDateTime, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab, formatDateTime } from '$lib/utils';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminTable from '$lib/components/admin/AdminTable.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -49,6 +55,9 @@
     reviewNote = '';
   };
 
+  // This page has no search — the server load only understands `page`, `limit`,
+  // `status` and `type` — so the two selects stay hand-rolled instead of
+  // going through `AdminToolbar`, which always renders a search field.
   const updateFilters = (newFilters: Record<string, string>) => {
     const url = new URL(page.url);
     Object.entries(newFilters).forEach(([key, value]) => {
@@ -71,21 +80,8 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.join_requests(), m.admin_panel())}</title>
-</svelte:head>
-
-<div class="min-w-3xs space-y-6">
-  <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-base-content text-3xl font-bold">{m.join_requests()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_review_manage_requests()}</p>
-    </div>
-  </div>
-
-  <!-- Filters -->
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
+<AdminPage title={m.join_requests()} description={m.admin_review_manage_requests()}>
+  <AdminPanel padded>
     <div class="flex flex-nowrap gap-4">
       <div class="form-control flex-1">
         <label class="label" for="status-filter">
@@ -120,173 +116,146 @@
         </select>
       </div>
     </div>
-  </div>
+  </AdminPanel>
 
-  <!-- Join Requests List -->
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if data.joinRequests && data.joinRequests.length > 0}
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>{m.admin_user_header()}</th>
-              <th>{m.admin_target_header()}</th>
-              <th class="not-md:hidden">{m.admin_message_header()}</th>
-              <th class="not-md:hidden">{m.admin_created_header()}</th>
-              <th>{m.admin_status_header()}</th>
-              <th class="not-lg:hidden">{m.admin_review_note_header()}</th>
-              <th class="not-sm:hidden">{m.admin_reviewer_header()}</th>
-              <th class="text-right">{m.admin_actions_header()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.joinRequests as request (request.id)}
-              <tr class="hover">
-                <td class="max-w-[30vw]">
-                  <div class="flex items-center gap-3">
-                    <UserAvatar user={request.user} target={adaptiveNewTab()} showName size="sm" />
-                  </div>
-                </td>
-                <td class="max-w-[25vw]">
-                  <div class="flex items-center gap-2">
-                    {#if request.target}
-                      {#if request.type === 'university'}
-                        <span class="not-xl:hidden">
-                          <i class="fa-solid fa-graduation-cap text-primary"></i>
-                        </span>
-                      {:else}
-                        <span class="not-xl:hidden">
-                          <i class="fa-solid fa-users text-primary"></i>
-                        </span>
-                      {/if}
-                      <a
-                        href={request.type === 'university'
-                          ? resolve('/(main)/universities/[id]', {
-                              id: (request.target.slug || request.target.id) as string
-                            })
-                          : resolve('/(main)/clubs/[id]', {
-                              id: (request.target.slug || request.target.id) as string
-                            })}
-                        target={adaptiveNewTab()}
-                        class="hover:text-accent line-clamp-3 font-medium transition-colors"
-                      >
-                        {request.target.name}
-                      </a>
-                    {:else}
-                      <span class="text-base-content/60">{m.admin_unknown()}</span>
-                    {/if}
-                  </div>
-                </td>
-                <td class="max-w-[20vw] not-md:hidden">
-                  {#if request.requestMessage}
-                    <div class="line-clamp-4 text-sm" title={request.requestMessage}>
-                      {request.requestMessage}
-                    </div>
-                  {:else}
-                    <span class="text-base-content/40 text-sm italic">{m.admin_no_message()}</span>
-                  {/if}
-                </td>
-                <td class="not-md:hidden">
-                  <div class="text-sm">{formatDateTime(request.createdAt)}</div>
-                </td>
-                <td>
-                  <div class="badge badge-soft text-nowrap {getStatusBadgeClass(request.status)}">
-                    {statusLabelMap[request.status] || request.status}
-                  </div>
-                </td>
-                <td class="max-w-[20vw] not-lg:hidden">
-                  {#if request.reviewNote}
-                    <div class="line-clamp-4 text-sm" title={request.reviewNote}>
-                      {request.reviewNote}
-                    </div>
-                  {:else}
-                    <span class="text-base-content/40 text-sm italic">{m.none()}</span>
-                  {/if}
-                  {#if request.reviewedAt}
-                    <div class="text-base-content/60 mt-1 text-xs">
-                      {m.reviewed_at_time({ time: formatDateTime(request.reviewedAt) })}
-                    </div>
-                  {/if}
-                </td>
-                <td class="max-w-[10vw] not-sm:hidden">
-                  {#if request.reviewer && request.reviewer.id}
-                    <UserAvatar user={request.reviewer} showName size="xs" />
-                  {:else}
-                    <span class="text-base-content/40 text-sm italic">{m.none()}</span>
-                  {/if}
-                </td>
-                <td>
-                  <div class="flex justify-end gap-2">
-                    {#if request.status === 'pending'}
-                      <button
-                        class="btn btn-success btn-sm text-nowrap"
-                        onclick={() => openReviewModal('approve', request)}
-                      >
-                        <i class="fa-solid fa-check"></i>
-                        <span class="not-lg:hidden">{m.approve()}</span>
-                      </button>
-                      <button
-                        class="btn btn-error btn-sm text-nowrap"
-                        onclick={() => openReviewModal('reject', request)}
-                      >
-                        <i class="fa-solid fa-times"></i>
-                        <span class="not-lg:hidden">{m.reject()}</span>
-                      </button>
-                    {/if}
-                    <form method="POST" action="?/delete" use:enhance class="inline">
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <button
-                        type="button"
-                        class="btn btn-error btn-sm btn-soft text-nowrap"
-                        onclick={(e) =>
-                          confirm(m.admin_join_request_delete_confirm()) &&
-                          e.currentTarget.closest('form')?.requestSubmit()}
-                      >
-                        <i class="fa-solid fa-trash"></i>
-                        <span class="not-lg:hidden">{m.delete()}</span>
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable>
+        {#snippet head()}
+          <tr>
+            <th>{m.admin_user_header()}</th>
+            <th>{m.admin_target_header()}</th>
+            <th class="not-md:hidden">{m.admin_message_header()}</th>
+            <th class="not-md:hidden">{m.admin_created_header()}</th>
+            <th>{m.admin_status_header()}</th>
+            <th class="not-lg:hidden">{m.admin_review_note_header()}</th>
+            <th class="not-sm:hidden">{m.admin_reviewer_header()}</th>
+            <th class="text-right">{m.admin_actions_header()}</th>
+          </tr>
+        {/snippet}
 
-      <!-- Pagination -->
-      {#if data.hasMore}
-        <div class="border-base-300 border-t p-4">
-          <div class="flex justify-center gap-2">
-            {#if (data.currentPage || 1) > 1}
-              <a
-                href={`?page=${(data.currentPage || 1) - 1}${data.filters?.status ? `&status=${data.filters.status}` : ''}${data.filters?.type ? `&type=${data.filters.type}` : ''}`}
-                class="btn btn-soft"
-              >
-                {m.previous_page()}
-              </a>
-            {/if}
-            <span class="btn btn-disabled btn-soft">
-              {m.page({ page: data.currentPage || 1 })}
-            </span>
-            <a
-              href={`?page=${(data.currentPage || 1) + 1}${data.filters?.status ? `&status=${data.filters.status}` : ''}${data.filters?.type ? `&type=${data.filters.type}` : ''}`}
-              class="btn btn-soft"
-            >
-              {m.next_page()}
-            </a>
-          </div>
-        </div>
-      {/if}
+        {#each data.joinRequests as request (request.id)}
+          <tr class="hover">
+            <td class="max-w-[30vw]">
+              <div class="flex items-center gap-3">
+                <UserAvatar user={request.user} target={adaptiveNewTab()} showName size="sm" />
+              </div>
+            </td>
+            <td class="max-w-[25vw]">
+              <div class="flex items-center gap-2">
+                {#if request.target}
+                  {#if request.type === 'university'}
+                    <span class="not-xl:hidden">
+                      <i class="fa-solid fa-graduation-cap text-primary"></i>
+                    </span>
+                  {:else}
+                    <span class="not-xl:hidden">
+                      <i class="fa-solid fa-users text-primary"></i>
+                    </span>
+                  {/if}
+                  <a
+                    href={request.type === 'university'
+                      ? resolve('/(main)/universities/[id]', {
+                          id: (request.target.slug || request.target.id) as string
+                        })
+                      : resolve('/(main)/clubs/[id]', {
+                          id: (request.target.slug || request.target.id) as string
+                        })}
+                    target={adaptiveNewTab()}
+                    class="hover:text-accent line-clamp-3 font-medium transition-colors"
+                  >
+                    {request.target.name}
+                  </a>
+                {:else}
+                  <span class="text-base-content/60">{m.admin_unknown()}</span>
+                {/if}
+              </div>
+            </td>
+            <td class="max-w-[20vw] not-md:hidden">
+              {#if request.requestMessage}
+                <div class="line-clamp-4 text-sm" title={request.requestMessage}>
+                  {request.requestMessage}
+                </div>
+              {:else}
+                <span class="text-base-content/40 text-sm italic">{m.admin_no_message()}</span>
+              {/if}
+            </td>
+            <td class="not-md:hidden">
+              <div class="text-sm">{formatDateTime(request.createdAt)}</div>
+            </td>
+            <td>
+              <div class="badge badge-soft text-nowrap {getStatusBadgeClass(request.status)}">
+                {statusLabelMap[request.status] || request.status}
+              </div>
+            </td>
+            <td class="max-w-[20vw] not-lg:hidden">
+              {#if request.reviewNote}
+                <div class="line-clamp-4 text-sm" title={request.reviewNote}>
+                  {request.reviewNote}
+                </div>
+              {:else}
+                <span class="text-base-content/40 text-sm italic">{m.none()}</span>
+              {/if}
+              {#if request.reviewedAt}
+                <div class="text-base-content/60 mt-1 text-xs">
+                  {m.reviewed_at_time({ time: formatDateTime(request.reviewedAt) })}
+                </div>
+              {/if}
+            </td>
+            <td class="max-w-[10vw] not-sm:hidden">
+              {#if request.reviewer && request.reviewer.id}
+                <UserAvatar user={request.reviewer} showName size="xs" />
+              {:else}
+                <span class="text-base-content/40 text-sm italic">{m.none()}</span>
+              {/if}
+            </td>
+            <td>
+              <AdminRowActions>
+                {#if request.status === 'pending'}
+                  <button
+                    class="btn btn-success btn-sm text-nowrap"
+                    onclick={() => openReviewModal('approve', request)}
+                  >
+                    <i class="fa-solid fa-check"></i>
+                    <span class="not-lg:hidden">{m.approve()}</span>
+                  </button>
+                  <button
+                    class="btn btn-error btn-sm text-nowrap"
+                    onclick={() => openReviewModal('reject', request)}
+                  >
+                    <i class="fa-solid fa-times"></i>
+                    <span class="not-lg:hidden">{m.reject()}</span>
+                  </button>
+                {/if}
+                <form method="POST" action="?/delete" use:enhance class="inline">
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <button
+                    type="button"
+                    class="btn btn-error btn-sm btn-soft text-nowrap"
+                    onclick={(e) =>
+                      confirm(m.admin_join_request_delete_confirm()) &&
+                      e.currentTarget.closest('form')?.requestSubmit()}
+                  >
+                    <i class="fa-solid fa-trash"></i>
+                    <span class="not-lg:hidden">{m.delete()}</span>
+                  </button>
+                </form>
+              </AdminRowActions>
+            </td>
+          </tr>
+        {/each}
+      </AdminTable>
+
+      <AdminPagination currentPage={data.currentPage} hasMore={data.hasMore} />
     {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-user-plus text-base-content/40 mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">{m.admin_no_join_requests()}</h3>
-        <p class="text-base-content/60">{m.admin_no_join_requests_criteria()}</p>
-      </div>
+      <AdminEmptyState
+        icon="fa-user-plus"
+        title={m.admin_no_join_requests()}
+        description={m.admin_no_join_requests_criteria()}
+      />
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>
 
 <!-- Review Modal -->
 <dialog class="modal" class:modal-open={showReviewModal}>

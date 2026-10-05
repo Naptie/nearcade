@@ -9,6 +9,7 @@ import {
 } from '$lib/ugc/types';
 import { ENTRIES_COLLECTION, ugcAdminFilter } from '$lib/ugc/entries.server';
 import { buildUgcHref, HASH_SUMMARY_GROUP, normalizeHashSummary } from '$lib/ugc/admin.server';
+import { parsePageParam } from '$lib/admin/list-state';
 
 const PAGE_SIZE = 20;
 const STATUSES = [
@@ -43,7 +44,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const type = (UGC_CONTENT_TYPES as readonly string[]).includes(typeParam)
     ? (typeParam as UgcContentType)
     : 'all';
-  const currentPage = Math.max(parseInt(url.searchParams.get('page') || '1') || 1, 1);
+  const currentPage = parsePageParam(url);
   const skip = (currentPage - 1) * PAGE_SIZE;
 
   try {
@@ -117,7 +118,17 @@ export const load: PageServerLoad = async ({ url }) => {
       );
     }
 
-    return { items, totalCount, currentPage, hasMore, search, status, type, typeCounts };
+    return {
+      items,
+      totalCount,
+      currentPage,
+      hasMore,
+      pageSize: PAGE_SIZE,
+      search,
+      status,
+      type,
+      typeCounts
+    };
   } catch (err) {
     console.error('Error loading UGC content hashes:', err);
     return {
@@ -125,6 +136,7 @@ export const load: PageServerLoad = async ({ url }) => {
       totalCount: 0,
       currentPage: 1,
       hasMore: false,
+      pageSize: PAGE_SIZE,
       search,
       status,
       type,

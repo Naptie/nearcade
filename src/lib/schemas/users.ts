@@ -2,7 +2,7 @@ import { PAGINATION } from '$lib/constants';
 import { z } from 'zod';
 
 import { organizationChangelogEntrySchema } from './organizations';
-import { shopChangelogEntrySchema, shopDeleteRequestVoteTypeSchema, shopSchema } from './shops';
+import { shopApiSchema, shopChangelogEntrySchema, shopDeleteRequestVoteTypeSchema } from './shops';
 import {
   bilingual,
   dateTimeSchema,
@@ -222,9 +222,11 @@ const userProfileUserSchema = userPublicSchema
         )
       ),
     frequentingArcades: z
-      .array(shopSchema)
+      .array(shopApiSchema)
       .describe(bilingual('常去机厅列表。', 'Frequently visited arcades.')),
-    starredArcades: z.array(shopSchema).describe(bilingual('收藏机厅列表。', 'Starred arcades.')),
+    starredArcades: z
+      .array(shopApiSchema)
+      .describe(bilingual('收藏机厅列表。', 'Starred arcades.')),
     isActivityPublic: userSchema.shape.isActivityPublic,
     socialLinks: z.array(socialLinkSchema).describe(bilingual('社交链接。', 'Public social links.'))
   })

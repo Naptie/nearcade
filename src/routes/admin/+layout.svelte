@@ -102,6 +102,22 @@
       developerVisible: false
     },
     {
+      id: 'changelog',
+      label: m.admin_changelog(),
+      icon: 'fa-clock-rotate-left',
+      href: resolve('/admin/changelog'),
+      requiresSiteAdmin: true,
+      developerVisible: false
+    },
+    {
+      id: 'deleted-shops',
+      label: m.admin_deleted_shops(),
+      icon: 'fa-trash-can',
+      href: resolve('/admin/deleted-shops'),
+      requiresSiteAdmin: true,
+      developerVisible: false
+    },
+    {
       id: 'machines',
       label: m.admin_machines(),
       icon: 'fa-server',

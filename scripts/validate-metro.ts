@@ -860,7 +860,7 @@ suite('route', async () => {
   type MetroEdgeDoc = import('../src/lib/openmetro/schemas').MetroEdgeDoc;
   type MetroStationDoc = import('../src/lib/openmetro/schemas').MetroStationDoc;
   const { discoverMetroBlockSchema } = await import('../src/lib/schemas/metro');
-  const { shopSchema } = await import('../src/lib/schemas/shops');
+  const { shopDocumentSchema } = await import('../src/lib/schemas/shops');
   const { METRO_ENTRY_OVERHEAD_SECONDS, METRO_EXIT_OVERHEAD_SECONDS } =
     await import('../src/lib/constants');
 
@@ -938,7 +938,7 @@ suite('route', async () => {
   };
   const searchOrigin = { lon: 115.996, lat: 40.003 };
   const shops = [120, 1040].map((walkSeconds, i) =>
-    shopSchema.parse({
+    shopDocumentSchema.parse({
       _id: String(i + 1),
       id: i + 1,
       name: `Shop ${i + 1}`,
@@ -1046,13 +1046,22 @@ suite('route', async () => {
     '$lib/utils': `export const calculateDistance = () => 10;
       export const toPlainObject = (doc) => JSON.parse(JSON.stringify(doc, (_, value) => value instanceof Date ? value.toISOString() : value));
       export const getShopOpeningHours = globalThis.__metroRouteTest.unexpected;
-      export const getShopTimezone = globalThis.__metroRouteTest.unexpected;`,
-    '$lib/utils/region.server': 'export const expandShopsRegions = async (shops) => shops;',
+      export const getShopTimezone = globalThis.__metroRouteTest.unexpected;
+      export const getShopTimeInfo = globalThis.__metroRouteTest.unexpected;`,
+    '$lib/utils/region.server': `export const toShopApiAddress = async (address) => ({
+        general: address?.general ?? [],
+        detailed: address?.detailed ?? '',
+        region: []
+      });`,
     './attendance.server':
       'export const getShopsAttendanceData = globalThis.__metroRouteTest.unexpected;',
     '$app/paths': 'export const base = "";',
     '$env/dynamic/private': 'export const env = {};',
     '$env/dynamic/public': 'export const env = {};',
+    // `discover.server` → `geo.server` → `tencent.server` imports build-time
+    // env constants; no translation may be attempted in the harness.
+    '$env/static/public': 'export const PUBLIC_TENCENT_MAPS_KEY = "";',
+    '$env/static/private': 'export const AMAP_SECRET = "";',
     '$lib/paraglide/messages': `export const m = new Proxy({}, { get: (_, key) => () => String(key) });`,
     'openmetro-client': 'export const createClient = globalThis.__metroRouteTest.unexpected;'
   };

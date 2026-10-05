@@ -4,6 +4,7 @@ import type { University, UniversityMember } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { parsePageParam, readParam } from '$lib/admin/list-state';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -12,8 +13,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     error(401, m.unauthorized());
   }
 
-  const search = url.searchParams.get('search') || '';
-  const page = parseInt(url.searchParams.get('page') || '1');
+  const search = readParam(url, 'search');
+  const page = parsePageParam(url);
   const limit = 20;
   const skip = (page - 1) * limit;
 
@@ -52,39 +53,45 @@ export const load: PageServerLoad = async ({ locals, url }) => {
         universities: [],
         search,
         currentPage: page,
-        hasMore: false
+        hasMore: false,
+        totalCount: 0,
+        pageSize: limit
       };
     }
   }
 
   // Fetch universities with member counts
-  const universities = (await db
-    .collection<University>('universities')
-    .aggregate(
-      [
-        { $match: searchQuery },
+  const universitiesCollection = db.collection<University>('universities');
+
+  const [universities, totalCount] = await Promise.all([
+    universitiesCollection
+      .aggregate<University & { membersCount: number }>(
+        [
+          { $match: searchQuery },
+          {
+            $lookup: {
+              from: 'university_members',
+              localField: 'id',
+              foreignField: 'universityId',
+              as: 'members'
+            }
+          },
+          {
+            $addFields: {
+              membersCount: { $size: '$members' }
+            }
+          },
+          { $sort: { membersCount: -1, clubsCount: -1, name: 1 } },
+          { $skip: skip },
+          { $limit: limit + 1 } // Fetch one extra to check if there are more
+        ],
         {
-          $lookup: {
-            from: 'university_members',
-            localField: 'id',
-            foreignField: 'universityId',
-            as: 'members'
-          }
-        },
-        {
-          $addFields: {
-            membersCount: { $size: '$members' }
-          }
-        },
-        { $sort: { membersCount: -1, clubsCount: -1, name: 1 } },
-        { $skip: skip },
-        { $limit: limit + 1 } // Fetch one extra to check if there are more
-      ],
-      {
-        collation: { locale: 'zh@collation=gb2312han' }
-      }
-    )
-    .toArray()) as (University & { membersCount: number })[];
+          collation: { locale: 'zh@collation=gb2312han' }
+        }
+      )
+      .toArray(),
+    universitiesCollection.countDocuments(searchQuery)
+  ]);
 
   const hasMore = universities.length > limit;
   if (hasMore) {
@@ -95,7 +102,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     universities: toPlainArray(universities),
     search,
     currentPage: page,
-    hasMore
+    hasMore,
+    totalCount,
+    pageSize: limit
   };
 };
 

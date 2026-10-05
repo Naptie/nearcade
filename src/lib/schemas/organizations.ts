@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { postReadabilitySchema, postWritabilitySchema } from './posts';
-import { shopSchema } from './shops';
+import { shopApiSchema } from './shops';
 import {
   bilingual,
   dateTimeSchema,
@@ -403,7 +403,9 @@ export const clubDetailResponseSchema = z.object({
     .nullable()
     .describe(bilingual('所属大学摘要。', 'Owning university summary.')),
   members: z.array(clubMemberListEntrySchema).describe(bilingual('成员列表。', 'Member list.')),
-  starredArcades: z.array(shopSchema).describe(bilingual('收藏店铺列表。', 'Starred arcade list.')),
+  starredArcades: z
+    .array(shopApiSchema)
+    .describe(bilingual('收藏店铺列表。', 'Starred arcade list.')),
   stats: clubDetailStatsSchema,
   userPermissions: clubPermissionSchema.describe(
     bilingual('当前用户权限。', 'Current user permissions.')
@@ -433,7 +435,7 @@ export const clubArcadesQuerySchema = z.object({
 });
 
 export const clubArcadesResponseSchema = z.object({
-  arcades: z.array(shopSchema).describe(bilingual('店铺列表。', 'Arcade list.')),
+  arcades: z.array(shopApiSchema).describe(bilingual('店铺列表。', 'Arcade list.')),
   hasMore: z.boolean().describe(bilingual('是否还有更多店铺。', 'Whether more arcades exist.')),
   page: z.int().min(1).describe(bilingual('当前页。', 'Current page.')),
   total: z.int().min(0).describe(bilingual('店铺总数。', 'Total arcade count.'))

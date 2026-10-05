@@ -4,6 +4,7 @@ import type { Shop } from '$lib/types';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
+import { parsePageParam } from '$lib/admin/list-state';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -19,7 +20,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   }
 
   const search = url.searchParams.get('search') || '';
-  const page = parseInt(url.searchParams.get('page') || '1');
+  const page = parsePageParam(url);
   const limit = 20;
   const skip = (page - 1) * limit;
 
@@ -61,8 +62,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     shops.pop(); // Remove the extra item
   }
 
-  // Get shop statistics
-  const totalShops = await db.collection('shops').countDocuments();
+  const db2 = db;
+  const [totalShops, matchedShops] = await Promise.all([
+    db2.collection('shops').countDocuments(),
+    db2.collection('shops').countDocuments(searchQuery)
+  ]);
 
   const shopsWithRegions = await expandShopsRegions(shops);
 
@@ -71,6 +75,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     search,
     currentPage: page,
     hasMore,
+    pageSize: limit,
+    totalCount: matchedShops,
     shopStats: {
       total: totalShops
     }

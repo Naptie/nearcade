@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { TransportSearchResult, TransportMethod, Shop } from '$lib/types';
+  import type { TransportSearchResult, TransportMethod, ShopApi } from '$lib/types';
   import type {
     TransitPlan,
     WalkingRoute,
@@ -38,7 +38,7 @@
 
   interface Props {
     isOpen?: boolean;
-    shop?: Shop | null;
+    shop?: ShopApi | null;
     isLoading?: boolean;
     selectedRouteIndex?: number;
     routeData: TransportSearchResult | null;

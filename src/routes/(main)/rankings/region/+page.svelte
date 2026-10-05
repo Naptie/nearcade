@@ -7,6 +7,7 @@
   import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { fromPath } from '$lib/utils/scoped';
   import { onMount, onDestroy } from 'svelte';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
   import type {
     RegionRankingData,
     SortCriteria,
@@ -14,6 +15,9 @@
     RegionRankingResponse
   } from '$lib/types';
   import { PAGINATION, REGION_LEVELS, GAME_TITLES } from '$lib/constants';
+  import { emptyShopFilterState } from '$lib/schemas/shop-filter';
+  import { serializeShopFilterState } from '$lib/utils/shops/filter';
+  import { regionNameForLocale } from '$lib/regions/labels';
   import { browser } from '$app/environment';
   import RankingsHeader from '$lib/components/rankings/RankingsHeader.svelte';
 
@@ -102,10 +106,8 @@
     isLoadingMore = false;
   });
 
-  const getLocalName = (entry: { id: string; name: Record<string, string> }): string => {
-    const locale = getLocale();
-    return entry.name[locale] ?? entry.name.en ?? Object.values(entry.name)[0] ?? entry.id;
-  };
+  const getLocalName = (entry: { id: string; name: Record<string, string> }): string =>
+    regionNameForLocale(entry.name, getLocale()) || entry.id;
 
   const getLevelLabel = (levelKey: RegionLevel): string => {
     // The county tab covers both counties and towns (streets).
@@ -145,13 +147,18 @@
   const getGlobeUrl = (ranking: RegionRankingData): string => {
     const coords = ranking.location.coordinates;
     const zoom = getRegionZoom(ranking.level);
-    const chain = ranking.regionChain || [];
-    const params = new URLSearchParams({
+    const leafId = ranking.regionChain?.[ranking.regionChain.length - 1]?.id;
+    const params = new SvelteURLSearchParams({
       lat: coords[1].toFixed(6),
       lng: coords[0].toFixed(6),
-      zoom: zoom.toString(),
-      region: btoa(encodeURIComponent(JSON.stringify(chain)))
+      zoom: zoom.toString()
     });
+    // The globe selects the region through the same filter everything else
+    // uses; carrying only the ID keeps the link locale-independent — the globe
+    // resolves the names itself, in the reader's language.
+    if (leafId) {
+      params.set('f', serializeShopFilterState({ ...emptyShopFilterState(), regions: [leafId] }));
+    }
     return resolve('/(globe)/globe') + '?' + params.toString();
   };
 

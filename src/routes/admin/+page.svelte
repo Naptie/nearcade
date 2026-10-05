@@ -1,7 +1,10 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { formatDateTime, pageTitle } from '$lib/utils';
+  import { formatDateTime } from '$lib/utils';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
   import StatCard from '$lib/components/admin/StatCard.svelte';
   import type { PageData } from './$types';
 
@@ -18,23 +21,12 @@
   };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_dashboard(), m.admin_panel())}</title>
-</svelte:head>
-
-<div class="min-w-3xs space-y-6">
-  <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_dashboard()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_dashboard_description()}</p>
-      {#if data.snapshotMeta?.capturedAt}
-        <p class="text-base-content/40 mt-1 text-xs">
-          {m.admin_snapshot_captured_at({ time: formatDateTime(data.snapshotMeta.capturedAt) })}
-        </p>
-      {/if}
-    </div>
-  </div>
+<AdminPage title={m.admin_dashboard()} description={m.admin_dashboard_description()}>
+  {#if data.snapshotMeta?.capturedAt}
+    <p class="text-base-content/40 -mt-2 text-xs">
+      {m.admin_snapshot_captured_at({ time: formatDateTime(data.snapshotMeta.capturedAt) })}
+    </p>
+  {/if}
 
   {#if stats}
     <!-- Statistics Cards -->
@@ -234,7 +226,7 @@
     </div>
 
     <!-- Quick Actions -->
-    <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+    <AdminPanel class="p-6">
       <h2 class="text-base-content mb-4 text-xl font-semibold">{m.admin_quick_actions()}</h2>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {#if data.user.userType === 'site_admin'}
@@ -266,6 +258,10 @@
             <i class="fa-solid fa-trash-can mr-2"></i>
             {m.shop_delete_requests()}
           </a>
+          <a href={resolve('/admin/changelog')} class="btn btn-soft">
+            <i class="fa-solid fa-clock-rotate-left mr-2"></i>
+            {m.admin_changelog()}
+          </a>
         {/if}
         <a href={resolve('/admin/universities')} class="btn btn-soft">
           <i class="fa-solid fa-graduation-cap mr-2"></i>
@@ -284,16 +280,15 @@
           {m.admin_invites()}
         </a>
       </div>
-    </div>
+    </AdminPanel>
   {:else}
-    <div class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
-      <div class="py-8 text-center">
-        <i class="fa-solid fa-exclamation-triangle text-warning mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">
-          {m.admin_unable_to_load_statistics()}
-        </h3>
-        <p class="text-base-content/60">{m.admin_error_loading_data()}</p>
-      </div>
-    </div>
+    <AdminPanel class="p-6">
+      <AdminEmptyState
+        icon="fa-exclamation-triangle"
+        iconClass="text-warning"
+        title={m.admin_unable_to_load_statistics()}
+        description={m.admin_error_loading_data()}
+      />
+    </AdminPanel>
   {/if}
-</div>
+</AdminPage>

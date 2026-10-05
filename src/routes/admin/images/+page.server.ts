@@ -5,6 +5,7 @@ import type { ImageAsset } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import { protect, toPlainArray } from '$lib/utils';
+import { parsePageParam, readParam } from '$lib/admin/list-state';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -17,8 +18,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     error(403, m.access_denied());
   }
 
-  const search = url.searchParams.get('search')?.trim() || '';
-  const page = Math.max(1, Number.parseInt(url.searchParams.get('page') || '1', 10) || 1);
+  const search = readParam(url, 'search');
+  const page = parsePageParam(url);
   const limit = 24;
   const skip = (page - 1) * limit;
 
@@ -85,6 +86,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     search,
     currentPage: page,
     hasMore,
-    totalCount
+    totalCount,
+    pageSize: limit
   };
 };

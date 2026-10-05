@@ -4,6 +4,7 @@ import {
   loadGlobeShopsByDistance,
   loadGlobeShopsByName
 } from '$lib/endpoints/globe.server';
+import { readGlobeFilterState } from '$lib/utils/shops/filter';
 import type { RequestHandler } from './$types';
 
 const MAX_IDS_PER_REQUEST = 200;
@@ -11,7 +12,6 @@ const MAX_TITLE_IDS = 50;
 
 export const GET: RequestHandler = async ({ url }) => {
   const idsParam = url.searchParams.get('ids');
-  const region = url.searchParams.get('region');
   const titleIds = Array.from(
     new Set(
       (url.searchParams.get('titles') ?? '')
@@ -20,6 +20,9 @@ export const GET: RequestHandler = async ({ url }) => {
         .filter(Number.isInteger)
     )
   );
+  // `region` is the globe's pre-filter parameter; it now arrives as a `regions`
+  // slot in `f`, so old clients and shared links keep hitting the same query.
+  const filter = readGlobeFilterState(url.searchParams);
   const latParam = url.searchParams.get('lat');
   const lngParam = url.searchParams.get('lng');
   const offset = Number(url.searchParams.get('offset') ?? '0');
@@ -43,8 +46,8 @@ export const GET: RequestHandler = async ({ url }) => {
     }
     return json(
       await loadGlobeShopsByDistance(longitude, latitude, offset, {
-        regionId: region ?? undefined,
-        titleIds
+        titleIds,
+        filter
       }),
       {
         headers: CACHE_HEADERS
@@ -53,7 +56,7 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   if (!idsParam) {
-    return json(await loadGlobeShopsByName(offset, { regionId: region ?? undefined, titleIds }), {
+    return json(await loadGlobeShopsByName(offset, { titleIds, filter }), {
       headers: CACHE_HEADERS
     });
   }

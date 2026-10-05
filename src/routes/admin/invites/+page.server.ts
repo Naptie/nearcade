@@ -5,6 +5,7 @@ import { protect, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import type { User } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
+import { parsePageParam, readParam } from '$lib/admin/list-state';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -13,9 +14,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     error(401, m.unauthorized());
   }
 
-  const search = url.searchParams.get('search') || '';
+  const search = readParam(url, 'search');
   const status = url.searchParams.get('status') || 'all';
-  const page = parseInt(url.searchParams.get('page') || '1');
+  const page = parsePageParam(url);
   const limit = 20;
   const skip = (page - 1) * limit;
 

@@ -3,7 +3,7 @@
   import type {
     Game,
     AMapContext,
-    Shop,
+    ShopApi,
     TransportMethod,
     AMapTransportMethod,
     TransportSearchResult,
@@ -47,6 +47,7 @@
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import Directions from '$lib/components/Directions.svelte';
   import {
     SELECTED_ROUTE_INDEX,
@@ -65,7 +66,14 @@
   import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
   import { isDarkMode } from '$lib/utils/scoped';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
-  import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
+  import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
+  import { emptyShopFilterState, type ShopFilterState } from '$lib/schemas/shop-filter';
+  import {
+    countActiveFilters,
+    parseShopFilterParam,
+    serializeShopFilterState,
+    withoutGeoFilter
+  } from '$lib/utils/shops/filter';
 
   let { data } = $props();
 
@@ -287,7 +295,7 @@
   });
 
   // Function to handle shop interaction clicks (details/route buttons)
-  const handleShopClick = async (shop: Shop) => {
+  const handleShopClick = async (shop: ShopApi) => {
     if (!browser || !user) return;
 
     const currentCount = shopClickCounts[`${shop.id}`] || 0;
@@ -371,7 +379,7 @@
     return browser && screenWidth < 768;
   });
 
-  const getRouteLink = (shop: Shop | undefined) => {
+  const getRouteLink = (shop: ShopApi | undefined) => {
     if (!data || !shop) return '';
     const useGoogleMaps = !isShopChinaBased(shop);
     const origin = data.location;
@@ -481,7 +489,7 @@
     const plugin = plugins[method];
     const polylines: AMap.Polyline[] = [];
 
-    const processShop = async (shop: Shop, retryCount = 0): Promise<void> => {
+    const processShop = async (shop: ShopApi, retryCount = 0): Promise<void> => {
       return new Promise((resolve) => {
         if (!amap) {
           return;
@@ -623,15 +631,65 @@
   }));
   const gameOrder = new Map(allGames.map((game, index) => [game.id, index]));
 
-  let selectedTitleIds = $state<number[]>([]);
-  let gameFilterOpen = $state(false);
+  // Structured shop filter (URL `f` param); legacy `gameTitleIds` seed it so
+  // old links keep working. `selectedTitleIds` stays as the ordered title list
+  // derived from the expression (it drives the game-column ordering).
+  // `geo` is stripped: this page's own `longitude`/`latitude`/`radius` are the
+  // distance truth here (they also drive metro routing), so a geo filter on
+  // discover would be a control that quietly does nothing.
+  let filterPanelOpen = $state(false);
+  // Initial capture is intentional: the seed runs once at init and the URL
+  // `f` param is the source of truth afterwards (applyDiscoverFilter).
+  // svelte-ignore state_referenced_locally
+  let filterState = $state<ShopFilterState>(
+    withoutGeoFilter(
+      parseShopFilterParam(page.url.searchParams.get('f')) ??
+        (data.gameTitleIds && data.gameTitleIds.length > 0
+          ? {
+              v: 1,
+              games: {
+                op: 'and',
+                children: data.gameTitleIds.map((titleId) => ({ titleIds: [titleId] }))
+              }
+            }
+          : emptyShopFilterState())
+    )
+  );
+  const selectedTitleIds = $derived.by(() => {
+    const ids: number[] = [];
+    const walk = (expr: NonNullable<ShopFilterState['games']>): void => {
+      for (const child of expr.children) {
+        if ('op' in child) walk(child);
+        else {
+          for (const titleId of child.titleIds ?? []) {
+            if (!ids.includes(titleId)) ids.push(titleId);
+          }
+        }
+      }
+    };
+    if (filterState.games) walk(filterState.games);
+    return ids;
+  });
   let showAbsentGames = $state(false);
 
-  $effect(() => {
-    if (data.gameTitleIds && data.gameTitleIds.length > 0) {
-      selectedTitleIds = data.gameTitleIds;
+  const applyDiscoverFilter = (state: ShopFilterState) => {
+    // Belt and braces: the panel already drops geo, so a hand-built state
+    // cannot reintroduce a radius this page does not apply.
+    filterState = withoutGeoFilter(state);
+    filterPanelOpen = false;
+
+    if (browser) {
+      const url = new URL(window.location.href);
+      if (countActiveFilters(state) > 0) {
+        url.searchParams.set('f', serializeShopFilterState(state));
+      } else {
+        url.searchParams.delete('f');
+      }
+      // The structured filter supersedes the legacy game-title parameter.
+      url.searchParams.delete('gameTitleIds');
+      goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
     }
-  });
+  };
 
   let visibleGameIds = $derived.by(() => {
     const ids = [...selectedTitleIds];
@@ -777,7 +835,7 @@
     });
   };
 
-  const createShopInfoWindowContent = (shop: Shop): string => {
+  const createShopInfoWindowContent = (shop: ShopApi): string => {
     const address = formatShopAddress(shop);
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
 
@@ -1406,20 +1464,6 @@
     });
   });
 
-  const applyGameFilter = (ids: number[]) => {
-    selectedTitleIds = ids;
-
-    if (browser) {
-      const url = new URL(window.location.href);
-      if (ids.length > 0) {
-        url.searchParams.set('gameTitleIds', ids.join(','));
-      } else {
-        url.searchParams.delete('gameTitleIds');
-      }
-      goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-    }
-  };
-
   const updateDiscoverSettings = () => {
     if (browser) {
       const url = new URL(window.location.href);
@@ -1641,13 +1685,13 @@
           <button
             type="button"
             class="btn btn-soft hover:btn-accent btn-sm"
-            class:btn-primary={selectedTitleIds.length > 0}
-            aria-label={m.filter_by_game_titles()}
-            onclick={() => (gameFilterOpen = true)}
+            class:btn-primary={countActiveFilters(filterState) > 0}
+            aria-label={m.filter_title()}
+            onclick={() => (filterPanelOpen = true)}
           >
             <i class="fa-solid fa-filter"></i>
-            {#if selectedTitleIds.length > 0}
-              <span class="badge badge-sm">{selectedTitleIds.length}</span>
+            {#if countActiveFilters(filterState) > 0}
+              <span class="badge badge-sm">{countActiveFilters(filterState)}</span>
             {/if}
           </button>
           <div class="xs:hidden">{@render settings()}</div>
@@ -2030,7 +2074,7 @@
           </tr>
         {/snippet}
         <tbody>
-          {#each activeShops as shop (shop._id)}
+          {#each activeShops as shop (shop.id)}
             {@render discoverShopRow(shop)}
           {/each}
         </tbody>
@@ -2055,7 +2099,7 @@
               <td colspan="100" class="p-0"></td>
             </tr>
             {#if closedShopsExpanded}
-              {#each closedShops as shop (shop._id)}
+              {#each closedShops as shop (shop.id)}
                 {@render discoverShopRow(shop)}
               {/each}
             {/if}
@@ -2101,7 +2145,14 @@
   {/if}
 </div>
 
-<GameTitleFilterModal bind:isOpen={gameFilterOpen} {selectedTitleIds} onConfirm={applyGameFilter} />
+<ShopFilterPanel
+  bind:open={filterPanelOpen}
+  applied={filterState}
+  regionLabels={data.regionLabels}
+  allowGeo={false}
+  onapply={applyDiscoverFilter}
+  onclose={() => (filterPanelOpen = false)}
+/>
 
 <style lang="postcss">
   @reference "tailwindcss";

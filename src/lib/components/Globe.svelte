@@ -11,16 +11,24 @@
   import { SvelteMap } from 'svelte/reactivity';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
+  import { emptyShopFilterState, type ShopFilterState } from '$lib/schemas/shop-filter';
+  import { countActiveFilters, serializeShopFilterState } from '$lib/utils/shops/filter';
   import { getLocale } from '$lib/paraglide/runtime';
+  import {
+    EMPTY_REGION_LABEL_INDEX,
+    mergeRegionLabelIndexes,
+    regionLabelIndexFromChain,
+    type RegionLabelIndex
+  } from '$lib/regions/labels';
+  import type { AddressRegionEntry } from '$lib/regions/types';
   import { hasBoundPhone } from '$lib/utils';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import ShopCard from '$lib/components/ShopCard.svelte';
   import Drawer from '$lib/components/Drawer.svelte';
-  import GameTitleFilterModal from '$lib/components/GameTitleFilterModal.svelte';
+  import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getCachedLocation } from '$lib/utils';
   import type { GlobeShop } from '$lib/types';
-  import type { AddressRegionEntry } from '$lib/regions/types';
   import {
     GlobeVisualsLayer,
     DEFAULT_CLOUD_SHADOW_OPACITY,
@@ -38,16 +46,19 @@
 
   maplibregl.setWorkerUrl(workerUrl);
 
-  const regionIncludesId = (region: GlobeShop['address']['region'], id: string | undefined) =>
-    id != null &&
-    Array.isArray(region) &&
-    region.some((r) => (typeof r === 'string' ? r : r.id) === id);
-
   // ---- Props ----
   type Props = {
     mode: 'landing' | 'fullscreen';
+    /**
+     * The filter resolved from the URL by the server load, legacy `region`
+     * parameter included. Handed over ready to use so the client never has to
+     * re-derive filter semantics from query parameters.
+     */
+    initialFilter?: ShopFilterState | null;
+    /** Localized names and ancestor chains for `initialFilter.regions`. */
+    initialRegionIndex?: RegionLabelIndex;
   };
-  let { mode }: Props = $props();
+  let { mode, initialFilter = null, initialRegionIndex }: Props = $props();
 
   // ---- Imperative visual mode ----
   // Use direct DOM manipulation instead of reactive state to avoid Svelte's
@@ -307,6 +318,7 @@
   let sidebarOrigin = $state<{ lat: number; lng: number } | null>(null);
   let sidebarHasMore = $state(false);
   let sidebarTotalCount = $state<number | null>(null);
+  let sidebarApproximateTotal = $state(false);
   let sidebarPageLoading = $state(false);
   let originFallbackRequested = false;
   let originFallbackResolved = $state(false);
@@ -337,17 +349,18 @@
       allDetailsLoaded = false;
       sidebarHasMore = false;
       sidebarTotalCount = null;
+      sidebarApproximateTotal = false;
     }
     sidebarPageLoading = true;
 
     const queryParts = origin
       ? [`lat=${origin.lat}`, `lng=${origin.lng}`, `offset=${offset}`]
       : [`offset=${offset}`];
-    if (regionFilter.type === 'region') {
-      const regionId = regionFilter.region.at(-1)?.id;
-      if (regionId) queryParts.push(`region=${encodeURIComponent(regionId)}`);
+    if (hasStructuredFilter) {
+      queryParts.push(
+        `f=${encodeURIComponent(serializeShopFilterState($state.snapshot(filterState)))}`
+      );
     }
-    if (selectedTitleIds.length > 0) queryParts.push(`titles=${selectedTitleIds.join(',')}`);
 
     try {
       const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?${queryParts.join('&')}`);
@@ -356,6 +369,7 @@
         shops: GlobeShop[];
         hasMore: boolean;
         totalCount: number;
+        approximateTotal?: boolean;
       };
       if (requestId !== sidebarDetailsRequestId) return;
 
@@ -366,6 +380,7 @@
       shops = append ? [...(shops ?? []), ...entries] : entries;
       sidebarHasMore = data.hasMore;
       sidebarTotalCount = data.totalCount;
+      sidebarApproximateTotal = data.approximateTotal ?? false;
     } catch (e) {
       if (requestId !== sidebarDetailsRequestId) return;
       console.error('Failed to load sidebar shop details:', e);
@@ -395,10 +410,11 @@
     return lazyMarkersPromise;
   };
 
-  const fetchFilteredMarkerIds = async (regionId: string | undefined, titleIds: number[]) => {
+  const fetchFilteredMarkerIds = async (filter: ShopFilterState) => {
     const params = new SvelteURLSearchParams();
-    if (regionId) params.set('region', regionId);
-    if (titleIds.length > 0) params.set('titles', titleIds.join(','));
+    if (countActiveFilters(filter) > 0) {
+      params.set('f', serializeShopFilterState($state.snapshot(filter)));
+    }
 
     const response = await fetch(`${GLOBE_MARKERS_ENDPOINT}?${params.toString()}`);
     if (!response.ok) {
@@ -450,8 +466,31 @@
   let sidebarDragStart = { mx: 0, my: 0, sx: 0, sy: 0 };
   let sidebarResizeStart = { mx: 0, my: 0, sw: 0, sh: 0 };
   let searchQuery = $state('');
-  let selectedTitleIds = $state<number[]>([]);
-  let gameFilterOpen = $state(false);
+  // Structured shop filter (URL `f` param) — translated server-side by the
+  // shared engine; the sidebar text search stays a client-side quick filter.
+  // Region selection lives here too, as a `regions` slot: the globe has no
+  // separate notion of "the current region", so clicking a shop and picking a
+  // region in the panel go through the same state and the same server pass.
+  //
+  // Seeding from the prop is a one-off: a drill link that arrives while the
+  // globe is already mounted (it stays alive across `/` ↔ `/globe`) is adopted
+  // by the effect below, once the map is ready.
+  let filterState = $state<ShopFilterState>(untrack(() => initialFilter) ?? emptyShopFilterState());
+  let filterPanelOpen = $state(false);
+  const hasStructuredFilter = $derived(countActiveFilters(filterState) > 0);
+  /**
+   * Localized names (`labels`) and ancestor chains (`chains`) for every region
+   * currently in the filter, keyed by region ID. Seeded by the server for the
+   * URL's selection and extended in-session by the two client-side paths that
+   * can add regions — a clicked shop (its detail carries the whole localized
+   * chain) and the filter panel's apply (the cascade carries it) — so nothing
+   * ever renders as a raw ID until the next full load re-resolves the index.
+   */
+  let regionIndex = $state<RegionLabelIndex>(
+    untrack(() => initialRegionIndex) ?? EMPTY_REGION_LABEL_INDEX
+  );
+  /** What the filter panel labels its region chips with. */
+  const regionLabels = $derived(regionIndex.labels);
   const cardRefs = new SvelteMap<string, HTMLDivElement | undefined>();
 
   const syncResponsiveFlags = () => {
@@ -489,87 +528,36 @@
     return () => observer.disconnect();
   });
 
-  // ---- Region filter ----
-  type RegionFilter = { type: 'world' } | { type: 'region'; region: AddressRegionEntry[] };
-  let regionFilter = $state<RegionFilter>({ type: 'world' });
-
-  const getLocalName = (entry: AddressRegionEntry) =>
-    entry.name[currentLocale] ?? entry.name.en ?? Object.values(entry.name)[0] ?? entry.id;
-
-  const regionTitle = $derived.by(() => {
-    if (regionFilter.type === 'world') return m.world();
-    const { region } = regionFilter;
-    return getLocalName(region[region.length - 1]);
-  });
-
-  const regionHierarchy = $derived.by(
-    (): {
-      label: string;
-      target: RegionFilter;
-    }[] => {
-      if (regionFilter.type === 'world') return [];
-      const { region } = regionFilter;
-      return region.slice(0, -1).map((_entry, i) => ({
-        label: getLocalName(region[i]),
-        target: { type: 'region' as const, region: region.slice(0, i + 1) }
-      }));
-    }
+  // ---- Region selection ----
+  // Derived, never stored: the globe's sidebar header describes the region the
+  // filter is drilled into, which is the first `regions` entry. A filter with
+  // no region (or with several added through the panel) reads as the world view,
+  // which is exactly what it filters.
+  const regionChain = $derived(
+    (filterState.regions?.[0] ? regionIndex.chains[filterState.regions[0]] : undefined) ?? []
+  );
+  const regionTitle = $derived(regionChain[regionChain.length - 1]?.name ?? m.world());
+  /** Ancestors of the selected region, root-first — drilling up re-selects one. */
+  const regionHierarchy = $derived(
+    regionChain.slice(0, -1).map((entry) => ({ id: entry.id, label: entry.name }))
   );
 
   const filteredShops = $derived.by(() => {
     const sourceShops = shops;
     if (!sourceShops) return null;
     const q = searchQuery.trim().toLowerCase();
-    const rf = regionFilter;
+    // Everything in `filterState` — region, hours, activity, games — is applied
+    // by the server query the sidebar page was fetched with, so the list only
+    // narrows the loaded page further by free text.
+    if (!q) return sourceShops;
     return sourceShops.filter((entry) => {
       const shop = shopDetailsCache.get(entry.id);
       if (!shop) return false;
-      if (rf.type === 'region') {
-        const r = rf.region;
-        const leafId = r[r.length - 1].id;
-        if (leafId) {
-          if (!regionIncludesId(shop.address.region, leafId)) {
-            const general = shop.address.general;
-            const filterGeneral = r.map((e) => getLocalName(e));
-            if (
-              filterGeneral.length > general.length ||
-              filterGeneral.some((v, i) => general[i]?.toLowerCase() !== v.toLowerCase())
-            ) {
-              return false;
-            }
-          }
-        } else {
-          const general = shop.address.general;
-          const filterGeneral = r.map((e) => getLocalName(e));
-          if (
-            filterGeneral.length > general.length ||
-            filterGeneral.some((v, i) => general[i]?.toLowerCase() !== v.toLowerCase())
-          ) {
-            return false;
-          }
-        }
-      }
-      if (q) {
-        try {
-          const nameMatch = shop.name.toLowerCase().includes(q);
-          const region = shop.address.region;
-          const regionMatch =
-            Array.isArray(region) &&
-            region.some((r) => {
-              if (typeof r === 'string') return r.toLowerCase().includes(q);
-              return Object.values(r.name).some((n) => n.toLowerCase().includes(q));
-            });
-          const addrMatch = shop.address.general.some((v) => v.toLowerCase().includes(q));
-          if (!nameMatch && !regionMatch && !addrMatch) return false;
-        } catch {
-          return false;
-        }
-      }
-      if (selectedTitleIds.length > 0) {
-        if (!selectedTitleIds.every((tid) => shop.aggregatedGames.some((g) => g.titleId === tid)))
-          return false;
-      }
-      return true;
+      return (
+        shop.name.toLowerCase().includes(q) ||
+        shop.address.region?.some((entry) => entry.name.toLowerCase().includes(q)) === true ||
+        shop.address.general.some((value) => value.toLowerCase().includes(q))
+      );
     });
   });
 
@@ -590,17 +578,15 @@
   // The sidebar contains only one page of shop details. Query the marker endpoint
   // separately so the globe highlights every shop matching the active filters.
   $effect(() => {
-    const regionId =
-      regionFilter.type === 'region' ? regionFilter.region.at(-1)?.id || undefined : undefined;
-    const titleIds = selectedTitleIds;
+    const filter = filterState;
     const requestId = ++markerFilterRequestId;
 
-    if (!regionId && titleIds.length === 0) {
+    if (countActiveFilters(filter) === 0) {
       highlightedMarkerIds = null;
       return;
     }
 
-    void fetchFilteredMarkerIds(regionId, titleIds)
+    void fetchFilteredMarkerIds(filter)
       .then((ids) => {
         if (requestId === markerFilterRequestId) highlightedMarkerIds = ids;
       })
@@ -675,15 +661,14 @@
       });
   });
 
-  // Region is only a server-side filter for the same origin-sorted query.
-  // Changing either the region or origin restarts pagination at offset zero.
+  // Region is no longer a server-side filter of its own: it is part of
+  // `filterState`, so changing the filter, the origin, or nothing at all all
+  // restart the same paginated query.
   $effect(() => {
     const origin = sidebarOrigin;
     const fallbackResolved = originFallbackResolved;
-    const filter = regionFilter;
-    const titleIds = selectedTitleIds;
+    const filter = filterState;
     void filter;
-    void titleIds;
     if (!origin && !fallbackResolved) return;
     void loadSidebarDetails();
   });
@@ -713,10 +698,16 @@
     });
   });
 
-  let regionParamsApplied = false;
+  let adoptedInitialState = false;
 
+  // The globe stays mounted across `/` ↔ `/globe`, so a drill link can arrive
+  // long after mount. Adopt the server-resolved state (filter plus localized
+  // region names) when one does; interactive changes flow the other way, from
+  // state to URL, so this runs at most once per arrival.
   $effect(() => {
-    if (regionParamsApplied) return;
+    if (adoptedInitialState) return;
+    const filter = initialFilter;
+    const resolvedRegionIndex = initialRegionIndex;
     const instance = map;
     const markersData = markers;
     if (!instance || !markersData) return;
@@ -725,32 +716,22 @@
     const lat = urlParams.get('lat');
     const lng = urlParams.get('lng');
     const zoom = urlParams.get('zoom');
-    const regionParam = urlParams.get('region');
+    if (!lat || !lng || !zoom) return;
 
-    if (!lat || !lng || !zoom || !regionParam) {
-      regionParamsApplied = true;
-      return;
+    adoptedInitialState = true;
+    if (filter) {
+      filterState = filter;
+      regionIndex = resolvedRegionIndex ?? EMPTY_REGION_LABEL_INDEX;
     }
 
-    try {
-      const chain = JSON.parse(decodeURIComponent(atob(regionParam))) as AddressRegionEntry[];
-      if (chain.length > 0) {
-        regionFilter = { type: 'region', region: chain };
-      }
+    sidebarOrigin = { lat: parseFloat(lat), lng: parseFloat(lng) };
+    sidebarOpen = true;
 
-      sidebarOrigin = { lat: parseFloat(lat), lng: parseFloat(lng) };
-      sidebarOpen = true;
-
-      flyToWithAnticipatedBasemap(instance, {
-        center: [parseFloat(lng), parseFloat(lat)],
-        zoom: parseFloat(zoom),
-        duration: 2000
-      });
-    } catch (e) {
-      console.error('Failed to parse region param:', e);
-    }
-
-    regionParamsApplied = true;
+    flyToWithAnticipatedBasemap(instance, {
+      center: [parseFloat(lng), parseFloat(lat)],
+      zoom: parseFloat(zoom),
+      duration: 2000
+    });
   });
 
   const flyToWithAnticipatedBasemap = (
@@ -784,13 +765,13 @@
     const cached = shopDetailsCache.get(shopEntry.id);
     if (cached) {
       pinnedShop = cached;
-      applyShopRegionFilter(cached);
+      applyShopRegion(cached);
     } else {
       pinnedShop = null;
       void fetchShopDetail(shopEntry.id).then((detail) => {
         if (detail && pinnedMarkerId === shopEntry.id) {
           pinnedShop = detail;
-          applyShopRegionFilter(detail);
+          applyShopRegion(detail);
         }
       });
     }
@@ -839,27 +820,79 @@
     void goto(`${base}/shops/new?${params}`);
   };
 
-  const applyShopRegionFilter = (shop: GlobeShop) => {
-    const region = shop.address.region;
-    const expanded =
-      region && Array.isArray(region) && region.length > 0 && typeof region[0] === 'object'
-        ? (region as AddressRegionEntry[])
-        : null;
+  // Apply the structured filter: update state, then mirror it into the `f`
+  // URL param via replaceState so filtered views stay shareable without a
+  // navigation (the globe page is fully client-side).
+  //
+  // `regionChains` is the panel's in-session contribution: regions picked in
+  // the cascade arrive with their localized chains, which are merged into the
+  // index here — the same shortcut as applyShopRegion — so the sidebar
+  // breadcrumb and the panel's chips resolve them instead of degrading to raw
+  // IDs until the next full load re-resolves the index server-side.
+  const applyGlobeFilter = (
+    state: ShopFilterState,
+    regionChains: Record<string, AddressRegionEntry[]> = {}
+  ) => {
+    const chains = Object.values(regionChains);
+    if (chains.length > 0) {
+      regionIndex = mergeRegionLabelIndexes(
+        regionIndex,
+        ...chains.map((chain) => regionLabelIndexFromChain(chain, currentLocale))
+      );
+    }
+    filterState = state;
+    filterPanelOpen = false;
+    const params = new SvelteURLSearchParams(page.url.searchParams);
+    if (countActiveFilters(state) > 0) {
+      params.set('f', serializeShopFilterState(state));
+    } else {
+      params.delete('f');
+    }
+    // `f` is now the whole filter, so the pre-filter `region` parameter is
+    // dropped: left in place it would be folded back in on the next load and
+    // resurrect a region the user has since drilled out of.
+    params.delete('region');
+    const qs = params.toString();
+    history.replaceState(
+      history.state,
+      '',
+      `${page.url.pathname}${qs ? `?${qs}` : ''}${page.url.hash}`
+    );
+  };
 
-    if (expanded && expanded.length > 0) {
-      regionFilter = { type: 'region', region: expanded };
+  /** Replace the region selection, leaving every other filter dimension alone. */
+  const setGlobeRegions = (regions: string[]) => {
+    if (regions.length === 0) {
+      if (!filterState.regions) return;
+      const withoutRegions = { ...filterState };
+      delete withoutRegions.regions;
+      applyGlobeFilter(withoutRegions);
       return;
     }
+    applyGlobeFilter({ ...filterState, regions });
+  };
 
-    const general = shop.address.general;
-    if (!general.length) {
-      regionFilter = { type: 'world' };
-      return;
-    }
-    regionFilter = {
-      type: 'region',
-      region: general.map((name) => ({ id: '', name: { en: name } }))
-    };
+  /**
+   * Selecting a shop fills the region filter with the region it sits in — the
+   * same slot the cascade in the filter panel fills, so the two can never
+   * disagree and every other active filter keeps applying alongside it.
+   *
+   * The shop detail already carries its whole localized region chain, so the
+   * names for the sidebar title, the drill-up breadcrumb and the panel's chip
+   * are indexed from it directly instead of costing another round trip. A shop
+   * with no region (legacy rows) simply leaves the region filter as it is: it
+   * has no ID to select, and matching on names would be a filter the server
+   * cannot reproduce.
+   */
+  const applyShopRegion = (shop: GlobeShop) => {
+    const chain = shop.address.region;
+    const leafId = chain?.[chain.length - 1]?.id;
+    if (!leafId) return;
+    regionIndex = mergeRegionLabelIndexes(
+      regionIndex,
+      regionLabelIndexFromChain(chain, currentLocale)
+    );
+    setGlobeRegions([leafId]);
   };
 
   const isShopInCurrentFilter = (shopId: number): boolean => {
@@ -1418,7 +1451,7 @@
               if (markerHoveredShop !== null) markerHoveredShop = null;
               pinnedMarkerId = null;
               hoveredMarkerId = null;
-              if (regionFilter.type !== 'world') regionFilter = { type: 'world' };
+              if (filterState.regions) setGlobeRegions([]);
               if (sidebarOpen) sidebarOpen = false;
               sidebarCollapsed = false;
               // Re-assert the scroll-driven gradient opacity now that the
@@ -1732,7 +1765,10 @@
         markerHoveredShop = null;
         pinnedMarkerId = null;
         hoveredMarkerId = null;
-        regionFilter = { type: 'world' };
+        // Clicking the map re-anchors the sidebar; the region drilled into is
+        // dropped the same way, so the list around the new point is unfiltered
+        // by region while every other filter dimension stays in force.
+        setGlobeRegions([]);
         const { lat, lng } = event.lngLat;
         sidebarOrigin = { lat, lng };
       };
@@ -1790,11 +1826,11 @@
               } else {
                 if (!isShopInCurrentFilter(entry.id)) {
                   searchQuery = '';
-                  selectedTitleIds = [];
+                  applyGlobeFilter(emptyShopFilterState());
                 }
-                // Apply region filter from cached detail if available
-                const cached = shopDetailsCache.get(entry.id);
-                if (cached) applyShopRegionFilter(cached);
+                // Pinning fills the region filter with the shop's region; it
+                // resolves from the cache when there and otherwise as soon as
+                // the detail arrives, so both paths end in the same state.
                 pinShop(entry);
               }
             }
@@ -2131,7 +2167,7 @@
                   <button
                     class="cursor-pointer underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white"
                     onclick={() => {
-                      regionFilter = item.target;
+                      setGlobeRegions([item.id]);
                     }}
                   >
                     {item.label}
@@ -2151,13 +2187,13 @@
             <button
               type="button"
               class="btn btn-soft hover:btn-accent transition-colors"
-              class:btn-primary={selectedTitleIds.length > 0}
-              aria-label={m.filter_by_game_titles()}
-              onclick={() => (gameFilterOpen = true)}
+              class:btn-primary={hasStructuredFilter}
+              aria-label={m.filter_title()}
+              onclick={() => (filterPanelOpen = true)}
             >
               <i class="fa-solid fa-filter"></i>
-              {#if selectedTitleIds.length > 0}
-                <span class="badge badge-xs">{selectedTitleIds.length}</span>
+              {#if hasStructuredFilter}
+                <span class="badge badge-xs">{countActiveFilters(filterState)}</span>
               {/if}
             </button>
 
@@ -2296,7 +2332,9 @@
       <i class="fa-solid fa-list text-sm"></i>
       <span class="text-sm font-medium">{regionTitle}</span>
       {#if sidebarTotalCount !== null}
-        <span class="badge badge-soft badge-primary badge-xs">{sidebarTotalCount}</span>
+        <span class="badge badge-soft badge-primary badge-xs">
+          {#if sidebarApproximateTotal}≈&nbsp;{/if}{sidebarTotalCount}
+        </span>
       {/if}
     </button>
 
@@ -2326,10 +2364,12 @@
     {/if}
   {/if}
 
-  <GameTitleFilterModal
-    bind:isOpen={gameFilterOpen}
-    {selectedTitleIds}
-    onConfirm={(ids) => (selectedTitleIds = ids)}
+  <ShopFilterPanel
+    bind:open={filterPanelOpen}
+    applied={filterState}
+    {regionLabels}
+    onapply={applyGlobeFilter}
+    onclose={() => (filterPanelOpen = false)}
   />
 
   {#if markerHoveredShop && !isCoarsePointer}

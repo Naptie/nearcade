@@ -1,9 +1,9 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Game, Shop } from '$lib/types';
-import { calculateDistance, toPlainObject, getShopTimeInfo } from '$lib/utils';
+import { calculateDistance, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
-import { expandShopsRegions } from '$lib/utils/region.server';
+import { toShopApi } from '$lib/utils/shops/api.server';
 import { getShopsAttendanceData } from './attendance.server';
 import type { PublicUser } from '$lib/auth/types';
 import {
@@ -20,6 +20,9 @@ import {
 } from '$lib/constants';
 import type { ShopMetro } from '$lib/schemas/metro';
 import { computeWalkSeconds, snapToStation, runMetroDijkstra } from '$lib/openmetro/graph.server';
+import { buildShopMongoFilter } from '$lib/utils/shops/filter-query.server';
+import { isShopOpenAt } from '$lib/utils/shops/derived';
+import { parseShopFilterParam, withoutGeoFilter } from '$lib/utils/shops/filter';
 import type { MetroDijkstra, MetroSnapResult } from '$lib/openmetro/graph.server';
 import { getMetroSnapshot } from '$lib/openmetro/snapshot.server';
 import type { MetroSnapshotNetwork } from '$lib/openmetro/snapshot.server';
@@ -54,6 +57,18 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     includeTimeInfo,
     convertFrom
   } = parsedQuery;
+  // Structured filter (same `f` contract as /shops); legacy gameTitleIds keep
+  // working alongside it. `geo` is dropped: this page already owns the origin
+  // and radius (they drive the metro search), so a second radius in the filter
+  // would contradict them. Stripped here as well as in the panel so the active
+  // filter count and the query can never disagree.
+  const parsedFilter = parseShopFilterParam(queryUrl.searchParams.get('f'));
+  const structuredFilter = parsedFilter ? withoutGeoFilter(parsedFilter) : null;
+  const structuredParts: Record<string, unknown>[] = structuredFilter
+    ? Object.keys(buildShopMongoFilter(structuredFilter)).length > 0
+      ? [buildShopMongoFilter(structuredFilter) as Record<string, unknown>]
+      : []
+    : [];
 
   // Convert coordinates from a non-GCJ-02 system if requested.
   // Tencent coord translate first (per-feature daily quota); AMap remains the
@@ -78,10 +93,16 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       nearSpec.$maxDistance = radiusKm * 1000;
     }
 
-    const query: Record<string, unknown> = { location: { $near: nearSpec } };
+    const legacyParts: Record<string, unknown>[] = [];
     if (gameTitleIds && gameTitleIds.length > 0) {
-      query['games.titleId'] = { $all: gameTitleIds };
+      legacyParts.push({ 'games.titleId': { $all: gameTitleIds } });
     }
+    const query: Record<string, unknown> = {
+      location: { $near: nearSpec },
+      ...([...structuredParts, ...legacyParts].length > 0
+        ? { $and: [...structuredParts, ...legacyParts] }
+        : {})
+    };
 
     // The radius doubles as a travel-time budget: the distance option the user
     // picked implies how long that trip normally takes, and every candidate
@@ -148,15 +169,14 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
 
       if (reachableStationIds.length > 0) {
         const metroQuery: Record<string, unknown> = {
-          'transit.metro.stationId': { $in: reachableStationIds }
+          'transit.metro.stationId': { $in: reachableStationIds },
+          ...([...structuredParts, ...legacyParts].length > 0
+            ? { $and: [...structuredParts, ...legacyParts] }
+            : {})
         };
-        if (gameTitleIds && gameTitleIds.length > 0) {
-          metroQuery['games.titleId'] = { $all: gameTitleIds };
-        }
         const metroShopDocs = (await shopsCollection
           .find(metroQuery, {
             projection: {
-              _id: 1,
               id: 1,
               name: 1,
               comment: 1,
@@ -164,6 +184,8 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
               openingHours: 1,
               games: 1,
               location: 1,
+              timezone: 1,
+              isClosed: 1,
               createdAt: 1,
               updatedAt: 1,
               transit: 1
@@ -238,10 +260,18 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     for (const candidate of metroCandidates) {
       if (!poolById.has(candidate.shop.id)) poolById.set(candidate.shop.id, candidate.shop);
     }
-    const shops = [...poolById.values()];
+    let shops = [...poolById.values()];
+    // Open-now is time-dependent and per-shop-timezone: applied exactly over
+    // the assembled pool (no tolerance — tolerances are attendance-only).
+    if (structuredFilter?.hours?.openNow) {
+      const now = new Date();
+      shops = shops.filter((shop) => isShopOpenAt(shop, now));
+    }
 
     const now = new Date();
 
+    // Still the *document* shape at this stage: `timezone`/`isOpen` are read-time
+    // facts and are added by `toShopApi` below, alongside the public projection.
     let enrichedShops: (Shop & {
       distance: number;
       travel?: ShopTravelEstimate;
@@ -253,12 +283,8 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
         reporter: PublicUser;
         comment: string | null;
       } | null;
-      timezone?: { name: string; offset: number };
-      isOpen?: boolean;
     })[] = shops.map((shop) => {
       const coordinates = shop.location?.coordinates;
-
-      const extraTimeInfo = includeTimeInfo ? getShopTimeInfo(shop, now) : {};
 
       let distance = Infinity;
 
@@ -277,7 +303,6 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
 
       return {
         ...shop,
-        ...extraTimeInfo,
         distance,
         ...(travel ? { travel } : {})
       };
@@ -297,7 +322,8 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       );
     }
 
-    if (fetchAttendance) {
+    const needsAttendanceFilter = !!structuredFilter?.activity;
+    if (fetchAttendance || needsAttendanceFilter) {
       const attendanceData = await getShopsAttendanceData(
         shops.map((shop) => shop.id),
         { fetchRegistered: false, fetchReported: true }
@@ -339,6 +365,27 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       });
     }
 
+    // Activity predicates are Redis-derived: filter the enriched shops once
+    // the attendance totals are attached.
+    if (structuredFilter?.activity) {
+      const activity = structuredFilter.activity;
+      enrichedShops = enrichedShops.filter((shop) => {
+        const total = shop.totalAttendance ?? 0;
+        if (activity.attendance?.min !== undefined && total < activity.attendance.min) return false;
+        if (activity.attendance?.max !== undefined && total > activity.attendance.max) return false;
+        if (activity.gameAttendance) {
+          for (const requirement of activity.gameAttendance) {
+            const perGame = (shop.games as (Game & { totalAttendance?: number })[])
+              .filter((game) => requirement.titleIds.includes(game.titleId))
+              .reduce((sum, game) => sum + (game.totalAttendance ?? 0), 0);
+            if (requirement.min !== undefined && perGame < requirement.min) return false;
+            if (requirement.max !== undefined && perGame > requirement.max) return false;
+          }
+        }
+        return true;
+      });
+    }
+
     // Rank by travel time, then by distance as a tie-break, then cut to `limit`
     // so the count is always respected. Shops with no travel estimate have no
     // real time to sort on, so they fall back to their straight-line walking
@@ -354,7 +401,19 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
     });
     enrichedShops = enrichedShops.slice(0, resultCount);
 
-    const shopsWithRegions = await expandShopsRegions(enrichedShops);
+    // One projection decides what a client sees: the persisted document also
+    // carries `_id` and the derived query caches, which never belong here.
+    const shopsWithRegions = await Promise.all(
+      enrichedShops.map(async (shop) => ({
+        ...(await toShopApi(shop, { includeTimeInfo, now })),
+        distance: shop.distance,
+        ...(shop.travel !== undefined ? { travel: shop.travel } : {}),
+        ...(shop.totalAttendance === undefined ? {} : { totalAttendance: shop.totalAttendance }),
+        ...(shop.currentReportedAttendance === undefined
+          ? {}
+          : { currentReportedAttendance: shop.currentReportedAttendance })
+      }))
+    );
 
     // Ready-to-serve metro block: only for returned shops that actually have a
     // worthwhile metro itinerary, so a shop reachable on foot never carries a

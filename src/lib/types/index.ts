@@ -24,12 +24,14 @@ import type { postSchema, postVoteSchema, postWithAuthorSchema } from '$lib/sche
 import type { announcementSchema, announcementWithAuthorSchema } from '$lib/schemas/announcements';
 import type {
   gameSchema,
+  shopApiSchema,
   shopDeleteRequestSchema,
   shopDeleteRequestVoteSchema,
-  shopPhotoSchema,
-  shopSchema
+  shopDocumentSchema,
+  shopPhotoSchema
 } from '$lib/schemas/shops';
 import { shopChangelogActionSchema, shopChangelogEntrySchema } from '$lib/schemas/shops';
+import type { AddressRegionEntry } from '$lib/regions/types';
 import type { UgcContentType, UgcKind, UgcTranslationMap } from '$lib/ugc/types';
 
 /**
@@ -51,11 +53,38 @@ export interface OpeningHourTime {
   minute: number;
 }
 
-type ShopBase = z.infer<typeof shopSchema>;
+/**
+ * The persisted shop document (MongoDB / Meilisearch). Carries `_id` and the
+ * derived cache fields that exist purely to serve server-side filtering and
+ * sorting. Never returned to clients — see {@link ShopApi}.
+ */
+type ShopDocumentBase = z.infer<typeof shopDocumentSchema>;
 
 export type Shop = UgcAttachable &
-  Omit<ShopBase, 'games'> & {
+  Omit<ShopDocumentBase, 'games'> & {
     /** Per-game entries may carry their own cached translations (`_t`). */
+    games: Array<z.infer<typeof gameSchema> & UgcAttachable>;
+  };
+
+/**
+ * Public (API-facing) shop address: localized `general` plus the region chain
+ * with IDs and the requested locale's names. Stored shops keep IDs only — see
+ * `shopAddressSchema` and `toShopApiAddress`.
+ */
+export interface ShopApiAddress {
+  general: string[];
+  detailed: string;
+  region: AddressRegionEntry[];
+}
+
+/**
+ * The public shop shape shared by every API response. Contains only
+ * user-authored facts plus the per-request `timezone` / `isOpen` computation.
+ */
+type ShopApiBase = z.infer<typeof shopApiSchema>;
+
+export type ShopApi = UgcAttachable &
+  Omit<ShopApiBase, 'games'> & {
     games: Array<z.infer<typeof gameSchema> & UgcAttachable>;
   };
 
@@ -539,7 +568,7 @@ export interface GlobeShop {
   name: string;
   address: {
     general: string[];
-    region?: string[] | { id: string; name: Record<string, string> }[];
+    region?: AddressRegionEntry[];
   };
   openingHours: Shop['openingHours'];
   location: Shop['location'];

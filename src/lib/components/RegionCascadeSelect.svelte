@@ -21,6 +21,9 @@
   type Props = {
     /** Bindable: selected region IDs from root → leaf. */
     regionIds?: string[];
+    /** Bindable: localized labels of the selected chain, root → leaf. Empty
+     *  entries are dropped, so it is always index-aligned with `regionIds`. */
+    selectedLabels?: string[];
     /** Bindable: whether the last selected option is a leaf node. */
     regionComplete?: boolean;
     /** Initial region IDs to pre-populate (e.g. when editing). */
@@ -28,15 +31,19 @@
     /** Region IDs resolved externally (e.g. from a location pick); when it
      *  changes to a new non-empty chain, the cascade re-resolves and selects it. */
     resolvedRegionIds?: string[];
+    /** Change this value to clear the cascade back to the top level. */
+    resetKey?: number;
     /** CSS class for the grid container. */
     gridClass?: string;
   };
 
   let {
     regionIds = $bindable<string[]>(),
+    selectedLabels = $bindable<string[]>(),
     regionComplete = $bindable<boolean>(),
     initialRegionIds,
     resolvedRegionIds,
+    resetKey,
     gridClass = 'grid grid-cols-2 gap-1'
   }: Props = $props();
 
@@ -50,6 +57,12 @@
   // Derive outputs from internal state.
   $effect(() => {
     regionIds = regionLevels.filter((l) => l.selectedId).map((l) => l.selectedId);
+  });
+
+  $effect(() => {
+    selectedLabels = regionLevels
+      .filter((l) => l.selectedId)
+      .map((l) => l.options.find((o) => o.value === l.selectedId)?.label ?? l.selectedId);
   });
 
   $effect(() => {
@@ -161,6 +174,17 @@
     lastResolvedKey = key;
     if (regionLevels.length === 0 || regionLevels[0].options.length === 0) return;
     applyRegionIds(ids).catch(console.error);
+  });
+
+  // Clear the cascade back to the top level when the consumer bumps `resetKey`.
+  let lastResetKey = $state<number | undefined>(undefined);
+  $effect(() => {
+    const key = resetKey;
+    if (key === undefined || key === lastResetKey) return;
+    lastResetKey = key;
+    if (regionLevels.length === 0) return;
+    // Reuse the already-loaded top level; only the selection is dropped.
+    regionLevels = [{ ...regionLevels[0], selectedId: '' }];
   });
 </script>
 

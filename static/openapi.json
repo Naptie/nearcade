@@ -1196,10 +1196,6 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "_id": {
-                            "type": "string",
-                            "description": "MongoDB ID。\n\nMongoDB ID."
-                          },
                           "id": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -1218,104 +1214,69 @@
                             "type": "object",
                             "properties": {
                               "general": {
-                                "default": [],
-                                "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                 "type": "array",
                                 "items": {
                                   "type": "string"
-                                }
+                                },
+                                "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                               },
                               "detailed": {
-                                "default": "",
-                                "description": "详细地址。\n\nDetailed street address.",
-                                "type": "string"
+                                "type": "string",
+                                "description": "详细地址。\n\nDetailed street address."
                               },
                               "region": {
-                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                "anyOf": [
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "地区 ID。\n\nRegion ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                     }
                                   },
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "id": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "object",
-                                          "additionalProperties": {
-                                            "type": "string"
-                                          }
-                                        }
-                                      },
-                                      "required": ["id", "name"],
-                                      "additionalProperties": false
-                                    }
-                                  }
-                                ]
+                                  "required": ["id", "name"],
+                                  "additionalProperties": false,
+                                  "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                },
+                                "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                               }
                             },
-                            "required": ["general", "detailed"],
+                            "required": ["general", "detailed", "region"],
                             "additionalProperties": false,
                             "description": "店铺地址。\n\nShop address."
                           },
                           "openingHours": {
-                            "minItems": 1,
+                            "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                               "type": "array",
-                              "items": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  }
-                                ]
-                              },
                               "minItems": 2,
-                              "maxItems": 2
-                            },
-                            "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                              "maxItems": 2,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "hour": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 47,
+                                    "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                  },
+                                  "minute": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 59,
+                                    "description": "分钟。\n\nMinute."
+                                  }
+                                },
+                                "required": ["hour", "minute"],
+                                "additionalProperties": false
+                              }
+                            }
                           },
                           "games": {
                             "type": "array",
@@ -1409,7 +1370,6 @@
                             "description": "店铺坐标。\n\nShop coordinates."
                           },
                           "timezone": {
-                            "description": "店铺时区。\n\nComputed shop timezone.",
                             "type": "object",
                             "properties": {
                               "name": {
@@ -1418,11 +1378,12 @@
                               },
                               "offset": {
                                 "type": "number",
-                                "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                               }
                             },
                             "required": ["name", "offset"],
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "description": "店铺时区。\n\nComputed shop timezone."
                           },
                           "isOpen": {
                             "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -1563,7 +1524,6 @@
                           }
                         },
                         "required": [
-                          "_id",
                           "id",
                           "name",
                           "comment",
@@ -1705,10 +1665,6 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "_id": {
-                            "type": "string",
-                            "description": "MongoDB ID。\n\nMongoDB ID."
-                          },
                           "id": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -1727,104 +1683,69 @@
                             "type": "object",
                             "properties": {
                               "general": {
-                                "default": [],
-                                "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                 "type": "array",
                                 "items": {
                                   "type": "string"
-                                }
+                                },
+                                "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                               },
                               "detailed": {
-                                "default": "",
-                                "description": "详细地址。\n\nDetailed street address.",
-                                "type": "string"
+                                "type": "string",
+                                "description": "详细地址。\n\nDetailed street address."
                               },
                               "region": {
-                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                "anyOf": [
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "地区 ID。\n\nRegion ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                     }
                                   },
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "id": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "object",
-                                          "additionalProperties": {
-                                            "type": "string"
-                                          }
-                                        }
-                                      },
-                                      "required": ["id", "name"],
-                                      "additionalProperties": false
-                                    }
-                                  }
-                                ]
+                                  "required": ["id", "name"],
+                                  "additionalProperties": false,
+                                  "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                },
+                                "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                               }
                             },
-                            "required": ["general", "detailed"],
+                            "required": ["general", "detailed", "region"],
                             "additionalProperties": false,
                             "description": "店铺地址。\n\nShop address."
                           },
                           "openingHours": {
-                            "minItems": 1,
+                            "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                               "type": "array",
-                              "items": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  }
-                                ]
-                              },
                               "minItems": 2,
-                              "maxItems": 2
-                            },
-                            "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                              "maxItems": 2,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "hour": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 47,
+                                    "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                  },
+                                  "minute": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 59,
+                                    "description": "分钟。\n\nMinute."
+                                  }
+                                },
+                                "required": ["hour", "minute"],
+                                "additionalProperties": false
+                              }
+                            }
                           },
                           "games": {
                             "type": "array",
@@ -1918,7 +1839,6 @@
                             "description": "店铺坐标。\n\nShop coordinates."
                           },
                           "timezone": {
-                            "description": "店铺时区。\n\nComputed shop timezone.",
                             "type": "object",
                             "properties": {
                               "name": {
@@ -1927,11 +1847,12 @@
                               },
                               "offset": {
                                 "type": "number",
-                                "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                               }
                             },
                             "required": ["name", "offset"],
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "description": "店铺时区。\n\nComputed shop timezone."
                           },
                           "isOpen": {
                             "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -2072,7 +1993,6 @@
                           }
                         },
                         "required": [
-                          "_id",
                           "id",
                           "name",
                           "comment",
@@ -3261,6 +3181,15 @@
           },
           {
             "in": "query",
+            "name": "f",
+            "schema": {
+              "description": "结构化筛选状态（base64url JSON，见 /shops 的 f 参数）。\n\nStructured filter state (base64url JSON, same as the /shops f parameter).",
+              "type": "string"
+            },
+            "description": "结构化筛选状态（base64url JSON，见 /shops 的 f 参数）。\n\nStructured filter state (base64url JSON, same as the /shops f parameter)."
+          },
+          {
+            "in": "query",
             "name": "gameTitleIds",
             "schema": {
               "description": "按游戏标题 ID 筛选，以逗号分隔。仅返回包含所有指定游戏的店铺。\n\nFilter by game title IDs, comma-separated. Only shops with all specified games are returned.",
@@ -3361,10 +3290,6 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "_id": {
-                            "type": "string",
-                            "description": "MongoDB ID。\n\nMongoDB ID."
-                          },
                           "id": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -3383,104 +3308,69 @@
                             "type": "object",
                             "properties": {
                               "general": {
-                                "default": [],
-                                "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                 "type": "array",
                                 "items": {
                                   "type": "string"
-                                }
+                                },
+                                "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                               },
                               "detailed": {
-                                "default": "",
-                                "description": "详细地址。\n\nDetailed street address.",
-                                "type": "string"
+                                "type": "string",
+                                "description": "详细地址。\n\nDetailed street address."
                               },
                               "region": {
-                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                "anyOf": [
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "地区 ID。\n\nRegion ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                     }
                                   },
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "id": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "object",
-                                          "additionalProperties": {
-                                            "type": "string"
-                                          }
-                                        }
-                                      },
-                                      "required": ["id", "name"],
-                                      "additionalProperties": false
-                                    }
-                                  }
-                                ]
+                                  "required": ["id", "name"],
+                                  "additionalProperties": false,
+                                  "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                },
+                                "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                               }
                             },
-                            "required": ["general", "detailed"],
+                            "required": ["general", "detailed", "region"],
                             "additionalProperties": false,
                             "description": "店铺地址。\n\nShop address."
                           },
                           "openingHours": {
-                            "minItems": 1,
+                            "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                               "type": "array",
-                              "items": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  }
-                                ]
-                              },
                               "minItems": 2,
-                              "maxItems": 2
-                            },
-                            "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                              "maxItems": 2,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "hour": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 47,
+                                    "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                  },
+                                  "minute": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 59,
+                                    "description": "分钟。\n\nMinute."
+                                  }
+                                },
+                                "required": ["hour", "minute"],
+                                "additionalProperties": false
+                              }
+                            }
                           },
                           "games": {
                             "type": "array",
@@ -3580,7 +3470,6 @@
                             "description": "店铺坐标。\n\nShop coordinates."
                           },
                           "timezone": {
-                            "description": "店铺时区。\n\nComputed shop timezone.",
                             "type": "object",
                             "properties": {
                               "name": {
@@ -3589,11 +3478,12 @@
                               },
                               "offset": {
                                 "type": "number",
-                                "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                               }
                             },
                             "required": ["name", "offset"],
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "description": "店铺时区。\n\nComputed shop timezone."
                           },
                           "isOpen": {
                             "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -3813,7 +3703,6 @@
                           }
                         },
                         "required": [
-                          "_id",
                           "id",
                           "name",
                           "comment",
@@ -6018,10 +5907,42 @@
             "name": "regionId",
             "schema": {
               "default": "",
-              "description": "地区筛选 ID。\n\nRegion ID to filter by.",
+              "description": "地区筛选 ID（旧参数，建议改用 f）。\n\nRegion ID to filter by (legacy; prefer `f`).",
               "type": "string"
             },
-            "description": "地区筛选 ID。\n\nRegion ID to filter by."
+            "description": "地区筛选 ID（旧参数，建议改用 f）。\n\nRegion ID to filter by (legacy; prefer `f`)."
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "description": "排序方式；默认相关度（有查询词时）或名称。\n\nSort order; defaults to relevance (with a query) or name.",
+              "type": "string",
+              "enum": [
+                "relevance",
+                "name_asc",
+                "name_desc",
+                "distance",
+                "machines_desc",
+                "machines_asc",
+                "titles_desc",
+                "attendance_desc",
+                "id_asc",
+                "id_desc",
+                "updated_desc",
+                "created_desc"
+              ]
+            },
+            "description": "排序方式；默认相关度（有查询词时）或名称。\n\nSort order; defaults to relevance (with a query) or name."
+          },
+          {
+            "in": "query",
+            "name": "f",
+            "schema": {
+              "description": "结构化筛选状态（base64url JSON，v:1）。\n\nStructured filter state (base64url JSON, v:1).",
+              "type": "string"
+            },
+            "description": "结构化筛选状态（base64url JSON，v:1）。\n\nStructured filter state (base64url JSON, v:1)."
           },
           {
             "in": "query",
@@ -6061,10 +5982,6 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "_id": {
-                            "type": "string",
-                            "description": "MongoDB ID。\n\nMongoDB ID."
-                          },
                           "id": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -6083,104 +6000,69 @@
                             "type": "object",
                             "properties": {
                               "general": {
-                                "default": [],
-                                "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                 "type": "array",
                                 "items": {
                                   "type": "string"
-                                }
+                                },
+                                "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                               },
                               "detailed": {
-                                "default": "",
-                                "description": "详细地址。\n\nDetailed street address.",
-                                "type": "string"
+                                "type": "string",
+                                "description": "详细地址。\n\nDetailed street address."
                               },
                               "region": {
-                                "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                "anyOf": [
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "地区 ID。\n\nRegion ID."
+                                    },
+                                    "name": {
+                                      "type": "string",
+                                      "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                     }
                                   },
-                                  {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "id": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "object",
-                                          "additionalProperties": {
-                                            "type": "string"
-                                          }
-                                        }
-                                      },
-                                      "required": ["id", "name"],
-                                      "additionalProperties": false
-                                    }
-                                  }
-                                ]
+                                  "required": ["id", "name"],
+                                  "additionalProperties": false,
+                                  "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                },
+                                "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                               }
                             },
-                            "required": ["general", "detailed"],
+                            "required": ["general", "detailed", "region"],
                             "additionalProperties": false,
                             "description": "店铺地址。\n\nShop address."
                           },
                           "openingHours": {
-                            "minItems": 1,
+                            "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                             "type": "array",
+                            "minItems": 1,
                             "items": {
                               "type": "array",
-                              "items": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "hour": {
-                                        "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 23
-                                      },
-                                      "minute": {
-                                        "description": "分钟。\n\nMinute.",
-                                        "type": "integer",
-                                        "minimum": 0,
-                                        "maximum": 59
-                                      }
-                                    },
-                                    "required": ["hour", "minute"],
-                                    "additionalProperties": false
-                                  }
-                                ]
-                              },
                               "minItems": 2,
-                              "maxItems": 2
-                            },
-                            "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                              "maxItems": 2,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "hour": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 47,
+                                    "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                  },
+                                  "minute": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 59,
+                                    "description": "分钟。\n\nMinute."
+                                  }
+                                },
+                                "required": ["hour", "minute"],
+                                "additionalProperties": false
+                              }
+                            }
                           },
                           "games": {
                             "type": "array",
@@ -6274,7 +6156,6 @@
                             "description": "店铺坐标。\n\nShop coordinates."
                           },
                           "timezone": {
-                            "description": "店铺时区。\n\nComputed shop timezone.",
                             "type": "object",
                             "properties": {
                               "name": {
@@ -6283,11 +6164,12 @@
                               },
                               "offset": {
                                 "type": "number",
-                                "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                               }
                             },
                             "required": ["name", "offset"],
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "description": "店铺时区。\n\nComputed shop timezone."
                           },
                           "isOpen": {
                             "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -6428,7 +6310,6 @@
                           }
                         },
                         "required": [
-                          "_id",
                           "id",
                           "name",
                           "comment",
@@ -6523,85 +6404,42 @@
                         "type": "string"
                       },
                       "region": {
-                        "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                        "anyOf": [
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "id": {
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "type": "object",
-                                  "additionalProperties": {
-                                    "type": "string"
-                                  }
-                                }
-                              },
-                              "required": ["id", "name"]
-                            }
-                          }
-                        ]
+                        "default": [],
+                        "description": "地区 ID 层级。\n\nRegion ID hierarchy.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     }
                   },
                   "openingHours": {
+                    "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                     "minItems": 1,
                     "type": "array",
                     "items": {
                       "type": "array",
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "hour": {
-                                "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 23
-                              },
-                              "minute": {
-                                "description": "分钟。\n\nMinute.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 59
-                              }
-                            },
-                            "required": ["hour", "minute"]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "hour": {
-                                "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 23
-                              },
-                              "minute": {
-                                "description": "分钟。\n\nMinute.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 59
-                              }
-                            },
-                            "required": ["hour", "minute"]
-                          }
-                        ]
-                      },
                       "minItems": 2,
-                      "maxItems": 2
-                    },
-                    "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                      "maxItems": 2,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "hour": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 47,
+                            "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                          },
+                          "minute": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 59,
+                            "description": "分钟。\n\nMinute."
+                          }
+                        },
+                        "required": ["hour", "minute"]
+                      }
+                    }
                   },
                   "location": {
                     "type": "object",
@@ -6705,10 +6543,6 @@
                     "shop": {
                       "type": "object",
                       "properties": {
-                        "_id": {
-                          "type": "string",
-                          "description": "MongoDB ID。\n\nMongoDB ID."
-                        },
                         "id": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -6727,104 +6561,69 @@
                           "type": "object",
                           "properties": {
                             "general": {
-                              "default": [],
-                              "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                               "type": "array",
                               "items": {
                                 "type": "string"
-                              }
+                              },
+                              "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                             },
                             "detailed": {
-                              "default": "",
-                              "description": "详细地址。\n\nDetailed street address.",
-                              "type": "string"
+                              "type": "string",
+                              "description": "详细地址。\n\nDetailed street address."
                             },
                             "region": {
-                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                              "anyOf": [
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "地区 ID。\n\nRegion ID."
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                   }
                                 },
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "name": {
-                                        "type": "object",
-                                        "additionalProperties": {
-                                          "type": "string"
-                                        }
-                                      }
-                                    },
-                                    "required": ["id", "name"],
-                                    "additionalProperties": false
-                                  }
-                                }
-                              ]
+                                "required": ["id", "name"],
+                                "additionalProperties": false,
+                                "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                              },
+                              "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                             }
                           },
-                          "required": ["general", "detailed"],
+                          "required": ["general", "detailed", "region"],
                           "additionalProperties": false,
                           "description": "店铺地址。\n\nShop address."
                         },
                         "openingHours": {
-                          "minItems": 1,
+                          "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                           "type": "array",
+                          "minItems": 1,
                           "items": {
                             "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                },
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                }
-                              ]
-                            },
                             "minItems": 2,
-                            "maxItems": 2
-                          },
-                          "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                            "maxItems": 2,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "hour": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 47,
+                                  "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                },
+                                "minute": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 59,
+                                  "description": "分钟。\n\nMinute."
+                                }
+                              },
+                              "required": ["hour", "minute"],
+                              "additionalProperties": false
+                            }
+                          }
                         },
                         "games": {
                           "type": "array",
@@ -6918,7 +6717,6 @@
                           "description": "店铺坐标。\n\nShop coordinates."
                         },
                         "timezone": {
-                          "description": "店铺时区。\n\nComputed shop timezone.",
                           "type": "object",
                           "properties": {
                             "name": {
@@ -6927,11 +6725,12 @@
                             },
                             "offset": {
                               "type": "number",
-                              "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                              "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                             }
                           },
                           "required": ["name", "offset"],
-                          "additionalProperties": false
+                          "additionalProperties": false,
+                          "description": "店铺时区。\n\nComputed shop timezone."
                         },
                         "isOpen": {
                           "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -7072,7 +6871,6 @@
                         }
                       },
                       "required": [
-                        "_id",
                         "id",
                         "name",
                         "comment",
@@ -7162,10 +6960,6 @@
                     "shop": {
                       "type": "object",
                       "properties": {
-                        "_id": {
-                          "type": "string",
-                          "description": "MongoDB ID。\n\nMongoDB ID."
-                        },
                         "id": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -7184,104 +6978,69 @@
                           "type": "object",
                           "properties": {
                             "general": {
-                              "default": [],
-                              "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                               "type": "array",
                               "items": {
                                 "type": "string"
-                              }
+                              },
+                              "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                             },
                             "detailed": {
-                              "default": "",
-                              "description": "详细地址。\n\nDetailed street address.",
-                              "type": "string"
+                              "type": "string",
+                              "description": "详细地址。\n\nDetailed street address."
                             },
                             "region": {
-                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                              "anyOf": [
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "地区 ID。\n\nRegion ID."
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                   }
                                 },
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "name": {
-                                        "type": "object",
-                                        "additionalProperties": {
-                                          "type": "string"
-                                        }
-                                      }
-                                    },
-                                    "required": ["id", "name"],
-                                    "additionalProperties": false
-                                  }
-                                }
-                              ]
+                                "required": ["id", "name"],
+                                "additionalProperties": false,
+                                "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                              },
+                              "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                             }
                           },
-                          "required": ["general", "detailed"],
+                          "required": ["general", "detailed", "region"],
                           "additionalProperties": false,
                           "description": "店铺地址。\n\nShop address."
                         },
                         "openingHours": {
-                          "minItems": 1,
+                          "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                           "type": "array",
+                          "minItems": 1,
                           "items": {
                             "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                },
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                }
-                              ]
-                            },
                             "minItems": 2,
-                            "maxItems": 2
-                          },
-                          "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                            "maxItems": 2,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "hour": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 47,
+                                  "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                },
+                                "minute": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 59,
+                                  "description": "分钟。\n\nMinute."
+                                }
+                              },
+                              "required": ["hour", "minute"],
+                              "additionalProperties": false
+                            }
+                          }
                         },
                         "games": {
                           "type": "array",
@@ -7375,7 +7134,6 @@
                           "description": "店铺坐标。\n\nShop coordinates."
                         },
                         "timezone": {
-                          "description": "店铺时区。\n\nComputed shop timezone.",
                           "type": "object",
                           "properties": {
                             "name": {
@@ -7384,11 +7142,12 @@
                             },
                             "offset": {
                               "type": "number",
-                              "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                              "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                             }
                           },
                           "required": ["name", "offset"],
-                          "additionalProperties": false
+                          "additionalProperties": false,
+                          "description": "店铺时区。\n\nComputed shop timezone."
                         },
                         "isOpen": {
                           "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -7529,7 +7288,6 @@
                         }
                       },
                       "required": [
-                        "_id",
                         "id",
                         "name",
                         "comment",
@@ -7619,85 +7377,42 @@
                         "type": "string"
                       },
                       "region": {
-                        "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                        "anyOf": [
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "id": {
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "type": "object",
-                                  "additionalProperties": {
-                                    "type": "string"
-                                  }
-                                }
-                              },
-                              "required": ["id", "name"]
-                            }
-                          }
-                        ]
+                        "default": [],
+                        "description": "地区 ID 层级。\n\nRegion ID hierarchy.",
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     }
                   },
                   "openingHours": {
+                    "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                     "minItems": 1,
                     "type": "array",
                     "items": {
                       "type": "array",
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "hour": {
-                                "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 23
-                              },
-                              "minute": {
-                                "description": "分钟。\n\nMinute.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 59
-                              }
-                            },
-                            "required": ["hour", "minute"]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "hour": {
-                                "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 23
-                              },
-                              "minute": {
-                                "description": "分钟。\n\nMinute.",
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 59
-                              }
-                            },
-                            "required": ["hour", "minute"]
-                          }
-                        ]
-                      },
                       "minItems": 2,
-                      "maxItems": 2
-                    },
-                    "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                      "maxItems": 2,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "hour": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 47,
+                            "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                          },
+                          "minute": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 59,
+                            "description": "分钟。\n\nMinute."
+                          }
+                        },
+                        "required": ["hour", "minute"]
+                      }
+                    }
                   },
                   "location": {
                     "description": "店铺坐标。\n\nShop coordinates.",
@@ -7805,10 +7520,6 @@
                     "shop": {
                       "type": "object",
                       "properties": {
-                        "_id": {
-                          "type": "string",
-                          "description": "MongoDB ID。\n\nMongoDB ID."
-                        },
                         "id": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -7827,104 +7538,69 @@
                           "type": "object",
                           "properties": {
                             "general": {
-                              "default": [],
-                              "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                               "type": "array",
                               "items": {
                                 "type": "string"
-                              }
+                              },
+                              "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                             },
                             "detailed": {
-                              "default": "",
-                              "description": "详细地址。\n\nDetailed street address.",
-                              "type": "string"
+                              "type": "string",
+                              "description": "详细地址。\n\nDetailed street address."
                             },
                             "region": {
-                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                              "anyOf": [
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "地区 ID。\n\nRegion ID."
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                   }
                                 },
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "name": {
-                                        "type": "object",
-                                        "additionalProperties": {
-                                          "type": "string"
-                                        }
-                                      }
-                                    },
-                                    "required": ["id", "name"],
-                                    "additionalProperties": false
-                                  }
-                                }
-                              ]
+                                "required": ["id", "name"],
+                                "additionalProperties": false,
+                                "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                              },
+                              "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                             }
                           },
-                          "required": ["general", "detailed"],
+                          "required": ["general", "detailed", "region"],
                           "additionalProperties": false,
                           "description": "店铺地址。\n\nShop address."
                         },
                         "openingHours": {
-                          "minItems": 1,
+                          "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                           "type": "array",
+                          "minItems": 1,
                           "items": {
                             "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                },
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                }
-                              ]
-                            },
                             "minItems": 2,
-                            "maxItems": 2
-                          },
-                          "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                            "maxItems": 2,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "hour": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 47,
+                                  "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                },
+                                "minute": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 59,
+                                  "description": "分钟。\n\nMinute."
+                                }
+                              },
+                              "required": ["hour", "minute"],
+                              "additionalProperties": false
+                            }
+                          }
                         },
                         "games": {
                           "type": "array",
@@ -8018,7 +7694,6 @@
                           "description": "店铺坐标。\n\nShop coordinates."
                         },
                         "timezone": {
-                          "description": "店铺时区。\n\nComputed shop timezone.",
                           "type": "object",
                           "properties": {
                             "name": {
@@ -8027,11 +7702,12 @@
                             },
                             "offset": {
                               "type": "number",
-                              "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                              "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                             }
                           },
                           "required": ["name", "offset"],
-                          "additionalProperties": false
+                          "additionalProperties": false,
+                          "description": "店铺时区。\n\nComputed shop timezone."
                         },
                         "isOpen": {
                           "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -8172,7 +7848,6 @@
                         }
                       },
                       "required": [
-                        "_id",
                         "id",
                         "name",
                         "comment",
@@ -8258,10 +7933,6 @@
                     "shop": {
                       "type": "object",
                       "properties": {
-                        "_id": {
-                          "type": "string",
-                          "description": "MongoDB ID。\n\nMongoDB ID."
-                        },
                         "id": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -8280,104 +7951,69 @@
                           "type": "object",
                           "properties": {
                             "general": {
-                              "default": [],
-                              "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                               "type": "array",
                               "items": {
                                 "type": "string"
-                              }
+                              },
+                              "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                             },
                             "detailed": {
-                              "default": "",
-                              "description": "详细地址。\n\nDetailed street address.",
-                              "type": "string"
+                              "type": "string",
+                              "description": "详细地址。\n\nDetailed street address."
                             },
                             "region": {
-                              "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                              "anyOf": [
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "地区 ID。\n\nRegion ID."
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                   }
                                 },
-                                {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "name": {
-                                        "type": "object",
-                                        "additionalProperties": {
-                                          "type": "string"
-                                        }
-                                      }
-                                    },
-                                    "required": ["id", "name"],
-                                    "additionalProperties": false
-                                  }
-                                }
-                              ]
+                                "required": ["id", "name"],
+                                "additionalProperties": false,
+                                "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                              },
+                              "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                             }
                           },
-                          "required": ["general", "detailed"],
+                          "required": ["general", "detailed", "region"],
                           "additionalProperties": false,
                           "description": "店铺地址。\n\nShop address."
                         },
                         "openingHours": {
-                          "minItems": 1,
+                          "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                           "type": "array",
+                          "minItems": 1,
                           "items": {
                             "type": "array",
-                            "items": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                },
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "hour": {
-                                      "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 23
-                                    },
-                                    "minute": {
-                                      "description": "分钟。\n\nMinute.",
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 59
-                                    }
-                                  },
-                                  "required": ["hour", "minute"],
-                                  "additionalProperties": false
-                                }
-                              ]
-                            },
                             "minItems": 2,
-                            "maxItems": 2
-                          },
-                          "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                            "maxItems": 2,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "hour": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 47,
+                                  "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                },
+                                "minute": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 59,
+                                  "description": "分钟。\n\nMinute."
+                                }
+                              },
+                              "required": ["hour", "minute"],
+                              "additionalProperties": false
+                            }
+                          }
                         },
                         "games": {
                           "type": "array",
@@ -8471,7 +8107,6 @@
                           "description": "店铺坐标。\n\nShop coordinates."
                         },
                         "timezone": {
-                          "description": "店铺时区。\n\nComputed shop timezone.",
                           "type": "object",
                           "properties": {
                             "name": {
@@ -8480,11 +8115,12 @@
                             },
                             "offset": {
                               "type": "number",
-                              "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                              "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                             }
                           },
                           "required": ["name", "offset"],
-                          "additionalProperties": false
+                          "additionalProperties": false,
+                          "description": "店铺时区。\n\nComputed shop timezone."
                         },
                         "isOpen": {
                           "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -8625,7 +8261,6 @@
                         }
                       },
                       "required": [
-                        "_id",
                         "id",
                         "name",
                         "comment",
@@ -15622,10 +15257,6 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "_id": {
-                                "type": "string",
-                                "description": "MongoDB ID。\n\nMongoDB ID."
-                              },
                               "id": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -15644,104 +15275,69 @@
                                 "type": "object",
                                 "properties": {
                                   "general": {
-                                    "default": [],
-                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                     "type": "array",
                                     "items": {
                                       "type": "string"
-                                    }
+                                    },
+                                    "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                                   },
                                   "detailed": {
-                                    "default": "",
-                                    "description": "详细地址。\n\nDetailed street address.",
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "详细地址。\n\nDetailed street address."
                                   },
                                   "region": {
-                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                    "anyOf": [
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string"
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "地区 ID。\n\nRegion ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                         }
                                       },
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "id": {
-                                              "type": "string"
-                                            },
-                                            "name": {
-                                              "type": "object",
-                                              "additionalProperties": {
-                                                "type": "string"
-                                              }
-                                            }
-                                          },
-                                          "required": ["id", "name"],
-                                          "additionalProperties": false
-                                        }
-                                      }
-                                    ]
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false,
+                                      "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                    },
+                                    "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                                   }
                                 },
-                                "required": ["general", "detailed"],
+                                "required": ["general", "detailed", "region"],
                                 "additionalProperties": false,
                                 "description": "店铺地址。\n\nShop address."
                               },
                               "openingHours": {
-                                "minItems": 1,
+                                "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                                 "type": "array",
+                                "minItems": 1,
                                 "items": {
                                   "type": "array",
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      }
-                                    ]
-                                  },
                                   "minItems": 2,
-                                  "maxItems": 2
-                                },
-                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                                  "maxItems": 2,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "hour": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 47,
+                                        "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                      },
+                                      "minute": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 59,
+                                        "description": "分钟。\n\nMinute."
+                                      }
+                                    },
+                                    "required": ["hour", "minute"],
+                                    "additionalProperties": false
+                                  }
+                                }
                               },
                               "games": {
                                 "type": "array",
@@ -15835,7 +15431,6 @@
                                 "description": "店铺坐标。\n\nShop coordinates."
                               },
                               "timezone": {
-                                "description": "店铺时区。\n\nComputed shop timezone.",
                                 "type": "object",
                                 "properties": {
                                   "name": {
@@ -15844,11 +15439,12 @@
                                   },
                                   "offset": {
                                     "type": "number",
-                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                    "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                                   }
                                 },
                                 "required": ["name", "offset"],
-                                "additionalProperties": false
+                                "additionalProperties": false,
+                                "description": "店铺时区。\n\nComputed shop timezone."
                               },
                               "isOpen": {
                                 "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -15989,7 +15585,6 @@
                               }
                             },
                             "required": [
-                              "_id",
                               "id",
                               "name",
                               "comment",
@@ -16009,10 +15604,6 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "_id": {
-                                "type": "string",
-                                "description": "MongoDB ID。\n\nMongoDB ID."
-                              },
                               "id": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -16031,104 +15622,69 @@
                                 "type": "object",
                                 "properties": {
                                   "general": {
-                                    "default": [],
-                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                     "type": "array",
                                     "items": {
                                       "type": "string"
-                                    }
+                                    },
+                                    "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                                   },
                                   "detailed": {
-                                    "default": "",
-                                    "description": "详细地址。\n\nDetailed street address.",
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "详细地址。\n\nDetailed street address."
                                   },
                                   "region": {
-                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                    "anyOf": [
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string"
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "地区 ID。\n\nRegion ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                         }
                                       },
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "id": {
-                                              "type": "string"
-                                            },
-                                            "name": {
-                                              "type": "object",
-                                              "additionalProperties": {
-                                                "type": "string"
-                                              }
-                                            }
-                                          },
-                                          "required": ["id", "name"],
-                                          "additionalProperties": false
-                                        }
-                                      }
-                                    ]
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false,
+                                      "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                    },
+                                    "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                                   }
                                 },
-                                "required": ["general", "detailed"],
+                                "required": ["general", "detailed", "region"],
                                 "additionalProperties": false,
                                 "description": "店铺地址。\n\nShop address."
                               },
                               "openingHours": {
-                                "minItems": 1,
+                                "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                                 "type": "array",
+                                "minItems": 1,
                                 "items": {
                                   "type": "array",
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      }
-                                    ]
-                                  },
                                   "minItems": 2,
-                                  "maxItems": 2
-                                },
-                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                                  "maxItems": 2,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "hour": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 47,
+                                        "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                      },
+                                      "minute": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 59,
+                                        "description": "分钟。\n\nMinute."
+                                      }
+                                    },
+                                    "required": ["hour", "minute"],
+                                    "additionalProperties": false
+                                  }
+                                }
                               },
                               "games": {
                                 "type": "array",
@@ -16222,7 +15778,6 @@
                                 "description": "店铺坐标。\n\nShop coordinates."
                               },
                               "timezone": {
-                                "description": "店铺时区。\n\nComputed shop timezone.",
                                 "type": "object",
                                 "properties": {
                                   "name": {
@@ -16231,11 +15786,12 @@
                                   },
                                   "offset": {
                                     "type": "number",
-                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                    "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                                   }
                                 },
                                 "required": ["name", "offset"],
-                                "additionalProperties": false
+                                "additionalProperties": false,
+                                "description": "店铺时区。\n\nComputed shop timezone."
                               },
                               "isOpen": {
                                 "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -16376,7 +15932,6 @@
                               }
                             },
                             "required": [
-                              "_id",
                               "id",
                               "name",
                               "comment",
@@ -17325,10 +16880,6 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "_id": {
-                                "type": "string",
-                                "description": "MongoDB ID。\n\nMongoDB ID."
-                              },
                               "id": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -17347,104 +16898,69 @@
                                 "type": "object",
                                 "properties": {
                                   "general": {
-                                    "default": [],
-                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                     "type": "array",
                                     "items": {
                                       "type": "string"
-                                    }
+                                    },
+                                    "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                                   },
                                   "detailed": {
-                                    "default": "",
-                                    "description": "详细地址。\n\nDetailed street address.",
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "详细地址。\n\nDetailed street address."
                                   },
                                   "region": {
-                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                    "anyOf": [
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string"
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "地区 ID。\n\nRegion ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                         }
                                       },
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "id": {
-                                              "type": "string"
-                                            },
-                                            "name": {
-                                              "type": "object",
-                                              "additionalProperties": {
-                                                "type": "string"
-                                              }
-                                            }
-                                          },
-                                          "required": ["id", "name"],
-                                          "additionalProperties": false
-                                        }
-                                      }
-                                    ]
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false,
+                                      "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                    },
+                                    "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                                   }
                                 },
-                                "required": ["general", "detailed"],
+                                "required": ["general", "detailed", "region"],
                                 "additionalProperties": false,
                                 "description": "店铺地址。\n\nShop address."
                               },
                               "openingHours": {
-                                "minItems": 1,
+                                "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                                 "type": "array",
+                                "minItems": 1,
                                 "items": {
                                   "type": "array",
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      }
-                                    ]
-                                  },
                                   "minItems": 2,
-                                  "maxItems": 2
-                                },
-                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                                  "maxItems": 2,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "hour": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 47,
+                                        "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                      },
+                                      "minute": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 59,
+                                        "description": "分钟。\n\nMinute."
+                                      }
+                                    },
+                                    "required": ["hour", "minute"],
+                                    "additionalProperties": false
+                                  }
+                                }
                               },
                               "games": {
                                 "type": "array",
@@ -17538,7 +17054,6 @@
                                 "description": "店铺坐标。\n\nShop coordinates."
                               },
                               "timezone": {
-                                "description": "店铺时区。\n\nComputed shop timezone.",
                                 "type": "object",
                                 "properties": {
                                   "name": {
@@ -17547,11 +17062,12 @@
                                   },
                                   "offset": {
                                     "type": "number",
-                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                    "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                                   }
                                 },
                                 "required": ["name", "offset"],
-                                "additionalProperties": false
+                                "additionalProperties": false,
+                                "description": "店铺时区。\n\nComputed shop timezone."
                               },
                               "isOpen": {
                                 "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -17692,7 +17208,6 @@
                               }
                             },
                             "required": [
-                              "_id",
                               "id",
                               "name",
                               "comment",
@@ -17712,10 +17227,6 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "_id": {
-                                "type": "string",
-                                "description": "MongoDB ID。\n\nMongoDB ID."
-                              },
                               "id": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -17734,104 +17245,69 @@
                                 "type": "object",
                                 "properties": {
                                   "general": {
-                                    "default": [],
-                                    "description": "大致地址，一般为：[国家/地区, 省, 市, 区]。\n\nGeneral address, usually [country/region, province, city, district].",
                                     "type": "array",
                                     "items": {
                                       "type": "string"
-                                    }
+                                    },
+                                    "description": "按请求语言本地化的大致地址。\n\nGeneral address, localized."
                                   },
                                   "detailed": {
-                                    "default": "",
-                                    "description": "详细地址。\n\nDetailed street address.",
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "详细地址。\n\nDetailed street address."
                                   },
                                   "region": {
-                                    "description": "地区 ID 层级。\n\nRegion hierarchy.",
-                                    "anyOf": [
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string"
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "地区 ID。\n\nRegion ID."
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "按请求语言本地化的地区名。\n\nRegion name, localized."
                                         }
                                       },
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "id": {
-                                              "type": "string"
-                                            },
-                                            "name": {
-                                              "type": "object",
-                                              "additionalProperties": {
-                                                "type": "string"
-                                              }
-                                            }
-                                          },
-                                          "required": ["id", "name"],
-                                          "additionalProperties": false
-                                        }
-                                      }
-                                    ]
+                                      "required": ["id", "name"],
+                                      "additionalProperties": false,
+                                      "description": "地区层级节点。\n\nOne node of the region hierarchy."
+                                    },
+                                    "description": "地区 ID 层级及本地化名。\n\nRegion hierarchy with localized names."
                                   }
                                 },
-                                "required": ["general", "detailed"],
+                                "required": ["general", "detailed", "region"],
                                 "additionalProperties": false,
                                 "description": "店铺地址。\n\nShop address."
                               },
                               "openingHours": {
-                                "minItems": 1,
+                                "description": "营业时间（规范形式）：仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。结束时间不得早于开始时间，跨夜请用 ≥24 的小时表示（如 26:00）。\n\nOpening hours in canonical form. One item means the same hours for the whole week; seven items map to weekdays. The close time never precedes the open time — overnight hours use hours ≥ 24 (e.g. 26:00).",
                                 "type": "array",
+                                "minItems": 1,
                                 "items": {
                                   "type": "array",
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "hour": {
-                                            "description": "24 小时制本地小时。\n\nHour in 24-hour local time.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 23
-                                          },
-                                          "minute": {
-                                            "description": "分钟。\n\nMinute.",
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 59
-                                          }
-                                        },
-                                        "required": ["hour", "minute"],
-                                        "additionalProperties": false
-                                      }
-                                    ]
-                                  },
                                   "minItems": 2,
-                                  "maxItems": 2
-                                },
-                                "description": "营业时间。仅有 1 个元素时表示整周均为该营业时间；有 7 个元素时每个元素分别代表一周中的一天。\n\nOpening hours. One item means the same hours for the whole week; seven items map to weekdays."
+                                  "maxItems": 2,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "hour": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 47,
+                                        "description": "24 小时制本地小时。营业结束时间允许 24–47，表示次日。\n\nHour in 24-hour local time. Closing times accept 24–47, denoting the next day."
+                                      },
+                                      "minute": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 59,
+                                        "description": "分钟。\n\nMinute."
+                                      }
+                                    },
+                                    "required": ["hour", "minute"],
+                                    "additionalProperties": false
+                                  }
+                                }
                               },
                               "games": {
                                 "type": "array",
@@ -17925,7 +17401,6 @@
                                 "description": "店铺坐标。\n\nShop coordinates."
                               },
                               "timezone": {
-                                "description": "店铺时区。\n\nComputed shop timezone.",
                                 "type": "object",
                                 "properties": {
                                   "name": {
@@ -17934,11 +17409,12 @@
                                   },
                                   "offset": {
                                     "type": "number",
-                                    "description": "时区偏移，单位：小时。\n\nTimezone offset in hours."
+                                    "description": "相对 UTC 的当前时区偏移，单位：小时（随夏令时变化）。\n\nCurrent offset from UTC in hours (DST-aware)."
                                   }
                                 },
                                 "required": ["name", "offset"],
-                                "additionalProperties": false
+                                "additionalProperties": false,
+                                "description": "店铺时区。\n\nComputed shop timezone."
                               },
                               "isOpen": {
                                 "description": "店铺当前是否营业。已闭店时恒为否。\n\nWhether the shop is currently open. Always false when the shop is permanently closed.",
@@ -18079,7 +17555,6 @@
                               }
                             },
                             "required": [
-                              "_id",
                               "id",
                               "name",
                               "comment",

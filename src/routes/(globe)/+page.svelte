@@ -797,7 +797,7 @@
               class:pt-4={!showCollapse}
             >
               {#if starredReady}
-                {#each data.starredShops as shop (shop._id)}
+                {#each data.starredShops as shop (shop.id)}
                   {@const isShopOpen = isShopCurrentlyOpen(shop, now)}
                   {@const isInAttendance = (shop as { isInAttendance?: boolean }).isInAttendance}
                   <div

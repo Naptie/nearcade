@@ -4,6 +4,9 @@
   import { resolve } from '$app/paths';
   import { adaptiveNewTab } from '$lib/utils';
   import type { AdminRegionNode } from '$lib/regions/types';
+  import { regionNameForLocale } from '$lib/regions/labels';
+  import { emptyShopFilterState } from '$lib/schemas/shop-filter';
+  import { serializeShopFilterState } from '$lib/utils/shops/filter';
   import RegionTreeNode from './RegionTreeNode.svelte';
 
   type Props = {
@@ -47,9 +50,7 @@
   };
 
   const locale = getLocale();
-  const localizedName = $derived(
-    region.name[locale] ?? region.name.en ?? Object.values(region.name).find(Boolean) ?? region.id
-  );
+  const localizedName = $derived(regionNameForLocale(region.name, locale) || region.id);
 
   const levelLabel = $derived.by(() => {
     const f = m[`region_level_${region.level}`];
@@ -84,7 +85,10 @@
       lat: lat.toFixed(6),
       lng: lng.toFixed(6),
       zoom: (zoomMap[region.level] ?? 8).toString(),
-      region: btoa(encodeURIComponent(JSON.stringify(chain)))
+      // The globe selects the region through the same filter everything else
+      // uses; carrying only the ID keeps the link locale-independent — the
+      // globe resolves the names itself, in the reader's language.
+      f: serializeShopFilterState({ ...emptyShopFilterState(), regions: [region.id] })
     });
     return resolve('/(globe)/globe') + '?' + params.toString();
   });

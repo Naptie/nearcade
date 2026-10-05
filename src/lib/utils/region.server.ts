@@ -1,11 +1,13 @@
 import {
   deriveGeneralAddress,
+  expandRegionHierarchyLocalized,
   expandRegionHierarchyWithNames,
   isTerminalRegion,
   resolveRegionFromGeneral
 } from '$lib/regions/utils.server';
 import type { AddressRegionEntry } from '$lib/regions/types';
-import type { Shop } from '$lib/types';
+import { regionLabelIndexFromChain, type RegionLabelIndex } from '$lib/regions/labels';
+import type { Shop, ShopApiAddress } from '$lib/types';
 import { getLocale } from '$lib/paraglide/runtime';
 
 export interface ResolvedShopAddress {
@@ -77,67 +79,59 @@ export async function resolveShopAddress(input: {
 }
 
 /**
- * Expand stored region IDs to full `{id, name}` entries for API responses.
- * If no region IDs are stored, returns an empty array.
+ * The one rule that keeps `address.general` and `address.region[].name` in
+ * agreement: `general` IS the list of region names, root → leaf. Falls back to
+ * the stored value for shops with no region chain.
  */
-export async function expandShopAddress(
-  region: string[] | undefined
-): Promise<AddressRegionEntry[]> {
-  if (!region || region.length === 0) return [];
+export const generalFromRegion = (
+  region: AddressRegionEntry[],
+  fallback: string[] = []
+): string[] => (region.length > 0 ? region.map((entry) => entry.name) : fallback);
 
-  const leafId = region[region.length - 1];
+/**
+ * Turn a stored shop address into its public form for `locale`.
+ *
+ * Databases keep only the region ID chain. The localized names are resolved
+ * here, once, from that chain — and `general` is derived from the very same
+ * names, so the two can never disagree and no shop carries N copies of its
+ * region names. Shops with no region (legacy rows) fall back to the stored
+ * `general`.
+ */
+export async function toShopApiAddress(
+  address: { general?: string[]; detailed?: string; region?: string[] | AddressRegionEntry[] },
+  locale: string = getLocale()
+): Promise<ShopApiAddress> {
+  const detailed = address.detailed ?? '';
+  const storedRegion = address.region;
 
-  try {
-    return await expandRegionHierarchyWithNames(leafId);
-  } catch {
-    return [];
-  }
-}
+  const region: AddressRegionEntry[] =
+    storedRegion && storedRegion.length > 0
+      ? typeof storedRegion[0] === 'string'
+        ? await expandRegionHierarchyLocalized(
+            (storedRegion as string[])[(storedRegion as string[]).length - 1],
+            locale
+          )
+        : (storedRegion as AddressRegionEntry[])
+      : [];
 
-function isRegionIdArray(region: Shop['address']['region']): region is string[] {
-  return Array.isArray(region) && region.length > 0 && typeof region[0] === 'string';
+  return { detailed, region, general: generalFromRegion(region, address.general ?? []) };
 }
 
 /**
- * Expand region IDs for a single shop's address into `{id, name}` entries
- * and localize `address.general` using the user's locale.
+ * Expand region IDs for a single shop's address into localized `{ id, name }`
+ * entries and derive `address.general` from them.
  * Safe to call on shops whose region data is already expanded.
  */
 export async function expandShopRegions<T extends { address?: Shop['address'] }>(
   shop: T
 ): Promise<T> {
-  const region = shop.address?.region;
-  if (!isRegionIdArray(region)) {
-    // Already expanded or no region data — still localize general if region objects exist
-    if (shop.address && region && region.length > 0 && typeof region[0] === 'object') {
-      return {
-        ...shop,
-        address: {
-          ...shop.address,
-          general: localizeAddressGeneral({
-            general: shop.address.general ?? [],
-            region
-          })
-        }
-      };
-    }
-    return shop;
-  }
-
-  const expanded = await expandShopAddress(region);
-  const localizedAddress = { general: shop.address?.general ?? [], region: expanded };
-  return {
-    ...shop,
-    address: {
-      ...shop.address,
-      ...localizedAddress,
-      general: localizeAddressGeneral(localizedAddress)
-    }
-  };
+  if (!shop.address) return shop;
+  return { ...shop, address: await toShopApiAddress(shop.address) };
 }
 
 /**
- * Expand region IDs for an array of shops' addresses into `{id, name}` entries.
+ * Expand region IDs for an array of shops' addresses into localized
+ * `{ id, name }` entries.
  * Safe to call on shops whose region data is already expanded.
  */
 export async function expandShopsRegions<T extends { address?: Shop['address'] }>(
@@ -147,35 +141,45 @@ export async function expandShopsRegions<T extends { address?: Shop['address'] }
 }
 
 /**
- * Pick the best name for a locale from a region's name map.
- * Priority: exact locale → language code → English → any available value.
+ * Localized display data for a set of region IDs, keyed by ID.
+ *
+ * The filter state is IDs-only, so every surface that renders a selected region
+ * needs this or it shows raw IDs (`CN-310000`). Resolution is cheap (the region
+ * hierarchy is cached in memory) and runs eagerly during page load so chips,
+ * titles and drill-down breadcrumbs render with the page shell rather than
+ * popping in.
+ *
+ * Every node of every requested chain is indexed, not just the leaves: the
+ * globe's breadcrumb drills *up* a chain, and the filter panel can hold any
+ * node of one as a selection. Sharing one index across both is what makes a
+ * selection read identically everywhere it appears.
+ *
+ * An unknown or unreachable ID degrades to itself rather than throwing: a stale
+ * shared link should still render a (labelless) chip instead of a 500.
  */
-function selectLocalizedName(name: Record<string, string>, locale: string): string {
-  if (name[locale]) return name[locale];
-  const language = locale.split('-')[0];
-  if (language && name[language]) return name[language];
-  if (name.en) return name.en;
-  const firstAvailable = Object.values(name).find((value) => value);
-  return firstAvailable ?? '';
-}
-
-/**
- * Compute localized `address.general` from expanded region entries.
- * Falls back to the original `address.general` when region data is unavailable.
- */
-export function localizeAddressGeneral(
-  address: {
-    general: string[];
-    region?: string[] | AddressRegionEntry[];
-  },
+export async function buildRegionLabelIndex(
+  regionIds: string[] | undefined,
   locale: string = getLocale()
-): string[] {
-  const regions = address.region;
-  if (regions && regions.length > 0 && typeof regions[0] === 'object') {
-    const entries = regions as AddressRegionEntry[];
-    return entries.map((entry) => selectLocalizedName(entry.name, locale));
+): Promise<RegionLabelIndex> {
+  const index: RegionLabelIndex = { labels: {}, chains: {} };
+  for (const regionId of regionIds ?? []) {
+    if (!regionId || index.labels[regionId]) continue;
+    let chain: AddressRegionEntry[];
+    try {
+      chain = await expandRegionHierarchyLocalized(regionId, locale);
+    } catch {
+      chain = [];
+    }
+    if (chain.length === 0) {
+      index.labels[regionId] = { name: regionId, path: '' };
+      index.chains[regionId] = [{ id: regionId, name: regionId }];
+      continue;
+    }
+    const resolved = regionLabelIndexFromChain(chain, locale);
+    Object.assign(index.labels, resolved.labels);
+    Object.assign(index.chains, resolved.chains);
   }
-  return address.general;
+  return index;
 }
 
 /**

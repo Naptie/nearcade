@@ -7,6 +7,7 @@
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
+  import { canonicalizeOpeningHours } from '$lib/utils/shops/derived';
   import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import {
     clearShopDraft,
@@ -61,6 +62,9 @@
   // ---- Opening hours ----
 
   const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
+  // Close time may run past midnight: 24–29 denote the next day (29:59 cap
+  // covers realistic arcade hours; the schema allows up to 47).
+  const CLOSE_HOUR_OPTIONS = Array.from({ length: 30 }, (_, i) => i);
   const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
 
   const DEFAULT_SLOT: [number, number, number, number] = [10, 0, 22, 0]; // openH, openM, closeH, closeM
@@ -77,7 +81,9 @@
       return [hour, minute];
     }
 
-    const hour = Math.max(0, Math.min(23, Math.floor(Number(time?.hour) || 0)));
+    // Canonical data may carry a close hour > 23 (next day); keep it intact
+    // so editing an overnight shop does not silently truncate it.
+    const hour = Math.max(0, Math.min(47, Math.floor(Number(time?.hour) || 0)));
     const minute = Math.max(0, Math.min(59, Math.floor(Number(time?.minute) || 0)));
     return [hour, minute];
   }
@@ -136,7 +142,7 @@
   const initialRegionIds = untrack(() => {
     const addr = initialData.address;
     if (!addr?.region || addr.region.length === 0) return undefined;
-    return addr.region.map((r) => (typeof r === 'string' ? r : r.id));
+    return [...addr.region];
   });
 
   // ---- Location → address resolution ----
@@ -365,10 +371,14 @@
       return;
     }
 
-    const openingHours: [OpeningHourTime, OpeningHourTime][] = slots.map(([oh, om, ch, cm]) => [
-      { hour: oh, minute: om },
-      { hour: ch, minute: cm }
-    ]);
+    // Canonicalize: a close side at or before the open side is lifted past
+    // midnight (22:00–02:00 → 22:00–26:00) via the shared single-source helper.
+    const openingHours = canonicalizeOpeningHours(
+      slots.map(([oh, om, ch, cm]) => [
+        { hour: oh, minute: om },
+        { hour: ch, minute: cm }
+      ])
+    );
 
     isSubmitting = true;
     try {
@@ -558,7 +568,7 @@
                 class="select select-bordered select-sm w-18 cursor-pointer"
                 bind:value={slot[2]}
               >
-                {#each HOUR_OPTIONS as h (h)}
+                {#each CLOSE_HOUR_OPTIONS as h (h)}
                   <option value={h}>{String(h).padStart(2, '0')}</option>
                 {/each}
               </select>
@@ -573,6 +583,9 @@
               </select>
             </div>
           </div>
+          <p class="text-base-content/50 w-full text-xs">
+            {m.shop_close_time_extended_hint()}
+          </p>
         </div>
       {/each}
     </div>

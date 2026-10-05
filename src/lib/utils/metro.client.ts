@@ -22,7 +22,7 @@ import {
   METRO_EXIT_OVERHEAD_SECONDS,
   METRO_WALK_SPEED_KMH
 } from '$lib/constants';
-import type { DiscoverMetroBlock, MetroShopItinerary, Shop, ShopMetro } from '$lib/types';
+import type { DiscoverMetroBlock, MetroShopItinerary, ShopApi, ShopMetro } from '$lib/types';
 import type { Path, Segment, TransitPlan } from '$lib/types/amap';
 
 /** Neutral color for legs that carry no official line color. */
@@ -36,6 +36,13 @@ export const METRO_WALK_DASH: [number, number] = [6, 3];
 
 /** Fallback ride speed used only when a leg omits `distanceKm` (~35 km/h). */
 const METRO_RIDE_SPEED_KMH = 35;
+
+/**
+ * Everything these helpers read off a shop. Structural on purpose: the same
+ * geometry code serves stored documents (server) and public API responses
+ * (client), which differ only in the fields deliberately kept out of the API.
+ */
+type MetroShopRef = Pick<ShopApi, 'id' | 'location' | 'transit'>;
 
 export type MetroOverlayKind = 'walk' | 'ride' | 'transfer';
 
@@ -65,7 +72,7 @@ const toLngLat = (lon: number, lat: number): [number, number] => [lon, lat];
 /** Itinerary for a shop, or null when the response carries none. */
 export const getMetroItinerary = (
   block: DiscoverMetroBlock | undefined,
-  shopId: Shop['id'] | string
+  shopId: ShopApi['id'] | string
 ): MetroShopItinerary | null => (block ? (block.shops[String(shopId)] ?? null) : null);
 
 interface ResolvedRide {
@@ -114,7 +121,7 @@ interface ResolvedGeometry {
  * defensively (§6: stale assignments after a network update).
  */
 const resolveGeometry = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock,
   itinerary: MetroShopItinerary
 ): ResolvedGeometry | null => {
@@ -218,7 +225,7 @@ const resolveGeometry = (
  * itinerary for the shop (badge-only shops).
  */
 export const buildMetroOverlay = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
 ): MetroOverlaySegment[] => {
   const itinerary = getMetroItinerary(block, shop.id);
@@ -279,7 +286,7 @@ export const buildMetroOverlay = (
 
 /** Total itinerary geometry in travel order (used for fit-view and highlight). */
 export const buildMetroFullPath = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
 ): [number, number][] => {
   const itinerary = getMetroItinerary(block, shop.id);
@@ -291,7 +298,7 @@ export const buildMetroFullPath = (
 const toAMapPath = (coords: [number, number][]): Path => coords.map(([lng, lat]) => ({ lng, lat }));
 
 export const getMetroShopLines = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
 ): ShopMetro['lines'] => {
   const metro = shop.transit?.metro;
@@ -304,7 +311,7 @@ export const getMetroShopLines = (
 };
 
 const getMetroShopLine = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
 ): ShopMetro['lines'][number] | null => {
   const metro = shop.transit?.metro;
@@ -328,12 +335,12 @@ const getMetroShopLine = (
 };
 
 export const getMetroShopColor = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
 ): string | null => getMetroShopLine(shop, block)?.color ?? null;
 
 export const getMetroShopLineCode = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
 ): string | null => getMetroShopLine(shop, block)?.shortName ?? null;
 
@@ -382,7 +389,7 @@ export const localizedStationName = (block: DiscoverMetroBlock, stationId: strin
  * and the live fare lookup (§3.5) re-renders it as the cost stat once known.
  */
 export const buildMetroTransitPlan = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined,
   fare: number | null = null
 ): TransitPlan | null => {
@@ -498,7 +505,7 @@ export const buildMetroTransitPlan = (
 
 /** Synthetic AMap response wrapper, so `<Directions>` receives its usual shape. */
 export const buildMetroRouteData = (
-  shop: Shop,
+  shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined,
   fare: number | null = null
 ): { plans: TransitPlan[] } | null => {

@@ -8,6 +8,8 @@ import type { User } from '$lib/auth/types';
 import { getCurrentAttendance } from '$lib/utils/index.server';
 import { m } from '$lib/paraglide/messages';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
+import { computeShopDerivedFields } from '$lib/utils/shops/derived';
+import meili from '$lib/db/meili.server';
 import { auth } from '$lib/auth/index.server';
 import { requireBoundPhone } from '$lib/utils/index.server';
 import { attendanceResponseSchema } from '$lib/schemas/shops';
@@ -95,6 +97,35 @@ const leave = async (user: User, shop: Shop) => {
     attendedAt: new Date(attendanceData.attendedAt),
     leftAt: new Date() // Actual leave time
   });
+};
+
+/**
+ * Refresh the denormalized `stats.currentAttendance` after an attendance
+ * mutation. The Redis store stays the source of truth for display; this copy
+ * exists only so the shop query engine can sort by attendance without
+ * scanning Redis.
+ */
+const refreshShopAttendanceStats = async (shop: Shop): Promise<void> => {
+  try {
+    const attendance = await getShopsAttendanceData([shop.id], {
+      fetchRegistered: true,
+      fetchReported: true
+    });
+    const total = attendance.get(String(shop.id))?.total ?? 0;
+    await mongo
+      .db()
+      .collection<Shop>('shops')
+      .updateOne({ _id: shop._id }, { $set: { 'stats.currentAttendance': total } });
+    const stats = {
+      ...computeShopDerivedFields(shop).stats,
+      currentAttendance: total
+    };
+    await meili
+      .index<Shop>('shops')
+      .updateDocuments([{ _id: shop._id, stats }], { primaryKey: '_id' });
+  } catch (err) {
+    console.error('Failed to refresh shop attendance stats:', err);
+  }
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
@@ -315,6 +346,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       });
     }
 
+    await refreshShopAttendanceStats(shop);
+
     return json({ success: true });
   } catch (err) {
     if (err && (isHttpError(err) || isRedirect(err))) {
@@ -351,6 +384,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     }
 
     await leave(session.user, shop);
+    await refreshShopAttendanceStats(shop);
 
     const response = successResponseSchema.parse({ success: true });
 

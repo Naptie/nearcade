@@ -1,216 +1,144 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { enhance } from '$app/forms';
-  import { page } from '$app/state';
-  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { PageData } from './$types';
-  import { adaptiveNewTab, pageTitle } from '$lib/utils';
+  import { adaptiveNewTab } from '$lib/utils';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
+  import AdminTable from '$lib/components/admin/AdminTable.svelte';
+  import AdminPagination from '$lib/components/admin/AdminPagination.svelte';
+  import AdminEmptyState from '$lib/components/admin/AdminEmptyState.svelte';
+  import AdminRowActions from '$lib/components/admin/AdminRowActions.svelte';
 
   let { data }: { data: PageData } = $props();
-
-  let searchQuery = $derived(data.search || '');
-  let searchTimeout: ReturnType<typeof setTimeout>;
-
-  const handleSearchInput = () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      updateSearch();
-    }, 300);
-  };
-
-  const updateSearch = () => {
-    const url = new URL(page.url);
-    if (searchQuery.trim()) {
-      url.searchParams.set('search', searchQuery.trim());
-    } else {
-      url.searchParams.delete('search');
-    }
-    url.searchParams.delete('page'); // Reset to first page
-    goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-  };
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_universities(), m.admin_panel())}</title>
-</svelte:head>
+<AdminPage title={m.admin_universities()} description={m.admin_manage_universities()}>
+  <!-- <a href={resolve('/(main)/universities/new')} class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i>
+    Add University
+  </a> -->
 
-<div class="space-y-6">
-  <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_universities()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_manage_universities()}</p>
-    </div>
-    <!-- <a href="{base}/universities/new" class="btn btn-primary">
-      <i class="fa-solid fa-plus"></i>
-      Add University
-    </a> -->
-  </div>
+  <AdminToolbar placeholder={m.search_universities_placeholder()} total={data.totalCount} />
 
-  <!-- Search -->
-  <div class="bg-base-100 border-base-300 rounded-lg border p-4 shadow-sm">
-    <div class="form-control">
-      <label class="label" for="search">
-        <span class="label-text font-medium">{m.search()}</span>
-      </label>
-      <input
-        id="search"
-        type="text"
-        class="input input-bordered w-full"
-        placeholder={m.search_universities_placeholder()}
-        bind:value={searchQuery}
-        oninput={handleSearchInput}
-      />
-    </div>
-  </div>
-
-  <!-- Universities List -->
-  <div class="bg-base-100 border-base-300 rounded-lg border shadow-sm">
+  <AdminPanel>
     {#if data.universities && data.universities.length > 0}
-      <div class="overflow-x-auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>{m.admin_university_header()}</th>
-              <th>{m.admin_campuses_header()}</th>
-              <th>{m.admin_clubs_header()}</th>
-              <th>{m.admin_members_header()}</th>
-              <th class="text-right">{m.admin_actions_header()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.universities as university (university.id)}
-              <tr class="hover">
-                <td class="max-w-[40vw]">
-                  <a
-                    href={resolve('/(main)/universities/[id]', {
-                      id: university.slug || university.id
-                    })}
-                    target={adaptiveNewTab()}
-                    class="group flex items-center gap-3"
-                  >
-                    {#if university.avatarUrl}
-                      <img
-                        src={university.avatarUrl}
-                        alt="{university.name} {m.logo()}"
-                        class="h-10 w-10 rounded-full bg-white"
-                      />
-                    {:else}
-                      <div
-                        class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-full"
-                      >
-                        <i class="fa-solid fa-graduation-cap text-primary"></i>
-                      </div>
-                    {/if}
-                    <div class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors">
-                      <div class="line-clamp-2 font-medium">
-                        {university.name}
-                      </div>
-                      {#if university.description}
-                        <div class="max-w-xs truncate text-sm opacity-60">
-                          {university.description}
-                        </div>
-                      {/if}
-                    </div>
-                  </a>
-                </td>
-                <td>
-                  <div class="text-sm">
-                    {m.campus_count({ count: university.campuses.length || 0 })}
-                  </div>
-                </td>
-                <td>
-                  <div class="text-sm">
-                    {m.club_count({ count: university.clubsCount || 0 })}
-                  </div>
-                </td>
-                <td>
-                  <div class="text-sm">
-                    {m.member_count_people({ count: university.membersCount || 0 })}
-                  </div>
-                </td>
-                <td>
-                  <div class="flex justify-end gap-2">
-                    <a
-                      href={resolve('/(main)/universities/[id]/edit', {
-                        id: university.slug || university.id
-                      })}
-                      target={adaptiveNewTab()}
-                      class="btn btn-primary btn-soft btn-sm text-nowrap"
-                    >
-                      <i class="fa-solid fa-edit"></i>
-                      <span class="not-md:hidden">{m.edit()}</span>
-                    </a>
-                    {#if data.session?.user?.userType === 'site_admin'}
-                      <form method="POST" action="?/delete" use:enhance class="inline">
-                        <input type="hidden" name="universityId" value={university.id} />
-                        <button
-                          type="button"
-                          class="btn btn-error btn-sm btn-soft text-nowrap"
-                          onclick={(e) =>
-                            confirm(m.admin_university_delete_confirm()) &&
-                            e.currentTarget.closest('form')?.requestSubmit()}
-                        >
-                          <i class="fa-solid fa-trash"></i>
-                          <span class="not-md:hidden">{m.delete()}</span>
-                        </button>
-                      </form>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable>
+        {#snippet head()}
+          <tr>
+            <th>{m.admin_university_header()}</th>
+            <th>{m.admin_campuses_header()}</th>
+            <th>{m.admin_clubs_header()}</th>
+            <th>{m.admin_members_header()}</th>
+            <th class="text-right">{m.admin_actions_header()}</th>
+          </tr>
+        {/snippet}
 
-      <!-- Pagination -->
-      <div class="border-base-300 border-t p-4">
-        <div class="flex justify-center gap-2">
-          {#if (data.currentPage || 1) > 1}
-            <a
-              href="?page={(data.currentPage || 1) - 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}"
-              class="btn btn-soft"
-            >
-              {m.previous_page()}
-            </a>
-          {/if}
-          <span class="btn btn-disabled btn-soft">
-            {m.page({ page: data.currentPage || 1 })}
-          </span>
-          {#if data.hasMore}
-            <a
-              href="?page={(data.currentPage || 1) + 1}{data.search
-                ? `&search=${encodeURIComponent(data.search)}`
-                : ''}"
-              class="btn btn-soft"
-            >
-              {m.next_page()}
-            </a>
-          {/if}
-        </div>
-      </div>
+        {#each data.universities as university (university.id)}
+          <tr class="hover">
+            <td class="max-w-[40vw]">
+              <a
+                href={resolve('/(main)/universities/[id]', {
+                  id: university.slug || university.id
+                })}
+                target={adaptiveNewTab()}
+                class="group flex items-center gap-3"
+              >
+                {#if university.avatarUrl}
+                  <img
+                    src={university.avatarUrl}
+                    alt="{university.name} {m.logo()}"
+                    class="h-10 w-10 rounded-full bg-white"
+                  />
+                {:else}
+                  <div
+                    class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-full"
+                  >
+                    <i class="fa-solid fa-graduation-cap text-primary"></i>
+                  </div>
+                {/if}
+                <div class="group-hover:text-accent w-[calc(100%-2.5rem)] transition-colors">
+                  <div class="line-clamp-2 font-medium">
+                    {university.name}
+                  </div>
+                  {#if university.description}
+                    <div class="max-w-xs truncate text-sm opacity-60">
+                      {university.description}
+                    </div>
+                  {/if}
+                </div>
+              </a>
+            </td>
+            <td>
+              <div class="text-sm">
+                {m.campus_count({ count: university.campuses.length || 0 })}
+              </div>
+            </td>
+            <td>
+              <div class="text-sm">
+                {m.club_count({ count: university.clubsCount || 0 })}
+              </div>
+            </td>
+            <td>
+              <div class="text-sm">
+                {m.member_count_people({ count: university.membersCount || 0 })}
+              </div>
+            </td>
+            <td>
+              <AdminRowActions>
+                <a
+                  href={resolve('/(main)/universities/[id]/edit', {
+                    id: university.slug || university.id
+                  })}
+                  target={adaptiveNewTab()}
+                  class="btn btn-primary btn-soft btn-sm text-nowrap"
+                >
+                  <i class="fa-solid fa-edit"></i>
+                  <span class="not-md:hidden">{m.edit()}</span>
+                </a>
+                {#if data.session?.user?.userType === 'site_admin'}
+                  <form method="POST" action="?/delete" use:enhance class="inline">
+                    <input type="hidden" name="universityId" value={university.id} />
+                    <button
+                      type="button"
+                      class="btn btn-error btn-sm btn-soft text-nowrap"
+                      onclick={(e) =>
+                        confirm(m.admin_university_delete_confirm()) &&
+                        e.currentTarget.closest('form')?.requestSubmit()}
+                    >
+                      <i class="fa-solid fa-trash"></i>
+                      <span class="not-md:hidden">{m.delete()}</span>
+                    </button>
+                  </form>
+                {/if}
+              </AdminRowActions>
+            </td>
+          </tr>
+        {/each}
+      </AdminTable>
+
+      <AdminPagination
+        currentPage={data.currentPage}
+        hasMore={data.hasMore}
+        total={data.totalCount}
+        pageSize={data.pageSize}
+      />
     {:else}
-      <div class="py-12 text-center">
-        <i class="fa-solid fa-graduation-cap text-base-content/40 mb-4 text-4xl"></i>
-        <h3 class="text-base-content mb-2 text-lg font-semibold">
-          {m.admin_no_universities_found()}
-        </h3>
-        <p class="text-base-content/60">
-          {data.search
-            ? 'No universities found matching your search criteria.'
-            : 'No universities found that you can manage.'}
-        </p>
-        <!-- {#if !data.search}
-          <a href={resolve('/(main)/universities/new')} class="btn btn-primary mt-4">
-            <i class="fa-solid fa-plus"></i>
-            Add University
-          </a>
-        {/if} -->
-      </div>
+      <AdminEmptyState
+        icon="fa-graduation-cap"
+        title={m.admin_no_universities_found()}
+        description={data.search
+          ? m.admin_no_results_search_description()
+          : m.no_universities_added_yet()}
+      />
+      <!-- {#if !data.search}
+        <a href={resolve('/(main)/universities/new')} class="btn btn-primary mt-4">
+          <i class="fa-solid fa-plus"></i>
+          Add University
+        </a>
+      {/if} -->
     {/if}
-  </div>
-</div>
+  </AdminPanel>
+</AdminPage>

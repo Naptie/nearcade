@@ -1,8 +1,10 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import { pageTitle, formatDateTime } from '$lib/utils';
+  import { formatDateTime } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { m } from '$lib/paraglide/messages';
+  import AdminPage from '$lib/components/admin/AdminPage.svelte';
+  import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
   import type { PageData } from './$types';
 
   type TaskState = 'idle' | 'running' | 'succeeded' | 'failed';
@@ -248,28 +250,19 @@
   });
 </script>
 
-<svelte:head>
-  <title>{pageTitle(m.admin_data_updates(), m.admin_panel())}</title>
-</svelte:head>
-
-<div class="space-y-6">
-  <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-    <div>
-      <h1 class="text-base-content text-3xl font-bold">{m.admin_data_updates()}</h1>
-      <p class="text-base-content/60 mt-1">{m.admin_data_updates_description()}</p>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <button class="btn btn-soft" onclick={() => refreshTasks()} disabled={isRefreshing}>
-        <i class="fa-solid fa-rotate-right"></i>
-        {m.refresh()}
-      </button>
-    </div>
-  </div>
+<AdminPage title={m.admin_data_updates()} description={m.admin_data_updates_description()}>
+  {#snippet actions()}
+    <button class="btn btn-soft" onclick={() => refreshTasks()} disabled={isRefreshing}>
+      <i class="fa-solid fa-rotate-right"></i>
+      {m.refresh()}
+    </button>
+  {/snippet}
 
   <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
     {#each tasks as task (task.id)}
       {@const meta = taskMeta[task.id]}
-      <section class="bg-base-100 border-base-300 rounded-lg border p-6 shadow-sm">
+      <!-- `p-6` keeps the task-card density; `padded` would force p-4. -->
+      <AdminPanel class="h-full p-6">
         <div class="flex flex-col gap-4">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex items-start gap-4">
@@ -390,7 +383,7 @@
             </div>
           {/if}
         </div>
-      </section>
+      </AdminPanel>
     {/each}
   </div>
-</div>
+</AdminPage>
