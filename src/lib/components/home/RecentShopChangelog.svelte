@@ -10,6 +10,7 @@
     getShopChangelogActionIcon
   } from '$lib/utils/shops/changelog';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import ChangelogValueDiff from '$lib/components/ChangelogValueDiff.svelte';
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
@@ -145,38 +146,11 @@
 
                 <!-- Value details for field changes -->
                 {#if entry.oldValue || entry.newValue}
-                  <div class="mt-2 text-xs">
-                    {#if entry.oldValue && entry.newValue}
-                      <div class="flex flex-col gap-1">
-                        <div class="flex items-center gap-2">
-                          <span class="text-base-content/60">{m.from()}:</span>
-                          <code class="bg-error/10 text-error rounded px-1 text-xs break-all">
-                            {entry.oldValue}
-                          </code>
-                        </div>
-                        <div class="flex items-center gap-2">
-                          <span class="text-base-content/60">{m.to()}:</span>
-                          <code class="bg-success/10 text-success rounded px-1 text-xs break-all">
-                            {entry.newValue}
-                          </code>
-                        </div>
-                      </div>
-                    {:else if entry.newValue}
-                      <div class="flex items-center gap-2">
-                        <span class="text-base-content/60">{m.set_to()}:</span>
-                        <code class="bg-success/10 text-success rounded px-1 text-xs break-all">
-                          {entry.newValue}
-                        </code>
-                      </div>
-                    {:else if entry.oldValue}
-                      <div class="flex items-center gap-2">
-                        <span class="text-base-content/60">{m.cleared_value()}:</span>
-                        <code class="bg-error/10 text-error rounded px-1 text-xs break-all">
-                          {entry.oldValue}
-                        </code>
-                      </div>
-                    {/if}
-                  </div>
+                  <ChangelogValueDiff
+                    class="mt-2"
+                    oldValue={entry.oldValue}
+                    newValue={entry.newValue}
+                  />
                 {/if}
               </div>
             </div>

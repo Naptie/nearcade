@@ -10,6 +10,7 @@
     getShopChangelogFieldName
   } from '$lib/utils/shops/changelog';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
+  import ChangelogValueDiff from '$lib/components/ChangelogValueDiff.svelte';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
   import AdminStats from '$lib/components/admin/AdminStats.svelte';
   import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
@@ -150,36 +151,11 @@
               </div>
 
               {#if entry.oldValue || entry.newValue}
-                <div class="mt-1 flex flex-col gap-0.5 text-xs">
-                  {#if entry.oldValue && entry.newValue}
-                    <div class="flex items-start gap-1.5">
-                      <span class="text-base-content/60 shrink-0">{m.from()}</span>
-                      <code class="bg-error/10 text-error rounded px-1 break-all">
-                        {entry.oldValue}
-                      </code>
-                    </div>
-                    <div class="flex items-start gap-1.5">
-                      <span class="text-base-content/60 shrink-0">{m.to()}</span>
-                      <code class="bg-success/10 text-success rounded px-1 break-all">
-                        {entry.newValue}
-                      </code>
-                    </div>
-                  {:else if entry.newValue}
-                    <div class="flex items-start gap-1.5">
-                      <span class="text-base-content/60 shrink-0">{m.set_to()}</span>
-                      <code class="bg-success/10 text-success rounded px-1 break-all">
-                        {entry.newValue}
-                      </code>
-                    </div>
-                  {:else if entry.oldValue}
-                    <div class="flex items-start gap-1.5">
-                      <span class="text-base-content/60 shrink-0">{m.cleared_value()}</span>
-                      <code class="bg-error/10 text-error rounded px-1 break-all">
-                        {entry.oldValue}
-                      </code>
-                    </div>
-                  {/if}
-                </div>
+                <ChangelogValueDiff
+                  class="mt-1"
+                  oldValue={entry.oldValue}
+                  newValue={entry.newValue}
+                />
               {/if}
 
               {#if PHOTO_ACTIONS.has(entry.action) && entry.fieldInfo.photoUrl}
