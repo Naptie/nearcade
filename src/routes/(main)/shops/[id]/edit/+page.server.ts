@@ -3,7 +3,6 @@ import type { PageServerLoad } from './$types';
 import type { Shop, ShopPhoto } from '$lib/types';
 import { toPlainObject, toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
-import { expandShopRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 
 export const load: PageServerLoad = async ({ params, parent }) => {
@@ -45,10 +44,8 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     ])
     .toArray();
 
-  const shopWithRegions = await expandShopRegions(shop);
-
   return {
-    shop: toPlainObject(shopWithRegions),
+    shop: toPlainObject(shop),
     photos: toPlainArray(photos),
     user: session?.user
   };
