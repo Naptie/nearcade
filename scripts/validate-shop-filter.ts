@@ -476,19 +476,31 @@ suite('name/mongo-translation-and-strategy', async () => {
   assert.equal(buildShopMeiliFilter({ v: 1, name: { value: 'x' } } as ShopFilterState), null);
   // Strategy: with a text query the name constraint forces the Mongo text
   // path; without one it rides the plain exact Mongo path.
-  assert.equal(describeShopSearchStrategy({ v: 1, name: { value: 'x' } } as ShopFilterState, 'dx'), 'mongo-text');
-  assert.equal(describeShopSearchStrategy({ v: 1, name: { value: 'x' } } as ShopFilterState, ''), 'mongo');
+  assert.equal(
+    describeShopSearchStrategy({ v: 1, name: { value: 'x' } } as ShopFilterState, 'dx'),
+    'mongo-text'
+  );
+  assert.equal(
+    describeShopSearchStrategy({ v: 1, name: { value: 'x' } } as ShopFilterState, ''),
+    'mongo'
+  );
 
   // URL round-trip preserves the constraint (mode defaults to 'contains').
   const roundTripped = parseShopFilterParam(
-    serializeShopFilterState({ v: 1, name: { value: '  tokoyo  ', mode: 'exact' } } as ShopFilterState)
+    serializeShopFilterState({
+      v: 1,
+      name: { value: '  tokoyo  ', mode: 'exact' }
+    } as ShopFilterState)
   );
   assert.deepEqual(roundTripped, { v: 1, name: { value: 'tokoyo', mode: 'exact' } });
 
   // No-op and malformed shapes are pruned, never rejected: a whitespace-only
   // value vanishes, a bad mode coerces to 'contains', an over-long value is
   // clamped, and sanitize keeps the rest of the filter intact.
-  assert.deepEqual(normalizeShopFilterState({ v: 1, name: { value: '   ', mode: 'exact' } } as ShopFilterState), { v: 1 });
+  assert.deepEqual(
+    normalizeShopFilterState({ v: 1, name: { value: '   ', mode: 'exact' } } as ShopFilterState),
+    { v: 1 }
+  );
   const sanitized = parseShopFilterParam(
     serializeShopFilterState(
       sanitizeShopFilterState({

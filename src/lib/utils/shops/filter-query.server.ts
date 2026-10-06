@@ -236,8 +236,7 @@ const hoursToMongo = (hours: NonNullable<ShopFilterState['hours']>): Filter<Shop
  */
 const nameToMongo = (name: NonNullable<ShopFilterState['name']>): Filter<Shop> => {
   const escaped = escapeForRegExp(name.value);
-  const regex =
-    name.mode === 'exact' ? `^${escaped}$` : escaped;
+  const regex = name.mode === 'exact' ? `^${escaped}$` : escaped;
   return { name: { $regex: regex, $options: 'i' } } as Filter<Shop>;
 };
 
