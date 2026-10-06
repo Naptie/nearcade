@@ -221,6 +221,7 @@ export const countActiveFilters = (state: ShopFilterState): number => {
   const normalized = normalizeShopFilterState(state);
   let count = 0;
   if (normalized.regions?.length) count += 1;
+  if (normalized.name) count += 1;
   if (normalized.geo) count += 1;
   if (normalized.games) count += 1;
   if (normalized.machines) count += 1;
@@ -277,6 +278,20 @@ export const sanitizeShopFilterState = (state: ShopFilterState): ShopFilterState
   // Start from the whole draft; normalizeShopFilterState below prunes whatever
   // no query builder would act on, so only the ranges need fixing up here.
   const cleaned: ShopFilterState = { ...state };
+  if (state.name) {
+    // The strict schema demands a non-empty value (≤64 chars) and a known
+    // mode; trim, clamp and coerce here so a malformed name never discards
+    // the unrelated sections around it.
+    const value = (state.name.value ?? '').trim().slice(0, 64);
+    if (value) {
+      cleaned.name = {
+        value,
+        mode: state.name.mode === 'exact' ? 'exact' : 'contains'
+      };
+    } else {
+      delete cleaned.name;
+    }
+  }
   if (state.machines) {
     const machines = sanitizeRanges({ ...state.machines });
     if (Object.keys(machines).length > 0) cleaned.machines = machines;

@@ -16,10 +16,10 @@
  *
  *   - `mongo`      — no text query. Exact for every filter.
  *   - `mongo-text` — text query present AND the filter contains something no
- *                    index can answer exactly (time-dependent open-now,
- *                    shop-local schedule requirements, Redis-derived activity,
- *                    geo). Text falls back to the regex pattern so semantics
- *                    stay exact.
+ *                    index can answer exactly (the name constraint, time-
+ *                    dependent open-now, shop-local schedule requirements,
+ *                    Redis-derived activity, geo). Text falls back to the
+ *                    regex pattern so semantics stay exact.
  *   - `meili`      — text query present AND every active filter is
  *                    index-expressible: relevance ranking + highlighting.
  *                    Compound game leaves rely on the per-entry `gameTokens`
@@ -27,7 +27,7 @@
  */
 import type { Filter } from 'mongodb';
 
-import { buildSearchPattern } from '$lib/utils/search';
+import { buildSearchPattern, escapeForRegExp } from '$lib/utils/search';
 import type { Shop } from '$lib/types';
 import { GAME_TOKEN_QUANTITY_CAP } from '$lib/utils/shops/derived';
 import type {
@@ -50,12 +50,13 @@ export const describeShopSearchStrategy = (
   q: string
 ): ShopSearchStrategy => {
   if (!q.trim()) return 'mongo';
-  // Any hours predicate (time-dependent open-now, or shop-local schedule
-  // requirements that `openingMinutes` answers exactly in Mongo) plus geo and
-  // Redis-derived activity all leave the Meili path.
+  // The name constraint, any hours predicate (time-dependent open-now, or
+  // shop-local schedule requirements that `openingMinutes` answers exactly in
+  // Mongo), geo, and Redis-derived activity all leave the Meili path.
   if (
     needsPostFilter(filter) ||
     filter.geo ||
+    filter.name ||
     (filter.hours && Object.keys(filter.hours).length > 0)
   ) {
     return 'mongo-text';
@@ -229,6 +230,18 @@ const hoursToMongo = (hours: NonNullable<ShopFilterState['hours']>): Filter<Shop
 };
 
 /**
+ * Name constraint → Mongo predicate on the `name` field only. Case-
+ * insensitive; `contains` is a substring match, `exact` a whole-name
+ * equality. The value is regex-escaped, never treated as a pattern.
+ */
+const nameToMongo = (name: NonNullable<ShopFilterState['name']>): Filter<Shop> => {
+  const escaped = escapeForRegExp(name.value);
+  const regex =
+    name.mode === 'exact' ? `^${escaped}$` : escaped;
+  return { name: { $regex: regex, $options: 'i' } } as Filter<Shop>;
+};
+
+/**
  * Build the exact MongoDB filter for everything except geo (applied via
  * `$geoNear` when fetching, and via `buildShopMongoCountFilter` when counting),
  * open-now superset narrowing, and activity post-filtering.
@@ -238,6 +251,9 @@ export const buildShopMongoFilter = (filter: ShopFilterState): Filter<Shop> => {
 
   if (filter.regions?.length) {
     parts.push({ 'address.region': { $in: filter.regions } } as Filter<Shop>);
+  }
+  if (filter.name) {
+    parts.push(nameToMongo(filter.name));
   }
   if (filter.games) {
     parts.push(gameExprToMongo(filter.games));
@@ -424,7 +440,12 @@ export const buildShopMeiliFilter = (filter: ShopFilterState): string | null => 
   // Defense in depth: these are routed to a Mongo strategy by
   // `describeShopSearchStrategy`; refuse them here too so a direct call can
   // never silently drop a predicate.
-  if (filter.geo || filter.activity || (filter.hours && Object.keys(filter.hours).length > 0)) {
+  if (
+    filter.name ||
+    filter.geo ||
+    filter.activity ||
+    (filter.hours && Object.keys(filter.hours).length > 0)
+  ) {
     return null;
   }
 

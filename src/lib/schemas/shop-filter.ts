@@ -8,6 +8,13 @@ import { bilingual } from './common';
  * serializes into a single URL parameter (`f`, base64url JSON, see
  * `src/lib/utils/shops/filter.ts`).
  *
+ * `name` is the exact, name-scoped counterpart of the fuzzy `q` full-text
+ * search: it constrains only the shop name (case-insensitive substring or
+ * whole-name equality) and never touches addresses, games, comments or region
+ * names, so callers that already know the name can get an exact result set.
+ * It routes the query to the Mongo strategy — see
+ * `describeShopSearchStrategy`.
+ *
  * Game filter semantics: a leaf is ONE requirement on a SINGLE game entry —
  * `titleIds` is an IN-set and `quantity` a range evaluated against the
  * per-title aggregated machine count (two qty-1 maimai entries count as 2).
@@ -28,6 +35,7 @@ export const SHOP_FILTER_MAX_DEPTH = 3;
 // Bounds the URL parameter is validated against. They are part of the wire
 // contract (a client sends them), not of the UI, so they stay module-private.
 const SHOP_FILTER_MAX_TITLES = 50;
+const SHOP_FILTER_MAX_NAME_LENGTH = 64;
 const SHOP_FILTER_MAX_LEAVES = 32;
 const SHOP_FILTER_MAX_MINUTE = 47 * 60 + 59; // 47:59 — matches the schema's close-hour bound
 
@@ -119,6 +127,18 @@ const shopFilterStateObjectSchema = z
         bilingual(
           '地区节点 ID（任意层级，OR 语义）。',
           'Region node IDs (any hierarchy level, OR semantics).'
+        )
+      ),
+    name: z
+      .object({
+        value: z.string().min(1).max(SHOP_FILTER_MAX_NAME_LENGTH),
+        mode: z.enum(['contains', 'exact']).default('contains')
+      })
+      .optional()
+      .describe(
+        bilingual(
+          '机厅名称匹配（大小写不敏感；contains 为子串匹配，exact 为全等匹配）。与 q 的模糊全文检索无关，仅在 name 字段上精确生效。',
+          'Shop name match (case-insensitive; contains = substring, exact = whole-name equality). Independent of the fuzzy full-text q parameter; applies exactly to the name field.'
         )
       ),
     geo: z
@@ -251,7 +271,8 @@ const normalizeGameNode = (
  * Neither `buildShopMongoFilter` nor `buildShopMeiliFilter` acts on
  * `status.closed = 'include'` or `advanced.claim = 'any'`; a `false` hours flag,
  * an empty `weekly` object, a date bound that does not parse, a schedule row
- * without weekdays and a game leaf without titles or quantity are all no-ops
+ * without weekdays, a name value that is empty after trimming and a game leaf
+ * without titles or quantity are all no-ops
  * too. The panel deliberately keeps partially-filled rows while the user works,
  * and a hand-edited or pre-normalization URL can carry the same shapes — left
  * alone they would be reported as phantom "active" filters and would serialize
@@ -260,6 +281,10 @@ const normalizeGameNode = (
 export const normalizeShopFilterState = (state: ShopFilterState): ShopFilterState => {
   const cleaned: ShopFilterState = { v: state.v };
   if (state.regions?.length) cleaned.regions = [...state.regions];
+  if (state.name) {
+    const value = state.name.value.trim();
+    if (value) cleaned.name = { value, mode: state.name.mode };
+  }
   if (state.geo) cleaned.geo = { ...state.geo };
   if (state.games) {
     const games = normalizeGameNode(state.games);

@@ -446,6 +446,76 @@ suite('meili/filter-builder', async () => {
   );
 });
 
+// ── Suite: name constraint (exact, name-scoped counterpart of `q`) ───────────
+// `name` must reach only the Mongo paths (never the fuzzy Meili index), match
+// case-insensitively on the shop name alone, and round-trip through the URL
+// contract with no-op and malformed shapes pruned instead of rejected.
+suite('name/mongo-translation-and-strategy', async () => {
+  // Contains: substring on `name` only, regex-escaped, case-insensitive.
+  assert.deepEqual(buildShopMongoFilter({ v: 1, name: { value: '章丘和谐' } } as ShopFilterState), {
+    name: { $regex: '章丘和谐', $options: 'i' }
+  } as Filter<Shop>);
+  // Exact: anchored; user input is escaped, never treated as a pattern.
+  assert.deepEqual(
+    buildShopMongoFilter({ v: 1, name: { value: 'a.b', mode: 'exact' } } as ShopFilterState),
+    { name: { $regex: '^a\\.b$', $options: 'i' } } as Filter<Shop>
+  );
+  // Composes with the free-text query, and the count filter cannot be wider
+  // than the page the name constraint defines.
+  assert.deepEqual(
+    buildShopMongoCountFilter({ v: 1, name: { value: 'toronto' } } as ShopFilterState, ''),
+    { name: { $regex: 'toronto', $options: 'i' } } as Filter<Shop>
+  );
+  assert.deepEqual(
+    buildShopMongoCountFilter({ v: 1, name: { value: 'toronto' } } as ShopFilterState, 'round1'),
+    {
+      $and: [{ name: { $regex: 'toronto', $options: 'i' } }, buildTextCondition('round1')]
+    } as Filter<Shop>
+  );
+  // Not index-expressible: refuse rather than approximate.
+  assert.equal(buildShopMeiliFilter({ v: 1, name: { value: 'x' } } as ShopFilterState), null);
+  // Strategy: with a text query the name constraint forces the Mongo text
+  // path; without one it rides the plain exact Mongo path.
+  assert.equal(describeShopSearchStrategy({ v: 1, name: { value: 'x' } } as ShopFilterState, 'dx'), 'mongo-text');
+  assert.equal(describeShopSearchStrategy({ v: 1, name: { value: 'x' } } as ShopFilterState, ''), 'mongo');
+
+  // URL round-trip preserves the constraint (mode defaults to 'contains').
+  const roundTripped = parseShopFilterParam(
+    serializeShopFilterState({ v: 1, name: { value: '  tokoyo  ', mode: 'exact' } } as ShopFilterState)
+  );
+  assert.deepEqual(roundTripped, { v: 1, name: { value: 'tokoyo', mode: 'exact' } });
+
+  // No-op and malformed shapes are pruned, never rejected: a whitespace-only
+  // value vanishes, a bad mode coerces to 'contains', an over-long value is
+  // clamped, and sanitize keeps the rest of the filter intact.
+  assert.deepEqual(normalizeShopFilterState({ v: 1, name: { value: '   ', mode: 'exact' } } as ShopFilterState), { v: 1 });
+  const sanitized = parseShopFilterParam(
+    serializeShopFilterState(
+      sanitizeShopFilterState({
+        v: 1,
+        regions: ['JP'],
+        name: { value: '   ', mode: 'nonsense' }
+      } as unknown as ShopFilterState)
+    )
+  );
+  assert.deepEqual(sanitized, { v: 1, regions: ['JP'] });
+  const clamped = parseShopFilterParam(
+    serializeShopFilterState(
+      sanitizeShopFilterState({
+        v: 1,
+        name: { value: 'a'.repeat(80), mode: 'nonsense' }
+      } as unknown as ShopFilterState)
+    )
+  );
+  assert.deepEqual(clamped, {
+    v: 1,
+    name: { value: 'a'.repeat(64), mode: 'contains' }
+  });
+
+  // The panel badge counts the name constraint as one active dimension.
+  assert.equal(countActiveFilters({ v: 1, name: { value: 'x' } } as ShopFilterState), 1);
+});
+
 // ── Suite: URL serialization ────────────────────────────────────────────────
 suite('url/round-trip', async () => {
   const state: ShopFilterState = {
