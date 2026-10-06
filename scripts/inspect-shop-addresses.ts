@@ -27,7 +27,14 @@ import { fileURLToPath } from 'node:url';
 
 const arg2 = process.argv.slice(2);
 const envIdx = arg2.indexOf('--env');
-const ENV_PATH = envIdx >= 0 ? (arg2[envIdx + 1] === 'local' ? '.env' : '.env.prod') : '.env.prod';
+const ENV_PATH =
+  envIdx >= 0
+    ? arg2[envIdx + 1] === 'local'
+      ? '.env'
+      : arg2[envIdx + 1] === 'prod'
+        ? '.env.prod'
+        : arg2[envIdx + 1] // literal path (e.g. --env .env.local-dump)
+    : '.env.prod';
 dotenv.config({ path: ENV_PATH, override: true });
 
 const uri = process.env.MONGODB_URI;
