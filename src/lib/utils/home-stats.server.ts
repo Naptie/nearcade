@@ -39,14 +39,26 @@ export interface HomeStatsResponse {
   };
   region: {
     [level: string]: {
-      shops: { id: string; name: string; parentName: string | null; value: number }[];
-      machines: { id: string; name: string; parentName: string | null; value: number }[];
+      shops: {
+        id: string;
+        name: string;
+        parentName: string | null;
+        value: number;
+        rank: number | null;
+      }[];
+      machines: {
+        id: string;
+        name: string;
+        parentName: string | null;
+        value: number;
+        rank: number | null;
+      }[];
     };
   };
   campus: {
     [radius: string]: {
-      shops: { id: string; name: string; value: number }[];
-      machines: { id: string; name: string; value: number }[];
+      shops: { id: string; name: string; value: number; rank: number | null }[];
+      machines: { id: string; name: string; value: number; rank: number | null }[];
     };
   };
   metro: {
@@ -58,6 +70,7 @@ export interface HomeStatsResponse {
         lat: number;
         lon: number;
         value: number;
+        rank: number | null;
       }[];
       machines: {
         id: string;
@@ -66,6 +79,7 @@ export interface HomeStatsResponse {
         lat: number;
         lon: number;
         value: number;
+        rank: number | null;
       }[];
     };
   };
@@ -101,7 +115,9 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
         shopCount: 1,
         totalMachines: 1,
         'rankOrder.shops': 1,
-        'rankOrder.machines': 1
+        'rankOrder.machines': 1,
+        'ranks.shops': 1,
+        'ranks.machines': 1
       })
       .toArray()) as unknown as {
       id: string;
@@ -109,11 +125,14 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
       shopCount: number;
       totalMachines: number;
       rankOrder: Record<string, number>;
+      ranks?: Record<string, number>;
     }[];
 
     const decorate = async (
-      sorted: { id: string; name: string; value: number }[]
-    ): Promise<{ id: string; name: string; parentName: string | null; value: number }[]> => {
+      sorted: { id: string; name: string; value: number; rank: number | null }[]
+    ): Promise<
+      { id: string; name: string; parentName: string | null; value: number; rank: number | null }[]
+    > => {
       return Promise.all(
         sorted.map(async (entry) => {
           let name = entry.name;
@@ -131,7 +150,7 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
           } catch {
             // fall back to raw name
           }
-          return { id: entry.id, name, parentName, value: entry.value };
+          return { id: entry.id, name, parentName, value: entry.value, rank: entry.rank };
         })
       );
     };
@@ -140,12 +159,22 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
       .filter((e) => typeof e.rankOrder?.shops === 'number')
       .sort((a, b) => a.rankOrder.shops - b.rankOrder.shops)
       .slice(0, TOP_N)
-      .map((e) => ({ id: e.id, name: e.name, value: e.shopCount }));
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        value: e.shopCount,
+        rank: e.ranks?.shops ?? null
+      }));
     const byMachines = entries
       .filter((e) => typeof e.rankOrder?.machines === 'number')
       .sort((a, b) => a.rankOrder.machines - b.rankOrder.machines)
       .slice(0, TOP_N)
-      .map((e) => ({ id: e.id, name: e.name, value: e.totalMachines }));
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        value: e.totalMachines,
+        rank: e.ranks?.machines ?? null
+      }));
 
     region[level] = {
       shops: await decorate(byShops),
@@ -159,12 +188,13 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
 
   const campusEntries = (await campusCollection
     .find({ _id: { $ne: 'metadata' } } as never)
-    .project({ _id: 0, id: 1, fullName: 1, rankings: 1, rankOrder: 1 })
+    .project({ _id: 0, id: 1, fullName: 1, rankings: 1, rankOrder: 1, ranks: 1 })
     .toArray()) as unknown as {
     id: string;
     fullName: string;
     rankings: { radius: number; shopCount: number; totalMachines: number }[];
     rankOrder: Record<string, number>;
+    ranks?: Record<string, number>;
   }[];
 
   for (const radius of RANKING_RADIUS_OPTIONS) {
@@ -178,12 +208,22 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
         .filter((e) => typeof e.rankOrder?.[shopsKey] === 'number')
         .sort((a, b) => a.rankOrder[shopsKey] - b.rankOrder[shopsKey])
         .slice(0, TOP_N)
-        .map((e) => ({ id: e.id, name: e.fullName, value: metricOf(e)?.shopCount ?? 0 })),
+        .map((e) => ({
+          id: e.id,
+          name: e.fullName,
+          value: metricOf(e)?.shopCount ?? 0,
+          rank: e.ranks?.[shopsKey] ?? null
+        })),
       machines: campusEntries
         .filter((e) => typeof e.rankOrder?.[machinesKey] === 'number')
         .sort((a, b) => a.rankOrder[machinesKey] - b.rankOrder[machinesKey])
         .slice(0, TOP_N)
-        .map((e) => ({ id: e.id, name: e.fullName, value: metricOf(e)?.totalMachines ?? 0 }))
+        .map((e) => ({
+          id: e.id,
+          name: e.fullName,
+          value: metricOf(e)?.totalMachines ?? 0,
+          rank: e.ranks?.[machinesKey] ?? null
+        }))
     };
   }
 
@@ -216,7 +256,8 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
       name: 1,
       location: 1,
       rankings: 1,
-      rankOrder: 1
+      rankOrder: 1,
+      ranks: 1
     })
     .toArray()) as unknown as {
     id: string;
@@ -226,6 +267,7 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
     location?: { lon: number; lat: number };
     rankings: { radius: number; shopCount: number; totalMachines: number }[];
     rankOrder: Record<string, number>;
+    ranks?: Record<string, number>;
   }[];
 
   for (const radius of METRO_RANKING_RADIUS_OPTIONS) {
@@ -245,7 +287,8 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
           sublabel: metroNetworkName(e.networkId) || null,
           lat: e.location?.lat ?? 0,
           lon: e.location?.lon ?? 0,
-          value: metricOf(e)?.shopCount ?? 0
+          value: metricOf(e)?.shopCount ?? 0,
+          rank: e.ranks?.[shopsKey] ?? null
         })),
       machines: metroEntries
         .filter((e) => typeof e.rankOrder?.[machinesKey] === 'number')
@@ -257,7 +300,8 @@ export const computeHomeStats = async (client: MongoClient): Promise<HomeStatsRe
           sublabel: metroNetworkName(e.networkId) || null,
           lat: e.location?.lat ?? 0,
           lon: e.location?.lon ?? 0,
-          value: metricOf(e)?.totalMachines ?? 0
+          value: metricOf(e)?.totalMachines ?? 0,
+          rank: e.ranks?.[machinesKey] ?? null
         }))
     };
   }

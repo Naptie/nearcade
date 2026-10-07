@@ -20,7 +20,7 @@ import { getOpenMetroApiBase } from '$lib/openmetro/client.server';
 import { runOpenMetroSync } from '$lib/openmetro/sync.server';
 import { computeHomeStats, writeHomeStatsCache } from '$lib/utils/home-stats.server';
 import { captureAdminStatsSnapshot, DIFF_METRICS } from '$lib/admin/stats-snapshots.server';
-import { rebuildMetroRankings } from '$lib/openmetro/rankings.server';
+import { competitionRanks, rebuildMetroRankings } from '$lib/openmetro/rankings.server';
 
 export const DATA_UPDATE_TASK_IDS = [
   'university_stats',
@@ -97,11 +97,13 @@ interface RegionRankingsCacheMetadata {
 
 interface CachedRanking extends UniversityRankingData {
   rankOrder: Record<string, number>;
+  ranks: Record<string, number>;
 }
 
 interface CachedRegionRanking extends RegionRankingData {
   _id: string;
   rankOrder: Record<string, number>;
+  ranks: Record<string, number>;
 }
 
 interface UniversityStats {
@@ -800,45 +802,45 @@ const runCampusRankingsTask = async (
 
     const cachedRankings: CachedRanking[] = rankings.map((ranking) => ({
       ...ranking,
-      rankOrder: {}
+      rankOrder: {},
+      ranks: {}
     }));
 
     for (const sortBy of sortCriteria) {
       for (const radius of RANKING_RADIUS_OPTIONS) {
         const sortKey = `${sortBy}_${radius}`;
-        const sorted = [...cachedRankings].sort((left, right) => {
-          const leftMetrics = left.rankings.find((entry) => entry.radius === radius);
-          const rightMetrics = right.rankings.find((entry) => entry.radius === radius);
-
-          if (!leftMetrics || !rightMetrics) {
-            return 0;
-          }
-
+        const metricOf = (ranking: CachedRanking): number | null => {
+          const metrics = ranking.rankings.find((entry) => entry.radius === radius);
+          if (!metrics) return null;
           switch (sortBy) {
             case 'shops':
-              return rightMetrics.shopCount - leftMetrics.shopCount;
+              return metrics.shopCount;
             case 'machines':
-              return rightMetrics.totalMachines - leftMetrics.totalMachines;
-            case 'density': {
-              if (leftMetrics.areaDensity == null && rightMetrics.areaDensity == null) return 0;
-              if (leftMetrics.areaDensity == null) return 1;
-              if (rightMetrics.areaDensity == null) return -1;
-              return rightMetrics.areaDensity - leftMetrics.areaDensity;
-            }
-            default: {
-              const leftEntry = leftMetrics.gameSpecificMachines.find(
-                (entry) => entry.name === sortBy
+              return metrics.totalMachines;
+            case 'density':
+              return metrics.areaDensity;
+            default:
+              return (
+                metrics.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ?? 0
               );
-              const rightEntry = rightMetrics.gameSpecificMachines.find(
-                (entry) => entry.name === sortBy
-              );
-              return (rightEntry?.quantity || 0) - (leftEntry?.quantity || 0);
-            }
           }
+        };
+        const sorted = [...cachedRankings].sort((left, right) => {
+          const leftValue = metricOf(left);
+          const rightValue = metricOf(right);
+          // Missing metrics and null densities sort last; both-null ties.
+          if (leftValue == null || rightValue == null) {
+            if (leftValue == null && rightValue == null) return 0;
+            return leftValue == null ? 1 : -1;
+          }
+          return rightValue - leftValue;
         });
-
+        const ranks = competitionRanks(sorted.map(metricOf));
         sorted.forEach((ranking, index) => {
+          // Unique ordinal for cursor pagination; `ranks` carries the tied
+          // display rank (see competitionRanks).
           ranking.rankOrder[sortKey] = index + 1;
+          ranking.ranks[sortKey] = ranks[index];
         });
       }
     }
@@ -1192,39 +1194,44 @@ const runRegionRankingsTask = async (
     const cachedRankings: CachedRegionRanking[] = rankings.map((ranking) => ({
       _id: ranking.id,
       ...ranking,
-      rankOrder: {}
+      rankOrder: {},
+      ranks: {}
     }));
 
     for (const sortBy of sortCriteria) {
       const sortKey = sortBy;
-      const sorted = [...cachedRankings].sort((left, right) => {
+      const metricOf = (ranking: CachedRegionRanking): number | null => {
         switch (sortBy) {
           case 'shops':
-            return right.shopCount - left.shopCount;
+            return ranking.shopCount;
           case 'machines':
-            return right.totalMachines - left.totalMachines;
-          case 'density': {
-            if (left.areaDensity == null && right.areaDensity == null) return 0;
-            if (left.areaDensity == null) return 1;
-            if (right.areaDensity == null) return -1;
-            return right.areaDensity - left.areaDensity;
-          }
-          case 'per_capita': {
-            if (left.machinesPerCapita == null && right.machinesPerCapita == null) return 0;
-            if (left.machinesPerCapita == null) return 1;
-            if (right.machinesPerCapita == null) return -1;
-            return right.machinesPerCapita - left.machinesPerCapita;
-          }
-          default: {
-            const leftEntry = left.gameSpecificMachines.find((entry) => entry.name === sortBy);
-            const rightEntry = right.gameSpecificMachines.find((entry) => entry.name === sortBy);
-            return (rightEntry?.quantity || 0) - (leftEntry?.quantity || 0);
-          }
+            return ranking.totalMachines;
+          case 'density':
+            return ranking.areaDensity;
+          case 'per_capita':
+            return ranking.machinesPerCapita;
+          default:
+            return (
+              ranking.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ?? 0
+            );
         }
+      };
+      const sorted = [...cachedRankings].sort((left, right) => {
+        const leftValue = metricOf(left);
+        const rightValue = metricOf(right);
+        // Null densities/per-capita sort last; both-null ties.
+        if (leftValue == null || rightValue == null) {
+          if (leftValue == null && rightValue == null) return 0;
+          return leftValue == null ? 1 : -1;
+        }
+        return rightValue - leftValue;
       });
-
+      const ranks = competitionRanks(sorted.map(metricOf));
       sorted.forEach((ranking, index) => {
+        // Unique ordinal for cursor pagination; `ranks` carries the tied
+        // display rank (see competitionRanks).
         ranking.rankOrder[sortKey] = index + 1;
+        ranking.ranks[sortKey] = ranks[index];
       });
     }
 

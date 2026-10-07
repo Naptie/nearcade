@@ -140,6 +140,8 @@ export interface UniversityRankingData {
   address: string;
   location: Location;
   rankings: RankingMetrics[];
+  /** Global tied rank for the requested sort key and radius; null when the cache predates the field. */
+  rank?: number | null;
 }
 
 export interface RankingMetrics {
@@ -178,6 +180,8 @@ export interface RegionRankingData {
   areaDensity: number | null; // machines per km² (null when region area is unavailable)
   machinesPerCapita: number | null; // machines per 10,000 people; null when population is unavailable
   gameSpecificMachines: { name: string; quantity: number }[];
+  /** Global tied rank for the requested sort key; null when the cache predates the field. */
+  rank?: number | null;
 }
 
 export interface RegionRankingResponse {

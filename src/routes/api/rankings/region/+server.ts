@@ -18,6 +18,7 @@ interface RegionRankingsCacheMetadata {
 
 interface CachedRegionRanking extends RegionRankingData {
   rankOrder: { [key: string]: number }; // sortBy_radius -> rank
+  ranks?: { [key: string]: number }; // sortBy -> tied display rank
 }
 
 const isValidRegionLevel = (value: string | null): value is RegionLevel => {
@@ -115,7 +116,10 @@ export const GET: RequestHandler = async ({ url }) => {
             totalMachines: ranking.totalMachines,
             areaDensity: ranking.areaDensity ?? null,
             machinesPerCapita: ranking.machinesPerCapita ?? null,
-            gameSpecificMachines: ranking.gameSpecificMachines
+            gameSpecificMachines: ranking.gameSpecificMachines,
+            // Tied display rank for the requested sort; `rankOrder` stays the
+            // unique ordinal used for cursor pagination.
+            rank: ranking.ranks?.[sortKey] ?? null
           };
         })
       );

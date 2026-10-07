@@ -18,6 +18,8 @@
     isLoadingMore: boolean;
     hasMore: boolean;
     getMetrics: (ranking: RankingsTableItem, radius: number) => RankingMetrics | undefined;
+    /** Tied display rank for the current sort; rows fall back to their position. */
+    getRank?: (ranking: RankingsTableItem, index: number) => number | null | undefined;
     nameColumn: Snippet<[RankingsTableItem, number]>;
     nameHoverDetails: Snippet<[RankingsTableItem, number]>;
     actionColumn: Snippet<[RankingsTableItem]>;
@@ -34,6 +36,7 @@
     isLoadingMore,
     hasMore,
     getMetrics,
+    getRank,
     nameColumn,
     nameHoverDetails,
     actionColumn,
@@ -199,7 +202,7 @@
               class:opacity-50={isLoading}
             >
               <div class="flex items-center justify-center">
-                <span class="text-lg">{index + 1}</span>
+                <span class="text-lg">{getRank?.(ranking, index) ?? index + 1}</span>
               </div>
             </td>
             <td class="transition-opacity duration-200" class:opacity-50={isLoading}>

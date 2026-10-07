@@ -263,7 +263,7 @@
               {@const parentChain = buildParentChain(ranking)}
               <tr class="h-12 transition-opacity duration-200" class:opacity-50={isLoading}>
                 <td class="text-center font-bold">
-                  <span class="text-lg">{index + 1}</span>
+                  <span class="text-lg">{ranking.rank ?? index + 1}</span>
                 </td>
                 <td class="min-w-39">
                   <a

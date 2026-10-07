@@ -43,6 +43,26 @@ export interface RebuildMetroRankingsResult {
   networkCount: number;
 }
 
+/**
+ * Standard competition ranking over a best-first sorted list: entries whose
+ * metric equals the previous entry's share its rank ("1224"), null metrics
+ * included. Stored under `ranks` for display, while `rankOrder` keeps the
+ * unique ordinal that cursor pagination (`$gt after rankOrder`) relies on.
+ */
+export const competitionRanks = (metrics: Array<number | null>): number[] => {
+  const ranks: number[] = [];
+  let previousMetric: number | null | undefined;
+  let previousRank = 0;
+  metrics.forEach((metric, index) => {
+    const rank =
+      previousMetric !== undefined && metric === previousMetric ? previousRank : index + 1;
+    ranks.push(rank);
+    previousMetric = metric;
+    previousRank = rank;
+  });
+  return ranks;
+};
+
 const getShopsWithinRadius = (
   shops: RankableShop[],
   stationLon: number,
@@ -237,7 +257,8 @@ export const rebuildMetroRankings = async (
             radius
           )
         ),
-        rankOrder: {}
+        rankOrder: {},
+        ranks: {}
       });
     }
 
@@ -246,41 +267,43 @@ export const rebuildMetroRankings = async (
         // Dot-safe key: Mongo paths split on '.', so decimal radii are encoded
         // in centimetres (see metroRankingSortKey).
         const sortKey = metroRankingSortKey(sortBy, radius);
-        const sorted = [...rankings].sort((left, right) => {
-          const leftMetrics = left.rankings.find((entry) => entry.radius === radius);
-          const rightMetrics = right.rankings.find((entry) => entry.radius === radius);
-          if (!leftMetrics || !rightMetrics) return 0;
-          let difference: number;
+        const metricOf = (ranking: MetroStationRanking): number | null => {
+          const metrics = ranking.rankings.find((entry) => entry.radius === radius);
+          if (!metrics) return null;
           switch (sortBy) {
             case 'shops':
-              difference = rightMetrics.shopCount - leftMetrics.shopCount;
-              break;
+              return metrics.shopCount;
             case 'machines':
-              difference = rightMetrics.totalMachines - leftMetrics.totalMachines;
-              break;
-            case 'density': {
-              const leftDensity = leftMetrics.areaDensity;
-              const rightDensity = rightMetrics.areaDensity;
-              if (leftDensity == null) difference = rightDensity == null ? 0 : 1;
-              else if (rightDensity == null) difference = -1;
-              else difference = rightDensity - leftDensity;
-              break;
-            }
-            default: {
-              const leftQuantity =
-                leftMetrics.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ??
-                0;
-              const rightQuantity =
-                rightMetrics.gameSpecificMachines.find((entry) => entry.name === sortBy)
-                  ?.quantity ?? 0;
-              difference = rightQuantity - leftQuantity;
-            }
+              return metrics.totalMachines;
+            case 'density':
+              return metrics.areaDensity;
+            default:
+              return (
+                metrics.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ?? 0
+              );
+          }
+        };
+        const sorted = [...rankings].sort((left, right) => {
+          const leftValue = metricOf(left);
+          const rightValue = metricOf(right);
+          // Missing metrics and null densities sort last; both-null ties.
+          if (leftValue == null || rightValue == null) {
+            if (leftValue == null && rightValue == null) return 0;
+            return leftValue == null ? 1 : -1;
           }
           // Locale-independent ID order keeps tied ranks stable across shop read orders.
-          return difference || (left._id < right._id ? -1 : left._id > right._id ? 1 : 0);
+          return leftValue === rightValue
+            ? left._id < right._id
+              ? -1
+              : left._id > right._id
+                ? 1
+                : 0
+            : rightValue - leftValue;
         });
+        const ranks = competitionRanks(sorted.map(metricOf));
         sorted.forEach((ranking, index) => {
           ranking.rankOrder[sortKey] = index + 1;
+          ranking.ranks[sortKey] = ranks[index];
         });
       }
     }

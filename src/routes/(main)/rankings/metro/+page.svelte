@@ -10,7 +10,11 @@
   import RankingsTable from '$lib/components/rankings/RankingsTable.svelte';
   import { getMetroBadgeTextColor, getMetroLocalizedName } from '$lib/utils/metro.client';
   import { getLocale } from '$lib/paraglide/runtime';
-  import type { MetroRankingResponse, MetroStationRanking } from '$lib/schemas/metro';
+  import type {
+    MetroRankingResponse,
+    MetroRankingItem,
+    MetroStationRanking
+  } from '$lib/schemas/metro';
   import type { SortCriteria, MetroRankingRadiusFilter, RankingsTableItem } from '$lib/types';
   import { PAGINATION, METRO_RANKING_RADIUS_OPTIONS, POI_SORT_CRITERIA } from '$lib/constants';
   import { browser } from '$app/environment';
@@ -20,7 +24,7 @@
   let sortBy: SortCriteria = $derived(data.sortBy);
   let radiusFilter: MetroRankingRadiusFilter = $derived(data.radius);
   let networkId: string | undefined = $derived(data.networkId);
-  let displayedRankings: MetroStationRanking[] = $derived(data.rankings);
+  let displayedRankings: MetroRankingItem[] = $derived(data.rankings);
   let hasMore = $derived(data.hasMore);
   let nextCursor = $derived(data.nextCursor);
   let isLoading = $state(false);
@@ -114,6 +118,10 @@
     return (ranking as MetroStationRanking).rankings.find((r) => r.radius === radius);
   };
 
+  // Global tied rank for the current (sortBy, radius); the API resolves it
+  // per item, network filters keep the global value (with gaps).
+  const getRank = (ranking: RankingsTableItem) => (ranking as MetroRankingItem).rank;
+
   const locale = getLocale();
   // openmetro's names contract is {zh, en}; fall back en → primary name.
   const stationName = (station: MetroStationRanking) =>
@@ -195,6 +203,7 @@
       {isLoadingMore}
       {hasMore}
       getMetrics={getMetricsForRadius}
+      {getRank}
       nameHeader={m.metro_station()}
     >
       {#snippet nameColumn(ranking: RankingsTableItem)}

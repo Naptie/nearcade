@@ -205,10 +205,43 @@ export const metroStationRankingSchema = z.object({
     .describe(bilingual('各半径下的指标。', 'Metrics per radius.')),
   rankOrder: z
     .record(z.string(), z.number().int())
-    .describe(bilingual('各“维度——半径”组合下的名次。', 'Rank position per `sortBy_radius` key.'))
+    .describe(
+      bilingual(
+        '各“维度——半径”组合下的全局顺序号（唯一，分页游标用）。',
+        'Unique global order position per `sortBy_radius` key (cursor pagination).'
+      )
+    ),
+  ranks: z
+    .record(z.string(), z.number().int())
+    .describe(
+      bilingual(
+        '各“维度——半径”组合下的全局并列名次（指标相同的名次相同）。',
+        'Global tied rank per `sortBy_radius` key; equal metrics share a rank.'
+      )
+    )
 });
 
 export type MetroStationRanking = z.infer<typeof metroStationRankingSchema>;
+
+/**
+ * API response item: the stored ranking plus the display rank resolved for
+ * the requested sort key and radius — a response-level field that stored
+ * documents do not carry.
+ */
+const metroRankingItemSchema = metroStationRankingSchema.extend({
+  rank: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      bilingual(
+        '当前查询维度与半径下的全局并列名次（`ranks` 的解析值）；缓存早于该字段时为 null。',
+        'Global tied rank for the requested sort key and radius (resolved from `ranks`); null when the cache predates the field.'
+      )
+    )
+});
+
+export type MetroRankingItem = z.infer<typeof metroRankingItemSchema>;
 
 const metroRankingCursorSchema = z
   .string()
@@ -260,14 +293,14 @@ export const metroRankingQuerySchema = z.object({
     .optional()
     .describe(
       bilingual(
-        '上一页的最后返回条目的全局名次。',
-        'Global rank of the last returned station on the previous page.'
+        '游标：上一页最后条目的全局顺序号（`rankOrder`，唯一序号，非展示名次 `rank`）。',
+        'Cursor: global order position (`rankOrder`, the unique ordinal — not the display rank `rank`) of the last returned station on the previous page.'
       )
     )
 });
 
 export const metroRankingResponseSchema = z.object({
-  data: z.array(metroStationRankingSchema),
+  data: z.array(metroRankingItemSchema),
   totalCount: z
     .int()
     .nonnegative()

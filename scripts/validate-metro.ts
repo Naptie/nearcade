@@ -344,7 +344,8 @@ suite('sync', async () => {
       ['cn-aa-a', 'cn-bb-b']
     );
     // Per-radius metrics (campus parity): every row carries METRO_RANKING_RADIUS_OPTIONS
-    // entries and a rankOrder key per (sortBy, radius) pair.
+    // entries plus a rankOrder (unique ordinal, cursor pagination) and ranks
+    // (tied display rank) key per (sortBy, radius) pair.
     const first = rankings().find((row) => row.stationId === 'cn-aa-a')!;
     assert.deepEqual(
       first.rankings.map((entry) => entry.radius),
@@ -352,7 +353,9 @@ suite('sync', async () => {
     );
     for (const sortBy of ['shops', 'machines', 'density', GAME_TITLES[0].key]) {
       for (const radius of METRO_RANKING_RADIUS_OPTIONS) {
-        assert.equal(typeof first.rankOrder[metroRankingSortKey(sortBy, radius)], 'number');
+        const sortKey = metroRankingSortKey(sortBy, radius);
+        assert.equal(typeof first.rankOrder[sortKey], 'number');
+        assert.equal(typeof first.ranks[sortKey], 'number');
       }
     }
     // Station cn-aa-a: shop 1 (7 machines) and relocated shop 2 (1 machine) sit
@@ -376,6 +379,9 @@ suite('sync', async () => {
       2
     );
     assert.equal(first.rankOrder[metroRankingSortKey('shops', METRO_RANKING_RADIUS_OPTIONS[0])], 1);
+    // Distinct metrics keep distinct tied ranks here (2 shops vs 1 shop).
+    assert.equal(first.ranks[metroRankingSortKey('shops', METRO_RANKING_RADIUS_OPTIONS[0])], 1);
+    assert.equal(second.ranks[metroRankingSortKey('shops', METRO_RANKING_RADIUS_OPTIONS[0])], 2);
     assert.deepEqual(metadataWrites[0].networks, previousNetworks);
     assert.deepEqual(
       metadata().networks,
@@ -427,6 +433,12 @@ suite('sync', async () => {
           assert.deepEqual(
             ordered.map((row) => row.rankOrder[sortKey]),
             [1, 2, 3, 4]
+          );
+          // Every primary sort ties: the display ranks must all be shared (1).
+          assert.deepEqual(
+            ordered.map((row) => row.ranks[sortKey]),
+            [1, 1, 1, 1],
+            `Tied display ranks for ${sortKey}`
           );
         }
       }
@@ -624,6 +636,14 @@ suite('rankings', async () => {
           key === 'shops' ? rank : 6 - rank
         ])
       )
+    ),
+    // All fixture metrics are identical, so every tied display rank is 1 —
+    // distinct from the unique rankOrder ordinals above. The handler resolves
+    // the response-level `rank` from this map.
+    ranks: Object.fromEntries(
+      sortKeys.flatMap((key) =>
+        METRO_RANKING_RADIUS_OPTIONS.map((radius) => [metroRankingSortKey(key, radius), 1])
+      )
     )
   }));
   const networks = [
@@ -778,6 +798,11 @@ suite('rankings', async () => {
         );
         assert.equal(result.nextCursor, '4');
         assert.equal(result.totalCount, 5);
+        // Identical fixture metrics tie: every row's display rank is 1.
+        assert.deepEqual(
+          result.data.map((row) => row.rank),
+          [1, 1]
+        );
       }
     }
     const exact = await get('?networkId=cn-sh&limit=2');

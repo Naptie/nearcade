@@ -17,6 +17,7 @@ interface CacheMetadata {
 
 interface CachedRanking extends UniversityRankingData {
   rankOrder: { [key: string]: number };
+  ranks?: { [key: string]: number };
 }
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -94,7 +95,10 @@ export const GET: RequestHandler = async ({ url }) => {
         district: ranking.district,
         address: ranking.address,
         location: ranking.location,
-        rankings: ranking.rankings
+        rankings: ranking.rankings,
+        // Tied display rank for the requested (sortBy, radius); `rankOrder`
+        // stays the unique ordinal used for cursor pagination.
+        rank: ranking.ranks?.[sortKey] ?? null
       }));
 
       return json({

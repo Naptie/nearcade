@@ -14,6 +14,7 @@
     sublabel?: string | null;
     href?: string;
     value: number;
+    rank?: number | null;
   };
 
   type RegionApiEntry = {
@@ -21,12 +22,14 @@
     name: string;
     parentName: string | null;
     value: number;
+    rank: number | null;
   };
 
   type CampusApiEntry = {
     id: string;
     name: string;
     value: number;
+    rank: number | null;
   };
 
   type MetroApiEntry = {
@@ -36,6 +39,7 @@
     lat: number;
     lon: number;
     value: number;
+    rank: number | null;
   };
 
   interface HomeStatsResponse {
@@ -91,7 +95,8 @@
               key: entry.id,
               label: entry.name,
               sublabel: entry.parentName,
-              value: entry.value
+              value: entry.value,
+              rank: entry.rank
             }))
           });
         }
@@ -120,7 +125,8 @@
               href: resolve('/(main)/universities/[id]', {
                 id: entry.id.split('_')[0]
               }),
-              value: entry.value
+              value: entry.value,
+              rank: entry.rank
             }))
           });
         }
@@ -155,7 +161,8 @@
               label: entry.name,
               sublabel: entry.sublabel,
               href: `${resolve('/(main)/discover')}?latitude=${entry.lat}&longitude=${entry.lon}`,
-              value: entry.value
+              value: entry.value,
+              rank: entry.rank
             }))
           });
         }

@@ -1,6 +1,6 @@
 <script
   lang="ts"
-  generics="T extends { key: string; label: string; sublabel?: string | null; href?: string; value: number }"
+  generics="T extends { key: string; label: string; sublabel?: string | null; href?: string; value: number; rank?: number | null }"
 >
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
@@ -97,7 +97,7 @@
             <span
               class="text-base-content/60 w-5 shrink-0 text-right text-xs font-semibold tabular-nums"
             >
-              {index + 1}
+              {item.rank ?? index + 1}
             </span>
             <div class="min-w-0 flex-1">
               <div class="flex items-baseline justify-between gap-2">

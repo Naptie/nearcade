@@ -50,14 +50,15 @@ export const GET: RequestHandler = async ({ url }) => {
       _id: { $ne: 'metadata' },
       ...(networkId ? { networkId } : {})
     };
-    // Dot-safe composite rank key: one deterministic global rank per
+    // Dot-safe composite rank key: one deterministic global order position per
     // (sort criterion, radius) pair, assigned by the sync task. Decimal
     // radii are encoded in centimetres — Mongo paths split on '.'.
     const sortKeyName = metroRankingSortKey(sortBy, radius);
     const sortKey = `rankOrder.${sortKeyName}`;
     // rankOrder is unique globally per (sortBy, radius) key, including when a
     // network filter leaves gaps. Never add the cursor to the count filter or
-    // renumber a filtered page.
+    // renumber a filtered page. The parallel `ranks` map carries the tied
+    // display rank (equal metrics share a rank).
     const query = {
       ...filter,
       ...(after !== undefined ? { [sortKey]: { $gt: Number(after) } } : {})
@@ -71,7 +72,10 @@ export const GET: RequestHandler = async ({ url }) => {
       collection.countDocuments(filter)
     ]);
     const hasMore = rankings.length > limit;
-    const data = rankings.slice(0, limit);
+    const data = rankings.slice(0, limit).map((ranking) => ({
+      ...ranking,
+      rank: ranking.ranks?.[sortKeyName] ?? null
+    }));
 
     return json({
       data,
